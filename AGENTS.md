@@ -1,0 +1,72 @@
+# Agent Instructions
+
+## Purpose
+
+This repository implements the AI Development Control Plane. Priorities: simplicity, observability, portability, graceful degradation and human control.
+
+## Mandatory principles
+
+1. **Do not turn the system into an autonomous orchestrator.** No automatic spawning of full agents in v1.
+2. **Do not duplicate external systems.** Git stays Git, GitHub/GitLab stay the tracker/remote, CI stays external CI.
+3. **Binnacle must not be a required runtime for the user's project.** If the daemon is unavailable, the project must still be developable the normal way.
+4. **Canonical knowledge lives in portable sources.** Markdown, Git, tracker. The local DB is a rebuildable projection/cache.
+5. **Do not invent telemetry.** Missing provider metrics are stored as `null`; derived metrics are marked calculated/estimated.
+6. **Progressive disclosure.** Do not load the whole Project Brain into an agent. Compact snapshot first, targeted queries after.
+7. **One primary active agent per Task by default.** Parallelism across tasks is enabled manually, after dependency/impact analysis.
+8. **Inter-agent communication must be visible.** Question, Answer, Review, Decision, Handoff/Checkpoint are explicit artifacts/events.
+9. **Ponytail/YAGNI.** Do not create abstractions, services or dependencies without a real need.
+10. **Keep the v1 scope strictly.** See `docs/00-scope.md`.
+
+## Technology constraints
+
+- TypeScript only for our application code.
+- Node.js 24 LTS baseline.
+- pnpm workspace.
+- Nuxt for dashboard.
+- Prefer Node standard library and small focused dependencies.
+- No microservices in v1.
+- No message broker in v1.
+- No Kubernetes in v1.
+- SQLite is acceptable for local projection store.
+
+## Context routing
+
+- internal symbol/reference navigation → Serena;
+- cross-module architecture/impact → Graphify;
+- external library/framework/API docs → Context7;
+- structural syntax search/refactor → ast-grep;
+- architecture/product rationale → docs / ADR / CONTEXT;
+- exact implementation truth → source code.
+
+## Matt Pocock workflow
+
+For new/large product work:
+
+`grill-with-docs → to-spec → to-tickets → implement/review`
+
+Binnacle integrates this workflow; it does not replace it.
+
+## Documentation language
+
+All project documentation is written in English: `README.md`, `CONTEXT.md`, `AGENTS.md`, `CLAUDE.md`, `MANIFEST.md`, everything under `docs/`, ADRs, specs and issues.
+
+The single exception is `README.ru.md`, a Russian duplicate of `README.md`. It lives next to it and is updated in the same change whenever `README.md` changes.
+
+## Commit authorship
+
+Every commit and pull request has exactly one author and one contributor: `miker059@gmail.com`.
+
+Never add `Co-Authored-By:` trailers. Never attribute a commit, pull request or release note to Claude, Anthropic or any other agent, model or tool — no trailers, no "Generated with" footers, no assistant names in the body.
+
+Agents work on this repository; they do not sign for it.
+
+## Before making architectural changes
+
+Read:
+
+- `CONTEXT.md`
+- relevant `docs/adr/*`
+- `docs/00-scope.md`
+- `docs/01-architecture.md`
+
+If the change introduces a new durable architectural trade-off, propose an ADR first.

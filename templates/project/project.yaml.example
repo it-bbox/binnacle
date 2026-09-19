@@ -1,0 +1,31 @@
+version: 1
+
+project:
+  id: example-project
+  name: Example Project
+
+tracker:
+  provider: github # github | gitlab | local
+
+knowledge:
+  context: CONTEXT.md
+  docs: docs
+  adr: docs/adr
+
+workflow:
+  provider: matt-pocock
+  scratch: .scratch
+
+capabilities:
+  serena: true
+  graphify: true
+  context7: true
+  ast_grep: true
+  obsidian: optional
+
+automation:
+  mode: manual
+  max_parallel_development_tasks: 2
+
+telemetry:
+  privacy: metadata

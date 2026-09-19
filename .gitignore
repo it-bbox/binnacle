@@ -1,0 +1,22 @@
+node_modules/
+.nuxt/
+.output/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+.DS_Store
+
+# Dev Control runtime/local-only data
+.devcontrol/runtime/
+.devcontrol/cache/
+*.db
+*.db-shm
+*.db-wal
+
+# Generated code intelligence output should be reviewed per project before committing
+graphify-out/
+
+# Worktree/task scratch is disposable
+.scratch/
