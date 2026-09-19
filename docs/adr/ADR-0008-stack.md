@@ -10,7 +10,7 @@ Use:
 - Node.js 24 LTS baseline;
 - pnpm workspace;
 - Nuxt for Web Dashboard;
-- SQLite for local v1 projection storage.
+- SQLite for local v1 projection storage — specifically `node:sqlite`, see ADR-0015.
 
 Avoid additional application runtimes/microservices unless a later requirement justifies them.
 

@@ -34,7 +34,7 @@ Do not advance from a grilling answer into implementation unless explicitly inst
 
 ### Issue tracker
 
-Issues live as markdown files under `.scratch/<feature>/` in this repo. See `docs/agents/issue-tracker.md`.
+Specs and issues live as markdown files in Git under `docs/specs/<slug>/`, not in `.scratch/`. See `docs/agents/issue-tracker.md` and `docs/adr/ADR-0017-specs-in-git-tickets-in-tracker.md`.
 
 ### Triage labels
 

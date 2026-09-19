@@ -4,6 +4,12 @@
 
 Measure AI-development behavior without pretending all providers expose identical data.
 
+## Primary source
+
+Local session artifacts written by each harness are the primary telemetry source; OpenTelemetry is an optional addition where a harness supports it (ADR-0011). Artifacts exist without any configuration by the user and cover work already done, which is why they come first.
+
+Aggregation semantics differ between harnesses and belong to the adapter contract: some report per-message deltas, others running totals. Adding them the same way double-counts.
+
 ## Canonical identity dimensions
 
 Every known AgentRun should identify where possible:
@@ -45,6 +51,10 @@ Each metric should carry provenance where relevant:
 - `estimated`.
 
 Do not invent unavailable fields.
+
+## The dashboard is read-only in v1
+
+It shows what is happening. Decisions are made in conversation with an agent, which is the product's whole thesis. Actions can be added later to a read-only design; removing them is harder.
 
 ## Main dashboard views for v1
 
@@ -90,10 +100,14 @@ Never optimize a single metric in isolation. Token reduction that increases rewo
 
 ## Product session health
 
-Dashboard should eventually surface warnings for long Product sessions using available signals such as token/context growth and compaction events.
+Harnesses signal context exhaustion in incompatible ways. Claude Code emits an explicit compaction boundary carrying an `auto` or `manual` trigger; Codex emits no such event and instead rotates a context-window identifier; a newer agent may expose nothing at all.
 
-Thresholds are configuration, not universal truths.
+Binnacle normalises these into one signal, **context pressure**: cumulative input over the session plus explicit compaction markers where they exist, each carrying its provenance per ADR-0007. Where a harness reveals nothing, the signal is absent rather than guessed.
+
+It surfaces as an attention item suggesting `/checkpoint`. Thresholds are configuration, not universal truths.
 
 ## Historical import
 
-Where local session parsers/tools can import historical Claude/Codex usage, old records may be assigned to project-level `unassigned` when exact task attribution cannot be proven.
+Session archives are large — hundreds of megabytes per harness is normal. `binn init` reports what it found and how far back it goes, then asks how much to import: a recent window, everything, or nothing. It never silently spends minutes parsing on first run.
+
+Records whose task attribution cannot be proven are kept at project level as `unassigned` rather than guessed.

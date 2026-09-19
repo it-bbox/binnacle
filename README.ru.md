@@ -2,7 +2,10 @@
 
 _English version: [README.md](README.md). Этот файл — русский дубликат; обновляется вместе с `README.md`._
 
-**Binnacle** — локальная provider-agnostic надстройка над AI-разработкой, которая хранит состояние проекта **вне чатов**, даёт свежим агентам компактный актуальный контекст, собирает telemetry по расходам и оставляет человека главным управляющим процессом.
+**Одна память проекта. Любой coding agent.**
+**Сегодня Claude, завтра Codex. Проект больше не начинается с нуля.**
+
+**Binnacle** — локальный provider-agnostic **AI Engineering Control Plane**: сохраняемый контекст проекта, workflow и наблюдаемость поверх Claude Code, Codex, Gemini, GLM и других coding agents. Он хранит состояние проекта **вне чатов**, даёт свежим агентам компактный актуальный контекст, собирает telemetry по расходам и оставляет человека главным управляющим процессом.
 
 > Нактоуз (binnacle) — тумба с компасом перед штурвалом. Он не рулит и не выбирает курс: он держит приборы там, где рулевой их видит. В этом всё техзадание.
 
@@ -36,14 +39,27 @@ Claude Code, Codex, GLM, Gemini и будущие/local agents — сменяе�
 - сущности Project / Task / AgentRun / Review;
 - Product Snapshot и Daily Snapshot;
 - checkpoint вместо conversation handoff;
-- ingestion telemetry от поддерживаемых coding agents;
-- GitHub/GitLab tracker adapters + local markdown fallback;
+- ingestion telemetry от coding agents — из session artifacts, которые они и так пишут на диск;
+- GitHub/GitLab tracker adapters **только на чтение** + local markdown fallback;
 - audit/adopt существующего проекта;
 - интеграция с Matt Pocock Skills;
 - интеграция с Ponytail;
 - Serena, Graphify, Context7 и ast-grep как context/coding capabilities;
 - Obsidian как human-facing projection Project Brain;
-- manual-first execution: система рекомендует, человек запускает.
+- manual-first execution: система рекомендует, человек запускает. Binnacle сам никогда не вызывает модель.
+
+## Поддержка любого coding agent
+
+Агенты сильно отличаются тем, что отдают наружу, поэтому поддержка градуированная, а не бинарная:
+
+| Уровень | Что требуется | Что получает пользователь |
+| --- | --- | --- |
+| 1 — Context | агент умеет вызвать MCP server | память проекта: snapshots, задачи, checkpoints, вопросы и ответы |
+| 2 — Attribution | пишет session artifact с рабочим каталогом и id сессии | привязка сессии к проекту, тайминги, история |
+| 3 — Usage | в этом artifact есть счётчики токенов | аналитика расходов, стоимость, метрики переделок |
+| 4 — Live | отдаёт наблюдаемый поток | что выполняется прямо сейчас |
+
+**Уровня 1 достаточно, чтобы агент считался поддержанным, и адаптер для него не нужен.** Агент, вышедший завтра, получает память проекта в тот день, когда научится MCP. См. `docs/adr/ADR-0014-harness-support-levels.md`.
 
 ## Что НЕ входит в v1
 
@@ -64,12 +80,22 @@ Claude Code, Codex, GLM, Gemini и будущие/local agents — сменяе�
 - **Node.js 24 LTS** — runtime baseline;
 - **pnpm** — package manager / workspace;
 - **Nuxt** — Web Dashboard;
-- локальная SQLite DB — projection/cache для v1;
-- MCP — agent-facing API;
-- OpenTelemetry — основной telemetry transport там, где поддерживается;
+- **`node:sqlite`** — локальный projection/cache, без нативных модулей и без шага сборки;
+- **MCP** — agent-facing API и стабильный контракт для любого harness;
+- **локальные session artifacts** — основной источник telemetry; OpenTelemetry — опциональное дополнение там, где harness его поддерживает;
 - Markdown/YAML/JSON — переносимые форматы project knowledge/config.
 
 Python/Go/Rust в собственном core не используем. Внешние инструменты могут иметь свой runtime (например Serena/Graphify), но Binnacle их только интегрирует.
+
+## Установка
+
+Binnacle поставляется через npm и требует Node 24. Работает нативно на Linux, macOS и Windows.
+
+```bash
+npm i -g @binnacle/cli
+```
+
+Daemon запускается как пользовательский процесс командой `binn daemon start`. Установка его как автозапускаемой службы в v1 не входит.
 
 ## Целевая структура репозитория
 
@@ -143,3 +169,7 @@ normalize knowledge/tracker/telemetry
 8. `docs/05-mvp-plan.md`
 
 Актуальные архитектурные решения зафиксированы в `docs/adr/`.
+
+## Лицензия
+
+Apache-2.0. См. `LICENSE`.

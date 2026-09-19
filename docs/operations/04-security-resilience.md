@@ -29,9 +29,15 @@ Content-level diagnostics must be explicit opt-in.
 - never export secrets into Obsidian/Graphify intentionally;
 - audit should detect obvious committed-secret risks using an external/standard tool if added later, rather than inventing a custom secret scanner.
 
+## Tracker credentials
+
+Requested with **read-only scope** — Binnacle never writes to a tracker (`ADR-0013`), so a leaked token cannot damage a repository. Stored in the environment or in `~/.binnacle/credentials.json` with `0600` permissions, never in `.binnacle/project.yaml`.
+
 ## Local network
 
-Daemon/Dashboard/MCP HTTP endpoints default to loopback only. Any remote/team exposure is post-MVP and requires separate auth/threat model.
+Daemon/Dashboard/MCP HTTP endpoints default to loopback only, and loopback alone is not an authentication boundary: any tab in the user's browser can reach `127.0.0.1`. Every API call therefore carries the token from `~/.binnacle/`, and `Origin`/`Host` are validated to defeat DNS rebinding. There are no accounts — there is one user.
+
+Any remote/team exposure is post-MVP and requires separate auth/threat model.
 
 ## Rebuildability
 

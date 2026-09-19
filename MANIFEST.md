@@ -2,6 +2,7 @@
 
 ## Start here
 
+- `LICENSE` — Apache-2.0.
 - `README.md` — product concept and repository entry point.
 - `README.ru.md` — Russian duplicate of `README.md`; keep both in sync.
 - `CONTEXT.md` — canonical vocabulary and current product boundary.
@@ -47,6 +48,15 @@
 - ADR-0007 — telemetry preserves uncertainty/provenance.
 - ADR-0008 — TypeScript/Node/Nuxt stack.
 - ADR-0009 — product name Binnacle, CLI `binn`, daemon `binnd`.
+- ADR-0010 — Apache-2.0 licence.
+- ADR-0011 — session artifacts are the primary telemetry source.
+- ADR-0012 — Binnacle never invokes a model.
+- ADR-0013 — tracker access is read-only.
+- ADR-0014 — harness support levels 1 to 4.
+- ADR-0015 — local storage and migration policy.
+- ADR-0016 — platform support and distribution.
+- ADR-0017 — specs live in Git, tickets live in the tracker.
+- ADR-0018 — run-to-task correlation uses `cwd` and git reflog.
 
 ## Bootstrap/config skeleton
 
@@ -67,4 +77,4 @@
 - `packages/telemetry/`
 - `packages/adapters/`
 
-These are intentionally empty. The next step is `grill-with-docs` on this package before implementation/scaffolding details are invented.
+These are intentionally empty. `grill-with-docs` on this package is complete: every question in `docs/08-open-questions.md` is resolved and recorded in the ADRs above. The next step is `to-spec`.

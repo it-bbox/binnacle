@@ -2,7 +2,7 @@
 
 ## Product statement
 
-Binnacle is a local, provider-agnostic AI Development Control Plane that keeps project state outside chats, provides compact current context to fresh agents, measures AI development usage, and keeps humans in control of execution.
+Binnacle is a local, provider-agnostic AI Engineering Control Plane that keeps project state outside chats, provides compact current context to fresh agents, measures AI development usage, and keeps humans in control of execution.
 
 ## Problems in scope
 
@@ -47,6 +47,8 @@ V1 is successful if it can demonstrate on a real existing project that:
 5. existing Git/docs/issues remain sufficient to continue work if Binnacle is unavailable;
 6. the system can compare baseline vs optimized workflow using real data.
 
-## Primary validation project
+## Validation
 
-Use at least one already large, actively developed repository as the main adoption/baseline case. Historical sessions may be imported at project level even when exact task attribution is unavailable.
+Binnacle is built by being used on itself. The `binnacle` repository is project number one from Phase 1 onward, and the workflow claims above are tested there first.
+
+Adopting an existing large third-party repository as a baseline case is **post-v1 activity**. It is what the product is for, not what building it depends on. When it happens, historical sessions may be imported at project level even where exact task attribution cannot be established.

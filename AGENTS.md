@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This repository implements the AI Development Control Plane. Priorities: simplicity, observability, portability, graceful degradation and human control.
+This repository implements the AI Engineering Control Plane. Priorities: simplicity, observability, portability, graceful degradation and human control.
 
 ## Mandatory principles
 

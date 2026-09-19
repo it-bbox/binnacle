@@ -1,12 +1,17 @@
 {
   "name": "binnacle",
   "private": true,
-  "packageManager": "pnpm@10",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/it-bbox/binnacle.git"
+  },
+  "packageManager": "pnpm@10.34.5",
   "engines": {
     "node": ">=24 <27"
   },
   "scripts": {
-    "dev": "echo 'Implementation not started. Run grill-with-docs before scaffolding apps.'",
+    "dev": "echo 'Implementation not started. grill-with-docs is complete; run to-spec before scaffolding apps.'",
     "typecheck": "echo 'Not implemented yet'",
     "test": "echo 'Not implemented yet'"
   }

@@ -16,7 +16,7 @@ created_at
 
 ## Task
 
-Represents canonical project work, normally mirrored from GitHub/GitLab issue/work item.
+Represents canonical project work, normally mirrored from a GitHub/GitLab issue or work item. The mirror is one-directional: Binnacle reads and never writes back (ADR-0013). Detailed state from `docs/workflow/03-state-machines.md` exists only in this projection.
 
 ```text
 id
@@ -82,6 +82,20 @@ id, task_id, run_id, status, body_ref/body, created_at
 
 Answer:
 id, question_id, author_role, body_ref/body, created_at
+```
+
+## RawIngestRecord
+
+The verbatim normalised record parsed out of a harness artifact, with its provenance. This table is append-only and is the only one that is migrated rather than rebuilt (ADR-0015), because the artifact it came from may no longer exist.
+
+```text
+id
+project_id
+harness
+source_ref
+ingested_at
+payload
+provenance
 ```
 
 ## TelemetryRecord

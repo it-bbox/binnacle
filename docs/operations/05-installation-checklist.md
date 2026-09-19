@@ -2,6 +2,18 @@
 
 This checklist separates Binnacle requirements from recommended external capabilities. Exact upstream commands should be rechecked during implementation because third-party installers evolve.
 
+## Installing Binnacle
+
+Binnacle is distributed through npm and requires Node 24 on the user's machine (`ADR-0016`):
+
+```bash
+npm i -g @binnacle/cli
+```
+
+It runs natively on Linux, macOS and Windows. The daemon is started by `binn daemon start`; installing it as an auto-starting service is not part of v1.
+
+---
+
 ## Required for Binnacle development
 
 ### Node.js

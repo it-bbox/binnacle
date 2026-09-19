@@ -6,11 +6,16 @@ project:
 
 tracker:
   provider: github # github | gitlab | local
+  # Binnacle always reads the tracker and never writes to it (ADR-0013).
+  local:
+    # Used when provider is `local`. Tickets are files under <issues>/<slug>/issues/.
+    issues: docs/specs
 
 knowledge:
   context: CONTEXT.md
   docs: docs
   adr: docs/adr
+  specs: docs/specs
 
 workflow:
   provider: matt-pocock
@@ -29,3 +34,6 @@ automation:
 
 telemetry:
   privacy: metadata
+  import:
+    # Asked at `binn init`. null imports the whole archive.
+    window_days: 30

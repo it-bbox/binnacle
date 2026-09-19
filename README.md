@@ -2,7 +2,10 @@
 
 _Русская версия: [README.ru.md](README.ru.md)._
 
-**Binnacle** is a local, provider-agnostic control plane for AI-assisted development. It keeps project state **outside chat sessions**, hands fresh agents a compact and current context, collects spend telemetry, and leaves the human in charge of the process.
+**One project memory. Any coding agent.**
+**Claude today. Codex tomorrow. Your project never starts from zero.**
+
+**Binnacle** is a local, provider-agnostic **AI Engineering Control Plane**: persistent project context, workflow and observability across Claude Code, Codex, Gemini, GLM and other coding agents. It keeps project state **outside chat sessions**, hands fresh agents a compact and current context, collects spend telemetry, and leaves the human in charge of the process.
 
 > A binnacle is the stand that holds a ship's compass in front of the helm. It does not steer and it does not pick the course — it keeps the instruments where the helmsman can read them. That is the whole design brief.
 
@@ -36,14 +39,27 @@ Claude Code, Codex, GLM, Gemini and future/local agents are replaceable executor
 - Project / Task / AgentRun / Review entities;
 - Product Snapshot and Daily Snapshot;
 - checkpoint instead of conversation handoff;
-- telemetry ingestion from supported coding agents;
-- GitHub/GitLab tracker adapters plus a local markdown fallback;
+- telemetry ingestion from coding agents, read from the session artifacts they already write to disk;
+- read-only GitHub/GitLab tracker adapters plus a local markdown fallback;
 - audit/adopt for an existing project;
 - integration with Matt Pocock Skills;
 - integration with Ponytail;
 - Serena, Graphify, Context7 and ast-grep as context/coding capabilities;
 - Obsidian as a human-facing projection of the Project Brain;
-- manual-first execution: the system recommends, the human launches.
+- manual-first execution: the system recommends, the human launches. Binnacle never calls a model itself.
+
+## Supporting any coding agent
+
+Agents differ enormously in what they expose, so support is graded rather than binary:
+
+| Level | Requirement | What you get |
+| --- | --- | --- |
+| 1 — Context | the agent can call an MCP server | project memory: snapshots, tasks, checkpoints, questions and answers |
+| 2 — Attribution | it writes a session artifact with a working directory and session id | session-to-project attribution, timings, history |
+| 3 — Usage | that artifact carries token counts | spend analytics, cost, rework metrics |
+| 4 — Live | it exposes an observable stream | current activity |
+
+**Level 1 is all it takes to be supported, and it needs no adapter.** An agent released tomorrow gets project memory on the day it can speak MCP. See `docs/adr/ADR-0014-harness-support-levels.md`.
 
 ## Out of scope for v1
 
@@ -64,12 +80,22 @@ Claude Code, Codex, GLM, Gemini and future/local agents are replaceable executor
 - **Node.js 24 LTS** — runtime baseline;
 - **pnpm** — package manager / workspace;
 - **Nuxt** — web dashboard;
-- local SQLite DB — projection/cache for v1;
-- MCP — agent-facing API;
-- OpenTelemetry — primary telemetry transport where supported;
+- **`node:sqlite`** — local projection/cache, no native modules and no build step;
+- **MCP** — agent-facing API, and the stable contract for every harness;
+- **local session artifacts** — the primary telemetry source; OpenTelemetry is an optional addition where a harness supports it;
 - Markdown/YAML/JSON — portable formats for project knowledge/config.
 
 Python/Go/Rust are not used in our own core. External tools may ship their own runtime (Serena/Graphify, for example); Binnacle only integrates them.
+
+## Install
+
+Binnacle is distributed through npm and needs Node 24. It runs natively on Linux, macOS and Windows.
+
+```bash
+npm i -g @binnacle/cli
+```
+
+The daemon runs as a user process started by `binn daemon start`. Installing it as an auto-starting service is not part of v1.
 
 ## Target repository layout
 
@@ -143,3 +169,7 @@ Read in this order:
 8. `docs/05-mvp-plan.md`
 
 Current architectural decisions are recorded in `docs/adr/`.
+
+## Licence
+
+Apache-2.0. See `LICENSE`.

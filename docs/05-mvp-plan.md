@@ -11,8 +11,8 @@ Build only enough to validate the central claim:
 Implement:
 
 - monorepo skeleton;
-- local daemon;
-- SQLite projection store;
+- local daemon as a user process;
+- `node:sqlite` store, one database per machine under `~/.binnacle/`;
 - project registry;
 - event model;
 - `Project`, `Task`, `AgentRun`, `Review` entities;
@@ -38,11 +38,14 @@ Exit criterion: a brand-new Product chat can run `/product` + `/daily` and under
 
 Implement:
 
-- GitHub tracker adapter first (or GitLab first if chosen as implementation target);
-- local markdown fallback;
+- one shared tracker contract, defined before any adapter;
+- GitHub and GitLab adapters behind it, both read-only (ADR-0013);
+- local markdown tracker as the fallback;
 - detection of Matt Pocock config/layout;
 - task/dependency mapping;
 - `.scratch` materialization policy.
+
+Tracker credentials use read-only scope, taken from the environment or `~/.binnacle/credentials.json` with `0600` permissions. Where `gh` or `glab` is already installed, `binn init` may offer to import a token from it once; neither becomes a dependency.
 
 Exit criterion: remote issue task can be represented as a Binnacle Task and compact task brief.
 
@@ -51,12 +54,13 @@ Exit criterion: remote issue task can be represented as a Binnacle Task and comp
 Implement:
 
 - normalized usage schema;
-- first native OTel adapter(s);
-- historical import adapter where practical;
-- run-to-task correlation when launched through Binnacle;
-- provenance tagging.
+- session-artifact readers, Claude Code first, then Codex (ADR-0011);
+- historical import driven by the question `binn init` asks;
+- run-to-task correlation from `cwd` and `git reflog` (ADR-0018);
+- provenance tagging;
+- OpenTelemetry as an optional additional path.
 
-Exit criterion: dashboard can attribute usage to runs/tasks for supported paths.
+Exit criterion: dashboard can attribute usage to runs/tasks for supported paths, and each harness reports the support level it actually reached (ADR-0014).
 
 ## Phase 5 — Minimal Dashboard
 
@@ -72,6 +76,8 @@ Nuxt pages:
 No decorative enterprise functionality.
 
 ## Phase 6 — Audit/adopt
+
+The code ships in v1. Running it against a large third-party repository is post-v1 activity — see `docs/00-scope.md`.
 
 Implement read-only audit covering:
 

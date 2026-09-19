@@ -30,7 +30,8 @@ MCP is the stable contract. Client-specific slash commands/skills are thin UX wr
 - `question.answer`
 - `checkpoint.prepare`
 - `checkpoint.commit`
-- limited task metadata updates where the tracker adapter supports them
+
+No tool writes to the tracker (ADR-0013). Closing an issue is done by the agent with its own tooling, or by the human in the tracker's own interface.
 
 Do **not** expose autonomous `spawn_agents`, `merge_to_main`, `deploy_prod` in v1.
 
@@ -46,6 +47,14 @@ Initial user-facing actions:
 - `/audit` — read-only audit/adoption analysis.
 
 Actual command syntax may differ across Claude Code, Codex, Gemini and other clients. The logical action remains the same.
+
+## How the interface reaches a harness
+
+MCP is the universal path, and registering it is a config edit in a location each harness already defines — `~/.claude/settings.json` for Claude Code, `[mcp_servers.*]` in `~/.codex/config.toml` for Codex. `binn init` performs that registration for every harness it detects. This is support level 1 from ADR-0014, and it requires no adapter code.
+
+Command wrappers are generated from a single procedure description per action, so supporting a new harness means adding an output template, not new logic. A harness with no wrapper mechanism still works: the human asks for the tool by name.
+
+Both MCP transports are served — stdio for harnesses that spawn processes, Streamable HTTP from the daemon for those that prefer an endpoint. The tool implementations behind them are the same.
 
 ## Skill design rule
 
