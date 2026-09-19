@@ -24,7 +24,7 @@ Content-level diagnostics must be explicit opt-in.
 
 ## Secrets
 
-- no API keys in `.devcontrol/project.yaml`;
+- no API keys in `.binnacle/project.yaml`;
 - use environment/OS secret mechanisms/upstream client config;
 - never export secrets into Obsidian/Graphify intentionally;
 - audit should detect obvious committed-secret risks using an external/standard tool if added later, rather than inventing a custom secret scanner.

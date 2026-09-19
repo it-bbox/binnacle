@@ -8,9 +8,9 @@ coverage/
 !.env.example
 .DS_Store
 
-# Dev Control runtime/local-only data
-.devcontrol/runtime/
-.devcontrol/cache/
+# Binnacle runtime/local-only data
+.binnacle/runtime/
+.binnacle/cache/
 *.db
 *.db-shm
 *.db-wal

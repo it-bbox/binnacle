@@ -20,7 +20,7 @@ binn init
 
 Expected responsibilities:
 
-- create `.devcontrol/project.yaml`;
+- create `.binnacle/project.yaml`;
 - detect Git remote/tracker;
 - register project locally;
 - install/configure Binnacle MCP/client integration;

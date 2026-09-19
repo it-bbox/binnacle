@@ -16,7 +16,7 @@ Implement:
 - project registry;
 - event model;
 - `Project`, `Task`, `AgentRun`, `Review` entities;
-- `.devcontrol/project.yaml` parser;
+- `.binnacle/project.yaml` parser;
 - basic Git adapter.
 
 Exit criterion: one local project can be registered and queried.
