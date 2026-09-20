@@ -11,8 +11,9 @@ import {
   removeRuntime,
   type Runtime,
 } from '@binnacle/daemon';
-import { callOperation, DaemonUnreachableError, isListening, OperationFailedError } from './client.ts';
+import { callOperation, isListening } from './client.ts';
 import { EXIT, type ExitCode } from './exit.ts';
+import { reportFailure } from './report.ts';
 
 const START_TIMEOUT_MS = 10_000;
 const STOP_TIMEOUT_MS = 10_000;
@@ -121,19 +122,6 @@ function report(headline: string, runtime: Runtime): void {
   console.log(`  pid      ${runtime.pid}`);
   console.log(`  since    ${runtime.startedAt}`);
   console.log(`  version  ${runtime.version}`);
-}
-
-function reportFailure(error: unknown): ExitCode {
-  if (error instanceof DaemonUnreachableError) {
-    console.error(`binn: ${error.message}`);
-    return EXIT.unreachable;
-  }
-  if (error instanceof OperationFailedError) {
-    console.error(`binn: ${error.code}: ${error.message}`);
-    for (const detail of error.details ?? []) console.error(`  ${detail.path}: ${detail.message}`);
-    return EXIT.failed;
-  }
-  throw error;
 }
 
 async function waitForStart(home: string, child: ChildProcess): Promise<Runtime> {

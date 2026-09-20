@@ -13,6 +13,9 @@ import {
   type Runtime,
 } from './home.ts';
 import { OperationError } from './errors.ts';
+import { operations, type OperationContext } from './operations.ts';
+import { projectRegistry } from './projection.ts';
+import { openStore } from './store.ts';
 import { VERSION } from './version.ts';
 
 export const LOOPBACK = '127.0.0.1';
@@ -21,23 +24,6 @@ export const OPS_PREFIX = '/ops/';
 
 /** A hostile client should not be able to make the daemon buffer an arbitrary amount. */
 const MAX_BODY_BYTES = 1024 * 1024;
-
-export type OperationContext = {
-  home: string;
-  runtime: Runtime;
-};
-
-export type Operation = (body: unknown, context: OperationContext) => unknown | Promise<unknown>;
-
-/**
- * Operations are addressed by name over `POST /ops/<name>`, in the naming shape planned
- * for the MCP surface (`docs/03-mcp-and-skills.md`), so that epic 2 adds a transport
- * rather than a mapping layer. `daemon.status` is the daemon's own lifecycle operation
- * and the first of them; the `project.*` names arrive with the operations themselves.
- */
-export const operations: Record<string, Operation> = {
-  'daemon.status': (_body, context) => context.runtime,
-};
 
 export class DaemonAlreadyRunningError extends Error {
   runtime: Runtime;
@@ -80,9 +66,21 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
     version: VERSION,
   };
   const token = ensureToken(home);
-  const context: OperationContext = { home, runtime };
 
   claimHome(home, runtime);
+
+  // The daemon is the only process that opens the store, and the projection is derived
+  // from the registry file on every start — which is what makes losing the database
+  // cost runtime history only (ADR-0019, ADR-0015).
+  let store;
+  try {
+    store = openStore(home);
+    projectRegistry(home, store);
+  } catch (error) {
+    releaseRuntime(home, runtime.pid);
+    throw error;
+  }
+  const context: OperationContext = { home, runtime, store };
 
   const server = createServer((request, response) => {
     handle(request, response, context, token).catch((error: unknown) => fail(response, error));
@@ -90,6 +88,7 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
   try {
     await listen(server, host, requestedPort);
   } catch (error) {
+    store.close();
     releaseRuntime(home, runtime.pid);
     throw error;
   }
@@ -106,6 +105,7 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
       await new Promise<void>((resolve, reject) => {
         server.close((error) => (error ? reject(error) : resolve()));
       });
+      store.close();
     },
   };
 }

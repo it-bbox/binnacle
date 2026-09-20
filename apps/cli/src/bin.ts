@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { resolveHome, packageVersion } from '@binnacle/daemon';
 import { start, status, stop } from './daemon-commands.ts';
+import { list, register, unregister } from './project-commands.ts';
 import { EXIT, type ExitCode } from './exit.ts';
 
 const VERSION = packageVersion(import.meta.url);
@@ -11,6 +12,10 @@ Usage:
   binn daemon start     Start the Binnacle daemon on loopback
   binn daemon status    Report whether a daemon is running, and where
   binn daemon stop      Stop the daemon and remove its runtime file
+
+  binn project register [path]    Register a repository (default: the working directory)
+  binn project list               List the projects this machine tracks
+  binn project unregister [path]  Remove a registration, changing nothing in the repository
 
 Options:
   -h, --help            Show this help
@@ -46,6 +51,16 @@ async function run(argv: string[]): Promise<ExitCode> {
     if (second === 'start') return await start(home);
     if (second === 'status') return await status(home);
     if (second === 'stop') return await stop(home);
+  }
+
+  if (first === 'project') {
+    const home = resolveHome();
+    const [path, ...extra] = rest;
+    if (extra.length === 0) {
+      if (second === 'register') return await register(home, path);
+      if (second === 'unregister') return await unregister(home, path);
+      if (second === 'list' && path === undefined) return await list(home);
+    }
   }
 
   return usage(argv.join(' '));

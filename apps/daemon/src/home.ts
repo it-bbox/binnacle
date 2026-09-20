@@ -38,6 +38,9 @@ export function ensureHome(home: string): string {
 export const tokenPath = (home: string): string => join(home, 'token');
 export const runtimePath = (home: string): string => join(home, 'runtime.json');
 export const logPath = (home: string): string => join(home, 'daemon.log');
+/** The project registry is a file, not a table (ADR-0019). */
+export const registryPath = (home: string): string => join(home, 'projects.json');
+export const storePath = (home: string): string => join(home, 'binnacle.db');
 
 /**
  * Writes a file owner-only, but only if it does not exist yet. Returns false when

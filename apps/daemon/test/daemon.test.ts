@@ -338,9 +338,15 @@ describe('ADR-0012: the daemon opens no outbound connections', () => {
       assert.ok(!text.includes('./testing.ts'), `${name} must not import the test harness`);
     }
 
+    // Every runtime dependency is named here on purpose. The property under test is that
+    // nothing the daemon runs can reach the network or a model, not that the list is empty:
+    // Node has no YAML parser, and the project manifest is YAML.
+    const allowed = new Set(['yaml']);
     const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
       dependencies?: Record<string, string>;
     };
-    assert.equal(manifest.dependencies, undefined);
+    for (const name of Object.keys(manifest.dependencies ?? {})) {
+      assert.ok(allowed.has(name), `${name} is a new runtime dependency; justify it here before adding it`);
+    }
   });
 });
