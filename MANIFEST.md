@@ -25,7 +25,8 @@
 
 ## Specs
 
-- `docs/specs/core-and-persistence/spec.md` — epic 1, core and persistence. Ready for `to-tickets`.
+- `docs/specs/core-and-persistence/spec.md` — epic 1, core and persistence.
+- `docs/specs/core-and-persistence/issues/` — the seven tickets epic 1 is sliced into, numbered in dependency order.
 
 ## Workflow
 
