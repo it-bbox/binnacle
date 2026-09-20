@@ -268,7 +268,7 @@ describe('events', () => {
     });
   });
 
-  it('survives the database being rebuilt from the registry', async () => {
+  it('survives the projection being re-derived on the next start', async () => {
     const home = realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-home-')));
     roots.push(home);
     const root = makeProject();
@@ -277,8 +277,19 @@ describe('events', () => {
     await first.call('project.register', { path: root });
     await first.stop();
 
+    // Change the manifest between runs: the projection must pick the new name up, which
+    // is what proves it was re-derived rather than read back, and the history must not
+    // move, which is what proves the append-only tier is untouched by that.
+    writeFileSync(
+      join(root, '.binnacle', 'project.yaml'),
+      'version: 1\n\nproject:\n  id: example-project\n  name: Renamed Between Runs\n',
+    );
+
     const second = await startTestDaemon({ home });
     try {
+      const listed = await second.call<{ projects: Project[] }>('project.list');
+      assert.equal(listed.body.projects[0]?.name, 'Renamed Between Runs');
+
       const { body } = await second.call<{ events: Event[] }>('event.list');
       assert.deepEqual(
         body.events.map((event) => event.type),
@@ -286,6 +297,61 @@ describe('events', () => {
       );
     } finally {
       await second.stop();
+    }
+  });
+});
+
+describe('what the daemon refuses to guess or swallow', () => {
+  it('refuses a relative path rather than resolving it against its own directory', async () => {
+    await withDaemon(async (daemon) => {
+      for (const path of ['.', 'some/repo', '../up']) {
+        const { status, body } = await daemon.call<Envelope>('project.register', { path });
+        assert.equal(status, 400, `${path} was not refused`);
+        assert.equal(body.error.code, 'request.invalid');
+        assert.match(body.error.message, /absolute/);
+      }
+    });
+  });
+
+  it('is still a hard error when an already-registered manifest turns unsupported', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject();
+      assert.equal((await daemon.call('project.register', { path: root })).status, 200);
+
+      writeFileSync(join(root, '.binnacle', 'project.yaml'), 'version: 99\n\nproject:\n  id: example-project\n');
+
+      const { status, body } = await daemon.call<Envelope>('project.register', { path: root });
+      assert.equal(status, 400);
+      assert.equal(body.error.code, 'manifest.unsupported_version');
+    });
+  });
+
+  it('refuses a limit beyond the bound its own message names', async () => {
+    await withDaemon(async (daemon) => {
+      for (const limit of [0, -1, 1.5, 501]) {
+        const { status, body } = await daemon.call<Envelope>('event.list', { limit });
+        assert.equal(status, 400, `limit ${limit} was accepted`);
+        assert.equal(body.error.code, 'request.invalid');
+      }
+    });
+  });
+
+  it('says how to repair an unreadable registry instead of answering a bare 500', async () => {
+    const home = realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-home-')));
+    roots.push(home);
+    const root = makeProject();
+
+    const daemon = await startTestDaemon({ home });
+    try {
+      await daemon.call('project.register', { path: root });
+      writeFileSync(registryPath(home), 'this is not json');
+
+      const { status, body } = await daemon.call<Envelope>('project.register', { path: root });
+      assert.equal(status, 500);
+      assert.equal(body.error.code, 'registry.unreadable');
+      assert.match(body.error.message, /Repair or remove/);
+    } finally {
+      await daemon.stop();
     }
   });
 });

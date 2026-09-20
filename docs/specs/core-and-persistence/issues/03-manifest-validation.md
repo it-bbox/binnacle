@@ -11,6 +11,6 @@ Spec: `docs/specs/core-and-persistence/spec.md`
 - [ ] Each problem names the exact field path and what was expected there.
 - [ ] Unknown keys are reported as warnings and do not fail registration.
 - [ ] Validation never throws on invalid input; it returns problems.
-- [ ] Validation is a pure function in the core package with no runtime dependencies. Reading the file and parsing YAML happen outside it.
+- [ ] Validation is a pure function in the core package with no runtime dependencies. Reading the file and parsing YAML happen outside it. Ticket 02 staged this in the daemon to keep its own scope small; this ticket is what moves it, and `packages/core` does not exist until it does.
 - [ ] No secret is read from the manifest or written to it; tracker credentials never appear there (ADR-0013).
 - [ ] A manifest that changed since it was last projected is re-read and the change recorded as an event.

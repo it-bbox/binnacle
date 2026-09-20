@@ -1,4 +1,5 @@
 import { readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { OperationError } from './errors.ts';
 import { OWNER_ONLY_FILE, registryPath } from './home.ts';
 
 /**
@@ -17,10 +18,18 @@ export type RegistryEntry = {
   registeredAt: string;
 };
 
-/** Thrown rather than answered with an empty list: silently losing registrations is the failure to avoid. */
-export class RegistryUnreadableError extends Error {
+/**
+  * Thrown rather than answered with an empty list: silently losing registrations is the
+  * failure to avoid. It carries a code and a repair instruction because the registry is
+  * the one canonical file here, and a generic 500 would tell its owner nothing.
+  */
+export class RegistryUnreadableError extends OperationError {
   constructor(path: string, reason: string) {
-    super(`The Binnacle project registry at ${path} is unreadable (${reason}). Repair or remove the file.`);
+    super(
+      'registry.unreadable',
+      `The Binnacle project registry at ${path} is unreadable (${reason}). Repair or remove the file.`,
+      500,
+    );
     this.name = 'RegistryUnreadableError';
   }
 }

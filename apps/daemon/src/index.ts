@@ -18,6 +18,5 @@ export {
 export { isErrorEnvelope, type ErrorDetail, type ErrorEnvelope } from './errors.ts';
 export { DaemonAlreadyRunningError, HEALTH_PATH, OPS_PREFIX, startDaemon, type Daemon } from './server.ts';
 export { operations, type Operation, type OperationContext } from './operations.ts';
-export { readRegistry, RegistryUnreadableError, type RegistryEntry } from './registry.ts';
-export { SCHEMA_VERSION, type ProjectRow } from './store.ts';
+export { type ProjectRow } from './store.ts';
 export { packageVersion } from './version.ts';

@@ -9,7 +9,7 @@ import type { ProjectRow, Store } from './store.ts';
  */
 export function projectRegistry(home: string, store: Store): void {
   const entries = readRegistry(home);
-  for (const entry of entries) store.putProject(project(entry));
+  for (const entry of entries) store.putProject(deriveProject(entry));
   store.dropProjectsExcept(entries.map((entry) => entry.path));
 }
 
@@ -18,7 +18,7 @@ export function projectRegistry(home: string, store: Store): void {
  * Its id is null rather than guessed from the directory name — an id is read from the
  * manifest or it is not known.
  */
-export function project(entry: RegistryEntry): ProjectRow {
+export function deriveProject(entry: RegistryEntry): ProjectRow {
   try {
     const manifest = readManifest(entry.path);
     return {

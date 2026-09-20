@@ -54,10 +54,11 @@ test('binn project register, list and unregister', async (t) => {
     assert.match(result.stdout, new RegExp(root.replaceAll('.', '\\.')));
   });
 
-  await t.test('lists what this machine tracks', () => {
+  await t.test('lists what this machine tracks, with a name and a path for each', () => {
     const result = binn('project', 'list');
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /example-project/);
+    assert.match(result.stdout, /Example Project/);
     assert.match(result.stdout, new RegExp(root.replaceAll('.', '\\.')));
   });
 
@@ -94,7 +95,9 @@ test('the daemon is the only process that opens the database', () => {
   const source = new URL('../src/', import.meta.url);
   for (const name of readdirSync(source).filter((file) => file.endsWith('.ts'))) {
     const text = readFileSync(new URL(name, source), 'utf8');
+    // The store is never exported from the package root, so this is the line that holds:
+    // the CLI cannot open the database, and reaches state only by calling an operation.
     assert.ok(!text.includes('node:sqlite'), `${name} must not open the store directly`);
-    assert.ok(!/from '@binnacle\/daemon\/(store|testing)/.test(text), `${name} must reach state through the API`);
+    assert.ok(!/openStore|DatabaseSync/.test(text), `${name} must reach state through the API`);
   }
 });

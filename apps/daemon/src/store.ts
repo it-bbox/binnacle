@@ -56,7 +56,6 @@ export const EVENT_LIMIT_MAX = 500;
 
 export type Store = {
   projects(): ProjectRow[];
-  project(path: string): ProjectRow | null;
   putProject(row: ProjectRow): void;
   dropProjectsExcept(paths: string[]): void;
   appendEvent(event: NewEvent): void;
@@ -75,7 +74,6 @@ export function openStore(home: string): Store {
   }
 
   db.exec('pragma journal_mode = wal');
-  db.exec('pragma foreign_keys = on');
   db.exec(`
     create table if not exists meta (
       key text primary key,
@@ -104,7 +102,6 @@ export function openStore(home: string): Store {
   db.prepare('insert or ignore into meta (key, value) values (?, ?)').run('schema_version', String(SCHEMA_VERSION));
 
   const selectAll = db.prepare('select path, id, name, registered_at, unavailable from project order by id');
-  const selectOne = db.prepare('select path, id, name, registered_at, unavailable from project where path = ?');
   const upsert = db.prepare(`
     insert into project (path, id, name, registered_at, unavailable)
     values (?, ?, ?, ?, ?)
@@ -119,10 +116,6 @@ export function openStore(home: string): Store {
 
   return {
     projects: () => selectAll.all().map(toProject),
-    project: (path) => {
-      const row = selectOne.get(path);
-      return row ? toProject(row) : null;
-    },
     putProject: (row) => {
       upsert.run(row.path, row.id, row.name, row.registeredAt, row.unavailable);
     },
@@ -161,7 +154,7 @@ export function openStore(home: string): Store {
         where.push('occurred_at <= ?');
         values.push(filter.until);
       }
-      const limit = Math.min(filter.limit ?? EVENT_LIMIT_DEFAULT, EVENT_LIMIT_MAX);
+      const limit = filter.limit ?? EVENT_LIMIT_DEFAULT;
       const sql = `select id, type, project_path, occurred_at, payload, provenance from event
         ${where.length ? `where ${where.join(' and ')}` : ''}
         order by occurred_at desc, id desc limit ?`;

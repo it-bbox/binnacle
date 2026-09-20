@@ -1,9 +1,9 @@
 import { realpathSync } from 'node:fs';
-import { isAbsolute, resolve } from 'node:path';
+import { isAbsolute } from 'node:path';
 import { OperationError } from './errors.ts';
 import type { Runtime } from './home.ts';
 import { readManifest } from './manifest.ts';
-import { project } from './projection.ts';
+import { deriveProject } from './projection.ts';
 import { readRegistry, writeRegistry } from './registry.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type Store } from './store.ts';
 
@@ -28,20 +28,22 @@ export const operations: Record<string, Operation> = {
 
   'project.register': (body, context) => {
     const path = repositoryPath(body);
-    const entries = readRegistry(context.home);
+    // On every call, not only for a new entry, and letting the manifest's own error
+    // through: a manifest that has become unsupported since registration is still a
+    // hard error rather than a 200 with a reason attached. A directory that cannot be
+    // registered also leaves no trace of having been tried.
+    readManifest(path);
 
+    const entries = readRegistry(context.home);
     let registered = false;
     let entry = entries.find((candidate) => candidate.path === path);
     if (!entry) {
-      // Read the manifest before touching the registry, and let its own error through:
-      // a directory that cannot be registered leaves no trace of having been tried.
-      readManifest(path);
       entry = { path, registeredAt: new Date().toISOString() };
       writeRegistry(context.home, [...entries, entry]);
       registered = true;
     }
 
-    const row = project(entry);
+    const row = deriveProject(entry);
     context.store.putProject(row);
     // Registering an already-registered path changes nothing, so it records nothing.
     if (registered) {
@@ -76,7 +78,7 @@ export const operations: Record<string, Operation> = {
 function eventFilter(body: unknown): EventFilter {
   const raw = (body ?? {}) as Record<string, unknown>;
   const limit = raw.limit;
-  if (limit !== undefined && (!Number.isInteger(limit) || (limit as number) < 1)) {
+  if (limit !== undefined && (!Number.isInteger(limit) || (limit as number) < 1 || (limit as number) > EVENT_LIMIT_MAX)) {
     throw new OperationError('request.invalid', `"limit" must be a positive integer up to ${EVENT_LIMIT_MAX}.`, 400, [
       { path: 'limit', message: `expected 1 to ${EVENT_LIMIT_MAX}` },
     ]);
@@ -100,9 +102,13 @@ function optionalString(value: unknown, field: string): string | undefined {
 }
 
 /**
- * A repository is addressed by absolute path, resolved through any symlinks so that one
- * repository reached two ways is one project rather than two. Unregistering tolerates a
- * path that has since disappeared, because that is exactly when it is needed.
+ * A repository is addressed by an absolute path, resolved through any symlinks so that
+ * one repository reached two ways is one project rather than two. Unregistering
+ * tolerates a path that has since disappeared, because that is exactly when it is needed.
+ *
+ * Relative paths are refused rather than resolved: the daemon is a detached background
+ * process, so resolving one here would silently mean "wherever `binnd` was started",
+ * which is never what the caller meant. Clients resolve against their own directory.
  */
 function repositoryPath(body: unknown, options: { mustExist?: boolean } = {}): string {
   const raw = (body as { path?: unknown })?.path;
@@ -111,7 +117,12 @@ function repositoryPath(body: unknown, options: { mustExist?: boolean } = {}): s
       { path: 'path', message: 'expected a non-empty string' },
     ]);
   }
-  const candidate = isAbsolute(raw) ? raw : resolve(raw);
+  if (!isAbsolute(raw)) {
+    throw new OperationError('request.invalid', `"path" must be absolute; got ${JSON.stringify(raw)}.`, 400, [
+      { path: 'path', message: 'expected an absolute path, resolved by the caller' },
+    ]);
+  }
+  const candidate = raw;
   try {
     return realpathSync(candidate);
   } catch (error) {
