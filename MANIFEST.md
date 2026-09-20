@@ -23,6 +23,10 @@
 - `docs/08-open-questions.md`
 - `docs/09-references.md`
 
+## Specs
+
+- `docs/specs/core-and-persistence/spec.md` — epic 1, core and persistence. Ready for `to-tickets`.
+
 ## Workflow
 
 - `docs/workflow/01-product-workflow.md`
@@ -58,6 +62,7 @@
 - ADR-0016 — platform support and distribution.
 - ADR-0017 — specs live in Git, tickets live in the tracker.
 - ADR-0018 — run-to-task correlation uses `cwd` and git reflog.
+- ADR-0019 — the machine project registry is a file, not a table.
 
 ## Bootstrap/config skeleton
 
@@ -78,4 +83,4 @@
 - `packages/telemetry/`
 - `packages/adapters/`
 
-These are intentionally empty. `grill-with-docs` on this package is complete: every question in `docs/08-open-questions.md` is resolved and recorded in the ADRs above. The next step is `to-spec`.
+These are intentionally empty. `grill-with-docs` on this package is complete: every question in `docs/08-open-questions.md` is resolved and recorded in the ADRs above. Epic 1 is specified; the next step is `to-tickets`.

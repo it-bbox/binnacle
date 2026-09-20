@@ -10,7 +10,7 @@ This is the roadmap's single home because this repository uses the local Markdow
 
 | # | Epic | Status | Spec |
 | --- | --- | --- | --- |
-| 1 | Core and persistence | not started | — |
+| 1 | Core and persistence | spec | [`core-and-persistence`](specs/core-and-persistence/spec.md) |
 | 2 | MCP and Product Snapshot | not started | — |
 | 3 | Tracker and Matt Pocock integration | not started | — |
 | 4 | Telemetry | not started | — |
@@ -21,9 +21,9 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 ## Current focus
 
-Design is complete and recorded: every question in `docs/08-open-questions.md` is resolved across ADR-0001 to ADR-0018. Implementation has not begun — `apps/` and `packages/` are intentionally empty.
+Design is complete and recorded: every question in `docs/08-open-questions.md` is resolved across ADR-0001 to ADR-0018, and specifying epic 1 added ADR-0019. Epic 1 is specified. Implementation has not begun — `apps/` and `packages/` are intentionally empty.
 
-Next action: `to-spec` on epic 1.
+Next action: `to-tickets` on epic 1.
 
 ## Later
 

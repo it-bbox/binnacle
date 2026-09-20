@@ -13,6 +13,9 @@ This term replaced the earlier "AI Development Control Plane". Both named the sa
 ### Project Brain
 The sum of a project's long-lived knowledge and current state: docs, ADRs, specs, tracker, Git/CI state and code intelligence. It is not one file and not one database.
 
+### Project registry
+The list of repository paths registered with Binnacle on one machine. It is canonical — no source outside Binnacle records that this machine tracks a given path — so it is a file, not a table, and the `Project` table is a projection of it (`docs/adr/ADR-0019-registry-is-a-file.md`).
+
 ### Product Steward
 A permanent logical role, but not a permanent chat. A new Product session must rebuild the current picture from a Product Snapshot.
 
