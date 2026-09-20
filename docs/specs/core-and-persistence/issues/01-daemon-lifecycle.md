@@ -40,3 +40,9 @@ Deliberately not done here:
 
 - **Both packages are `private: true`.** The spec says publishing is "configured but not exercised"; a `workspace:*` dependency would publish broken, and there is nothing worth publishing until epic 2.
 - **`apps/cli` depends on `@binnacle/daemon`** for home, runtime-file and token handling. Daemon lifecycle cannot go over the API — spawning, the runtime file and the pid are all outside it — and the spec already has `binnd` shipping inside `@binnacle/cli`. If a third consumer appears, that module wants to move to `packages/`.
+
+### Review
+
+One defect found and fixed on the branch. The operation table was a plain object literal, so `operations[name]` resolved inherited `Object.prototype` members: `POST /ops/toString` answered `200 "[object Undefined]"`, `/ops/constructor` answered `200 {}`, and `/ops/hasOwnProperty` and `/ops/valueOf` threw into the 500 path. The existing unknown-operation test passed because the name it invented is not on the prototype. Lookup is now guarded by `Object.hasOwn`, and the regression test walks the inherited names rather than one made-up one. This matters beyond the walking skeleton: ticket 02 adds `project.*` to the same table, and epic 2 exposes it over MCP.
+
+One note for ticket 02, not a defect. The `ponytail:` comment on `claimHome` says two starts racing on the same *stale* runtime file are "caught downstream by the store's own locking". Nothing downstream exists yet. When the store lands, either that has to be true of SQLite's locking or the claim needs a different answer.

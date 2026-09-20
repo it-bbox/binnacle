@@ -161,7 +161,9 @@ async function handle(
   if (authFailure) return fail(response, authFailure);
 
   const name = decodeURIComponent(path.slice(OPS_PREFIX.length));
-  const operation = operations[name];
+  // Own properties only: a plain object inherits `toString`, `constructor` and the rest
+  // of Object.prototype, and each of those would otherwise answer as an operation.
+  const operation = Object.hasOwn(operations, name) ? operations[name] : undefined;
   if (!operation) {
     return fail(response, new OperationError('operation.unknown', `Unknown operation ${JSON.stringify(name)}.`, 404));
   }

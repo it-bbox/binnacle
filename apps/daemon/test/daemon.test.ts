@@ -76,6 +76,16 @@ describe('daemon operations', () => {
     });
   });
 
+  it('rejects an operation named after an inherited property, not just an invented one', async () => {
+    await withDaemon(async (daemon) => {
+      for (const name of ['toString', 'constructor', 'hasOwnProperty', 'valueOf', '__proto__']) {
+        const { status, body } = await daemon.call<Envelope>(name);
+        assert.equal(status, 404, `${name} answered ${status}`);
+        assert.equal(body.error.code, 'operation.unknown');
+      }
+    });
+  });
+
   it('rejects a non-POST call on an operation route', async () => {
     await withDaemon(async (daemon) => {
       const { status, body } = await daemon.call<Envelope>('daemon.status', undefined, { method: 'GET' });
