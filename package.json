@@ -11,8 +11,11 @@
     "node": ">=24 <27"
   },
   "scripts": {
-    "dev": "echo 'Implementation not started. grill-with-docs is complete; run to-spec before scaffolding apps.'",
-    "typecheck": "echo 'Not implemented yet'",
-    "test": "echo 'Not implemented yet'"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node --test \"{apps,packages}/*/test/**/*.test.ts\""
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
   }
 }

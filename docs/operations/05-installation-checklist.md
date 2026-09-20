@@ -12,6 +12,15 @@ npm i -g @binnacle/cli
 
 It runs natively on Linux, macOS and Windows. The daemon is started by `binn daemon start`; installing it as an auto-starting service is not part of v1.
 
+Two environment variables configure it:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `BINNACLE_HOME` | `~/.binnacle` | Where Binnacle keeps the daemon's runtime file, the API token and the store. Point it elsewhere to run a throwaway instance beside the real one. |
+| `BINNACLE_PORT` | `7717` | The loopback port the daemon binds. `0` takes an ephemeral port. |
+
+One daemon runs per Binnacle home. `binn daemon status` reports whether one is running and where; `binn daemon stop` stops it. Exit codes are `0` success, `2` usage error, `3` operation failed, `4` daemon unreachable.
+
 ---
 
 ## Required for Binnacle development
