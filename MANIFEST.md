@@ -17,6 +17,7 @@
 - `docs/03-mcp-and-skills.md`
 - `docs/04-telemetry-dashboard.md`
 - `docs/05-mvp-plan.md`
+- `docs/roadmap.md` — current position: epic status and spec links.
 - `docs/06-data-model.md`
 - `docs/07-initial-repository-layout.md`
 - `docs/08-open-questions.md`
