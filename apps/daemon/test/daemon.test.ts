@@ -351,7 +351,8 @@ describe('ADR-0012: the daemon opens no outbound connections', () => {
     // Every runtime dependency is named here on purpose. The property under test is that
     // nothing the daemon runs can reach the network or a model, not that the list is empty:
     // Node has no YAML parser, and the project manifest is YAML. The adapters package is
-    // this repository's own and is scanned above; it has no dependencies of its own.
+    // this repository's own and is scanned above; its only dependency is core, whose own
+    // test holds it to no dependencies and no imports at all.
     const allowed = new Set(['@binnacle/adapters', '@binnacle/core', 'yaml']);
     const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
       dependencies?: Record<string, string>;
@@ -362,6 +363,6 @@ describe('ADR-0012: the daemon opens no outbound connections', () => {
     const adaptersManifest = JSON.parse(readFileSync(new URL('../package.json', adapters), 'utf8')) as {
       dependencies?: Record<string, string>;
     };
-    assert.equal(adaptersManifest.dependencies, undefined);
+    assert.deepEqual(Object.keys(adaptersManifest.dependencies ?? {}), ['@binnacle/core']);
   });
 });

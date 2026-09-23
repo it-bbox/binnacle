@@ -151,6 +151,9 @@ const REVIEW: Record<ReviewState, readonly ReviewState[]> = {
   RESOLVED: ['IN_REVIEW'],
 };
 
+/** For an adapter reading a state from outside: a value that is not a Task state is not guessed at. */
+export const isTaskState = (value: string): value is TaskState => Object.hasOwn(TASK, value);
+
 export function transitionTask(from: TaskState, to: TaskState): TransitionResult<TaskState> {
   return transition('Task', TASK, from, to);
 }

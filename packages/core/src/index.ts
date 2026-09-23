@@ -4,8 +4,16 @@ export {
   type ManifestProblem,
   type ProjectManifest,
 } from './manifest.ts';
-export { trackerRemoteMismatch, type Diagnostic } from './tracker.ts';
 export {
+  resolveDependencies,
+  trackerRemoteMismatch,
+  type Diagnostic,
+  type ResolvedTask,
+  type TaskReading,
+  type TrackerTask,
+} from './tracker.ts';
+export {
+  isTaskState,
   transitionAgentRun,
   transitionReview,
   transitionTask,

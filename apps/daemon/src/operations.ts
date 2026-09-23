@@ -7,6 +7,7 @@ import { resolveGitTimeout, type Runtime } from './home.ts';
 import { readManifest } from './manifest.ts';
 import { projectRegistry, reproject } from './projection.ts';
 import { readRegistry, writeRegistry, type RegistryEntry } from './registry.ts';
+import { snapshot } from './snapshot.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type ProjectRow, type Store } from './store.ts';
 
 export type OperationContext = {
@@ -102,6 +103,12 @@ export const operations: Record<string, Operation> = {
         : null;
 
     return { project: row, manifest, checkout, git, diagnostics: mismatch ? [mismatch] : [] };
+  },
+
+  // The tracker is read now, on every call; nothing about Tasks is stored.
+  'project.snapshot': (body, context) => {
+    const { row, manifest } = reproject(context.store, containingEntry(body, context));
+    return snapshot(row, manifest);
   },
 
   'project.unregister': (body, context) => {
