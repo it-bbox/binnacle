@@ -258,7 +258,7 @@ describe('the daily delta', () => {
     });
   });
 
-  it('falls back and says why when the baseline was rewritten away or is not in the repository', async () => {
+  it('falls back and says why when the baseline was rewritten away, and when it was then garbage-collected', async () => {
     await withDaemon(async (daemon) => {
       const root = makeRepository();
       commitAll(root, 'To be rewritten');
@@ -273,20 +273,31 @@ describe('the daily delta', () => {
       assert.equal(rewritten.from.source, 'fallback');
       assert.deepEqual(subjects(rewritten), ['Rewritten']);
 
-      const missing = await daily(daemon, root, 'deadbeef');
+      // The fallback's daily recorded the new head; go back past it and drop the old line for good.
+      const gone = git(root, ['rev-parse', 'HEAD']);
+      git(root, ['reset', '--quiet', '--hard', 'HEAD~1']);
+      commitAll(root, 'Rewritten again');
+      git(root, ['reflog', 'expire', '--expire=now', '--all']);
+      git(root, ['gc', '--quiet', '--prune=now']);
+
+      const missing = await daily(daemon, root);
       assert.equal(missing.fallback?.reason, 'baseline_missing');
-      assert.match(missing.fallback!.message, /deadbeef/);
-      assert.deepEqual(subjects(missing), ['Rewritten']);
+      assert.match(missing.fallback!.message, new RegExp(gone));
+      assert.deepEqual(subjects(missing), ['Rewritten again']);
     });
   });
 
-  it('refuses a since that is not a commit hash, and a checkout with no commits', async () => {
+  it('refuses a since that is not a commit HEAD descends from, and a checkout with no commits', async () => {
     await withDaemon(async (daemon) => {
       const root = makeRepository();
+      const side = commitAll(root, 'On a line HEAD will not have');
+      git(root, ['reset', '--quiet', '--hard', 'HEAD~1']);
       await register(daemon, root);
-      const refused = await daemon.call<{ error: { code: string } }>('daily.get', { path: root, since: '--output=/tmp/x' });
-      assert.equal(refused.status, 400);
-      assert.equal(refused.body.error.code, 'request.invalid');
+      for (const since of ['--output=/tmp/x', 'deadbeef', side]) {
+        const refused = await daemon.call<{ error: { code: string } }>('daily.get', { path: root, since });
+        assert.equal(refused.status, 400, since);
+        assert.equal(refused.body.error.code, 'request.invalid');
+      }
 
       const empty = realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-daily-empty-')));
       roots.push(empty);

@@ -76,7 +76,7 @@ export async function readGitFacts(cwd: string, timeoutMs: number): Promise<GitF
       remotes: parseRemotes(remotes.stdout),
     };
   } catch (error) {
-    if (isUnavailable(error)) return error;
+    if (isGitUnavailable(error)) return error;
     throw error;
   }
 }
@@ -101,7 +101,7 @@ export async function readGitLocation(cwd: string, timeoutMs: number): Promise<G
     // compares equal to itself.
     return { root: realpathSync(root), commonDir: realpathSync(resolve(cwd, commonDir)) };
   } catch (error) {
-    if (isUnavailable(error)) return null;
+    if (isGitUnavailable(error)) return null;
     throw error;
   }
 }
@@ -124,14 +124,19 @@ export async function readLastCommitTimes(cwd: string, pathspec: string, timeout
     }
     return times;
   } catch (error) {
-    if (isUnavailable(error)) return null;
+    if (isGitUnavailable(error)) return null;
     throw error;
   }
 }
 
-/** The full hash of the commit `rev` names, or null when it names none here. */
-export async function readCommit(cwd: string, rev: string, timeoutMs: number): Promise<string | null> {
-  const run = acceptExit(await git(cwd, timeoutMs, ['rev-parse', '--verify', '--quiet', `${rev}^{commit}`]), 'rev-parse', [0, 1]);
+/**
+ * The full hash of the commit that `hash`, full or abbreviated, names; null when it names
+ * none here. Anything but hexadecimal digits is null without asking Git, which is what
+ * lets every other function here take the commits it returns.
+ */
+export async function readCommit(cwd: string, hash: string, timeoutMs: number): Promise<string | null> {
+  if (!/^[0-9a-f]{4,64}$/i.test(hash)) return null;
+  const run = acceptExit(await git(cwd, timeoutMs, ['rev-parse', '--verify', '--quiet', `${hash}^{commit}`]), 'rev-parse', [0, 1]);
   return run.code === 0 ? run.stdout.trim() : null;
 }
 
@@ -260,6 +265,6 @@ function failed(command: string, run: Run): Unavailable {
 const unavailable = (code: UnavailableCode, reason: string): Unavailable => ({ available: false, code, reason });
 
 /** Whether a thrown value is Git reporting itself unavailable, which callers turn into their own error. */
-export function isUnavailable(value: unknown): value is Unavailable {
+export function isGitUnavailable(value: unknown): value is Unavailable {
   return typeof value === 'object' && value !== null && (value as { available?: unknown }).available === false;
 }

@@ -107,7 +107,7 @@ export const operations: Record<string, Operation> = {
    */
   'daily.get': async (body, context) => {
     const path = repositoryPath(body, { mustExist: false });
-    const since = commitHash(body);
+    const since = sinceCommit(body);
     const projected = reproject(context.store, await resolveEntry(path, context));
     const caller = await callerCheckout(path, projected.row.path);
     const baseline: Baseline | null = since ? { commit: since, source: 'since' } : recordedBaseline(context.store, projected.row.path);
@@ -216,7 +216,7 @@ function recordedBaseline(store: Store, projectPath: string): Baseline | null {
 }
 
 /** `since`, when given, is a commit hash: never a ref or an expression, which Git could read as an option. */
-function commitHash(body: unknown): string | undefined {
+function sinceCommit(body: unknown): string | undefined {
   const since = optionalString((body as { since?: unknown } | null)?.since, 'since');
   if (since !== undefined && !/^[0-9a-f]{4,64}$/i.test(since)) {
     throw new OperationError('request.invalid', `"since" must be a commit hash; got ${JSON.stringify(since)}.`, 400, [

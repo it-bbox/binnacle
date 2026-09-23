@@ -94,7 +94,11 @@ export async function daily(projected: Projected, caller: CallerCheckout, diagno
   }
 }
 
-/** The baseline when it is still an ancestor of HEAD, and otherwise the fallback window, with the reason. */
+/**
+ * The baseline when it is still an ancestor of HEAD, and otherwise the fallback window,
+ * with the reason. An explicit `since` that cannot be used is refused instead: it was
+ * asked for, and a window nobody asked for would hide the typo.
+ */
 async function startingPoint(
   cwd: string,
   head: string,
@@ -105,11 +109,17 @@ async function startingPoint(
   if (baseline === null) {
     fallback = { reason: 'no_baseline', message: 'No daily or checkpoint has been recorded for this project on this machine.' };
   } else {
-    const named = `The baseline ${baseline.commit} (from ${baseline.source === 'since' ? '"since"' : `the last ${baseline.source}`})`;
+    const named = `The baseline ${baseline.commit} from the last ${baseline.source}`;
     const commit = await readCommit(cwd, baseline.commit, timeout);
+    const usable = commit !== null && (await isAncestor(cwd, commit, head, timeout));
+    if (!usable && baseline.source === 'since') {
+      throw new OperationError('request.invalid', `"since" ${baseline.commit} ${commit === null ? 'names no commit here' : 'is not an ancestor of HEAD'}.`, 400, [
+        { path: 'since', message: 'expected a commit HEAD descends from' },
+      ]);
+    }
     if (commit === null) {
       fallback = { reason: 'baseline_missing', message: `${named} is not a commit in this repository.` };
-    } else if (!(await isAncestor(cwd, commit, head, timeout))) {
+    } else if (!usable) {
       fallback = { reason: 'baseline_diverged', message: `${named} is not an ancestor of HEAD: history was rewritten, or this checkout is on another line of work.` };
     } else {
       return { from: { commit, source: baseline.source }, fallback: null };

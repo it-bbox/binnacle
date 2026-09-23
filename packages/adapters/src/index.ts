@@ -1,7 +1,7 @@
 export {
   commitTree,
   isAncestor,
-  isUnavailable as isGitUnavailable,
+  isGitUnavailable,
   readCommit,
   readCommitBefore,
   readGitFacts,

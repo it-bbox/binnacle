@@ -8,7 +8,7 @@ import { z } from 'zod';
  * with the operation's result or with the daemon's error envelope, never by throwing,
  * so an unreachable daemon is a tool error rather than a failed server.
  */
-export type CallDaemon = (operation: string, body: { path: string; since?: string | undefined }) => Promise<{ result: unknown } | ErrorEnvelope>;
+export type CallDaemon = (operation: string, body: { path: string } & Record<string, unknown>) => Promise<{ result: unknown } | ErrorEnvelope>;
 
 /**
  * One tool per daemon operation (spec, *MCP server*). Names use underscores because the
@@ -47,7 +47,7 @@ export async function serveStdio(version: string, cwd: string, call: CallDaemon)
   const server = new McpServer({ name: 'binnacle', version });
 
   for (const [name, tool] of Object.entries(TOOLS)) {
-    const run = async (args: { since?: string | undefined } = {}) => {
+    const run = async (args: Record<string, unknown> = {}) => {
       const answer = await call(tool.operation, { ...args, path: cwd });
       return 'error' in answer
         ? { isError: true, content: [{ type: 'text' as const, text: JSON.stringify(answer) }] }
