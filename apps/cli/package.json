@@ -9,7 +9,8 @@
     "binn": "./src/bin.ts"
   },
   "dependencies": {
-    "@binnacle/daemon": "workspace:*"
+    "@binnacle/daemon": "workspace:*",
+    "@binnacle/mcp": "workspace:*"
   },
   "engines": {
     "node": ">=24 <27"

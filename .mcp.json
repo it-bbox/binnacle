@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "binnacle": {
+      "type": "stdio",
+      "command": "binn",
+      "args": ["mcp"]
+    }
+  }
+}

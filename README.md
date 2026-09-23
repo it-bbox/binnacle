@@ -97,6 +97,19 @@ npm i -g @binnacle/cli
 
 The daemon runs as a user process started by `binn daemon start`. Installing it as an auto-starting service is not part of v1.
 
+### From this repository
+
+Until the npm package is published, `binn` comes from a checkout. Link it onto PATH once, from the main checkout rather than a worktree:
+
+```bash
+pnpm install
+cd apps/cli && pnpm link --global
+```
+
+If pnpm has no global bin directory yet, run `pnpm setup` first and open a new shell. Then start the daemon with `binn daemon start` and register the repository with `binn project register`.
+
+The committed `.mcp.json` runs `binn mcp`, so every Claude Code session opened in this repository, in the main checkout or in a worktree, has Binnacle's MCP tools with no per-session setup. It names the linked `binn` and not a path inside the working tree on purpose: in a worktree, a path would run that branch's half-finished code, and a broken branch would take the Product session's tools down with it. With the daemon stopped the server still connects, and each tool answers with an error naming `binn daemon start`.
+
 ## Target repository layout
 
 ```text

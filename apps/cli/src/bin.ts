@@ -3,6 +3,7 @@ import { resolveHome, packageVersion } from '@binnacle/daemon';
 import { start, status, stop } from './daemon-commands.ts';
 import { list, register, status as projectStatus, unregister } from './project-commands.ts';
 import { EXIT, type ExitCode } from './exit.ts';
+import { mcp } from './mcp.ts';
 
 const VERSION = packageVersion(import.meta.url);
 
@@ -17,6 +18,8 @@ Usage:
   binn project list               List the projects this machine tracks
   binn project status [path]      Manifest facts and live Git facts for the project containing path
   binn project unregister [path]  Remove a registration, changing nothing in the repository
+
+  binn mcp              Serve Binnacle's MCP tools on stdio for the working directory
 
 Options:
   -h, --help            Show this help
@@ -53,6 +56,11 @@ async function run(argv: string[]): Promise<ExitCode> {
     if (second === 'start') return await start(home);
     if (second === 'status') return await status(home);
     if (second === 'stop') return await stop(home);
+  }
+
+  if (first === 'mcp' && second === undefined) {
+    await mcp(resolveHome(), VERSION);
+    return EXIT.ok;
   }
 
   if (first === 'project') {
