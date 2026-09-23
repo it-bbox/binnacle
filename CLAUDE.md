@@ -8,6 +8,7 @@
 
 - Do not treat conversation history as project memory.
 - For Product work, start a fresh session with `/product` (and `/daily`) rather than relying on a long-lived chat.
+- A Product session commits to `main` directly, documentation only; code changes go through a ticket branch.
 - Prefer fresh sessions for distinct implementation tickets.
 - An implementation session starts by branching `feat/<slug>` from an up-to-date `main`, and never commits a ticket to `main`. Its last commit sets the ticket's `Status:` to `DONE` and moves the roadmap's current focus if the frontier moved.
 - Use `/checkpoint` to persist only durable session delta before rotating a long Product session.
