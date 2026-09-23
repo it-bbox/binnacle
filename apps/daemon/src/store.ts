@@ -66,6 +66,7 @@ export type Store = {
   dropProjectsExcept(paths: string[]): void;
   appendEvent(event: NewEvent): void;
   events(filter?: EventFilter): EventRow[];
+  latestEvent(projectPath: string, types: readonly string[]): EventRow | null;
   close(): void;
 };
 
@@ -202,6 +203,14 @@ export function openStore(home: string): Store {
         .prepare(sql)
         .all(...values, limit)
         .map(toEvent);
+    },
+    /** The last recorded event of one of `types` for a project, in the order events were appended. */
+    latestEvent: (projectPath, types) => {
+      const row = db
+        .prepare(`select id, type, project_path, occurred_at, payload, provenance from event
+          where project_path = ? and type in (${types.map(() => '?').join(', ')}) order by id desc limit 1`)
+        .get(projectPath, ...types);
+      return row ? toEvent(row) : null;
     },
     close: () => db.close(),
   };

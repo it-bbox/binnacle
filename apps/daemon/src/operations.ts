@@ -7,6 +7,7 @@ import { resolveGitTimeout, type Runtime } from './home.ts';
 import { readManifest } from './manifest.ts';
 import { projectRegistry, reproject } from './projection.ts';
 import { readRegistry, writeRegistry, type RegistryEntry } from './registry.ts';
+import { BASELINE_EVENTS, daily, type Baseline } from './daily.ts';
 import { snapshot, type CallerCheckout } from './snapshot.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type ProjectRow, type Store } from './store.ts';
 
@@ -96,6 +97,23 @@ export const operations: Record<string, Operation> = {
     const projected = reproject(context.store, await resolveEntry(path, context));
     const caller = await callerCheckout(path, projected.row.path);
     return snapshot(projected, caller, remoteMismatch(projected.manifest, caller.git));
+  },
+
+  /**
+   * What changed since the last daily or checkpoint on this machine, from Git's committed
+   * state. The caller's HEAD is recorded as a `daily` event (tier 2, ADR-0015) and is where
+   * the next one starts, so a second call in a row is empty. An explicit `since` looks back
+   * from that commit instead, and records nothing.
+   */
+  'daily.get': async (body, context) => {
+    const path = repositoryPath(body, { mustExist: false });
+    const since = commitHash(body);
+    const projected = reproject(context.store, await resolveEntry(path, context));
+    const caller = await callerCheckout(path, projected.row.path);
+    const baseline: Baseline | null = since ? { commit: since, source: 'since' } : recordedBaseline(context.store, projected.row.path);
+    const delta = await daily(projected, caller, remoteMismatch(projected.manifest, caller.git), baseline);
+    if (!since) context.store.appendEvent({ type: 'daily', projectPath: projected.row.path, payload: { head: delta.head } });
+    return delta;
   },
 
   'project.unregister': (body, context) => {
@@ -189,6 +207,23 @@ function containingEntry(path: string, entries: RegistryEntry[]): RegistryEntry 
     return inside === '' || (!isAbsolute(inside) && inside.split(sep)[0] !== '..');
   };
   return entries.filter(contains).sort((a, b) => b.path.length - a.path.length)[0];
+}
+
+function recordedBaseline(store: Store, projectPath: string): Baseline | null {
+  const event = store.latestEvent(projectPath, BASELINE_EVENTS);
+  const head = event?.payload.head;
+  return event && typeof head === 'string' ? { commit: head, source: event.type as (typeof BASELINE_EVENTS)[number] } : null;
+}
+
+/** `since`, when given, is a commit hash: never a ref or an expression, which Git could read as an option. */
+function commitHash(body: unknown): string | undefined {
+  const since = optionalString((body as { since?: unknown } | null)?.since, 'since');
+  if (since !== undefined && !/^[0-9a-f]{4,64}$/i.test(since)) {
+    throw new OperationError('request.invalid', `"since" must be a commit hash; got ${JSON.stringify(since)}.`, 400, [
+      { path: 'since', message: 'expected 4 to 64 hexadecimal digits' },
+    ]);
+  }
+  return since;
 }
 
 function eventFilter(body: unknown): EventFilter {

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
@@ -88,6 +89,35 @@ describe('a store written under another schema version', () => {
       assert.ok(rebuilt, `no store.rebuilt among ${body.events.map((e) => e.type).join(', ')}`);
       assert.equal(rebuilt.payload.from, 0);
       assert.equal(typeof rebuilt.payload.to, 'number');
+    } finally {
+      await second.stop();
+    }
+  });
+
+  it('keeps the daily baseline, which is history rather than projection', async () => {
+    const home = temporary('binnacle-home-');
+    const root = makeProject();
+    const git = (...args: string[]): string =>
+      execFileSync('git', ['-c', 'user.name=Binnacle Test', '-c', 'user.email=test@example.invalid', '-c', 'commit.gpgsign=false', ...args], {
+        cwd: root,
+        encoding: 'utf8',
+      });
+    git('init', '--quiet');
+    git('add', '.');
+    git('commit', '--quiet', '-m', 'Start');
+
+    const first = await startTestDaemon({ home });
+    await first.call('project.register', { path: root });
+    const recorded = await first.call<{ head: string }>('daily.get', { path: root });
+    assert.equal(recorded.status, 200, JSON.stringify(recorded.body));
+    await first.stop();
+
+    ageStore(home);
+    const second = await startTestDaemon({ home });
+    try {
+      const next = await second.call<{ from: { commit: string | null; source: string }; commits: { count: number } }>('daily.get', { path: root });
+      assert.deepEqual(next.body.from, { commit: recorded.body.head, source: 'daily' });
+      assert.equal(next.body.commits.count, 0);
     } finally {
       await second.stop();
     }

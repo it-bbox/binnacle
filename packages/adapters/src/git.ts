@@ -1,13 +1,17 @@
 import { spawn } from 'node:child_process';
 import { realpathSync, statSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { posix, resolve } from 'node:path';
+import type { Tree } from './tree.ts';
 
 /**
  * The Git adapter. It reads and never writes, and that holds by construction rather
  * than by care:
  *
  * - only inspecting commands run — `rev-parse`, `symbolic-ref` without a new value,
- *   `status`, `remote -v`, `log` — and nothing that fetches, writes, or changes config or refs;
+ *   `status`, `remote -v`, `log`, `show`, `ls-tree`, `merge-base --is-ancestor` — and
+ *   nothing that fetches, writes, or changes config or refs;
+ * - a revision is only ever passed as a commit hash, never as caller text that git could
+ *   read as an option;
  * - `--no-optional-locks` stops `status` refreshing the index, which it otherwise does
  *   as a side effect, and `core.fsmonitor=false` stops it running the hook a
  *   repository's config may name;
@@ -125,6 +129,62 @@ export async function readLastCommitTimes(cwd: string, pathspec: string, timeout
   }
 }
 
+/** The full hash of the commit `rev` names, or null when it names none here. */
+export async function readCommit(cwd: string, rev: string, timeoutMs: number): Promise<string | null> {
+  const run = acceptExit(await git(cwd, timeoutMs, ['rev-parse', '--verify', '--quiet', `${rev}^{commit}`]), 'rev-parse', [0, 1]);
+  return run.code === 0 ? run.stdout.trim() : null;
+}
+
+/** Whether `ancestor` is `commit` or one of its ancestors. */
+export async function isAncestor(cwd: string, ancestor: string, commit: string, timeoutMs: number): Promise<boolean> {
+  return acceptExit(await git(cwd, timeoutMs, ['merge-base', '--is-ancestor', ancestor, commit]), 'merge-base', [0, 1]).code === 0;
+}
+
+/** The newest commit reachable from `commit` whose date is before `date`, or null when there is none. */
+export async function readCommitBefore(cwd: string, commit: string, date: Date, timeoutMs: number): Promise<string | null> {
+  const run = acceptExit(await git(cwd, timeoutMs, ['log', '-1', '--format=%H', `--before=${date.toISOString()}`, commit]), 'log', [0]);
+  return run.stdout.trim() || null;
+}
+
+export type Commit = { commit: string; subject: string };
+
+/** The commits reachable from `to` and not from `from`, newest first; every one reachable from `to` when `from` is null. */
+export async function readLog(cwd: string, from: string | null, to: string, timeoutMs: number): Promise<Commit[]> {
+  const run = acceptExit(await git(cwd, timeoutMs, ['log', '--format=%H%x00%s', from === null ? to : `${from}..${to}`]), 'log', [0]);
+  return run.stdout
+    .split('\n')
+    .filter((line) => line !== '')
+    .map((line) => {
+      const [commit, subject] = line.split('\0') as [string, string];
+      return { commit, subject };
+    });
+}
+
+/**
+ * The files of `commit`, for the project directory `cwd`: committed state only, whatever
+ * the working tree holds. Git failing here is thrown as unavailable rather than read as a
+ * missing file, which would make a wrong answer out of a failed one.
+ */
+export function commitTree(cwd: string, commit: string, timeoutMs: number): Tree {
+  return {
+    async list(path) {
+      // A tree in Git is never empty, so nothing listed means no directory there.
+      const run = acceptExit(await git(cwd, timeoutMs, ['ls-tree', '-z', commit, '--', `${path}/`]), 'ls-tree', [0]);
+      const entries = run.stdout.split('\0').filter((entry) => entry !== '');
+      if (entries.length === 0) return null;
+      return entries.map((entry) => {
+        const [meta, name] = entry.split('\t') as [string, string];
+        return { name: posix.basename(name), directory: meta.split(' ')[1] === 'tree' };
+      });
+    },
+    async read(path) {
+      const run = await git(cwd, timeoutMs, ['show', `${commit}:./${path}`]);
+      if (run.code === 128 && /does not exist|exists on disk, but not in/.test(run.stderr)) return null;
+      return acceptExit(run, 'show', [0]).stdout;
+    },
+  };
+}
+
 /** `git remote -v` lists each remote twice; the fetch URL is the one that says where it lives. */
 function parseRemotes(output: string): GitRemote[] {
   const remotes: GitRemote[] = [];
@@ -199,6 +259,7 @@ function failed(command: string, run: Run): Unavailable {
 
 const unavailable = (code: UnavailableCode, reason: string): Unavailable => ({ available: false, code, reason });
 
-function isUnavailable(value: unknown): value is Unavailable {
+/** Whether a thrown value is Git reporting itself unavailable, which callers turn into their own error. */
+export function isUnavailable(value: unknown): value is Unavailable {
   return typeof value === 'object' && value !== null && (value as { available?: unknown }).available === false;
 }

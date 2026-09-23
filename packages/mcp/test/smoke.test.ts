@@ -43,7 +43,7 @@ test('binn mcp lists its tools, explains a stopped daemon, and proxies the snaps
   });
 
   const { tools } = await client.listTools();
-  assert.deepEqual(tools.map((tool) => tool.name).sort(), ['project_detect', 'project_snapshot', 'project_status']);
+  assert.deepEqual(tools.map((tool) => tool.name).sort(), ['daily_get', 'project_detect', 'project_snapshot', 'project_status']);
 
   const down = (await client.callTool({ name: 'project_status' })) as ToolResult;
   assert.equal(down.isError, true);
@@ -62,4 +62,9 @@ test('binn mcp lists its tools, explains a stopped daemon, and proxies the snaps
   const snapshot = JSON.parse(text) as { project: { id: string }; tasks: { readyToStart: { items: { id: string }[] } } };
   assert.equal(snapshot.project.id, 'mcp-project');
   assert.deepEqual(snapshot.tasks.readyToStart.items.map((task) => task.id), ['epic/01']);
+
+  // A tool's own argument reaches its operation: the daemon, not the server, refuses this one.
+  const refused = (await client.callTool({ name: 'daily_get', arguments: { since: 'not-a-commit' } })) as ToolResult;
+  assert.equal(refused.isError, true);
+  assert.equal((JSON.parse(refused.content[0]!.text) as { error: { code: string } }).error.code, 'request.invalid');
 });

@@ -1,6 +1,5 @@
-import { readdirSync, readFileSync, type Dirent } from 'node:fs';
-import { join, posix } from 'node:path';
-import { readLastCommitTimes, readLocalTasks, type GitFacts } from '@binnacle/adapters';
+import { posix } from 'node:path';
+import { readLastCommitTimes, readLocalTasks, workingTree, type GitFacts, type Tree } from '@binnacle/adapters';
 import {
   parseRoadmap,
   resolveDependencies,
@@ -9,6 +8,7 @@ import {
   type Epic,
   type ProjectManifest,
   type ResolvedTask,
+  type Roadmap,
   type TaskState,
 } from '@binnacle/core';
 import { resolveGitTimeout } from './home.ts';
@@ -89,23 +89,22 @@ export type Snapshot = {
 };
 
 /** `diagnostics` are the caller's own findings about the checkout, such as a tracker-remote mismatch. */
-export async function snapshot({ row, manifest, warnings }: Projected, caller: CallerCheckout, diagnostics: Diagnostic[]): Promise<Snapshot> {
-  const attention: Diagnostic[] = [
-    ...warnings.map((warning) => ({ code: 'manifest.warning', message: `${warning.path}: ${warning.message}` })),
-    ...diagnostics,
-  ];
-  const tasks = readTasks(caller.project, manifest, attention);
-  const roadmap = readRoadmap(caller.project, manifest, attention);
-  if (roadmap && tasks) attention.push(...roadmapAttention(roadmap.epics, tasks));
-  const decisions = await recentDecisions(caller.project, manifest, attention);
+export async function snapshot(projected: Projected, caller: CallerCheckout, diagnostics: Diagnostic[]): Promise<Snapshot> {
+  const tree = workingTree(caller.project);
+  const { tasks, roadmap, adrs, attention } = await readState(tree, projected, diagnostics);
+  // By code point, so that a cut never splits a character in two.
+  const focus = roadmap?.focus == null ? null : Array.from(roadmap.focus);
 
   return {
-    project: row,
+    project: projected.row,
     checkout: caller.checkout,
     git: caller.git,
-    roadmap,
+    roadmap: roadmap && {
+      ...roadmap,
+      focus: focus === null ? null : { text: focus.slice(0, FOCUS_LIMIT).join(''), truncated: focus.length > FOCUS_LIMIT },
+    },
     tasks: tasks && taskSections(tasks),
-    decisions,
+    decisions: adrs && (await recentDecisions(tree, caller.project, adrs)),
     pendingDecisions: UNAVAILABLE,
     ci: UNAVAILABLE,
     usage: UNAVAILABLE,
@@ -113,7 +112,29 @@ export async function snapshot({ row, manifest, warnings }: Projected, caller: C
   };
 }
 
-function readTasks(root: string, manifest: ProjectManifest | null, attention: Diagnostic[]): ResolvedTask[] | null {
+/** What the snapshot and the daily delta read from one version of the project, and the attention it calls for. */
+export type State = {
+  /** Null when the project's tracker cannot be read yet; `attention` says why. */
+  tasks: ResolvedTask[] | null;
+  roadmap: Roadmap | null;
+  /** The ADR directory and the ADRs in it; null when the project declares none or it is not there. */
+  adrs: { dir: string; paths: string[] } | null;
+  attention: Diagnostic[];
+};
+
+export async function readState(tree: Tree, { manifest, warnings }: Projected, diagnostics: Diagnostic[]): Promise<State> {
+  const attention: Diagnostic[] = [
+    ...warnings.map((warning) => ({ code: 'manifest.warning', message: `${warning.path}: ${warning.message}` })),
+    ...diagnostics,
+  ];
+  const tasks = await readTasks(tree, manifest, attention);
+  const roadmap = await readRoadmap(tree, manifest, attention);
+  if (roadmap && tasks) attention.push(...roadmapAttention(roadmap.epics, tasks));
+  const adrs = await readAdrs(tree, manifest, attention);
+  return { tasks, roadmap, adrs, attention };
+}
+
+async function readTasks(tree: Tree, manifest: ProjectManifest | null, attention: Diagnostic[]): Promise<ResolvedTask[] | null> {
   const issues = manifest?.tracker.provider === 'local' ? manifest.tracker.local.issues : null;
   if (issues === null) {
     attention.push({
@@ -124,13 +145,13 @@ function readTasks(root: string, manifest: ProjectManifest | null, attention: Di
     });
     return null;
   }
-  const reading = readLocalTasks(root, issues);
+  const reading = await readLocalTasks(tree, issues);
   const { tasks, diagnostics } = resolveDependencies(reading.tasks);
   attention.push(...reading.diagnostics, ...diagnostics);
   return tasks;
 }
 
-function taskSections(tasks: ResolvedTask[]): NonNullable<Snapshot['tasks']> {
+export function taskSections(tasks: ResolvedTask[]): NonNullable<Snapshot['tasks']> {
   const counts: TaskCounts = { BACKLOG: 0, READY: 0, MERGED: 0, DONE: 0, CANCELLED: 0, unknown: 0 };
   const listedInFlight: ResolvedTask[] = [];
   const readyToStart: ResolvedTask[] = [];
@@ -143,25 +164,22 @@ function taskSections(tasks: ResolvedTask[]): NonNullable<Snapshot['tasks']> {
 }
 
 /** In tracker order, which the adapter makes stable. */
-function section(tasks: ResolvedTask[]): Section {
-  return {
-    items: tasks.slice(0, SECTION_LIMIT).map(({ id, title, state, unmetDependencies, ticket }) => ({
-      id,
-      title,
-      state,
-      unmetDependencies,
-      ticket,
-    })),
-    remainder: Math.max(0, tasks.length - SECTION_LIMIT),
-  };
+export function section(tasks: ResolvedTask[]): Section {
+  return limited(tasks.map(({ id, title, state, unmetDependencies, ticket }) => ({ id, title, state, unmetDependencies, ticket })));
 }
+
+/** The first `limit` items, and how many were left out. */
+export const limited = <T>(items: T[], limit = SECTION_LIMIT): { items: T[]; remainder: number } => ({
+  items: items.slice(0, limit),
+  remainder: Math.max(0, items.length - limit),
+});
 
 /**
  * On the local Markdown tracker the roadmap is `<knowledge.docs>/roadmap.md` (ADR-0017).
  * On any other tracker, or with no readable manifest, it is simply absent: `tracker.unavailable`
  * already says why, and saying it twice only makes the attention list noisier.
  */
-function readRoadmap(root: string, manifest: ProjectManifest | null, attention: Diagnostic[]): Snapshot['roadmap'] {
+async function readRoadmap(tree: Tree, manifest: ProjectManifest | null, attention: Diagnostic[]): Promise<Roadmap | null> {
   if (manifest?.tracker.provider !== 'local') return null;
   const docs = manifest.knowledge.docs;
   if (docs === null) {
@@ -170,60 +188,36 @@ function readRoadmap(root: string, manifest: ProjectManifest | null, attention: 
   }
 
   const path = posix.join(docs, 'roadmap.md');
-  const text = readOptional(join(root, path));
+  const text = await tree.read(path);
   if (text === null) {
     attention.push({ code: 'roadmap.missing', message: `There is no roadmap at ${path}.` });
     return null;
   }
   const { roadmap, diagnostics } = parseRoadmap(text);
   attention.push(...diagnostics);
-  // By code point, so that a cut never splits a character in two.
-  const focus = roadmap.focus === null ? null : Array.from(roadmap.focus);
-  return {
-    ...roadmap,
-    focus: focus === null ? null : { text: focus.slice(0, FOCUS_LIMIT).join(''), truncated: focus.length > FOCUS_LIMIT },
-  };
+  return roadmap;
 }
 
-async function recentDecisions(root: string, manifest: ProjectManifest | null, attention: Diagnostic[]): Promise<Snapshot['decisions']> {
+async function readAdrs(tree: Tree, manifest: ProjectManifest | null, attention: Diagnostic[]): Promise<State['adrs']> {
   // A project need not keep ADRs, and declaring none is a choice, not a problem to report.
   const adr = manifest?.knowledge.adr ?? null;
   if (adr === null) return null;
-  const files = listing(join(root, adr));
+  const files = await tree.list(adr);
   if (files === null) {
     attention.push({ code: 'adr.missing', message: `knowledge.adr names ${adr}, which is not a directory.` });
     return null;
   }
+  return { dir: adr, paths: files.filter((entry) => !entry.directory && entry.name.endsWith('.md')).map((entry) => posix.join(adr, entry.name)) };
+}
 
-  const paths = files.filter((entry) => entry.isFile() && entry.name.endsWith('.md')).map((entry) => posix.join(adr, entry.name));
-  const times = (await readLastCommitTimes(root, adr, resolveGitTimeout())) ?? new Map<string, number>();
+async function recentDecisions(tree: Tree, root: string, { dir, paths }: NonNullable<State['adrs']>): Promise<NonNullable<Snapshot['decisions']>> {
+  const times = (await readLastCommitTimes(root, dir, resolveGitTimeout())) ?? new Map<string, number>();
   // Never committed sorts as newest; one commit's ADRs go by path, highest number first.
   const time = (path: string): number => times.get(path) ?? Infinity;
   paths.sort((a, b) => time(b) - time(a) || (a < b ? 1 : a > b ? -1 : 0));
 
-  return {
-    items: paths.slice(0, DECISION_LIMIT).map((path) => ({ title: firstHeading(readFileSync(join(root, path), 'utf8')), path })),
-    remainder: Math.max(0, paths.length - DECISION_LIMIT),
-  };
+  const { items, remainder } = limited(paths, DECISION_LIMIT);
+  return { items: await Promise.all(items.map(async (path) => ({ title: firstHeading((await tree.read(path)) ?? ''), path }))), remainder };
 }
 
-const firstHeading = (text: string): string | null => /^#\s+(.+?)\s*$/m.exec(text)?.[1] ?? null;
-
-/** Null for a file or directory that is not there; anything else is thrown. */
-function readOptional(path: string): string | null {
-  return absentAsNull(() => readFileSync(path, 'utf8'));
-}
-
-function listing(path: string): Dirent[] | null {
-  return absentAsNull(() => readdirSync(path, { withFileTypes: true }));
-}
-
-function absentAsNull<T>(read: () => T): T | null {
-  try {
-    return read();
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (code === 'ENOENT' || code === 'ENOTDIR') return null;
-    throw error;
-  }
-}
+export const firstHeading = (text: string): string | null => /^#\s+(.+?)\s*$/m.exec(text)?.[1] ?? null;

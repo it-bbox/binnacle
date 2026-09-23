@@ -12,7 +12,7 @@ export {
   type TaskReading,
   type TrackerTask,
 } from './tracker.ts';
-export { parseRoadmap, roadmapAttention, type Epic } from './roadmap.ts';
+export { parseRoadmap, roadmapAttention, type Epic, type Roadmap, type RoadmapStatus } from './roadmap.ts';
 export {
   isTaskState,
   transitionAgentRun,

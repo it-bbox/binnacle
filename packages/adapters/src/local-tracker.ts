@@ -1,6 +1,6 @@
-import { readdirSync, readFileSync, type Dirent } from 'node:fs';
-import { join, posix } from 'node:path';
+import { posix } from 'node:path';
 import { isTaskState, type Diagnostic, type TaskReading, type TrackerTask } from '@binnacle/core';
+import type { Tree } from './tree.ts';
 
 /**
  * The local Markdown tracker (ADR-0017): every `<issues>/<spec-slug>/issues/NN-<slug>.md`
@@ -10,10 +10,11 @@ import { isTaskState, type Diagnostic, type TaskReading, type TrackerTask } from
  * Only the header lines under the first heading are read — `Status:`, `Triage:`,
  * `Blocked by:`, `Spec:`. The body and `## Comments` are for the session to read.
  *
- * `issues` is relative to `root`, as the manifest declares it.
+ * `issues` is relative to the tree, as the manifest declares it. The tree is the working
+ * tree for the snapshot, and a commit for the daily delta.
  */
-export function readLocalTasks(root: string, issues: string): TaskReading {
-  const specs = directories(join(root, issues));
+export async function readLocalTasks(tree: Tree, issues: string): Promise<TaskReading> {
+  const specs = (await tree.list(issues))?.filter((entry) => entry.directory).map((entry) => entry.name) ?? null;
   if (specs === null) {
     return {
       tasks: [],
@@ -25,16 +26,16 @@ export function readLocalTasks(root: string, issues: string): TaskReading {
   const diagnostics: Diagnostic[] = [];
   // Plain code-unit order rather than locale order, so the same files give the same answer anywhere.
   for (const spec of specs.sort()) {
-    const dir = join(root, issues, spec, 'issues');
-    const files = (listing(dir) ?? [])
-      .filter((entry) => entry.isFile() && TICKET_FILE.test(entry.name))
+    const dir = posix.join(issues, spec, 'issues');
+    const files = ((await tree.list(dir)) ?? [])
+      .filter((entry) => !entry.directory && TICKET_FILE.test(entry.name))
       .map((entry) => entry.name)
       // By ticket number, so `9-…` comes before `10-…`; the name breaks a tie.
       .sort((a, b) => ticketNumber(a) - ticketNumber(b) || (a < b ? -1 : a > b ? 1 : 0));
-    for (const file of files) {
-      const ticket = posix.join(issues, spec, 'issues', file);
-      tasks.push(parseTicket(spec, file, ticket, readFileSync(join(dir, file), 'utf8'), diagnostics));
-    }
+    const texts = await Promise.all(files.map((file) => tree.read(posix.join(dir, file))));
+    files.forEach((file, index) => {
+      tasks.push(parseTicket(spec, file, posix.join(dir, file), texts[index] ?? '', diagnostics));
+    });
   }
   return { tasks, diagnostics };
 }
@@ -90,18 +91,3 @@ function dependencies(spec: string, value: string): string[] {
 }
 
 const unquote = (value: string | undefined): string | null => value?.replace(/^`(.*)`$/, '$1') || null;
-
-function directories(path: string): string[] | null {
-  return listing(path)?.filter((entry) => entry.isDirectory()).map((entry) => entry.name) ?? null;
-}
-
-/** Null for a directory that is not there, which on a tracker is a normal answer; anything else is thrown. */
-function listing(path: string): Dirent[] | null {
-  try {
-    return readdirSync(path, { withFileTypes: true });
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (code === 'ENOENT' || code === 'ENOTDIR') return null;
-    throw error;
-  }
-}
