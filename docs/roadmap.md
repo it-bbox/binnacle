@@ -23,9 +23,9 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 Design is complete and recorded: every question in `docs/08-open-questions.md` is resolved across ADR-0001 to ADR-0018, and specifying epic 1 added ADR-0019. Epic 1 is specified and sliced into seven tickets, and implementation has begun.
 
-Tickets 01 and 02 are implemented. `apps/daemon` and `apps/cli` carry the daemon lifecycle, the authenticated loopback API, the shared error envelope, the machine store and the project registry — which is ADR-0019 executed, not only recorded. `packages/` is still intentionally empty; it fills with tickets 03 and 06.
+Tickets 01 to 03 are implemented. `apps/daemon` and `apps/cli` carry the daemon lifecycle, the authenticated loopback API, the shared error envelope, the machine store and the project registry — which is ADR-0019 executed, not only recorded. `packages/core` now holds manifest validation as a pure function with no dependencies; ticket 06 extends it with the domain state machines.
 
-Next action: epic 1 tickets 03, 04 and 05, which ticket 02 unblocked and which touch different areas. Ticket 06 still has no blockers.
+Next action: epic 1 tickets 04 and 05, which touch different areas and can run in either order. Ticket 06 still has no blockers. Ticket 07, the exit criterion, needs 04.
 
 ## Later
 

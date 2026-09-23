@@ -1,0 +1,14 @@
+{
+  "name": "@binnacle/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Binnacle core: domain types and deterministic policy logic. No runtime dependencies.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "engines": {
+    "node": ">=24 <27"
+  }
+}

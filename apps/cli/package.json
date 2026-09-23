@@ -9,6 +9,7 @@
     "binn": "./src/bin.ts"
   },
   "dependencies": {
+    "@binnacle/core": "workspace:*",
     "@binnacle/daemon": "workspace:*"
   },
   "engines": {

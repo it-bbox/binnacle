@@ -56,6 +56,7 @@ export const EVENT_LIMIT_MAX = 500;
 
 export type Store = {
   projects(): ProjectRow[];
+  project(path: string): ProjectRow | null;
   putProject(row: ProjectRow): void;
   dropProjectsExcept(paths: string[]): void;
   appendEvent(event: NewEvent): void;
@@ -102,6 +103,7 @@ export function openStore(home: string): Store {
   db.prepare('insert or ignore into meta (key, value) values (?, ?)').run('schema_version', String(SCHEMA_VERSION));
 
   const selectAll = db.prepare('select path, id, name, registered_at, unavailable from project order by id');
+  const selectOne = db.prepare('select path, id, name, registered_at, unavailable from project where path = ?');
   const upsert = db.prepare(`
     insert into project (path, id, name, registered_at, unavailable)
     values (?, ?, ?, ?, ?)
@@ -116,6 +118,10 @@ export function openStore(home: string): Store {
 
   return {
     projects: () => selectAll.all().map(toProject),
+    project: (path) => {
+      const row = selectOne.get(path);
+      return row ? toProject(row) : null;
+    },
     putProject: (row) => {
       upsert.run(row.path, row.id, row.name, row.registeredAt, row.unavailable);
     },

@@ -1,15 +1,19 @@
 import { resolve } from 'node:path';
+import type { ManifestProblem } from '@binnacle/core';
 import { isAlive, readRuntime, type ProjectRow } from '@binnacle/daemon';
 import { callOperation } from './client.ts';
 import { EXIT, type ExitCode } from './exit.ts';
 import { reportFailure, requireToken } from './report.ts';
 
 export async function register(home: string, path?: string): Promise<ExitCode> {
-  return await callAndReport<{ project: ProjectRow }>(home, 'project.register', { path: target(path) }, ({ project }) => {
+  type Registered = { project: ProjectRow; warnings: ManifestProblem[] };
+  return await callAndReport<Registered>(home, 'project.register', { path: target(path) }, ({ project, warnings }) => {
     console.log(`Registered ${project.id ?? project.path}.`);
     console.log(`  path     ${project.path}`);
     if (project.name) console.log(`  name     ${project.name}`);
     console.log(`  since    ${project.registeredAt}`);
+    // Warnings go to stderr: registration succeeded, and stdout is the result.
+    for (const warning of warnings) console.error(`binn: ${warning.path}: ${warning.message}`);
   });
 }
 

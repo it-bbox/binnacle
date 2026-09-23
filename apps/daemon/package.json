@@ -17,6 +17,7 @@
     "node": ">=24 <27"
   },
   "dependencies": {
+    "@binnacle/core": "workspace:*",
     "yaml": "^2.9.1"
   }
 }

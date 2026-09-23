@@ -290,10 +290,12 @@ describe('events', () => {
       const listed = await second.call<{ projects: Project[] }>('project.list');
       assert.equal(listed.body.projects[0]?.name, 'Renamed Between Runs');
 
+      // The registration is still there under the change the re-read recorded: the
+      // projection is rebuilt, the append-only tier is only ever added to.
       const { body } = await second.call<{ events: Event[] }>('event.list');
       assert.deepEqual(
         body.events.map((event) => event.type),
-        ['project.registered'],
+        ['project.manifest_changed', 'project.registered'],
       );
     } finally {
       await second.stop();

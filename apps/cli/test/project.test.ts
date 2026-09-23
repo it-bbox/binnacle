@@ -68,6 +68,27 @@ test('binn project register, list and unregister', async (t) => {
     assert.match(result.stdout, /example-project/);
   });
 
+  await t.test('shows the manifest warnings without failing the registration', () => {
+    const odd = makeProject(`version: 1
+
+project:
+  id: odd-project
+  name: Odd Project
+
+orchestration:
+  autopilot: true
+`);
+    try {
+      const result = binn('project', 'register', odd);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /odd-project/);
+      assert.match(result.stderr, /orchestration/);
+      assert.equal(binn('project', 'unregister', odd).status, 0);
+    } finally {
+      rmSync(odd, { recursive: true, force: true });
+    }
+  });
+
   await t.test('reports a directory with no manifest as an operation failure', () => {
     const bare = realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-cli-bare-')));
     try {

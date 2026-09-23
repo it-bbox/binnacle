@@ -9,9 +9,32 @@ import type { ProjectRow, Store } from './store.ts';
  */
 export function projectRegistry(home: string, store: Store): void {
   const entries = readRegistry(home);
-  for (const entry of entries) store.putProject(deriveProject(entry));
+  for (const entry of entries) reproject(store, entry);
   store.dropProjectsExcept(entries.map((entry) => entry.path));
 }
+
+/**
+ * Re-reads one repository's manifest into the projection, and records a change when the
+ * facts moved. A first projection is not a change — there was nothing to differ from —
+ * and neither is a re-read that came back identical, so the history stays worth reading.
+ */
+export function reproject(store: Store, entry: RegistryEntry): ProjectRow {
+  const before = store.project(entry.path);
+  const row = deriveProject(entry);
+  store.putProject(row);
+
+  if (before && differs(before, row)) {
+    store.appendEvent({
+      type: 'project.manifest_changed',
+      projectPath: entry.path,
+      payload: { id: row.id, name: row.name, unavailable: row.unavailable },
+    });
+  }
+  return row;
+}
+
+const differs = (before: ProjectRow, after: ProjectRow): boolean =>
+  before.id !== after.id || before.name !== after.name || before.unavailable !== after.unavailable;
 
 /**
  * A registered repository whose manifest cannot be read stays registered and says why.
@@ -20,11 +43,11 @@ export function projectRegistry(home: string, store: Store): void {
  */
 export function deriveProject(entry: RegistryEntry): ProjectRow {
   try {
-    const manifest = readManifest(entry.path);
+    const { manifest } = readManifest(entry.path);
     return {
       path: entry.path,
-      id: manifest.id,
-      name: manifest.name,
+      id: manifest.project.id,
+      name: manifest.project.name,
       registeredAt: entry.registeredAt,
       unavailable: null,
     };

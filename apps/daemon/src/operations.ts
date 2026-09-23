@@ -3,7 +3,7 @@ import { isAbsolute } from 'node:path';
 import { OperationError } from './errors.ts';
 import type { Runtime } from './home.ts';
 import { readManifest } from './manifest.ts';
-import { deriveProject } from './projection.ts';
+import { reproject } from './projection.ts';
 import { readRegistry, writeRegistry } from './registry.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type Store } from './store.ts';
 
@@ -32,7 +32,7 @@ export const operations: Record<string, Operation> = {
     // through: a manifest that has become unsupported since registration is still a
     // hard error rather than a 200 with a reason attached. A directory that cannot be
     // registered also leaves no trace of having been tried.
-    readManifest(path);
+    const { warnings } = readManifest(path);
 
     const entries = readRegistry(context.home);
     let registered = false;
@@ -43,8 +43,7 @@ export const operations: Record<string, Operation> = {
       registered = true;
     }
 
-    const row = deriveProject(entry);
-    context.store.putProject(row);
+    const row = reproject(context.store, entry);
     // Registering an already-registered path changes nothing, so it records nothing.
     if (registered) {
       context.store.appendEvent({
@@ -53,7 +52,7 @@ export const operations: Record<string, Operation> = {
         payload: { path, id: row.id },
       });
     }
-    return { project: row };
+    return { project: row, warnings };
   },
 
   'project.list': (_body, context) => ({ projects: context.store.projects() }),
