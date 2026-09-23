@@ -31,11 +31,11 @@ Binnacle is not yet useful for its own Product work. `/product`, `/daily` and `/
 
 Epic 2 is specified. Its three open questions were settled at `/grill-with-docs` before `/to-spec`: epic 2 takes the Task-reading half of the tracker contract with the local Markdown tracker as its first adapter; the MCP server is registered by a committed `.mcp.json`, and `binn init` stays in epic 3; and ticket 08 (linked worktrees) moves into epic 2. Specifying it added ADR-0020 and ADR-0021.
 
-Epic 2 is sliced into seven tickets under `specs/mcp-and-product-snapshot/issues/`. Tickets 01 (linked worktrees) and 02 (Tasks in the snapshot) have no blockers and can run in parallel; 03 and 04 follow 02; 05 needs 03 and 04; 06 needs 05; 07, the skills and the exit demonstration, needs 01 and 06.
+Epic 2 is sliced into seven tickets under `specs/mcp-and-product-snapshot/issues/`. Tickets 01 (linked worktrees) and 02 (Tasks in the snapshot) had no blockers; 03 and 04 follow 02; 05 needs 03 and 04; 06 needs 05; 07, the skills and the exit demonstration, needs 01 and 06.
 
-Ticket 01 is done: `project.status` and `project.detect` now answer from a linked worktree, inside the repository or beside it, with the Git facts of the caller's own checkout.
+Tickets 01 and 02 are done. `project.status` and `project.detect` answer from a linked worktree, inside the repository or beside it, with the Git facts of the caller's own checkout. `project.snapshot` lists the Tasks in flight and the Tasks ready to start and counts the rest, read live from the local Markdown tracker through the Task-reading contract in `packages/core`.
 
-Next action: implement ticket 02 if it is not already merged, then 03 and 04, each in a fresh session.
+Next action: implement tickets 03 and 04, each in a fresh session.
 
 ## Later
 
