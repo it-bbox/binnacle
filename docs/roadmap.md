@@ -23,11 +23,11 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 Design is complete and recorded: every question in `docs/08-open-questions.md` is resolved across ADR-0001 to ADR-0018, and specifying epic 1 added ADR-0019. Epic 1 is specified and sliced into seven tickets, and implementation has begun.
 
-Tickets 01 to 03 are implemented. `apps/daemon` and `apps/cli` carry the daemon lifecycle, the authenticated loopback API, the shared error envelope, the machine store and the project registry — which is ADR-0019 executed, not only recorded. `packages/core` now holds manifest validation as a pure function with no dependencies; ticket 06 extends it with the domain state machines.
+Tickets 01 to 04 are implemented. `apps/daemon` and `apps/cli` carry the daemon lifecycle, the authenticated loopback API, the shared error envelope, the machine store and the project registry — which is ADR-0019 executed, not only recorded. `project.status` reports manifest facts beside live, read-only Git facts, and `project.detect` finds a project from any directory inside it. `packages/core` holds manifest validation and the tracker-versus-remote check as pure functions with no dependencies; ticket 06 extends it with the domain state machines. `packages/adapters` holds the Git adapter.
 
 Binnacle is not yet useful for its own Product work. `/product`, `/daily` and `/checkpoint` arrive with epic 2; until then that work is done by hand, as `docs/workflow/02-development-workflow.md` describes under *This repository, until epic 2*.
 
-Next action: epic 1 ticket 04, because ticket 07 — the exit criterion — needs it. Tickets 05 and 06 have no blockers and follow in either order. Ticket 07 comes last.
+Next action: epic 1 tickets 05 and 06, in either order; neither has an open blocker. Ticket 07 — the exit criterion — comes last.
 
 ## Open before epic 2 is specified
 
