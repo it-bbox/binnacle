@@ -259,6 +259,8 @@ The skills. They are procedure text for an agent, and a test that asserts their 
 - The Streamable HTTP transport.
 - `Question` and `Answer`, and with them the `question_*` tools and real pending decisions. Epic 1's note that their tier must be decided explicitly carries forward to whichever epic introduces them.
 - `/task`, `/status` and `/audit` skills.
+
+`/autopilot` was added to this epic after slicing, by ADR-0022, as ticket 08. It needs no Binnacle change: it drives the tools this epic builds.
 - Skill wrappers for any harness other than Claude Code, and generation of wrappers from one procedure description.
 - Configurable snapshot limits.
 - Any MCP tool that mutates something other than Binnacle's own event history.

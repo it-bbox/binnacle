@@ -33,7 +33,7 @@ MCP is the stable contract. Client-specific slash commands/skills are thin UX wr
 
 No tool writes to the tracker (ADR-0013). Closing an issue is done by the agent with its own tooling, or by the human in the tracker's own interface.
 
-Do **not** expose autonomous `spawn_agents`, `merge_to_main`, `deploy_prod` in v1.
+Do **not** expose autonomous `spawn_agents`, `merge_to_main`, `deploy_prod` in v1. `/autopilot` (ADR-0022) does not change this: it runs in the human's harness and uses the harness's own agents and Git, not Binnacle tools.
 
 ## Logical workflows / skills
 
@@ -44,7 +44,8 @@ Initial user-facing actions:
 - `/task <id>` — load a compact task brief;
 - `/status` — concise project/session/run status;
 - `/checkpoint` — extract durable delta and propose persistence;
-- `/audit` — read-only audit/adoption analysis.
+- `/audit` — read-only audit/adoption analysis;
+- `/autopilot` — finish one planned epic with an agent per ticket; started only by a human (ADR-0022).
 
 Actual command syntax may differ across Claude Code, Codex, Gemini and other clients. The logical action remains the same.
 

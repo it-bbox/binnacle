@@ -24,7 +24,7 @@ A project should be auditable and adoptable without destructive migration.
 ## Explicit non-goals for v1
 
 - autonomous project management;
-- automatic hiring/spawning of role agents;
+- automatic hiring/spawning of role agents, except `/autopilot`: started by a human, for one already planned epic (ADR-0022);
 - automatic model selection/routing;
 - replacement of GitHub/GitLab Issues;
 - replacement of Git, CI/CD, deployment platforms or observability backends;

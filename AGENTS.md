@@ -6,7 +6,7 @@ This repository implements the AI Engineering Control Plane. Priorities: simplic
 
 ## Mandatory principles
 
-1. **Do not turn the system into an autonomous orchestrator.** No automatic spawning of full agents in v1.
+1. **Do not turn the system into an autonomous orchestrator.** No automatic spawning of full agents in v1, with one exception: `/autopilot`, started by a human, spawns agents to finish one already planned epic (ADR-0022). Binnacle itself never spawns agents.
 2. **Do not duplicate external systems.** Git stays Git, GitHub/GitLab stay the tracker/remote, CI stays external CI.
 3. **Binnacle must not be a required runtime for the user's project.** If the daemon is unavailable, the project must still be developable the normal way.
 4. **Canonical knowledge lives in portable sources.** Markdown, Git, tracker. The local DB is a rebuildable projection/cache.

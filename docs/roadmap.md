@@ -40,6 +40,7 @@ Deferred deliberately, each with the decision that deferred it:
 - installing `binnd` as an auto-starting service per platform — `ADR-0016`;
 - standalone binaries for users without Node — `ADR-0016`;
 - adopting a large third-party repository as a baseline case — `docs/00-scope.md`;
+- autopilot notifications through a Telegram bot, beside the push notification it sends today — `ADR-0022`;
 - deeper Graphify integration, Obsidian export automation, worktree parallelism recommendations, further harness adapters — `docs/05-mvp-plan.md`, phase 7, and only after real measurement.
 
 Items excluded from the product altogether are not listed here. See the non-goals in `docs/00-scope.md`.
