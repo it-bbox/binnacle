@@ -106,8 +106,8 @@ export const operations: Record<string, Operation> = {
   },
 
   // The tracker is read now, on every call; nothing about Tasks is stored.
-  'project.snapshot': (body, context) => {
-    const { row, manifest } = reproject(context.store, containingEntry(body, context));
+  'project.snapshot': async (body, context) => {
+    const { row, manifest } = reproject(context.store, await resolveEntry(repositoryPath(body, { mustExist: false }), context));
     return snapshot(row, manifest);
   },
 
