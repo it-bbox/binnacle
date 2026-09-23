@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { transitionAgentRun, transitionReview, transitionTask } from '../src/index.ts';
+import { transitionAgentRun, transitionReview, transitionTask, type TransitionResult } from '../src/index.ts';
 
 /**
  * Each machine is pinned edge by edge against `docs/workflow/03-state-machines.md`: every
@@ -9,7 +9,7 @@ import { transitionAgentRun, transitionReview, transitionTask } from '../src/ind
  */
 type Machine = {
   name: string;
-  transition: (from: string, to: string) => { ok: true; state: string } | { ok: false; code: string; message: string };
+  transition: (from: string, to: string) => TransitionResult<string>;
   states: string[];
   edges: string[];
 };
@@ -72,8 +72,7 @@ for (const machine of machines) {
         if (machine.edges.includes(`${from}→${to}`)) {
           assert.deepEqual(result, { ok: true, state: to }, `${from}→${to} should pass`);
         } else {
-          assert.equal(result.ok, false, `${from}→${to} should be rejected`);
-          assert.ok(!result.ok);
+          assert.ok(!result.ok, `${from}→${to} should be rejected`);
           assert.equal(result.code, terminal.includes(from) ? 'transition.terminal' : 'transition.not_allowed');
           assert.match(result.message, new RegExp(`${machine.name}.*${from}.*${to}`));
         }
@@ -90,9 +89,8 @@ for (const machine of machines) {
         [known, stranger],
       ]) {
         const result = machine.transition(from as string, to as string);
-        assert.equal(result.ok, false);
-        assert.ok(!result.ok);
-        assert.equal(result.code, 'transition.unknown_state', `${String(from)}→${String(to)}`);
+        assert.ok(!result.ok, `${String(from)}→${String(to)} should be rejected`);
+        assert.equal(result.code, 'transition.unknown_state');
       }
     }
   });

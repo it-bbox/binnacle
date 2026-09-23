@@ -106,6 +106,10 @@ export type TransitionResult<S extends string> =
   | { ok: false; code: 'transition.unknown_state' | 'transition.terminal' | 'transition.not_allowed'; message: string };
 
 /**
+ * The edges are the diagram's and nothing more. Where the diagram is silent, this machine
+ * does not guess: a reopened issue (`DONE` back to `ACTIVE`) is a rejection for the tracker
+ * adapter to surface, not an edge invented here.
+ *
  * `CANCELLED` is reachable from every state before `MERGED`. The diagram allows it "from
  * applicable pre-completion states"; once code is merged, cancelling would claim it was not.
  */
@@ -124,15 +128,15 @@ const TASK: Record<TaskState, readonly TaskState[]> = {
 };
 
 /**
- * The terminal alternatives are reachable from every live state. AgentRun state is observed
- * from harness artifacts, not decided here, and a run can fail, be aborted or run out of
- * budget before it starts or while it waits; rejecting that would drop a fact.
+ * The diagram lists the terminal alternatives without saying where they are entered from.
+ * They are reachable from every live state: a run can fail, be aborted or run out of budget
+ * before it starts or while it waits for input.
  */
-const LIVE_RUN_ENDS = ['FAILED', 'ABORTED', 'BUDGET_EXCEEDED'] as const;
+const TERMINAL_ALTERNATIVES = ['FAILED', 'ABORTED', 'BUDGET_EXCEEDED'] as const;
 const AGENT_RUN: Record<AgentRunState, readonly AgentRunState[]> = {
-  PLANNED: ['RUNNING', ...LIVE_RUN_ENDS],
-  RUNNING: ['WAITING_INPUT', 'COMPLETED', ...LIVE_RUN_ENDS],
-  WAITING_INPUT: ['RUNNING', ...LIVE_RUN_ENDS],
+  PLANNED: ['RUNNING', ...TERMINAL_ALTERNATIVES],
+  RUNNING: ['WAITING_INPUT', 'COMPLETED', ...TERMINAL_ALTERNATIVES],
+  WAITING_INPUT: ['RUNNING', ...TERMINAL_ALTERNATIVES],
   COMPLETED: [],
   FAILED: [],
   ABORTED: [],
