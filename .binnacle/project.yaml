@@ -22,8 +22,7 @@ workflow:
   scratch: .scratch
 
 capabilities:
-  # What is installed, not what CLAUDE.md would route to: Graphify and ast-grep are named
-  # there but are not set up for this repository yet.
+  # What is installed on this machine. CLAUDE.md routes agents only to what is true here.
   serena: true
   graphify: false
   context7: true

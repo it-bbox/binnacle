@@ -14,10 +14,10 @@ Read and obey `AGENTS.md` first. This file only adds Claude-specific workflow gu
 ## Codebase navigation
 
 1. Serena for symbols/references/editing.
-2. Graphify for architecture/impact questions.
-3. Context7 for version-specific external docs.
-4. ast-grep for structural patterns.
-5. Broad grep/full-file reads only when the above are insufficient or local implementation context is necessary.
+2. Context7 for version-specific external docs.
+3. Broad grep/full-file reads only when the above are insufficient or local implementation context is necessary.
+
+Graphify and ast-grep are not set up for this repository (`.binnacle/project.yaml`, `capabilities`). Add them back here when the manifest says they are installed.
 
 ## Coding policy
 
