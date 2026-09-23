@@ -19,11 +19,7 @@ export type OperationContext = {
 export type ProjectStatus = {
   project: ProjectRow;
   manifest: ProjectManifest | null;
-  /**
-   * The checkout `git` describes: the caller's own when it is a linked worktree of the
-   * project, otherwise the registered one. `root` is the project path when Git has no answer.
-   */
-  checkout: { root: string; registered: boolean };
+  checkout: CallerCheckout['checkout'];
   git: GitFacts;
   diagnostics: Diagnostic[];
 };
@@ -90,25 +86,16 @@ export const operations: Record<string, Operation> = {
   'project.status': async (body, context): Promise<ProjectStatus> => {
     const path = repositoryPath(body, { mustExist: false });
     const { row, manifest } = reproject(context.store, await resolveEntry(path, context));
-    const worktree = path === row.path ? null : await linkedWorktree(path, row.path);
-    const git = await readGitFacts(worktree ?? row.path, resolveGitTimeout());
-    const checkout = { root: git.available ? git.root : (worktree ?? row.path), registered: worktree === null };
-
-    const mismatch =
-      manifest && git.available
-        ? trackerRemoteMismatch(
-            manifest.tracker.provider,
-            git.remotes.map((remote) => remote.url),
-          )
-        : null;
-
-    return { project: row, manifest, checkout, git, diagnostics: mismatch ? [mismatch] : [] };
+    const { checkout, git } = await callerCheckout(path, row.path);
+    return { project: row, manifest, checkout, git, diagnostics: remoteMismatch(manifest, git) };
   },
 
-  // The tracker is read now, on every call; nothing about Tasks is stored.
+  // Read now, on every call, from the caller's checkout; nothing in a snapshot is stored.
   'project.snapshot': async (body, context) => {
-    const { row, manifest } = reproject(context.store, await resolveEntry(repositoryPath(body, { mustExist: false }), context));
-    return snapshot(row, manifest);
+    const path = repositoryPath(body, { mustExist: false });
+    const projected = reproject(context.store, await resolveEntry(path, context));
+    const caller = await callerCheckout(path, projected.row.path);
+    return snapshot(projected, caller, remoteMismatch(projected.manifest, caller.git));
   },
 
   'project.unregister': (body, context) => {
@@ -157,17 +144,48 @@ async function resolveEntry(path: string, context: OperationContext): Promise<Re
   throw new OperationError('project.not_registered', `No registered Binnacle project contains ${path}.`, 404);
 }
 
+export type CallerCheckout = {
+  /**
+   * The checkout `git` describes: the caller's own when it is a linked worktree of the
+   * project, otherwise the registered one. `root` is the project path when Git has no answer.
+   */
+  checkout: { root: string; registered: boolean };
+  git: GitFacts;
+  /** The project's directory in that checkout, which is where its files are read. */
+  project: string;
+};
+
+async function callerCheckout(path: string, projectPath: string): Promise<CallerCheckout> {
+  const worktree = path === projectPath ? null : await linkedWorktree(path, projectPath);
+  const project = worktree ?? projectPath;
+  const git = await readGitFacts(project, resolveGitTimeout());
+  return { checkout: { root: git.available ? git.root : project, registered: worktree === null }, git, project };
+}
+
 /**
- * The root of the linked worktree `path` is in, when it is one of the project's; null for
- * the registered checkout itself, for a separate repository nested inside the project,
- * and whenever Git cannot say.
+ * The project's directory in the linked worktree `path` is in, when that is one of the
+ * project's; null for the registered checkout itself, for a separate repository nested
+ * inside the project, and whenever Git cannot say.
  */
 async function linkedWorktree(path: string, projectPath: string): Promise<string | null> {
   const [here, registered] = await Promise.all([
     readGitLocation(path, resolveGitTimeout()),
     readGitLocation(projectPath, resolveGitTimeout()),
   ]);
-  return here && registered && here.commonDir === registered.commonDir && here.root !== registered.root ? here.root : null;
+  return here && registered && here.commonDir === registered.commonDir && here.root !== registered.root
+    ? join(here.root, relative(registered.root, projectPath))
+    : null;
+}
+
+function remoteMismatch(manifest: ProjectManifest | null, git: GitFacts): Diagnostic[] {
+  const mismatch =
+    manifest && git.available
+      ? trackerRemoteMismatch(
+          manifest.tracker.provider,
+          git.remotes.map((remote) => remote.url),
+        )
+      : null;
+  return mismatch ? [mismatch] : [];
 }
 
 /**

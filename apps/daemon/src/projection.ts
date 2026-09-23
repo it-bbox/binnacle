@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { ProjectManifest } from '@binnacle/core';
+import type { ManifestProblem, ProjectManifest } from '@binnacle/core';
 import { readManifest } from './manifest.ts';
 import { readRegistry, type RegistryEntry } from './registry.ts';
 import type { ProjectRow, Store } from './store.ts';
@@ -48,8 +48,8 @@ function differs(before: ProjectRow, after: ProjectRow): boolean {
   return facts(before) !== facts(after);
 }
 
-/** The row that is stored, and the manifest it was read from, which is not. */
-export type Projected = { row: ProjectRow; manifest: ProjectManifest | null };
+/** The row that is stored, and the manifest it was read from with its warnings, which are not. */
+export type Projected = { row: ProjectRow; manifest: ProjectManifest | null; warnings: ManifestProblem[] };
 
 /**
  * A registered repository whose manifest cannot be read stays registered and says why.
@@ -58,7 +58,7 @@ export type Projected = { row: ProjectRow; manifest: ProjectManifest | null };
  */
 function deriveProject(entry: RegistryEntry): Projected {
   try {
-    const { manifest } = readManifest(entry.path);
+    const { manifest, warnings } = readManifest(entry.path);
     return {
       row: {
         path: entry.path,
@@ -69,6 +69,7 @@ function deriveProject(entry: RegistryEntry): Projected {
         manifestDigest: digest(manifest),
       },
       manifest,
+      warnings,
     };
   } catch (error) {
     return {
@@ -81,6 +82,7 @@ function deriveProject(entry: RegistryEntry): Projected {
         manifestDigest: null,
       },
       manifest: null,
+      warnings: [],
     };
   }
 }

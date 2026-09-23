@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
  * than by care:
  *
  * - only inspecting commands run — `rev-parse`, `symbolic-ref` without a new value,
- *   `status`, `remote -v` — and nothing that fetches, writes, or changes config or refs;
+ *   `status`, `remote -v`, `log` — and nothing that fetches, writes, or changes config or refs;
  * - `--no-optional-locks` stops `status` refreshing the index, which it otherwise does
  *   as a side effect, and `core.fsmonitor=false` stops it running the hook a
  *   repository's config may name;
@@ -102,6 +102,29 @@ export async function readGitLocation(cwd: string, timeoutMs: number): Promise<G
   }
 }
 
+/**
+ * When each file under `pathspec` was last committed, as Unix seconds, keyed by its path
+ * relative to `cwd`. A file that was never committed is absent. Null whenever Git cannot
+ * say, because the caller then orders by what it knew without Git.
+ */
+export async function readLastCommitTimes(cwd: string, pathspec: string, timeoutMs: number): Promise<Map<string, number> | null> {
+  if (!statSync(cwd, { throwIfNoEntry: false })?.isDirectory()) return null;
+  try {
+    // Newest first, so the first time a path appears is its last commit.
+    const run = await git(cwd, timeoutMs, ['log', '--relative', '--name-only', '--format=%x00%ct', '--', pathspec]);
+    if (run.code !== 0) return null;
+    const times = new Map<string, number>();
+    for (const entry of run.stdout.split('\0').slice(1)) {
+      const [time, ...paths] = entry.split('\n');
+      for (const path of paths) if (path !== '' && !times.has(path)) times.set(path, Number(time));
+    }
+    return times;
+  } catch (error) {
+    if (isUnavailable(error)) return null;
+    throw error;
+  }
+}
+
 /** `git remote -v` lists each remote twice; the fetch URL is the one that says where it lives. */
 function parseRemotes(output: string): GitRemote[] {
   const remotes: GitRemote[] = [];
@@ -123,7 +146,8 @@ const withoutCredentials = (url: string): string =>
 
 function git(cwd: string, timeoutMs: number, args: string[]): Promise<Run> {
   return new Promise((resolve, reject) => {
-    const child = spawn('git', ['--no-optional-locks', '-c', 'core.fsmonitor=false', ...args], {
+    // `core.quotePath=false` so that a path is printed as it is named, not octal-escaped.
+    const child = spawn('git', ['--no-optional-locks', '-c', 'core.fsmonitor=false', '-c', 'core.quotePath=false', ...args], {
       cwd,
       env: gitEnvironment(),
       stdio: ['ignore', 'pipe', 'pipe'],

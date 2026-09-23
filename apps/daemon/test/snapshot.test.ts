@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,8 +14,17 @@ type SnapshotTask = {
   ticket: string;
 };
 type Section = { items: SnapshotTask[]; remainder: number };
+type Epic = { number: number; title: string; status: string; spec: string | null };
+type Unavailable = { available: false; reason: string };
 type Snapshot = {
+  checkout: { root: string; registered: boolean };
+  git: { available: true; branch: string | null; commit: string | null; dirty: boolean } | { available: false };
+  roadmap: { epics: Epic[]; focus: { text: string; truncated: boolean } | null; sections: string[] } | null;
   tasks: { inFlight: Section; readyToStart: Section; counts: Record<string, number> } | null;
+  decisions: { items: { title: string | null; path: string }[]; remainder: number } | null;
+  pendingDecisions: Unavailable;
+  ci: Unavailable;
+  usage: Unavailable;
   attention: { code: string; message: string }[];
 };
 
@@ -83,6 +93,7 @@ async function snapshot(daemon: TestDaemon, root: string): Promise<Snapshot> {
 }
 
 const ids = (section: Section): string[] => section.items.map((task) => task.id);
+const codes = (body: Snapshot, prefix: string): string[] => body.attention.map((item) => item.code).filter((code) => code.startsWith(prefix));
 
 describe('Tasks in the Product Snapshot', () => {
   it('lists a Task in flight with its identity, title, state, Unmet dependencies and ticket path', async () => {
@@ -155,12 +166,13 @@ describe('Tasks in the Product Snapshot', () => {
       ]);
       assert.equal(body.tasks.readyToStart.remainder, 1);
       assert.deepEqual(body.tasks.counts, { BACKLOG: 1, READY: 1, MERGED: 1, DONE: 1, CANCELLED: 1, unknown: 2 });
+      const tasks = body.attention.filter((item) => item.code.startsWith('task.'));
       assert.deepEqual(
-        body.attention.map((item) => item.code),
+        tasks.map((item) => item.code),
         ['task.unknown_state', 'task.unknown_state', 'task.dangling_dependency'],
       );
-      assert.match(body.attention[0]!.message, /every-state\/13.*"In progress"/);
-      assert.match(body.attention[2]!.message, /every-state\/15.*every-state\/42/);
+      assert.match(tasks[0]!.message, /every-state\/13.*"In progress"/);
+      assert.match(tasks[2]!.message, /every-state\/15.*every-state\/42/);
     });
   });
 
@@ -212,7 +224,283 @@ describe('Tasks in the Product Snapshot', () => {
 
       const body = await snapshot(daemon, root);
       assert.equal(body.tasks, null);
-      assert.deepEqual(body.attention.map((item) => item.code), ['tracker.unavailable']);
+      assert.deepEqual(codes(body, 'tracker.'), ['tracker.unavailable']);
+    });
+  });
+});
+
+const REPOSITORY_MANIFEST = `${MANIFEST}
+knowledge:
+  docs: docs
+  adr: docs/adr
+`;
+
+/** Real Git, real commits; `date` pins the commit date, which is what orders the ADRs. */
+function git(root: string, args: string[], date?: string): string {
+  return execFileSync(
+    'git',
+    ['-c', 'user.name=Binnacle Test', '-c', 'user.email=test@example.invalid', '-c', 'commit.gpgsign=false', ...args],
+    { cwd: root, encoding: 'utf8', env: date ? { ...process.env, GIT_COMMITTER_DATE: date, GIT_AUTHOR_DATE: date } : process.env },
+  ).trim();
+}
+
+function commitAll(root: string, message: string, date?: string): void {
+  git(root, ['add', '.']);
+  git(root, ['commit', '--quiet', '-m', message], date);
+}
+
+/** A committed repository with a roadmap and one ADR, so that nothing in it calls for attention. */
+function makeRepository(options: { manifest?: string; roadmap?: string | null } = {}): string {
+  const root = makeProject(options.manifest ?? REPOSITORY_MANIFEST);
+  git(root, ['init', '--quiet', '--initial-branch=main']);
+  if (options.roadmap !== null) roadmap(root, options.roadmap ?? roadmapText([]));
+  adr(root, 'ADR-0001-first.md', 'ADR-0001: First');
+  commitAll(root, 'Start the project', '2025-01-01T12:00:00Z');
+  return root;
+}
+
+function roadmap(root: string, text: string): void {
+  mkdirSync(join(root, 'docs'), { recursive: true });
+  writeFileSync(join(root, 'docs', 'roadmap.md'), text);
+}
+
+function adr(root: string, file: string, title: string): void {
+  mkdirSync(join(root, 'docs', 'adr'), { recursive: true });
+  writeFileSync(join(root, 'docs', 'adr', file), `# ${title}\n\n**Status:** Accepted\n`);
+}
+
+/** In the shape of this repository's own `docs/roadmap.md`. */
+function roadmapText(rows: string[], focus: string = 'Next action: implement ticket 03.'): string {
+  return [
+    '# Roadmap',
+    '',
+    '**Status vocabulary:** `not started` → `spec` → `tickets` → `in progress` → `done`.',
+    '',
+    '## v1',
+    '',
+    '| # | Epic | Status | Spec |',
+    '| --- | --- | --- | --- |',
+    ...rows,
+    '',
+    'Epics are ordered by dependency.',
+    '',
+    '## Current focus',
+    '',
+    focus,
+    '',
+    '## Later',
+    '',
+    '- something deferred',
+    '',
+    '## Keeping this current',
+    '',
+    'Update the status column.',
+    '',
+  ].join('\n');
+}
+
+const row = (number: number, epic: string, status: string, spec: string | null): string =>
+  `| ${number} | ${epic} | ${status} | ${spec === null ? '—' : `[\`${spec}\`](specs/${spec}/spec.md)`} |`;
+
+describe('the roadmap in the Product Snapshot', () => {
+  it('returns the epic table, the current focus as written and every other section by heading only', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeRepository({
+        roadmap: roadmapText(
+          [row(1, 'Core and persistence', 'done', 'core'), row(2, 'MCP and Product Snapshot', 'in progress', 'snapshot'), row(3, 'Telemetry', 'not started', null)],
+          'Tickets 01 and 02 are done.\n\nNext action: implement ticket 03.',
+        ),
+      });
+      ticket(root, 'core', '01-store.md', { title: '01: Store', status: 'DONE' });
+      ticket(root, 'snapshot', '01-tasks.md', { title: '01: Tasks', status: 'ACTIVE' });
+
+      const body = await snapshot(daemon, root);
+      assert.deepEqual(body.roadmap, {
+        epics: [
+          { number: 1, title: 'Core and persistence', status: 'done', spec: 'core' },
+          { number: 2, title: 'MCP and Product Snapshot', status: 'in progress', spec: 'snapshot' },
+          { number: 3, title: 'Telemetry', status: 'not started', spec: null },
+        ],
+        focus: { text: 'Tickets 01 and 02 are done.\n\nNext action: implement ticket 03.', truncated: false },
+        sections: ['v1', 'Later', 'Keeping this current'],
+      });
+      assert.deepEqual(body.attention, []);
+    });
+  });
+
+  it('leaves out a row that does not parse, with a diagnostic, and never repairs it', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeRepository({
+        roadmap: roadmapText([
+          row(1, 'Core', 'done', 'core'),
+          row(2, 'Wrong status', 'Done', 'wrong-status'),
+          '| 3 | Missing a cell | not started |',
+          row(Number.NaN, 'No number', 'not started', null),
+          '| 5 | Not a spec link | spec | [`five`](specs/five/README.md) |',
+          row(6, 'Telemetry', 'not started', null),
+        ]),
+      });
+
+      const body = await snapshot(daemon, root);
+      assert.deepEqual(
+        body.roadmap?.epics.map((epic) => epic.number),
+        [1, 6],
+      );
+      const invalid = body.attention.filter((item) => item.code === 'roadmap.row_invalid');
+      assert.equal(invalid.length, 4);
+      assert.match(invalid[0]!.message, /"Done"/);
+      assert.match(invalid[1]!.message, /3 cells/);
+      assert.match(invalid[2]!.message, /"NaN"/);
+      assert.match(invalid[3]!.message, /specs\/five\/README\.md/);
+    });
+  });
+
+  it('is absent with a diagnostic when the project has no roadmap, and the other sections are still there', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeRepository({ roadmap: null });
+      ticket(root, 'epic', '01-thing.md', { title: '01: Thing', status: 'READY' });
+
+      const body = await snapshot(daemon, root);
+      assert.equal(body.roadmap, null);
+      assert.deepEqual(codes(body, 'roadmap.'), ['roadmap.missing']);
+      assert.deepEqual(ids(body.tasks!.readyToStart), ['epic/01']);
+    });
+  });
+
+  it('cuts a current focus over the limit, and says it did', async () => {
+    await withDaemon(async (daemon) => {
+      const long = `Next action: ${'x'.repeat(3000)}`;
+      const root = makeRepository({ roadmap: roadmapText([], long) });
+      assert.deepEqual((await snapshot(daemon, root)).roadmap?.focus, { text: long.slice(0, 2000), truncated: true });
+
+      const exact = long.slice(0, 2000);
+      roadmap(root, roadmapText([], exact));
+      assert.deepEqual((await snapshot(daemon, root)).roadmap?.focus, { text: exact, truncated: false });
+    });
+  });
+
+  it('reports, on every call, each epic whose roadmap status disagrees with its tickets or that lacks a spec link', async () => {
+    await withDaemon(async (daemon) => {
+      const rows = (first: string): string[] => [
+        row(1, 'Done too early', first, 'a'),
+        row(2, 'Not started, but sliced', 'not started', 'b'),
+        row(3, 'In progress, but finished', 'in progress', 'c'),
+        row(4, 'Sliced, but finished', 'tickets', 'd'),
+        row(5, 'Specified without a link', 'spec', null),
+        row(6, 'Consistent', 'in progress', 'e'),
+        row(7, 'Sliced, no tickets yet', 'tickets', 'f'),
+        row(8, 'An idea', 'not started', null),
+      ];
+      const root = makeRepository({ roadmap: roadmapText(rows('done')) });
+      ticket(root, 'a', '01-one.md', { title: '01: One', status: 'DONE' });
+      ticket(root, 'a', '02-two.md', { title: '02: Two', status: 'READY' });
+      ticket(root, 'b', '01-one.md', { title: '01: One', status: 'BACKLOG' });
+      ticket(root, 'c', '01-one.md', { title: '01: One', status: 'DONE' });
+      ticket(root, 'c', '02-two.md', { title: '02: Two', status: 'CANCELLED' });
+      ticket(root, 'd', '01-one.md', { title: '01: One', status: 'DONE' });
+      ticket(root, 'e', '01-one.md', { title: '01: One', status: 'DONE' });
+      ticket(root, 'e', '02-two.md', { title: '02: Two', status: 'ACTIVE' });
+
+      const body = await snapshot(daemon, root);
+      assert.deepEqual(body.attention.map((item) => item.code), [
+        'roadmap.status_mismatch',
+        'roadmap.status_mismatch',
+        'roadmap.status_mismatch',
+        'roadmap.status_mismatch',
+        'roadmap.spec_missing',
+      ]);
+      const [done, notStarted, inProgress, tickets, specMissing] = body.attention.map((item) => item.message);
+      assert.match(done!, /Epic 1 .*done.*a\/02/);
+      assert.match(notStarted!, /Epic 2 .*not started/);
+      assert.match(inProgress!, /Epic 3 .*in progress/);
+      assert.match(tickets!, /Epic 4 .*tickets/);
+      assert.match(specMissing!, /Epic 5 .*spec/);
+
+      // Nothing is stored: correcting the roadmap clears its item on the next call.
+      roadmap(root, roadmapText(rows('in progress')));
+      assert.deepEqual(
+        (await snapshot(daemon, root)).attention.map((item) => item.message).filter((message) => /Epic 1 /.test(message)),
+        [],
+      );
+    });
+  });
+});
+
+describe('recent decisions, Git and the unavailable sections', () => {
+  it('lists the five most recently committed ADRs with title and path, and counts the rest', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeRepository();
+      const order = ['0003', '0002', '0005', '0006', '0004'];
+      order.forEach((number, day) => {
+        adr(root, `ADR-${number}-decision.md`, `ADR-${number}: Decision ${number}`);
+        commitAll(root, `Record ADR-${number}`, `2026-01-${String(day + 10).padStart(2, '0')}T12:00:00Z`);
+      });
+      // A later edit makes an old ADR fresh again.
+      writeFileSync(join(root, 'docs', 'adr', 'ADR-0002-decision.md'), '# ADR-0002: Decision 0002, amended\n');
+      commitAll(root, 'Amend ADR-0002', '2026-02-01T12:00:00Z');
+
+      const body = await snapshot(daemon, root);
+      assert.deepEqual(body.decisions, {
+        items: [
+          { title: 'ADR-0002: Decision 0002, amended', path: 'docs/adr/ADR-0002-decision.md' },
+          { title: 'ADR-0004: Decision 0004', path: 'docs/adr/ADR-0004-decision.md' },
+          { title: 'ADR-0006: Decision 0006', path: 'docs/adr/ADR-0006-decision.md' },
+          { title: 'ADR-0005: Decision 0005', path: 'docs/adr/ADR-0005-decision.md' },
+          { title: 'ADR-0003: Decision 0003', path: 'docs/adr/ADR-0003-decision.md' },
+        ],
+        remainder: 1,
+      });
+    });
+  });
+
+  it("describes the caller's own checkout, and reads a linked worktree's roadmap from that worktree", async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeRepository({ roadmap: roadmapText([row(1, 'Core', 'in progress', null)]) });
+      writeFileSync(join(root, '.git', 'info', 'exclude'), '.claude/worktrees/\n');
+      const worktree = join(root, '.claude', 'worktrees', 'probe');
+      git(root, ['worktree', 'add', '--quiet', '-b', 'feat/probe', worktree]);
+      roadmap(worktree, roadmapText([row(1, 'Core', 'done', null)]));
+
+      const main = await snapshot(daemon, root);
+      assert.deepEqual(main.checkout, { root, registered: true });
+      assert.ok(main.git.available);
+      assert.equal(main.git.branch, 'main');
+      assert.equal(main.roadmap?.epics[0]?.status, 'in progress');
+
+      const result = await daemon.call<Snapshot>('project.snapshot', { path: worktree });
+      assert.equal(result.status, 200, JSON.stringify(result.body));
+      assert.deepEqual(result.body.checkout, { root: worktree, registered: false });
+      assert.ok(result.body.git.available);
+      assert.equal(result.body.git.branch, 'feat/probe');
+      assert.equal(result.body.git.dirty, true);
+      assert.equal(result.body.roadmap?.epics[0]?.status, 'done');
+    });
+  });
+
+  it('marks pending decisions, CI state and usage as unavailable, with no content', async () => {
+    await withDaemon(async (daemon) => {
+      const body = await snapshot(daemon, makeRepository());
+      for (const section of [body.pendingDecisions, body.ci, body.usage]) {
+        assert.deepEqual(Object.keys(section).sort(), ['available', 'reason']);
+        assert.equal(section.available, false);
+      }
+    });
+  });
+
+  it('carries manifest warnings and a tracker-remote mismatch into the attention list', async () => {
+    await withDaemon(async (daemon) => {
+      const manifest = 'version: 1\n\nproject:\n  id: remote-tracker\n  colour: blue\n\ntracker:\n  provider: github\n\nknowledge:\n  adr: docs/adr\n';
+      const root = makeRepository({ manifest, roadmap: null });
+      git(root, ['remote', 'add', 'origin', 'https://git.example.com/example/project.git']);
+
+      const body = await snapshot(daemon, root);
+      assert.deepEqual(body.attention.map((item) => item.code), [
+        'manifest.warning',
+        'tracker.remote_mismatch',
+        'tracker.unavailable',
+        'roadmap.unavailable',
+      ]);
+      assert.match(body.attention[0]!.message, /project\.colour/);
     });
   });
 });
