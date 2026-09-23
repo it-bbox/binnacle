@@ -20,3 +20,4 @@ graphify-out/
 
 # Worktree/task scratch is disposable
 .scratch/
+.claude/worktrees/
