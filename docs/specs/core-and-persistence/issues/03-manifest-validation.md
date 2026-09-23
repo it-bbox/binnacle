@@ -1,6 +1,6 @@
 # 03: Full manifest validation and diagnostics
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 02
 Spec: `docs/specs/core-and-persistence/spec.md`
@@ -48,3 +48,5 @@ Two judgement calls kept, both recorded rather than silently held:
 - **`packages/core` now has tests of its own, which is a second seam.** The spec fixes one seam at the daemon's HTTP API, and that rule holds for the daemon. This is a different thing: the public function of a separate package, whose contract three later epics consume and which the daemon does not expose until ticket 04 puts manifest facts on `project.status`. The alternative was shipping the no-defaults rule untested until then. Confined to the public function; nothing reaches inside it.
 
 Unknown *capability* names stay accepted without a warning, and there is now a test pinning that rather than only a paragraph. A tool Binnacle has never heard of is a fact about the user's machine.
+
+Merged to `main` in `3ffa49f`, review included.

@@ -10,7 +10,7 @@ This is the roadmap's single home because this repository uses the local Markdow
 
 | # | Epic | Status | Spec |
 | --- | --- | --- | --- |
-| 1 | Core and persistence | tickets | [`core-and-persistence`](specs/core-and-persistence/spec.md) |
+| 1 | Core and persistence | in progress | [`core-and-persistence`](specs/core-and-persistence/spec.md) |
 | 2 | MCP and Product Snapshot | not started | — |
 | 3 | Tracker and Matt Pocock integration | not started | — |
 | 4 | Telemetry | not started | — |
@@ -25,7 +25,16 @@ Design is complete and recorded: every question in `docs/08-open-questions.md` i
 
 Tickets 01 to 03 are implemented. `apps/daemon` and `apps/cli` carry the daemon lifecycle, the authenticated loopback API, the shared error envelope, the machine store and the project registry — which is ADR-0019 executed, not only recorded. `packages/core` now holds manifest validation as a pure function with no dependencies; ticket 06 extends it with the domain state machines.
 
+Binnacle is not yet useful for its own Product work. `/product`, `/daily` and `/checkpoint` arrive with epic 2; until then that work is done by hand, as `docs/workflow/02-development-workflow.md` describes under *This repository, until epic 2*.
+
 Next action: epic 1 tickets 04 and 05, which touch different areas and can run in either order. Ticket 06 still has no blockers. Ticket 07, the exit criterion, needs 04.
+
+## Open before epic 2 is specified
+
+Two questions the plan leaves open. Settle both at `/to-spec` for epic 2, not partway through it.
+
+- **The Product Snapshot promises active tasks and blockers, and tasks arrive in epic 3.** With epics ordered 2 then 3, a snapshot built in epic 2 knows Git, the roadmap and the event history, but not the tickets. Either swap epics 2 and 3, or give epic 2 a minimal read of the local Markdown tickets and leave the shared tracker contract to epic 3.
+- **`binn init` is referenced by epics 3 and 4 but is a deliverable of neither.** Registering the MCP server in a harness's own configuration is its job (`docs/03-mcp-and-skills.md`). Without it, epic 2's MCP server is connected by hand with `claude mcp add`. Either accept that for epic 2, or place `binn init` in it.
 
 ## Later
 

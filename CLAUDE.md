@@ -30,6 +30,8 @@ The intended multi-session build chain is:
 
 Do not advance from a grilling answer into implementation unless explicitly instructed.
 
+Until epic 2 lands, how that chain runs on this repository — a branch and a fresh session per ticket, `DONE` in the same step as the merge, Product work done by hand from the repository rather than from a chat — is in `docs/workflow/02-development-workflow.md`, under *This repository, until epic 2*.
+
 ## Agent skills
 
 ### Issue tracker
