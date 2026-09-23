@@ -27,7 +27,7 @@ Tickets 01 to 03 are implemented. `apps/daemon` and `apps/cli` carry the daemon 
 
 Binnacle is not yet useful for its own Product work. `/product`, `/daily` and `/checkpoint` arrive with epic 2; until then that work is done by hand, as `docs/workflow/02-development-workflow.md` describes under *This repository, until epic 2*.
 
-Next action: epic 1 tickets 04 and 05, which touch different areas and can run in either order. Ticket 06 still has no blockers. Ticket 07, the exit criterion, needs 04.
+Next action: epic 1 ticket 04, because ticket 07 — the exit criterion — needs it. Tickets 05 and 06 have no blockers and follow in either order. Ticket 07 comes last.
 
 ## Open before epic 2 is specified
 

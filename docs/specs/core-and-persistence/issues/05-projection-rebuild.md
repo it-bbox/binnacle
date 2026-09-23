@@ -13,3 +13,4 @@ Spec: `docs/specs/core-and-persistence/spec.md`
 - [ ] The rebuild is recorded as an event, so "rebuilt" is distinguishable from "lost".
 - [ ] A rebuild needs no command from the user and no migration step.
 - [ ] A repository that has disappeared from disk since registration is reported with a reason rather than dropping the registration.
+- [ ] Daemon start and stop are recorded as `daemon.started` and `daemon.stopped` events. The spec lists both among epic 1's events and no ticket carried them until now (ticket 02, comments).
