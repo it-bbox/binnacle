@@ -15,7 +15,7 @@ Spec: `docs/specs/mcp-and-product-snapshot/spec.md`
 - [ ] Demonstrated in a fresh session in the main checkout and in a fresh session in a worktree: `/product` → `/daily` → `/checkpoint`, and the worktree session's Git facts are the worktree's.
 - [ ] Every defect the demonstration finds is filed as a ticket in this spec, not fixed in passing.
 - [x] *This repository, until epic 2* is removed from `docs/workflow/02-development-workflow.md`, and `CLAUDE.md` stops pointing to it.
-- [ ] The roadmap marks epic 2 `done` and moves the current focus to epic 3.
+- [ ] The roadmap moves the current focus to ticket 08, and epic 2 stays `in progress` (ADR-0022).
 
 ## Comments
 
@@ -26,7 +26,8 @@ Found by the hand check of ticket 04, for the exit demonstration to confirm or f
 
 - **What exists.** `.claude/skills/product`, `daily` and `checkpoint`, each with `disable-model-invocation: true`, so only a human starts them. `/product` calls `project_detect` then `project_snapshot`; `/daily` calls `project_detect` then `daily_get` once (with `since` when given an argument); `/checkpoint` calls `project_detect`, `checkpoint_prepare`, drafts, waits for the human, writes and commits on the current branch, then `checkpoint_record`. Each stops on a failed detect with the fix for the human, and runs nothing itself. *This repository, until epic 2* is gone: the per-epic and per-ticket rules now stand under *Standard task flow* → *On this repository* in `docs/workflow/02-development-workflow.md`, beside one paragraph on Product work through the skills, and `CLAUDE.md` points there.
 - **Dry run, not the demonstration.** The tool sequence each skill makes was driven through the real `binn mcp` over stdio against a daemon in a temporary `BINNACLE_HOME`, from this ticket's worktree: detect, snapshot (no attention item, focus not truncated), `daily_get` twice (the second empty), `checkpoint_prepare` (fallback `no_baseline`) and `checkpoint_record` with `[]` and with an uncommitted and a missing path (both diagnostics). The skills themselves were not run by a model; that is the demonstration below.
-- **Left open for the human: where a Product commit lands.** `/checkpoint` commits on the current branch and shows that branch before anything is written. In the main checkout that is `main`, which the per-ticket rule forbids for tickets but nothing rules on for Product work.
+- **Epic 2 does not end here (ADR-0022).** The owner's ADR-0022 added ticket 08, `/autopilot`, blocked by this one, so this ticket no longer closes the epic: its roadmap criterion now moves the current focus to ticket 08 and leaves epic 2 `in progress`. A consequence of that ADR, not a decision of this ticket. It also resolves the clash this ticket's first review noted, between filing defects in this spec and marking the epic `done`: defects the demonstration finds are filed as tickets 09 onward, and an epic `in progress` with `READY` tickets raises no attention item.
+- **Left open for the owner: where a Product commit lands.** `/checkpoint` commits on the current branch and shows that branch before anything is written. In the main checkout that is `main`, which the per-ticket rule forbids for tickets but nothing rules on for Product work.
 
 ### Exit demonstration script
 
@@ -41,7 +42,7 @@ Do it in this order; the second session's checkpoint closes the ticket.
 **A. Fresh session in the main checkout** (new chat, no history).
 
 1. `/mcp` shows `binnacle` connected. Typing `/` lists `product`, `daily` and `checkpoint`.
-2. `/product`. Expect: checkout root is the main checkout, registered, branch `main`, the merge commit, clean. Epic 2 `in progress`; the current focus as written, not truncated, naming this script. Ready to start: `mcp-and-product-snapshot/07`. Counts: `DONE` for the rest. Five ADRs, ADR-0021 among them. Attention: none. Pending decisions, CI and usage named as unavailable. Check: only `project_detect` and `project_snapshot` were called, and `git status` is still clean.
+2. `/product`. Expect: checkout root is the main checkout, registered, branch `main`, the merge commit, clean. Epic 2 `in progress`; the current focus as written, not truncated, naming this script. Ready to start: `mcp-and-product-snapshot/07`. Counts: `DONE` for 01 to 06 and for epic 1, and `READY` 1 for ticket 08, which waits on 07. Five ADRs, ADR-0022 among them. Attention: none. Pending decisions, CI and usage named as unavailable. Check: only `project_detect` and `project_snapshot` were called, and `git status` is still clean.
 3. `/daily`. Expect one `daily_get` call. If this machine never ran a daily, `fallback` is `no_baseline` and its message is quoted; otherwise the range starts at the last daily or checkpoint. Commits include this branch's; `readyToStart` shows 07; attention none. Run `/daily` again: one line saying nothing changed since the new head, plus attention and 07. Optionally `/daily <an older hash>`: a delta from there, and a following `/daily` is still empty.
 4. `/checkpoint`. Expect `checkpoint_prepare` with no arguments; `targets` lists `vocabulary` → `CONTEXT.md`, `trade_off` → `docs/adr`, `new_work` → `docs/specs`, `product_rule` → `docs/specs`, `position` → `docs/roadmap.md`. This session decided nothing, so it says there is nothing to promote and asks whether to record an empty checkpoint. Check it writes nothing before you answer. Answer yes: `checkpoint_record` with `[]`, `head` equal to `main`'s HEAD, no diagnostics, nothing committed.
 
@@ -49,8 +50,8 @@ Do it in this order; the second session's checkpoint closes the ticket.
 
 1. `/product`. Expect: checkout root is the worktree's path, `registered: false`, branch and commit the worktree's own. Compare with `git -C <worktree> branch --show-current`, `git -C <worktree> rev-parse HEAD` and `git -C <worktree> status --short`; they must match, and differ from the main checkout's branch. This is the "worktree Git facts are the worktree's" check.
 2. `/daily`. Expect the range to start at A's checkpoint head (source `checkpoint`), and nothing changed.
-3. `/checkpoint`. Tell the session what the demonstration found: each defect, including the two findings above if you judge them defects, as a new ticket in this spec (`new_work`), and the position: this ticket's `Status: DONE` with its last criteria ticked, epic 2 `done`, and the current focus moved to epic 3 (`position`). Check the drafts show type, file, exact text and the worktree's branch, and that nothing is written before you confirm. Confirm: the session writes, commits only those files on the worktree's branch, then records. Expect `head` equal to that new commit and no diagnostics.
-4. Merge that branch. Its checkpoint commit is the ticket's `DONE` commit and stays last. A `/product` in the main checkout afterwards shows epic 2 `done` and the new tickets. **Decide before step 3:** a defect ticket filed in this spec as `READY` while epic 2 is `done` raises `roadmap.status_mismatch` (an epic `done` with a ticket that is not `DONE` or `CANCELLED`), so the two criteria above clash if the demonstration finds anything. Either epic 2 stays `in progress` until those tickets are done, or they are filed elsewhere. With no defect filed, expect no attention item.
+3. `/checkpoint`. Tell the session what the demonstration found: each defect, including the two findings above if you judge them defects, as a new ticket in this spec, numbered from 09 (`new_work`), and the position: this ticket's `Status: DONE` with its last criteria ticked, and the current focus moved to ticket 08, run through `/autopilot` or a fresh session, with epic 2 left `in progress` (`position`). Check the drafts show type, file, exact text and the worktree's branch, and that nothing is written before you confirm. Confirm: the session writes, commits only those files on the worktree's branch, then records. Expect `head` equal to that new commit and no diagnostics.
+4. Merge that branch. Its checkpoint commit is the ticket's `DONE` commit and stays last. A `/product` in the main checkout afterwards shows epic 2 `in progress`, ticket 08 ready to start, any new tickets 09 onward, and no attention item.
 
 ### Review
 
@@ -71,4 +72,4 @@ Do it in this order; the second session's checkpoint closes the ticket.
 2. `/daily`'s one-line "nothing changed" could drop the attention items and what can start next. **Fixed**: it keeps both.
 3. `/daily` attributed every null list to the tracker; `roadmap` and `decisions` are null for their own reasons. **Fixed**.
 4. `/checkpoint` commits on the current branch, which may be `main`. **Left** for the human; see above.
-5. The demonstration, the defects it files, and epic 2 marked `done` are not done here. **Left**: they need the human, and the script above covers them.
+5. The demonstration, the defects it files, and the focus moved to ticket 08 are not done here. **Left**: they need the human, and the script above covers them.
