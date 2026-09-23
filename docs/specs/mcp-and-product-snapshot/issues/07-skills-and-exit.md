@@ -18,3 +18,8 @@ Spec: `docs/specs/mcp-and-product-snapshot/spec.md`
 - [ ] The roadmap marks epic 2 `done` and moves the current focus to epic 3.
 
 ## Comments
+
+Found by the hand check of ticket 04, for the exit demonstration to confirm or fix:
+
+- **A merge that adds a workspace package breaks the linked `binn` until the main checkout reinstalls.** Ticket 04 ran `pnpm install` in its own worktree only; after the merge, `binn --help` in the main checkout failed with `ERR_MODULE_NOT_FOUND` for `@binnacle/mcp` until `pnpm install --frozen-lockfile` ran there. The README says `pnpm install` once, before linking, and not after pulling.
+- **The desktop app does not read `~/.bashrc`.** `pnpm setup` puts its global bin directory on PATH there, so a Claude Code desktop session could not find `binn` and `.mcp.json` would not start. A symlink from `~/.local/bin` does not help: pnpm's shim resolves the CLI relative to its own location, and through the link that resolves to `/home/Projects/...`. What worked is a two-line wrapper in `~/.local/bin/binn` that execs `$PNPM_HOME/binn`. The README's setup section should say one of these, or `binn` should stop depending on the shim's location.

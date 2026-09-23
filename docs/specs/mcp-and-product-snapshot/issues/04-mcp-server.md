@@ -16,7 +16,7 @@ Spec: `docs/specs/mcp-and-product-snapshot/spec.md`
 - [x] A project-scoped `.mcp.json` committed to this repository declares one stdio server, `binnacle`, running `binn mcp`.
 - [x] README.md and README.ru.md explain linking `binn` onto PATH with `pnpm link --global` and why `.mcp.json` does not use a path inside the working tree.
 - [x] One smoke test drives the real `binn mcp` through the SDK's client over stdio: it lists the tools, calls `project_snapshot` against a test daemon, and makes one call with the daemon stopped.
-- [ ] Verified by hand once: a fresh Claude Code session in this repository shows the `binnacle` server connected and gets a snapshot.
+- [x] Verified by hand once: a fresh Claude Code session in this repository shows the `binnacle` server connected and gets a snapshot.
 
 ## Comments
 
@@ -44,3 +44,5 @@ Spec: `docs/specs/mcp-and-product-snapshot/spec.md`
 2. The unreachable call is made before any daemon has run, not after one stopped. **Kept**: a clean stop removes the runtime file, which is the same state; a stale pid and a dead port go through `isAlive` and `DaemonUnreachableError`, the checks `binn project` commands already rely on, and are not tested separately here.
 3. Finding a daemon started after the server connected, the extra README guidance (`pnpm setup`, link from the main checkout) and `binn mcp` in the help text go beyond the ticket. **Kept**: each follows from the spec's own reasoning and costs a line.
 4. Turning errors into envelopes sits in the CLI, not in `packages/mcp`. **Kept**: it reuses the CLI's client, which is what "exactly as the CLI does" asks for.
+
+**Verified by hand** after the merge, on 2026-09-23: a fresh Claude Code desktop session connected to `binnacle` and `project_snapshot` returned this repository's roadmap, Tasks (05 ready, 06 and 07 counted as `READY` with an Unmet dependency), the five latest ADRs and no attention item. The session happened to start in a worktree under `.claude/worktrees/`, and the snapshot reported that worktree's branch with `registered: false`, which exercised ticket 01 as well. Two setup problems surfaced on the way; they are recorded on ticket 07.
