@@ -1,7 +1,7 @@
 import { realpathSync } from 'node:fs';
 import { isAbsolute, relative, sep } from 'node:path';
 import { readGitFacts, type GitFacts } from '@binnacle/adapters';
-import { trackerRemoteMismatch, type ProjectManifest } from '@binnacle/core';
+import { trackerRemoteMismatch, type Diagnostic, type ProjectManifest } from '@binnacle/core';
 import { OperationError } from './errors.ts';
 import { resolveGitTimeout, type Runtime } from './home.ts';
 import { readManifest } from './manifest.ts';
@@ -19,8 +19,7 @@ export type ProjectStatus = {
   project: ProjectRow;
   manifest: ProjectManifest | null;
   git: GitFacts;
-  /** Disagreements Binnacle reports and does not resolve. */
-  diagnostics: { code: string; message: string }[];
+  diagnostics: Diagnostic[];
 };
 
 export type Operation = (body: unknown, context: OperationContext) => unknown | Promise<unknown>;
@@ -67,7 +66,9 @@ export const operations: Record<string, Operation> = {
 
   'project.list': (_body, context) => ({ projects: context.store.projects() }),
 
-  'project.detect': (body, context) => ({ project: context.store.project(containingEntry(body, context).path) }),
+  // Re-derived rather than looked up, so a project is never answered as null, and its
+  // facts are the manifest's as of now — the same as `project.status` gives.
+  'project.detect': (body, context) => ({ project: reproject(context.store, containingEntry(body, context)).row }),
 
   /**
    * What Binnacle currently believes about a project: the manifest, re-read now, and Git
@@ -78,7 +79,6 @@ export const operations: Record<string, Operation> = {
     const { row, manifest } = reproject(context.store, containingEntry(body, context));
     const git = await readGitFacts(row.path, resolveGitTimeout());
 
-    const diagnostics: ProjectStatus['diagnostics'] = [];
     const mismatch =
       manifest && git.available
         ? trackerRemoteMismatch(
@@ -86,9 +86,8 @@ export const operations: Record<string, Operation> = {
             git.remotes.map((remote) => remote.url),
           )
         : null;
-    if (mismatch) diagnostics.push({ code: 'tracker.remote_mismatch', message: mismatch });
 
-    return { project: row, manifest, git, diagnostics };
+    return { project: row, manifest, git, diagnostics: mismatch ? [mismatch] : [] };
   },
 
   'project.unregister': (body, context) => {

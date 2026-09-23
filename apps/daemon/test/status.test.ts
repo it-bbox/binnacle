@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { after, describe, it } from 'node:test';
@@ -174,10 +174,14 @@ describe('project status on a normal repository', () => {
     await withDaemon(async (daemon) => {
       const root = makeRepository();
       git(root, 'remote', 'add', 'origin', 'https://someone:s3cret-token@github.com/example/project.git');
+      git(root, 'remote', 'add', 'mirror', 'ssh://git:s3cret-token@git.example.com/example/project.git');
 
       const body = await status(daemon, root);
       assert.ok(body.git.available);
-      assert.deepEqual(body.git.remotes, [{ name: 'origin', url: 'https://github.com/example/project.git' }]);
+      assert.deepEqual(body.git.remotes, [
+        { name: 'mirror', url: 'ssh://git@git.example.com/example/project.git' },
+        { name: 'origin', url: 'https://github.com/example/project.git' },
+      ]);
       assert.ok(!JSON.stringify(body).includes('s3cret-token'));
     });
   });
@@ -232,6 +236,33 @@ describe('Git is only ever inspected', () => {
       const before = fingerprint(root);
       assert.equal((await daemon.call('project.status', { path: root })).status, 200);
       assert.equal(fingerprint(root), before);
+    });
+  });
+
+  it('runs no command that the repository configuration names', { skip: !POSIX && 'needs a POSIX shell script' }, async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeRepository();
+      const witness = join(temporary('binnacle-witness-'), 'ran');
+      const hook = join(temporary('binnacle-hook-'), 'fsmonitor.sh');
+      writeFileSync(hook, `#!/bin/sh\ntouch '${witness}'\n`);
+      chmodSync(hook, 0o755);
+      git(root, 'config', 'core.fsmonitor', hook);
+
+      const body = await status(daemon, root);
+      assert.ok(body.git.available);
+      assert.ok(!existsSync(witness), 'status must not run the configured fsmonitor hook');
+    });
+  });
+
+  it('counts untracked files as dirty whatever the user configured status to show', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeRepository();
+      git(root, 'config', 'status.showUntrackedFiles', 'no');
+      writeFileSync(join(root, 'notes.md'), 'untracked\n');
+
+      const body = await status(daemon, root);
+      assert.ok(body.git.available);
+      assert.equal(body.git.dirty, true);
     });
   });
 });

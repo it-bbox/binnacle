@@ -4,4 +4,4 @@ export {
   type ManifestProblem,
   type ProjectManifest,
 } from './manifest.ts';
-export { trackerRemoteMismatch } from './tracker.ts';
+export { trackerRemoteMismatch, type Diagnostic } from './tracker.ts';

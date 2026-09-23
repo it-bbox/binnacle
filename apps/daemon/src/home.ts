@@ -30,10 +30,13 @@ export function resolvePort(env: NodeJS.ProcessEnv = process.env): number {
   return port;
 }
 
-/** How long one `git` invocation may take before its facts are reported unavailable. */
-export const DEFAULT_GIT_TIMEOUT_MS = 5_000;
+/**
+ * How long one `git` invocation may take before its facts are reported unavailable.
+ * `BINNACLE_GIT_TIMEOUT_MS` raises it for a repository on a slow filesystem; the daemon
+ * reads it from its own environment, so it takes effect from the next daemon start.
+ */
+const DEFAULT_GIT_TIMEOUT_MS = 5_000;
 
-/** Read at call time, so a slow filesystem can be given more room without a restart of anything else. */
 export function resolveGitTimeout(env: NodeJS.ProcessEnv = process.env): number {
   const raw = env.BINNACLE_GIT_TIMEOUT_MS?.trim();
   const timeout = raw ? Number(raw) : DEFAULT_GIT_TIMEOUT_MS;

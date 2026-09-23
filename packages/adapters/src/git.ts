@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { statSync } from 'node:fs';
 
 /**
  * The Git adapter. It reads and never writes, and that holds by construction rather
@@ -7,7 +8,8 @@ import { spawn } from 'node:child_process';
  * - only inspecting commands run — `rev-parse`, `symbolic-ref` without a new value,
  *   `status`, `remote -v` — and nothing that fetches, writes, or changes config or refs;
  * - `--no-optional-locks` stops `status` refreshing the index, which it otherwise does
- *   as a side effect;
+ *   as a side effect, and `core.fsmonitor=false` stops it running the hook a
+ *   repository's config may name;
  * - `git` is spawned with an argument array and no shell, so nothing is ever parsed as
  *   a command line;
  * - every spawn has a timeout, and a git that does not answer is reported unavailable
@@ -24,7 +26,7 @@ export type GitFacts =
       detached: boolean;
       /** Null when there are no commits yet. */
       commit: string | null;
-      /** Includes untracked files. */
+      /** Includes untracked files, whatever `status.showUntrackedFiles` says. */
       dirty: boolean;
       remotes: GitRemote[];
     }
@@ -33,9 +35,15 @@ export type GitFacts =
 export type UnavailableCode = 'git.not_found' | 'git.not_a_repository' | 'git.timeout' | 'git.failed';
 
 type Unavailable = Extract<GitFacts, { available: false }>;
-type Run = { code: number; stdout: string; stderr: string };
+/** `code` is null when git was ended by a signal rather than exiting. */
+type Run = { code: number | null; stdout: string; stderr: string };
 
 export async function readGitFacts(cwd: string, timeoutMs: number): Promise<GitFacts> {
+  // Checked first because a missing working directory makes the spawn fail with the
+  // same ENOENT as a missing git binary, and the reason would then name the wrong thing.
+  if (!statSync(cwd, { throwIfNoEntry: false })?.isDirectory()) {
+    return unavailable('git.not_a_repository', `No directory at ${cwd}.`);
+  }
   try {
     const top = await git(cwd, timeoutMs, ['rev-parse', '--show-toplevel']);
     if (top.code !== 0) {
@@ -46,11 +54,11 @@ export async function readGitFacts(cwd: string, timeoutMs: number): Promise<GitF
 
     const [head, branch, status, remotes] = await Promise.all([
       // Exit 1 with no output: there are no commits yet.
-      git(cwd, timeoutMs, ['rev-parse', '--verify', '--quiet', 'HEAD']).then((run) => expect(run, 'rev-parse', [0, 1])),
+      git(cwd, timeoutMs, ['rev-parse', '--verify', '--quiet', 'HEAD']).then((run) => acceptExit(run, 'rev-parse', [0, 1])),
       // Exit 1 with no output: HEAD is detached.
-      git(cwd, timeoutMs, ['symbolic-ref', '--quiet', '--short', 'HEAD']).then((run) => expect(run, 'symbolic-ref', [0, 1])),
-      git(cwd, timeoutMs, ['status', '--porcelain']).then((run) => expect(run, 'status', [0])),
-      git(cwd, timeoutMs, ['remote', '-v']).then((run) => expect(run, 'remote', [0])),
+      git(cwd, timeoutMs, ['symbolic-ref', '--quiet', '--short', 'HEAD']).then((run) => acceptExit(run, 'symbolic-ref', [0, 1])),
+      git(cwd, timeoutMs, ['status', '--porcelain', '--untracked-files=normal']).then((run) => acceptExit(run, 'status', [0])),
+      git(cwd, timeoutMs, ['remote', '-v']).then((run) => acceptExit(run, 'remote', [0])),
     ]);
 
     return {
@@ -79,14 +87,17 @@ function parseRemotes(output: string): GitRemote[] {
 }
 
 /**
- * A token embedded in an HTTPS remote is a secret, and these facts are headed for agent
- * sessions and their transcripts (ADR-0013). The host and path are what anything needs.
+ * A credential embedded in a remote is a secret, and these facts are headed for agent
+ * sessions and their transcripts (ADR-0013). Over HTTPS the whole user part goes, because
+ * a token is often passed as the user name; elsewhere the user name is kept (`git@`) and
+ * only a password is removed.
  */
-const withoutCredentials = (url: string): string => url.replace(/^(https?:\/\/)[^/@]*@/i, '$1');
+const withoutCredentials = (url: string): string =>
+  url.replace(/^(https?:\/\/)[^/@]*@/i, '$1').replace(/^([a-z][a-z0-9+.-]*:\/\/[^/:@]*):[^/@]*@/i, '$1@');
 
 function git(cwd: string, timeoutMs: number, args: string[]): Promise<Run> {
   return new Promise((resolve, reject) => {
-    const child = spawn('git', ['--no-optional-locks', ...args], {
+    const child = spawn('git', ['--no-optional-locks', '-c', 'core.fsmonitor=false', ...args], {
       cwd,
       env: gitEnvironment(),
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -110,7 +121,7 @@ function git(cwd: string, timeoutMs: number, args: string[]): Promise<Run> {
     });
     child.on('close', (code) => {
       clearTimeout(timer);
-      resolve({ code: code ?? -1, stdout, stderr });
+      resolve({ code, stdout, stderr });
     });
   });
 }
@@ -125,13 +136,14 @@ function gitEnvironment(): NodeJS.ProcessEnv {
   return { ...environment, LC_ALL: 'C', GIT_TERMINAL_PROMPT: '0', GIT_NO_LAZY_FETCH: '1' };
 }
 
-function expect(run: Run, command: string, codes: number[]): Run {
-  if (!codes.includes(run.code)) throw failed(command, run);
+/** Passes the run through when git exited with one of `codes`, which are its normal answers. */
+function acceptExit(run: Run, command: string, codes: number[]): Run {
+  if (run.code === null || !codes.includes(run.code)) throw failed(command, run);
   return run;
 }
 
 function failed(command: string, run: Run): Unavailable {
-  const detail = run.stderr.trim().split('\n')[0] || `exit code ${run.code}`;
+  const detail = run.stderr.trim().split('\n')[0] || (run.code === null ? 'ended by a signal' : `exit code ${run.code}`);
   return unavailable('git.failed', `git ${command} failed: ${detail}`);
 }
 

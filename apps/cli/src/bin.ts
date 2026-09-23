@@ -25,6 +25,7 @@ Options:
 Environment:
   BINNACLE_HOME         Binnacle home directory (default: ~/.binnacle)
   BINNACLE_PORT         Port the daemon binds on loopback (default: 7717; 0 takes an ephemeral port)
+  BINNACLE_GIT_TIMEOUT_MS  Longest a single git call may take before Git facts are unavailable (default: 5000)
 
 Exit codes:
   0  success
