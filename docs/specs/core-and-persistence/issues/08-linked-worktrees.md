@@ -18,6 +18,6 @@ Open questions, to settle before this is `ready-for-agent`:
 - Is a sibling worktree resolved to its project through Git's common directory, and does that make detect depend on Git for a case that is otherwise Git-free?
 - A nested directory that is a separate repository, not a worktree, must keep reporting the project's own facts. Telling the two apart needs a comparison of Git common directories, which is an extra read-only `git` call per status.
 
-Candidate for epic 2's `/to-spec`, which is where its first consumer is specified.
+Epic 1 closes with this as a known limitation: `project.status` answers for the registered checkout only. Epic 2's `/to-spec`, which specifies the first consumer, either takes this ticket or restates that limitation (`docs/roadmap.md`).
 
 ## Comments

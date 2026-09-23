@@ -22,10 +22,12 @@ workflow:
   scratch: .scratch
 
 capabilities:
+  # What is installed, not what CLAUDE.md would route to: Graphify and ast-grep are named
+  # there but are not set up for this repository yet.
   serena: true
-  graphify: true
+  graphify: false
   context7: true
-  ast_grep: true
+  ast_grep: false
   obsidian: optional
 
 automation:
@@ -34,5 +36,4 @@ automation:
 
 telemetry:
   privacy: metadata
-  import:
-    window_days: 30
+  # No import window: it is `binn init`'s question, and nobody has been asked it yet.
