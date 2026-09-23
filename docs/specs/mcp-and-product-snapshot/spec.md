@@ -9,7 +9,7 @@ Epic 2 of v1, as defined in `docs/05-mvp-plan.md` phase 2. Exit criterion: a bra
 
 A Product session on this repository starts from nothing. To learn where the project stands, the human or the agent reads `git log`, opens every ticket to find its `Status:` line, reads the roadmap, and reconstructs which epic is current and what can start next. It works, and it is exactly the chat-centric habit this product exists to replace: the reconstruction is repeated in every fresh session, costs context every time, and depends on the reader noticing what changed. `docs/workflow/02-development-workflow.md` describes the manual version under *This repository, until epic 2*, and it records one failure it already caused three times: a merged ticket still marked `READY`.
 
-Epic 1 gave Binnacle a daemon, a store, a registry and `project.status`, but nothing a harness can call. An agent session cannot ask Binnacle anything yet, because there is no MCP server; and if it could, the answer would be wrong in the ordinary case. Claude Code starts sessions in linked worktrees under `.claude/worktrees/`, and inside one `project.status` reports the main checkout's branch — a wrong fact, not a missing one (ticket 08, found in epic 1).
+Epic 1 gave Binnacle a daemon, a store, a registry and `project.status`, but nothing a harness can call. An agent session cannot ask Binnacle anything yet, because there is no MCP server; and if it could, the answer would be wrong in the ordinary case. Claude Code starts sessions in linked worktrees under `.claude/worktrees/`, and inside one `project.status` reports the main checkout's branch — a wrong fact, not a missing one (found in epic 1 as its ticket 08, now this epic's ticket 01).
 
 There is also no daily delta and no checkpoint. Nothing remembers when the last Product session looked, so "what changed since then" is answered from memory or not at all; and nothing marks what a session promoted into canonical sources before it closed.
 
@@ -198,12 +198,11 @@ Computed on every call, deterministic, and never stored. There is no `AttentionI
 
 Heuristic checks are deliberately excluded, such as a ticket `DONE` on an unmerged branch or a Task `ACTIVE` for too long. They produce false positives, and a noisy attention list gets ignored.
 
-### Linked worktrees (ticket 08)
+### Linked worktrees (ticket 01, formerly epic 1's ticket 08)
 
 - **Resolution.** Detect tries directory containment first, with no Git involved. Only when no registered project contains the path does it ask Git for the path's common directory and match it against the common directories of registered projects. That finds a sibling worktree outside the repository.
 - **Whose facts.** `project.status` and the snapshot report the Git facts of the **caller's** checkout, and name that checkout's root and whether it is the registered one.
 - **Nested repository.** A directory inside the project whose Git common directory differs from the project's is a separate repository, not a worktree: status reports the project's own facts for it. Telling the two apart costs one extra read-only `git` call per status, which is accepted.
-- The ticket moves into this spec's issue directory when the epic is sliced.
 
 ### Events
 
