@@ -85,11 +85,13 @@ Binnacle is built by being used on itself (`docs/00-scope.md`), but until epic 2
 ### Per ticket
 
 1. The human starts a fresh session with `/mattpocock-skills:implement docs/specs/<epic>/issues/NN-<slug>.md`, and does nothing else. That skill commits to the current branch and creates none, so the session does the rest.
-2. The session branches from an up-to-date `main` as `feat/<slug>`, implements test-first through the seam the spec fixes, typechecks, runs `/code-review`, and writes whatever the next ticket needs to know under the ticket's `## Comments`.
+2. The session branches from an up-to-date `main` as `feat/<slug>`, implements test-first through the seam the spec fixes, typechecks, runs `/code-review`, and writes whatever the next ticket needs to know under the ticket's `## Comments`. The review's findings, and what was fixed or kept, go under `### Review` there, and every acceptance criterion that holds is ticked. A ticket without them is not ready to be marked done, however green its tests.
 3. **The session's last commit sets the ticket's `Status:` to `DONE`**, and moves the roadmap's current focus if the frontier moved. The status then reaches `main` in the same step as the merge — not later, and not by whoever happens to notice — and a branch that is not merged never marks anything done. The roadmap and the next Product session read position from these files, and a merged ticket still marked `READY` is exactly the failure this project exists to prevent. It happened three times in epic 1 before this rule existed.
 4. The human reviews, merges and pushes. Nothing is left to edit afterwards.
 
 One primary session per ticket. Subagents only with the human's explicit approval of that plan.
+
+Tickets with no blocking edge between them may run at the same time, one session each, but never two in one working directory: the first runs in the main checkout and every other one in its own worktree (`.claude/worktrees/`, ignored by Git). Whichever branch is merged second is first rebased onto `main` by its own session, which resolves the conflicts, checks that its code still fits what the first ticket changed, and reruns the tests. Its `DONE` commit stays last.
 
 ### Product work
 
