@@ -1,12 +1,11 @@
 import { resolve } from 'node:path';
-import type { ManifestProblem } from '@binnacle/core';
-import { isAlive, readRuntime, type ProjectRow } from '@binnacle/daemon';
+import { isAlive, readRuntime, type ErrorDetail, type ProjectRow } from '@binnacle/daemon';
 import { callOperation } from './client.ts';
 import { EXIT, type ExitCode } from './exit.ts';
 import { reportFailure, requireToken } from './report.ts';
 
 export async function register(home: string, path?: string): Promise<ExitCode> {
-  type Registered = { project: ProjectRow; warnings: ManifestProblem[] };
+  type Registered = { project: ProjectRow; warnings: ErrorDetail[] };
   return await callAndReport<Registered>(home, 'project.register', { path: target(path) }, ({ project, warnings }) => {
     console.log(`Registered ${project.id ?? project.path}.`);
     console.log(`  path     ${project.path}`);

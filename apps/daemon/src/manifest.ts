@@ -50,14 +50,15 @@ export function readManifest(root: string): ReadManifest {
   const validation = validateManifest(document);
 
   // An unsupported version is its own answer rather than one problem among many: every
-  // other field was read against rules that may simply not apply to that version.
-  if (!validation.versionSupported) {
-    const declared = (document as { version?: unknown })?.version;
+  // other field was read against rules that may simply not apply to that version. A
+  // document that is not a mapping has no version at all, and `null` says so — reporting
+  // one there would name a field the user never wrote instead of what is actually wrong.
+  if (validation.versionSupported === false) {
     throw new OperationError(
       'manifest.unsupported_version',
-      `${path} declares version ${JSON.stringify(declared ?? null)}; this Binnacle supports version ${MANIFEST_VERSION}.`,
+      `${path} does not declare version ${MANIFEST_VERSION}, which is the version this Binnacle supports.`,
       400,
-      [{ path: 'version', message: `expected ${MANIFEST_VERSION}` }],
+      validation.problems.filter((problem) => problem.path === 'version'),
     );
   }
 

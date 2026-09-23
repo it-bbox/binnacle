@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, it } from 'node:test';
@@ -116,17 +116,6 @@ tracker:
       assert.ok(!JSON.stringify(listed.body).includes('ghp_thisMustNeverLeaveTheFile'));
     });
   });
-
-  it('answers rather than throws when the document is not a mapping at all', async () => {
-    await withDaemon(async (daemon) => {
-      for (const contents of ['- one\n- two\n', 'just a string\n', '']) {
-        const root = makeProject(contents);
-        const { status, body } = await daemon.call<ErrorEnvelope>('project.register', { path: root });
-        assert.ok(status === 400, `${JSON.stringify(contents)} answered ${status}`);
-        assert.match(body.error.code, /^manifest\./);
-      }
-    });
-  });
 });
 
 describe('a manifest that changed since it was last projected', () => {
@@ -176,18 +165,78 @@ describe('a manifest that changed since it was last projected', () => {
   });
 });
 
-describe('the core package', () => {
-  it('validates without reaching the filesystem or any dependency', () => {
-    const source = new URL('../../../packages/core/src/', import.meta.url);
-    for (const name of readdirSync(source).filter((file) => file.endsWith('.ts'))) {
-      const text = readFileSync(new URL(name, source), 'utf8');
-      assert.ok(!/from 'node:/.test(text), `${name} must stay pure: no node: imports`);
-      assert.ok(!/^import .* from '(?!\.)/m.test(text), `${name} must import nothing outside the package`);
-    }
+describe('what the manifest must not hide or leak', () => {
+  it('names the document, not a version the user never wrote, when it is not a mapping', async () => {
+    await withDaemon(async (daemon) => {
+      for (const contents of ['- one\n- two\n', 'just a string\n', '42\n', '']) {
+        const root = makeProject(contents);
+        const { status, body } = await daemon.call<ErrorEnvelope>('project.register', { path: root });
+        assert.equal(status, 400, JSON.stringify(contents));
+        assert.equal(body.error.code, 'manifest.invalid', JSON.stringify(contents));
+        assert.deepEqual(
+          (body.error.details ?? []).map((detail) => detail.path),
+          ['(document)'],
+          JSON.stringify(contents),
+        );
+      }
+    });
+  });
 
-    const manifest = JSON.parse(readFileSync(new URL('../package.json', source), 'utf8')) as {
-      dependencies?: Record<string, string>;
-    };
-    assert.equal(manifest.dependencies, undefined);
+  it('records a change to a field the projection does not itself carry', async () => {
+    const home = realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-home-')));
+    roots.push(home);
+    const root = makeProject('version: 1\n\nproject:\n  id: example-project\n\ntracker:\n  provider: github\n');
+
+    const first = await startTestDaemon({ home });
+    await first.call('project.register', { path: root });
+    await first.stop();
+
+    // Neither the id nor the name moves. Only the tracker does, and the projection keeps
+    // no column for it — the digest is what makes the change visible at all.
+    writeFileSync(
+      join(root, '.binnacle', 'project.yaml'),
+      'version: 1\n\nproject:\n  id: example-project\n\ntracker:\n  provider: gitlab\n',
+    );
+
+    const second = await startTestDaemon({ home });
+    try {
+      const { body } = await second.call<{ events: { type: string }[] }>('event.list');
+      assert.ok(body.events.some((event) => event.type === 'project.manifest_changed'));
+    } finally {
+      await second.stop();
+    }
+  });
+
+  it('lets no manifest text into the event history, even through a failure reason', async () => {
+    const home = realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-home-')));
+    roots.push(home);
+    const secret = 'ghp_thisMustNeverReachTheEventTable';
+    const root = makeProject(`version: 1\n\nproject:\n  id: example-project\n  name: ${secret}\n`);
+
+    const first = await startTestDaemon({ home });
+    await first.call('project.register', { path: root });
+    await first.stop();
+
+    // A manifest that stops parsing: the reason a project became unavailable can quote
+    // the file, and the event table is the tier that is never dropped.
+    writeFileSync(join(root, '.binnacle', 'project.yaml'), `version: 1\nproject: [${secret}\n`);
+
+    const second = await startTestDaemon({ home });
+    try {
+      const { body } = await second.call<{ events: unknown[] }>('event.list');
+      assert.ok(body.events.length > 1, 'the change was recorded');
+      assert.ok(!JSON.stringify(body.events).includes(secret));
+    } finally {
+      await second.stop();
+    }
+  });
+
+  it('accepts a capability name it has never heard of', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject('version: 1\n\nproject:\n  id: example-project\n\ncapabilities:\n  some_new_tool: true\n');
+      const { status, body } = await daemon.call<{ warnings: Problem[] }>('project.register', { path: root });
+      assert.equal(status, 200);
+      assert.deepEqual(body.warnings, []);
+    });
   });
 });

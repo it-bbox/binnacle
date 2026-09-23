@@ -31,3 +31,20 @@ Two things a reviewer should know:
 
 - **`store.project(path)` is back.** Ticket 02's review deleted it as having no callers; `reproject()` is the caller it was missing. That was the right call at the time and this is the right call now, but it is worth seeing the round trip.
 - **A ticket 02 test changed.** "Survives the projection being re-derived on the next start" changed the manifest between runs and asserted the history held only `project.registered`. That manifest change now correctly records `project.manifest_changed`, so the expectation was stale rather than the behaviour wrong. The test still proves what it was written to prove.
+
+### Review
+
+Reviewed on both axes. Both found the same defect independently, which is usually a sign it matters.
+
+- **A document that is not a mapping named the wrong field.** An empty file, a list, a bare number — core recorded `(document): expected a YAML mapping`, and then the version branch fired first and answered "declares version null; this Binnacle supports version 1", naming a field the user never wrote and hiding the real one. It was also a regression of a check ticket 02 had. `versionSupported` is now `boolean | null`, where null means the question does not arise, and the test asserts the reported path rather than only the code prefix — which is why the old test let it through.
+- **`project.manifest_changed` could only see two fields.** This ticket started validating `tracker`, `knowledge`, `workflow`, `capabilities`, `automation` and `telemetry`, but the comparison read the projection row, which carries the id and the name. A change to any other section was re-read and silently dropped. The projection now stores a digest of the whole validated manifest, and the comparison is name-independent, so a column added later is compared too rather than quietly stopping the event.
+- **Defaults invented facts.** An absent `tracker.provider` became `local`, an absent `telemetry.privacy` became `metadata`. Ticket 04 raises a diagnostic when the declared tracker disagrees with the Git remote — against a provider nobody declared, that diagnostic is noise. A field the user did not write now comes back null and defaults belong at the point of use. Defaulting a privacy control was the sharpest case of the three.
+- **One path echoed a manifest value into the tier that is never dropped.** The unsupported-version message embedded the declared value, `deriveProject` stored that message as the unavailability reason, and `reproject` copied the reason into the event payload. The payload now carries facts — id, name, available — and the message names no value. A test writes a secret into a manifest, then breaks the manifest, and asserts the whole event history is clean.
+- Dropped the `@binnacle/core` dependency the CLI had taken for one type: `ErrorDetail` from `@binnacle/daemon` is the same shape and was already imported beside it. Trimmed five core exports nothing consumes. Renamed `known` (it records the *unknown*), and split `mapping`/`asMapping` into `sectionOf` and `requireMapping`, which say what they differ on.
+
+Two judgement calls kept, both recorded rather than silently held:
+
+- **The purity test moved into `packages/core/test/`.** Reaching from the daemon's tests across a package boundary to regex another package's sources was the wrong place for it. A package checks its own boundary.
+- **`packages/core` now has tests of its own, which is a second seam.** The spec fixes one seam at the daemon's HTTP API, and that rule holds for the daemon. This is a different thing: the public function of a separate package, whose contract three later epics consume and which the daemon does not expose until ticket 04 puts manifest facts on `project.status`. The alternative was shipping the no-defaults rule untested until then. Confined to the public function; nothing reaches inside it.
+
+Unknown *capability* names stay accepted without a warning, and there is now a test pinning that rather than only a paragraph. A tool Binnacle has never heard of is a fact about the user's machine.

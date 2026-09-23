@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import type { ProjectManifest } from '@binnacle/core';
 import { readManifest } from './manifest.ts';
 import { readRegistry, type RegistryEntry } from './registry.ts';
 import type { ProjectRow, Store } from './store.ts';
@@ -24,17 +26,26 @@ export function reproject(store: Store, entry: RegistryEntry): ProjectRow {
   store.putProject(row);
 
   if (before && differs(before, row)) {
+    // The payload carries facts, never manifest text. A failure reason can quote the
+    // file it came from, and the event table is the tier that is never dropped.
     store.appendEvent({
       type: 'project.manifest_changed',
       projectPath: entry.path,
-      payload: { id: row.id, name: row.name, unavailable: row.unavailable },
+      payload: { id: row.id, name: row.name, available: row.unavailable === null },
     });
   }
   return row;
 }
 
-const differs = (before: ProjectRow, after: ProjectRow): boolean =>
-  before.id !== after.id || before.name !== after.name || before.unavailable !== after.unavailable;
+/**
+ * Compares everything the projection derives from the manifest, by name-independent
+ * means: a column added later is compared too, rather than silently stopping the event.
+ * The registry owns `path` and `registeredAt`, so neither is a manifest change.
+ */
+function differs(before: ProjectRow, after: ProjectRow): boolean {
+  const facts = ({ path, registeredAt, ...rest }: ProjectRow): string => JSON.stringify(rest);
+  return facts(before) !== facts(after);
+}
 
 /**
  * A registered repository whose manifest cannot be read stays registered and says why.
@@ -50,6 +61,7 @@ export function deriveProject(entry: RegistryEntry): ProjectRow {
       name: manifest.project.name,
       registeredAt: entry.registeredAt,
       unavailable: null,
+      manifestDigest: digest(manifest),
     };
   } catch (error) {
     return {
@@ -58,6 +70,15 @@ export function deriveProject(entry: RegistryEntry): ProjectRow {
       name: null,
       registeredAt: entry.registeredAt,
       unavailable: (error as Error).message,
+      manifestDigest: null,
     };
   }
 }
+
+/**
+ * A stable fingerprint of the validated manifest. It is built field by field in a fixed
+ * order, so serialising it is deterministic, and it is a hash rather than the content so
+ * that nothing from the file is stored where it does not belong.
+ */
+const digest = (manifest: ProjectManifest): string =>
+  createHash('sha256').update(JSON.stringify(manifest)).digest('hex');

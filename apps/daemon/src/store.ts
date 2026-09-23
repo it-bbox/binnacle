@@ -23,6 +23,11 @@ export type ProjectRow = {
   registeredAt: string;
   /** Why this registered path could not be projected, or null when it projected cleanly. */
   unavailable: string | null;
+  /**
+   * A digest of the whole validated manifest, so that a change to any field is visible
+   * — not only to the two this row happens to carry.
+   */
+  manifestDigest: string | null;
 };
 
 /** ADR-0007: a record says where it came from, and nothing is ever invented to fill a gap. */
@@ -85,7 +90,8 @@ export function openStore(home: string): Store {
       id text,
       name text,
       registered_at text not null,
-      unavailable text
+      unavailable text,
+      manifest_digest text
     );
     create table if not exists event (
       id integer primary key autoincrement,
@@ -102,14 +108,15 @@ export function openStore(home: string): Store {
   // every open would destroy the one fact that decision needs.
   db.prepare('insert or ignore into meta (key, value) values (?, ?)').run('schema_version', String(SCHEMA_VERSION));
 
-  const selectAll = db.prepare('select path, id, name, registered_at, unavailable from project order by id');
-  const selectOne = db.prepare('select path, id, name, registered_at, unavailable from project where path = ?');
+  const COLUMNS = 'path, id, name, registered_at, unavailable, manifest_digest';
+  const selectAll = db.prepare(`select ${COLUMNS} from project order by id`);
+  const selectOne = db.prepare(`select ${COLUMNS} from project where path = ?`);
   const upsert = db.prepare(`
-    insert into project (path, id, name, registered_at, unavailable)
-    values (?, ?, ?, ?, ?)
+    insert into project (path, id, name, registered_at, unavailable, manifest_digest)
+    values (?, ?, ?, ?, ?, ?)
     on conflict(path) do update set
-      id = excluded.id, name = excluded.name,
-      registered_at = excluded.registered_at, unavailable = excluded.unavailable
+      id = excluded.id, name = excluded.name, registered_at = excluded.registered_at,
+      unavailable = excluded.unavailable, manifest_digest = excluded.manifest_digest
   `);
 
   const insertEvent = db.prepare(
@@ -123,7 +130,7 @@ export function openStore(home: string): Store {
       return row ? toProject(row) : null;
     },
     putProject: (row) => {
-      upsert.run(row.path, row.id, row.name, row.registeredAt, row.unavailable);
+      upsert.run(row.path, row.id, row.name, row.registeredAt, row.unavailable, row.manifestDigest);
     },
     dropProjectsExcept: (paths) => {
       const placeholders = paths.map(() => '?').join(', ');
@@ -191,5 +198,6 @@ function toProject(row: Record<string, unknown>): ProjectRow {
     name: row.name === null ? null : String(row.name),
     registeredAt: String(row.registered_at),
     unavailable: row.unavailable === null ? null : String(row.unavailable),
+    manifestDigest: row.manifest_digest === null ? null : String(row.manifest_digest),
   };
 }
