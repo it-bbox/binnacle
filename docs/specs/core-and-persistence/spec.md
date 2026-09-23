@@ -1,6 +1,6 @@
 # Spec: Core and Persistence
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 
 Epic 1 of v1, as defined in `docs/05-mvp-plan.md` phase 1. Exit criterion: one local project can be registered and queried.

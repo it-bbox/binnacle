@@ -1,0 +1,38 @@
+version: 1
+
+project:
+  id: binnacle
+  name: Binnacle
+
+tracker:
+  # This repository's tickets are Markdown files under docs/specs/<slug>/issues/ (ADR-0017).
+  # The GitHub remote hosts the code, not the tracker.
+  provider: local
+  local:
+    issues: docs/specs
+
+knowledge:
+  context: CONTEXT.md
+  docs: docs
+  adr: docs/adr
+  specs: docs/specs
+
+workflow:
+  provider: matt-pocock
+  scratch: .scratch
+
+capabilities:
+  serena: true
+  graphify: true
+  context7: true
+  ast_grep: true
+  obsidian: optional
+
+automation:
+  mode: manual
+  max_parallel_development_tasks: 2
+
+telemetry:
+  privacy: metadata
+  import:
+    window_days: 30
