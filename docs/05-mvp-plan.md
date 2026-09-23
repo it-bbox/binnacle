@@ -25,12 +25,15 @@ Exit criterion: one local project can be registered and queried.
 
 Implement:
 
-- MCP server;
-- project detect/status;
+- MCP server, stdio first, on the official SDK (ADR-0021);
+- project detect/status, including linked worktrees;
+- the Task-reading half of the tracker contract, and the local Markdown tracker as its first adapter;
 - Product Snapshot generator;
 - daily delta;
-- checkpoint prepare/commit workflow;
+- checkpoint prepare/record workflow (ADR-0020);
 - minimal client skill wrappers for the first supported harness.
+
+The MCP server is registered by hand in this epic: this repository commits a project-scoped `.mcp.json`. `binn init` does it for other projects in phase 3.
 
 Exit criterion: a brand-new Product chat can run `/product` + `/daily` and understand project state without old conversation history.
 
@@ -38,9 +41,9 @@ Exit criterion: a brand-new Product chat can run `/product` + `/daily` and under
 
 Implement:
 
-- one shared tracker contract, defined before any adapter;
+- the rest of the shared tracker contract, extending the Task-reading half phase 2 defined before its first adapter;
 - GitHub and GitLab adapters behind it, both read-only (ADR-0013);
-- local markdown tracker as the fallback;
+- `binn init`: manifest generation, harness detection, MCP registration, and reading a repository's agent instructions as one set (a `CLAUDE.md` that imports `AGENTS.md` is one, not two);
 - detection of Matt Pocock config/layout;
 - task/dependency mapping;
 - `.scratch` materialization policy.

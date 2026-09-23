@@ -13,7 +13,6 @@ MCP is the stable contract. Client-specific slash commands/skills are thin UX wr
 - `project.detect`
 - `project.status`
 - `project.snapshot`
-- `daily.get`
 - `task.get`
 - `task.list`
 - `task.plan`
@@ -26,10 +25,11 @@ MCP is the stable contract. Client-specific slash commands/skills are thin UX wr
 
 ### Controlled mutations
 
+- `daily.get` (it records the baseline for the next daily)
 - `question.create`
 - `question.answer`
 - `checkpoint.prepare`
-- `checkpoint.commit`
+- `checkpoint.record` (ADR-0020: it records the checkpoint; the calling session writes the files)
 
 No tool writes to the tracker (ADR-0013). Closing an issue is done by the agent with its own tooling, or by the human in the tracker's own interface.
 
@@ -50,7 +50,7 @@ Actual command syntax may differ across Claude Code, Codex, Gemini and other cli
 
 ## How the interface reaches a harness
 
-MCP is the universal path, and registering it is a config edit in a location each harness already defines — `~/.claude/settings.json` for Claude Code, `[mcp_servers.*]` in `~/.codex/config.toml` for Codex. `binn init` performs that registration for every harness it detects. This is support level 1 from ADR-0014, and it requires no adapter code.
+MCP is the universal path, and registering it is a config edit in a location each harness already defines — `~/.claude.json` or a project's `.mcp.json` for Claude Code, `[mcp_servers.*]` in `~/.codex/config.toml` for Codex. `binn init` performs that registration for every harness it detects. This is support level 1 from ADR-0014, and it requires no adapter code.
 
 Command wrappers are generated from a single procedure description per action, so supporting a new harness means adding an output template, not new logic. A harness with no wrapper mechanism still works: the human asks for the tool by name.
 

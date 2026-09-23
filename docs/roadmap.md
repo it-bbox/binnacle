@@ -11,7 +11,7 @@ This is the roadmap's single home because this repository uses the local Markdow
 | # | Epic | Status | Spec |
 | --- | --- | --- | --- |
 | 1 | Core and persistence | done | [`core-and-persistence`](specs/core-and-persistence/spec.md) |
-| 2 | MCP and Product Snapshot | not started | — |
+| 2 | MCP and Product Snapshot | spec | [`mcp-and-product-snapshot`](specs/mcp-and-product-snapshot/spec.md) |
 | 3 | Tracker and Matt Pocock integration | not started | — |
 | 4 | Telemetry | not started | — |
 | 5 | Minimal dashboard | not started | — |
@@ -29,15 +29,9 @@ The exit criterion is demonstrated on this repository: it commits `.binnacle/pro
 
 Binnacle is not yet useful for its own Product work. `/product`, `/daily` and `/checkpoint` arrive with epic 2; until then that work is done by hand, as `docs/workflow/02-development-workflow.md` describes under *This repository, until epic 2*.
 
-Next action: `/to-spec` for epic 2, after settling the questions below.
+Epic 2 is specified. Its three open questions were settled at `/grill-with-docs` before `/to-spec`: epic 2 takes the Task-reading half of the tracker contract with the local Markdown tracker as its first adapter; the MCP server is registered by a committed `.mcp.json`, and `binn init` stays in epic 3; and ticket 08 (linked worktrees) moves into epic 2. Specifying it added ADR-0020 and ADR-0021.
 
-## Open before epic 2 is specified
-
-Three open questions: two the plan leaves open, one found by registering this repository. Settle all three at `/to-spec` for epic 2, not partway through it.
-
-- **The Product Snapshot promises active tasks and blockers, and tasks arrive in epic 3.** With epics ordered 2 then 3, a snapshot built in epic 2 knows Git, the roadmap and the event history, but not the tickets. Either swap epics 2 and 3, or give epic 2 a minimal read of the local Markdown tickets and leave the shared tracker contract to epic 3.
-- **`binn init` is referenced by epics 3 and 4 but is a deliverable of neither.** Registering the MCP server in a harness's own configuration is its job (`docs/03-mcp-and-skills.md`). Without it, epic 2's MCP server is connected by hand with `claude mcp add`. Either accept that for epic 2, or place `binn init` in it. Wherever it lands, it reads a repository's agent instructions, and so does epic 6's audit: a `CLAUDE.md` that imports `AGENTS.md` is one instruction set, not two. Claude Code reads `AGENTS.md` itself only when no `CLAUDE.md` exists, which is why this repository imports it.
-- **`project.status` and `project.detect` do not understand linked worktrees** ([ticket 08](specs/core-and-persistence/issues/08-linked-worktrees.md)). Inside a worktree, status reports the main checkout's branch; outside the project, a worktree is not found. Epic 2's detect is called from wherever a harness started, and Claude Code starts in worktrees under `.claude/worktrees/`. Either take ticket 08 into epic 2, or state that epic 2 answers for the registered checkout only.
+Next action: `/to-tickets` for epic 2.
 
 ## Later
 
@@ -53,3 +47,5 @@ Items excluded from the product altogether are not listed here. See the non-goal
 ## Keeping this current
 
 Update the status column when an epic changes state, and fill the spec link when `to-spec` produces one. A stale roadmap is worse than none, because Product Snapshot reads its position from here.
+
+The epic table's header and the `## Current focus` heading are a contract with Binnacle (`specs/mcp-and-product-snapshot/spec.md`). Change them and the snapshot reports a diagnostic instead of a position.

@@ -21,3 +21,5 @@ Open questions, to settle before this is `ready-for-agent`:
 Epic 1 closes with this as a known limitation: `project.status` answers for the registered checkout only. Epic 2's `/to-spec`, which specifies the first consumer, either takes this ticket or restates that limitation (`docs/roadmap.md`).
 
 ## Comments
+
+Taken into epic 2, and its three questions are answered in `docs/specs/mcp-and-product-snapshot/spec.md`, under *Linked worktrees*: status reports the caller's checkout and names it; a sibling worktree is found through Git's common directory only when containment finds nothing; a nested separate repository is told apart by comparing common directories. This file moves into that spec's issue directory at `/to-tickets`.

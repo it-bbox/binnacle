@@ -51,8 +51,17 @@ A durable document describing intended behaviour. It lives in Git, next to the c
 ### Ticket
 A unit of work. It lives in the project's tracker, and references its Spec. A Spec is not a Ticket and a Ticket is not a Spec.
 
+### Task
+Binnacle's view of a Ticket: its identity, title, lifecycle state and dependencies. The Ticket is canonical; a Task has no existence of its own and is always re-read from the tracker. On the local Markdown tracker its identity is `<spec-slug>/<NN>`, because ticket numbers are unique only within one Spec.
+
+### BLOCKED
+A Task state: work started and now waits on something. It is not the same as an Unmet dependency, and a snapshot reports the two separately.
+
+### Unmet dependency
+A Ticket this Task is declared to be blocked by, which is not yet done. A Task with one can be in any state, `READY` included.
+
 ### Checkpoint
-An operation that persists only the new durable delta from the current session into canonical project sources. It is not a retelling of the whole chat.
+An operation that persists only the new durable delta from the current session into canonical project sources. It is not a retelling of the whole chat. The calling session writes the delta after the human confirms it; Binnacle computes what to consider and records that the checkpoint happened, and writes nothing into the repository itself.
 
 ### Scratch workspace
 The ephemeral working space of the current task/run. It is not long-term memory, it is not the tracker, and it never holds the only copy of anything durable.
