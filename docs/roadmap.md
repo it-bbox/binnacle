@@ -11,7 +11,7 @@ This is the roadmap's single home because this repository uses the local Markdow
 | # | Epic | Status | Spec |
 | --- | --- | --- | --- |
 | 1 | Core and persistence | done | [`core-and-persistence`](specs/core-and-persistence/spec.md) |
-| 2 | MCP and Product Snapshot | tickets | [`mcp-and-product-snapshot`](specs/mcp-and-product-snapshot/spec.md) |
+| 2 | MCP and Product Snapshot | in progress | [`mcp-and-product-snapshot`](specs/mcp-and-product-snapshot/spec.md) |
 | 3 | Tracker and Matt Pocock integration | not started | — |
 | 4 | Telemetry | not started | — |
 | 5 | Minimal dashboard | not started | — |
@@ -33,7 +33,9 @@ Epic 2 is specified. Its three open questions were settled at `/grill-with-docs`
 
 Epic 2 is sliced into seven tickets under `specs/mcp-and-product-snapshot/issues/`. Tickets 01 (linked worktrees) and 02 (Tasks in the snapshot) have no blockers and can run in parallel; 03 and 04 follow 02; 05 needs 03 and 04; 06 needs 05; 07, the skills and the exit demonstration, needs 01 and 06.
 
-Next action: implement ticket 01 or 02, each in a fresh session.
+Ticket 01 is done: `project.status` and `project.detect` now answer from a linked worktree, inside the repository or beside it, with the Git facts of the caller's own checkout.
+
+Next action: implement ticket 02 if it is not already merged, then 03 and 04, each in a fresh session.
 
 ## Later
 
