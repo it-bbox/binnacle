@@ -41,7 +41,7 @@ One primary session per ticket. Subagents only with the human's explicit approva
 
 Tickets with no blocking edge between them may run at the same time, one session each, but never two in one working directory: the first runs in the main checkout and every other one in its own worktree (`.claude/worktrees/`, ignored by Git). Whichever branch is merged second is first rebased onto `main` by its own session, which resolves the conflicts, checks that its code still fits what the first ticket changed, and reruns the tests. Its `DONE` commit stays last.
 
-**Product work** — dailies, decisions, planning — happens in its own disposable session, which starts with `/product` and `/daily` and closes with `/checkpoint` (`docs/workflow/01-product-workflow.md`). With the daemon stopped, the same session reads the repository instead: `git log`, the tickets' `Status:` lines and the roadmap.
+**Product work** — dailies, decisions, planning — happens in its own disposable session, which starts with `/product` and `/daily` and closes with `/checkpoint` (`docs/workflow/01-product-workflow.md`). With the daemon stopped, the same session reads the repository instead — `git log`, the tickets' `Status:` lines and the roadmap — and before it closes promotes what it decided into a ticket, an ADR or the roadmap by hand.
 
 ## Developer context routing
 
