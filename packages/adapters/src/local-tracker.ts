@@ -29,7 +29,8 @@ export function readLocalTasks(root: string, issues: string): TaskReading {
     const files = (listing(dir) ?? [])
       .filter((entry) => entry.isFile() && TICKET_FILE.test(entry.name))
       .map((entry) => entry.name)
-      .sort();
+      // By ticket number, so `9-…` comes before `10-…`; the name breaks a tie.
+      .sort((a, b) => ticketNumber(a) - ticketNumber(b) || (a < b ? -1 : a > b ? 1 : 0));
     for (const file of files) {
       const ticket = posix.join(issues, spec, 'issues', file);
       tasks.push(parseTicket(spec, file, ticket, readFileSync(join(dir, file), 'utf8'), diagnostics));
@@ -40,6 +41,8 @@ export function readLocalTasks(root: string, issues: string): TaskReading {
 
 const TICKET_FILE = /^(\d+)-.*\.md$/;
 const HEADER = /^(Status|Triage|Blocked by|Spec):\s*(.*)$/;
+
+const ticketNumber = (file: string): number => Number(TICKET_FILE.exec(file)![1]);
 
 /** `02`, `2` and `002` are one ticket: numbers are compared, and written as `NN`. */
 const identity = (spec: string, number: string): string => `${spec}/${String(Number(number)).padStart(2, '0')}`;

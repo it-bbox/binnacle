@@ -106,7 +106,7 @@ describe('Tasks in the Product Snapshot', () => {
     });
   });
 
-  it('lists what is in flight and what can start, and counts every other state, unknown included', async () => {
+  it('lists what is in flight and what can start, at most ten each with a remainder, and counts every other state', async () => {
     await withDaemon(async (daemon) => {
       const root = makeProject();
       const states = ['BACKLOG', 'READY', 'ACTIVE', 'BLOCKED', 'READY_FOR_REVIEW', 'APPROVED', 'MERGE_READY', 'MERGED', 'DONE', 'CANCELLED'];
@@ -122,6 +122,9 @@ describe('Tasks in the Product Snapshot', () => {
       ticket(root, 'every-state', '14-no-status.md', { title: '14: No status' });
       // 42 is no ticket: a dangling reference, not an Unmet dependency, so this READY can start.
       ticket(root, 'every-state', '15-dangling.md', { title: '15: Dangling', status: 'READY', blockedBy: '42' });
+      // Enough more of each listed kind to pass the limit of ten: 12 in flight, 11 ready.
+      for (let n = 1; n <= 7; n++) ticket(root, 'z-bulk', `0${n}-active.md`, { title: 'Active', status: 'ACTIVE' });
+      for (let n = 8; n <= 15; n++) ticket(root, 'z-bulk', `${n}-ready.md`, { title: 'Ready', status: 'READY' });
 
       const body = await snapshot(daemon, root);
       assert.ok(body.tasks);
@@ -131,8 +134,26 @@ describe('Tasks in the Product Snapshot', () => {
         'every-state/05',
         'every-state/06',
         'every-state/07',
+        'z-bulk/01',
+        'z-bulk/02',
+        'z-bulk/03',
+        'z-bulk/04',
+        'z-bulk/05',
       ]);
-      assert.deepEqual(ids(body.tasks.readyToStart), ['every-state/02', 'every-state/12', 'every-state/15']);
+      assert.equal(body.tasks.inFlight.remainder, 2);
+      assert.deepEqual(ids(body.tasks.readyToStart), [
+        'every-state/02',
+        'every-state/12',
+        'every-state/15',
+        'z-bulk/08',
+        'z-bulk/09',
+        'z-bulk/10',
+        'z-bulk/11',
+        'z-bulk/12',
+        'z-bulk/13',
+        'z-bulk/14',
+      ]);
+      assert.equal(body.tasks.readyToStart.remainder, 1);
       assert.deepEqual(body.tasks.counts, { BACKLOG: 1, READY: 1, MERGED: 1, DONE: 1, CANCELLED: 1, unknown: 2 });
       assert.deepEqual(
         body.attention.map((item) => item.code),
@@ -156,21 +177,6 @@ describe('Tasks in the Product Snapshot', () => {
       assert.deepEqual(byId['epic/02']!.unmetDependencies, []);
       assert.equal(byId['epic/03']!.state, 'ACTIVE');
       assert.deepEqual(byId['epic/03']!.unmetDependencies, ['epic/01', 'epic/02']);
-    });
-  });
-
-  it('holds at most ten Tasks per section and reports the remainder', async () => {
-    await withDaemon(async (daemon) => {
-      const root = makeProject();
-      for (let n = 1; n <= 12; n++) ticket(root, 'big', `${String(n).padStart(2, '0')}-active.md`, { title: 'Active', status: 'ACTIVE' });
-      for (let n = 13; n <= 23; n++) ticket(root, 'big', `${n}-ready.md`, { title: 'Ready', status: 'READY' });
-
-      const body = await snapshot(daemon, root);
-      assert.equal(body.tasks!.inFlight.items.length, 10);
-      assert.equal(body.tasks!.inFlight.remainder, 2);
-      assert.equal(body.tasks!.readyToStart.items.length, 10);
-      assert.equal(body.tasks!.readyToStart.remainder, 1);
-      assert.deepEqual(body.tasks!.readyToStart.items.at(-1)?.id, 'big/22');
     });
   });
 
