@@ -23,11 +23,11 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 Design is complete and recorded: every question in `docs/08-open-questions.md` is resolved across ADR-0001 to ADR-0018, and specifying epic 1 added ADR-0019. Epic 1 is specified and sliced into seven tickets, and implementation has begun.
 
-Tickets 01 to 04 and 06 are implemented. `apps/daemon` and `apps/cli` carry the daemon lifecycle, the authenticated loopback API, the shared error envelope, the machine store and the project registry — which is ADR-0019 executed, not only recorded. `project.status` reports manifest facts beside live, read-only Git facts, and `project.detect` finds a project from any directory inside it. `packages/core` holds manifest validation, the tracker-versus-remote check, and the Project, Task, AgentRun and Review types with their three state machines, as pure functions with no dependencies. `packages/adapters` holds the Git adapter.
+Tickets 01 to 06 are implemented. `apps/daemon` and `apps/cli` carry the daemon lifecycle, the authenticated loopback API, the shared error envelope, the machine store and the project registry — which is ADR-0019 executed, not only recorded. `project.status` reports manifest facts beside live, read-only Git facts, and `project.detect` finds a project from any directory inside it. `packages/core` holds manifest validation, the tracker-versus-remote check, and the Project, Task, AgentRun and Review types with their three state machines, as pure functions with no dependencies. `packages/adapters` holds the Git adapter. The two storage tiers of ADR-0015 are executed: a schema version change drops and re-derives the projections, keeps the registry and the event history, and records the rebuild as an event.
 
 Binnacle is not yet useful for its own Product work. `/product`, `/daily` and `/checkpoint` arrive with epic 2; until then that work is done by hand, as `docs/workflow/02-development-workflow.md` describes under *This repository, until epic 2*.
 
-Next action: epic 1 ticket 05, which has no open blocker. Ticket 07 — the exit criterion — comes last.
+Next action: epic 1 ticket 07, the exit criterion and the last ticket of the epic. It has no open blocker.
 
 ## Open before epic 2 is specified
 
