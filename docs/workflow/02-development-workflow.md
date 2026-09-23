@@ -84,11 +84,10 @@ Binnacle is built by being used on itself (`docs/00-scope.md`), but until epic 2
 
 ### Per ticket
 
-1. Branch from an up-to-date `main`: `feat/<slug>`.
-2. A fresh session implements it: `/mattpocock-skills:implement docs/specs/<epic>/issues/NN-<slug>.md`. That means test-first through the seam the spec fixes, typecheck, `/code-review`, commit, and whatever the next ticket needs to know written under the ticket's `## Comments`.
-3. The human reviews, merges and pushes.
-4. **The ticket's `Status:` becomes `DONE` in the same step as the merge** — not later, and not by whoever happens to notice. The roadmap and the next Product session read position from these files, and a merged ticket still marked `READY` is exactly the failure this project exists to prevent. It happened three times in epic 1 before this rule existed.
-5. When the frontier moves, the roadmap's current focus moves with it.
+1. The human starts a fresh session with `/mattpocock-skills:implement docs/specs/<epic>/issues/NN-<slug>.md`, and does nothing else. That skill commits to the current branch and creates none, so the session does the rest.
+2. The session branches from an up-to-date `main` as `feat/<slug>`, implements test-first through the seam the spec fixes, typechecks, runs `/code-review`, and writes whatever the next ticket needs to know under the ticket's `## Comments`.
+3. **The session's last commit sets the ticket's `Status:` to `DONE`**, and moves the roadmap's current focus if the frontier moved. The status then reaches `main` in the same step as the merge — not later, and not by whoever happens to notice — and a branch that is not merged never marks anything done. The roadmap and the next Product session read position from these files, and a merged ticket still marked `READY` is exactly the failure this project exists to prevent. It happened three times in epic 1 before this rule existed.
+4. The human reviews, merges and pushes. Nothing is left to edit afterwards.
 
 One primary session per ticket. Subagents only with the human's explicit approval of that plan.
 

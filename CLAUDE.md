@@ -7,6 +7,7 @@ Read and obey `AGENTS.md` first. This file only adds Claude-specific workflow gu
 - Do not treat conversation history as project memory.
 - For Product work, request/use a fresh Product Snapshot from Binnacle rather than relying on a long-lived chat.
 - Prefer fresh sessions for distinct implementation tickets.
+- An implementation session starts by branching `feat/<slug>` from an up-to-date `main`, and never commits a ticket to `main`. Its last commit sets the ticket's `Status:` to `DONE` and moves the roadmap's current focus if the frontier moved.
 - Use `/checkpoint` (once implemented) to persist only durable session delta before rotating a long Product session.
 - Do not spawn subagents unless the user explicitly approved that execution plan or the current task policy explicitly allows it.
 
