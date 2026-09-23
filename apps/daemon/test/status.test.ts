@@ -465,6 +465,9 @@ describe('a linked worktree', () => {
   it('is not confused with a separate repository nested inside the project', async () => {
     await withDaemon(async (daemon) => {
       const root = makeRepository();
+      // A worktree beside it, so that the answer turns on the common directory and not on
+      // the repository merely having no worktrees.
+      roots.push(addWorktree(root, `${root}-sibling`, 'feat/sibling'));
       const vendored = join(root, 'vendor', 'other');
       mkdirSync(vendored, { recursive: true });
       git(vendored, 'init', '--quiet', '--initial-branch=vendored');

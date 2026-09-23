@@ -16,6 +16,9 @@ The sum of a project's long-lived knowledge and current state: docs, ADRs, specs
 ### Project registry
 The list of repository paths registered with Binnacle on one machine. It is canonical — no source outside Binnacle records that this machine tracks a given path — so it is a file, not a table, and the `Project` table is a projection of it (`docs/adr/ADR-0019-registry-is-a-file.md`).
 
+### Checkout
+One working directory of a repository: the registered one, or a linked worktree of the same repository (`git worktree add`), which has its own branch, HEAD and dirty state and shares the repository's Git common directory. Git facts always describe the caller's checkout and say which one it is. A separate repository nested inside a project is not a checkout of it.
+
 ### Product Steward
 A permanent logical role, but not a permanent chat. A new Product session must rebuild the current picture from a Product Snapshot.
 

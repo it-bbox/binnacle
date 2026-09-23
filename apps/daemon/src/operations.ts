@@ -91,7 +91,7 @@ export const operations: Record<string, Operation> = {
     const { row, manifest } = reproject(context.store, await resolveEntry(path, context));
     const worktree = path === row.path ? null : await linkedWorktree(path, row.path);
     const git = await readGitFacts(worktree ?? row.path, resolveGitTimeout());
-    const checkout = { root: worktree ?? (git.available ? git.root : row.path), registered: worktree === null };
+    const checkout = { root: git.available ? git.root : (worktree ?? row.path), registered: worktree === null };
 
     const mismatch =
       manifest && git.available
@@ -156,11 +156,11 @@ async function resolveEntry(path: string, context: OperationContext): Promise<Re
  * and whenever Git cannot say.
  */
 async function linkedWorktree(path: string, projectPath: string): Promise<string | null> {
-  const [here, home] = await Promise.all([
+  const [here, registered] = await Promise.all([
     readGitLocation(path, resolveGitTimeout()),
     readGitLocation(projectPath, resolveGitTimeout()),
   ]);
-  return here && home && here.commonDir === home.commonDir && here.root !== home.root ? here.root : null;
+  return here && registered && here.commonDir === registered.commonDir && here.root !== registered.root ? here.root : null;
 }
 
 /**
