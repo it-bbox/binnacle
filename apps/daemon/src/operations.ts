@@ -1,11 +1,11 @@
-import { realpathSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { isAbsolute, relative, sep } from 'node:path';
 import { readGitFacts, type GitFacts } from '@binnacle/adapters';
 import { trackerRemoteMismatch, type Diagnostic, type ProjectManifest } from '@binnacle/core';
-import { OperationError } from './errors.ts';
+import { OperationError, pathNotFound } from './errors.ts';
 import { resolveGitTimeout, type Runtime } from './home.ts';
 import { readManifest } from './manifest.ts';
-import { reproject } from './projection.ts';
+import { projectRegistry, reproject } from './projection.ts';
 import { readRegistry, writeRegistry, type RegistryEntry } from './registry.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type ProjectRow, type Store } from './store.ts';
 
@@ -64,7 +64,12 @@ export const operations: Record<string, Operation> = {
     return { project: row, warnings };
   },
 
-  'project.list': (_body, context) => ({ projects: context.store.projects() }),
+  // Re-derived like detect and status, so a repository that disappeared while the daemon
+  // ran is listed with its reason now rather than on the next start.
+  'project.list': (_body, context) => {
+    projectRegistry(context.home, context.store);
+    return { projects: context.store.projects() };
+  },
 
   // Re-derived rather than looked up, so a project is never answered as null, and its
   // facts are the manifest's as of now — the same as `project.status` gives.
@@ -112,9 +117,14 @@ export const operations: Record<string, Operation> = {
  * knows only its working directory — wherever the harness happened to start it — finds
  * its project. The deepest registration wins, which is the one that was meant when one
  * project is nested inside another. Anything else is said, never guessed.
+ *
+ * The registry is read before the disk is consulted: a registration outlives its
+ * directory, so a repository that has disappeared is still answered, with its reason,
+ * the same as `project.list` gives. Only a missing path no registration contains is
+ * refused as not found.
  */
 function containingEntry(body: unknown, context: OperationContext): RegistryEntry {
-  const path = repositoryPath(body);
+  const path = repositoryPath(body, { mustExist: false });
   const contains = (entry: RegistryEntry): boolean => {
     const inside = relative(entry.path, path);
     return inside === '' || (!isAbsolute(inside) && inside.split(sep)[0] !== '..');
@@ -123,6 +133,7 @@ function containingEntry(body: unknown, context: OperationContext): RegistryEntr
     .filter(contains)
     .sort((a, b) => b.path.length - a.path.length)[0];
   if (!match) {
+    if (!existsSync(path)) throw pathNotFound(path);
     throw new OperationError('project.not_registered', `No registered Binnacle project contains ${path}.`, 404);
   }
   return match;
@@ -180,6 +191,6 @@ function repositoryPath(body: unknown, options: { mustExist?: boolean } = {}): s
     return realpathSync(candidate);
   } catch (error) {
     if (options.mustExist === false && (error as NodeJS.ErrnoException).code === 'ENOENT') return candidate;
-    throw new OperationError('project.path_not_found', `No directory at ${candidate}.`, 400);
+    throw pathNotFound(candidate);
   }
 }

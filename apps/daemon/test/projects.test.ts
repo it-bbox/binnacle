@@ -227,7 +227,7 @@ describe('events', () => {
       await daemon.call('project.register', { path: root });
       await daemon.call('project.unregister', { path: root });
 
-      const { status, body } = await daemon.call<{ events: Event[] }>('event.list');
+      const { status, body } = await daemon.call<{ events: Event[] }>('event.list', { path: root });
       assert.equal(status, 200);
       assert.deepEqual(
         body.events.map((event) => event.type),
@@ -244,7 +244,7 @@ describe('events', () => {
       await daemon.call('project.register', { path: root });
       await daemon.call('project.register', { path: root });
 
-      const { body } = await daemon.call<{ events: Event[] }>('event.list');
+      const { body } = await daemon.call<{ events: Event[] }>('event.list', { path: root });
       assert.equal(body.events.length, 1);
     });
   });
@@ -292,7 +292,7 @@ describe('events', () => {
 
       // The registration is still there under the change the re-read recorded: the
       // projection is rebuilt, the append-only tier is only ever added to.
-      const { body } = await second.call<{ events: Event[] }>('event.list');
+      const { body } = await second.call<{ events: Event[] }>('event.list', { path: root });
       assert.deepEqual(
         body.events.map((event) => event.type),
         ['project.manifest_changed', 'project.registered'],

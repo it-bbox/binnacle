@@ -15,6 +15,9 @@ import { OWNER_ONLY_FILE, storePath } from './home.ts';
  */
 export const SCHEMA_VERSION = 1;
 
+/** The tier-1 tables: every one of them is dropped on a version change, and nothing else is. */
+const PROJECTIONS = ['project'];
+
 export type ProjectRow = {
   /** Null when the manifest could not be read, because an id is read from it and never invented. */
   id: string | null;
@@ -80,18 +83,12 @@ export function openStore(home: string): Store {
   }
 
   db.exec('pragma journal_mode = wal');
+  // The append-only tier first: it is migrated, never dropped, so it exists before any
+  // decision about the projections is made — including the event that records one.
   db.exec(`
     create table if not exists meta (
       key text primary key,
       value text not null
-    );
-    create table if not exists project (
-      path text primary key,
-      id text,
-      name text,
-      registered_at text not null,
-      unavailable text,
-      manifest_digest text
     );
     create table if not exists event (
       id integer primary key autoincrement,
@@ -103,10 +100,48 @@ export function openStore(home: string): Store {
     );
     create index if not exists event_recent on event (occurred_at desc, id desc);
   `);
-  // `or ignore`, not `or replace`: the stored version is what a later Binnacle compares
-  // against to decide whether to rebuild the projections (ADR-0015). Overwriting it on
-  // every open would destroy the one fact that decision needs.
-  db.prepare('insert or ignore into meta (key, value) values (?, ?)').run('schema_version', String(SCHEMA_VERSION));
+
+  const insertEvent = db.prepare(
+    'insert into event (type, project_path, occurred_at, payload, provenance) values (?, ?, ?, ?, ?)',
+  );
+  const appendEvent = (event: NewEvent): void => {
+    insertEvent.run(
+      event.type,
+      event.projectPath ?? null,
+      new Date().toISOString(),
+      JSON.stringify(event.payload ?? {}),
+      event.provenance ?? 'measured',
+    );
+  };
+
+  // ADR-0015: projections are never migrated. A store another Binnacle wrote has them
+  // dropped and recreated empty, and the caller re-derives them from the registry file
+  // (ADR-0019). A fresh store has no version to differ from, so nothing is rebuilt there.
+  // The drop, the new version and the event that records them commit together.
+  const stored = db.prepare('select value from meta where key = ?').get('schema_version')?.value;
+  db.exec('begin');
+  try {
+    if (stored !== undefined && stored !== String(SCHEMA_VERSION)) {
+      for (const table of PROJECTIONS) db.exec(`drop table if exists ${table}`);
+      appendEvent({ type: 'store.rebuilt', payload: { from: Number(stored), to: SCHEMA_VERSION } });
+    }
+    db.exec(`
+      create table if not exists project (
+        path text primary key,
+        id text,
+        name text,
+        registered_at text not null,
+        unavailable text,
+        manifest_digest text
+      );
+    `);
+    db.prepare('insert or replace into meta (key, value) values (?, ?)').run('schema_version', String(SCHEMA_VERSION));
+    db.exec('commit');
+  } catch (error) {
+    db.exec('rollback');
+    db.close();
+    throw error;
+  }
 
   const COLUMNS = 'path, id, name, registered_at, unavailable, manifest_digest';
   const selectAll = db.prepare(`select ${COLUMNS} from project order by id`);
@@ -118,10 +153,6 @@ export function openStore(home: string): Store {
       id = excluded.id, name = excluded.name, registered_at = excluded.registered_at,
       unavailable = excluded.unavailable, manifest_digest = excluded.manifest_digest
   `);
-
-  const insertEvent = db.prepare(
-    'insert into event (type, project_path, occurred_at, payload, provenance) values (?, ?, ?, ?, ?)',
-  );
 
   return {
     projects: () => selectAll.all().map(toProject),
@@ -139,15 +170,7 @@ export function openStore(home: string): Store {
         : 'delete from project';
       db.prepare(sql).run(...paths);
     },
-    appendEvent: (event) => {
-      insertEvent.run(
-        event.type,
-        event.projectPath ?? null,
-        new Date().toISOString(),
-        JSON.stringify(event.payload ?? {}),
-        event.provenance ?? 'measured',
-      );
-    },
+    appendEvent,
     /**
      * Newest first, with the row id as the tiebreaker: two events in the same
      * millisecond still come back in the order they happened.

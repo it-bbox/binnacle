@@ -94,6 +94,8 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
   }
   runtime.port = boundPort(server, requestedPort);
   writeRuntime(home, runtime);
+  // Recorded once the daemon is listening, so a start that failed is not in the history.
+  store.appendEvent({ type: 'daemon.started', payload: { pid: runtime.pid, port: runtime.port, version: VERSION } });
 
   return {
     home,
@@ -105,6 +107,9 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
       await new Promise<void>((resolve, reject) => {
         server.close((error) => (error ? reject(error) : resolve()));
       });
+      // Only a clean stop is recorded. A killed daemon leaves a start with no stop after
+      // it, which is the honest record of what happened.
+      store.appendEvent({ type: 'daemon.stopped', payload: { pid: runtime.pid, version: VERSION } });
       store.close();
     },
   };

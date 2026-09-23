@@ -37,6 +37,10 @@ export class OperationError extends Error {
   }
 }
 
+/** One wording for a missing path, whether it was asked about or is a registration's. */
+export const pathNotFound = (path: string): OperationError =>
+  new OperationError('project.path_not_found', `No directory at ${path}.`, 400);
+
 export function isErrorEnvelope(value: unknown): value is ErrorEnvelope {
   if (typeof value !== 'object' || value === null) return false;
   const error = (value as { error?: unknown }).error;

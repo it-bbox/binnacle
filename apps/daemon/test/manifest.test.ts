@@ -154,7 +154,8 @@ describe('a manifest that changed since it was last projected', () => {
 
     const second = await startTestDaemon({ home });
     try {
-      const { body } = await second.call<{ events: { type: string }[] }>('event.list');
+      // Scoped to the project: the daemon's own start and stop are history too.
+      const { body } = await second.call<{ events: { type: string }[] }>('event.list', { path: root });
       assert.deepEqual(
         body.events.map((event) => event.type),
         ['project.registered'],

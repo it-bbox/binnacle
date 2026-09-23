@@ -1,8 +1,8 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { MANIFEST_VERSION, validateManifest, type ManifestProblem, type ProjectManifest } from '@binnacle/core';
 import { parse } from 'yaml';
-import { OperationError } from './errors.ts';
+import { OperationError, pathNotFound } from './errors.ts';
 
 /**
  * The file side of the manifest: find it, read it, parse the YAML. Deciding whether
@@ -29,6 +29,9 @@ export function readManifest(root: string): ReadManifest {
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === 'ENOENT' || code === 'ENOTDIR') {
+      // Only on the failure path, so a readable manifest costs no extra stat. A registered
+      // repository that has disappeared is not one that lacks a manifest.
+      if (!existsSync(root)) throw pathNotFound(root);
       throw new OperationError(
         'manifest.missing',
         `No ${MANIFEST_RELATIVE} in ${root}. Start one from ${MANIFEST_TEMPLATE}.`,
