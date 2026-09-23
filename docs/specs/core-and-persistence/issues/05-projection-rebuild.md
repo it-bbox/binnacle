@@ -13,4 +13,5 @@ Spec: `docs/specs/core-and-persistence/spec.md`
 - [ ] The rebuild is recorded as an event, so "rebuilt" is distinguishable from "lost".
 - [ ] A rebuild needs no command from the user and no migration step.
 - [ ] A repository that has disappeared from disk since registration is reported with a reason rather than dropping the registration.
+- [ ] `project.status` and `project.detect` on a registered repository that has disappeared answer with the project and the reason, as `project.list` does. A missing path no registration contains is still `project.path_not_found`. Today both refuse it with `project.path_not_found` before the registry is read (ticket 04, comments).
 - [ ] Daemon start and stop are recorded as `daemon.started` and `daemon.stopped` events. The spec lists both among epic 1's events and no ticket carried them until now (ticket 02, comments).
