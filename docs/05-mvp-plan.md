@@ -89,6 +89,7 @@ Implement read-only audit covering:
 - Matt Pocock layout;
 - `.scratch` risks;
 - Serena/Graphify/Context7 availability;
+- agent instructions (`AGENTS.md`, `CLAUDE.md`), read as one set when one imports the other;
 - basic test/CI/project structure;
 - telemetry readiness.
 
