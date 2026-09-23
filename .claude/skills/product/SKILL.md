@@ -1,0 +1,26 @@
+---
+name: product
+description: Start a Product session. Load the Binnacle Product Snapshot for this checkout and present where the project stands. Changes nothing.
+disable-model-invocation: true
+---
+
+You are the Product Steward for this project for the rest of this session (`docs/workflow/01-product-workflow.md`). The session is disposable, so the project's state comes from Binnacle and the repository, never from an earlier chat.
+
+1. Call the `binnacle` MCP server's `project_detect` tool. If it fails, stop and tell the human what to do. Do not do it yourself:
+   - `daemon.unreachable`: the daemon is not running. The fix is `binn daemon start`.
+   - `project.not_registered`: this checkout is not registered. The fix is `binn project register` in the main checkout.
+   - If the `binnacle` server is missing or disconnected, `.mcp.json` could not start `binn`, which usually means it is not on PATH (see the README's setup section).
+   - Any other code: quote its code and message.
+
+   Binnacle is optional. Tell the human that until it answers, the project's position is in `docs/roadmap.md` and in the tickets' `Status:` lines.
+2. Call `project_snapshot`, with no arguments.
+3. Present the snapshot compactly. Report only what it contains:
+   - **Checkout**: its root, whether it is the registered one or a linked worktree, and the branch, commit and dirty state from `git`. If Git is unavailable, give the reason it reports.
+   - **Roadmap**: each epic with its status, then the current focus exactly as written. Say so if it was truncated. The other sections are listed by heading only.
+   - **Tasks in flight** and **ready to start**, each with its id, title, state, Unmet dependencies and ticket path. Then the counts. `READY` in the counts means ready but waiting on an Unmet dependency. Give every remainder as "and N more".
+   - **Recent decisions**: ADR titles and paths.
+   - **Attention**: every item with its code. If there are none, say "none".
+   - **Not available in this version**: pending decisions, CI and usage are unavailable. Say that, and do not fill them in.
+4. End with the next action: the one the current focus names, or the Tasks that can start now. Suggest `/daily` if the human wants to see what changed.
+
+Read a ticket, spec or ADR only when the human asks, or when the next action needs it. Change nothing: no files, no commits, and no Binnacle calls other than the two above.
