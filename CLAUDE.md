@@ -7,10 +7,10 @@
 ## Project operating model
 
 - Do not treat conversation history as project memory.
-- For Product work, request/use a fresh Product Snapshot from Binnacle rather than relying on a long-lived chat.
+- For Product work, start a fresh session with `/product` (and `/daily`) rather than relying on a long-lived chat.
 - Prefer fresh sessions for distinct implementation tickets.
 - An implementation session starts by branching `feat/<slug>` from an up-to-date `main`, and never commits a ticket to `main`. Its last commit sets the ticket's `Status:` to `DONE` and moves the roadmap's current focus if the frontier moved.
-- Use `/checkpoint` (once implemented) to persist only durable session delta before rotating a long Product session.
+- Use `/checkpoint` to persist only durable session delta before rotating a long Product session.
 - Do not spawn subagents unless the user explicitly approved that execution plan or the current task policy explicitly allows it.
 
 ## Codebase navigation
@@ -33,7 +33,7 @@ The intended multi-session build chain is:
 
 Do not advance from a grilling answer into implementation unless explicitly instructed.
 
-Until epic 2 lands, how that chain runs on this repository — a branch and a fresh session per ticket, `DONE` in the same step as the merge, Product work done by hand from the repository rather than from a chat — is in `docs/workflow/02-development-workflow.md`, under *This repository, until epic 2*.
+How that chain runs on this repository — a branch and a fresh session per ticket, `DONE` in the same step as the merge, Product work in a disposable session through `/product`, `/daily` and `/checkpoint` — is in `docs/workflow/02-development-workflow.md`, under *Standard task flow* → *On this repository*.
 
 ## Agent skills
 
