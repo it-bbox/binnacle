@@ -16,7 +16,7 @@ Rules for the whole run. Never force-push, change settings, touch another reposi
    - `project.not_registered`: `binn project register`, run in the main checkout.
    - If the `binnacle` server is missing or disconnected, `binn` is not on this harness's PATH (see the README's setup section).
 
-   Binnacle is optional. If the human then asks you to go on without it, read the same position from the roadmap and the tickets' `Status:` and `Blocked by:` lines wherever the steps below read the snapshot.
+   Binnacle is optional. If the human then asks you to go on without it, read the same position from the roadmap and the tickets' `Status:` and `Blocked by:` lines wherever the steps below read the snapshot, and what changed from the log.
 2. Check that this session runs in the registered checkout, with `main` checked out and a clean tree, and bring it up to date with `git pull --ff-only`. Otherwise stop and say why. Note `main`'s HEAD: the run's start.
 3. Call `project_snapshot`, with no arguments. Choose the epic: the one the human named (`$ARGUMENTS`), or else the single epic the roadmap has `in progress`. If none or several fit, stop and ask.
 4. Refuse to start unless the epic is planned: its spec exists, its issues directory holds tickets, and the roadmap has it at `tickets` or `in progress`. Say what is missing and that planning is the human's (`/grill-with-docs`, `/to-spec`, `/to-tickets`). Never run those, and never move on to another epic.
@@ -27,7 +27,7 @@ Rules for the whole run. Never force-push, change settings, touch another reposi
 
    Use the Agent tool with `run_in_background: true` and `isolation: "worktree"`, and give it this brief, filled in:
 
-   > You are the implementation session for one ticket, `<ticket path>`, running unattended. Nobody answers questions until the owner is back. Follow the per-ticket process the project's instruction files point to: branch `feat/<slug>` from the local `main`, implement test-first, typecheck and run the full suite, run the code review skill against `main` on both axes, record its findings under the ticket's `## Comments` → `### Review` as fixed, kept or left, tick every criterion that holds, and make the ticket's `Status: DONE` (and the roadmap's current focus, if the frontier moved) your last commit. If the review's sub-agents' reports do not come back to you, do both axes yourself instead of waiting.
+   > You are the implementation session for one ticket, `<ticket path>`, running unattended. Nobody answers questions until the owner is back. Follow the per-ticket process the project's instruction files point to: branch `feat/<slug>` from the local `main`, implement test-first, typecheck and run the full suite, run the code review skill against `main` on both axes, with its sub-agents in the foreground (`run_in_background: false`) so their reports come back to you, record its findings under the ticket's `## Comments` → `### Review` as fixed, kept or left, tick every criterion that holds, and make the ticket's `Status: DONE` (and the roadmap's current focus, if the frontier moved) your last commit.
    >
    > A criterion only a human can verify stays unticked; write a short script for it under `## Comments`. A question that blocks nothing: answer it in the smallest way the spec allows and record it in the ticket. A genuine product question the ticket, spec and ADRs cannot answer: do not guess — commit what is sound without `DONE`, and put the question at the top of your report.
    >
@@ -36,7 +36,7 @@ Rules for the whole run. Never force-push, change settings, touch another reposi
    > Report: branch and worktree path, commits, typecheck and tests, review summary, and any question.
 
 6. **Wait.** Each agent's result arrives as a notification. Handle each as it comes:
-   - A report from a review sub-agent that an implementation agent spawned may reach you instead of that agent. Relay it to that agent with `SendMessage`, word for word, and keep waiting.
+   - A report from a sub-agent that an implementation agent spawned, such as a review, may reach you instead of that agent. Relay it to that agent with `SendMessage`, word for word, and keep waiting.
    - An agent that stops on a question: decide whether only the owner can answer it. If the spec, its ADRs and the ticket answer it, send the answer with `SendMessage` and let the agent record it. Otherwise the ticket stops (step 8).
    - An agent that reports its ticket done: verify it (step 7).
 7. **Verify, then merge.** In the agent's worktree, yourself, not from its report:
@@ -51,11 +51,11 @@ Rules for the whole run. Never force-push, change settings, touch another reposi
    A failed check goes back to the agent once, with the exact failure. If it fails again, the ticket stops. Otherwise, in the main checkout, with `main` checked out there:
    - `git merge --ff-only <branch>`. Fetching into a checked-out branch is refused, so merge, do not fetch.
    - `git push origin main`, never forced. If the push fails, keep going and report it.
-   - `git worktree remove <path>`. A worktree created for an agent may be locked: if `git worktree list` shows it `locked`, run `git worktree unlock <path>` first. Then delete the ticket's branch and the worktree's own branch with `git branch -d`.
-   - If the merge changed the lockfile or added a workspace package, run the project's frozen install in the main checkout (`pnpm install --frozen-lockfile`), or the CLI linked from it breaks. If it changed the code of the Binnacle daemon the human runs (only when this project is Binnacle itself), restart that daemon with `binn daemon stop` then `binn daemon start`, and say so in the report. Never stop a daemon for any other reason.
+   - `git worktree remove <path>`. A worktree created for an agent may be locked: if `git worktree list` shows it `locked`, run `git worktree unlock <path>` first. Then delete, with `git branch -d`, the ticket's branch and the branch the Agent tool created for the worktree.
+   - If the merge changed the lockfile or added a workspace package, run the project's frozen install in the main checkout (`pnpm install --frozen-lockfile` in a pnpm workspace), so that what runs from it matches what was merged. If it changed the code of the Binnacle daemon the human runs (only when this project is Binnacle itself), restart that daemon with `binn daemon stop` then `binn daemon start`, and say so in the report. Never stop a daemon for any other reason.
 
    Then call `project_snapshot` again and go back to step 5.
-8. **Stop a ticket** on a question only the owner can answer, on checks that fail twice, on a review finding left unresolved, on a conflict that is not mechanical, or on a change outside the ticket. Merge nothing of it and set nothing `DONE`. Leave its branch and worktree in place for the owner. Every ticket that depends on it stays unstarted, because its dependency never becomes `DONE`. Tickets that do not depend on it go on. For a question, send a push notification at once naming the ticket and the question.
+8. **Stop a ticket** on a question only the owner can answer, on checks that fail twice, on a review finding left unresolved without a reason, on a conflict that is not mechanical, or on a change outside the ticket. Merge nothing of it and set nothing `DONE`. Leave its branch and worktree in place for the owner. Every ticket that depends on it stays unstarted, because its dependency never becomes `DONE`. Tickets that do not depend on it go on. For a question, send a push notification at once naming the ticket and the question.
 
 ## End
 
