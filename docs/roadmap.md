@@ -27,11 +27,11 @@ Epic 1 is done and demonstrated on this repository: the daemon and its authentic
 
 Binnacle is not yet useful for its own Product work. `/product`, `/daily` and `/checkpoint` arrive with epic 2; until then that work is done by hand, as `docs/workflow/02-development-workflow.md` describes under *This repository, until epic 2*.
 
-Epic 2 is sliced into seven tickets under `specs/mcp-and-product-snapshot/issues/`: 07, the skills and the exit demonstration, needs 06.
+Epic 2 is sliced into seven tickets under `specs/mcp-and-product-snapshot/issues/`. Tickets 01 to 06 are done; 07, the skills and the exit demonstration, is the last.
 
-Tickets 01 to 05 are done. `project.status` and `project.detect` answer from a linked worktree with the Git facts of the caller's own checkout. `project.snapshot` returns the roadmap, the Tasks in flight and ready to start, the five most recent ADRs, the caller's Git facts and the deterministic attention items, all read live from the caller's checkout, and marks pending decisions, CI and usage unavailable. `binn mcp` serves these three operations as MCP tools on stdio, as a proxy to the running daemon, and the committed `.mcp.json` connects every Claude Code session here once `binn` is linked onto PATH. `daily_get` returns what changed since the last daily on this machine, from committed state, and records the next baseline.
+`project.status` and `project.detect` answer from a linked worktree with that checkout's Git facts. `project.snapshot` returns the roadmap, the Tasks in flight and ready to start, the five most recent ADRs, Git facts and attention items, read live from the caller's checkout. `binn mcp` serves the operations as MCP tools on stdio, proxying the running daemon, and the committed `.mcp.json` connects every Claude Code session here once `binn` is linked onto PATH. `daily_get` returns what changed since the last daily or checkpoint and records the next baseline. `checkpoint_prepare` returns the delta since the last checkpoint, the promotion targets with this project's paths and the attention items; `checkpoint_record` records the checkpoint at HEAD once the session has committed its promotions. Binnacle writes nothing into the repository.
 
-Next action: ticket 06, the checkpoint, in a fresh session.
+Next action: ticket 07, the `/product`, `/daily` and `/checkpoint` skills and the exit demonstration, in a fresh session.
 
 ## Later
 
