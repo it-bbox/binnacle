@@ -206,7 +206,7 @@ describe('Tasks in the Product Snapshot', () => {
 
       const body = await snapshot(daemon, root);
       assert.equal(body.tasks, null);
-      assert.deepEqual(body.attention.map((item) => item.code), ['tasks.unavailable']);
+      assert.deepEqual(body.attention.map((item) => item.code), ['tracker.unavailable']);
     });
   });
 });

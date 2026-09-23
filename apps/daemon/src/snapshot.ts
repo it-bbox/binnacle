@@ -10,12 +10,14 @@ import type { ProjectRow } from './store.ts';
  */
 export const SECTION_LIMIT = 10;
 
-const IN_FLIGHT: readonly TaskState[] = ['ACTIVE', 'BLOCKED', 'READY_FOR_REVIEW', 'APPROVED', 'MERGE_READY'];
+const IN_FLIGHT = ['ACTIVE', 'BLOCKED', 'READY_FOR_REVIEW', 'APPROVED', 'MERGE_READY'] as const satisfies readonly TaskState[];
+type InFlight = (typeof IN_FLIGHT)[number];
+const inFlight = (state: TaskState | null): state is InFlight => (IN_FLIGHT as readonly (TaskState | null)[]).includes(state);
 
 export type SnapshotTask = Pick<ResolvedTask, 'id' | 'title' | 'state' | 'unmetDependencies' | 'ticket'>;
 export type Section = { items: SnapshotTask[]; remainder: number };
 
-export type TaskCounts = Record<'BACKLOG' | 'READY' | 'MERGED' | 'DONE' | 'CANCELLED' | 'unknown', number>;
+export type TaskCounts = Record<Exclude<TaskState, InFlight> | 'unknown', number>;
 
 export type Snapshot = {
   project: ProjectRow;
@@ -42,7 +44,7 @@ export function snapshot(row: ProjectRow, manifest: ProjectManifest | null): Sna
       tasks: null,
       attention: [
         {
-          code: 'tasks.unavailable',
+          code: 'tracker.unavailable',
           message: manifest
             ? 'Tasks are read from the local Markdown tracker only, and this project declares no tracker.local.issues on it.'
             : 'Tasks cannot be read without a readable manifest.',
@@ -55,17 +57,17 @@ export function snapshot(row: ProjectRow, manifest: ProjectManifest | null): Sna
   const { tasks, diagnostics } = resolveDependencies(reading.tasks);
 
   const counts: TaskCounts = { BACKLOG: 0, READY: 0, MERGED: 0, DONE: 0, CANCELLED: 0, unknown: 0 };
-  const inFlight: ResolvedTask[] = [];
+  const listedInFlight: ResolvedTask[] = [];
   const readyToStart: ResolvedTask[] = [];
   for (const task of tasks) {
-    if (task.state !== null && IN_FLIGHT.includes(task.state)) inFlight.push(task);
+    if (inFlight(task.state)) listedInFlight.push(task);
     else if (task.state === 'READY' && task.unmetDependencies.length === 0) readyToStart.push(task);
-    else counts[(task.state ?? 'unknown') as keyof TaskCounts]++;
+    else counts[task.state ?? 'unknown']++;
   }
 
   return {
     project: row,
-    tasks: { inFlight: section(inFlight), readyToStart: section(readyToStart), counts },
+    tasks: { inFlight: section(listedInFlight), readyToStart: section(readyToStart), counts },
     attention: [...reading.diagnostics, ...diagnostics],
   };
 }
