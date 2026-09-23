@@ -1,6 +1,8 @@
+@AGENTS.md
+
 # Claude Code Instructions
 
-Read and obey `AGENTS.md` first. This file only adds Claude-specific workflow guidance.
+`AGENTS.md`, imported above, is the instruction file every agent reads, and it binds here in full. This file only adds Claude-specific workflow guidance.
 
 ## Project operating model
 
