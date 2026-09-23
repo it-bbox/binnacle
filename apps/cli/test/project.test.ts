@@ -68,6 +68,13 @@ test('binn project register, list and unregister', async (t) => {
     assert.match(result.stdout, /example-project/);
   });
 
+  await t.test('reports status for the working directory, with Git facts degraded outside Git', () => {
+    const result = binn('project', 'status');
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /example-project/);
+    assert.match(result.stdout, /git\s+unavailable: .*not inside a Git repository/);
+  });
+
   await t.test('shows the manifest warnings without failing the registration', () => {
     const odd = makeProject(`version: 1
 

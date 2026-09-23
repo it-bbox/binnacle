@@ -23,12 +23,17 @@ importers:
 
   apps/daemon:
     dependencies:
+      '@binnacle/adapters':
+        specifier: workspace:*
+        version: link:../../packages/adapters
       '@binnacle/core':
         specifier: workspace:*
         version: link:../../packages/core
       yaml:
         specifier: ^2.9.1
         version: 2.9.1
+
+  packages/adapters: {}
 
   packages/core: {}
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { resolveHome, packageVersion } from '@binnacle/daemon';
 import { start, status, stop } from './daemon-commands.ts';
-import { list, register, unregister } from './project-commands.ts';
+import { list, register, status as projectStatus, unregister } from './project-commands.ts';
 import { EXIT, type ExitCode } from './exit.ts';
 
 const VERSION = packageVersion(import.meta.url);
@@ -15,6 +15,7 @@ Usage:
 
   binn project register [path]    Register a repository (default: the working directory)
   binn project list               List the projects this machine tracks
+  binn project status [path]      Manifest facts and live Git facts for the project containing path
   binn project unregister [path]  Remove a registration, changing nothing in the repository
 
 Options:
@@ -59,6 +60,7 @@ async function run(argv: string[]): Promise<ExitCode> {
     if (extra.length === 0) {
       if (second === 'register') return await register(home, path);
       if (second === 'unregister') return await unregister(home, path);
+      if (second === 'status') return await projectStatus(home, path);
       if (second === 'list' && path === undefined) return await list(home);
     }
   }

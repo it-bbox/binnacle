@@ -324,12 +324,22 @@ describe('single instance per Binnacle home', () => {
 describe('ADR-0012: the daemon opens no outbound connections', () => {
   it('has no outbound client in its runtime sources and no runtime dependencies', () => {
     const source = new URL('../src/', import.meta.url);
-    const runtimeSources = readdirSync(source).filter((name) => name.endsWith('.ts') && name !== 'testing.ts');
+    // The Git adapter runs inside the daemon, so its sources are the daemon's too.
+    const adapters = new URL('../../../packages/adapters/src/', import.meta.url);
+    const runtimeSources = [
+      ...readdirSync(source)
+        .filter((name) => name.endsWith('.ts') && name !== 'testing.ts')
+        .map((name) => new URL(name, source)),
+      ...readdirSync(adapters)
+        .filter((name) => name.endsWith('.ts'))
+        .map((name) => new URL(name, adapters)),
+    ];
     assert.ok(runtimeSources.length > 0);
 
     const forbidden = [/\bfetch\s*\(/, /node:https/, /node:net/, /node:tls/, /node:dgram/, /XMLHttpRequest/, /undici/];
-    for (const name of runtimeSources) {
-      const text = readFileSync(new URL(name, source), 'utf8');
+    for (const file of runtimeSources) {
+      const name = file.pathname;
+      const text = readFileSync(file, 'utf8');
       for (const pattern of forbidden) {
         assert.ok(!pattern.test(text), `${name} must not reach the network (${String(pattern)})`);
       }
@@ -340,13 +350,18 @@ describe('ADR-0012: the daemon opens no outbound connections', () => {
 
     // Every runtime dependency is named here on purpose. The property under test is that
     // nothing the daemon runs can reach the network or a model, not that the list is empty:
-    // Node has no YAML parser, and the project manifest is YAML.
-    const allowed = new Set(['@binnacle/core', 'yaml']);
+    // Node has no YAML parser, and the project manifest is YAML. The adapters package is
+    // this repository's own and is scanned above; it has no dependencies of its own.
+    const allowed = new Set(['@binnacle/adapters', '@binnacle/core', 'yaml']);
     const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
       dependencies?: Record<string, string>;
     };
     for (const name of Object.keys(manifest.dependencies ?? {})) {
       assert.ok(allowed.has(name), `${name} is a new runtime dependency; justify it here before adding it`);
     }
+    const adaptersManifest = JSON.parse(readFileSync(new URL('../package.json', adapters), 'utf8')) as {
+      dependencies?: Record<string, string>;
+    };
+    assert.equal(adaptersManifest.dependencies, undefined);
   });
 });

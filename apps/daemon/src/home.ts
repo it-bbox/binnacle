@@ -30,6 +30,16 @@ export function resolvePort(env: NodeJS.ProcessEnv = process.env): number {
   return port;
 }
 
+/** How long one `git` invocation may take before its facts are reported unavailable. */
+export const DEFAULT_GIT_TIMEOUT_MS = 5_000;
+
+/** Read at call time, so a slow filesystem can be given more room without a restart of anything else. */
+export function resolveGitTimeout(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env.BINNACLE_GIT_TIMEOUT_MS?.trim();
+  const timeout = raw ? Number(raw) : DEFAULT_GIT_TIMEOUT_MS;
+  return Number.isInteger(timeout) && timeout > 0 ? timeout : DEFAULT_GIT_TIMEOUT_MS;
+}
+
 export function ensureHome(home: string): string {
   mkdirSync(home, { recursive: true, mode: OWNER_ONLY_DIR });
   return home;

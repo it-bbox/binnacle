@@ -1,16 +1,26 @@
 import { realpathSync } from 'node:fs';
-import { isAbsolute } from 'node:path';
+import { isAbsolute, relative, sep } from 'node:path';
+import { readGitFacts, type GitFacts } from '@binnacle/adapters';
+import { trackerRemoteMismatch, type ProjectManifest } from '@binnacle/core';
 import { OperationError } from './errors.ts';
-import type { Runtime } from './home.ts';
+import { resolveGitTimeout, type Runtime } from './home.ts';
 import { readManifest } from './manifest.ts';
 import { reproject } from './projection.ts';
-import { readRegistry, writeRegistry } from './registry.ts';
-import { EVENT_LIMIT_MAX, type EventFilter, type Store } from './store.ts';
+import { readRegistry, writeRegistry, type RegistryEntry } from './registry.ts';
+import { EVENT_LIMIT_MAX, type EventFilter, type ProjectRow, type Store } from './store.ts';
 
 export type OperationContext = {
   home: string;
   runtime: Runtime;
   store: Store;
+};
+
+export type ProjectStatus = {
+  project: ProjectRow;
+  manifest: ProjectManifest | null;
+  git: GitFacts;
+  /** Disagreements Binnacle reports and does not resolve. */
+  diagnostics: { code: string; message: string }[];
 };
 
 export type Operation = (body: unknown, context: OperationContext) => unknown | Promise<unknown>;
@@ -43,7 +53,7 @@ export const operations: Record<string, Operation> = {
       registered = true;
     }
 
-    const row = reproject(context.store, entry);
+    const { row } = reproject(context.store, entry);
     // Registering an already-registered path changes nothing, so it records nothing.
     if (registered) {
       context.store.appendEvent({
@@ -56,6 +66,30 @@ export const operations: Record<string, Operation> = {
   },
 
   'project.list': (_body, context) => ({ projects: context.store.projects() }),
+
+  'project.detect': (body, context) => ({ project: context.store.project(containingEntry(body, context).path) }),
+
+  /**
+   * What Binnacle currently believes about a project: the manifest, re-read now, and Git
+   * facts read live. Git facts are never stored — the projection holds only what is
+   * derived from the registry and the manifest — so a status is never stale about Git.
+   */
+  'project.status': async (body, context): Promise<ProjectStatus> => {
+    const { row, manifest } = reproject(context.store, containingEntry(body, context));
+    const git = await readGitFacts(row.path, resolveGitTimeout());
+
+    const diagnostics: ProjectStatus['diagnostics'] = [];
+    const mismatch =
+      manifest && git.available
+        ? trackerRemoteMismatch(
+            manifest.tracker.provider,
+            git.remotes.map((remote) => remote.url),
+          )
+        : null;
+    if (mismatch) diagnostics.push({ code: 'tracker.remote_mismatch', message: mismatch });
+
+    return { project: row, manifest, git, diagnostics };
+  },
 
   'project.unregister': (body, context) => {
     const path = repositoryPath(body, { mustExist: false });
@@ -73,6 +107,27 @@ export const operations: Record<string, Operation> = {
 
   'event.list': (body, context) => ({ events: context.store.events(eventFilter(body)) }),
 };
+
+/**
+ * The registered project whose directory is `path` or contains it, so that an agent that
+ * knows only its working directory — wherever the harness happened to start it — finds
+ * its project. The deepest registration wins, which is the one that was meant when one
+ * project is nested inside another. Anything else is said, never guessed.
+ */
+function containingEntry(body: unknown, context: OperationContext): RegistryEntry {
+  const path = repositoryPath(body);
+  const contains = (entry: RegistryEntry): boolean => {
+    const inside = relative(entry.path, path);
+    return inside === '' || (!isAbsolute(inside) && inside.split(sep)[0] !== '..');
+  };
+  const match = readRegistry(context.home)
+    .filter(contains)
+    .sort((a, b) => b.path.length - a.path.length)[0];
+  if (!match) {
+    throw new OperationError('project.not_registered', `No registered Binnacle project contains ${path}.`, 404);
+  }
+  return match;
+}
 
 function eventFilter(body: unknown): EventFilter {
   const raw = (body ?? {}) as Record<string, unknown>;

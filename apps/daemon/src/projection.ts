@@ -20,9 +20,10 @@ export function projectRegistry(home: string, store: Store): void {
  * facts moved. A first projection is not a change — there was nothing to differ from —
  * and neither is a re-read that came back identical, so the history stays worth reading.
  */
-export function reproject(store: Store, entry: RegistryEntry): ProjectRow {
+export function reproject(store: Store, entry: RegistryEntry): Projected {
   const before = store.project(entry.path);
-  const row = deriveProject(entry);
+  const projected = deriveProject(entry);
+  const { row } = projected;
   store.putProject(row);
 
   if (before && differs(before, row)) {
@@ -34,7 +35,7 @@ export function reproject(store: Store, entry: RegistryEntry): ProjectRow {
       payload: { id: row.id, name: row.name, available: row.unavailable === null },
     });
   }
-  return row;
+  return projected;
 }
 
 /**
@@ -47,30 +48,39 @@ function differs(before: ProjectRow, after: ProjectRow): boolean {
   return facts(before) !== facts(after);
 }
 
+/** The row that is stored, and the manifest it was read from, which is not. */
+export type Projected = { row: ProjectRow; manifest: ProjectManifest | null };
+
 /**
  * A registered repository whose manifest cannot be read stays registered and says why.
  * Its id is null rather than guessed from the directory name — an id is read from the
  * manifest or it is not known.
  */
-export function deriveProject(entry: RegistryEntry): ProjectRow {
+function deriveProject(entry: RegistryEntry): Projected {
   try {
     const { manifest } = readManifest(entry.path);
     return {
-      path: entry.path,
-      id: manifest.project.id,
-      name: manifest.project.name,
-      registeredAt: entry.registeredAt,
-      unavailable: null,
-      manifestDigest: digest(manifest),
+      row: {
+        path: entry.path,
+        id: manifest.project.id,
+        name: manifest.project.name,
+        registeredAt: entry.registeredAt,
+        unavailable: null,
+        manifestDigest: digest(manifest),
+      },
+      manifest,
     };
   } catch (error) {
     return {
-      path: entry.path,
-      id: null,
-      name: null,
-      registeredAt: entry.registeredAt,
-      unavailable: (error as Error).message,
-      manifestDigest: null,
+      row: {
+        path: entry.path,
+        id: null,
+        name: null,
+        registeredAt: entry.registeredAt,
+        unavailable: (error as Error).message,
+        manifestDigest: null,
+      },
+      manifest: null,
     };
   }
 }

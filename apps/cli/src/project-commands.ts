@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import { isAlive, readRuntime, type ErrorDetail, type ProjectRow } from '@binnacle/daemon';
+import { isAlive, readRuntime, type ErrorDetail, type ProjectRow, type ProjectStatus } from '@binnacle/daemon';
 import { callOperation } from './client.ts';
 import { EXIT, type ExitCode } from './exit.ts';
 import { reportFailure, requireToken } from './report.ts';
@@ -28,6 +28,24 @@ export async function list(home: string): Promise<ExitCode> {
       console.log(`    ${project.path}`);
       if (project.unavailable) console.log(`    unavailable: ${project.unavailable}`);
     }
+  });
+}
+
+export async function status(home: string, path?: string): Promise<ExitCode> {
+  return await callAndReport<ProjectStatus>(home, 'project.status', { path: target(path) }, ({ project, manifest, git, diagnostics }) => {
+    console.log(`${project.id ?? '(unknown id)'}  ${project.name ?? '(unnamed)'}`);
+    console.log(`  path     ${project.path}`);
+    if (project.unavailable) console.log(`  manifest unavailable: ${project.unavailable}`);
+    if (manifest) console.log(`  tracker  ${manifest.tracker.provider ?? '(not declared)'}`);
+    if (git.available) {
+      const head = git.detached ? '(detached HEAD)' : git.branch;
+      console.log(`  git      ${head} at ${git.commit?.slice(0, 12) ?? '(no commits)'}${git.dirty ? ', dirty' : ''}`);
+      if (git.remotes.length === 0) console.log('  remote   (none)');
+      for (const remote of git.remotes) console.log(`  remote   ${remote.name}  ${remote.url}`);
+    } else {
+      console.log(`  git      unavailable: ${git.reason}`);
+    }
+    for (const diagnostic of diagnostics) console.log(`  ${diagnostic.code}: ${diagnostic.message}`);
   });
 }
 
