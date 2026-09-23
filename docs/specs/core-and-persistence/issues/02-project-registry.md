@@ -1,6 +1,6 @@
 # 02: Register, list and unregister a project
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 01
 Spec: `docs/specs/core-and-persistence/spec.md`
@@ -60,3 +60,5 @@ Scope and smells, fixed:
 Deferred, deliberately:
 
 - **Manifest reading lives in the daemon, not in `packages/core`,** where the spec puts validation. Ticket 03 rewrites this code and its criteria already require the core package, so moving it now would be churn. It is staging, and it is recorded here so it does not become permanent by silence.
+
+Merged to `main` in `0951197`, review included.
