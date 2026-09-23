@@ -1,4 +1,5 @@
-import { posix } from 'node:path';
+import { existsSync } from 'node:fs';
+import { join, posix } from 'node:path';
 import { hasUncommittedChanges, isGitUnavailable } from '@binnacle/adapters';
 import type { Diagnostic, ProjectManifest } from '@binnacle/core';
 import { OperationError } from './errors.ts';
@@ -60,11 +61,12 @@ const invalid = (path: string, message: string, detail: string): OperationError 
   new OperationError('request.invalid', message, 400, [{ path, message: detail }]);
 
 /**
- * One diagnostic per promoted path with uncommitted changes. The checkpoint records HEAD,
- * so a promotion not yet committed is not in it and would come back as new work in the
- * next delta.
+ * One diagnostic per promoted path that is not committed at HEAD as it stands: one with
+ * uncommitted changes, which the checkpoint's head does not hold and the next delta would
+ * show again as new work; and one that names nothing in the checkout, which is a typo, not
+ * a promotion. `cwd` is the project directory in the caller's checkout.
  */
-export async function uncommittedPromotions(cwd: string, promoted: Promoted[], head: string): Promise<Diagnostic[]> {
+export async function promotionDiagnostics(cwd: string, promoted: Promoted[], head: string): Promise<Diagnostic[]> {
   const timeout = resolveGitTimeout();
   let dirty: boolean[];
   try {
@@ -74,10 +76,17 @@ export async function uncommittedPromotions(cwd: string, promoted: Promoted[], h
     if (isGitUnavailable(error)) throw new OperationError(error.code, error.reason, 503);
     throw error;
   }
-  return promoted
-    .filter((_item, index) => dirty[index])
-    .map(({ path }) => ({
-      code: 'checkpoint.uncommitted',
-      message: `${path} has uncommitted changes, so it is not in the recorded head ${head} and will show again in the next delta. Commit it and record the checkpoint again.`,
-    }));
+  const diagnostics: Diagnostic[] = [];
+  promoted.forEach(({ path }, index) => {
+    if (dirty[index]) {
+      diagnostics.push({
+        code: 'checkpoint.uncommitted',
+        message: `${path} has uncommitted changes, so it is not in the recorded head ${head} and will show again in the next delta. Commit it and record the checkpoint again.`,
+      });
+      // A clean path missing from the working tree is missing from HEAD too, or Git would report its deletion.
+    } else if (!existsSync(join(cwd, path))) {
+      diagnostics.push({ code: 'checkpoint.path_missing', message: `${path} names nothing in this checkout, so nothing was promoted there.` });
+    }
+  });
+  return diagnostics;
 }

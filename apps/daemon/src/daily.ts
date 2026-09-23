@@ -17,7 +17,9 @@ export const FALLBACK_DAYS = 7;
 /** The events whose head is the next daily's baseline. */
 export const BASELINE_EVENTS = ['daily', 'checkpoint'] as const;
 
-export type Baseline = { commit: string; source: (typeof BASELINE_EVENTS)[number] | 'since' };
+export type BaselineEvent = (typeof BASELINE_EVENTS)[number];
+
+export type Baseline = { commit: string; source: BaselineEvent | 'since' };
 
 export type Fallback = {
   /** `no_baseline`: nothing recorded yet; `baseline_missing`: not a commit here; `baseline_diverged`: not an ancestor of HEAD. */
@@ -65,7 +67,7 @@ export async function daily(
   caller: CallerCheckout,
   diagnostics: Diagnostic[],
   baseline: Baseline | null,
-  recorded: readonly string[] = BASELINE_EVENTS,
+  recorded: readonly BaselineEvent[] = BASELINE_EVENTS,
 ): Promise<Daily> {
   const { head, dirty } = committedHead(caller);
   const cwd = caller.project;
@@ -110,7 +112,7 @@ async function startingPoint(
   cwd: string,
   head: string,
   baseline: Baseline | null,
-  recorded: readonly string[],
+  recorded: readonly BaselineEvent[],
   timeout: number,
 ): Promise<{ from: Daily['from']; fallback: Fallback | null }> {
   let fallback: Fallback;
@@ -144,7 +146,7 @@ async function startingPoint(
 /** The caller's HEAD, which a delta runs to and a checkpoint records; refused when there is none. */
 export function committedHead({ git }: CallerCheckout): { head: string; dirty: boolean } {
   if (!git.available) throw new OperationError(git.code, git.reason, 409);
-  if (git.commit === null) throw new OperationError('git.no_commits', 'This checkout has no commits yet, so nothing has changed.', 409);
+  if (git.commit === null) throw new OperationError('git.no_commits', 'This checkout has no commits yet.', 409);
   return { head: git.commit, dirty: git.dirty };
 }
 

@@ -11,7 +11,7 @@ import type { Tree } from './tree.ts';
  *   `status`, `remote -v`, `log`, `show`, `ls-tree`, `merge-base --is-ancestor` — and
  *   nothing that fetches, writes, or changes config or refs;
  * - a revision is only ever passed as a commit hash, never as caller text that git could
- *   read as an option;
+ *   read as an option, and a caller's path only after `--` as a `:(literal)` pathspec;
  * - `--no-optional-locks` stops `status` refreshing the index, which it otherwise does
  *   as a side effect, and `core.fsmonitor=false` stops it running the hook a
  *   repository's config may name;

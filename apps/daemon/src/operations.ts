@@ -7,8 +7,8 @@ import { resolveGitTimeout, type Runtime } from './home.ts';
 import { readManifest } from './manifest.ts';
 import { projectRegistry, reproject } from './projection.ts';
 import { readRegistry, writeRegistry, type RegistryEntry } from './registry.ts';
-import { promotedItems, promotionTargets, uncommittedPromotions } from './checkpoint.ts';
-import { BASELINE_EVENTS, committedHead, daily, type Baseline } from './daily.ts';
+import { promotedItems, promotionDiagnostics, promotionTargets } from './checkpoint.ts';
+import { BASELINE_EVENTS, committedHead, daily, type Baseline, type BaselineEvent } from './daily.ts';
 import { snapshot, type CallerCheckout } from './snapshot.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type ProjectRow, type Store } from './store.ts';
 
@@ -136,7 +136,7 @@ export const operations: Record<string, Operation> = {
    * Records that a checkpoint happened: the caller's HEAD, which the next checkpoint and
    * the next daily start from, and what the session reports it promoted. The session has
    * already written and committed those itself; Binnacle writes nothing (ADR-0020). A
-   * promoted path that is still uncommitted is recorded all the same, with a diagnostic.
+   * promoted path that is uncommitted, or names nothing, is recorded all the same, with a diagnostic.
    */
   'checkpoint.record': async (body, context) => {
     const path = repositoryPath(body, { mustExist: false });
@@ -144,7 +144,7 @@ export const operations: Record<string, Operation> = {
     const projected = reproject(context.store, await resolveEntry(path, context));
     const caller = await callerCheckout(path, projected.row.path);
     const { head } = committedHead(caller);
-    const diagnostics = await uncommittedPromotions(caller.project, promoted, head);
+    const diagnostics = await promotionDiagnostics(caller.project, promoted, head);
     context.store.appendEvent({ type: 'checkpoint', projectPath: projected.row.path, payload: { head, promoted } });
     return { project: projected.row, checkout: caller.checkout, head, promoted, diagnostics };
   },
@@ -243,10 +243,10 @@ function containingEntry(path: string, entries: RegistryEntry[]): RegistryEntry 
 }
 
 /** The head of the latest event of `types` for the project, which a delta starts from. */
-function recordedBaseline(store: Store, projectPath: string, types: readonly (typeof BASELINE_EVENTS)[number][]): Baseline | null {
+function recordedBaseline(store: Store, projectPath: string, types: readonly BaselineEvent[]): Baseline | null {
   const event = store.latestEvent(projectPath, types);
   const head = event?.payload.head;
-  return event && typeof head === 'string' ? { commit: head, source: event.type as (typeof BASELINE_EVENTS)[number] } : null;
+  return event && typeof head === 'string' ? { commit: head, source: event.type as BaselineEvent } : null;
 }
 
 /** `since`, when given, is a commit hash: never a ref or an expression, which Git could read as an option. */

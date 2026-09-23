@@ -185,12 +185,15 @@ describe('the checkpoint', () => {
         { type: 'vocabulary', path: 'GLOSSARY.md' },
         { type: 'trade_off', path: 'notes/decisions/ADR-0002-second.md' },
         { type: 'position', path: 'notes/roadmap.md' },
+        // A typo is not a clean promotion.
+        { type: 'new_work', path: 'work/tickets/first/issues/02-typo.md' },
       ];
       const recorded = await record(daemon, root, promoted);
       assert.equal(recorded.head, head);
-      assert.deepEqual(recorded.diagnostics.map((item) => item.code), ['checkpoint.uncommitted', 'checkpoint.uncommitted']);
+      assert.deepEqual(recorded.diagnostics.map((item) => item.code), ['checkpoint.uncommitted', 'checkpoint.uncommitted', 'checkpoint.path_missing']);
       assert.match(recorded.diagnostics[0]!.message, /^GLOSSARY\.md /);
       assert.match(recorded.diagnostics[1]!.message, /^notes\/decisions\/ADR-0002-second\.md /);
+      assert.match(recorded.diagnostics[2]!.message, /^work\/tickets\/first\/issues\/02-typo\.md /);
       assert.deepEqual((await events(daemon, 'checkpoint'))[0]?.payload, { head, promoted });
     });
   });
