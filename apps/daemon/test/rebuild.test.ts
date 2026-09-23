@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { after, describe, it } from 'node:test';
 import { registryPath, storePath, type ErrorEnvelope } from '../src/index.ts';
@@ -43,8 +43,8 @@ function makeProject(name = 'Example Project'): string {
 
 /**
  * Turns the store into one an earlier Binnacle wrote: another schema version, and a
- * `project` table of another shape holding a row no registration backs. This is a
- * fixture, like a manifest file — there is no API for "be an older release".
+ * `project` table of a shape this one cannot write to. This is a fixture, like a
+ * manifest file — there is no API for "be an older release".
  */
 function ageStore(home: string): void {
   const db = new DatabaseSync(storePath(home));
@@ -52,7 +52,6 @@ function ageStore(home: string): void {
     update meta set value = '0' where key = 'schema_version';
     drop table project;
     create table project (path text primary key, name text);
-    insert into project (path, name) values ('/nowhere/ghost', 'Ghost');
   `);
   db.close();
 }
@@ -180,6 +179,27 @@ describe('a registered repository that has disappeared from disk', () => {
       await check(second);
     } finally {
       await second.stop();
+    }
+  });
+
+  it('is found through a symlinked prefix of the path it disappeared from', async () => {
+    const home = temporary('binnacle-home-');
+    const root = makeProject();
+    const link = join(temporary('binnacle-link-'), 'via');
+    symlinkSync(join(root, '..'), link, 'dir');
+
+    const daemon = await startTestDaemon({ home });
+    try {
+      await daemon.call('project.register', { path: root });
+      rmSync(root, { recursive: true, force: true });
+
+      const detected = await daemon.call<{ project: Project }>('project.detect', {
+        path: join(link, basename(root), 'nested'),
+      });
+      assert.equal(detected.status, 200);
+      assert.equal(detected.body.project.path, root);
+    } finally {
+      await daemon.stop();
     }
   });
 

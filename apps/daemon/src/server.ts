@@ -77,6 +77,7 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
     store = openStore(home);
     projectRegistry(home, store);
   } catch (error) {
+    store?.close();
     releaseRuntime(home, runtime.pid);
     throw error;
   }

@@ -1,5 +1,5 @@
 import { existsSync, realpathSync } from 'node:fs';
-import { isAbsolute, relative, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { readGitFacts, type GitFacts } from '@binnacle/adapters';
 import { trackerRemoteMismatch, type Diagnostic, type ProjectManifest } from '@binnacle/core';
 import { OperationError, pathNotFound } from './errors.ts';
@@ -190,7 +190,22 @@ function repositoryPath(body: unknown, options: { mustExist?: boolean } = {}): s
   try {
     return realpathSync(candidate);
   } catch (error) {
-    if (options.mustExist === false && (error as NodeJS.ErrnoException).code === 'ENOENT') return candidate;
+    if (options.mustExist === false && (error as NodeJS.ErrnoException).code === 'ENOENT') return resolveMissing(candidate);
     throw pathNotFound(candidate);
+  }
+}
+
+/**
+ * A path that no longer exists, resolved through its nearest existing ancestor: a
+ * registration holds the real path, so a repository that disappeared from under a
+ * symlinked prefix — `/tmp` on macOS — is still the registration it was.
+ */
+function resolveMissing(path: string): string {
+  const parent = dirname(path);
+  if (parent === path) return path;
+  try {
+    return join(realpathSync(parent), basename(path));
+  } catch {
+    return join(resolveMissing(parent), basename(path));
   }
 }

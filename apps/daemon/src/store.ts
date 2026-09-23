@@ -15,9 +15,6 @@ import { OWNER_ONLY_FILE, storePath } from './home.ts';
  */
 export const SCHEMA_VERSION = 1;
 
-/** The tier-1 tables: every one of them is dropped on a version change, and nothing else is. */
-const PROJECTIONS = ['project'];
-
 export type ProjectRow = {
   /** Null when the manifest could not be read, because an id is read from it and never invented. */
   id: string | null;
@@ -114,15 +111,20 @@ export function openStore(home: string): Store {
     );
   };
 
-  // ADR-0015: projections are never migrated. A store another Binnacle wrote has them
-  // dropped and recreated empty, and the caller re-derives them from the registry file
-  // (ADR-0019). A fresh store has no version to differ from, so nothing is rebuilt there.
-  // The drop, the new version and the event that records them commit together.
-  const stored = db.prepare('select value from meta where key = ?').get('schema_version')?.value;
-  db.exec('begin');
+  // ADR-0015: projections are never migrated. A store another Binnacle wrote has every
+  // projection table dropped and recreated empty, and the caller re-derives it from the
+  // registry file (ADR-0019), as it does on every start. A fresh store has no version to
+  // differ from, so nothing is rebuilt there. The drop, the new version and the event
+  // that records them commit together, and the version is read inside that transaction.
+  //
+  // ponytail: an older Binnacle meeting a newer store rebuilds the projections like any
+  // mismatch, but the event table is assumed readable. The first migration of that table
+  // is where a downgrade needs a refusal instead.
+  db.exec('begin immediate');
   try {
+    const stored = db.prepare('select value from meta where key = ?').get('schema_version')?.value;
     if (stored !== undefined && stored !== String(SCHEMA_VERSION)) {
-      for (const table of PROJECTIONS) db.exec(`drop table if exists ${table}`);
+      db.exec('drop table if exists project');
       appendEvent({ type: 'store.rebuilt', payload: { from: Number(stored), to: SCHEMA_VERSION } });
     }
     db.exec(`
@@ -138,7 +140,9 @@ export function openStore(home: string): Store {
     db.prepare('insert or replace into meta (key, value) values (?, ?)').run('schema_version', String(SCHEMA_VERSION));
     db.exec('commit');
   } catch (error) {
-    db.exec('rollback');
+    // SQLite has already rolled back on some failures, and a second rollback would throw
+    // over the error that explains what went wrong.
+    if (db.isTransaction) db.exec('rollback');
     db.close();
     throw error;
   }
