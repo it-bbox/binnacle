@@ -7,7 +7,7 @@ import { resolveGitTimeout, type Runtime } from './home.ts';
 import { readManifest } from './manifest.ts';
 import { projectRegistry, reproject } from './projection.ts';
 import { readRegistry, writeRegistry, type RegistryEntry } from './registry.ts';
-import { snapshot } from './snapshot.ts';
+import { snapshot, type CallerCheckout } from './snapshot.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type ProjectRow, type Store } from './store.ts';
 
 export type OperationContext = {
@@ -143,17 +143,6 @@ async function resolveEntry(path: string, context: OperationContext): Promise<Re
   if (!existsSync(path)) throw pathNotFound(path);
   throw new OperationError('project.not_registered', `No registered Binnacle project contains ${path}.`, 404);
 }
-
-export type CallerCheckout = {
-  /**
-   * The checkout `git` describes: the caller's own when it is a linked worktree of the
-   * project, otherwise the registered one. `root` is the project path when Git has no answer.
-   */
-  checkout: { root: string; registered: boolean };
-  git: GitFacts;
-  /** The project's directory in that checkout, which is where its files are read. */
-  project: string;
-};
 
 async function callerCheckout(path: string, projectPath: string): Promise<CallerCheckout> {
   const worktree = path === projectPath ? null : await linkedWorktree(path, projectPath);

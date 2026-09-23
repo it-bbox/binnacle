@@ -12,7 +12,6 @@ import {
   type TaskState,
 } from '@binnacle/core';
 import { resolveGitTimeout } from './home.ts';
-import type { CallerCheckout } from './operations.ts';
 import type { Projected } from './projection.ts';
 import type { ProjectRow } from './store.ts';
 
@@ -25,7 +24,7 @@ import type { ProjectRow } from './store.ts';
  */
 export const SECTION_LIMIT = 10;
 export const DECISION_LIMIT = 5;
-/** In UTF-16 code units, which is what JavaScript counts as characters. */
+/** In characters: Unicode code points. */
 export const FOCUS_LIMIT = 2000;
 
 const IN_FLIGHT = ['ACTIVE', 'BLOCKED', 'READY_FOR_REVIEW', 'APPROVED', 'MERGE_READY'] as const satisfies readonly TaskState[];
@@ -37,6 +36,17 @@ export type Section = { items: SnapshotTask[]; remainder: number };
 
 export type TaskCounts = Record<Exclude<TaskState, InFlight> | 'unknown', number>;
 
+export type CallerCheckout = {
+  /**
+   * The checkout `git` describes: the caller's own when it is a linked worktree of the
+   * project, otherwise the registered one. `root` is the project path when Git has no answer.
+   */
+  checkout: { root: string; registered: boolean };
+  git: GitFacts;
+  /** The project's directory in that checkout, which is where its files are read. */
+  project: string;
+};
+
 /** A section Binnacle cannot fill yet. It is present and says so, and is never filled with a guess (ADR-0007). */
 export type Unavailable = { available: false; reason: string };
 const UNAVAILABLE: Unavailable = { available: false, reason: 'Not available in this version of Binnacle.' };
@@ -46,7 +56,7 @@ export type Snapshot = {
   checkout: CallerCheckout['checkout'];
   /** The facts of the caller's checkout, as `project.status` gives them. */
   git: GitFacts;
-  /** Null when there is no roadmap to read; `attention` says why. */
+  /** Null when there is no roadmap to read: on a tracker other than the local one, or with a diagnostic. */
   roadmap: {
     epics: Epic[];
     /** `## Current focus` as written, cut at `FOCUS_LIMIT`; `truncated` says whether it was. */
@@ -66,7 +76,10 @@ export type Snapshot = {
      */
     counts: TaskCounts;
   } | null;
-  /** The most recently committed ADRs; one never committed counts as the most recent. Null when there is no ADR directory. */
+  /**
+   * The most recently committed ADRs; one never committed counts as the most recent, and
+   * without Git they go by path. Null when the project declares no ADR directory.
+   */
   decisions: { items: { title: string | null; path: string }[]; remainder: number } | null;
   pendingDecisions: Unavailable;
   ci: Unavailable;
@@ -143,16 +156,16 @@ function section(tasks: ResolvedTask[]): Section {
   };
 }
 
-/** On the local Markdown tracker the roadmap is `<knowledge.docs>/roadmap.md` (ADR-0017). */
+/**
+ * On the local Markdown tracker the roadmap is `<knowledge.docs>/roadmap.md` (ADR-0017).
+ * On any other tracker, or with no readable manifest, it is simply absent: `tracker.unavailable`
+ * already says why, and saying it twice only makes the attention list noisier.
+ */
 function readRoadmap(root: string, manifest: ProjectManifest | null, attention: Diagnostic[]): Snapshot['roadmap'] {
-  const docs = manifest?.tracker.provider === 'local' ? manifest.knowledge.docs : null;
+  if (manifest?.tracker.provider !== 'local') return null;
+  const docs = manifest.knowledge.docs;
   if (docs === null) {
-    attention.push({
-      code: 'roadmap.unavailable',
-      message: manifest
-        ? 'The roadmap is read from the local Markdown tracker only, as <knowledge.docs>/roadmap.md, and this project declares no knowledge.docs on it.'
-        : 'The roadmap cannot be read without a readable manifest.',
-    });
+    attention.push({ code: 'roadmap.missing', message: 'The roadmap is <knowledge.docs>/roadmap.md, and this project declares no knowledge.docs.' });
     return null;
   }
 
@@ -164,22 +177,21 @@ function readRoadmap(root: string, manifest: ProjectManifest | null, attention: 
   }
   const { roadmap, diagnostics } = parseRoadmap(text);
   attention.push(...diagnostics);
-  const focus = roadmap.focus;
+  // By code point, so that a cut never splits a character in two.
+  const focus = roadmap.focus === null ? null : Array.from(roadmap.focus);
   return {
     ...roadmap,
-    focus: focus === null ? null : { text: focus.slice(0, FOCUS_LIMIT), truncated: focus.length > FOCUS_LIMIT },
+    focus: focus === null ? null : { text: focus.slice(0, FOCUS_LIMIT).join(''), truncated: focus.length > FOCUS_LIMIT },
   };
 }
 
 async function recentDecisions(root: string, manifest: ProjectManifest | null, attention: Diagnostic[]): Promise<Snapshot['decisions']> {
+  // A project need not keep ADRs, and declaring none is a choice, not a problem to report.
   const adr = manifest?.knowledge.adr ?? null;
-  const files = adr === null ? null : listing(join(root, adr));
-  if (adr === null || files === null) {
-    attention.push(
-      adr === null
-        ? { code: 'adr.unavailable', message: manifest ? 'This project declares no knowledge.adr.' : 'ADRs cannot be found without a readable manifest.' }
-        : { code: 'adr.missing', message: `knowledge.adr names ${adr}, which is not a directory.` },
-    );
+  if (adr === null) return null;
+  const files = listing(join(root, adr));
+  if (files === null) {
+    attention.push({ code: 'adr.missing', message: `knowledge.adr names ${adr}, which is not a directory.` });
     return null;
   }
 

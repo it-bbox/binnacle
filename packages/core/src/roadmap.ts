@@ -106,13 +106,13 @@ const sameCells = (row: string[] | null, expected: string[]): boolean =>
  */
 export function roadmapAttention(epics: Epic[], tasks: TrackerTask[]): Diagnostic[] {
   const attention: Diagnostic[] = [];
-  const at = (status: RoadmapStatus): number => ROADMAP_STATUSES.indexOf(status);
+  const rank = (status: RoadmapStatus): number => ROADMAP_STATUSES.indexOf(status);
   const finished = (task: TrackerTask): boolean => task.state === 'DONE' || task.state === 'CANCELLED';
 
   for (const epic of epics) {
     const name = `Epic ${epic.number} (${epic.title})`;
     if (epic.spec === null) {
-      if (at(epic.status) >= at('spec')) {
+      if (rank(epic.status) >= rank('spec')) {
         attention.push({ code: 'roadmap.spec_missing', message: `${name} is at "${epic.status}" on the roadmap, but its Spec cell is "—".` });
       }
       continue;

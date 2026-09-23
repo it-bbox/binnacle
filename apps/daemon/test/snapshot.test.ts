@@ -453,19 +453,21 @@ describe('recent decisions, Git and the unavailable sections', () => {
     });
   });
 
-  it("describes the caller's own checkout, and reads a linked worktree's roadmap from that worktree", async () => {
+  it("describes the caller's own checkout, and reads a linked worktree's roadmap and tickets from that worktree", async () => {
     await withDaemon(async (daemon) => {
       const root = makeRepository({ roadmap: roadmapText([row(1, 'Core', 'in progress', null)]) });
       writeFileSync(join(root, '.git', 'info', 'exclude'), '.claude/worktrees/\n');
       const worktree = join(root, '.claude', 'worktrees', 'probe');
       git(root, ['worktree', 'add', '--quiet', '-b', 'feat/probe', worktree]);
       roadmap(worktree, roadmapText([row(1, 'Core', 'done', null)]));
+      ticket(worktree, 'epic', '01-thing.md', { title: '01: Thing', status: 'READY' });
 
       const main = await snapshot(daemon, root);
       assert.deepEqual(main.checkout, { root, registered: true });
       assert.ok(main.git.available);
       assert.equal(main.git.branch, 'main');
       assert.equal(main.roadmap?.epics[0]?.status, 'in progress');
+      assert.deepEqual(ids(main.tasks!.readyToStart), []);
 
       const result = await daemon.call<Snapshot>('project.snapshot', { path: worktree });
       assert.equal(result.status, 200, JSON.stringify(result.body));
@@ -474,6 +476,7 @@ describe('recent decisions, Git and the unavailable sections', () => {
       assert.equal(result.body.git.branch, 'feat/probe');
       assert.equal(result.body.git.dirty, true);
       assert.equal(result.body.roadmap?.epics[0]?.status, 'done');
+      assert.deepEqual(ids(result.body.tasks!.readyToStart), ['epic/01']);
     });
   });
 
@@ -498,7 +501,6 @@ describe('recent decisions, Git and the unavailable sections', () => {
         'manifest.warning',
         'tracker.remote_mismatch',
         'tracker.unavailable',
-        'roadmap.unavailable',
       ]);
       assert.match(body.attention[0]!.message, /project\.colour/);
     });
