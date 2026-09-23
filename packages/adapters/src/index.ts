@@ -1,5 +1,6 @@
 export {
   commitTree,
+  hasUncommittedChanges,
   isAncestor,
   isGitUnavailable,
   readCommit,

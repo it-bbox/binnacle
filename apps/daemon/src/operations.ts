@@ -7,7 +7,8 @@ import { resolveGitTimeout, type Runtime } from './home.ts';
 import { readManifest } from './manifest.ts';
 import { projectRegistry, reproject } from './projection.ts';
 import { readRegistry, writeRegistry, type RegistryEntry } from './registry.ts';
-import { BASELINE_EVENTS, daily, type Baseline } from './daily.ts';
+import { promotedItems, promotionTargets, uncommittedPromotions } from './checkpoint.ts';
+import { BASELINE_EVENTS, committedHead, daily, type Baseline } from './daily.ts';
 import { snapshot, type CallerCheckout } from './snapshot.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type ProjectRow, type Store } from './store.ts';
 
@@ -110,10 +111,42 @@ export const operations: Record<string, Operation> = {
     const since = sinceCommit(body);
     const projected = reproject(context.store, await resolveEntry(path, context));
     const caller = await callerCheckout(path, projected.row.path);
-    const baseline: Baseline | null = since ? { commit: since, source: 'since' } : recordedBaseline(context.store, projected.row.path);
+    const baseline: Baseline | null = since ? { commit: since, source: 'since' } : recordedBaseline(context.store, projected.row.path, BASELINE_EVENTS);
     const delta = await daily(projected, caller, remoteMismatch(projected.manifest, caller.git), baseline);
     if (!since) context.store.appendEvent({ type: 'daily', projectPath: projected.row.path, payload: { head: delta.head } });
     return delta;
+  },
+
+  /**
+   * What changed since the last checkpoint — the daily's delta, from the last `checkpoint`
+   * event only — and where each kind of durable decision belongs in this project. Facts
+   * and candidates, never prose (ADR-0012), and nothing is recorded.
+   */
+  'checkpoint.prepare': async (body, context) => {
+    const path = repositoryPath(body, { mustExist: false });
+    const projected = reproject(context.store, await resolveEntry(path, context));
+    const caller = await callerCheckout(path, projected.row.path);
+    const recorded = ['checkpoint'] as const;
+    const baseline = recordedBaseline(context.store, projected.row.path, recorded);
+    const delta = await daily(projected, caller, remoteMismatch(projected.manifest, caller.git), baseline, recorded);
+    return { ...delta, targets: promotionTargets(projected.manifest) };
+  },
+
+  /**
+   * Records that a checkpoint happened: the caller's HEAD, which the next checkpoint and
+   * the next daily start from, and what the session reports it promoted. The session has
+   * already written and committed those itself; Binnacle writes nothing (ADR-0020). A
+   * promoted path that is still uncommitted is recorded all the same, with a diagnostic.
+   */
+  'checkpoint.record': async (body, context) => {
+    const path = repositoryPath(body, { mustExist: false });
+    const promoted = promotedItems(body);
+    const projected = reproject(context.store, await resolveEntry(path, context));
+    const caller = await callerCheckout(path, projected.row.path);
+    const { head } = committedHead(caller);
+    const diagnostics = await uncommittedPromotions(caller.project, promoted, head);
+    context.store.appendEvent({ type: 'checkpoint', projectPath: projected.row.path, payload: { head, promoted } });
+    return { project: projected.row, checkout: caller.checkout, head, promoted, diagnostics };
   },
 
   'project.unregister': (body, context) => {
@@ -209,8 +242,9 @@ function containingEntry(path: string, entries: RegistryEntry[]): RegistryEntry 
   return entries.filter(contains).sort((a, b) => b.path.length - a.path.length)[0];
 }
 
-function recordedBaseline(store: Store, projectPath: string): Baseline | null {
-  const event = store.latestEvent(projectPath, BASELINE_EVENTS);
+/** The head of the latest event of `types` for the project, which a delta starts from. */
+function recordedBaseline(store: Store, projectPath: string, types: readonly (typeof BASELINE_EVENTS)[number][]): Baseline | null {
+  const event = store.latestEvent(projectPath, types);
   const head = event?.payload.head;
   return event && typeof head === 'string' ? { commit: head, source: event.type as (typeof BASELINE_EVENTS)[number] } : null;
 }

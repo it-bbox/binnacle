@@ -36,6 +36,22 @@ const TOOLS = {
       since: z.string().optional().describe('A commit hash to look back from instead of the recorded baseline; records nothing.'),
     },
   },
+  checkpoint_prepare: {
+    operation: 'checkpoint.prepare',
+    description:
+      'Before closing a Product session: what changed since the last checkpoint, where each kind of durable decision belongs in this project (promotion targets with their paths), and attention items. Records nothing and writes nothing.',
+  },
+  checkpoint_record: {
+    operation: 'checkpoint.record',
+    description:
+      'After the session has written and committed the promotions the human confirmed: records the checkpoint at this HEAD with what was promoted. Binnacle writes no file. Returns a diagnostic for each promoted path still uncommitted.',
+    inputSchema: {
+      // The daemon validates both fields; the types are listed here only to guide the caller.
+      promoted: z
+        .array(z.object({ type: z.string(), path: z.string() }))
+        .describe('What was promoted, empty if nothing: type is vocabulary, trade_off, new_work, product_rule or position; path is relative to the project directory.'),
+    },
+  },
 } as const;
 
 /**

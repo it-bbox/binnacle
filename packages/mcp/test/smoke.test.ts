@@ -43,7 +43,7 @@ test('binn mcp lists its tools, explains a stopped daemon, and proxies the snaps
   });
 
   const { tools } = await client.listTools();
-  assert.deepEqual(tools.map((tool) => tool.name).sort(), ['daily_get', 'project_detect', 'project_snapshot', 'project_status']);
+  assert.deepEqual(tools.map((tool) => tool.name).sort(), ['checkpoint_prepare', 'checkpoint_record', 'daily_get', 'project_detect', 'project_snapshot', 'project_status']);
 
   const down = (await client.callTool({ name: 'project_status' })) as ToolResult;
   assert.equal(down.isError, true);

@@ -151,6 +151,16 @@ export async function readCommitBefore(cwd: string, commit: string, date: Date, 
   return run.stdout.trim() || null;
 }
 
+/**
+ * Whether `path`, a file or directory relative to `cwd`, has uncommitted changes: staged,
+ * unstaged or untracked. The path is passed as a literal pathspec after `--`, so caller
+ * text is never read as an option or as pathspec magic.
+ */
+export async function hasUncommittedChanges(cwd: string, path: string, timeoutMs: number): Promise<boolean> {
+  const run = acceptExit(await git(cwd, timeoutMs, ['status', '--porcelain', '--untracked-files=normal', '--', `:(literal)${path}`]), 'status', [0]);
+  return run.stdout.trim() !== '';
+}
+
 export type Commit = { commit: string; subject: string };
 
 /** The commits reachable from `to` and not from `from`, newest first; every one reachable from `to` when `from` is null. */

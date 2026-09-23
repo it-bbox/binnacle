@@ -55,17 +55,24 @@ export type Daily = {
 
 export type Transition = { id: string; title: string | null; from: TaskState | null; to: TaskState | null; ticket: string };
 
-/** `baseline` is null when nothing has been recorded; `diagnostics` are the caller's findings, as for the snapshot. */
-export async function daily(projected: Projected, caller: CallerCheckout, diagnostics: Diagnostic[], baseline: Baseline | null): Promise<Daily> {
-  const { git } = caller;
-  if (!git.available) throw new OperationError(git.code, git.reason, 409);
-  if (git.commit === null) throw new OperationError('git.no_commits', 'This checkout has no commits yet, so nothing has changed.', 409);
-  const head = git.commit;
+/**
+ * `baseline` is null when no event of the `recorded` types exists; `diagnostics` are the
+ * caller's findings, as for the snapshot. `checkpoint.prepare` calls this with its own
+ * baseline, so its delta is the daily's code with the daily's fallback.
+ */
+export async function daily(
+  projected: Projected,
+  caller: CallerCheckout,
+  diagnostics: Diagnostic[],
+  baseline: Baseline | null,
+  recorded: readonly string[] = BASELINE_EVENTS,
+): Promise<Daily> {
+  const { head, dirty } = committedHead(caller);
   const cwd = caller.project;
   const timeout = resolveGitTimeout();
 
   try {
-    const { from, fallback } = await startingPoint(cwd, head, baseline, timeout);
+    const { from, fallback } = await startingPoint(cwd, head, baseline, recorded, timeout);
     const beforeTree = from.commit === null ? EMPTY_TREE : commitTree(cwd, from.commit, timeout);
     const afterTree = commitTree(cwd, head, timeout);
     const [commits, before, after] = await Promise.all([
@@ -79,7 +86,7 @@ export async function daily(projected: Projected, caller: CallerCheckout, diagno
       project: projected.row,
       checkout: caller.checkout,
       head,
-      dirty: git.dirty,
+      dirty,
       from,
       fallback,
       commits: { count: commits.length, ...limited(commits) },
@@ -103,11 +110,12 @@ async function startingPoint(
   cwd: string,
   head: string,
   baseline: Baseline | null,
+  recorded: readonly string[],
   timeout: number,
 ): Promise<{ from: Daily['from']; fallback: Fallback | null }> {
   let fallback: Fallback;
   if (baseline === null) {
-    fallback = { reason: 'no_baseline', message: 'No daily or checkpoint has been recorded for this project on this machine.' };
+    fallback = { reason: 'no_baseline', message: `No ${recorded.join(' or ')} has been recorded for this project on this machine.` };
   } else {
     const named = `The baseline ${baseline.commit} from the last ${baseline.source}`;
     const commit = await readCommit(cwd, baseline.commit, timeout);
@@ -131,6 +139,13 @@ async function startingPoint(
     from: { commit: await readCommitBefore(cwd, head, window, timeout), source: 'fallback' },
     fallback: { ...fallback, message: `${fallback.message} The delta covers the last ${FALLBACK_DAYS} days of commits instead.` },
   };
+}
+
+/** The caller's HEAD, which a delta runs to and a checkpoint records; refused when there is none. */
+export function committedHead({ git }: CallerCheckout): { head: string; dirty: boolean } {
+  if (!git.available) throw new OperationError(git.code, git.reason, 409);
+  if (git.commit === null) throw new OperationError('git.no_commits', 'This checkout has no commits yet, so nothing has changed.', 409);
+  return { head: git.commit, dirty: git.dirty };
 }
 
 function taskChanges(before: State, after: State): Pick<Daily, 'transitions' | 'newTickets' | 'readyToStart'> {
