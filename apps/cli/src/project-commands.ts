@@ -32,11 +32,12 @@ export async function list(home: string): Promise<ExitCode> {
 }
 
 export async function status(home: string, path?: string): Promise<ExitCode> {
-  return await callAndReport<ProjectStatus>(home, 'project.status', { path: target(path) }, ({ project, manifest, git, diagnostics }) => {
+  return await callAndReport<ProjectStatus>(home, 'project.status', { path: target(path) }, ({ project, manifest, checkout, git, diagnostics }) => {
     console.log(`${project.id ?? '(unknown id)'}  ${project.name ?? '(unnamed)'}`);
     console.log(`  path     ${project.path}`);
     if (project.unavailable) console.log(`  manifest unavailable: ${project.unavailable}`);
     if (manifest) console.log(`  tracker  ${manifest.tracker.provider ?? '(not declared)'}`);
+    if (!checkout.registered) console.log(`  checkout ${checkout.root} (linked worktree)`);
     if (git.available) {
       const head = git.detached ? '(detached HEAD)' : git.branch;
       console.log(`  git      ${head} at ${git.commit?.slice(0, 12) ?? '(no commits)'}${git.dirty ? ', dirty' : ''}`);

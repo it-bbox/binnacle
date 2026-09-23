@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { statSync } from 'node:fs';
+import { realpathSync, statSync } from 'node:fs';
 
 /**
  * The Git adapter. It reads and never writes, and that holds by construction rather
@@ -72,6 +72,29 @@ export async function readGitFacts(cwd: string, timeoutMs: number): Promise<GitF
     };
   } catch (error) {
     if (isUnavailable(error)) return error;
+    throw error;
+  }
+}
+
+/**
+ * Where a path sits in Git: the root of the checkout it is in, and the repository's
+ * common directory, which the main checkout and every linked worktree of one repository
+ * share and a separate repository does not. Null whenever Git cannot say — not a working
+ * tree, no git, a git that does not answer — because the caller then falls back to what
+ * it knew without Git.
+ */
+export type GitLocation = { root: string; commonDir: string };
+
+export async function readGitLocation(cwd: string, timeoutMs: number): Promise<GitLocation | null> {
+  if (!statSync(cwd, { throwIfNoEntry: false })?.isDirectory()) return null;
+  try {
+    const run = await git(cwd, timeoutMs, ['rev-parse', '--path-format=absolute', '--show-toplevel', '--git-common-dir']);
+    const [root, commonDir] = run.stdout.trim().split('\n');
+    // Resolved like registered paths are, so that one repository reached through a
+    // symlinked prefix compares equal to itself.
+    return run.code === 0 && root && commonDir ? { root: realpathSync(root), commonDir: realpathSync(commonDir) } : null;
+  } catch (error) {
+    if (isUnavailable(error)) return null;
     throw error;
   }
 }

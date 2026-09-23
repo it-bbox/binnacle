@@ -1,6 +1,6 @@
 import { existsSync, realpathSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
-import { readGitFacts, type GitFacts } from '@binnacle/adapters';
+import { readGitFacts, readGitLocation, type GitFacts } from '@binnacle/adapters';
 import { trackerRemoteMismatch, type Diagnostic, type ProjectManifest } from '@binnacle/core';
 import { OperationError, pathNotFound } from './errors.ts';
 import { resolveGitTimeout, type Runtime } from './home.ts';
@@ -18,6 +18,11 @@ export type OperationContext = {
 export type ProjectStatus = {
   project: ProjectRow;
   manifest: ProjectManifest | null;
+  /**
+   * The checkout `git` describes: the caller's own when it is a linked worktree of the
+   * project, otherwise the registered one. `root` is the project path when Git has no answer.
+   */
+  checkout: { root: string; registered: boolean };
   git: GitFacts;
   diagnostics: Diagnostic[];
 };
@@ -73,16 +78,20 @@ export const operations: Record<string, Operation> = {
 
   // Re-derived rather than looked up, so a project is never answered as null, and its
   // facts are the manifest's as of now — the same as `project.status` gives.
-  'project.detect': (body, context) => ({ project: reproject(context.store, containingEntry(body, context)).row }),
+  'project.detect': async (body, context) => ({ project: reproject(context.store, await resolveEntry(repositoryPath(body, { mustExist: false }), context)).row }),
 
   /**
    * What Binnacle currently believes about a project: the manifest, re-read now, and Git
-   * facts read live. Git facts are never stored — the projection holds only what is
-   * derived from the registry and the manifest — so a status is never stale about Git.
+   * facts read live from the caller's checkout. Git facts are never stored — the
+   * projection holds only what is derived from the registry and the manifest — so a
+   * status is never stale about Git.
    */
   'project.status': async (body, context): Promise<ProjectStatus> => {
-    const { row, manifest } = reproject(context.store, containingEntry(body, context));
-    const git = await readGitFacts(row.path, resolveGitTimeout());
+    const path = repositoryPath(body, { mustExist: false });
+    const { row, manifest } = reproject(context.store, await resolveEntry(path, context));
+    const worktree = path === row.path ? null : await linkedWorktree(path, row.path);
+    const git = await readGitFacts(worktree ?? row.path, resolveGitTimeout());
+    const checkout = { root: worktree ?? (git.available ? git.root : row.path), registered: worktree === null };
 
     const mismatch =
       manifest && git.available
@@ -92,7 +101,7 @@ export const operations: Record<string, Operation> = {
           )
         : null;
 
-    return { project: row, manifest, git, diagnostics: mismatch ? [mismatch] : [] };
+    return { project: row, manifest, checkout, git, diagnostics: mismatch ? [mismatch] : [] };
   },
 
   'project.unregister': (body, context) => {
@@ -113,30 +122,59 @@ export const operations: Record<string, Operation> = {
 };
 
 /**
- * The registered project whose directory is `path` or contains it, so that an agent that
- * knows only its working directory — wherever the harness happened to start it — finds
- * its project. The deepest registration wins, which is the one that was meant when one
- * project is nested inside another. Anything else is said, never guessed.
+ * The registered project for `path`: by containment first, with no Git involved, and
+ * only when that finds nothing, by Git's common directory, which a linked worktree
+ * outside the repository shares with the registered checkout.
  *
  * The registry is read before the disk is consulted: a registration outlives its
  * directory, so a repository that has disappeared is still answered, with its reason,
  * the same as `project.list` gives. Only a missing path no registration contains is
  * refused as not found.
  */
-function containingEntry(body: unknown, context: OperationContext): RegistryEntry {
-  const path = repositoryPath(body, { mustExist: false });
+async function resolveEntry(path: string, context: OperationContext): Promise<RegistryEntry> {
+  const entries = readRegistry(context.home);
+  const contained = containingEntry(path, entries);
+  if (contained) return contained;
+
+  const here = await readGitLocation(path, resolveGitTimeout());
+  if (here) {
+    const there = await Promise.all(entries.map((entry) => readGitLocation(entry.path, resolveGitTimeout())));
+    // ponytail: two projects registered in one repository make a sibling worktree
+    // ambiguous, and it is refused rather than guessed; map its relative path if that
+    // case ever matters.
+    const matches = entries.filter((_entry, index) => there[index]?.commonDir === here.commonDir);
+    if (matches.length === 1) return matches[0]!;
+  }
+
+  if (!existsSync(path)) throw pathNotFound(path);
+  throw new OperationError('project.not_registered', `No registered Binnacle project contains ${path}.`, 404);
+}
+
+/**
+ * The root of the linked worktree `path` is in, when it is one of the project's; null for
+ * the registered checkout itself, for a separate repository nested inside the project,
+ * and whenever Git cannot say.
+ */
+async function linkedWorktree(path: string, projectPath: string): Promise<string | null> {
+  const [here, home] = await Promise.all([
+    readGitLocation(path, resolveGitTimeout()),
+    readGitLocation(projectPath, resolveGitTimeout()),
+  ]);
+  return here && home && here.commonDir === home.commonDir && here.root !== home.root ? here.root : null;
+}
+
+/**
+ * The registered project whose directory is `path` or contains it, so that an agent that
+ * knows only its working directory — wherever the harness happened to start it — finds
+ * its project. The deepest registration wins, which is the one that was meant when one
+ * project is nested inside another.
+ */
+function containingEntry(path: string, entries: RegistryEntry[]): RegistryEntry | undefined {
   const contains = (entry: RegistryEntry): boolean => {
     const inside = relative(entry.path, path);
     return inside === '' || (!isAbsolute(inside) && inside.split(sep)[0] !== '..');
   };
-  const match = readRegistry(context.home)
-    .filter(contains)
-    .sort((a, b) => b.path.length - a.path.length)[0];
-  if (!match) {
-    if (!existsSync(path)) throw pathNotFound(path);
-    throw new OperationError('project.not_registered', `No registered Binnacle project contains ${path}.`, 404);
-  }
-  return match;
+  return entries.filter(contains).sort((a, b) => b.path.length - a.path.length)[0];
 }
 
 function eventFilter(body: unknown): EventFilter {

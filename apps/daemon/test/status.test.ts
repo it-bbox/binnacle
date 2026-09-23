@@ -25,6 +25,7 @@ type Git =
 type Status = {
   project: { id: string | null; name: string | null; path: string };
   manifest: { tracker: { provider: string | null } } | null;
+  checkout: { root: string; registered: boolean };
   git: Git;
   diagnostics: { code: string; message: string }[];
 };
@@ -400,6 +401,138 @@ describe('detecting a project from a working directory', () => {
 
       const result = await daemon.call<ErrorEnvelope>('project.detect', { path: sibling });
       assert.equal(result.status, 404);
+    });
+  });
+});
+
+describe('a linked worktree', () => {
+  type Detected = { project: Status['project'] };
+
+  /** A real linked worktree of `root` at `at`, on its own new branch with its own commit. */
+  function addWorktree(root: string, at: string, branch: string): string {
+    git(root, 'worktree', 'add', '--quiet', '-b', branch, at);
+    git(at, 'commit', '--quiet', '--allow-empty', '-m', `Work on ${branch}`);
+    return realpathSync(at);
+  }
+
+  it('inside the repository reports its own Git facts and names its checkout', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeRepository();
+      // As this repository does, so that the worktree does not make the main checkout dirty.
+      writeFileSync(join(root, '.git', 'info', 'exclude'), '.claude/worktrees/\n');
+      const worktree = addWorktree(root, join(root, '.claude', 'worktrees', 'probe'), 'feat/probe');
+      writeFileSync(join(worktree, 'notes.md'), 'uncommitted\n');
+
+      const nested = join(worktree, 'src');
+      mkdirSync(nested);
+      for (const path of [worktree, nested]) {
+        const body = await status(daemon, root, path);
+        assert.equal(body.project.path, root);
+        assert.ok(body.git.available);
+        assert.equal(body.git.branch, 'feat/probe');
+        assert.equal(body.git.commit, git(worktree, 'rev-parse', 'HEAD'));
+        assert.equal(body.git.dirty, true);
+        assert.deepEqual(body.checkout, { root: worktree, registered: false });
+      }
+
+      const main = await status(daemon, root);
+      assert.ok(main.git.available);
+      assert.equal(main.git.branch, 'main');
+      assert.equal(main.git.dirty, false);
+      assert.deepEqual(main.checkout, { root, registered: true });
+    });
+  });
+
+  it('outside the repository is detected through Git and reports its own Git facts', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeRepository();
+      const worktree = addWorktree(root, `${root}-sibling`, 'feat/sibling');
+      roots.push(worktree);
+      await daemon.call('project.register', { path: root });
+
+      const detected = await daemon.call<Detected>('project.detect', { path: worktree });
+      assert.equal(detected.status, 200, JSON.stringify(detected.body));
+      assert.equal(detected.body.project.path, root);
+      assert.equal(detected.body.project.id, 'example-project');
+
+      const body = await status(daemon, root, worktree);
+      assert.ok(body.git.available);
+      assert.equal(body.git.branch, 'feat/sibling');
+      assert.deepEqual(body.checkout, { root: worktree, registered: false });
+    });
+  });
+
+  it('is not confused with a separate repository nested inside the project', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeRepository();
+      const vendored = join(root, 'vendor', 'other');
+      mkdirSync(vendored, { recursive: true });
+      git(vendored, 'init', '--quiet', '--initial-branch=vendored');
+      git(vendored, 'commit', '--quiet', '--allow-empty', '-m', 'Vendored');
+
+      const body = await status(daemon, root, vendored);
+      assert.equal(body.project.path, root);
+      assert.ok(body.git.available);
+      assert.equal(body.git.root, root);
+      assert.equal(body.git.branch, 'main');
+      assert.deepEqual(body.checkout, { root, registered: true });
+    });
+  });
+
+  it('a separate repository outside every project is still not registered', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeRepository();
+      await daemon.call('project.register', { path: root });
+      const other = makeRepository();
+
+      const result = await daemon.call<ErrorEnvelope>('project.detect', { path: other });
+      assert.equal(result.status, 404);
+      assert.equal(result.body.error.code, 'project.not_registered');
+    });
+  });
+
+  it('costs detect no Git call when a registered project contains the path', { skip: !POSIX && 'needs a POSIX shell script' }, async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeRepository();
+      const worktree = addWorktree(root, join(root, '.claude', 'worktrees', 'probe'), 'feat/probe');
+      await daemon.call('project.register', { path: root });
+
+      const witness = join(temporary('binnacle-witness-'), 'ran');
+      const bin = temporary('binnacle-watched-git-');
+      writeFileSync(join(bin, 'git'), `#!/bin/sh\ntouch '${witness}'\nexit 1\n`);
+      chmodSync(join(bin, 'git'), 0o755);
+
+      const detected = await withPath(bin, () => daemon.call<Detected>('project.detect', { path: worktree }));
+      assert.equal(detected.status, 200);
+      assert.equal(detected.body.project.path, root);
+      assert.ok(!existsSync(witness), 'detect by containment must not run git');
+    });
+  });
+
+  it('degrades as before without git: containment still detects, and nothing else is found', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeRepository();
+      const sibling = addWorktree(root, `${root}-sibling`, 'feat/sibling');
+      roots.push(sibling);
+      const outsideGit = makeProject();
+      await daemon.call('project.register', { path: root });
+      await daemon.call('project.register', { path: outsideGit });
+
+      await withPath(temporary('binnacle-empty-path-'), async () => {
+        for (const path of [root, outsideGit]) {
+          const detected = await daemon.call<Detected>('project.detect', { path });
+          assert.equal(detected.status, 200);
+          assert.equal(detected.body.project.path, path);
+        }
+        const status = await daemon.call<Status>('project.status', { path: outsideGit });
+        assert.equal(status.status, 200);
+        assert.ok(!status.body.git.available);
+        assert.deepEqual(status.body.checkout, { root: outsideGit, registered: true });
+
+        const lost = await daemon.call<ErrorEnvelope>('project.detect', { path: sibling });
+        assert.equal(lost.status, 404);
+        assert.equal(lost.body.error.code, 'project.not_registered');
+      });
     });
   });
 });
