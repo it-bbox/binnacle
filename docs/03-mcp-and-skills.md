@@ -49,6 +49,8 @@ Initial user-facing actions:
 
 Actual command syntax may differ across Claude Code, Codex, Gemini and other clients. The logical action remains the same.
 
+In Claude Code the actions are served by a plugin named `binnacle` (ADR-0023), so each is namespaced: `/binnacle:product`, `/binnacle:daily`, `/binnacle:checkpoint` and `/binnacle:autopilot`. On this repository the plugin lives at `.claude/skills/binnacle/`.
+
 ## How the interface reaches a harness
 
 MCP is the universal path, and registering it is a config edit in a location each harness already defines — `~/.claude.json` or a project's `.mcp.json` for Claude Code, `[mcp_servers.*]` in `~/.codex/config.toml` for Codex. `binn init` performs that registration for every harness it detects. This is support level 1 from ADR-0014, and it requires no adapter code.

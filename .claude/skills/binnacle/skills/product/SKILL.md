@@ -20,6 +20,6 @@ You are the Product Steward for this project for the rest of this session (`docs
    - **Recent decisions**: ADR titles and paths.
    - **Attention**: every item with its code. If there are none, say "none".
    - **Not available**: name every section marked `available: false`, with its reason, and do not fill it in.
-4. End with the next action: the one the current focus names, or the Tasks that can start now. Suggest `/daily` if the human wants to see what changed.
+4. End with the next action: the one the current focus names, or the Tasks that can start now. Suggest `/binnacle:daily` if the human wants to see what changed.
 
 Read a ticket, spec or ADR only when the human asks, or when the next action needs it. Change nothing: no files, no commits, and no Binnacle calls other than the two above.

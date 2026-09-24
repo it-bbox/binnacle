@@ -9,13 +9,13 @@ A Product session is disposable. Project memory lives outside the conversation.
 ```text
 new chat
   ↓
-/product
+/binnacle:product
   ↓
 project.detect
   ↓
 product snapshot
   ↓
-/daily
+/binnacle:daily
 ```
 
 The snapshot should be compact and include only current/recently relevant state:
@@ -72,7 +72,7 @@ Long Product chats are intentionally disposable.
 Before closing/rotating:
 
 ```text
-/checkpoint
+/binnacle:checkpoint
   ↓
 extract only new durable delta
   ↓

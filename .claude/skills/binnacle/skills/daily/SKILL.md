@@ -12,7 +12,7 @@ disable-model-invocation: true
 
    Binnacle is optional. Until it answers, the project's position is in its roadmap and in its tickets' `Status:` lines.
 2. Call `daily_get` once.
-   - With no argument, call it with no arguments. It returns the delta since the last daily or checkpoint and records this HEAD as the next baseline. That is what running `/daily` asks for. Do not call it a second time to check: the second call returns an empty delta and records again.
+   - With no argument, call it with no arguments. It returns the delta since the last daily or checkpoint and records this HEAD as the next baseline. That is what running `/binnacle:daily` asks for. Do not call it a second time to check: the second call returns an empty delta and records again.
    - If the human passed a commit (`$ARGUMENTS`), pass it as `since`. The delta then runs from that commit and records nothing.
    - `request.invalid` means that commit does not exist or is not an ancestor of HEAD. Say so, and suggest another commit.
 3. Present only what changed, compactly:

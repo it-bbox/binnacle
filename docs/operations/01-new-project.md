@@ -61,7 +61,7 @@ Do not make `binn init` secretly execute the interactive grill/spec workflow.
 
 ### 6. Product starts
 
-Open a fresh supported coding-agent chat and invoke logical `/product`, then `/daily` or current planning action.
+Open a fresh supported coding-agent chat and invoke logical `/product`, then `/daily` or current planning action. In Claude Code these are `/binnacle:product` and `/binnacle:daily`.
 
 ## Installation philosophy
 

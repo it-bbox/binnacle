@@ -63,6 +63,6 @@ Rules for the whole run. Never force-push, change settings, touch another reposi
 10. Report:
     - **Merged**: each ticket with its commits.
     - **Reviews**: per ticket, what the review found and what was fixed, kept or left.
-    - **Waiting for the owner**: each stopped ticket with its reason, branch and worktree; each question; each human step prepared and not done (a hand check, a `/checkpoint` confirmation, a demonstration); a failed push; a daemon restarted.
+    - **Waiting for the owner**: each stopped ticket with its reason, branch and worktree; each question; each human step prepared and not done (a hand check, a `/binnacle:checkpoint` confirmation, a demonstration); a failed push; a daemon restarted.
     - **Attention**: every item with its code, or "none".
 11. Send a push notification: the epic, how many tickets merged, and how many wait for the owner.
