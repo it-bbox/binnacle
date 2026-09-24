@@ -22,7 +22,7 @@ Rules for the whole run. Never force-push, change settings, touch another reposi
    - the registered checkout: `project.path`;
    - how to start a session there with worktree isolation off: in the desktop app, **+ New session**, environment **Local**, project folder `project.path`, and the **worktree** option next to the branch name turned off; in a terminal, `cd <project.path> && claude`, without `--worktree`. Then run `/binnacle:autopilot` there again, with the same argument.
 
-   Without Binnacle, the registered checkout is the first path `git worktree list` prints.
+   Without Binnacle, this session's checkout is `git rev-parse --show-toplevel`, and the registered one is the first path `git worktree list` prints. If they differ, refuse in the same way.
 
    Otherwise check that `main` is checked out and the tree is clean, and bring it up to date with `git pull --ff-only`. If not, stop and say why. Note `main`'s HEAD: the run's start.
 3. Call `project_snapshot`, with no arguments. Choose the epic: the one the human named (`$ARGUMENTS`), or else the single epic the roadmap has `in progress`. If none or several fit, stop and ask.
