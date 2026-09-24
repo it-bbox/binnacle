@@ -25,11 +25,11 @@ Design is complete: every question in `docs/08-open-questions.md` is resolved ac
 
 Epic 1 is done and demonstrated on this repository: the daemon and its authenticated loopback API, the machine store and the project registry (ADR-0019), the two storage tiers of ADR-0015, `project.status` and `project.detect`, and manifest validation and the domain state machines as pure functions in `packages/core`. The one defect registering it found became epic 2's ticket 01.
 
-Epic 2 has eight tickets under `specs/mcp-and-product-snapshot/issues/`, the eighth (`/autopilot`) added by ADR-0022. Tickets 01 to 06 and 08 are done. Ticket 07 is merged: `/product`, `/daily` and `/checkpoint` are committed as skills, and the manual Product workflow is retired. It becomes `DONE` through the `/checkpoint` of its exit demonstration. Ticket 08 committed `/autopilot`; its hand check is still to run.
+Epic 2's tickets 01 to 08 are done, and its exit demonstration ran on 2026-09-24. `/product`, `/daily`, `/checkpoint` and `/autopilot` (ADR-0022) are committed as skills, and the manual Product workflow is retired. The demonstration filed three defects as tickets 09 to 11: `/autopilot` from a desktop worktree session, a duplicate project id registering silently, and `binn` breaking after a merge or in the desktop app.
 
 `project.status` and `project.detect` answer from a linked worktree with that checkout's Git facts. `project.snapshot` returns the roadmap, Tasks, recent ADRs, Git facts and attention items, read live from the caller's checkout. `binn mcp` serves the operations as MCP tools over the running daemon, and the committed `.mcp.json` connects every Claude Code session here. `daily_get` returns what changed since the last daily or checkpoint; `checkpoint_prepare` and `checkpoint_record` let a session promote its decisions and record that it did. Binnacle writes nothing into the repository.
 
-Next action: the owner's demonstration of 07 and 08 — ticket 07's exit demonstration script and ticket 08's hand check script — which closes epic 2.
+Next action: tickets 09 to 11, which have no blockers between them — `/autopilot` from the main checkout, or a fresh session each. Epic 2 stays `in progress` until they are done.
 
 ## Later
 

@@ -1,6 +1,6 @@
 # 07: `/product`, `/daily`, `/checkpoint` and the exit demonstration
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 01, 06
 Spec: `docs/specs/mcp-and-product-snapshot/spec.md`
@@ -12,10 +12,10 @@ Spec: `docs/specs/mcp-and-product-snapshot/spec.md`
   - `/daily` requests the delta and presents it, including what can start next and the attention items;
   - `/checkpoint` prepares, drafts the promotions, waits for the human's confirmation, writes and commits them with the session's own tools, and then records.
 - [x] None of the skills mutates anything unless the human asked (`docs/03-mcp-and-skills.md`).
-- [ ] Demonstrated in a fresh session in the main checkout and in a fresh session in a worktree: `/product` → `/daily` → `/checkpoint`, and the worktree session's Git facts are the worktree's.
-- [ ] Every defect the demonstration finds is filed as a ticket in this spec, not fixed in passing.
+- [x] Demonstrated in a fresh session in the main checkout and in a fresh session in a worktree: `/product` → `/daily` → `/checkpoint`, and the worktree session's Git facts are the worktree's.
+- [x] Every defect the demonstration finds is filed as a ticket in this spec, not fixed in passing.
 - [x] *This repository, until epic 2* is removed from `docs/workflow/02-development-workflow.md`, and `CLAUDE.md` stops pointing to it.
-- [ ] The roadmap marks epic 2 `done` and moves the current focus to epic 3 — or, if the demonstration filed defects, moves it to them and keeps epic 2 `in progress`. (Ticket 08 was merged first, so this ticket closes the epic again.)
+- [x] The roadmap marks epic 2 `done` and moves the current focus to epic 3 — or, if the demonstration filed defects, moves it to them and keeps epic 2 `in progress`. (Ticket 08 was merged first, so this ticket closes the epic again.)
 
 ## Comments
 
@@ -75,3 +75,12 @@ Do it in this order; the second session's checkpoint closes the ticket.
 3. `/daily` attributed every null list to the tracker; `roadmap` and `decisions` are null for their own reasons. **Fixed**.
 4. `/checkpoint` commits on the current branch, which may be `main`. **Left** for the human; see above.
 5. The demonstration, the defects it files, and the focus moved to ticket 08 are not done here. **Left**: they need the human, and the script above covers them.
+
+### Demonstration
+
+Run by the owner on 2026-09-24, and closed by the Product session's `/checkpoint`.
+
+- **Worktree.** A fresh desktop session opened in a worktree under `.claude/worktrees/` — the app's default, not a deliberate choice — and ran `/product` → `/daily` → `/checkpoint`. The owner declined the empty checkpoint, so none was recorded there.
+- **Main checkout.** A fresh session with worktree isolation off: `/product` reported the registered checkout on `main`, ticket 07 as the only `READY` ticket and no attention item; `/daily` reported nothing changed since the last daily; `/checkpoint` found nothing to promote and recorded an empty checkpoint at `e82b33e`.
+- **Defects filed**, as tickets 09 to 11: `/autopilot` refuses from a worktree session, which the desktop app opens by default; a second project with the same manifest id registers silently; a merge that adds a workspace package, and pnpm's PATH in `~/.bashrc`, both leave `binn` broken in the desktop app until fixed by hand.
+- **The script above was wrong in one respect.** It had the human tell the closing `/checkpoint` what to promote. A checkpoint promotes what its own session decided; a fresh session decided nothing, and says so. The promotions that close this ticket — this section, ticket 08's hand check, tickets 09 to 11 and the roadmap — were drafted by the Product session that held those decisions and confirmed by the owner.
