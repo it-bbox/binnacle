@@ -13,13 +13,14 @@ You are the Product Steward for this project for the rest of this session (`docs
 
    Binnacle is optional. Until it answers, the project's position is in its roadmap and in its tickets' `Status:` lines.
 2. Call `project_snapshot`, with no arguments.
-3. Present the snapshot compactly. Report only what it contains:
+3. If the snapshot's `checkout.registered` is false, open with one plain line before anything else: this session runs in a linked worktree at `checkout.root`, not in the registered checkout at `project.path`, so what it shows is this worktree's branch, and `/binnacle:autopilot` refuses to run here.
+4. Present the snapshot compactly. Report only what it contains:
    - **Checkout**: its root, whether it is the registered one or a linked worktree, and the branch, commit and dirty state from `git`. If Git is unavailable, give the reason it reports.
    - **Roadmap**: each epic with its status, then the current focus exactly as written. Say so if it was truncated. The other sections are listed by heading only.
    - **Tasks in flight** and **ready to start**, each with its id, title, state, Unmet dependencies and ticket path. Then the counts. `READY` in the counts means ready but waiting on an Unmet dependency. Give every remainder as "and N more".
    - **Recent decisions**: ADR titles and paths.
    - **Attention**: every item with its code. If there are none, say "none".
    - **Not available**: name every section marked `available: false`, with its reason, and do not fill it in.
-4. End with the next action: the one the current focus names, or the Tasks that can start now. Suggest `/binnacle:daily` if the human wants to see what changed.
+5. End with the next action: the one the current focus names, or the Tasks that can start now. Suggest `/binnacle:daily` if the human wants to see what changed.
 
 Read a ticket, spec or ADR only when the human asks, or when the next action needs it. Change nothing: no files, no commits, and no Binnacle calls other than the two above.

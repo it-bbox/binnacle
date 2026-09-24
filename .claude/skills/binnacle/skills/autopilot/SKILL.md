@@ -17,7 +17,14 @@ Rules for the whole run. Never force-push, change settings, touch another reposi
    - If the `binnacle` server is missing or disconnected, `binn` is not on this harness's PATH (see the README's setup section).
 
    Binnacle is optional. If the human then asks you to go on without it, read the same position from the roadmap and the tickets' `Status:` and `Blocked by:` lines wherever the steps below read the snapshot, and what changed from the log.
-2. Check that this session runs in the registered checkout, with `main` checked out and a clean tree, and bring it up to date with `git pull --ff-only`. Otherwise stop and say why. Note `main`'s HEAD: the run's start.
+2. Call `project_status`. If its `checkout.registered` is false, this session runs in a linked worktree, such as the one the desktop app opens under `.claude/worktrees/`. Stop there: start nothing and change nothing. Tell the human, in this order:
+   - this session's checkout: `checkout.root`;
+   - the registered checkout: `project.path`;
+   - how to start a session there with worktree isolation off: in the desktop app, **+ New session**, environment **Local**, project folder `project.path`, and the **worktree** option next to the branch name turned off; in a terminal, `cd <project.path> && claude`, without `--worktree`. Then run `/binnacle:autopilot` there again, with the same argument.
+
+   Without Binnacle, the registered checkout is the first path `git worktree list` prints.
+
+   Otherwise check that `main` is checked out and the tree is clean, and bring it up to date with `git pull --ff-only`. If not, stop and say why. Note `main`'s HEAD: the run's start.
 3. Call `project_snapshot`, with no arguments. Choose the epic: the one the human named (`$ARGUMENTS`), or else the single epic the roadmap has `in progress`. If none or several fit, stop and ask.
 4. Refuse to start unless the epic is planned: its spec exists, its issues directory holds tickets, and the roadmap has it at `tickets` or `in progress`. Say what is missing and that planning is the human's (`/grill-with-docs`, `/to-spec`, `/to-tickets`). Never run those, and never move on to another epic.
 
