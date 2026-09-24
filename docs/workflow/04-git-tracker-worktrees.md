@@ -46,12 +46,7 @@ The result is a recommendation, never a guarantee.
 
 Do not share one writable `.scratch` filesystem between concurrent worktrees.
 
-Each task worktree gets task-local materialized scratch content:
-
-```text
-worktrees/INT-143/
-└── .scratch/INT-143/
-```
+Each worktree keeps its own `.scratch/`, ignored by Git. Binnacle materializes nothing into it: a session gets its Task's context from the task brief over MCP (`task_get`), which cannot go stale the way a copied file does.
 
 Canonical task state remains in tracker/Binnacle/durable docs.
 

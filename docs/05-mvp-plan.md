@@ -41,14 +41,16 @@ Exit criterion: a brand-new Product chat can run `/product` + `/daily` and under
 
 Implement:
 
-- the rest of the shared tracker contract, extending the Task-reading half phase 2 defined before its first adapter;
-- GitHub and GitLab adapters behind it, both read-only (ADR-0013);
-- `binn init`: manifest generation, harness detection, MCP registration, and reading a repository's agent instructions as one set (a `CLAUDE.md` that imports `AGENTS.md` is one, not two);
-- detection of Matt Pocock config/layout;
-- task/dependency mapping;
-- `.scratch` materialization policy.
+- GitHub and GitLab adapters behind the Task-reading contract from phase 2, both read-only (ADR-0013). Each reads the ticket header from the issue body (ADR-0024), from a repository and host declared in the manifest, on every call;
+- the daily delta's Task transitions on a remote tracker, from the Task states recorded with each `daily` and `checkpoint` event;
+- the compact task brief, `task_get` and `/binnacle:task`, including the branch name that maps to the Task (ADR-0018);
+- `binn init`, which writes only after confirmation (ADR-0026): manifest generation, harness detection, MCP registration from one config template per known harness and a generic snippet for any other, the `binnacle` plugin from the npm package (ADR-0027), detection of the Matt Pocock layout with an offer to add the ticket-header convention to `docs/agents/issue-tracker.md`, and reading a repository's agent instructions as one set (a `CLAUDE.md` that imports `AGENTS.md` is one, not two).
 
-Tracker credentials use read-only scope, taken from the environment or `~/.binnacle/credentials.json` with `0600` permissions. Where `gh` or `glab` is already installed, `binn init` may offer to import a token from it once; neither becomes a dependency.
+The roadmap stays in `docs/roadmap.md` on every tracker (ADR-0025). Parent and subtask relations are not part of the tracker contract. The former `.scratch` materialization item is dropped: the task brief arrives over MCP, and `.scratch` hygiene is checked by the audit in phase 6.
+
+Tracker credentials use read-only scope: a fine-grained token with Issues read access on GitHub, `read_api` on GitLab. They are taken from the environment or from `~/.binnacle/credentials.json` with `0600` permissions, one per host. Tokens from `gh` or `glab` are not imported, because they can usually write.
+
+Adapters are tested live, against GitHub and GitLab test projects holding fixed issues, by a separate `pnpm test:live` that needs read-only tokens. `pnpm test` stays offline.
 
 Exit criterion: remote issue task can be represented as a Binnacle Task and compact task brief.
 
@@ -58,7 +60,7 @@ Implement:
 
 - normalized usage schema;
 - session-artifact readers, Claude Code first, then Codex (ADR-0011);
-- historical import driven by the question `binn init` asks;
+- historical import driven by a question `binn init` gains in this phase;
 - run-to-task correlation from `cwd` and `git reflog` (ADR-0018);
 - provenance tagging;
 - OpenTelemetry as an optional additional path.
@@ -87,7 +89,7 @@ Implement read-only audit covering:
 - Git/tracker;
 - docs/ADR/CONTEXT;
 - Matt Pocock layout;
-- `.scratch` risks;
+- `.scratch` risks: not ignored by Git, or holding the only copy of something durable;
 - Serena/Graphify/Context7 availability;
 - agent instructions (`AGENTS.md`, `CLAUDE.md`), read as one set when one imports the other;
 - basic test/CI/project structure;

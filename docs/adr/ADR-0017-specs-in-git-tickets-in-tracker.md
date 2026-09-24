@@ -1,6 +1,6 @@
 # ADR-0017: Specs Live in Git, Tickets Live in the Tracker
 
-**Status:** Accepted
+**Status:** Accepted. The roadmap point is superseded by ADR-0025.
 
 ## Context
 

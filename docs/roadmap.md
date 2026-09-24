@@ -2,7 +2,7 @@
 
 Where the project stands. This file holds **position only** — status, spec links, current focus. What each epic contains and how it is judged complete lives in `docs/05-mvp-plan.md`; nothing from there is repeated here.
 
-This is the roadmap's single home because this repository uses the local Markdown tracker (`ADR-0017`). A project on GitHub or GitLab keeps its roadmap in tracker milestones instead.
+This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 
 **Status vocabulary:** `not started` → `spec` (being specified) → `tickets` (sliced, not yet built) → `in progress` → `done`.
 
@@ -27,7 +27,7 @@ Epic 1 is done: the daemon and its authenticated loopback API, the machine store
 
 Epic 2 is done, closed on 2026-09-24 after its exit demonstration and hand checks. Binnacle now runs its own Product work: `binn mcp` serves the snapshot, the daily delta and the checkpoint as MCP tools over the running daemon, the committed `.mcp.json` connects every session, and the `binnacle` plugin (ADR-0023) provides `/binnacle:product`, `/binnacle:daily`, `/binnacle:checkpoint` and `/binnacle:autopilot` (ADR-0022). Status, detect and the snapshot answer from linked worktrees with the caller's own checkout. Binnacle writes nothing into the repository.
 
-Next action: epic 3, Tracker and Matt Pocock integration. It is not specified yet: the owner starts `/grill-with-docs`, then `/to-spec` and `/to-tickets`. Autopilot can run it once it is planned.
+Epic 3, Tracker and Matt Pocock integration, was grilled on 2026-09-24: ADR-0024 to ADR-0027 and the rewritten phase 3 in `docs/05-mvp-plan.md` hold the outcome. Next action: `/to-spec`, then `/to-tickets`. Before the spec, check whether Codex reads a project-scoped MCP config, and whether Claude Code settings accept a local directory as a marketplace (ADR-0027). Autopilot can run the epic once it is planned.
 
 ## Later
 
@@ -37,6 +37,10 @@ Deferred deliberately, each with the decision that deferred it:
 - standalone binaries for users without Node — `ADR-0016`;
 - adopting a large third-party repository as a baseline case — `docs/00-scope.md`;
 - autopilot notifications through a Telegram bot, beside the push notification it sends today — `ADR-0022`;
+- CI state in the Product Snapshot, which stays marked unavailable — this repository has no CI to build it against;
+- CLI commands mirroring the MCP tools, for harnesses that have a shell but no MCP — `ADR-0014`, when such a user appears;
+- changing a local ticket's `Status:` from the dashboard — a separate ADR narrowing `ADR-0020`, only if working with the read-only dashboard shows it is needed;
+- forking the Matt Pocock skills into the `binnacle` plugin — only if a skill's procedure, not just its conventions in `docs/agents/`, has to change;
 - deeper Graphify integration, Obsidian export automation, worktree parallelism recommendations, further harness adapters — `docs/05-mvp-plan.md`, phase 7, and only after real measurement.
 
 Items excluded from the product altogether are not listed here. See the non-goals in `docs/00-scope.md`.

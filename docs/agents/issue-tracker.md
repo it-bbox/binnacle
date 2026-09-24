@@ -37,4 +37,4 @@ Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
 
 ## Projects using a remote tracker
 
-In a project whose tracker is GitHub or GitLab, tickets are issues there and only the spec stays in Git. Binnacle reads that tracker and never writes to it (`ADR-0013`).
+In a project whose tracker is GitHub or GitLab, tickets are issues there and only the spec stays in Git. Each issue body starts with the same ticket header as a local ticket — `Status:`, `Blocked by:` with issue numbers, and `Spec:` — and closing the issue outranks its `Status:` line (`ADR-0024`). Binnacle reads that tracker and never writes to it (`ADR-0013`). The roadmap stays in `docs/roadmap.md` (`ADR-0025`).

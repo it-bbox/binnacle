@@ -1,6 +1,6 @@
 # ADR-0020: Binnacle Does Not Write to a Project's Repository
 
-**Status:** Accepted
+**Status:** Accepted. ADR-0026 makes one exception: `binn init`, after confirmation.
 
 ## Context
 

@@ -11,7 +11,7 @@ Stored in repository:
 - `docs/architecture/` — architecture descriptions;
 - `docs/adr/` — hard-to-reverse decisions/trade-offs;
 - `docs/specs/<slug>/spec.md` — durable specs (ADR-0017);
-- the roadmap, in exactly one place: tracker milestones where a remote tracker exists, `docs/roadmap.md` where the local Markdown tracker is used.
+- the roadmap, in exactly one place: `docs/roadmap.md`, whatever the tracker (ADR-0025).
 
 ## Layer 2 — Live project state
 

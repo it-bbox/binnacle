@@ -10,7 +10,7 @@ These were the implementation details deliberately left open for `grill-with-doc
 | 4 | First tracker adapter | One shared contract, GitHub and GitLab built behind it from the start, local Markdown as the fallback. Read-only in every case. | ADR-0013, ADR-0017 |
 | 5 | Telemetry adapter order | Claude Code first, Codex second, Gemini CLI when it is nearly free. Support is graded, not binary. | ADR-0011, ADR-0014 |
 | 6 | Matt Pocock specs vs `.scratch` | A spec is a committed document, a ticket is a tracker issue. `.scratch/` keeps only disposable material. | ADR-0017 |
-| 7 | Roadmap and durable specs without duplication | The roadmap has one home chosen by tracker type: milestones where a remote tracker exists, `docs/roadmap.md` otherwise. | ADR-0017 |
+| 7 | Roadmap and durable specs without duplication | The roadmap has one home: `docs/roadmap.md`, whatever the tracker. | ADR-0025, superseding ADR-0017 |
 | 8 | Product Snapshot budget and truncation | Fixed sections with per-section item limits and a remainder count; the agent pulls detail on demand. Limits are configuration. No model-side compression. | ADR-0012, `docs/workflow/01-product-workflow.md` |
 | 9 | Checkpoint commit UX | The delta is computed deterministically and returned as facts plus typed promotion candidates. Prose comes from the calling session; writes happen only after human confirmation. | ADR-0012 |
 | 10 | Correlating a session started outside `binn` | `cwd` gives the project; the branch is recovered from the repository's own `git reflog` by timestamp; the branch maps to a task by naming convention, otherwise `unassigned`. | ADR-0018 |

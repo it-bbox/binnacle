@@ -54,8 +54,14 @@ A durable document describing intended behaviour. It lives in Git, next to the c
 ### Ticket
 A unit of work. It lives in the project's tracker, and references its Spec. A Spec is not a Ticket and a Ticket is not a Spec.
 
+### Ticket header
+The `Status:`, `Blocked by:` and `Spec:` lines at the top of a ticket, whether it is a Markdown file or the body of a GitHub or GitLab issue. It is where a Task's state, dependencies and spec are read from on every tracker. On a remote tracker, closing the issue outranks the `Status:` line (ADR-0024).
+
 ### Task
 Binnacle's view of a Ticket: its identity, title, lifecycle state and dependencies. The Ticket is canonical; a Task has no existence of its own and is always re-read from the tracker. On the local Markdown tracker its identity is `<spec-slug>/<NN>`, because ticket numbers are unique only within one Spec.
+
+### Task brief
+What a session needs to start one Task: its fields, its dependencies with their titles and states, its spec's path, the ticket body without comments, and the branch name that maps to it. It is compact by construction; the comments and the spec are read separately, when needed.
 
 ### BLOCKED
 A Task state: work started and now waits on something. It is not the same as an Unmet dependency, and a snapshot reports the two separately.
