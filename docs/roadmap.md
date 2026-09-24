@@ -27,7 +27,7 @@ Epic 1 is done: the daemon and its authenticated loopback API, the machine store
 
 Epic 2 is done, closed on 2026-09-24 after its exit demonstration and hand checks. Binnacle now runs its own Product work: `binn mcp` serves the snapshot, the daily delta and the checkpoint as MCP tools over the running daemon, the committed `.mcp.json` connects every session, and the `binnacle` plugin (ADR-0023) provides `/binnacle:product`, `/binnacle:daily`, `/binnacle:checkpoint` and `/binnacle:autopilot` (ADR-0022). Status, detect and the snapshot answer from linked worktrees with the caller's own checkout. Binnacle writes nothing into the repository.
 
-Epic 3, Tracker and Matt Pocock integration, was grilled on 2026-09-24: ADR-0024 to ADR-0027 and the rewritten phase 3 in `docs/05-mvp-plan.md` hold the outcome. Next action: `/to-spec`, then `/to-tickets`. Before the spec, check whether Codex reads a project-scoped MCP config, and whether Claude Code settings accept a local directory as a marketplace (ADR-0027). Autopilot can run the epic once it is planned.
+Epic 3, Tracker and Matt Pocock integration, was grilled on 2026-09-24: ADR-0024 to ADR-0027 and the rewritten phase 3 in `docs/05-mvp-plan.md` hold the outcome. Next action: `/to-spec`, then `/to-tickets`. Autopilot can run the epic once it is planned.
 
 ## Later
 

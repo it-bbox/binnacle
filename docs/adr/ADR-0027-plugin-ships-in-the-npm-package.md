@@ -11,7 +11,7 @@ ADR-0023 made Binnacle's skills a Claude Code plugin named `binnacle`, and left 
 
 ## Decision
 
-The plugin ships inside `@binnacle/cli`. `binn init` registers the installed package's plugin directory as a local marketplace in the user's Claude Code settings and enables `binnacle` from it, after confirmation.
+The plugin ships inside `@binnacle/cli`, with a marketplace manifest beside it. After confirmation, `binn init` adds the installed package's directory as a user-scope marketplace and installs `binnacle` from it, through Claude Code's own CLI: `claude plugin marketplace add <path>`, then `claude plugin install`. It never edits Claude Code's settings files directly.
 
 This repository keeps its skills-directory plugin at `.claude/skills/binnacle/` (ADR-0023). It is the same plugin, read in place while it is being developed.
 
@@ -24,5 +24,6 @@ This repository keeps its skills-directory plugin at `.claude/skills/binnacle/` 
 ## Consequences
 
 - The package's build includes the plugin directory.
-- `binn init` needs Claude Code to accept a local directory as a marketplace source in its settings. This is checked before the spec is written, and if it does not hold, this ADR is revisited.
+- The package's build includes the marketplace manifest.
+- `binn init` relies on Claude Code accepting a local path as a marketplace source. Its CLI does: `claude plugin marketplace add` takes a URL, a path or a GitHub repository.
 - Command wrappers for other harnesses still wait for a second harness with skills (`docs/03-mcp-and-skills.md`).
