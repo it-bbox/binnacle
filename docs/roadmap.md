@@ -29,9 +29,9 @@ Epic 2's tickets 01 to 08 are done, and its exit demonstration ran on 2026-09-24
 
 `project.status` and `project.detect` answer from a linked worktree with that checkout's Git facts. `project.snapshot` returns the roadmap, Tasks, recent ADRs, Git facts and attention items, read live from the caller's checkout. `binn mcp` serves the operations as MCP tools over the running daemon, and the committed `.mcp.json` connects every Claude Code session here. `daily_get` returns what changed since the last daily or checkpoint; `checkpoint_prepare` and `checkpoint_record` let a session promote its decisions and record that it did. Binnacle writes nothing into the repository.
 
-Ticket 12 moves the skills into a plugin named `binnacle` (ADR-0023), so they become `/binnacle:product` and so on; ticket 09 follows it.
+Ticket 12 is done: the skills ship as a plugin named `binnacle` (ADR-0023), at `.claude/skills/binnacle/`, so they are `/binnacle:product`, `/binnacle:daily`, `/binnacle:checkpoint` and `/binnacle:autopilot`. Ticket 09, blocked by it, can start.
 
-Next action: ticket 12, then 09 — `/autopilot` from the main checkout, or a fresh session each. Epic 2 stays `in progress` until they are done.
+Next action: ticket 09 — `/binnacle:autopilot` from the main checkout, or a fresh session. Epic 2 stays `in progress` until it is done.
 
 ## Later
 
