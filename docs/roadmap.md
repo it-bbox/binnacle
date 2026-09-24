@@ -25,13 +25,13 @@ Design is complete: every question in `docs/08-open-questions.md` is resolved ac
 
 Epic 1 is done and demonstrated on this repository: the daemon and its authenticated loopback API, the machine store and the project registry (ADR-0019), the two storage tiers of ADR-0015, `project.status` and `project.detect`, and manifest validation and the domain state machines as pure functions in `packages/core`. The one defect registering it found became epic 2's ticket 01.
 
-Epic 2's tickets 01 to 08 are done, and its exit demonstration ran on 2026-09-24. `/product`, `/daily`, `/checkpoint` and `/autopilot` (ADR-0022) are committed as skills, and the manual Product workflow is retired. The demonstration filed three defects as tickets 09 to 11: `/autopilot` from a desktop worktree session, a duplicate project id registering silently, and `binn` breaking after a merge or in the desktop app. Registration now warns about a shared id, as ticket 10, and the README covers the last, as ticket 11.
+Epic 2's tickets 01 to 08 are done, and its exit demonstration ran on 2026-09-24. `/product`, `/daily`, `/checkpoint` and `/autopilot` (ADR-0022) are committed as skills, and the manual Product workflow is retired. The demonstration filed three defects as tickets 09 to 11, now fixed: registration warns about a shared project id, the README covers `binn` after a merge and in the desktop app, and `/autopilot` from a linked worktree names both checkouts and the way to the registered one, which `/product` states first.
 
 `project.status` and `project.detect` answer from a linked worktree with that checkout's Git facts. `project.snapshot` returns the roadmap, Tasks, recent ADRs, Git facts and attention items, read live from the caller's checkout. `binn mcp` serves the operations as MCP tools over the running daemon, and the committed `.mcp.json` connects every Claude Code session here. `daily_get` returns what changed since the last daily or checkpoint; `checkpoint_prepare` and `checkpoint_record` let a session promote its decisions and record that it did. Binnacle writes nothing into the repository.
 
-Ticket 12 is done: the skills ship as a plugin named `binnacle` (ADR-0023), at `.claude/skills/binnacle/`, so they are `/binnacle:product`, `/binnacle:daily`, `/binnacle:checkpoint` and `/binnacle:autopilot`. Ticket 09, blocked by it, can start.
+Ticket 12 shipped the skills as a plugin named `binnacle` (ADR-0023), at `.claude/skills/binnacle/`, so they are `/binnacle:product`, `/binnacle:daily`, `/binnacle:checkpoint` and `/binnacle:autopilot`. Every ticket of epic 2 is done.
 
-Next action: ticket 09 — `/binnacle:autopilot` from the main checkout, or a fresh session. Epic 2 stays `in progress` until it is done.
+Next action: the owner runs ticket 09's hand check, then a Product session closes epic 2.
 
 ## Later
 
