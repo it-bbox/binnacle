@@ -12,7 +12,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | --- | --- | --- | --- |
 | 1 | Core and persistence | done | [`core-and-persistence`](specs/core-and-persistence/spec.md) |
 | 2 | MCP and Product Snapshot | done | [`mcp-and-product-snapshot`](specs/mcp-and-product-snapshot/spec.md) |
-| 3 | Tracker and Matt Pocock integration | not started | — |
+| 3 | Tracker and Matt Pocock integration | spec | [`tracker-and-matt-pocock-integration`](specs/tracker-and-matt-pocock-integration/spec.md) |
 | 4 | Telemetry | not started | — |
 | 5 | Minimal dashboard | not started | — |
 | 6 | Audit and adopt | not started | — |
@@ -27,7 +27,7 @@ Epic 1 is done: the daemon and its authenticated loopback API, the machine store
 
 Epic 2 is done, closed on 2026-09-24 after its exit demonstration and hand checks. Binnacle now runs its own Product work: `binn mcp` serves the snapshot, the daily delta and the checkpoint as MCP tools over the running daemon, the committed `.mcp.json` connects every session, and the `binnacle` plugin (ADR-0023) provides `/binnacle:product`, `/binnacle:daily`, `/binnacle:checkpoint` and `/binnacle:autopilot` (ADR-0022). Status, detect and the snapshot answer from linked worktrees with the caller's own checkout. Binnacle writes nothing into the repository.
 
-Epic 3, Tracker and Matt Pocock integration, was grilled on 2026-09-24: ADR-0024 to ADR-0027 and the rewritten phase 3 in `docs/05-mvp-plan.md` hold the outcome. Next action: `/to-spec`, then `/to-tickets`. Autopilot can run the epic once it is planned.
+Epic 3, Tracker and Matt Pocock integration, was grilled on 2026-09-24 (ADR-0024 to ADR-0027) and is specified. The spec settles the branch naming convention the task brief needs, and one clarification to ADR-0024: a closed issue with no close reason stays `CANCELLED` when its `Status:` says so. Next action: `/to-tickets`. The live adapter tests need a GitHub and a GitLab test project with read-only tokens, which only the owner can create. Autopilot can run the epic once it is planned.
 
 ## Later
 
