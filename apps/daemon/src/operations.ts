@@ -67,12 +67,11 @@ export const operations: Record<string, Operation> = {
     }
 
     // A clone or a second checkout keeps its manifest id and is still a legitimate thing
-    // to register, so a shared id is a warning, not a refusal. The others are re-derived,
-    // like `project.list`, so the id compared is the one their manifest holds now.
-    const sharing = entries
-      .filter((other) => other.path !== path)
-      .map((other) => reproject(context.store, other).row)
-      .filter((other) => row.id !== null && other.id === row.id);
+    // to register, so a shared id is a warning, not a refusal. The registry is re-derived,
+    // as `project.list` does, so the id compared is the one each manifest holds now — and a
+    // manifest that changed meanwhile records its change here, as it would on a list.
+    projectRegistry(context.home, context.store);
+    const sharing = context.store.projects().filter((other) => other.path !== path && row.id !== null && other.id === row.id);
     for (const other of sharing) {
       warnings.push({ path: 'project.id', message: `"${row.id}" is also the id of the project registered at ${other.path}.` });
     }

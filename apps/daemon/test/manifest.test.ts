@@ -276,4 +276,18 @@ describe('a second project with an id already registered', () => {
       assert.deepEqual(body.warnings, []);
     });
   });
+
+  it('still warns about the other path when the first is registered again', async () => {
+    await withDaemon(async (daemon) => {
+      const original = makeProject(MANIFEST);
+      const clone = makeProject(MANIFEST);
+      await daemon.call('project.register', { path: original });
+      await daemon.call('project.register', { path: clone });
+
+      const { body } = await daemon.call<{ warnings: Problem[] }>('project.register', { path: original });
+      assert.equal(body.warnings.length, 1);
+      assert.ok(body.warnings[0]!.message.includes(clone), body.warnings[0]!.message);
+      assert.ok(!body.warnings[0]!.message.includes(original), body.warnings[0]!.message);
+    });
+  });
 });
