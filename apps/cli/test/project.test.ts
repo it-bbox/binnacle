@@ -96,6 +96,20 @@ orchestration:
     }
   });
 
+  await t.test('warns on stderr when another registered project already has the id', () => {
+    const clone = makeProject();
+    try {
+      const result = binn('project', 'register', clone);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /example-project/);
+      assert.match(result.stderr, /project\.id/);
+      assert.ok(result.stderr.includes(root), result.stderr);
+      assert.equal(binn('project', 'unregister', clone).status, 0);
+    } finally {
+      rmSync(clone, { recursive: true, force: true });
+    }
+  });
+
   await t.test('reports a directory with no manifest as an operation failure', () => {
     const bare = realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-cli-bare-')));
     try {

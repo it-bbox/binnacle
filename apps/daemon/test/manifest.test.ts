@@ -241,3 +241,39 @@ describe('what the manifest must not hide or leak', () => {
     });
   });
 });
+
+describe('a second project with an id already registered', () => {
+  const MANIFEST = 'version: 1\n\nproject:\n  id: shared-id\n';
+
+  it('registers it anyway, and warns with the path already holding that id', async () => {
+    await withDaemon(async (daemon) => {
+      const original = makeProject(MANIFEST);
+      const clone = makeProject(MANIFEST);
+      await daemon.call('project.register', { path: original });
+
+      const { status, body } = await daemon.call<{ project: { path: string }; warnings: Problem[] }>(
+        'project.register',
+        { path: clone },
+      );
+      assert.equal(status, 200);
+      assert.equal(body.project.path, clone);
+      assert.equal(body.warnings.length, 1);
+      assert.equal(body.warnings[0]!.path, 'project.id');
+      assert.ok(body.warnings[0]!.message.includes(original), body.warnings[0]!.message);
+
+      const { body: listed } = await daemon.call<{ projects: { path: string }[] }>('project.list');
+      assert.deepEqual(listed.projects.map((project) => project.path).sort(), [original, clone].sort());
+    });
+  });
+
+  it('raises no such warning for the same path registered again', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject(MANIFEST);
+      await daemon.call('project.register', { path: root });
+
+      const { status, body } = await daemon.call<{ warnings: Problem[] }>('project.register', { path: root });
+      assert.equal(status, 200);
+      assert.deepEqual(body.warnings, []);
+    });
+  });
+});
