@@ -12,7 +12,7 @@ Spec: `docs/specs/mcp-and-product-snapshot/spec.md`, `docs/adr/ADR-0023-skills-s
 - [x] Every live reference uses the namespaced names: the skills' references to each other, `AGENTS.md`, `CLAUDE.md`, `docs/workflow/`, `docs/operations/`, `docs/roadmap.md`, and the Claude Code form in `docs/03-mcp-and-skills.md`. Tickets, specs and ADRs that record what was already built are not rewritten.
 - [x] `docs/03-mcp-and-skills.md` keeps the logical action names and says that in Claude Code they are served by the `binnacle` plugin.
 - [x] Typecheck and the full suite stay green.
-- [ ] Verified by hand once: a fresh session at the repository root, and one in a worktree, list the four `binnacle:` skills and no bare ones, and `/binnacle:product` runs.
+- [x] Verified by hand once: a fresh session at the repository root, and one in a worktree, list the four `binnacle:` skills and no bare ones, and `/binnacle:product` runs.
 
 ## Comments
 
@@ -41,3 +41,5 @@ The last criterion needs a human: only an interactive session lists its skills a
 1. After the merge, start a fresh Claude Code session at the root of the main checkout. Type `/binnacle:` and expect `product`, `daily`, `checkpoint` and `autopilot`. Type `/product`, `/daily`, `/checkpoint` and `/autopilot`, and expect none offered from this repository (a user-level skill or another plugin's skill with the same bare name is not this repository's).
 2. Run `/binnacle:product`. Expect the Product Snapshot, presented as before the move.
 3. Start a fresh session in a worktree under `.claude/worktrees/` (the desktop app's default) and repeat step 1.
+
+**Hand check passed** on 2026-09-24: a fresh session in a worktree and one at the repository root each listed the four `binnacle:` skills and no bare ones, and `/binnacle:product` ran.

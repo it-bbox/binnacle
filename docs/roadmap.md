@@ -11,7 +11,7 @@ This is the roadmap's single home because this repository uses the local Markdow
 | # | Epic | Status | Spec |
 | --- | --- | --- | --- |
 | 1 | Core and persistence | done | [`core-and-persistence`](specs/core-and-persistence/spec.md) |
-| 2 | MCP and Product Snapshot | in progress | [`mcp-and-product-snapshot`](specs/mcp-and-product-snapshot/spec.md) |
+| 2 | MCP and Product Snapshot | done | [`mcp-and-product-snapshot`](specs/mcp-and-product-snapshot/spec.md) |
 | 3 | Tracker and Matt Pocock integration | not started | — |
 | 4 | Telemetry | not started | — |
 | 5 | Minimal dashboard | not started | — |
@@ -21,17 +21,13 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 ## Current focus
 
-Design is complete: every question in `docs/08-open-questions.md` is resolved across ADR-0001 to ADR-0018, and specifying epics 1 and 2 added ADR-0019 to ADR-0021.
+Design is complete: every question in `docs/08-open-questions.md` is resolved across ADR-0001 to ADR-0018; specifying and building epics 1 and 2 added ADR-0019 to ADR-0023.
 
-Epic 1 is done and demonstrated on this repository: the daemon and its authenticated loopback API, the machine store and the project registry (ADR-0019), the two storage tiers of ADR-0015, `project.status` and `project.detect`, and manifest validation and the domain state machines as pure functions in `packages/core`. The one defect registering it found became epic 2's ticket 01.
+Epic 1 is done: the daemon and its authenticated loopback API, the machine store and the project registry, projections that rebuild on a schema change, `project.status` and `project.detect`, and manifest validation and the domain state machines in `packages/core`.
 
-Epic 2's tickets 01 to 08 are done, and its exit demonstration ran on 2026-09-24. `/product`, `/daily`, `/checkpoint` and `/autopilot` (ADR-0022) are committed as skills, and the manual Product workflow is retired. The demonstration filed three defects as tickets 09 to 11, now fixed: registration warns about a shared project id, the README covers `binn` after a merge and in the desktop app, and `/autopilot` from a linked worktree names both checkouts and the way to the registered one, which `/product` states first.
+Epic 2 is done, closed on 2026-09-24 after its exit demonstration and hand checks. Binnacle now runs its own Product work: `binn mcp` serves the snapshot, the daily delta and the checkpoint as MCP tools over the running daemon, the committed `.mcp.json` connects every session, and the `binnacle` plugin (ADR-0023) provides `/binnacle:product`, `/binnacle:daily`, `/binnacle:checkpoint` and `/binnacle:autopilot` (ADR-0022). Status, detect and the snapshot answer from linked worktrees with the caller's own checkout. Binnacle writes nothing into the repository.
 
-`project.status` and `project.detect` answer from a linked worktree with that checkout's Git facts. `project.snapshot` returns the roadmap, Tasks, recent ADRs, Git facts and attention items, read live from the caller's checkout. `binn mcp` serves the operations as MCP tools over the running daemon, and the committed `.mcp.json` connects every Claude Code session here. `daily_get` returns what changed since the last daily or checkpoint; `checkpoint_prepare` and `checkpoint_record` let a session promote its decisions and record that it did. Binnacle writes nothing into the repository.
-
-Ticket 12 shipped the skills as a plugin named `binnacle` (ADR-0023), at `.claude/skills/binnacle/`, so they are `/binnacle:product`, `/binnacle:daily`, `/binnacle:checkpoint` and `/binnacle:autopilot`. Every ticket of epic 2 is done.
-
-Next action: the owner runs ticket 09's hand check, then a Product session closes epic 2.
+Next action: epic 3, Tracker and Matt Pocock integration. It is not specified yet: the owner starts `/grill-with-docs`, then `/to-spec` and `/to-tickets`. Autopilot can run it once it is planned.
 
 ## Later
 

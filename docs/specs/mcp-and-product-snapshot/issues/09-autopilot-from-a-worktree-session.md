@@ -11,7 +11,7 @@ Found by ticket 07's demonstration and ticket 08's hand check.
 
 **What to build:** the smallest change that gets the owner from that refusal to a running autopilot.
 
-- [ ] When `/autopilot` refuses because the session is not in the registered main checkout, it names the checkout it is in, the registered checkout's path, and exactly how to start a session there with worktree isolation off.
+- [x] When `/autopilot` refuses because the session is not in the registered main checkout, it names the checkout it is in, the registered checkout's path, and exactly how to start a session there with worktree isolation off.
 - [x] The refusal still starts nothing and changes nothing.
 - [x] `/product` states plainly when the session is in a linked worktree rather than the registered checkout, so the owner sees it before running anything.
 
@@ -49,3 +49,5 @@ Tick the first criterion here if the steps in 2 match the app and 3 lands in the
 
 1. Without Binnacle, the fallback named the registered checkout but never compared it with this session's and refused. **Fixed**: it compares `git rev-parse --show-toplevel` with the first path `git worktree list` prints and refuses the same way.
 2. A project registered in a subdirectory: the same as Standards 6. **Left**.
+
+**Hand check passed** on 2026-09-24: from a desktop worktree session `/binnacle:product` said so first, and `/binnacle:autopilot` refused before anything else, naming both checkouts and the steps to the registered one, whose labels matched the owner's app.
