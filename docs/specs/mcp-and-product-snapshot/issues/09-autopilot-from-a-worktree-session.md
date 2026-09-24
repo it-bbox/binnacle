@@ -2,7 +2,7 @@
 
 Status: READY
 Triage: ready-for-agent
-Blocked by: None (can start immediately)
+Blocked by: 12
 Spec: `docs/specs/mcp-and-product-snapshot/spec.md`, `docs/adr/ADR-0022-autopilot.md`
 
 Found by ticket 07's demonstration and ticket 08's hand check.

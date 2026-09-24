@@ -265,6 +265,8 @@ The skills. They are procedure text for an agent, and a test that asserts their 
 
 `/autopilot` was added to this epic after slicing, by ADR-0022, as ticket 08. It needs no Binnacle change: it drives the tools this epic builds.
 
+ADR-0023 moved the four skills into a Claude Code plugin named `binnacle`, as ticket 12, so they are `/binnacle:product` and so on.
+
 ## Further Notes
 
 - **Decided while specifying this epic**: ADR-0020, under which Binnacle writes nothing into a project's repository and `checkpoint.commit` becomes `checkpoint.record`; and ADR-0021, under which the MCP server uses the official SDK. `CONTEXT.md` gained **Task**, **BLOCKED** and **Unmet dependency**.
