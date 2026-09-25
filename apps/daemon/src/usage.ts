@@ -253,7 +253,7 @@ function summary(name: string, failures: string[]): string | null {
  * `tasks` its branch maps back to. The default branch is the one `origin/HEAD` names in
  * the registered checkout, otherwise `main`.
  */
-export async function runs(
+async function runs(
   records: UsageRecord[],
   projectPath: string,
   tasks: Pick<TrackerTask, 'id' | 'title' | 'ticket'>[],

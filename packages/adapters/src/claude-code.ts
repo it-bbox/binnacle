@@ -32,9 +32,10 @@ export function readClaudeCode(bytes: Buffer, start: ArtifactPosition, settled: 
   });
   const records = new Map(reading.records.map((record) => [record.naturalKey, record]));
   const last = [...starts].at(-1);
-  if (settled || reading.failure || last === undefined) return { ...reading, records: [...records.values()] };
+  if (settled || last === undefined) return { ...reading, records: [...records.values()] };
+  // A line that cannot be read is no later message, so it does not finish the one before it either.
   records.delete(last[0]);
-  return { records: [...records.values()], stop: last[1], failure: null };
+  return { ...reading, records: [...records.values()], stop: last[1] };
 }
 
 /** A record, null for a line that carries no usage, or why the line cannot be read. */
@@ -64,7 +65,8 @@ function readRecord(value: Record<string, unknown>): UsageRecord | null | string
     parentSession: subagentId === null ? null : value.sessionId,
     timestamp: new Date(time).toISOString(),
     cwd: value.cwd,
-    branch: typeof value.gitBranch === 'string' && value.gitBranch !== '' ? { name: value.gitBranch, source: 'harness' } : null,
+    // Claude Code writes `HEAD` for a detached HEAD, which is no branch.
+    branch: typeof value.gitBranch === 'string' && value.gitBranch !== '' && value.gitBranch !== 'HEAD' ? { name: value.gitBranch, source: 'harness' } : null,
     provider: null,
     model: typeof message.model === 'string' ? message.model : null,
     tokens: {

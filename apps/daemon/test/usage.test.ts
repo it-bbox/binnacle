@@ -1192,9 +1192,9 @@ describe('Codex usage in the Product Snapshot', () => {
 /**
  * Cut from a real subagent's session: the task it was given, then one message in four
  * records, of which the first three carry the output counted so far and the last the
- * message's final usage. Its `.meta.json` holds the description the parent gave it. As
- * Claude Code wrote it, the task says `main`, the parent's branch, while the subagent's
- * worktree was on `feat/checkpoint`.
+ * message's final usage. Its `.meta.json` holds the description the parent gave it. The
+ * subagent's worktree was made on `worktree-agent-…`, and the subagent switched it to
+ * `feat/checkpoint` before that message; Claude Code wrote `main`, the parent's branch, into its task.
  */
 const SUBAGENT = fixture('subagent-in-worktree.jsonl');
 const SUBAGENT_META = readFileSync(join(FIXTURES, 'subagent-in-worktree.meta.json'), 'utf8');
