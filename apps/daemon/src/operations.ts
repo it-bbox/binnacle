@@ -12,7 +12,7 @@ import { BASELINE_EVENTS, committedHead, daily, isRemoteTracker, taskStates, typ
 import { readTasks, snapshot, type CallerCheckout } from './snapshot.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type ProjectRow, type Store } from './store.ts';
 import { taskBrief } from './task.ts';
-import { usage, type Importer } from './usage.ts';
+import { forgetRead, usage, type Importer } from './usage.ts';
 
 export type OperationContext = {
   home: string;
@@ -56,6 +56,7 @@ export const operations: Record<string, Operation> = {
     if (!entry) {
       entry = { path, registeredAt: new Date().toISOString() };
       writeRegistry(context.home, [...entries, entry]);
+      forgetRead(context, path);
       registered = true;
     }
 

@@ -463,6 +463,19 @@ describe('the import window, the time budget and re-reading', () => {
     });
   });
 
+  it('imports the history of a project registered later whose sessions an earlier project had already read past', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const parent = temporary('binnacle-usage-');
+      const first = makeProject(join(parent, 'project'));
+      // Its Claude Code directory name starts with the first project's, so the first one's import reads it.
+      const later = makeProject(join(parent, 'project-later'));
+      session(artifacts, later, 'later', lines(GRILL, daysAgo(0), '-later'));
+      assert.equal((await usage(daemon, first)).today.records, 0);
+
+      assert.equal((await usage(daemon, later)).today.records, 1);
+    });
+  });
+
   it('still counts the records of an artifact that was deleted', async () => {
     await withDaemon(async (daemon, artifacts) => {
       const root = makeProject(temporary('binnacle-usage-'));

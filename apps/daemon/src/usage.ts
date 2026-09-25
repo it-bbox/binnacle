@@ -2,7 +2,7 @@ import { closeSync, openSync, readdirSync, readSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { setImmediate, setTimeout } from 'node:timers/promises';
 import { readClaudeCode } from '@binnacle/adapters';
-import type { ProjectManifest } from '@binnacle/core';
+import type { ImportWindow, ProjectManifest } from '@binnacle/core';
 import { magnitude, sum, type Harness, type Totals } from '@binnacle/telemetry';
 import type { OperationContext } from './operations.ts';
 import { containingEntry, readRegistry, type RegistryEntry } from './registry.ts';
@@ -15,23 +15,35 @@ const DEFAULT_WINDOW_DAYS = 90;
 /** How long a call waits for its project's ingest before answering from what is stored. */
 export const INGEST_BUDGET_MS = 1000;
 
-/** A number of days, or everything on disk. */
-type Window = number | 'all';
-
 /**
  * The daemon's ingests: one at a time on this machine, each queued behind the one before,
- * and at most one queued or running per project, which a call waits for rather than
- * starting another.
+ * and one queued or running per project, which a call under the same window waits for
+ * rather than starting another.
  */
 export type Importer = {
   budgetMs: number;
   queue: Promise<void>;
-  running: Map<string, Promise<string | null>>;
+  running: Map<string, { run: Promise<string | null>; window: ImportWindow }>;
   /** Set when the daemon stops: a running ingest ends before its next file. */
   stopped: boolean;
 };
 
 export const importer = (budgetMs: number): Importer => ({ budgetMs, queue: Promise.resolve(), running: new Map(), stopped: false });
+
+/** Lets the running ingest end after its current file, each of which commits whole, and waits for it. */
+export async function stopImporting(importer: Importer): Promise<void> {
+  importer.stopped = true;
+  await importer.queue;
+}
+
+/**
+ * Forgets how far the files a newly registered project's import would read were read, so
+ * that it reads them from the start: an earlier project's import may have read past its
+ * records while they belonged to no registered project.
+ */
+export function forgetRead(context: OperationContext, projectPath: string): void {
+  context.store.forgetCursors(join(context.runtime.artifacts.claudeCode, claudeCodeDirectory(projectPath)));
+}
 
 export type HarnessLevel = {
   harness: Harness;
@@ -64,10 +76,12 @@ export type Usage = {
 export async function usage(context: OperationContext, projectPath: string, manifest: ProjectManifest | null): Promise<Usage> {
   const window = windowOf(manifest);
   const { running, budgetMs } = context.importer;
-  const run = running.get(projectPath) ?? startIngest(context, projectPath, manifest);
+  const current = running.get(projectPath);
+  // One started under another window, on startup or before the manifest changed, is not this call's.
+  const run = current?.window === window ? current.run : startIngest(context, projectPath, manifest);
   if (budgetMs > 0) await Promise.race([run, setTimeout(budgetMs, undefined, { ref: false })]);
   // A run leaves `running` as it settles, so one still there is still going.
-  const incomplete = running.get(projectPath) === run;
+  const incomplete = running.get(projectPath)?.run === run;
   const failure = incomplete ? null : await run;
 
   const week = context.store.usage(projectPath, 'claude-code', localMidnight(6).toISOString());
@@ -99,7 +113,7 @@ function level(context: OperationContext, projectPath: string, failure: string |
   return { harness: 'claude-code', level: null, reason: `No Claude Code session of this project was found under ${context.runtime.artifacts.claudeCode}.` };
 }
 
-const windowOf = (manifest: ProjectManifest | null): Window => manifest?.telemetry.import.windowDays ?? DEFAULT_WINDOW_DAYS;
+const windowOf = (manifest: ProjectManifest | null): ImportWindow => manifest?.telemetry.import.windowDays ?? DEFAULT_WINDOW_DAYS;
 
 /**
  * Queues an ingest of the project's artifacts behind the machine's others and returns it,
@@ -133,8 +147,10 @@ export function startIngest(context: OperationContext, projectPath: string, mani
       }
       return failures[0] ?? null;
     })
-    .finally(() => importer.running.delete(projectPath));
-  importer.running.set(projectPath, run);
+    .finally(() => {
+      if (importer.running.get(projectPath)?.run === run) importer.running.delete(projectPath);
+    });
+  importer.running.set(projectPath, { run, window });
   // Nobody may be waiting on it, so its failure is logged here rather than left unhandled.
   importer.queue = run.then(
     () => undefined,
@@ -183,13 +199,13 @@ function candidates(context: OperationContext, projectPath: string): { files: st
  * shrank, or a window wider than the one its cursor was read under, is read from the
  * start; the unique constraint absorbs what was already stored.
  */
-function readPosition(cursor: IngestCursor | null, size: number, window: Window): { offset: number; line: number } | null {
+function readPosition(cursor: IngestCursor | null, size: number, window: ImportWindow): { offset: number; line: number } | null {
   const restart = cursor === null || size < cursor.size || wider(window, cursor.windowDays);
   const from = restart ? { offset: 0, line: 0 } : cursor;
   return size > from.offset ? from : null;
 }
 
-const wider = (window: Window, than: Window): boolean => than !== 'all' && (window === 'all' || window > than);
+const wider = (window: ImportWindow, than: ImportWindow): boolean => than !== 'all' && (window === 'all' || window > than);
 
 /**
  * Reads one file from its read position to its end, and returns why it could not be read,
@@ -202,11 +218,12 @@ const wider = (window: Window, than: Window): boolean => than !== 'all' && (wind
  * when its window is wider, so nothing is lost, but two such projects with different
  * windows take turns re-reading the files they share.
  */
-function ingestFile(context: OperationContext, path: string, window: Window, registered: RegistryEntry[]): string | null {
+function ingestFile(context: OperationContext, path: string, window: ImportWindow, registered: RegistryEntry[]): string | null {
   let size: number;
   let from: { offset: number; line: number } | null;
   let bytes: Buffer;
   try {
+    // Decided again: the file, or its cursor, may have moved while this ingest was queued.
     size = statSync(path).size;
     from = readPosition(context.store.cursor(path), size, window);
     if (from === null) return null;

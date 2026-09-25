@@ -42,8 +42,11 @@ export type ProjectManifest = {
   workflow: { provider: string | null; scratch: string | null };
   capabilities: Record<string, Capability>;
   automation: { mode: AutomationMode | null; maxParallelDevelopmentTasks: number | null };
-  telemetry: { privacy: TelemetryPrivacy | null; import: { windowDays: number | 'all' | null } };
+  telemetry: { privacy: TelemetryPrivacy | null; import: { windowDays: ImportWindow | null } };
 };
+
+/** How far back usage is imported: a number of days, or everything on disk. */
+export type ImportWindow = number | 'all';
 
 export type ManifestValidation = {
   /** Null when there are problems: a manifest is either wholly usable or not offered at all. */

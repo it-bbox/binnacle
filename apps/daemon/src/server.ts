@@ -17,7 +17,7 @@ import { OperationError } from './errors.ts';
 import { operations, type OperationContext } from './operations.ts';
 import { projectRegistry } from './projection.ts';
 import { openStore } from './store.ts';
-import { importer, INGEST_BUDGET_MS, startIngest } from './usage.ts';
+import { importer, INGEST_BUDGET_MS, startIngest, stopImporting } from './usage.ts';
 import { VERSION } from './version.ts';
 
 export const LOOPBACK = '127.0.0.1';
@@ -118,9 +118,7 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
       await new Promise<void>((resolve, reject) => {
         server.close((error) => (error ? reject(error) : resolve()));
       });
-      // An ingest stops between files, each of which committed whole, before the store closes.
-      context.importer.stopped = true;
-      await context.importer.queue;
+      await stopImporting(context.importer);
       // Only a clean stop is recorded. A killed daemon leaves a start with no stop after
       // it, which is the honest record of what happened.
       store.appendEvent({ type: 'daemon.stopped', payload: { pid: runtime.pid, version: VERSION } });

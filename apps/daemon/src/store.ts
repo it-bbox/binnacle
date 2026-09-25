@@ -1,5 +1,6 @@
 import { chmodSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
+import type { ImportWindow } from '@binnacle/core';
 import type { Harness, Provenance, TokenField, UsageRecord } from '@binnacle/telemetry';
 import { OWNER_ONLY_FILE, storePath } from './home.ts';
 
@@ -56,8 +57,8 @@ export type EventFilter = {
   limit?: number | undefined;
 };
 
-/** How far one artifact file has been read, and under which import window: a number of days, or everything on disk. */
-export type IngestCursor = { path: string; size: number; offset: number; line: number; windowDays: number | 'all' };
+/** How far one artifact file has been read, and under which import window. */
+export type IngestCursor = { path: string; size: number; offset: number; line: number; windowDays: ImportWindow };
 
 /** A record to store, with the registered project its `cwd` lies in and the file it was read from. */
 export type Ingested = { record: UsageRecord; projectPath: string; sourceRef: string };
@@ -76,6 +77,8 @@ export type Store = {
   events(filter?: EventFilter): EventRow[];
   latestEvent(projectPath: string, types: readonly string[]): EventRow | null;
   cursor(path: string): IngestCursor | null;
+  /** Forgets the cursor of every file whose path starts with `prefix`, so that each is read again from the start. */
+  forgetCursors(prefix: string): void;
   /** Stores the records a file gave and moves its cursor, together or not at all. A record already stored is left as it was. */
   ingest(cursor: IngestCursor, records: Ingested[]): void;
   /** A project's records of one harness from `since` on, an ISO timestamp. */
@@ -208,6 +211,7 @@ export function openStore(home: string): Store {
     on conflict (path) do update set size = excluded.size, offset = excluded.offset, line = excluded.line, window_days = excluded.window_days
   `);
   const selectCursor = db.prepare('select path, size, offset, line, window_days from ingest_cursor where path = ?');
+  const deleteCursors = db.prepare('delete from ingest_cursor where substr(path, 1, length(?1)) = ?1');
   const selectUsage = db.prepare(`
     select timestamp, model, provenance, input, cached_input, cache_creation, output, reasoning from ingested_record
     where project_path = ? and harness = ? and timestamp >= ?
@@ -287,6 +291,9 @@ export function openStore(home: string): Store {
       return row
         ? { path: String(row.path), size: Number(row.size), offset: Number(row.offset), line: Number(row.line), windowDays: row.window_days === 'all' ? 'all' : Number(row.window_days) }
         : null;
+    },
+    forgetCursors: (prefix) => {
+      deleteCursors.run(prefix);
     },
     ingest: (cursor, records) => {
       const now = new Date().toISOString();

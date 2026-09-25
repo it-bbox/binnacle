@@ -1,6 +1,7 @@
 export {
   MANIFEST_VERSION,
   validateManifest,
+  type ImportWindow,
   type ManifestProblem,
   type ProjectManifest,
   type TrackerProvider,
