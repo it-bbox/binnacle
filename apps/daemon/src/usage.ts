@@ -134,11 +134,18 @@ export async function usageGet(
   tree: Tree,
   taskId: string | undefined,
 ): Promise<ProjectUsage | TaskUsage> {
-  const found = taskId === undefined ? null : await findTask(context.home, tree, manifest, taskId);
-  const reading = found ? null : await readTracker(context.home, tree, manifest);
-  const tasks = found?.tasks ?? reading?.tasks ?? trackerUnavailable(reading?.diagnostics ?? []);
   const { importing, checkouts } = await ingested(context, projectPath, manifest);
+  let found: Awaited<ReturnType<typeof findTask>> | null = null;
+  let tasks: TrackerTask[] | Unavailable;
+  if (taskId !== undefined) {
+    found = await findTask(context.home, tree, manifest, taskId);
+    tasks = found.tasks;
+  } else {
+    const reading = await readTracker(context.home, tree, manifest);
+    tasks = reading.tasks ?? trackerUnavailable(reading.diagnostics);
+  }
 
+  // Since the earliest timestamp there is: every record stored, whatever the window is now.
   const records = context.store.usage(projectPath, 'claude-code', '');
   if (!Array.isArray(tasks)) return { importing, totals: sum(records), tasks, unassigned: tasks };
   const attributed = await runs(records, projectPath, tasks, manifest?.tracker.provider !== 'local', checkouts);
