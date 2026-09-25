@@ -103,12 +103,13 @@ function binnIn(home: Home) {
       cwd,
       input,
       encoding: 'utf8',
-      env: { ...baseEnv, HOME: home.home, BINNACLE_HOME: home.binnacleHome, BINNACLE_PORT: '0', PATH: home.bin },
+      env: { ...baseEnv, HOME: home.home, BINNACLE_HOME: home.binnacleHome, BINNACLE_PORT: '0', PATH: home.bin, XDG_CONFIG_HOME: join(home.home, '.config') },
     });
 }
 
 const commits = (root: string): string => git(root, 'rev-list', '--all');
-const manifestOf = (root: string): string => readFileSync(join(root, '.binnacle', 'project.yaml'), 'utf8');
+const read = (root: string, relative: string): string => readFileSync(join(root, relative), 'utf8');
+const manifestOf = (root: string): string => read(root, '.binnacle/project.yaml');
 
 test('binn --help lists binn init', () => {
   const result = spawnSync(process.execPath, [BINN, '--help'], { encoding: 'utf8' });
@@ -255,16 +256,22 @@ test('a valid existing manifest is reported with its warnings and left alone', (
 test('closed stdin is a no to every step, and writes nothing', (t) => {
   const home = makeHome(t);
   const calls = fakeClaude(home);
-  const root = makeRepository(t, 'quiet', { 'CONTEXT.md': '# Context\n' });
+  installUserDirectory(home, '.codex');
+  const codexToml = 'model = "o3"\n';
+  const root = makeRepository(t, 'quiet', { 'CONTEXT.md': '# Context\n', '.codex/config.toml': codexToml });
 
   const result = binnIn(home)(root, '', 'init');
 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(existsSync(join(root, '.binnacle')), false);
+  assert.equal(existsSync(join(root, '.mcp.json')), false);
+  assert.equal(read(root, '.codex/config.toml'), codexToml);
   assert.match(result.stdout, /declined\s+create \.binnacle\/project\.yaml/);
+  assert.match(result.stdout, /declined\s+create \.mcp\.json/);
+  assert.match(result.stdout, /declined\s+append to \.codex\/config\.toml/);
   assert.match(result.stdout, /declined\s+the binnacle plugin/);
   assert.deepEqual(calls(), [['plugin', 'list', '--json']]);
-  assert.equal(git(root, 'status', '--porcelain'), '?? CONTEXT.md\n');
+  assert.equal(git(root, 'status', '--porcelain'), '?? .codex/\n?? CONTEXT.md\n');
 });
 
 test('registration with a running daemon', async (t) => {
@@ -396,8 +403,6 @@ test('the plugin: without Claude Code on PATH nothing is offered and nothing run
   assert.match(result.stdout, /skipped\s+the binnacle plugin: Claude Code is not detected/);
 });
 
-const read = (root: string, relative: string): string => readFileSync(join(root, relative), 'utf8');
-
 test('Claude Code on PATH gets a new .mcp.json, and only the detected harness is offered', (t) => {
   const home = makeHome(t);
   fakeClaude(home);
@@ -431,7 +436,8 @@ test('an existing .mcp.json is left untouched and the entry is printed', (t) => 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(read(root, '.mcp.json'), existing);
   assert.match(result.stdout, /"binnacle": \{/);
-  assert.match(result.stdout, /"command": "binn",\s+"args": \["mcp"\]/);
+  assert.match(result.stdout, /"command": "binn",\s+"args": \[\s+"mcp"\s+\]/);
+  assert.doesNotMatch(result.stdout, /\.mcp\.json\? \[y\/N\]/, 'an existing JSON file is never asked about');
   assert.match(result.stdout, /printed\s+the entry for \.mcp\.json/);
 });
 
@@ -464,6 +470,20 @@ test('a configuration that already names binnacle is skipped and reported', (t) 
   assert.match(result.stdout, /skipped\s+\.mcp\.json: it already names binnacle/);
   assert.match(result.stdout, /skipped\s+\.codex\/config\.toml: it already names binnacle/);
   assert.doesNotMatch(result.stdout, /Append to|Create \.mcp\.json/);
+  assert.doesNotMatch(result.stdout, /trusted project/, 'the trust note goes with an entry offered, not a skip');
+});
+
+test('a Codex configuration naming binnacle as a key under [mcp_servers] is skipped, not given a duplicate', (t) => {
+  const home = makeHome(t);
+  installUserDirectory(home, '.codex');
+  const codexToml = '[mcp_servers]\nbinnacle = { command = "binn", args = ["mcp"] }\n';
+  const root = makeRepository(t, 'inline', { '.codex/config.toml': codexToml });
+
+  const result = binnIn(home)(root, 'n\ny\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(read(root, '.codex/config.toml'), codexToml);
+  assert.match(result.stdout, /skipped\s+\.codex\/config\.toml: it already names binnacle/);
 });
 
 test('every known harness gets its own template, and the generic snippet follows them', (t) => {

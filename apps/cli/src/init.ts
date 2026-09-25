@@ -207,31 +207,36 @@ type Harness = {
   name: string;
   /** Detected by this executable on PATH… */
   executable: string;
-  /** …or by this user configuration directory, relative to the home directory. */
+  /** …or by this user configuration directory. */
   userDirectory: string;
   /** The project's configuration file: the first of these that exists, or else the first. */
   files: string[];
   /** The whole new file, which is also the addition for a format that allows a pure append. */
   entry: string;
+  /** Said before the entry is offered. */
   note?: string;
 };
 
-/** Indented JSON, with an array of strings kept on one line, as a person writes `"args": ["mcp"]`. */
-const json = (value: unknown): string =>
-  `${JSON.stringify(value, null, 2).replace(/\[\s+("[^\]]*")\s+\]/g, (_, items: string) => `[${items.split(/,\s+/).join(', ')}]`)}\n`;
+const json = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
+
+/** The server every template declares: stdio, named `binnacle`, running `binn mcp`. */
+const STDIO_SERVER = { type: 'stdio', command: 'binn', args: ['mcp'] };
+
+/** Where opencode, and VS Code on Linux, keep their user configuration. */
+const CONFIG_HOME = process.env.XDG_CONFIG_HOME || join(homedir(), '.config');
 
 const HARNESSES: Harness[] = [
   {
     name: 'Claude Code',
     executable: 'claude',
-    userDirectory: '.claude',
+    userDirectory: join(homedir(), '.claude'),
     files: ['.mcp.json'],
-    entry: json({ mcpServers: { binnacle: { type: 'stdio', command: 'binn', args: ['mcp'] } } }),
+    entry: json({ mcpServers: { binnacle: STDIO_SERVER } }),
   },
   {
     name: 'Codex',
     executable: 'codex',
-    userDirectory: '.codex',
+    userDirectory: join(homedir(), '.codex'),
     files: ['.codex/config.toml'],
     entry: '[mcp_servers.binnacle]\ncommand = "binn"\nargs = ["mcp"]\n',
     note: 'Codex reads .codex/config.toml only in a trusted project: trust this project in Codex for the entry to take effect.',
@@ -239,7 +244,7 @@ const HARNESSES: Harness[] = [
   {
     name: 'opencode',
     executable: 'opencode',
-    userDirectory: join('.config', 'opencode'),
+    userDirectory: join(CONFIG_HOME, 'opencode'),
     files: ['opencode.json', 'opencode.jsonc'],
     entry: json({ $schema: 'https://opencode.ai/config.json', mcp: { binnacle: { type: 'local', command: ['binn', 'mcp'] } } }),
   },
@@ -248,42 +253,42 @@ const HARNESSES: Harness[] = [
     executable: 'code',
     userDirectory:
       process.platform === 'darwin'
-        ? join('Library', 'Application Support', 'Code')
+        ? join(homedir(), 'Library', 'Application Support', 'Code')
         : process.platform === 'win32'
-          ? join('AppData', 'Roaming', 'Code')
-          : join('.config', 'Code'),
+          ? join(homedir(), 'AppData', 'Roaming', 'Code')
+          : join(CONFIG_HOME, 'Code'),
     files: ['.vscode/mcp.json'],
-    entry: json({ servers: { binnacle: { type: 'stdio', command: 'binn', args: ['mcp'] } } }),
+    entry: json({ servers: { binnacle: STDIO_SERVER } }),
   },
 ];
 
 /** Step 3: the MCP registration for each detected harness, then a generic snippet for any other. */
 async function harnessStep(session: Session): Promise<void> {
-  const found = HARNESSES.map((harness) => ({ harness, how: detect(harness) })).filter(({ how }) => how !== null);
+  const found = HARNESSES.map((harness) => ({ harness, reason: detect(harness) })).filter(({ reason }) => reason !== null);
   if (found.length === 0) session.say(`No known harness is installed (${HARNESSES.map(({ name }) => name).join(', ')}).\n`);
 
-  for (const { harness, how } of found) {
+  for (const { harness, reason } of found) {
     const file = harness.files.find((candidate) => existsSync(join(session.root, candidate))) ?? harness.files[0]!;
-    session.say(`${harness.name} is installed (${how}). It reads this project's MCP servers from ${file}.`);
-    if (harness.note) session.say(harness.note);
+    session.say(`${harness.name} is installed (${reason}). It reads this project's MCP servers from ${file}.`);
     const path = join(session.root, file);
     if (existsSync(path) && namesBinnacle(readFileSync(path, 'utf8'))) {
-      session.say(`${file} already names binnacle. It is left as it is.\n`);
+      session.say(`${file} already names binnacle. It is left as it is.`);
       record(session, 'skipped', `${file}: it already names binnacle`);
-      continue;
+    } else {
+      if (harness.note) session.say(harness.note);
+      await offerFile(session, file, harness.entry);
     }
-    await offerFile(session, file, harness.entry);
     session.say('');
   }
 
   session.say(
-    `For any other harness that speaks MCP, register a stdio server named binnacle that runs \`binn mcp\`, for example:\n\n${json({ mcpServers: { binnacle: { command: 'binn', args: ['mcp'] } } }).trimEnd()}`,
+    `For any other harness that speaks MCP, register a stdio server named binnacle that runs \`binn mcp\`, for example:\n\n${json({ mcpServers: { binnacle: STDIO_SERVER } }).trimEnd()}`,
   );
 }
 
 function detect(harness: Harness): string | null {
   if (onPath(harness.executable)) return `${harness.executable} is on PATH`;
-  if (existsSync(join(homedir(), harness.userDirectory))) return `~/${harness.userDirectory} exists`;
+  if (existsSync(harness.userDirectory)) return `${harness.userDirectory} exists`;
   return null;
 }
 
@@ -306,11 +311,14 @@ function onPath(name: string): boolean {
 }
 
 /**
- * ponytail: a textual check, not a parse. A `"binnacle":` key anywhere in a JSON file, or a
- * `[mcp_servers.binnacle]` table in a TOML one, counts as naming it; a parser per format would
- * tell a server entry from any other key of that name.
+ * ponytail: a textual check, not a parse. A `"binnacle":` key anywhere in a JSON file counts as
+ * naming it, and so does, in a TOML file, a `[mcp_servers.binnacle]` table or a `binnacle` or
+ * `mcp_servers.binnacle` key at the start of a line. Anything it misses would make the append
+ * a duplicate key, so it errs towards a skip: a `binnacle` key under another table is taken
+ * for the server too, and nothing is written. A parser per format would tell them apart.
  */
-const namesBinnacle = (text: string): boolean => /"binnacle"\s*:|^\s*\[\s*mcp_servers\s*\.\s*["']?binnacle["']?\s*[\].]/m.test(text);
+const namesBinnacle = (text: string): boolean =>
+  /"binnacle"\s*:|^\s*\[\s*mcp_servers\s*\.\s*["']?binnacle["']?\s*[\].]|^\s*(mcp_servers\s*\.\s*)?["']?binnacle["']?\s*[=.]/m.test(text);
 
 /** This package's directory, which carries the plugin and the marketplace that lists it (ADR-0027). */
 const PACKAGE_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
