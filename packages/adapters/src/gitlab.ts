@@ -13,7 +13,7 @@ export function gitlabApiRoot(host: string | null): string {
 type Issue = { iid: number; title: string; state: string; description?: string | null; labels?: string[]; web_url: string };
 
 /** GitLab's issue number is its `iid`, and it reports no close reason. */
-export const GITLAB: Forge = {
+const GITLAB: Forge = {
   name: 'GitLab',
   headers: { accept: 'application/json' },
   authorization: (token) => ({ 'private-token': token }),
@@ -34,9 +34,9 @@ export const GITLAB: Forge = {
 /**
  * A GitLab project's issues as Tasks, read through `readRemoteTasks`. The project is its
  * full path, subgroups included, which the API takes URL-encoded as one segment. GitLab
- * lists issues in every state unless asked for one. `token`, or null, as for GitHub.
+ * lists issues in every state unless asked for one. `token` and `perPage` as for GitHub.
  */
-export function readGitLabTasks(repository: string, host: string | null, token: string | null): Promise<TaskReading> {
+export function readGitLabTasks(repository: string, host: string | null, token: string | null, perPage = 100): Promise<TaskReading> {
   const root = gitlabApiRoot(host);
-  return readRemoteTasks(GITLAB, `${root}/projects/${encodeURIComponent(repository)}/issues?per_page=100`, `${repository} at ${root}`, token);
+  return readRemoteTasks(GITLAB, `${root}/projects/${encodeURIComponent(repository)}/issues?per_page=${perPage}`, `${repository} at ${root}`, token);
 }

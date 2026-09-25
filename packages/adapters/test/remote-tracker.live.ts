@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { readGitHubTasks, readGitLabTasks } from '@binnacle/adapters';
 import { resolveDependencies, type TaskReading } from '@binnacle/core';
-import { GITHUB, githubApiRoot, readGitHubTasks } from '../src/github.ts';
-import { GITLAB, gitlabApiRoot, readGitLabTasks } from '../src/gitlab.ts';
-import { readRemoteTasks } from '../src/remote-tracker.ts';
 
 /**
  * `pnpm test:live`: the GitHub and GitLab adapters against the owner's test projects, which
@@ -14,11 +12,9 @@ import { readRemoteTasks } from '../src/remote-tracker.ts';
 
 type Project = {
   forge: 'GitHub' | 'GitLab';
-  variable: string;
+  tokenVariable: string;
   repository: string;
-  read: (repository: string, host: string | null, token: string | null) => Promise<TaskReading>;
-  /** The adapter's first page at `perPage` issues, to walk the real `Link` pagination. */
-  readPaged: (token: string, perPage: number) => Promise<TaskReading>;
+  read: (repository: string, host: string | null, token: string | null, perPage?: number) => Promise<TaskReading>;
   /** An issue's web address, up to its number. */
   issueUrl: RegExp;
   permalink: RegExp;
@@ -27,21 +23,17 @@ type Project = {
 const PROJECTS: Project[] = [
   {
     forge: 'GitHub',
-    variable: 'BINNACLE_GITHUB_TOKEN',
+    tokenVariable: 'BINNACLE_GITHUB_TOKEN',
     repository: 'it-bbox/binnacle-tracker-fixture',
     read: readGitHubTasks,
-    readPaged: (token, perPage) =>
-      readRemoteTasks(GITHUB, `${githubApiRoot(null)}/repos/it-bbox/binnacle-tracker-fixture/issues?state=all&per_page=${perPage}`, 'the GitHub fixture', token),
     issueUrl: /^https:\/\/github\.com\/it-bbox\/binnacle-tracker-fixture\/issues\//,
     permalink: /^https:\/\/github\.com\/it-bbox\/binnacle-tracker-fixture\/blob\/[0-9a-f]{7,40}\/docs\/specs\/demo\/spec\.md/,
   },
   {
     forge: 'GitLab',
-    variable: 'BINNACLE_GITLAB_TOKEN',
+    tokenVariable: 'BINNACLE_GITLAB_TOKEN',
     repository: 'miker059/binnacle-tracker-fixture',
     read: readGitLabTasks,
-    readPaged: (token, perPage) =>
-      readRemoteTasks(GITLAB, `${gitlabApiRoot(null)}/projects/${encodeURIComponent('miker059/binnacle-tracker-fixture')}/issues?per_page=${perPage}`, 'the GitLab fixture', token),
     // GitLab.com answers with the work item address; `/-/issues/` is its older form.
     issueUrl: /^https:\/\/gitlab\.com\/miker059\/binnacle-tracker-fixture\/-\/(?:issues|work_items)\//,
     permalink: /^https:\/\/gitlab\.com\/miker059\/binnacle-tracker-fixture\/-\/blob\/[0-9a-f]{7,40}\/docs\/specs\/demo\/spec\.md/,
@@ -55,8 +47,8 @@ const STATES = [
 ];
 
 for (const project of PROJECTS) {
-  const token = process.env[project.variable] || null;
-  const skip = token === null && `${project.variable} is not set: the live ${project.forge} tests need a read-only token for ${project.repository}.`;
+  const token = process.env[project.tokenVariable] || null;
+  const skip = token === null && `${project.tokenVariable} is not set: the live ${project.forge} tests need a read-only token for ${project.repository}.`;
 
   describe(`${project.forge} live, ${project.repository}`, { skip }, () => {
     it('reads the fixed issues as the Tasks, states and diagnostics they imply', async () => {
@@ -95,9 +87,24 @@ for (const project of PROJECTS) {
 
     it('follows the real Link pagination to the same Tasks, five issues a page', async () => {
       const whole = await project.read(project.repository, null, token);
-      const paged = await project.readPaged(token!, 5);
+      const paged = await project.read(project.repository, null, token, 5);
+      assert.equal(paged.tasks?.length, STATES.length);
       assert.deepEqual(paged.tasks, whole.tasks);
       assert.deepEqual(paged.diagnostics, whole.diagnostics);
+    });
+
+    // Each closed fixture's Status: agrees with how it was closed, so the Tasks alone cannot
+    // show that the close reason was read: GitHub's own field is checked where it reports one.
+    if (project.forge === 'GitHub') it('finds the close reasons the adapter reads where GitHub reports them', async () => {
+      const response = await fetch(`https://api.github.com/repos/${project.repository}/issues?state=closed&per_page=100`, {
+        headers: { accept: 'application/vnd.github+json', authorization: `Bearer ${token}` },
+      });
+      assert.equal(response.status, 200);
+      const closed = (await response.json()) as { number: number; state_reason: string | null }[];
+      assert.deepEqual(
+        closed.map((issue) => [issue.number, issue.state_reason]).sort(([a], [b]) => Number(a) - Number(b)),
+        [[11, 'completed'], [12, 'not_planned'], [13, 'completed']],
+      );
     });
 
     it('reports a bad token as tracker.unauthorized, naming no token', async () => {

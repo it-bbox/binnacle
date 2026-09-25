@@ -24,7 +24,7 @@ type Issue = {
 };
 
 /** GitHub lists pull requests among issues; those are skipped. */
-export const GITHUB: Forge = {
+const GITHUB: Forge = {
   name: 'GitHub',
   headers: { accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28' },
   authorization: (token) => ({ authorization: `Bearer ${token}` }),
@@ -43,9 +43,12 @@ export const GITHUB: Forge = {
   },
 };
 
-/** A GitHub repository's issues as Tasks, read through `readRemoteTasks`, with `token` or anonymously. */
-export function readGitHubTasks(repository: string, host: string | null, token: string | null): Promise<TaskReading> {
+/**
+ * A GitHub repository's issues as Tasks, read through `readRemoteTasks`, with `token` or
+ * anonymously, `perPage` issues a page: only the live tests ask for fewer than 100.
+ */
+export function readGitHubTasks(repository: string, host: string | null, token: string | null, perPage = 100): Promise<TaskReading> {
   const root = githubApiRoot(host);
   const path = repository.split('/').map(encodeURIComponent).join('/');
-  return readRemoteTasks(GITHUB, `${root}/repos/${path}/issues?state=all&per_page=100`, `${repository} at ${root}`, token);
+  return readRemoteTasks(GITHUB, `${root}/repos/${path}/issues?state=all&per_page=${perPage}`, `${repository} at ${root}`, token);
 }
