@@ -28,10 +28,14 @@ export function trackerRemoteMismatch(tracker: ProjectManifest['tracker'], remot
 const agrees = (remote: { host: string; path: string } | null, host: string, path: string | null): boolean =>
   remote !== null && remote.host === host && (path === null || remote.path === path);
 
-/** The declared `host`'s hostname, or the provider's default; a base URL gives its own. Hostnames and paths are compared lowercased. */
+/**
+ * The declared `host`'s hostname, without a port, or the provider's default; a base URL
+ * gives its own. URL parsing lowercases it, as remotes are compared lowercased.
+ */
 function declaredHostname(provider: 'github' | 'gitlab', host: string | null): string {
   if (host === null) return `${provider}.com`;
-  return (host.includes('://') && URL.canParse(host) ? new URL(host).hostname : host).toLowerCase();
+  const url = host.includes('://') ? host : `https://${host}`;
+  return URL.canParse(url) ? new URL(url).hostname : host.toLowerCase();
 }
 
 /** `scheme://[user@]host[:port]/path`, or scp-like `[user@]host:path`. */
@@ -132,7 +136,7 @@ export function blockedByNumbers(value: string | null): number[] {
 /** A header value written as inline code, `` `docs/specs/x/spec.md` ``, without the backticks; null when empty. */
 export const unquote = (value: string | null): string | null => value?.replace(/^`(.*)`$/, '$1') || null;
 
-export type ResolvedTask =TrackerTask & {
+export type ResolvedTask = TrackerTask & {
   /** Declared dependencies whose Task is not `DONE`. A dependency naming no Task is not one. */
   unmetDependencies: string[];
 };

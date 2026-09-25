@@ -360,6 +360,9 @@ describe('the GitHub tracker in the manifest', () => {
     }
   });
 
+  // Below the seam on purpose: through the daemon, a hostname's API root is only reachable
+  // over the real network, and `pnpm test` stays offline. The base-URL form is what every
+  // test above reads through.
   it('maps a host to its API root: github.com, any other hostname, or a base URL as given', () => {
     assert.equal(githubApiRoot(null), 'https://api.github.com');
     assert.equal(githubApiRoot('github.com'), 'https://api.github.com');
@@ -394,6 +397,7 @@ describe('the GitHub remote against the declared tracker', () => {
       // A neutral hostname is not a mismatch once it is declared.
       assert.deepEqual(await mismatches(daemon, 'code.example.com', [`ssh://git@code.example.com:2222/${REPOSITORY}`]), []);
       assert.deepEqual(await mismatches(daemon, 'https://code.example.com/api/v3', [`git@code.example.com:${REPOSITORY}.git`]), []);
+      assert.deepEqual(await mismatches(daemon, 'code.example.com:8443', [`git@code.example.com:${REPOSITORY}.git`]), []);
       // One matching remote is enough.
       assert.deepEqual(await mismatches(daemon, null, ['https://example.com/fork.git', `https://github.com/${REPOSITORY}`]), []);
     } finally {

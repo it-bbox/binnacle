@@ -336,15 +336,15 @@ describe('ADR-0012: the daemon opens no outbound connections but its tracker rea
     ];
     assert.ok(runtimeSources.length > 0);
 
-    const forbidden = [/\bfetch\s*\(/, /node:https/, /node:net/, /node:tls/, /node:dgram/, /XMLHttpRequest/, /undici/];
+    const fetchCall = /\bfetch\s*\(/;
+    const forbidden = [/node:https/, /node:net/, /node:tls/, /node:dgram/, /XMLHttpRequest/, /undici/];
     // The one exception, named file by file: a remote tracker adapter reads its issues from
     // the declared host with the platform fetch, and that is the only traffic the spec allows.
-    const trackerReads = new Set(['github.ts']);
+    const trackerReads = new Set([new URL('github.ts', adapters).pathname]);
     for (const file of runtimeSources) {
       const name = file.pathname;
       const text = readFileSync(file, 'utf8');
-      const tracker = trackerReads.has(name.slice(name.lastIndexOf('/') + 1)) && name.includes('/packages/adapters/');
-      for (const pattern of tracker ? forbidden.slice(1) : forbidden) {
+      for (const pattern of trackerReads.has(name) ? forbidden : [fetchCall, ...forbidden]) {
         assert.ok(!pattern.test(text), `${name} must not reach the network (${String(pattern)})`);
       }
       // testing.ts is excluded above because it is the test client, not the daemon.

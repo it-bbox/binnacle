@@ -124,28 +124,33 @@ export type State = {
 };
 
 /**
- * `remote` false leaves the Tasks of a remote tracker unread: it has no past version to
- * read at a commit, so the daily's baseline side passes false and gets null for them.
+ * `readRemoteTracker: false` leaves the Tasks of a remote tracker unread and null: it has
+ * no past version to read at a commit, which is what the daily's baseline side reads.
  */
-export async function readState(tree: Tree, { manifest, warnings }: Projected, diagnostics: Diagnostic[], remote = true): Promise<State> {
+export async function readState(
+  tree: Tree,
+  { manifest, warnings }: Projected,
+  diagnostics: Diagnostic[],
+  { readRemoteTracker = true } = {},
+): Promise<State> {
   const attention: Diagnostic[] = [
     ...warnings.map((warning) => ({ code: 'manifest.warning', message: `${warning.path}: ${warning.message}` })),
     ...diagnostics,
   ];
-  const tasks = await readTasks(tree, manifest, attention, remote);
+  const tasks = await readTasks(tree, manifest, attention, readRemoteTracker);
   const roadmap = await readRoadmap(tree, manifest, attention);
   if (roadmap && tasks) attention.push(...roadmapAttention(roadmap.epics, tasks));
   const adrs = await readAdrs(tree, manifest, attention);
   return { tasks, roadmap, adrs, attention };
 }
 
-async function readTasks(tree: Tree, manifest: ProjectManifest | null, attention: Diagnostic[], remote: boolean): Promise<ResolvedTask[] | null> {
+async function readTasks(tree: Tree, manifest: ProjectManifest | null, attention: Diagnostic[], readRemoteTracker: boolean): Promise<ResolvedTask[] | null> {
   const tracker = manifest?.tracker;
   let reading: TaskReading;
   if (tracker?.provider === 'local' && tracker.local.issues !== null) {
     reading = await readLocalTasks(tree, tracker.local.issues);
   } else if (tracker?.provider === 'github' && tracker.repository !== null) {
-    if (!remote) return null;
+    if (!readRemoteTracker) return null;
     reading = await readGitHubTasks(tracker.repository, tracker.host);
   } else {
     attention.push({ code: 'tracker.unavailable', message: unavailable(tracker) });

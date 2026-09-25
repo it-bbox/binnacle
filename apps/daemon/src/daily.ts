@@ -83,7 +83,7 @@ export async function daily(
     const [commits, before, after] = await Promise.all([
       readLog(cwd, from.commit, head, timeout),
       // The baseline's own attention items are not news. A remote tracker has no past to read here.
-      readState(beforeTree, projected, [], false),
+      readState(beforeTree, projected, [], { readRemoteTracker: false }),
       readState(afterTree, projected, diagnostics),
     ]);
 

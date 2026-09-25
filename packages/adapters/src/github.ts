@@ -97,11 +97,20 @@ function statusFailure(response: Response, where: string): [string, string] {
   return ['tracker.unreachable', `GitHub answered ${status} for ${where}.`];
 }
 
+/** Closing outranks `Status:`. With no close reason reported, `Status: CANCELLED` still says abandoned. */
+function closedState(reason: string | null | undefined, status: string | null): 'DONE' | 'CANCELLED' {
+  if (reason === 'completed') return 'DONE';
+  if (reason === 'not_planned' || reason === 'duplicate') return 'CANCELLED';
+  return status === 'CANCELLED' ? 'CANCELLED' : 'DONE';
+}
+
 function toTask(issue: Issue, diagnostics: Diagnostic[]): TrackerTask {
   const id = `#${issue.number}`;
   const named = `${id} (${issue.html_url})`;
   const { status, blockedBy, spec: specLine } = parseTicketHeader(issue.body ?? '');
-  const mismatch = (message: string): void => void diagnostics.push({ code: 'tracker.state_mismatch', message: `${named} ${message}` });
+  const mismatch = (message: string): void => {
+    diagnostics.push({ code: 'tracker.state_mismatch', message: `${named} ${message}` });
+  };
 
   let state: TaskState | null;
   if (issue.state === 'open') {
@@ -115,9 +124,7 @@ function toTask(issue: Issue, diagnostics: Diagnostic[]): TrackerTask {
       mismatch(`is open, but its Status: is ${state}.`);
     }
   } else {
-    // Closing outranks Status:. With no close reason reported, Status: CANCELLED still says abandoned.
-    const reason = issue.state_reason;
-    state = reason === 'completed' ? 'DONE' : reason === 'not_planned' || reason === 'duplicate' ? 'CANCELLED' : status === 'CANCELLED' ? 'CANCELLED' : 'DONE';
+    state = closedState(issue.state_reason, status);
     if (status !== null && status !== state) mismatch(`is closed as ${state}, but its Status: is ${status}.`);
   }
 
