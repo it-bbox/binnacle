@@ -119,11 +119,12 @@ Spec: `docs/specs/telemetry/spec.md`
   1. Run `/binnacle:autopilot`. It builds ticket 12 alone, because tickets 10 and 11 wait in `BACKLOG`.
   2. A Product session sets tickets 10 and 11 to `READY`, and notes here the total records `usage_get` gives without arguments.
   3. Run `/binnacle:autopilot` again. It builds tickets 10 and 11. Do little else meanwhile: every other session's records count as new work too.
-  4. Restart the daemon on `main`'s code: `binn daemon stop`, then `binn daemon start`.
+  4. Unless the run's report says it restarted the daemon, which it does when a merge changed the daemon's code, restart it on `main`'s code: `binn daemon stop`, then `binn daemon start`.
   5. **Criterion 1.** In a fresh session, which may be the desktop app's, run `/binnacle:product`. Check the usage section as step 2 of the superseded script says.
   6. **Criterion 2.** Ask for `usage_get` with `task` set to `telemetry/10`, then to `telemetry/11`. Each returns runs with the `implementation` role, and every subagent run names its parent.
   7. **Criterion 4.** Ask for `usage_get` without arguments. The new work is its total records less the total noted in step 2. Its unassigned part is that, less the two tickets' records, and should be about the autopilot session's own records on `main`. The other unassigned records are the groups of the table above, with the removed worktrees now `unknown` rather than `product`.
   8. Tick what holds. Epic 4 is marked `done` on the roadmap once none of its tickets is open.
+- **Step 2, noted on 2026-09-25 at about 17:58 UTC**, after the first run merged ticket 12: `usage_get` without arguments gives 4,367 records. That run already read ticket 12's worktree before removing it, ahead of its own skill text, and `telemetry/12` has 143 records.
 
 ### Review
 

@@ -27,7 +27,7 @@ Epics 1 to 3 are done. The daemon, its store and `packages/core` (epic 1). `binn
 
 Epic 4, Telemetry, is in progress (ADR-0028 to ADR-0030). Tickets 01 to 08 and 12 are done: the snapshot's usage section shows Claude Code's and Codex's totals for today and the week, by model, by Task and unassigned, with each harness's support level; subagents count as runs of their own, linked to the run that started them; `usage_get` gives the project's usage by Task and by role, or one Task's with its runs; the import window can be `all` or widened, and `binn init` asks for it; autopilot reads a ticket's worktree before removing it, and starts no more agents at once than the manifest allows.
 
-Next action: a Product session sets tickets 10 and 11 `READY` and notes in ticket 09 the total records `usage_get` gives. Then `/binnacle:autopilot` runs for them, and the owner runs the exit demonstration, ticket 09, by its last script. The owner decided its findings on 2026-09-25: a run's branch comes from its checkout's reflog or not at all (ADR-0030, ticket 10); a ticket's slug is unique across epics, and `task_get` flags a shared branch (ticket 11). Epic 4 is done once the demonstration has passed and neither ticket 10 nor ticket 11 is open.
+Next action: run `/binnacle:autopilot` in a fresh session; it builds tickets 10 and 11. Then the owner runs the exit demonstration, ticket 09, by its last script. The owner decided its findings on 2026-09-25: a run's branch comes from its checkout's reflog or not at all (ADR-0030, ticket 10); a ticket's slug is unique across epics, and `task_get` flags a shared branch (ticket 11). Epic 4 is done once the demonstration has passed and neither ticket 10 nor ticket 11 is open.
 
 ## Later
 

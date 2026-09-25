@@ -1,6 +1,6 @@
 # 11: Two tickets with the same slug get one branch, and it credits neither
 
-Status: BACKLOG
+Status: READY
 Triage: ready-for-agent
 Blocked by: 12
 Spec: `docs/specs/telemetry/spec.md`, `docs/specs/tracker-and-matt-pocock-integration/spec.md`

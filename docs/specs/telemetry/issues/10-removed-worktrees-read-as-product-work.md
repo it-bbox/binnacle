@@ -1,6 +1,6 @@
 # 10: Work in removed worktrees reads as Product work, or as the wrong Task's
 
-Status: BACKLOG
+Status: READY
 Triage: ready-for-agent
 Blocked by: 12
 Spec: `docs/specs/telemetry/spec.md`, `docs/adr/ADR-0030-branch-from-the-reflog-or-none.md`
