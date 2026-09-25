@@ -8,7 +8,7 @@ import { delimiter, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { test, type TestContext } from 'node:test';
-import { isAlive, readRuntime } from '@binnacle/daemon';
+import { isAlive, readManifest, readRuntime } from '@binnacle/daemon';
 
 const BINN = fileURLToPath(new URL('../src/bin.ts', import.meta.url));
 /** The CLI package's directory: the marketplace `binn init` adds (ADR-0027). */
@@ -16,11 +16,14 @@ const PACKAGE = dirname(dirname(BINN));
 const GIT = (process.env.PATH ?? '').split(delimiter).map((dir) => join(dir, 'git')).find(existsSync);
 
 /**
- * The environment minus anything that would point git at another repository, and minus a
- * tracker token the developer has set, which would otherwise reach the loopback stand-ins.
+ * The environment minus anything that would point git at another repository, minus a
+ * tracker token the developer has set, which would otherwise reach the loopback stand-ins,
+ * and minus the harnesses' artifact roots, which would show this machine's own sessions.
  */
 const baseEnv = Object.fromEntries(
-  Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_') && !/^BINNACLE_(GITHUB|GITLAB)_TOKEN$/.test(key)),
+  Object.entries(process.env).filter(
+    ([key]) => !key.startsWith('GIT_') && !/^BINNACLE_(GITHUB|GITLAB)_TOKEN$/.test(key) && key !== 'CLAUDE_CONFIG_DIR' && key !== 'CODEX_HOME',
+  ),
 );
 
 function git(cwd: string, ...args: string[]): string {
@@ -320,7 +323,7 @@ test('registration with a running daemon', async (t) => {
   });
 
   await t.test('declining registration skips only registration', () => {
-    const result = binn(root, 'y\nn\n', 'init');
+    const result = binn(root, 'y\n\nn\n', 'init');
     assert.equal(result.status, 0, result.stderr);
     assert.match(manifestOf(root), /id: tracked/);
     assert.match(result.stdout, /declined\s+project registration/);
@@ -479,8 +482,8 @@ test('the ticket-header section is appended to the issue tracker file once, and 
   const root = makeRepository(t, 'layout', { [TRACKER_FILE]: conventions, 'docs/agents/triage-labels.md': '# Triage\n' });
   const before = commits(root);
 
-  // The manifest, then the section; with no daemon, registration asks nothing.
-  const first = binnIn(home)(root, 'y\ny\n', 'init');
+  // The manifest, the default window, then the section; with no daemon, registration asks nothing.
+  const first = binnIn(home)(root, 'y\n\ny\n', 'init');
   assert.equal(first.status, 0, first.stderr);
   const extended = readFileSync(join(root, TRACKER_FILE), 'utf8');
   assert.ok(extended.startsWith(`${conventions}\n\n## Ticket header\n`), extended);
@@ -543,7 +546,7 @@ test('a readable remote tracker is reported readable, and its section says issue
     [TRACKER_FILE]: '# Issue tracker: GitHub\n',
   });
 
-  const { stdout } = await binnInit(home, root, 'y\n');
+  const { stdout } = await binnInit(home, root, '\ny\n');
 
   assert.match(stdout, /octo-org\/octo-repo is readable/);
   assert.match(stdout, /checked\s+tracker: readable/);
@@ -577,7 +580,7 @@ test('an unreadable remote tracker gives the failure code and how to make a read
   });
   const token = 'glpat-never-printed-anywhere';
 
-  const { stdout, stderr } = await binnInit(home, root, 'y\n', { BINNACLE_GITLAB_TOKEN: token });
+  const { stdout, stderr } = await binnInit(home, root, '\ny\n', { BINNACLE_GITLAB_TOKEN: token });
 
   // GitLab reports no close reason, so its section says what closing means there.
   assert.match(readFileSync(join(root, TRACKER_FILE), 'utf8'), /GitLab reports no reason for closing: a closed issue is done, unless its `Status:` says `CANCELLED`/);
@@ -609,7 +612,7 @@ test('Claude Code on PATH gets a new .mcp.json, and only the detected harness is
     mcpServers: { binnacle: { type: 'stdio', command: 'binn', args: ['mcp'] } },
   });
   assert.match(result.stdout, /Claude Code/);
-  assert.doesNotMatch(result.stdout, /Codex|opencode|VS Code/);
+  assert.doesNotMatch(result.stdout, /Codex is installed|opencode|VS Code/);
   assert.equal(existsSync(join(root, '.codex')), false);
   assert.equal(existsSync(join(root, '.vscode')), false);
   assert.equal(existsSync(join(root, 'opencode.json')), false);
@@ -713,5 +716,122 @@ test('with no known harness, none is offered and the generic snippet is still pr
   assert.match(result.stdout, /No known harness/);
   assert.match(result.stdout, /any other harness/);
   assert.equal(git(root, 'status', '--porcelain'), '');
+});
+
+/**
+ * Session artifacts in temporary roots, which `env` points `binn init` at. They are away from
+ * `~/.claude` and `~/.codex`, so that no harness is detected because of them.
+ */
+function artifactRoots(home: Home) {
+  const claude = join(home.home, 'claude-config');
+  const codex = join(home.home, 'codex-home');
+  return { env: { CLAUDE_CONFIG_DIR: claude, CODEX_HOME: codex }, claudeCode: join(claude, 'projects'), codex: join(codex, 'sessions') };
+}
+
+function writeRecords(path: string, records: unknown[]): void {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${records.map((record) => JSON.stringify(record)).join('\n')}\n`);
+}
+
+/** Claude Code's directory for the sessions launched in `path`. */
+const claudeCodeDirectory = (path: string): string => path.replace(/[^a-zA-Z0-9]/g, '-');
+
+/**
+ * A Claude Code session as it starts: a record with no `cwd`, then the first that has one.
+ * A later record, older and elsewhere, shows that only that first one is read.
+ */
+const claudeCodeSession = (cwd: string, timestamp: string): unknown[] => [
+  { type: 'queue-operation', timestamp: '2020-01-01T12:00:00.000Z' },
+  { type: 'user', cwd, timestamp, sessionId: 's', message: { role: 'user', content: 'never read' } },
+  { type: 'user', cwd: '/elsewhere', timestamp: '2020-01-01T12:00:00.000Z', sessionId: 's' },
+];
+
+const codexRollout = (cwd: string, timestamp: string): unknown[] => [
+  { timestamp, type: 'session_meta', payload: { id: 'r', timestamp, cwd, model_provider: 'openai' } },
+  { timestamp: '2020-01-01T12:00:00.000Z', type: 'turn_context', payload: { cwd: '/elsewhere' } },
+];
+
+const windowSection = (window: string): string => `\ntelemetry:\n  import:\n    window_days: ${window}\n`;
+
+test("the import window step shows each harness's sessions in this repository and the date of the oldest", async (t) => {
+  const home = makeHome(t);
+  const roots = artifactRoots(home);
+  const root = makeRepository(t, 'counted');
+  const worktree = join(root, '.claude', 'worktrees', 'w1');
+  const own = join(roots.claudeCode, claudeCodeDirectory(root));
+
+  writeRecords(join(own, 'one.jsonl'), claudeCodeSession(root, '2026-03-02T12:00:00.000Z'));
+  writeRecords(join(own, 'two.jsonl'), claudeCodeSession(join(root, 'src'), '2026-04-10T12:00:00.000Z'));
+  // A subagent's file is part of its session, not a session of its own.
+  writeRecords(join(own, 'one', 'subagents', 'agent-a.jsonl'), claudeCodeSession(root, '2026-01-01T12:00:00.000Z'));
+  writeRecords(join(roots.claudeCode, claudeCodeDirectory(worktree), 'three.jsonl'), claudeCodeSession(worktree, '2026-05-01T12:00:00.000Z'));
+  // A directory whose name starts with the repository's, for a directory beside it.
+  writeRecords(join(roots.claudeCode, claudeCodeDirectory(`${root}-later`), 'four.jsonl'), claudeCodeSession(`${root}-later`, '2026-01-01T12:00:00.000Z'));
+  // A linked worktree beside the repository is the repository's too.
+  const linked = join(dirname(root), 'linked-checkout');
+  git(root, 'worktree', 'add', '--quiet', '-b', 'feature', linked);
+  writeRecords(join(roots.claudeCode, claudeCodeDirectory(linked), 'five.jsonl'), claudeCodeSession(linked, '2026-06-01T12:00:00.000Z'));
+  writeRecords(join(roots.codex, '2026', '02', '14', 'rollout-a.jsonl'), codexRollout(root, '2026-02-14T12:00:00.000Z'));
+  writeRecords(join(roots.codex, '2026', '02', '01', 'rollout-c.jsonl'), codexRollout(linked, '2026-02-01T12:00:00.000Z'));
+  writeRecords(join(roots.codex, '2025', '01', '01', 'rollout-b.jsonl'), codexRollout('/elsewhere', '2025-01-01T12:00:00.000Z'));
+
+  const { stdout } = await binnInit(home, root, '', roots.env);
+
+  assert.match(stdout, /Claude Code: 4 sessions, the oldest from 2026-03-02/);
+  assert.match(stdout, /Codex: 2 sessions, the oldest from 2026-02-01/);
+  // With no manifest there is nothing to take the answer, so nothing is asked.
+  assert.doesNotMatch(stdout, /Import window/);
+  assert.match(stdout, /skipped\s+import window: no manifest/);
+  assert.equal(git(root, 'status', '--porcelain'), '');
+});
+
+test('a new manifest gets the window answered: 90 by default, all, or a number of days', async (t) => {
+  for (const [input, window] of [
+    ['y\n\n', '90'],
+    ['y\nall\n', 'all'],
+    ['y\nsoon\n30\n', '30'],
+  ] as const) {
+    const home = makeHome(t);
+    const root = makeRepository(t, 'windowed');
+
+    const { stdout } = await binnInit(home, root, input, artifactRoots(home).env);
+
+    assert.match(stdout, /Claude Code: no sessions/);
+    assert.match(stdout, /Codex: no sessions/);
+    assert.ok(manifestOf(root).endsWith(`issues: docs/specs\n${windowSection(window)}`), manifestOf(root));
+    assert.equal(readManifest(root).manifest.telemetry.import.windowDays, window === 'all' ? 'all' : Number(window));
+    assert.match(stdout, /extended\s+\.binnacle\/project\.yaml: telemetry\.import\.window_days/);
+    if (input.includes('soon')) assert.match(stdout, /Answer 90, a number of days, or all/);
+  }
+});
+
+test('with a new manifest, end of input at the window question writes no window', async (t) => {
+  const home = makeHome(t);
+  const root = makeRepository(t, 'unanswered');
+
+  const { stdout } = await binnInit(home, root, 'y\n', artifactRoots(home).env);
+
+  assert.doesNotMatch(manifestOf(root), /telemetry/);
+  assert.match(stdout, /skipped\s+import window: no answer, so the default of 90 days applies/);
+});
+
+test('with an existing manifest the window line is printed, not written, and a declared window is left alone', async (t) => {
+  const home = makeHome(t);
+  const existing = 'version: 1\nproject:\n  id: kept\n';
+  const root = makeRepository(t, 'kept', { '.binnacle/project.yaml': existing });
+
+  const { stdout } = await binnInit(home, root, '14\n', artifactRoots(home).env);
+
+  assert.equal(manifestOf(root), existing);
+  assert.ok(stdout.includes('telemetry:\n  import:\n    window_days: 14\n'), stdout);
+  assert.match(stdout, /printed\s+the telemetry\.import\.window_days line for \.binnacle\/project\.yaml/);
+
+  const declaring = `${existing}${windowSection('all')}`;
+  writeFileSync(join(root, '.binnacle', 'project.yaml'), declaring);
+  const again = await binnInit(home, root, '14\n', artifactRoots(home).env);
+
+  assert.equal(manifestOf(root), declaring);
+  assert.doesNotMatch(again.stdout, /Import window/);
+  assert.match(again.stdout, /skipped\s+import window: \.binnacle\/project\.yaml declares all/);
 });
 

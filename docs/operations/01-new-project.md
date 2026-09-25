@@ -27,7 +27,7 @@ Expected responsibilities:
 - check required/recommended tools;
 - register the Binnacle MCP server in the config of every detected harness;
 - configure telemetry where supported;
-- report how much harness session history was found and how far back it goes, then ask how much to import: a recent window, everything, or nothing;
+- report how much harness session history was found and how far back it goes, then ask how much to import: a number of days, 90 by default, or everything;
 - create minimal project documentation hooks/templates;
 - never overwrite existing docs without confirmation.
 

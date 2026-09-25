@@ -9,6 +9,7 @@ export {
   readRuntime,
   readToken,
   registryPath,
+  resolveArtifactRoots,
   removeRuntime,
   resolveHome,
   resolveGitTimeout,
@@ -24,4 +25,6 @@ export { DaemonAlreadyRunningError, HEALTH_PATH, OPS_PREFIX, startDaemon, type D
 export { operations, type Operation, type OperationContext, type ProjectStatus } from './operations.ts';
 export { type ProjectRow } from './store.ts';
 export { readTracker } from './snapshot.ts';
+export { containingEntry } from './registry.ts';
+export { claudeCodeSessions, DEFAULT_WINDOW_DAYS, projectCheckouts } from './usage.ts';
 export { packageVersion } from './version.ts';

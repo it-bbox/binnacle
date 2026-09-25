@@ -11,7 +11,7 @@ import { limited, type Unavailable } from './snapshot.ts';
 import type { Ingested, IngestCursor, StoredUsage } from './store.ts';
 
 /** The import window when the manifest writes none: the horizon of Git's own reflog. */
-const DEFAULT_WINDOW_DAYS = 90;
+export const DEFAULT_WINDOW_DAYS = 90;
 
 /** How long a call waits for its project's ingest before answering from what is stored. */
 export const INGEST_BUDGET_MS = 1000;
@@ -180,7 +180,7 @@ const windowOf = (manifest: ProjectManifest | null): ImportWindow => manifest?.t
  */
 export function startIngest(context: OperationContext, projectPath: string, manifest: ProjectManifest | null, linked: string[]): Promise<string | null> {
   const window = windowOf(manifest);
-  const { files, failures } = candidates(context, [projectPath, ...linked]);
+  const { files, failures } = claudeCodeSessions(context.runtime.artifacts.claudeCode, [projectPath, ...linked]);
   const pending = files.filter((path) => {
     try {
       return readPosition(context.store.cursor(path), statSync(path).size, window) !== null;
@@ -229,11 +229,11 @@ export function startIngest(context: OperationContext, projectPath: string, mani
 const claudeCodeDirectory = (path: string): string => path.replace(/[^a-zA-Z0-9]/g, '-');
 
 /**
- * The main session files of the candidate directories of the project's directories, in its
- * own checkout and in each of its linked worktrees, and why a directory could not be listed.
+ * The main session files under Claude Code's `root` of the candidate directories of the
+ * project's directories, in its own checkout and in each of its linked worktrees, and why a
+ * directory could not be listed.
  */
-function candidates(context: OperationContext, directoriesOfProject: string[]): { files: string[]; failures: string[] } {
-  const root = context.runtime.artifacts.claudeCode;
+export function claudeCodeSessions(root: string, directoriesOfProject: string[]): { files: string[]; failures: string[] } {
   const prefixes = directoriesOfProject.map(claudeCodeDirectory);
   const failures: string[] = [];
 

@@ -1,20 +1,25 @@
 import { spawnSync } from 'node:child_process';
-import { accessSync, appendFileSync, constants, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { accessSync, appendFileSync, constants, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, delimiter, dirname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { readGitFacts, workingTree, type GitRemote } from '@binnacle/adapters';
-import { instructionSets, remoteLocation, TASK_STATES, type ProjectManifest, type TrackerProvider } from '@binnacle/core';
+import { instructionSets, remoteLocation, TASK_STATES, type ImportWindow, type ProjectManifest, type TrackerProvider } from '@binnacle/core';
 import {
+  claudeCodeSessions,
+  containingEntry,
   credentialsKey,
   credentialsPath,
+  DEFAULT_WINDOW_DAYS,
   isAlive,
   MANIFEST_RELATIVE,
   OperationError,
+  projectCheckouts,
   readManifest,
   readTracker,
   readRuntime,
+  resolveArtifactRoots,
   resolveGitTimeout,
 } from '@binnacle/daemon';
 import { EXIT, type ExitCode } from './exit.ts';
@@ -25,6 +30,8 @@ type Outcome = 'created' | 'extended' | 'printed' | 'ran' | 'checked' | 'failed'
 /** What one run of `binn init` knows and has done: where it works, how it asks, and what it will summarise. */
 type Session = {
   root: string;
+  /** The next line of input after `prompt`, or null at the end of input. */
+  answer(prompt: string): Promise<string | null>;
   ask(question: string): Promise<boolean>;
   say(text: string): void;
   outcomes: { outcome: Outcome; what: string }[];
@@ -32,8 +39,8 @@ type Session = {
 
 /**
  * `binn init [path]`: the one command that writes into a project's repository (ADR-0026).
- * Each step shows what it will do and asks, default no; the end of input is a no, so a
- * run without a terminal writes nothing. It never commits.
+ * Each step shows what it will do and asks, default no; the end of input is a no, or a
+ * default that writes nothing, so a run without a terminal writes nothing. It never commits.
  */
 export async function init(home: string, path?: string): Promise<ExitCode> {
   const git = await readGitFacts(resolve(path ?? process.cwd()), resolveGitTimeout());
@@ -43,23 +50,27 @@ export async function init(home: string, path?: string): Promise<ExitCode> {
   }
 
   const answers = createInterface({ input: process.stdin })[Symbol.asyncIterator]();
+  const answer = async (prompt: string): Promise<string | null> => {
+    process.stdout.write(prompt);
+    const next = await answers.next();
+    if (next.done) process.stdout.write('\n');
+    return next.done ? null : next.value;
+  };
   const session: Session = {
     root: git.root,
-    async ask(question) {
-      process.stdout.write(`${question} [y/N] `);
-      const answer = await answers.next();
-      if (answer.done) process.stdout.write('\n');
-      return !answer.done && /^\s*y(es)?\s*$/i.test(answer.value);
-    },
+    answer,
+    ask: async (question) => /^\s*y(es)?\s*$/i.test((await answer(`${question} [y/N] `)) ?? ''),
     say: (text) => console.log(text),
     outcomes: [],
   };
 
   try {
     session.say(`Setting up Binnacle in ${session.root}. Nothing is written without a yes.\n`);
-    const manifestUsable = await manifestStep(session, git.remotes);
+    const manifestState = await manifestStep(session, git.remotes);
     session.say('');
-    await registrationStep(session, home, manifestUsable);
+    await windowStep(session, manifestState);
+    session.say('');
+    await registrationStep(session, home, manifestState === 'created' || manifestState === 'valid');
     session.say('');
     await harnessStep(session);
     session.say('');
@@ -128,27 +139,31 @@ function record(session: Session, outcome: Outcome, what: string): void {
   session.outcomes.push({ outcome, what });
 }
 
+/** The manifest after its step: created by this run, there and valid, there with problems, or not there. */
+type ManifestState = 'created' | 'valid' | 'invalid' | 'missing';
+
 /**
  * Step 1: an existing manifest is validated and left alone; otherwise one is proposed from
- * facts. Answers whether the repository now has a usable manifest, which registration needs.
+ * facts. Registration needs a usable manifest, and the window step writes only into one
+ * this run created.
  */
-async function manifestStep(session: Session, remotes: GitRemote[]): Promise<boolean> {
+async function manifestStep(session: Session, remotes: GitRemote[]): Promise<ManifestState> {
   try {
     const { warnings } = readManifest(session.root);
     session.say(`${MANIFEST_RELATIVE} exists and is valid. It is left as it is.`);
     for (const warning of warnings) session.say(`  ${warning.path}: ${warning.message}`);
     record(session, 'skipped', `${MANIFEST_RELATIVE}: it exists`);
-    return true;
+    return 'valid';
   } catch (error) {
     if (!(error instanceof OperationError)) throw error;
     if (error.code === 'manifest.missing') {
-      return await offerFile(session, MANIFEST_RELATIVE, proposeManifest(session.root, remotes));
+      return (await offerFile(session, MANIFEST_RELATIVE, proposeManifest(session.root, remotes))) ? 'created' : 'missing';
     }
     session.say(`${MANIFEST_RELATIVE} exists and has problems. It is left as it is; fix it by hand.`);
     session.say(`  ${error.code}: ${error.message}`);
     for (const detail of error.details ?? []) session.say(`  ${detail.path}: ${detail.message}`);
     record(session, 'skipped', `${MANIFEST_RELATIVE}: it exists, with problems`);
-    return false;
+    return 'invalid';
   }
 }
 
@@ -196,7 +211,154 @@ function forgeRemote(remotes: GitRemote[]): { provider: 'github' | 'gitlab'; hos
 const scalar = (value: string): string =>
   /^[A-Za-z_][\w./-]*$/.test(value) && !/^(true|false|null|yes|no|on|off|y|n)$/i.test(value) ? value : JSON.stringify(value);
 
-/** Step 2: registration through `project.register`, which is a write outside the repository and asked for too. */
+/**
+ * Step 2: how much session history the daemon imports, `telemetry.import.window_days`, asked
+ * after showing each harness's sessions in this repository. A manifest this run created takes
+ * the answer; for an existing one the line is printed, never written (ADR-0026). The end of
+ * input takes the default and writes nothing.
+ */
+async function windowStep(session: Session, manifest: ManifestState): Promise<void> {
+  const what = 'import window';
+  session.say('Session history in this repository, which Binnacle imports for its usage figures:');
+  for (const { name, sessions, oldest } of await sessionHistory(session.root)) {
+    const shown = sessions === 0 ? 'no sessions' : `${sessions} session${sessions === 1 ? '' : 's'}, the oldest from ${localDate(oldest)}`;
+    session.say(`  ${name}: ${shown}`);
+  }
+
+  if (manifest === 'missing') {
+    session.say(
+      `There is no ${MANIFEST_RELATIVE} to take an import window, so Binnacle imports the default of ${DEFAULT_WINDOW_DAYS} days. ` +
+        'Set telemetry.import.window_days in it to change that.',
+    );
+    return record(session, 'skipped', `${what}: no manifest`);
+  }
+  const declared = manifest === 'valid' ? (declaredManifest(session.root)?.telemetry.import.windowDays ?? null) : null;
+  if (declared !== null) {
+    session.say(`${MANIFEST_RELATIVE} declares telemetry.import.window_days: ${declared}. It is left as it is.`);
+    return record(session, 'skipped', `${what}: ${MANIFEST_RELATIVE} declares ${declared}`);
+  }
+
+  session.say(
+    `How much of it should Binnacle import? ${DEFAULT_WINDOW_DAYS} days (the default), another number of days, or all. ` +
+      (manifest === 'created'
+        ? `The answer goes at the end of ${MANIFEST_RELATIVE}, as telemetry.import.window_days.`
+        : `${MANIFEST_RELATIVE} exists, so the line to add is printed and nothing is written.`),
+  );
+  let window: ImportWindow | null;
+  do {
+    const answer = await session.answer(`Import window [${DEFAULT_WINDOW_DAYS}]: `);
+    if (answer === null) {
+      session.say(`No answer: Binnacle imports the default of ${DEFAULT_WINDOW_DAYS} days, and nothing is written.`);
+      return record(session, 'skipped', `${what}: no answer, so the default of ${DEFAULT_WINDOW_DAYS} days applies`);
+    }
+    window = importWindow(answer);
+    if (window === null) session.say(`Answer ${DEFAULT_WINDOW_DAYS}, a number of days, or all.`);
+  } while (window === null);
+
+  const section = `telemetry:\n  import:\n    window_days: ${window}\n`;
+  if (manifest === 'created') {
+    // The proposal ends with a newline and declares no telemetry, so this is a new last section.
+    appendFileSync(join(session.root, MANIFEST_RELATIVE), `\n${section}`);
+    return record(session, 'extended', `${MANIFEST_RELATIVE}: telemetry.import.window_days: ${window}`);
+  }
+  session.say(`Add this to ${MANIFEST_RELATIVE} yourself:\n\n${section}`);
+  record(session, 'printed', `the telemetry.import.window_days line for ${MANIFEST_RELATIVE}`);
+}
+
+/** An answer to the window question: empty for the default, `all`, or a positive number of days; null for anything else. */
+function importWindow(answer: string): ImportWindow | null {
+  const text = answer.trim().toLowerCase();
+  if (text === '') return DEFAULT_WINDOW_DAYS;
+  if (text === 'all') return 'all';
+  const days = Number(text);
+  return /^\d+$/.test(text) && Number.isSafeInteger(days) && days > 0 ? days : null;
+}
+
+/**
+ * Where each harness keeps its session files, and where a session names its `cwd`: Claude
+ * Code on any record that has one, Codex on its `session_meta` record, which comes first.
+ */
+const HISTORIES: { name: string; files(directories: string[]): string[]; cwd(record: Record<string, unknown>): unknown }[] = [
+  {
+    name: 'Claude Code',
+    files: (directories) => claudeCodeSessions(resolveArtifactRoots().claudeCode, directories).files,
+    cwd: (record) => record.cwd,
+  },
+  {
+    name: 'Codex',
+    // Ticket 05 of the telemetry spec puts this root into the daemon's artifact roots.
+    files: () => jsonlFilesUnder(join(process.env.CODEX_HOME?.trim() || join(homedir(), '.codex'), 'sessions')),
+    cwd: (record) => (record.type === 'session_meta' && isRecord(record.payload) ? record.payload.cwd : undefined),
+  },
+];
+
+/**
+ * Per harness, the sessions whose `cwd` lies in `root` or in the same directory of one of its
+ * linked worktrees, as the daemon attributes them, and the start of the oldest, in
+ * milliseconds. Each file is read only up to its first record that names a `cwd`, which also
+ * gives the session's start; a file with no such record, or none that can be read, is not counted.
+ */
+async function sessionHistory(root: string): Promise<{ name: string; sessions: number; oldest: number }[]> {
+  const directories = [root, ...(await projectCheckouts(root)).linked];
+  const places = directories.map((path) => ({ path }));
+  const counted = [];
+  for (const { name, files, cwd } of HISTORIES) {
+    let sessions = 0;
+    let oldest = Infinity;
+    for (const path of files(directories)) {
+      const start = await sessionStart(path, cwd);
+      if (!start || !containingEntry(start.cwd, places)) continue;
+      sessions += 1;
+      oldest = Math.min(oldest, start.time);
+    }
+    counted.push({ name, sessions, oldest });
+  }
+  return counted;
+}
+
+async function sessionStart(path: string, cwdOf: (record: Record<string, unknown>) => unknown): Promise<{ cwd: string; time: number } | null> {
+  const input = createReadStream(path);
+  const lines = createInterface({ input, crlfDelay: Infinity });
+  try {
+    for await (const line of lines) {
+      let record: unknown;
+      try {
+        record = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      if (!isRecord(record)) continue;
+      const cwd = cwdOf(record);
+      if (typeof cwd !== 'string') continue;
+      const time = typeof record.timestamp === 'string' ? Date.parse(record.timestamp) : NaN;
+      return Number.isNaN(time) ? null : { cwd, time };
+    }
+    return null;
+  } catch {
+    // A file that vanished or cannot be opened is not counted.
+    return null;
+  } finally {
+    lines.close();
+    input.destroy();
+  }
+}
+
+function jsonlFilesUnder(directory: string): string[] {
+  try {
+    return readdirSync(directory, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.jsonl'))
+      .map((entry) => join(entry.parentPath, entry.name));
+  } catch {
+    return [];
+  }
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/** `YYYY-MM-DD` in local time. */
+const localDate = (time: number): string => new Date(time).toLocaleDateString('en-CA');
+
+/** Step 3: registration through `project.register`, which is a write outside the repository and asked for too. */
 async function registrationStep(session: Session, home: string, manifestUsable: boolean): Promise<void> {
   const what = 'project registration';
   if (!manifestUsable) {
@@ -280,7 +442,7 @@ const HARNESSES: Harness[] = [
   },
 ];
 
-/** Step 3: the MCP registration for each detected harness, then a generic snippet for any other. */
+/** Step 4: the MCP registration for each detected harness, then a generic snippet for any other. */
 async function harnessStep(session: Session): Promise<void> {
   const found = HARNESSES.map((harness) => ({ harness, reason: detect(harness) })).filter(({ reason }) => reason !== null);
   if (found.length === 0) session.say(`No known harness is installed (${HARNESSES.map(({ name }) => name).join(', ')}).\n`);
@@ -342,7 +504,7 @@ const namesBinnacle = (text: string): boolean =>
 const PACKAGE_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
 
 /**
- * Step 4: the `binnacle` plugin from this very package, so that the skills match the `binn`
+ * Step 5: the `binnacle` plugin from this very package, so that the skills match the `binn`
  * that serves their tools (ADR-0027). Only through Claude Code's own CLI, at user scope:
  * binn init never edits Claude Code's settings files.
  */
@@ -422,7 +584,7 @@ const mattPocockFiles = (root: string): string[] =>
 const TICKET_HEADER_HEADING = /^#{1,6}\s+Ticket header\s*$/im;
 
 /**
- * Step 5: `/to-tickets` learns the ticket header (ADR-0024) from the issue tracker file, so the
+ * Step 6: `/to-tickets` learns the ticket header (ADR-0024) from the issue tracker file, so the
  * section is offered as an append to it. `provider` is the tracker the manifest declares, or
  * the one it would propose.
  */
@@ -504,7 +666,7 @@ Spec: \`docs/specs/<slug>/spec.md\`
 `;
 }
 
-/** Step 6: the agent instruction files, reported as the sets an agent reads. Nothing is written to either. */
+/** Step 7: the agent instruction files, reported as the sets an agent reads. Nothing is written to either. */
 function instructionsStep(session: Session): void {
   const files = Object.fromEntries(
     ['AGENTS.md', 'CLAUDE.md']
@@ -519,7 +681,7 @@ function instructionsStep(session: Session): void {
 }
 
 /**
- * Step 7: one read of a remote tracker through its adapter, with the credentials lookup the
+ * Step 8: one read of a remote tracker through its adapter, with the credentials lookup the
  * daemon uses. On a failure it says how to make a read-only token and where to put it; it
  * never asks for, stores or prints one. `manifest` is the readable manifest, if any.
  */
