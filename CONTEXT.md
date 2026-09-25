@@ -48,6 +48,11 @@ The normalised signal for a session outgrowing its context: cumulative input plu
 ### AgentRun
 One concrete run of a coding agent in a given role, harness/provider/model/profile. A single Task may have several AgentRuns.
 
+An AgentRun observed in a session artifact is one unbroken stretch of a session in one checkout on one branch: a session that switches branch becomes two AgentRuns, each attributed on its own. A subagent's session is an AgentRun of its own, linked to the run that started it. Its role comes from its branch — the default branch is Product work, a ticket's branch is implementation, anything else is unknown. An observed AgentRun has no lifecycle state, because an artifact cannot tell a finished run from an abandoned one; whether it is active is read from its latest activity.
+
+### Unassigned
+Usage attributed to a Project but to no Task, because no branch mapping to a Task can be proven for it. It is a first-class outcome, never a guess.
+
 ### Spec
 A durable document describing intended behaviour. It lives in Git, next to the code it describes.
 
