@@ -93,10 +93,7 @@ function statusFailure(name: Forge['name'], response: Response, where: string, a
   if (status === 429 || (status === 403 && (headers.get('x-ratelimit-remaining') === '0' || headers.has('retry-after')))) {
     return ['tracker.rate_limited', `${name} rate-limited the reading of ${where} (${status}).`];
   }
-  if (status === 401) {
-    const refused = authenticated ? 'rejected the token' : 'refused an anonymous request';
-    return ['tracker.unauthorized', `${name} ${refused} for ${where} (401); ${used}.`];
-  }
+  if (status === 401) return ['tracker.unauthorized', `${name} refused the request for ${where} (401); ${used}.`];
   if (status === 403) return ['tracker.forbidden', `${name} gave no read access to the issues of ${where} (403); ${used}.`];
   if (status === 404 || status === 410) return ['tracker.not_found', `${name} has nothing at ${where} with issues visible to this request (${status}); ${used}.`];
   return ['tracker.unreachable', `${name} answered ${status} for ${where}.`];
