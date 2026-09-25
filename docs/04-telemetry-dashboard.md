@@ -108,6 +108,6 @@ It surfaces as an attention item suggesting `/checkpoint`. Thresholds are config
 
 ## Historical import
 
-Session archives are large — hundreds of megabytes per harness is normal. `binn init` reports how many sessions each harness has in the repository and how far back they go, reading only the start of each, then asks how much to import: a number of days, 90 by default, or `all`. The answer is `telemetry.import.window_days` in the manifest. The import itself runs in the daemon, and never keeps a call waiting longer than a fixed budget.
+Session archives are large — hundreds of megabytes per harness is normal. `binn init` reports how many sessions each harness has in the repository and how far back they go, reading only the start of each, then asks how much to import: a number of days, 90 by default, or `all`. The answer is `telemetry.import.window_days` in the manifest.
 
 Records whose task attribution cannot be proven are kept at project level as `unassigned` rather than guessed.

@@ -323,7 +323,7 @@ test('registration with a running daemon', async (t) => {
   });
 
   await t.test('declining registration skips only registration', () => {
-    const result = binn(root, 'y\n\nn\n', 'init');
+    const result = binn(root, 'y\n\ny\nn\n', 'init');
     assert.equal(result.status, 0, result.stderr);
     assert.match(manifestOf(root), /id: tracked/);
     assert.match(result.stdout, /declined\s+project registration/);
@@ -482,8 +482,8 @@ test('the ticket-header section is appended to the issue tracker file once, and 
   const root = makeRepository(t, 'layout', { [TRACKER_FILE]: conventions, 'docs/agents/triage-labels.md': '# Triage\n' });
   const before = commits(root);
 
-  // The manifest, the default window, then the section; with no daemon, registration asks nothing.
-  const first = binnIn(home)(root, 'y\n\ny\n', 'init');
+  // The manifest, the default window and its addition, then the section; with no daemon, registration asks nothing.
+  const first = binnIn(home)(root, 'y\n\ny\ny\n', 'init');
   assert.equal(first.status, 0, first.stderr);
   const extended = readFileSync(join(root, TRACKER_FILE), 'utf8');
   assert.ok(extended.startsWith(`${conventions}\n\n## Ticket header\n`), extended);
@@ -785,11 +785,11 @@ test("the import window step shows each harness's sessions in this repository an
   assert.equal(git(root, 'status', '--porcelain'), '');
 });
 
-test('a new manifest gets the window answered: 90 by default, all, or a number of days', async (t) => {
+test('a new manifest is offered the window answered: 90 by default, all, or a number of days', async (t) => {
   for (const [input, window] of [
-    ['y\n\n', '90'],
-    ['y\nall\n', 'all'],
-    ['y\nsoon\n30\n', '30'],
+    ['y\n\ny\n', '90'],
+    ['y\nall\ny\n', 'all'],
+    ['y\nsoon\n30\ny\n', '30'],
   ] as const) {
     const home = makeHome(t);
     const root = makeRepository(t, 'windowed');
@@ -800,12 +800,15 @@ test('a new manifest gets the window answered: 90 by default, all, or a number o
     assert.match(stdout, /Codex: no sessions/);
     assert.ok(manifestOf(root).endsWith(`issues: docs/specs\n${windowSection(window)}`), manifestOf(root));
     assert.equal(readManifest(root).manifest.telemetry.import.windowDays, window === 'all' ? 'all' : Number(window));
-    assert.match(stdout, /extended\s+\.binnacle\/project\.yaml: telemetry\.import\.window_days/);
+    // The exact addition is shown before its question (ADR-0026).
+    const shown = stdout.indexOf(windowSection(window));
+    assert.ok(shown >= 0 && shown < stdout.indexOf('Append to .binnacle/project.yaml?'), stdout);
+    assert.match(stdout, /extended\s+\.binnacle\/project\.yaml/);
     if (input.includes('soon')) assert.match(stdout, /Answer 90, a number of days, or all/);
   }
 });
 
-test('with a new manifest, end of input at the window question writes no window', async (t) => {
+test('with a new manifest, end of input at the window question, or a no to its addition, writes no window', async (t) => {
   const home = makeHome(t);
   const root = makeRepository(t, 'unanswered');
 
@@ -813,6 +816,12 @@ test('with a new manifest, end of input at the window question writes no window'
 
   assert.doesNotMatch(manifestOf(root), /telemetry/);
   assert.match(stdout, /skipped\s+import window: no answer, so the default of 90 days applies/);
+
+  const declining = makeRepository(t, 'declining');
+  const declined = await binnInit(home, declining, 'y\nall\nn\n', artifactRoots(home).env);
+
+  assert.doesNotMatch(manifestOf(declining), /telemetry/);
+  assert.match(declined.stdout, /declined\s+append to \.binnacle\/project\.yaml/);
 });
 
 test('with an existing manifest the window line is printed, not written, and a declared window is left alone', async (t) => {

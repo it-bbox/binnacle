@@ -213,9 +213,9 @@ const scalar = (value: string): string =>
 
 /**
  * Step 2: how much session history the daemon imports, `telemetry.import.window_days`, asked
- * after showing each harness's sessions in this repository. A manifest this run created takes
- * the answer; for an existing one the line is printed, never written (ADR-0026). The end of
- * input takes the default and writes nothing.
+ * after showing each harness's sessions in this repository. A manifest this run created is
+ * offered the answer as an addition; for an existing one the line is printed, never written
+ * (ADR-0026). The end of input takes the default and writes nothing.
  */
 async function windowStep(session: Session, manifest: ManifestState): Promise<void> {
   const what = 'import window';
@@ -241,7 +241,7 @@ async function windowStep(session: Session, manifest: ManifestState): Promise<vo
   session.say(
     `How much of it should Binnacle import? ${DEFAULT_WINDOW_DAYS} days (the default), another number of days, or all. ` +
       (manifest === 'created'
-        ? `The answer goes at the end of ${MANIFEST_RELATIVE}, as telemetry.import.window_days.`
+        ? `The answer is offered as an addition to ${MANIFEST_RELATIVE}, as telemetry.import.window_days.`
         : `${MANIFEST_RELATIVE} exists, so the line to add is printed and nothing is written.`),
   );
   let window: ImportWindow | null;
@@ -257,9 +257,9 @@ async function windowStep(session: Session, manifest: ManifestState): Promise<vo
 
   const section = `telemetry:\n  import:\n    window_days: ${window}\n`;
   if (manifest === 'created') {
-    // The proposal ends with a newline and declares no telemetry, so this is a new last section.
-    appendFileSync(join(session.root, MANIFEST_RELATIVE), `\n${section}`);
-    return record(session, 'extended', `${MANIFEST_RELATIVE}: telemetry.import.window_days: ${window}`);
+    // Shown and confirmed like any other addition. The proposal declares no telemetry, so this is a new last section.
+    await offerFile(session, MANIFEST_RELATIVE, `\n${section}`);
+    return;
   }
   session.say(`Add this to ${MANIFEST_RELATIVE} yourself:\n\n${section}`);
   record(session, 'printed', `the telemetry.import.window_days line for ${MANIFEST_RELATIVE}`);
@@ -286,7 +286,8 @@ const HISTORIES: { name: string; files(directories: string[]): string[]; cwd(rec
   },
   {
     name: 'Codex',
-    // Ticket 05 of the telemetry spec puts this root into the daemon's artifact roots.
+    // ponytail: the daemon's rule for this root, resolved here until ticket 05 of the telemetry
+    // spec puts it into the daemon's artifact roots; then use `resolveArtifactRoots().codex`.
     files: () => jsonlFilesUnder(join(process.env.CODEX_HOME?.trim() || join(homedir(), '.codex'), 'sessions')),
     cwd: (record) => (record.type === 'session_meta' && isRecord(record.payload) ? record.payload.cwd : undefined),
   },
@@ -296,31 +297,37 @@ const HISTORIES: { name: string; files(directories: string[]): string[]; cwd(rec
  * Per harness, the sessions whose `cwd` lies in `root` or in the same directory of one of its
  * linked worktrees, as the daemon attributes them, and the start of the oldest, in
  * milliseconds. Each file is read only up to its first record that names a `cwd`, which also
- * gives the session's start; a file with no such record, or none that can be read, is not counted.
+ * gives the session's start; a file with no such record among its first `START_LINES`, or
+ * none that can be read, is not counted.
  */
 async function sessionHistory(root: string): Promise<{ name: string; sessions: number; oldest: number }[]> {
   const directories = [root, ...(await projectCheckouts(root)).linked];
-  const places = directories.map((path) => ({ path }));
-  const counted = [];
+  const checkouts = directories.map((path) => ({ path }));
+  const histories = [];
   for (const { name, files, cwd } of HISTORIES) {
     let sessions = 0;
     let oldest = Infinity;
     for (const path of files(directories)) {
       const start = await sessionStart(path, cwd);
-      if (!start || !containingEntry(start.cwd, places)) continue;
+      if (!start || !containingEntry(start.cwd, checkouts)) continue;
       sessions += 1;
       oldest = Math.min(oldest, start.time);
     }
-    counted.push({ name, sessions, oldest });
+    histories.push({ name, sessions, oldest });
   }
-  return counted;
+  return histories;
 }
+
+/** How far into a file its first record naming a `cwd` is looked for: the owner's sessions have it by line 30. */
+const START_LINES = 100;
 
 async function sessionStart(path: string, cwdOf: (record: Record<string, unknown>) => unknown): Promise<{ cwd: string; time: number } | null> {
   const input = createReadStream(path);
   const lines = createInterface({ input, crlfDelay: Infinity });
   try {
+    let read = 0;
     for await (const line of lines) {
+      if (++read > START_LINES) return null;
       let record: unknown;
       try {
         record = JSON.parse(line);
