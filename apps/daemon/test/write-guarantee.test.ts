@@ -9,8 +9,9 @@ import { operations } from '../src/operations.ts';
 import { startTestDaemon } from '../src/testing.ts';
 
 /**
- * The write guarantee (ADR-0020): no daemon operation writes into a project's repository.
- * `binn init` is the only code in Binnacle that does, and it is not the daemon.
+ * The write guarantee (ADR-0020): no daemon operation writes into a project's repository,
+ * nor into the harnesses' artifact directories it reads usage from. `binn init` is the only
+ * code in Binnacle that writes into a repository, and it is not the daemon.
  *
  * The operation table is the list of what the daemon exposes, so an operation added later
  * is called here without this test naming it. Each is sent the fixture's `path`, plus its
@@ -89,11 +90,27 @@ function contents(root: string): Map<string, string> {
   return files;
 }
 
-it('no daemon operation changes the working tree, the index or anything else in the repository', async () => {
-  const daemon = await startTestDaemon();
+/** A Claude Code session of the repository, from the fixture cut from a real one. */
+function makeArtifacts(root: string): string {
+  const artifacts = realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-write-guarantee-claude-')));
+  roots.push(artifacts);
+  const fixture = readFileSync(join(import.meta.dirname, 'fixtures', 'claude-code', 'grill-on-main.jsonl'), 'utf8');
+  const now = new Date().toISOString();
+  const lines = fixture
+    .trim()
+    .split('\n')
+    .map((line) => `${JSON.stringify({ ...(JSON.parse(line) as object), cwd: root, timestamp: now })}\n`);
+  write(artifacts, join(root.replace(/[^a-zA-Z0-9]/g, '-'), 'session.jsonl'), lines.join(''));
+  return artifacts;
+}
+
+it('no daemon operation changes the working tree, the index or anything else in the repository, or the artifacts it reads', async () => {
+  const root = makeRepository();
+  const artifacts = makeArtifacts(root);
+  const daemon = await startTestDaemon({ artifacts: { claudeCode: artifacts } });
   try {
-    const root = makeRepository();
     const before = contents(root);
+    const artifactsBefore = contents(artifacts);
     assert.ok(before.has(join('.git', 'index')));
 
     for (const name of Object.keys(operations)) {
@@ -102,7 +119,11 @@ it('no daemon operation changes the working tree, the index or anything else in 
       const result = await daemon.call(name, { path: root, ...INPUT[name] });
       assert.equal(result.status, 200, `${name}: ${JSON.stringify(result.body)}`);
       assert.deepEqual(contents(root), before, `${name} changed the repository`);
+      assert.deepEqual(contents(artifacts), artifactsBefore, `${name} changed the artifacts`);
     }
+    // The artifacts were read, not merely present.
+    const snapshot = await daemon.call<{ usage: { today: { records: number } } }>('project.snapshot', { path: root });
+    assert.equal(snapshot.body.usage.today.records, 1);
   } finally {
     await daemon.stop();
   }

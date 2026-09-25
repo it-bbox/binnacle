@@ -15,6 +15,7 @@ import {
 import { resolveGitTimeout, trackerToken } from './home.ts';
 import type { Projected } from './projection.ts';
 import type { ProjectRow } from './store.ts';
+import type { Usage } from './usage.ts';
 
 /**
  * The Product Snapshot (`project.snapshot`): a compact, fixed-shape projection for a fresh
@@ -50,7 +51,7 @@ export type CallerCheckout = {
 
 /** A section Binnacle cannot fill yet. It is present and says so, and is never filled with a guess (ADR-0007). */
 export type Unavailable = { available: false; reason: string };
-const UNAVAILABLE: Unavailable = { available: false, reason: 'Not available in this version of Binnacle.' };
+export const UNAVAILABLE: Unavailable = { available: false, reason: 'Not available in this version of Binnacle.' };
 
 export type Snapshot = {
   project: ProjectRow;
@@ -84,7 +85,7 @@ export type Snapshot = {
   decisions: { items: { title: string | null; path: string }[]; remainder: number } | null;
   pendingDecisions: Unavailable;
   ci: Unavailable;
-  usage: Unavailable;
+  usage: Usage;
   /** Deterministic checks and diagnostics only; nothing heuristic. */
   attention: Diagnostic[];
 };
@@ -93,7 +94,7 @@ export type Snapshot = {
  * `diagnostics` are the caller's own findings about the checkout, such as a tracker-remote
  * mismatch; `home` is the Binnacle home, where a remote tracker's credentials are.
  */
-export async function snapshot(home: string, projected: Projected, caller: CallerCheckout, diagnostics: Diagnostic[]): Promise<Snapshot> {
+export async function snapshot(home: string, projected: Projected, caller: CallerCheckout, diagnostics: Diagnostic[], usage: Usage): Promise<Snapshot> {
   const tree = workingTree(caller.project);
   const { tasks, roadmap, adrs, attention } = await readState(home, tree, projected, diagnostics);
 
@@ -106,7 +107,7 @@ export async function snapshot(home: string, projected: Projected, caller: Calle
     decisions: adrs && (await recentDecisions(tree, caller.project, adrs)),
     pendingDecisions: UNAVAILABLE,
     ci: UNAVAILABLE,
-    usage: UNAVAILABLE,
+    usage,
     attention,
   };
 }

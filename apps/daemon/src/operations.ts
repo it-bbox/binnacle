@@ -1,17 +1,18 @@
 import { existsSync, realpathSync } from 'node:fs';
-import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative } from 'node:path';
 import { readGitFacts, readGitLocation, workingTree, type GitFacts } from '@binnacle/adapters';
 import { trackerRemoteMismatch, type Diagnostic, type ProjectManifest } from '@binnacle/core';
 import { OperationError, pathNotFound } from './errors.ts';
 import { resolveGitTimeout, type Runtime } from './home.ts';
 import { readManifest } from './manifest.ts';
 import { projectRegistry, reproject } from './projection.ts';
-import { readRegistry, writeRegistry, type RegistryEntry } from './registry.ts';
+import { containingEntry, readRegistry, writeRegistry, type RegistryEntry } from './registry.ts';
 import { promotedItems, promotionDiagnostics, promotionTargets } from './checkpoint.ts';
 import { BASELINE_EVENTS, committedHead, daily, isRemoteTracker, taskStates, type Baseline, type BaselineEvent, type TaskStates } from './daily.ts';
 import { readTasks, snapshot, type CallerCheckout } from './snapshot.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type ProjectRow, type Store } from './store.ts';
 import { taskBrief } from './task.ts';
+import { usage } from './usage.ts';
 
 export type OperationContext = {
   home: string;
@@ -104,11 +105,13 @@ export const operations: Record<string, Operation> = {
   },
 
   // Read now, on every call, from the caller's checkout; nothing in a snapshot is stored.
+  // Its usage is the one exception, read from the records the call first ingests.
   'project.snapshot': async (body, context) => {
     const path = repositoryPath(body, { mustExist: false });
     const projected = reproject(context.store, await resolveEntry(path, context));
     const caller = await callerCheckout(path, projected.row.path);
-    return snapshot(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git));
+    const used = usage(context, projected.row.path, projected.manifest);
+    return snapshot(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git), used);
   },
 
   /**
@@ -249,20 +252,6 @@ function remoteMismatch(manifest: ProjectManifest | null, git: GitFacts): Diagno
         )
       : null;
   return mismatch ? [mismatch] : [];
-}
-
-/**
- * The registered project whose directory is `path` or contains it, so that an agent that
- * knows only its working directory — wherever the harness happened to start it — finds
- * its project. The deepest registration wins, which is the one that was meant when one
- * project is nested inside another.
- */
-function containingEntry(path: string, entries: RegistryEntry[]): RegistryEntry | undefined {
-  const contains = (entry: RegistryEntry): boolean => {
-    const inside = relative(entry.path, path);
-    return inside === '' || (!isAbsolute(inside) && inside.split(sep)[0] !== '..');
-  };
-  return entries.filter(contains).sort((a, b) => b.path.length - a.path.length)[0];
 }
 
 /** The head of the latest event of `types` for the project, which a delta starts from, and the Task states it recorded. */

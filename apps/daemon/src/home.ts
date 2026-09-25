@@ -173,7 +173,17 @@ export type Runtime = {
   port: number;
   startedAt: string;
   version: string;
+  artifacts: ArtifactRoots;
 };
+
+/** Where each harness keeps the session artifacts the daemon reads usage from. It only ever reads there. */
+export type ArtifactRoots = { claudeCode: string };
+
+/** Claude Code's: `$CLAUDE_CONFIG_DIR/projects`, otherwise `~/.claude/projects`. */
+export function resolveArtifactRoots(env: NodeJS.ProcessEnv = process.env): ArtifactRoots {
+  const config = env.CLAUDE_CONFIG_DIR?.trim();
+  return { claudeCode: join(config ? config : join(homedir(), '.claude'), 'projects') };
+}
 
 export function writeRuntime(home: string, runtime: Runtime): void {
   writeFileSync(runtimePath(home), `${JSON.stringify(runtime, null, 2)}\n`, { mode: OWNER_ONLY_FILE });

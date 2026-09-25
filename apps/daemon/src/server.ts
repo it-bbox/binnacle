@@ -6,6 +6,7 @@ import {
   ensureToken,
   isAlive,
   readRuntime,
+  resolveArtifactRoots,
   releaseRuntime,
   removeRuntime,
   tryClaimRuntime,
@@ -40,6 +41,8 @@ export type DaemonOptions = {
   /** `0` takes an ephemeral port. */
   port?: number;
   host?: string;
+  /** Resolved from the environment when omitted. */
+  artifacts?: Runtime['artifacts'];
 };
 
 export type Daemon = {
@@ -64,6 +67,7 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
     port: requestedPort,
     startedAt: new Date().toISOString(),
     version: VERSION,
+    artifacts: options.artifacts ?? resolveArtifactRoots(),
   };
   const token = ensureToken(home);
 

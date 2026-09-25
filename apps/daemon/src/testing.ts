@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { Runtime } from './home.ts';
+import type { ArtifactRoots, Runtime } from './home.ts';
 import { OPS_PREFIX, startDaemon } from './server.ts';
 
 /**
@@ -33,10 +33,14 @@ export type TestDaemon = {
   stop(): Promise<void>;
 };
 
-export async function startTestDaemon(options: { home?: string } = {}): Promise<TestDaemon> {
+/**
+ * `artifacts` defaults to a directory inside the home that does not exist, so that no test
+ * reads the harness artifacts of the machine it runs on.
+ */
+export async function startTestDaemon(options: { home?: string; artifacts?: ArtifactRoots } = {}): Promise<TestDaemon> {
   const home = options.home ?? mkdtempSync(join(tmpdir(), 'binnacle-test-'));
   const temporary = options.home === undefined;
-  const daemon = await startDaemon({ home, port: 0 });
+  const daemon = await startDaemon({ home, port: 0, artifacts: options.artifacts ?? { claudeCode: join(home, 'no-claude-code-artifacts') } });
   const url = (path: string): string => `http://${daemon.runtime.host}:${daemon.runtime.port}${path}`;
 
   return {

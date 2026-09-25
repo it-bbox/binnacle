@@ -106,15 +106,16 @@ id, question_id, author_role, body_ref/body, created_at
 
 ## RawIngestRecord
 
-The normalised record parsed out of a harness artifact, with its provenance: metadata and token counts only, never content. This table is append-only and is migrated rather than rebuilt (ADR-0015), because the artifact it came from may no longer exist. The branch is resolved when the record is ingested, because the reflog it may come from can disappear; the Task is resolved on read.
+The normalised record parsed out of a harness artifact, with its provenance: metadata and token counts only, never content. This table (`ingested_record`) is append-only and is migrated rather than rebuilt (ADR-0015), because the artifact it came from may no longer exist. The branch is resolved when the record is ingested, because the reflog it may come from can disappear; the Task is resolved on read.
 
 ```text
 id
-project_id
+project_path       the registered project its cwd lies in; a record in none is never stored
 harness
 natural_key        unique per harness: Claude Code's message id, Codex's record ordinal
 session_id
 subagent_id?
+parent_session?
 source_ref         the artifact file
 timestamp
 cwd
@@ -127,9 +128,11 @@ cached_input?
 cache_creation?
 output?
 reasoning?
-provenance         per field where it differs
+provenance         one per record; every field of a record shares it
 ingested_at
 ```
+
+Beside it, in the same tier, one cursor per artifact file (`ingest_cursor`): its path, its size, the byte offset and line read to, and the import window it was read under. A file's records and its cursor commit in one transaction, so a call reads only what was appended since the last.
 
 ## TelemetryRecord
 

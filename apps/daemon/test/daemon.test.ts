@@ -61,6 +61,7 @@ describe('daemon operations', () => {
         port: daemon.runtime.port,
         startedAt: body.startedAt,
         version: daemon.runtime.version,
+        artifacts: daemon.runtime.artifacts,
       });
       assert.ok(!Number.isNaN(Date.parse(String(body.startedAt))), 'startedAt is a timestamp');
       assert.match(String(body.version), /^\d+\.\d+\.\d+/);
@@ -325,7 +326,9 @@ describe('ADR-0012: the daemon opens no outbound connections but its tracker rea
   it('has no outbound client in its runtime sources, bar the platform fetch in a tracker adapter, and no runtime dependencies', () => {
     const source = new URL('../src/', import.meta.url);
     // The Git adapter runs inside the daemon, so its sources are the daemon's too.
+    // The telemetry package runs inside the daemon too.
     const adapters = new URL('../../../packages/adapters/src/', import.meta.url);
+    const telemetry = new URL('../../../packages/telemetry/src/', import.meta.url);
     const runtimeSources = [
       ...readdirSync(source)
         .filter((name) => name.endsWith('.ts') && name !== 'testing.ts')
@@ -333,6 +336,9 @@ describe('ADR-0012: the daemon opens no outbound connections but its tracker rea
       ...readdirSync(adapters)
         .filter((name) => name.endsWith('.ts'))
         .map((name) => new URL(name, adapters)),
+      ...readdirSync(telemetry)
+        .filter((name) => name.endsWith('.ts'))
+        .map((name) => new URL(name, telemetry)),
     ];
     assert.ok(runtimeSources.length > 0);
 
@@ -356,9 +362,10 @@ describe('ADR-0012: the daemon opens no outbound connections but its tracker rea
     // Every runtime dependency is named here on purpose. The property under test is that
     // nothing the daemon runs can reach the network or a model, not that the list is empty:
     // Node has no YAML parser, and the project manifest is YAML. The adapters package is
-    // this repository's own and is scanned above; its only dependency is core, whose own
-    // test holds it to no dependencies and no imports at all.
-    const allowed = new Set(['@binnacle/adapters', '@binnacle/core', 'yaml']);
+    // this repository's own and is scanned above; its only dependencies are core, whose own
+    // test holds it to no dependencies and no imports at all, and telemetry, scanned above
+    // and held here to none.
+    const allowed = new Set(['@binnacle/adapters', '@binnacle/core', '@binnacle/telemetry', 'yaml']);
     const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
       dependencies?: Record<string, string>;
     };
@@ -368,6 +375,8 @@ describe('ADR-0012: the daemon opens no outbound connections but its tracker rea
     const adaptersManifest = JSON.parse(readFileSync(new URL('../package.json', adapters), 'utf8')) as {
       dependencies?: Record<string, string>;
     };
-    assert.deepEqual(Object.keys(adaptersManifest.dependencies ?? {}), ['@binnacle/core']);
+    assert.deepEqual(Object.keys(adaptersManifest.dependencies ?? {}), ['@binnacle/core', '@binnacle/telemetry']);
+    const telemetryManifest = JSON.parse(readFileSync(new URL('../package.json', telemetry), 'utf8')) as { dependencies?: Record<string, string> };
+    assert.equal(telemetryManifest.dependencies, undefined);
   });
 });

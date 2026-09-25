@@ -19,6 +19,7 @@
   "dependencies": {
     "@binnacle/adapters": "workspace:*",
     "@binnacle/core": "workspace:*",
+    "@binnacle/telemetry": "workspace:*",
     "yaml": "^2.9.1"
   }
 }

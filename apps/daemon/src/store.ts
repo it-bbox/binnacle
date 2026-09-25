@@ -1,5 +1,6 @@
 import { chmodSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
+import type { Harness, Provenance, TokenField, UsageRecord } from '@binnacle/telemetry';
 import { OWNER_ONLY_FILE, storePath } from './home.ts';
 
 /**
@@ -7,8 +8,9 @@ import { OWNER_ONLY_FILE, storePath } from './home.ts';
  *
  * Two tiers live here. `project` is a **projection**, derived from the registry file
  * and each repository's manifest, and it is rebuilt rather than migrated. The
- * append-only tier — events, and later the ingested harness records — is migrated and
- * never recreated, because it is the only copy of what was observed.
+ * append-only tier — events, and the usage records ingested from harness artifacts with
+ * the cursors they were read up to — is migrated and never recreated, because it is the
+ * only copy of what was observed.
  *
  * The daemon is the only process that opens this file. The CLI and the dashboard
  * reach state through the API.
@@ -30,8 +32,7 @@ export type ProjectRow = {
   manifestDigest: string | null;
 };
 
-/** ADR-0007: a record says where it came from, and nothing is ever invented to fill a gap. */
-export type Provenance = 'measured' | 'provider_reported' | 'calculated' | 'estimated';
+export type { Provenance };
 
 export type EventRow = {
   id: number;
@@ -56,6 +57,14 @@ export type EventFilter = {
   limit?: number | undefined;
 };
 
+/** How far one artifact file has been read, and under which import window. */
+export type IngestCursor = { path: string; size: number; offset: number; line: number; windowDays: number };
+
+/** A record to store, with the registered project its `cwd` lies in and the file it was read from. */
+export type Ingested = { record: UsageRecord; projectPath: string; sourceRef: string };
+
+export type StoredUsage = Pick<UsageRecord, 'timestamp' | 'model' | 'tokens' | 'provenance'>;
+
 export const EVENT_LIMIT_DEFAULT = 50;
 export const EVENT_LIMIT_MAX = 500;
 
@@ -67,6 +76,13 @@ export type Store = {
   appendEvent(event: NewEvent): void;
   events(filter?: EventFilter): EventRow[];
   latestEvent(projectPath: string, types: readonly string[]): EventRow | null;
+  cursor(path: string): IngestCursor | null;
+  /** Stores the records a file gave and moves its cursor, together or not at all. A record already stored is left as it was. */
+  ingest(cursor: IngestCursor, records: Ingested[]): void;
+  /** A project's records of one harness from `since` on, an ISO timestamp. */
+  usage(projectPath: string, harness: Harness, since: string): StoredUsage[];
+  /** How many of a project's records of one harness there are, and how many report any token count. */
+  usageCounts(projectPath: string, harness: Harness): { records: number; withTokens: number };
   close(): void;
 };
 
@@ -97,6 +113,38 @@ export function openStore(home: string): Store {
       provenance text not null
     );
     create index if not exists event_recent on event (occurred_at desc, id desc);
+    create table if not exists ingested_record (
+      id integer primary key autoincrement,
+      harness text not null,
+      natural_key text not null,
+      project_path text not null,
+      session_id text not null,
+      subagent_id text,
+      parent_session text,
+      source_ref text not null,
+      timestamp text not null,
+      cwd text not null,
+      branch text,
+      branch_source text,
+      provider text,
+      model text,
+      input integer,
+      cached_input integer,
+      cache_creation integer,
+      output integer,
+      reasoning integer,
+      provenance text not null,
+      ingested_at text not null,
+      unique (harness, natural_key)
+    );
+    create index if not exists ingested_record_project on ingested_record (project_path, harness, timestamp);
+    create table if not exists ingest_cursor (
+      path text primary key,
+      size integer not null,
+      offset integer not null,
+      line integer not null,
+      window_days integer not null
+    );
   `);
 
   const insertEvent = db.prepare(
@@ -147,6 +195,28 @@ export function openStore(home: string): Store {
     db.close();
     throw error;
   }
+
+  // `subagent_id` and `parent_session` stay null until subagents are read.
+  const insertRecord = db.prepare(`
+    insert into ingested_record (harness, natural_key, project_path, session_id, source_ref, timestamp, cwd, branch, branch_source,
+      provider, model, input, cached_input, cache_creation, output, reasoning, provenance, ingested_at)
+    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    on conflict (harness, natural_key) do nothing
+  `);
+  const upsertCursor = db.prepare(`
+    insert into ingest_cursor (path, size, offset, line, window_days) values (?, ?, ?, ?, ?)
+    on conflict (path) do update set size = excluded.size, offset = excluded.offset, line = excluded.line, window_days = excluded.window_days
+  `);
+  const selectCursor = db.prepare('select path, size, offset, line, window_days from ingest_cursor where path = ?');
+  const selectUsage = db.prepare(`
+    select timestamp, model, provenance, input, cached_input, cache_creation, output, reasoning from ingested_record
+    where project_path = ? and harness = ? and timestamp >= ?
+  `);
+  const countUsage = db.prepare(`
+    select count(*) as records,
+      count(case when coalesce(input, cached_input, cache_creation, output, reasoning) is not null then 1 end) as with_tokens
+    from ingested_record where project_path = ? and harness = ?
+  `);
 
   const COLUMNS = 'path, id, name, registered_at, unavailable, manifest_digest';
   const selectAll = db.prepare(`select ${COLUMNS} from project order by id`);
@@ -212,9 +282,53 @@ export function openStore(home: string): Store {
         .get(projectPath, ...types);
       return row ? toEvent(row) : null;
     },
+    cursor: (path) => {
+      const row = selectCursor.get(path);
+      return row
+        ? { path: String(row.path), size: Number(row.size), offset: Number(row.offset), line: Number(row.line), windowDays: Number(row.window_days) }
+        : null;
+    },
+    ingest: (cursor, records) => {
+      const now = new Date().toISOString();
+      db.exec('begin immediate');
+      try {
+        for (const { record, projectPath, sourceRef } of records) {
+          const { input, cachedInput, cacheCreation, output, reasoning } = record.tokens;
+          insertRecord.run(
+            record.harness, record.naturalKey, projectPath, record.sessionId, sourceRef, record.timestamp, record.cwd,
+            record.branch?.name ?? null, record.branch?.source ?? null, record.provider, record.model,
+            input, cachedInput, cacheCreation, output, reasoning, record.provenance, now,
+          );
+        }
+        upsertCursor.run(cursor.path, cursor.size, cursor.offset, cursor.line, cursor.windowDays);
+        db.exec('commit');
+      } catch (error) {
+        if (db.isTransaction) db.exec('rollback');
+        throw error;
+      }
+    },
+    usage: (projectPath, harness, since) =>
+      selectUsage.all(projectPath, harness, since).map((row) => ({
+        timestamp: String(row.timestamp),
+        model: row.model === null ? null : String(row.model),
+        provenance: String(row.provenance) as Provenance,
+        tokens: {
+          input: tokens(row.input),
+          cachedInput: tokens(row.cached_input),
+          cacheCreation: tokens(row.cache_creation),
+          output: tokens(row.output),
+          reasoning: tokens(row.reasoning),
+        } satisfies Record<TokenField, number | null>,
+      })),
+    usageCounts: (projectPath, harness) => {
+      const row = countUsage.get(projectPath, harness)!;
+      return { records: Number(row.records), withTokens: Number(row.with_tokens) };
+    },
     close: () => db.close(),
   };
 }
+
+const tokens = (value: unknown): number | null => (value === null ? null : Number(value));
 
 function toEvent(row: Record<string, unknown>): EventRow {
   return {

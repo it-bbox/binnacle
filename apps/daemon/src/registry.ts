@@ -1,4 +1,5 @@
 import { readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { isAbsolute, relative, sep } from 'node:path';
 import { OperationError } from './errors.ts';
 import { OWNER_ONLY_FILE, registryPath } from './home.ts';
 
@@ -66,6 +67,20 @@ export function writeRegistry(home: string, entries: RegistryEntry[]): void {
   const document = { version: REGISTRY_VERSION, projects: entries };
   writeFileSync(temporary, `${JSON.stringify(document, null, 2)}\n`, { mode: OWNER_ONLY_FILE });
   renameSync(temporary, path);
+}
+
+/**
+ * The registered project whose directory is `path` or contains it, so that an agent that
+ * knows only its working directory — wherever the harness happened to start it — finds
+ * its project. The deepest registration wins, which is the one that was meant when one
+ * project is nested inside another.
+ */
+export function containingEntry(path: string, entries: RegistryEntry[]): RegistryEntry | undefined {
+  const contains = (entry: RegistryEntry): boolean => {
+    const inside = relative(entry.path, path);
+    return inside === '' || (!isAbsolute(inside) && inside.split(sep)[0] !== '..');
+  };
+  return entries.filter(contains).sort((a, b) => b.path.length - a.path.length)[0];
 }
 
 function isEntry(value: unknown): value is RegistryEntry {

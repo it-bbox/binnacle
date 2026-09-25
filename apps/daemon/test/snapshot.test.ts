@@ -24,7 +24,6 @@ type Snapshot = {
   decisions: { items: { title: string | null; path: string }[]; remainder: number } | null;
   pendingDecisions: Unavailable;
   ci: Unavailable;
-  usage: Unavailable;
   attention: { code: string; message: string }[];
 };
 
@@ -480,10 +479,11 @@ describe('recent decisions, Git and the unavailable sections', () => {
     });
   });
 
-  it('marks pending decisions, CI state and usage as unavailable, with no content', async () => {
+  // Usage has its own tests, in usage.test.ts.
+  it('marks pending decisions and CI state as unavailable, with no content', async () => {
     await withDaemon(async (daemon) => {
       const body = await snapshot(daemon, makeRepository());
-      for (const section of [body.pendingDecisions, body.ci, body.usage]) {
+      for (const section of [body.pendingDecisions, body.ci]) {
         assert.deepEqual(Object.keys(section).sort(), ['available', 'reason']);
         assert.equal(section.available, false);
       }

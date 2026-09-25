@@ -1,3 +1,4 @@
+export { readClaudeCode, type ArtifactPosition, type ArtifactReading } from './claude-code.ts';
 export {
   commitTree,
   hasUncommittedChanges,

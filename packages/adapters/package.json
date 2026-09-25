@@ -12,6 +12,7 @@
     "node": ">=24 <27"
   },
   "dependencies": {
-    "@binnacle/core": "workspace:*"
+    "@binnacle/core": "workspace:*",
+    "@binnacle/telemetry": "workspace:*"
   }
 }
