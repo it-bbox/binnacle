@@ -74,6 +74,11 @@ export type TrackerTask = {
   triage: string | null;
   /** The ticket's path relative to the repository root, or its URL. */
   ticket: string;
+  /**
+   * The text after the header block (`ticketBody`), without comments: on the local tracker it
+   * stops at the first `## Comments` heading, and a remote tracker's comments are never read.
+   */
+  body: string;
 };
 
 /** `tasks` is null when the tracker cannot be read at all; a diagnostic then says why. */
@@ -104,7 +109,21 @@ const HEADING = /^#{1,6}\s+/;
  * of the text, after one leading heading if the text starts with one. Only that block is
  * read: a `Status:` further down, in the body or the comments, is not the header's.
  */
-export function parseTicketHeader(text: string): TicketHeader {
+export const parseTicketHeader = (text: string): TicketHeader => readHeader(text).header;
+
+/**
+ * The text after the header block, without the blank lines around it. A block that holds no
+ * header field is not a header: a hand-filed issue keeps its first paragraph, and then the
+ * whole text is the body.
+ */
+export function ticketBody(text: string): string {
+  const { header, lines, end } = readHeader(text);
+  const fielded = header.status ?? header.triage ?? header.blockedBy ?? header.spec;
+  return (fielded === null ? lines : lines.slice(end)).join('\n').replace(/^(?:[ \t]*\n)+/, '').trimEnd();
+}
+
+/** The header, the text's lines, and the line the header block ends before. */
+function readHeader(text: string): { header: TicketHeader; lines: string[]; end: number } {
   const lines = text.split(/\r?\n/);
   const header: TicketHeader = { heading: null, status: null, triage: null, blockedBy: null, spec: null };
   let line = 0;
@@ -124,8 +143,27 @@ export function parseTicketHeader(text: string): TicketHeader {
     const field = HEADER_FIELDS[match[1] as keyof typeof HEADER_FIELDS];
     if (header[field] === null) header[field] = match[2]!.trim();
   }
-  return header;
+  return { header, lines, end: line };
 }
+
+/** In characters of the slug, after `feat/` and, on a remote tracker, the number. */
+export const BRANCH_SLUG_LIMIT = 50;
+
+/**
+ * The branch a Task's work goes on (ADR-0018), chosen so that it maps back to the Task: on the
+ * local tracker `feat/<slug>` from the ticket's file name without its number, as this
+ * repository has always named them; on a remote one `feat/<number>-<slug>` from the issue
+ * title. The slug is lowercased, every run of characters other than ASCII letters and digits
+ * is one hyphen, and it is cut at `BRANCH_SLUG_LIMIT`. A slug with nothing left leaves the number.
+ */
+export function taskBranch(task: Pick<TrackerTask, 'id' | 'title' | 'ticket'>, remote: boolean): string {
+  if (remote) return `feat/${[task.id.replace(/^#/, ''), branchSlug(task.title ?? '')].filter(Boolean).join('-')}`;
+  const [, number = '', name = ''] = /(\d+)-([^/]*)\.md$/.exec(task.ticket) ?? [];
+  return `feat/${branchSlug(name) || number}`;
+}
+
+const branchSlug = (text: string): string =>
+  text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, BRANCH_SLUG_LIMIT).replace(/-+$/, '');
 
 /**
  * The numbers a `Blocked by:` value names: `None`, with or without a parenthetical, is

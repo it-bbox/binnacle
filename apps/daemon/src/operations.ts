@@ -11,6 +11,7 @@ import { promotedItems, promotionDiagnostics, promotionTargets } from './checkpo
 import { BASELINE_EVENTS, committedHead, daily, isRemoteTracker, taskStates, type Baseline, type BaselineEvent, type TaskStates } from './daily.ts';
 import { readTasks, snapshot, type CallerCheckout } from './snapshot.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type ProjectRow, type Store } from './store.ts';
+import { taskBrief } from './task.ts';
 
 export type OperationContext = {
   home: string;
@@ -160,6 +161,18 @@ export const operations: Record<string, Operation> = {
     const tasks = isRemoteTracker(projected.manifest) ? await readTasks(context.home, workingTree(caller.project), projected.manifest, []) : null;
     context.store.appendEvent({ type: 'checkpoint', projectPath: projected.row.path, payload: { head, promoted, ...(tasks && { states: taskStates(tasks) }) } });
     return { project: projected.row, checkout: caller.checkout, head, promoted, diagnostics };
+  },
+
+  // Read now, from the caller's checkout on the local tracker, as the snapshot reads its tickets.
+  'task.get': async (body, context) => {
+    const path = repositoryPath(body, { mustExist: false });
+    const id = (body as { id?: unknown } | null)?.id;
+    if (typeof id !== 'string' || id.trim() === '') {
+      throw new OperationError('request.invalid', 'This operation needs an "id".', 400, [{ path: 'id', message: 'expected a non-empty string' }]);
+    }
+    const projected = reproject(context.store, await resolveEntry(path, context));
+    const caller = await callerCheckout(path, projected.row.path);
+    return taskBrief(context.home, workingTree(caller.project), projected.manifest, id.trim());
   },
 
   'project.unregister': (body, context) => {

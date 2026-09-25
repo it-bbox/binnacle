@@ -49,7 +49,7 @@ Initial user-facing actions:
 
 Actual command syntax may differ across Claude Code, Codex, Gemini and other clients. The logical action remains the same.
 
-In Claude Code the actions are served by a plugin named `binnacle` (ADR-0023), so each is namespaced: `/binnacle:product`, `/binnacle:daily`, `/binnacle:checkpoint` and `/binnacle:autopilot`. Other projects get the plugin from the installed npm package (ADR-0027).
+In Claude Code the actions are served by a plugin named `binnacle` (ADR-0023), so each is namespaced: `/binnacle:product`, `/binnacle:daily`, `/binnacle:task`, `/binnacle:checkpoint` and `/binnacle:autopilot`. Other projects get the plugin from the installed npm package (ADR-0027).
 
 ## How the interface reaches a harness
 

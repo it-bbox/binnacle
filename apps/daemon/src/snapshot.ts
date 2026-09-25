@@ -157,26 +157,29 @@ export async function readTasks(
   readRemoteTracker = true,
 ): Promise<ResolvedTask[] | null> {
   const tracker = manifest?.tracker;
-  let reading: TaskReading;
-  if (tracker?.provider === 'local' && tracker.local.issues !== null) {
-    reading = await readLocalTasks(tree, tracker.local.issues);
-  } else if ((tracker?.provider === 'github' || tracker?.provider === 'gitlab') && tracker.repository !== null) {
-    if (!readRemoteTracker) return null;
-    // A credentials problem reads nothing: the token that would have been used is unknown.
-    const credential = trackerToken(home, tracker.provider, tracker.host);
-    reading =
-      'failure' in credential
-        ? { tasks: null, diagnostics: [credential.failure] }
-        : await (tracker.provider === 'github' ? readGitHubTasks : readGitLabTasks)(tracker.repository, tracker.host, credential.token);
-  } else {
-    attention.push({ code: 'tracker.unavailable', message: unavailable(tracker) });
-    return null;
-  }
+  if (!readRemoteTracker && (tracker?.provider === 'github' || tracker?.provider === 'gitlab') && tracker.repository !== null) return null;
+  const reading = await readTracker(home, tree, manifest);
   attention.push(...reading.diagnostics);
   if (reading.tasks === null) return null;
   const { tasks, diagnostics } = resolveDependencies(reading.tasks);
   attention.push(...diagnostics);
   return tasks;
+}
+
+/**
+ * The declared tracker's Tasks; with none that can be read, `tracker.unavailable` says why.
+ * `home` is the Binnacle home, where a remote tracker's credentials are.
+ */
+export async function readTracker(home: string, tree: Tree, manifest: ProjectManifest | null): Promise<TaskReading> {
+  const tracker = manifest?.tracker;
+  if (tracker?.provider === 'local' && tracker.local.issues !== null) return readLocalTasks(tree, tracker.local.issues);
+  if ((tracker?.provider === 'github' || tracker?.provider === 'gitlab') && tracker.repository !== null) {
+    // A credentials problem reads nothing: the token that would have been used is unknown.
+    const credential = trackerToken(home, tracker.provider, tracker.host);
+    if ('failure' in credential) return { tasks: null, diagnostics: [credential.failure] };
+    return (tracker.provider === 'github' ? readGitHubTasks : readGitLabTasks)(tracker.repository, tracker.host, credential.token);
+  }
+  return { tasks: null, diagnostics: [{ code: 'tracker.unavailable', message: unavailable(tracker) }] };
 }
 
 function unavailable(tracker: ProjectManifest['tracker'] | undefined): string {

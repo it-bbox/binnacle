@@ -1,5 +1,5 @@
 import { posix } from 'node:path';
-import { blockedByNumbers, isTaskState, parseTicketHeader, unquote, type Diagnostic, type TaskReading, type TrackerTask } from '@binnacle/core';
+import { blockedByNumbers, isTaskState, parseTicketHeader, ticketBody, unquote, type Diagnostic, type TaskReading, type TrackerTask } from '@binnacle/core';
 import type { Tree } from './tree.ts';
 
 /**
@@ -7,8 +7,9 @@ import type { Tree } from './tree.ts';
  * is a Task. It is read on every call and never cached, so an edit to a ticket shows in
  * the next answer, and it only ever reads.
  *
- * Only the ticket header is read, through the parser every tracker shares — `Status:`,
- * `Triage:`, `Blocked by:`, `Spec:`. The body and `## Comments` are for the session to read.
+ * The ticket header is read through the parser every tracker shares — `Status:`, `Triage:`,
+ * `Blocked by:`, `Spec:` — and the body after it up to `## Comments`, which is for the
+ * session to read, as are the comments themselves.
  *
  * `issues` is relative to the tree, as the manifest declares it. The tree is the working
  * tree for the snapshot, and a commit for the daily delta.
@@ -69,5 +70,8 @@ function parseTicket(spec: string, file: string, ticket: string, text: string, d
     specSlug: spec,
     triage: triage || null,
     ticket,
+    body: ticketBody(text.split(COMMENTS)[0]!),
   };
 }
+
+const COMMENTS = /^## +Comments[ \t\r]*$/m;

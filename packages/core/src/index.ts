@@ -7,9 +7,12 @@ export {
 } from './manifest.ts';
 export {
   blockedByNumbers,
+  BRANCH_SLUG_LIMIT,
   parseTicketHeader,
   remoteLocation,
   resolveDependencies,
+  taskBranch,
+  ticketBody,
   trackerRemoteMismatch,
   TRIAGE_ROLES,
   unquote,

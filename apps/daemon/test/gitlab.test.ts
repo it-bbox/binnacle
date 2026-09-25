@@ -441,9 +441,63 @@ describe('Task transitions on a GitLab tracker', () => {
   });
 });
 
+describe('the task brief on a GitLab tracker', () => {
+  type Brief = {
+    id: string;
+    title: string | null;
+    state: string | null;
+    triage: string | null;
+    ticket: string;
+    spec: string | null;
+    dependencies: { id: string; title: string | null; state: string | null; met: boolean; dangling: boolean }[];
+    body: { text: string; truncated: boolean };
+    branch: string;
+  };
+
+  async function taskGet(daemon: TestDaemon, root: string, id: string): Promise<{ status: number; body: Brief & { error: { code: string } } }> {
+    assert.equal((await daemon.call('project.register', { path: root })).status, 200);
+    return daemon.call<Brief & { error: { code: string } }>('task.get', { path: root, id });
+  }
+
+  it('gives the issue’s fields, its dependencies, its description after the header, and the branch; an unknown number is task.not_found', async () => {
+    const pages = [
+      [
+        issue(1, 'Done', { state: 'closed' }),
+        issue(3, 'Read GitLab issues (by iid)', {
+          description: ['Status: READY', 'Blocked by: #1, #7', 'Spec: `docs/specs/first/spec.md`', '', '**What to build:** GitLab.', '', 'Status: DONE'].join('\n'),
+          labels: ['ready-for-agent'],
+        }),
+      ],
+    ];
+    await withGitLab(pages, async (daemon, fake) => {
+      const root = makeProject(manifest(fake.base));
+      const result = await taskGet(daemon, root, '#3');
+      assert.equal(result.status, 200, JSON.stringify(result.body));
+      assert.deepEqual(result.body, {
+        id: '#3',
+        title: 'Read GitLab issues (by iid)',
+        state: 'READY',
+        triage: 'ready-for-agent',
+        ticket: `https://gitlab.com/${REPOSITORY}/-/issues/3`,
+        spec: 'docs/specs/first/spec.md',
+        dependencies: [
+          { id: '#1', title: 'Done', state: 'DONE', met: true, dangling: false },
+          { id: '#7', title: null, state: null, met: false, dangling: true },
+        ],
+        body: { text: '**What to build:** GitLab.\n\nStatus: DONE', truncated: false },
+        branch: 'feat/3-read-gitlab-issues-by-iid',
+      });
+      assert.equal((await taskGet(daemon, root, '3')).body.id, '#3');
+      assert.equal((await taskGet(daemon, root, '#9')).body.error.code, 'task.not_found');
+      // Issue notes are never read: every request is for the issue list.
+      assert.ok(fake.requests.every((path) => path.startsWith(`/api/v4${ISSUES_PATH}?`)));
+    });
+  });
+});
+
 describe('the GitLab adapter', () => {
-  // Triage and the Spec: value are in no daemon response until the task brief (ticket 06),
-  // so they are read here, from the adapter, against the same loopback server.
+  // The spec slug is in no daemon response, only behind the roadmap checks, and triage's
+  // case-sensitivity is not in the brief test, so both are read here, from the adapter.
   it('takes triage from the label naming a canonical role, and keeps the Spec: value and its slug', async () => {
     const fake = await fakeGitLab([
       [

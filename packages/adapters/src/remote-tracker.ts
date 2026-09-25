@@ -2,6 +2,7 @@ import {
   blockedByNumbers,
   isTaskState,
   parseTicketHeader,
+  ticketBody,
   TRIAGE_ROLES,
   unquote,
   type Diagnostic,
@@ -140,5 +141,6 @@ function toTask(issue: RemoteIssue, diagnostics: Diagnostic[]): TrackerTask {
     specSlug: /(?:^|\/)specs\/([^/]+)\/spec\.md(?:$|[?#])/.exec(spec ?? '')?.[1] ?? null,
     triage: issue.labels.find((name) => TRIAGE_ROLES.includes(name)) ?? null,
     ticket: issue.url,
+    body: ticketBody(issue.body ?? ''),
   };
 }

@@ -8,7 +8,9 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { after, describe, it } from 'node:test';
 import { githubApiRoot, readGitHubTasks } from '@binnacle/adapters';
+import { BRANCH_SLUG_LIMIT } from '@binnacle/core';
 import { storePath } from '../src/index.ts';
+import { BODY_LIMIT } from '../src/task.ts';
 import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
 
 type SnapshotTask = { id: string; title: string | null; state: string | null; unmetDependencies: string[]; ticket: string };
@@ -20,6 +22,7 @@ type Snapshot = {
 };
 
 const REPOSITORY = 'octo-org/octo-repo';
+const PERMALINK = `https://github.com/${REPOSITORY}/blob/0123abc/docs/specs/first/spec.md#L3`;
 
 // The daemon runs in this process and reads its environment: a token the developer has set
 // would otherwise reach the loopback server, and every test below that expects none.
@@ -799,28 +802,124 @@ describe('Task transitions on a GitHub tracker', () => {
   });
 });
 
-describe('the GitHub adapter', () => {
-  // Triage and the Spec: value are in no daemon response until the task brief (ticket 06),
-  // so they are read here, from the adapter, against the same loopback server.
-  it('takes triage from the label naming a canonical role, and keeps the Spec: value and its slug', async () => {
-    const fake = await fakeGitHub([
+describe('the task brief on a GitHub tracker', () => {
+  type Brief = {
+    id: string;
+    title: string | null;
+    state: string | null;
+    triage: string | null;
+    ticket: string;
+    spec: string | null;
+    dependencies: { id: string; title: string | null; state: string | null; met: boolean; dangling: boolean }[];
+    body: { text: string; truncated: boolean };
+    branch: string;
+  };
+  type Envelope = { error: { code: string; message: string } };
+
+  async function taskGet(daemon: TestDaemon, root: string, id: string): Promise<{ status: number; body: Brief & Envelope }> {
+    assert.equal((await daemon.call('project.register', { path: root })).status, 200);
+    return daemon.call<Brief & Envelope>('task.get', { path: root, id });
+  }
+
+  it('gives the issue’s fields, triage from its label, its dependencies, its body after the header, and the branch', async () => {
+    const pages = [
       [
-        issue(1, 'Labelled', {
-          body: header({ Status: 'READY', Spec: `https://github.com/${REPOSITORY}/blob/0123abc/docs/specs/first/spec.md#L3` }),
+        issue(1, 'Done', { state: 'closed', state_reason: 'completed' }),
+        issue(2, 'In flight', { body: header({ Status: 'ACTIVE' }) }),
+        issue(4, 'A pull request', { body: header({ Status: 'READY' }), pull_request: { url: 'x' } }),
+        issue(5, 'Add a task brief: `task.get` & friends!', {
+          body: ['Status: READY', 'Blocked by: #1, 2, #99', `Spec: ${PERMALINK}`, '', '**What to build:** a brief.', '', 'Status: DONE'].join('\r\n'),
           labels: [{ name: 'bug' }, { name: 'ready-for-agent' }],
         }),
-        issue(2, 'Unlabelled', { body: header({ Status: 'READY', Spec: '`docs/specs/second/spec.md`' }), labels: [{ name: 'Ready-For-Agent' }] }),
+        issue(6, 'Mislabelled', { body: header({ Status: 'READY', Spec: '`docs/specs/second/spec.md`' }), labels: [{ name: 'Ready-For-Agent' }] }),
+      ],
+    ];
+    await withGitHub(pages, async (daemon, fake) => {
+      const root = makeProject(manifest(fake.base));
+      const result = await taskGet(daemon, root, '#5');
+      assert.equal(result.status, 200, JSON.stringify(result.body));
+      assert.deepEqual(result.body, {
+        id: '#5',
+        title: 'Add a task brief: `task.get` & friends!',
+        state: 'READY',
+        triage: 'ready-for-agent',
+        ticket: `https://github.com/${REPOSITORY}/issues/5`,
+        spec: PERMALINK,
+        dependencies: [
+          { id: '#1', title: 'Done', state: 'DONE', met: true, dangling: false },
+          { id: '#2', title: 'In flight', state: 'ACTIVE', met: false, dangling: false },
+          { id: '#99', title: null, state: null, met: false, dangling: true },
+        ],
+        body: { text: '**What to build:** a brief.\n\nStatus: DONE', truncated: false },
+        branch: 'feat/5-add-a-task-brief-task-get-friends',
+      });
+      assert.equal((await taskGet(daemon, root, '5')).body.id, '#5');
+      const other = (await taskGet(daemon, root, '#6')).body;
+      assert.equal(other.triage, null, 'a label is a triage role only verbatim');
+      assert.equal(other.spec, 'docs/specs/second/spec.md');
+      // Issue comments are never read: every request is for the issue list.
+      assert.ok(fake.requests.every((url) => url.pathname === `/repos/${REPOSITORY}/issues`));
+    });
+  });
+
+  it('cuts a long body and a long title’s branch at fixed limits, and gives a title with no ASCII a number-only branch', async () => {
+    const pages = [
+      [
+        issue(1, `${'word '.repeat(40)}end`, { body: header({ Status: 'READY' }).replace('something.', 'x'.repeat(BODY_LIMIT)) }),
+        issue(2, 'Исправить всё', { body: header({ Status: 'READY' }) }),
+      ],
+    ];
+    await withGitHub(pages, async (daemon, fake) => {
+      const root = makeProject(manifest(fake.base));
+      const long = (await taskGet(daemon, root, '#1')).body;
+      assert.equal(long.body.truncated, true);
+      assert.equal(Array.from(long.body.text).length, BODY_LIMIT);
+      const slug = long.branch.replace(/^feat\/1-/, '');
+      assert.ok(slug.length <= BRANCH_SLUG_LIMIT, slug);
+      assert.match(slug, /^word(-word)*$/);
+      assert.equal((await taskGet(daemon, root, '#2')).body.branch, 'feat/2');
+    });
+  });
+
+  it('answers an unknown number, a pull request and a local id with task.not_found', async () => {
+    await withGitHub([[issue(1, 'One'), issue(4, 'A pull request', { pull_request: { url: 'x' } })]], async (daemon, fake) => {
+      const root = makeProject(manifest(fake.base));
+      for (const id of ['#2', '4', 'epic/01']) {
+        const result = await taskGet(daemon, root, id);
+        assert.equal(result.status, 404, id);
+        assert.equal(result.body.error.code, 'task.not_found', id);
+      }
+    });
+  });
+
+  it('answers with the tracker’s failure code when the issues cannot be read', async () => {
+    await withGitHub([[]], async (daemon, fake) => {
+      fake.reply = () => ({ status: 404, body: { message: 'Not Found' } });
+      const result = await taskGet(daemon, makeProject(manifest(fake.base)), '#1');
+      assert.equal(result.body.error.code, 'tracker.not_found');
+    });
+  });
+});
+
+describe('the GitHub adapter', () => {
+  // The spec slug is in no daemon response, only behind the roadmap checks, so it is read
+  // here, from the adapter, against the same loopback server.
+  it('takes the spec slug from a Spec: path or permalink, and none from anything else', async () => {
+    const fake = await fakeGitHub([
+      [
+        issue(1, 'Permalink', { body: header({ Status: 'READY', Spec: PERMALINK }) }),
+        issue(2, 'Path', { body: header({ Status: 'READY', Spec: '`docs/specs/second/spec.md`' }) }),
         issue(3, 'No spec', { body: header({ Status: 'READY', Spec: 'see the wiki' }) }),
       ],
     ]);
     try {
       const reading = await readGitHubTasks(REPOSITORY, fake.base, null);
       assert.deepEqual(
-        reading.tasks?.map(({ id, triage, spec, specSlug }) => ({ id, triage, spec, specSlug })),
+        reading.tasks?.map(({ id, specSlug }) => ({ id, specSlug })),
         [
-          { id: '#1', triage: 'ready-for-agent', spec: `https://github.com/${REPOSITORY}/blob/0123abc/docs/specs/first/spec.md#L3`, specSlug: 'first' },
-          { id: '#2', triage: null, spec: 'docs/specs/second/spec.md', specSlug: 'second' },
-          { id: '#3', triage: null, spec: 'see the wiki', specSlug: null },
+          { id: '#1', specSlug: 'first' },
+          { id: '#2', specSlug: 'second' },
+          { id: '#3', specSlug: null },
         ],
       );
     } finally {

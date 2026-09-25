@@ -36,6 +36,14 @@ const TOOLS = {
       since: z.string().optional().describe('A commit hash to look back from instead of the recorded baseline; records nothing.'),
     },
   },
+  task_get: {
+    operation: 'task.get',
+    description:
+      'The compact brief for starting one Task: its fields, its dependencies with their titles and states, its spec path, the ticket body without comments, and the branch name. Changes nothing.',
+    inputSchema: {
+      id: z.string().describe('The Task id: `<spec-slug>/<NN>` on the local tracker, `#<number>` or `<number>` on GitHub or GitLab.'),
+    },
+  },
   checkpoint_prepare: {
     operation: 'checkpoint.prepare',
     description:

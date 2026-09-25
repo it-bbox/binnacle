@@ -18,7 +18,7 @@ type ToolResult = { isError?: boolean; content: { type: string; text: string }[]
  * result encoding and the proxy path. Everything behind the tools is tested through
  * `@binnacle/daemon/testing`.
  */
-test('binn mcp lists its tools, explains a stopped daemon, and proxies the snapshot', async (t) => {
+test('binn mcp lists its tools, explains a stopped daemon, and proxies the snapshot and the task brief', async (t) => {
   const home = mkdtempSync(join(tmpdir(), 'binnacle-mcp-home-'));
   const project = realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-mcp-project-')));
   mkdirSync(join(project, '.binnacle'));
@@ -43,7 +43,15 @@ test('binn mcp lists its tools, explains a stopped daemon, and proxies the snaps
   });
 
   const { tools } = await client.listTools();
-  assert.deepEqual(tools.map((tool) => tool.name).sort(), ['checkpoint_prepare', 'checkpoint_record', 'daily_get', 'project_detect', 'project_snapshot', 'project_status']);
+  assert.deepEqual(tools.map((tool) => tool.name).sort(), [
+    'checkpoint_prepare',
+    'checkpoint_record',
+    'daily_get',
+    'project_detect',
+    'project_snapshot',
+    'project_status',
+    'task_get',
+  ]);
 
   const down = (await client.callTool({ name: 'project_status' })) as ToolResult;
   assert.equal(down.isError, true);
@@ -62,6 +70,20 @@ test('binn mcp lists its tools, explains a stopped daemon, and proxies the snaps
   const snapshot = JSON.parse(text) as { project: { id: string }; tasks: { readyToStart: { items: { id: string }[] } } };
   assert.equal(snapshot.project.id, 'mcp-project');
   assert.deepEqual(snapshot.tasks.readyToStart.items.map((task) => task.id), ['epic/01']);
+
+  const brief = (await client.callTool({ name: 'task_get', arguments: { id: 'epic/01' } })) as ToolResult;
+  assert.equal(brief.isError, undefined, brief.content[0]?.text);
+  assert.deepEqual(JSON.parse(brief.content[0]!.text) as unknown, {
+    id: 'epic/01',
+    title: 'First',
+    state: 'READY',
+    triage: null,
+    ticket: 'docs/specs/epic/issues/01-first.md',
+    spec: null,
+    dependencies: [],
+    body: { text: '', truncated: false },
+    branch: 'feat/first',
+  });
 
   // A tool's own argument reaches its operation: the daemon, not the server, refuses this one.
   const refused = (await client.callTool({ name: 'daily_get', arguments: { since: 'not-a-commit' } })) as ToolResult;
