@@ -231,7 +231,7 @@ function remoteMismatch(manifest: ProjectManifest | null, git: GitFacts): Diagno
   const mismatch =
     manifest && git.available
       ? trackerRemoteMismatch(
-          manifest.tracker.provider,
+          manifest.tracker,
           git.remotes.map((remote) => remote.url),
         )
       : null;

@@ -42,7 +42,10 @@ export type Daily = {
   fallback: Fallback | null;
   /** Newest first. */
   commits: { count: number; items: Commit[]; remainder: number };
-  /** Tickets whose `Status:` differs between the two ends. Null, like the next two, when Tasks cannot be read. */
+  /**
+   * Tickets whose `Status:` differs between the two ends. Null, like the next two, when Tasks
+   * cannot be read; null, like the next one, on a remote tracker, whose baseline is unknown.
+   */
   transitions: { items: Transition[]; remainder: number } | null;
   /** Tickets that did not exist at the baseline. */
   newTickets: Section | null;
@@ -79,8 +82,8 @@ export async function daily(
     const afterTree = commitTree(cwd, head, timeout);
     const [commits, before, after] = await Promise.all([
       readLog(cwd, from.commit, head, timeout),
-      // The baseline's own attention items are not news.
-      readState(beforeTree, projected, []),
+      // The baseline's own attention items are not news. A remote tracker has no past to read here.
+      readState(beforeTree, projected, [], false),
       readState(afterTree, projected, diagnostics),
     ]);
 
@@ -152,14 +155,17 @@ export function committedHead({ git }: CallerCheckout): { head: string; dirty: b
 
 function taskChanges(before: State, after: State): Pick<Daily, 'transitions' | 'newTickets' | 'readyToStart'> {
   if (after.tasks === null) return { transitions: null, newTickets: null, readyToStart: null };
-  const was = new Map((before.tasks ?? []).map((task) => [task.id, task]));
+  const readyToStart = taskSections(after.tasks).readyToStart;
+  // A remote tracker's baseline states are unknown, and a change is never computed against a guess.
+  if (before.tasks === null) return { transitions: null, newTickets: null, readyToStart };
+  const was = new Map(before.tasks.map((task) => [task.id, task]));
   const transitions: Transition[] = [];
   const created = after.tasks.filter((task) => !was.has(task.id));
   for (const { id, title, state, ticket } of after.tasks) {
     const old = was.get(id);
     if (old && old.state !== state) transitions.push({ id, title, from: old.state, to: state, ticket });
   }
-  return { transitions: limited(transitions), newTickets: section(created), readyToStart: taskSections(after.tasks).readyToStart };
+  return { transitions: limited(transitions), newTickets: section(created), readyToStart };
 }
 
 function roadmapChanges(before: State, after: State): Daily['roadmap'] {

@@ -7,6 +7,10 @@ project:
 tracker:
   provider: github # github | gitlab | local
   # Binnacle always reads the tracker and never writes to it (ADR-0013).
+  # Used when provider is `github` or `gitlab`: owner/name, or GitLab's full project path.
+  repository: example-org/example-project
+  # Optional: github.com or gitlab.com when unwritten; a hostname, or a base URL used as the API root.
+  # host: github.example.com
   local:
     # Used when provider is `local`. Tickets are files under <issues>/<slug>/issues/.
     issues: docs/specs

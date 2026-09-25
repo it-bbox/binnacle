@@ -30,7 +30,14 @@ export type Capability = boolean | 'optional';
 export type ProjectManifest = {
   version: number;
   project: { id: string; name: string | null };
-  tracker: { provider: TrackerProvider | null; local: { issues: string | null } };
+  tracker: {
+    provider: TrackerProvider | null;
+    /** `owner/name` on GitHub, the full project path on GitLab. Never inferred from a Git remote. */
+    repository: string | null;
+    /** A hostname, or a base URL with a scheme, used as the API root as given. */
+    host: string | null;
+    local: { issues: string | null };
+  };
   knowledge: { context: string | null; docs: string | null; adr: string | null; specs: string | null };
   workflow: { provider: string | null; scratch: string | null };
   capabilities: Record<string, Capability>;
@@ -107,11 +114,13 @@ function readProject(value: unknown, notes: Notes): ProjectManifest['project'] {
 
 function readTracker(value: unknown, notes: Notes): ProjectManifest['tracker'] {
   const section = sectionOf(value, 'tracker', notes);
-  warnUnknownKeys(section, 'tracker', ['provider', 'local'], notes);
+  warnUnknownKeys(section, 'tracker', ['provider', 'repository', 'host', 'local'], notes);
   const local = sectionOf(section.local, 'tracker.local', notes);
   warnUnknownKeys(local, 'tracker.local', ['issues'], notes);
   return {
     provider: oneOf(section.provider, 'tracker.provider', TRACKER_PROVIDERS, notes),
+    repository: optionalString(section.repository, 'tracker.repository', notes),
+    host: optionalString(section.host, 'tracker.host', notes),
     local: { issues: optionalString(local.issues, 'tracker.local.issues', notes) },
   };
 }

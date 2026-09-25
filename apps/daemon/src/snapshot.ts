@@ -1,5 +1,5 @@
 import { posix } from 'node:path';
-import { readLastCommitTimes, readLocalTasks, workingTree, type GitFacts, type Tree } from '@binnacle/adapters';
+import { readGitHubTasks, readLastCommitTimes, readLocalTasks, workingTree, type GitFacts, type Tree } from '@binnacle/adapters';
 import {
   parseRoadmap,
   resolveDependencies,
@@ -9,6 +9,7 @@ import {
   type ProjectManifest,
   type ResolvedTask,
   type Roadmap,
+  type TaskReading,
   type TaskState,
 } from '@binnacle/core';
 import { resolveGitTimeout } from './home.ts';
@@ -122,33 +123,47 @@ export type State = {
   attention: Diagnostic[];
 };
 
-export async function readState(tree: Tree, { manifest, warnings }: Projected, diagnostics: Diagnostic[]): Promise<State> {
+/**
+ * `remote` false leaves the Tasks of a remote tracker unread: it has no past version to
+ * read at a commit, so the daily's baseline side passes false and gets null for them.
+ */
+export async function readState(tree: Tree, { manifest, warnings }: Projected, diagnostics: Diagnostic[], remote = true): Promise<State> {
   const attention: Diagnostic[] = [
     ...warnings.map((warning) => ({ code: 'manifest.warning', message: `${warning.path}: ${warning.message}` })),
     ...diagnostics,
   ];
-  const tasks = await readTasks(tree, manifest, attention);
+  const tasks = await readTasks(tree, manifest, attention, remote);
   const roadmap = await readRoadmap(tree, manifest, attention);
   if (roadmap && tasks) attention.push(...roadmapAttention(roadmap.epics, tasks));
   const adrs = await readAdrs(tree, manifest, attention);
   return { tasks, roadmap, adrs, attention };
 }
 
-async function readTasks(tree: Tree, manifest: ProjectManifest | null, attention: Diagnostic[]): Promise<ResolvedTask[] | null> {
-  const issues = manifest?.tracker.provider === 'local' ? manifest.tracker.local.issues : null;
-  if (issues === null) {
-    attention.push({
-      code: 'tracker.unavailable',
-      message: manifest
-        ? 'Tasks are read from the local Markdown tracker only, and this project declares no tracker.local.issues on it.'
-        : 'Tasks cannot be read without a readable manifest.',
-    });
+async function readTasks(tree: Tree, manifest: ProjectManifest | null, attention: Diagnostic[], remote: boolean): Promise<ResolvedTask[] | null> {
+  const tracker = manifest?.tracker;
+  let reading: TaskReading;
+  if (tracker?.provider === 'local' && tracker.local.issues !== null) {
+    reading = await readLocalTasks(tree, tracker.local.issues);
+  } else if (tracker?.provider === 'github' && tracker.repository !== null) {
+    if (!remote) return null;
+    reading = await readGitHubTasks(tracker.repository, tracker.host);
+  } else {
+    attention.push({ code: 'tracker.unavailable', message: unavailable(tracker) });
     return null;
   }
-  const reading = await readLocalTasks(tree, issues);
+  attention.push(...reading.diagnostics);
+  if (reading.tasks === null) return null;
   const { tasks, diagnostics } = resolveDependencies(reading.tasks);
-  attention.push(...reading.diagnostics, ...diagnostics);
+  attention.push(...diagnostics);
   return tasks;
+}
+
+function unavailable(tracker: ProjectManifest['tracker'] | undefined): string {
+  if (tracker === undefined) return 'Tasks cannot be read without a readable manifest.';
+  if (tracker.provider === null) return 'This project declares no tracker.provider.';
+  if (tracker.provider === 'local') return 'tracker.provider is local, and this project declares no tracker.local.issues.';
+  if (tracker.repository === null) return `tracker.provider is ${tracker.provider}, and this project declares no tracker.repository.`;
+  return `Tasks are not read from ${tracker.provider} in this version of Binnacle.`;
 }
 
 export function taskSections(tasks: ResolvedTask[]): NonNullable<Snapshot['tasks']> {

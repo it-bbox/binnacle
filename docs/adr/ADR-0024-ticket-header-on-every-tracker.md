@@ -17,7 +17,7 @@ Considered and rejected:
 
 A remote issue carries the same **ticket header** as a local ticket: `Status:`, `Blocked by:` and `Spec:` lines at the top of its body. One parser serves every tracker.
 
-- **Closing is a fact.** A closed issue is `DONE`, or `CANCELLED` when GitHub reports `not_planned`, whatever its body says.
+- **Closing is a fact.** A closed issue is `DONE`, or `CANCELLED` when GitHub reports `not_planned`, whatever its body says. A closed issue with no close reason from the tracker stays `CANCELLED` when its `Status:` says so.
 - An open issue takes its state from `Status:`. With no `Status:` line, its state is `null` with a diagnostic.
 - Any disagreement between the two, such as a closed issue whose body says `ACTIVE` or an open one whose body says `DONE`, is an attention item, `tracker.state_mismatch`. It catches both "forgot to close" and "forgot to update the line".
 - A remote Task's identity is its issue number, `#42`. The tracker is always a single repository, declared in the manifest.

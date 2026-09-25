@@ -5,9 +5,12 @@ export {
   type ProjectManifest,
 } from './manifest.ts';
 export {
+  blockedByNumbers,
   parseTicketHeader,
   resolveDependencies,
   trackerRemoteMismatch,
+  TRIAGE_ROLES,
+  unquote,
   type Diagnostic,
   type ResolvedTask,
   type TaskReading,

@@ -321,8 +321,8 @@ describe('single instance per Binnacle home', () => {
   });
 });
 
-describe('ADR-0012: the daemon opens no outbound connections', () => {
-  it('has no outbound client in its runtime sources and no runtime dependencies', () => {
+describe('ADR-0012: the daemon opens no outbound connections but its tracker reads', () => {
+  it('has no outbound client in its runtime sources, bar the platform fetch in a tracker adapter, and no runtime dependencies', () => {
     const source = new URL('../src/', import.meta.url);
     // The Git adapter runs inside the daemon, so its sources are the daemon's too.
     const adapters = new URL('../../../packages/adapters/src/', import.meta.url);
@@ -337,10 +337,14 @@ describe('ADR-0012: the daemon opens no outbound connections', () => {
     assert.ok(runtimeSources.length > 0);
 
     const forbidden = [/\bfetch\s*\(/, /node:https/, /node:net/, /node:tls/, /node:dgram/, /XMLHttpRequest/, /undici/];
+    // The one exception, named file by file: a remote tracker adapter reads its issues from
+    // the declared host with the platform fetch, and that is the only traffic the spec allows.
+    const trackerReads = new Set(['github.ts']);
     for (const file of runtimeSources) {
       const name = file.pathname;
       const text = readFileSync(file, 'utf8');
-      for (const pattern of forbidden) {
+      const tracker = trackerReads.has(name.slice(name.lastIndexOf('/') + 1)) && name.includes('/packages/adapters/');
+      for (const pattern of tracker ? forbidden.slice(1) : forbidden) {
         assert.ok(!pattern.test(text), `${name} must not reach the network (${String(pattern)})`);
       }
       // testing.ts is excluded above because it is the test client, not the daemon.

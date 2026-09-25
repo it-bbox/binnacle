@@ -1,5 +1,5 @@
 import { posix } from 'node:path';
-import { isTaskState, parseTicketHeader, type Diagnostic, type TaskReading, type TrackerTask } from '@binnacle/core';
+import { blockedByNumbers, isTaskState, parseTicketHeader, unquote, type Diagnostic, type TaskReading, type TrackerTask } from '@binnacle/core';
 import type { Tree } from './tree.ts';
 
 /**
@@ -63,19 +63,11 @@ function parseTicket(spec: string, file: string, ticket: string, text: string, d
     id,
     title: heading?.replace(/^\d+:\s*/, '') ?? null,
     state: status !== null && isTaskState(status) ? status : null,
-    blockedBy: dependencies(spec, blockedBy ?? 'None'),
+    // Numbers name tickets of the same spec.
+    blockedBy: blockedByNumbers(blockedBy).map((number) => identity(spec, String(number))),
     spec: unquote(specLine),
     specSlug: spec,
     triage: triage || null,
     ticket,
   };
 }
-
-/** `None`, with or without a parenthetical, is no dependencies; numbers name tickets of the same spec. */
-function dependencies(spec: string, value: string): string[] {
-  if (/^none\b/i.test(value)) return [];
-  const numbers = value.replace(/\([^)]*\)/g, '').match(/\d+/g) ?? [];
-  return [...new Set(numbers.map((number) => identity(spec, number)))];
-}
-
-const unquote = (value: string | null): string | null => value?.replace(/^`(.*)`$/, '$1') || null;

@@ -218,7 +218,7 @@ describe('Tasks in the Product Snapshot', () => {
     });
   });
 
-  it('says so when the project has no local tracker to read Tasks from', async () => {
+  it('says so when a remote tracker declares no repository to read Tasks from', async () => {
     await withDaemon(async (daemon) => {
       const root = makeProject('version: 1\n\nproject:\n  id: remote-tracker\n\ntracker:\n  provider: github\n');
 
