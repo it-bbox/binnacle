@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { branchTask, parseTicketHeader, roadmapAttention, taskBranch, type Epic, type TrackerTask } from '../src/index.ts';
+import { branchTask, parseTicketHeader, roadmapAttention, sharedBranch, taskBranch, type Epic, type TrackerTask } from '../src/index.ts';
 
 /**
  * The ticket header is read by one pure function for every tracker (ADR-0024), so its rule
@@ -92,13 +92,14 @@ test('the roadmap checks reach an epic’s Tasks by spec slug, whatever their id
   assert.match(attention[0]!.message, /Epic 1 .*#7/);
 });
 
+const local = (id: string, ticket: string): Pick<TrackerTask, 'id' | 'title' | 'ticket'> => ({ id, title: null, ticket });
+
 /**
  * The branch convention and its inverse live side by side, and this is what keeps them one
  * convention: every Task's branch maps back to that Task, on either kind of tracker. The
  * daemon seam shows attribution; only here are all the shapes of a name checked.
  */
 test('a Task’s branch maps back to that Task, and a branch naming none or several maps to none', () => {
-  const local = (id: string, ticket: string): Pick<TrackerTask, 'id' | 'title' | 'ticket'> => ({ id, title: null, ticket });
   const tickets = [
     local('telemetry/02', 'docs/specs/telemetry/issues/02-runs-and-task-attribution.md'),
     local('odd/03', 'docs/specs/odd/issues/03-Mixed Case_and.dots.md'),
@@ -125,4 +126,39 @@ test('a Task’s branch maps back to that Task, and a branch naming none or seve
   assert.equal(branchTask('feat/7x', issues, true), null);
   assert.equal(branchTask('fix/7-not-the-convention', issues, true), null);
   assert.equal(branchTask('feat/runs-and-task-attribution', issues, true), null);
+});
+
+/**
+ * A branch two Tasks share maps back to neither, so `task_get` says so. On the local tracker
+ * that is two tickets in different epics with one file slug, as this repository's two exit
+ * demonstrations are.
+ */
+test('a ticket whose slug a ticket in another epic also has is told that their branch credits neither, and a unique slug is told nothing', () => {
+  const tickets = [
+    local('telemetry/09', 'docs/specs/telemetry/issues/09-exit-demonstration.md'),
+    local('tracker/12', 'docs/specs/tracker/issues/12-exit-demonstration.md'),
+    local('telemetry/11', 'docs/specs/telemetry/issues/11-one-branch-for-two-tickets.md'),
+  ];
+
+  const shared = sharedBranch(tickets[0]!, tickets, false);
+  assert.ok(shared);
+  assert.equal(shared.code, 'task.shared_branch');
+  assert.ok(shared.message.includes('feat/exit-demonstration'), shared.message);
+  assert.ok(shared.message.includes('tracker/12 (docs/specs/tracker/issues/12-exit-demonstration.md)'), shared.message);
+  assert.doesNotMatch(shared.message, /telemetry\/11/);
+  assert.ok(sharedBranch(tickets[1]!, tickets, false)?.message.includes('telemetry/09 (docs/specs/telemetry/issues/09-exit-demonstration.md)'));
+  assert.equal(branchTask('feat/exit-demonstration', tickets, false), null);
+
+  assert.equal(sharedBranch(tickets[2]!, tickets, false), null);
+
+  // One number written two ways is one id, and still two tickets on one branch.
+  const twice = [local('epic/03', 'docs/specs/epic/issues/03-a.md'), local('epic/03', 'docs/specs/epic/issues/3-a.md')];
+  assert.ok(sharedBranch(twice[0]!, twice, false)?.message.includes('epic/03 (docs/specs/epic/issues/3-a.md)'));
+
+  // A remote Task's branch carries its number, so two issues with one title share none.
+  const issues = [
+    { id: '#7', title: 'Exit demonstration', ticket: 'https://example.invalid/7' },
+    { id: '#9', title: 'Exit demonstration', ticket: 'https://example.invalid/9' },
+  ];
+  assert.equal(sharedBranch(issues[0]!, issues, true), null);
 });

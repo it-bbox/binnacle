@@ -1,5 +1,5 @@
 import type { Tree } from '@binnacle/adapters';
-import { taskBranch, type ProjectManifest, type TaskState, type TrackerTask } from '@binnacle/core';
+import { sharedBranch, taskBranch, type Diagnostic, type ProjectManifest, type TaskState, type TrackerTask } from '@binnacle/core';
 import { OperationError } from './errors.ts';
 import { cut, readTracker } from './snapshot.ts';
 
@@ -20,6 +20,8 @@ export type TaskBrief = Pick<TrackerTask, 'id' | 'title' | 'state' | 'triage' | 
   /** The ticket body without its header or comments, cut at `BODY_LIMIT`; `truncated` says whether it was. */
   body: { text: string; truncated: boolean };
   branch: string;
+  /** `task.shared_branch` when another Task has the same branch, which then credits neither. */
+  diagnostics: Diagnostic[];
 };
 
 /**
@@ -30,6 +32,8 @@ export type TaskBrief = Pick<TrackerTask, 'id' | 'title' | 'state' | 'triage' | 
 export async function taskBrief(home: string, tree: Tree, manifest: ProjectManifest | null, id: string): Promise<TaskBrief> {
   const { tasks, task } = await findTask(home, tree, manifest, id);
   const byId = new Map(tasks.map((known) => [known.id, known]));
+  const remote = manifest?.tracker.provider !== 'local';
+  const shared = sharedBranch(task, tasks, remote);
 
   return {
     id: task.id,
@@ -45,7 +49,8 @@ export async function taskBrief(home: string, tree: Tree, manifest: ProjectManif
         : { id: dependency, title: null, state: null, met: null, dangling: true };
     }),
     body: cut(task.body, BODY_LIMIT),
-    branch: taskBranch(task, manifest?.tracker.provider !== 'local'),
+    branch: taskBranch(task, remote),
+    diagnostics: shared ? [shared] : [],
   };
 }
 

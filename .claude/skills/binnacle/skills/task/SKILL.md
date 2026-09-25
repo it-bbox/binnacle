@@ -19,6 +19,6 @@ disable-model-invocation: true
    - **Dependencies**: each with its id, title and state, marked met or not met. Say plainly when one is not met, and when one is dangling (`met` is null): it names no known Task, probably a typo in the ticket, and blocks nothing.
    - **Spec**: the path, to read when the ticket needs it. Do not read it now.
    - **Body**: the text as given. If `truncated` is true, say that the brief cut it, and that the full ticket is at the ticket path or URL.
-4. State the branch name: "The branch for this Task is `<branch>`."
+4. State the branch name: "The branch for this Task is `<branch>`." Then quote each of the brief's `diagnostics`, if any, with its code and message.
 
 Change nothing: no branch, no worktree, no `Status:` edit, no tracker write, no commit, and no Binnacle calls other than the two above. Starting the work is the human's call, or the implementation process's, never this skill's.

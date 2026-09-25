@@ -17,6 +17,7 @@ type Brief = {
   dependencies: { id: string; title: string | null; state: string | null; met: boolean | null; dangling: boolean }[];
   body: { text: string; truncated: boolean };
   branch: string;
+  diagnostics: { code: string; message: string }[];
 };
 type Envelope = { error: { code: string; message: string } };
 
@@ -90,6 +91,7 @@ describe('the task brief on the local tracker', () => {
         ],
         body: { text: '**What to build:** the thing.\n\nStatus: DONE\n\n- [ ] It works.', truncated: false },
         branch: 'feat/build-the-thing',
+        diagnostics: [],
       });
     });
   });
@@ -123,6 +125,21 @@ describe('the task brief on the local tracker', () => {
       const long = 'a-ticket-whose-file-name-runs-well-past-any-remote-branch-slug-limit';
       write(root, `docs/specs/epic/issues/05-${long}.md`, ticketText('05: Long', ['Status: READY'], 'Body.'));
       assert.equal((await taskGet(daemon, root, 'epic/05')).body.branch, `feat/${long}`);
+    });
+  });
+
+  it('says when a ticket in another epic has the same slug, and names it, since their branch then credits neither', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject();
+      write(root, 'docs/specs/telemetry/issues/09-exit-demonstration.md', ticketText('09: Exit demonstration', ['Status: READY'], 'Body.'));
+      write(root, 'docs/specs/tracker/issues/12-exit-demonstration.md', ticketText('12: Exit demonstration', ['Status: DONE'], 'Body.'));
+
+      const result = await taskGet(daemon, root, 'telemetry/09');
+      assert.equal(result.status, 200, JSON.stringify(result.body));
+      assert.equal(result.body.branch, 'feat/exit-demonstration');
+      assert.deepEqual(result.body.diagnostics.map((item) => item.code), ['task.shared_branch']);
+      const { message } = result.body.diagnostics[0]!;
+      assert.ok(message.includes('tracker/12 (docs/specs/tracker/issues/12-exit-demonstration.md)'), message);
     });
   });
 

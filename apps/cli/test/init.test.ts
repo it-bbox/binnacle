@@ -492,6 +492,9 @@ test('the ticket-header section is appended to the issue tracker file once, and 
   assert.match(section, /READY_FOR_REVIEW/);
   assert.match(section, /None/);
   assert.doesNotMatch(section, /issue number/);
+  // A local ticket's branch comes from its file name, so the name must be unique across epics.
+  assert.match(section, /A ticket's slug, its file name without the number, is unique across every spec's tickets/);
+  assert.match(section, /`feat\/<slug>`/);
   // The exact addition is shown before the question.
   assert.ok(first.stdout.includes(section.trim()), first.stdout);
   assert.match(first.stdout, /extended\s+docs\/agents\/issue-tracker\.md/);
@@ -556,6 +559,8 @@ test('a readable remote tracker is reported readable, and its section says issue
   assert.match(section, /#12/);
   assert.match(section, /[Cc]losing an issue outranks its `Status:`/);
   assert.match(section, /closed as not planned or as a duplicate is cancelled/);
+  // A remote Task's branch carries its issue number, so its title need not be unique.
+  assert.doesNotMatch(section, /slug, its file name/);
   assert.doesNotMatch(stdout, /from this shell/);
 });
 

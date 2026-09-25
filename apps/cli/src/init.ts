@@ -610,21 +610,26 @@ const ISSUE_NUMBERS = 'the issue numbers of the issues it waits for, such as `#1
 const PATH_OR_LINK = 'its path, such as `docs/specs/<slug>/spec.md`, or a link to that file pinned to a commit';
 const KEEP_CURRENT = 'Binnacle reports any disagreement between the two, so keep the line current when you close the issue.';
 
-/** What the section says differently on each tracker (ADR-0024, and the spec's closed-issue states). */
-const CONVENTIONS: Record<TrackerProvider, { ticket: string; blockedBy: string; example: string; spec: string; closing: string | null }> = {
+/**
+ * What the section says differently on each tracker (ADR-0024). `rule` follows the fields: on
+ * the local tracker, the unique slug a ticket's branch needs; on a remote one, the spec's closed-issue states.
+ */
+const CONVENTIONS: Record<TrackerProvider, { ticket: string; blockedBy: string; example: string; spec: string; rule: string }> = {
   local: {
     ticket: 'ticket',
     blockedBy: 'the numbers of the tickets in the same spec it waits for, such as `01, 03`',
     example: '01, 03',
     spec: 'its path, such as `docs/specs/<slug>/spec.md`',
-    closing: null,
+    rule:
+      "A ticket's slug, its file name without the number, is unique across every spec's tickets: it names the ticket's branch, `feat/<slug>`, " +
+      'and Binnacle credits the work on a branch two tickets share to neither.',
   },
   github: {
     ticket: 'issue body',
     blockedBy: ISSUE_NUMBERS,
     example: '#12, #15',
     spec: PATH_OR_LINK,
-    closing:
+    rule:
       'Closing an issue outranks its `Status:` line: an issue closed as completed is done, and one closed as not planned or as a duplicate is cancelled, whatever the line says. ' +
       `An issue closed with no reason is cancelled when its \`Status:\` says \`CANCELLED\`, and done otherwise. ${KEEP_CURRENT}`,
   },
@@ -633,7 +638,7 @@ const CONVENTIONS: Record<TrackerProvider, { ticket: string; blockedBy: string; 
     blockedBy: ISSUE_NUMBERS,
     example: '#12, #15',
     spec: PATH_OR_LINK,
-    closing:
+    rule:
       'Closing an issue outranks its `Status:` line, and GitLab reports no reason for closing: a closed issue is done, unless its `Status:` says `CANCELLED`. ' +
       `Set \`Status: CANCELLED\` before closing work that was abandoned. ${KEEP_CURRENT}`,
   },
@@ -641,7 +646,7 @@ const CONVENTIONS: Record<TrackerProvider, { ticket: string; blockedBy: string; 
 
 /** The convention `/to-tickets` writes by, for the tracker in use. It leads with a blank line, after the file's last section. */
 function ticketHeaderSection(provider: TrackerProvider): string {
-  const { ticket, blockedBy, example, spec, closing } = CONVENTIONS[provider];
+  const { ticket, blockedBy, example, spec, rule } = CONVENTIONS[provider];
   const states = TASK_STATES.map((state) => `\`${state}\``).join(', ');
   return `
 ## Ticket header
@@ -651,7 +656,9 @@ Binnacle reads a ticket's state, dependencies and spec from its header: these li
 - \`Status:\` — the ticket's state, one of ${states}.
 - \`Blocked by:\` — ${blockedBy}, or \`None\`.
 - \`Spec:\` — the spec it implements, as ${spec}.
-${closing === null ? '' : `\n${closing}\n`}
+
+${rule}
+
 For example:
 
 \`\`\`text

@@ -452,6 +452,7 @@ describe('the task brief on a GitLab tracker', () => {
     dependencies: { id: string; title: string | null; state: string | null; met: boolean | null; dangling: boolean }[];
     body: { text: string; truncated: boolean };
     branch: string;
+    diagnostics: { code: string; message: string }[];
   };
 
   async function taskGet(daemon: TestDaemon, root: string, id: string): Promise<{ status: number; body: Brief & { error: { code: string } } }> {
@@ -486,6 +487,7 @@ describe('the task brief on a GitLab tracker', () => {
         ],
         body: { text: '**What to build:** GitLab.\n\nStatus: DONE', truncated: false },
         branch: 'feat/3-read-gitlab-issues-by-iid',
+        diagnostics: [],
       });
       assert.equal((await taskGet(daemon, root, '3')).body.id, '#3');
       assert.equal((await taskGet(daemon, root, '#9')).body.error.code, 'task.not_found');

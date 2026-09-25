@@ -13,6 +13,7 @@ export {
   parseTicketHeader,
   remoteLocation,
   resolveDependencies,
+  sharedBranch,
   taskBranch,
   ticketBody,
   trackerRemoteMismatch,

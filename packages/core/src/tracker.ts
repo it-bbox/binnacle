@@ -187,6 +187,26 @@ export function branchTask<T extends Pick<TrackerTask, 'id' | 'title' | 'ticket'
   return matches.length === 1 ? matches[0]! : null;
 }
 
+/**
+ * Says when other Tasks have `task`'s branch, and names them: `branchTask` maps that branch to
+ * none of them, so the work on it is credited to no Task. Null when the branch is the Task's
+ * alone. Only local tickets can share one, through their file slug, which is why a ticket's
+ * slug is unique across epics (`docs/agents/issue-tracker.md`); a remote Task's branch carries
+ * its number.
+ */
+export function sharedBranch<T extends Pick<TrackerTask, 'id' | 'title' | 'ticket'>>(task: T, tasks: T[], remote: boolean): Diagnostic | null {
+  const branch = taskBranch(task, remote);
+  // By ticket, not id: `03-a.md` and `3-a.md` in one spec are both `<spec>/03`, and `branchTask` counts both.
+  const others = tasks.filter((other) => other.ticket !== task.ticket && taskBranch(other, remote) === branch);
+  if (others.length === 0) return null;
+  return {
+    code: 'task.shared_branch',
+    message:
+      `${branch}, the branch of ${task.id}, is also the branch of ${others.map((other) => `${other.id} (${other.ticket})`).join(', ')}, ` +
+      "so the work on it is credited to no Task. A ticket's slug is meant to be unique across epics.",
+  };
+}
+
 const branchSlug = (text: string): string => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
 /**

@@ -813,6 +813,7 @@ describe('the task brief on a GitHub tracker', () => {
     dependencies: { id: string; title: string | null; state: string | null; met: boolean | null; dangling: boolean }[];
     body: { text: string; truncated: boolean };
     branch: string;
+    diagnostics: { code: string; message: string }[];
   };
   type Envelope = { error: { code: string; message: string } };
 
@@ -852,6 +853,7 @@ describe('the task brief on a GitHub tracker', () => {
         ],
         body: { text: '**What to build:** a brief.\n\nStatus: DONE', truncated: false },
         branch: 'feat/5-add-a-task-brief-task-get-friends',
+        diagnostics: [],
       });
       assert.equal((await taskGet(daemon, root, '5')).body.id, '#5');
       const other = (await taskGet(daemon, root, '#6')).body;

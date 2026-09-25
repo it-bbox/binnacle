@@ -39,7 +39,7 @@ const TOOLS = {
   task_get: {
     operation: 'task.get',
     description:
-      'The compact brief for starting one Task: its fields, its dependencies with their titles and states, its spec path, the ticket body without comments, and the branch name. Changes nothing.',
+      'The compact brief for starting one Task: its fields, its dependencies with their titles and states, its spec path, the ticket body without comments, and the branch name, with a diagnostic when another Task has the same branch. Changes nothing.',
     inputSchema: {
       id: z.string().describe('The Task id: `<spec-slug>/<NN>` on the local tracker, `#<number>` or `<number>` on GitHub or GitLab.'),
     },
