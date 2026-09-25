@@ -1,6 +1,8 @@
+import { spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
+import { fileURLToPath } from 'node:url';
 import { readGitFacts, type GitRemote } from '@binnacle/adapters';
 import { remoteLocation } from '@binnacle/core';
 import { isAlive, MANIFEST_RELATIVE, OperationError, readManifest, readRuntime, resolveGitTimeout } from '@binnacle/daemon';
@@ -47,6 +49,8 @@ export async function init(home: string, path?: string): Promise<ExitCode> {
     const manifestUsable = await manifestStep(session, git.remotes);
     session.say('');
     await registrationStep(session, home, manifestUsable);
+    session.say('');
+    await pluginStep(session);
     session.say('');
   } finally {
     answers.return?.();
@@ -189,4 +193,55 @@ async function registrationStep(session: Session, home: string, manifestUsable: 
   if (!(await session.ask('Register the project?'))) return record(session, 'declined', what);
   const code = await register(home, session.root);
   record(session, code === EXIT.ok ? 'ran' : 'failed', 'project.register');
+}
+
+/** This package's directory, which carries the plugin and the marketplace that lists it (ADR-0027). */
+const PACKAGE_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
+
+/**
+ * Step 4: the `binnacle` plugin from this very package, so that the skills match the `binn`
+ * that serves their tools (ADR-0027). Only through Claude Code's own CLI, at user scope:
+ * binn init never edits Claude Code's settings files.
+ */
+async function pluginStep(session: Session): Promise<void> {
+  const what = 'the binnacle plugin';
+  // A skills-directory plugin loads as `<directory>@skills-dir` (ADR-0023): a user-scope copy would show every skill twice.
+  const own = join('.claude', 'skills', 'binnacle');
+  if (existsSync(join(session.root, own, '.claude-plugin', 'plugin.json'))) {
+    session.say(`The project provides its own binnacle plugin, at ${own}, so no copy is installed.`);
+    return record(session, 'skipped', `${what}: the project provides its own, at ${own}`);
+  }
+
+  const list = spawnSync('claude', ['plugin', 'list', '--json'], { cwd: session.root, encoding: 'utf8' });
+  if ((list.error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') {
+    session.say('Claude Code is not detected, so the binnacle plugin is not installed.');
+    return record(session, 'skipped', `${what}: Claude Code is not detected`);
+  }
+  let listed: string | undefined;
+  try {
+    if (list.status !== 0) throw new Error(list.stderr || `exit ${list.status}`);
+    listed = (JSON.parse(list.stdout) as { id: string }[]).map((plugin) => plugin.id).find((id) => id.startsWith('binnacle@'));
+  } catch (error) {
+    session.say(`\`claude plugin list --json\` failed, so the binnacle plugin is not installed: ${(error as Error).message.trim()}`);
+    return record(session, 'failed', 'claude plugin list --json');
+  }
+  if (listed) {
+    session.say(`Claude Code already lists ${listed}. It is left as it is.`);
+    return record(session, 'skipped', `${what}: Claude Code already lists ${listed}`);
+  }
+
+  const commands = [
+    ['plugin', 'marketplace', 'add', PACKAGE_DIR, '--scope', 'user'],
+    ['plugin', 'install', 'binnacle@binnacle', '--scope', 'user'],
+  ];
+  const shown = commands.map((args) => `claude ${args.join(' ')}`);
+  session.say(`Install the binnacle plugin from this Binnacle package, at user scope, by running:\n\n${shown.map((line) => `  ${line}`).join('\n')}`);
+  if (!(await session.ask('Install the binnacle plugin?'))) return record(session, 'declined', what);
+
+  for (const [index, args] of commands.entries()) {
+    // stdin stays with binn init's own questions; Claude Code's output is shown as it comes.
+    const run = spawnSync('claude', args, { cwd: session.root, stdio: ['ignore', 'inherit', 'inherit'] });
+    if (run.status !== 0) return record(session, 'failed', shown[index]!);
+    record(session, 'ran', shown[index]!);
+  }
 }

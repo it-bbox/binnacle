@@ -21,3 +21,6 @@ graphify-out/
 # Worktree/task scratch is disposable
 .scratch/
 .claude/worktrees/
+
+# The binnacle plugin, copied into the CLI package from .claude/skills/binnacle by its prepare script (ADR-0027)
+apps/cli/plugin/
