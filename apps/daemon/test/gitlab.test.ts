@@ -341,6 +341,54 @@ describe('the GitLab tracker in the manifest', () => {
   });
 });
 
+// The delta's code is the same for every remote tracker (see github.test.ts for every case);
+// this shows GitLab's states are recorded and compared like GitHub's.
+describe('Task transitions on a GitLab tracker', () => {
+  it('records Task states with a daily and a checkpoint, and lists what closed, started and was filed since', async () => {
+    type Transition = { id: string; from: string | null; to: string | null };
+    type Delta = { transitions: { items: Transition[] } | { available: false; reason: string } | null; newTickets: Section | null };
+    type Event = { type: string; payload: Record<string, unknown> };
+    const before = [
+      issue(1, 'Close me', { description: header({ Status: 'ACTIVE' }) }),
+      issue(2, 'Start me', { description: header({ Status: 'READY' }) }),
+    ];
+    await withGitLab([before], async (daemon, fake) => {
+      const root = makeProject(manifest(fake.base));
+      execFileSync('git', ['init', '--quiet'], { cwd: root });
+      execFileSync('git', ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', '-c', 'commit.gpgsign=false', 'commit', '--quiet', '--allow-empty', '-m', 'Start'], {
+        cwd: root,
+      });
+      assert.equal((await daemon.call('project.register', { path: root })).status, 200);
+      const first = await daemon.call<Delta>('daily.get', { path: root });
+      assert.equal((first.body.transitions as { available: boolean }).available, false);
+      assert.equal((await daemon.call('checkpoint.record', { path: root, promoted: [] })).status, 200);
+      const events = (await daemon.call<{ events: Event[] }>('event.list')).body.events;
+      for (const type of ['daily', 'checkpoint']) {
+        assert.deepEqual(events.find((event) => event.type === type)?.payload.states, { '#1': 'ACTIVE', '#2': 'READY' });
+      }
+
+      fake.pages[0] = [
+        issue(1, 'Close me', { state: 'closed', description: header({ Status: 'ACTIVE' }) }),
+        issue(2, 'Start me', { description: header({ Status: 'ACTIVE' }) }),
+        issue(3, 'Filed since', { description: header({ Status: 'BACKLOG' }) }),
+      ];
+      for (const operation of ['daily.get', 'checkpoint.prepare']) {
+        const { status, body } = await daemon.call<Delta>(operation, { path: root });
+        assert.equal(status, 200, JSON.stringify(body));
+        assert.deepEqual(
+          (body.transitions as { items: Transition[] }).items.map(({ id, from, to }) => ({ id, from, to })),
+          [
+            { id: '#1', from: 'ACTIVE', to: 'DONE' },
+            { id: '#2', from: 'READY', to: 'ACTIVE' },
+          ],
+          operation,
+        );
+        assert.deepEqual(ids(body.newTickets!), ['#3'], operation);
+      }
+    });
+  });
+});
+
 describe('the GitLab adapter', () => {
   // Triage and the Spec: value are in no daemon response until the task brief (ticket 06),
   // so they are read here, from the adapter, against the same loopback server.
