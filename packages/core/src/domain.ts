@@ -151,6 +151,9 @@ const REVIEW: Record<ReviewState, readonly ReviewState[]> = {
   RESOLVED: ['IN_REVIEW'],
 };
 
+/** Every Task state, in the order of the state machine. */
+export const TASK_STATES = Object.keys(TASK) as TaskState[];
+
 /** For an adapter reading a state from outside: a value that is not a Task state is not guessed at. */
 export const isTaskState = (value: string): value is TaskState => Object.hasOwn(TASK, value);
 

@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import { test, type TestContext } from 'node:test';
 import { isAlive, readRuntime } from '@binnacle/daemon';
 
@@ -12,8 +15,13 @@ const BINN = fileURLToPath(new URL('../src/bin.ts', import.meta.url));
 const PACKAGE = dirname(dirname(BINN));
 const GIT = (process.env.PATH ?? '').split(delimiter).map((dir) => join(dir, 'git')).find(existsSync);
 
-/** The environment minus anything that would point git at another repository. */
-const baseEnv = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
+/**
+ * The environment minus anything that would point git at another repository, and minus a
+ * tracker token the developer has set, which would otherwise reach the loopback stand-ins.
+ */
+const baseEnv = Object.fromEntries(
+  Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_') && !/^BINNACLE_(GITHUB|GITLAB)_TOKEN$/.test(key)),
+);
 
 function git(cwd: string, ...args: string[]): string {
   const result = spawnSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', ...args], {
@@ -97,13 +105,20 @@ function installUserDirectory(home: Home, relative: string): void {
   mkdirSync(join(home.home, relative), { recursive: true });
 }
 
+/**
+ * `binn init` checks the tracker a new manifest declares, and a proposal from a real remote
+ * declares a real host. Every request but one to loopback goes to a proxy that refuses it, so
+ * that the tests stay offline and such a check fails at once as `tracker.unreachable`.
+ */
+const OFFLINE = { NODE_USE_ENV_PROXY: '1', HTTPS_PROXY: 'http://127.0.0.1:9', HTTP_PROXY: 'http://127.0.0.1:9', NO_PROXY: '127.0.0.1,localhost' };
+
 function binnIn(home: Home) {
   return (cwd: string, input: string, ...args: string[]) =>
     spawnSync(process.execPath, [BINN, ...args], {
       cwd,
       input,
       encoding: 'utf8',
-      env: { ...baseEnv, HOME: home.home, BINNACLE_HOME: home.binnacleHome, BINNACLE_PORT: '0', PATH: home.bin, XDG_CONFIG_HOME: join(home.home, '.config') },
+      env: { ...baseEnv, ...OFFLINE, HOME: home.home, BINNACLE_HOME: home.binnacleHome, BINNACLE_PORT: '0', PATH: home.bin, XDG_CONFIG_HOME: join(home.home, '.config') },
     });
 }
 
@@ -160,6 +175,8 @@ knowledge:
   assert.match(result.stdout, /binn daemon start/);
   assert.match(result.stdout, /binn project register/);
   assert.match(result.stdout, /created\s+\.binnacle\/project\.yaml/);
+  // The new manifest's tracker is checked, here against the refusing proxy.
+  assert.match(result.stdout, /failed\s+tracker check: tracker\.unreachable/);
   assert.match(result.stdout, /Nothing was committed/);
   assert.equal(commits(root), before);
 });
@@ -414,6 +431,136 @@ test('the plugin: Claude Code detected by ~/.claude alone, with no claude to run
   assert.equal(result.status, 0, result.stderr);
   assert.doesNotMatch(result.stdout, /Install the binnacle plugin/);
   assert.match(result.stdout, /skipped\s+the binnacle plugin: `claude` is not on PATH/);
+});
+
+/** `binn init` as a subprocess that leaves this process free, so that a loopback stand-in here can answer it. */
+async function binnInit(home: Home, cwd: string, input: string, env: Record<string, string> = {}) {
+  const run = promisify(execFile)(process.execPath, [BINN, 'init'], {
+    cwd,
+    encoding: 'utf8',
+    env: { ...baseEnv, ...OFFLINE, HOME: home.home, BINNACLE_HOME: home.binnacleHome, BINNACLE_PORT: '0', PATH: home.bin, ...env },
+  });
+  run.child.stdin!.end(input);
+  return await run;
+}
+
+/** A loopback stand-in for a tracker's API: every request is kept, and answered with `status` and `body`. */
+async function trackerStandIn(t: TestContext, status: number, body: unknown): Promise<{ base: string; requests: string[] }> {
+  const requests: string[] = [];
+  const server = createServer((request, response) => {
+    requests.push(request.url ?? '');
+    response.writeHead(status, { 'content-type': 'application/json' });
+    response.end(JSON.stringify(body));
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise<void>((resolve) => server.close(() => resolve())));
+  return { base: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, requests };
+}
+
+const remoteManifest = (provider: string, repository: string, host: string): string =>
+  `version: 1\nproject:\n  id: remote\ntracker:\n  provider: ${provider}\n  repository: ${repository}\n  host: ${JSON.stringify(host)}\n`;
+
+const TRACKER_FILE = 'docs/agents/issue-tracker.md';
+
+test('the ticket-header section is appended to the issue tracker file once, and not a second time', (t) => {
+  const home = makeHome(t);
+  const conventions = '# Issue tracker: Local Markdown\n\nIssues live in docs/specs.';
+  const root = makeRepository(t, 'layout', { [TRACKER_FILE]: conventions, 'docs/agents/triage-labels.md': '# Triage\n' });
+  const before = commits(root);
+
+  // The manifest, then the section; with no daemon, registration asks nothing.
+  const first = binnIn(home)(root, 'y\ny\n', 'init');
+  assert.equal(first.status, 0, first.stderr);
+  const extended = readFileSync(join(root, TRACKER_FILE), 'utf8');
+  assert.ok(extended.startsWith(`${conventions}\n\n## Ticket header\n`), extended);
+  const section = extended.slice(conventions.length);
+  for (const line of ['Status:', 'Blocked by:', 'Spec:']) assert.ok(section.includes(`\`${line}\``), section);
+  assert.match(section, /READY_FOR_REVIEW/);
+  assert.match(section, /None/);
+  assert.doesNotMatch(section, /issue number/);
+  // The exact addition is shown before the question.
+  assert.ok(first.stdout.includes(section.trim()), first.stdout);
+  assert.match(first.stdout, /extended\s+docs\/agents\/issue-tracker\.md/);
+
+  const second = binnIn(home)(root, 'y\ny\n', 'init');
+  assert.equal(second.status, 0, second.stderr);
+  assert.equal(readFileSync(join(root, TRACKER_FILE), 'utf8'), extended);
+  assert.doesNotMatch(second.stdout, /Append to/);
+  assert.match(second.stdout, /skipped\s+ticket-header section: docs\/agents\/issue-tracker\.md has it/);
+  assert.equal(commits(root), before);
+});
+
+test('without the Matt Pocock layout, init points at /setup-matt-pocock-skills and runs nothing', (t) => {
+  const home = makeHome(t);
+  const root = makeRepository(t, 'plain');
+
+  const result = binnIn(home)(root, 'n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /\/setup-matt-pocock-skills/);
+  assert.match(result.stdout, /skipped\s+ticket-header section: no Matt Pocock layout/);
+  assert.equal(existsSync(join(root, 'docs')), false);
+  assert.equal(git(root, 'status', '--porcelain'), '');
+});
+
+test('a CLAUDE.md importing AGENTS.md is one instruction set; without the import there are two; neither is written', (t) => {
+  const home = makeHome(t);
+  const agents = '# Agent Instructions\n\nKeep it simple.\n';
+  const importing = '@AGENTS.md\n\n# Claude Code Instructions\n';
+  const root = makeRepository(t, 'instructions', { 'AGENTS.md': agents, 'CLAUDE.md': importing });
+
+  const one = binnIn(home)(root, '', 'init');
+  assert.equal(one.status, 0, one.stderr);
+  assert.match(one.stdout, /one instruction set: CLAUDE\.md, which imports AGENTS\.md/);
+
+  // A mention in inline code is not an import.
+  const mentioning = '# Claude Code Instructions\n\nWrite `@AGENTS.md` to import it.\n';
+  writeFileSync(join(root, 'CLAUDE.md'), mentioning);
+  const two = binnIn(home)(root, '', 'init');
+  assert.equal(two.status, 0, two.stderr);
+  assert.match(two.stdout, /two instruction sets: AGENTS\.md; CLAUDE\.md/);
+
+  assert.equal(readFileSync(join(root, 'AGENTS.md'), 'utf8'), agents);
+  assert.equal(readFileSync(join(root, 'CLAUDE.md'), 'utf8'), mentioning);
+});
+
+test('a readable remote tracker is reported readable, and its section says issue numbers and that closing outranks Status:', async (t) => {
+  const home = makeHome(t);
+  const github = await trackerStandIn(t, 200, []);
+  const root = makeRepository(t, 'remote', {
+    '.binnacle/project.yaml': remoteManifest('github', 'octo-org/octo-repo', github.base),
+    [TRACKER_FILE]: '# Issue tracker: GitHub\n',
+  });
+
+  const { stdout } = await binnInit(home, root, 'y\n');
+
+  assert.match(stdout, /octo-org\/octo-repo is readable/);
+  assert.match(stdout, /checked\s+tracker: readable/);
+  assert.deepEqual([...new Set(github.requests.map((url) => url.split('?')[0]))], ['/repos/octo-org/octo-repo/issues']);
+  const section = readFileSync(join(root, TRACKER_FILE), 'utf8');
+  assert.match(section, /issue numbers/);
+  assert.match(section, /#12/);
+  assert.match(section, /[Cc]losing an issue outranks its `Status:`/);
+});
+
+test('an unreadable remote tracker gives the failure code and how to make a read-only token, and never the token', async (t) => {
+  const home = makeHome(t);
+  const gitlab = await trackerStandIn(t, 401, { message: '401 Unauthorized' });
+  const root = makeRepository(t, 'remote', { '.binnacle/project.yaml': remoteManifest('gitlab', 'group/project', gitlab.base) });
+  const token = 'glpat-never-printed-anywhere';
+
+  const { stdout, stderr } = await binnInit(home, root, '', { BINNACLE_GITLAB_TOKEN: token });
+
+  assert.equal(gitlab.requests.length, 1);
+  assert.match(stdout, /tracker\.unauthorized/);
+  assert.match(stdout, /a token was used/);
+  assert.match(stdout, /read_api/);
+  assert.match(stdout, /BINNACLE_GITLAB_TOKEN/);
+  assert.ok(stdout.includes(join(home.binnacleHome, 'credentials.json')), stdout);
+  assert.ok(stdout.includes(JSON.stringify(gitlab.base)), 'the key the token goes under');
+  assert.match(stdout, /failed\s+tracker check: tracker\.unauthorized/);
+  assert.ok(!stdout.includes(token) && !stderr.includes(token));
+  assert.equal(existsSync(join(home.binnacleHome, 'credentials.json')), false);
 });
 
 test('Claude Code on PATH gets a new .mcp.json, and only the detected harness is offered', (t) => {

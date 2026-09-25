@@ -23,8 +23,10 @@ export {
   type TrackerTask,
 } from './tracker.ts';
 export { parseRoadmap, roadmapAttention, type Epic, type Roadmap, type RoadmapStatus } from './roadmap.ts';
+export { instructionSets } from './instructions.ts';
 export {
   isTaskState,
+  TASK_STATES,
   transitionAgentRun,
   transitionReview,
   transitionTask,

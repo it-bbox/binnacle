@@ -1,4 +1,6 @@
 export {
+  credentialsKey,
+  credentialsPath,
   DEFAULT_PORT,
   OWNER_ONLY_FILE,
   ensureHome,
@@ -21,4 +23,5 @@ export { MANIFEST_RELATIVE, readManifest } from './manifest.ts';
 export { DaemonAlreadyRunningError, HEALTH_PATH, OPS_PREFIX, startDaemon, type Daemon } from './server.ts';
 export { operations, type Operation, type OperationContext, type ProjectStatus } from './operations.ts';
 export { type ProjectRow } from './store.ts';
+export { readTracker } from './snapshot.ts';
 export { packageVersion } from './version.ts';

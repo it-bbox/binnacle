@@ -4,13 +4,23 @@ import { homedir } from 'node:os';
 import { basename, delimiter, dirname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
-import { readGitFacts, type GitRemote } from '@binnacle/adapters';
-import { remoteLocation } from '@binnacle/core';
-import { isAlive, MANIFEST_RELATIVE, OperationError, readManifest, readRuntime, resolveGitTimeout } from '@binnacle/daemon';
+import { readGitFacts, workingTree, type GitRemote } from '@binnacle/adapters';
+import { instructionSets, remoteLocation, TASK_STATES, type ProjectManifest, type TrackerProvider } from '@binnacle/core';
+import {
+  credentialsKey,
+  credentialsPath,
+  isAlive,
+  MANIFEST_RELATIVE,
+  OperationError,
+  readManifest,
+  readTracker,
+  readRuntime,
+  resolveGitTimeout,
+} from '@binnacle/daemon';
 import { EXIT, type ExitCode } from './exit.ts';
 import { register } from './project-commands.ts';
 
-type Outcome = 'created' | 'extended' | 'printed' | 'ran' | 'failed' | 'declined' | 'skipped';
+type Outcome = 'created' | 'extended' | 'printed' | 'ran' | 'checked' | 'failed' | 'declined' | 'skipped';
 
 /** What one run of `binn init` knows and has done: where it works, how it asks, and what it will summarise. */
 type Session = {
@@ -54,6 +64,12 @@ export async function init(home: string, path?: string): Promise<ExitCode> {
     await harnessStep(session);
     session.say('');
     await pluginStep(session);
+    session.say('');
+    await mattPocockStep(session, declaredManifest(session.root)?.tracker.provider ?? forgeRemote(git.remotes)?.provider ?? 'local');
+    session.say('');
+    instructionsStep(session);
+    session.say('');
+    await trackerStep(session, home);
     session.say('');
   } finally {
     answers.return?.();
@@ -151,7 +167,7 @@ function proposeManifest(root: string, remotes: GitRemote[]): string {
     .map(([key, path]) => `\n  ${key}: ${path}`);
   if (knowledge.length > 0) sections.push(`knowledge:${knowledge.join('')}`);
 
-  if (existsSync(join(root, 'docs', 'agents', 'issue-tracker.md'))) sections.push('workflow:\n  provider: matt-pocock');
+  if (mattPocockFiles(root).length > 0) sections.push('workflow:\n  provider: matt-pocock');
 
   return `${sections.join('\n\n')}\n`;
 }
@@ -382,4 +398,129 @@ function pluginIds(output: string): string[] | null {
   } catch {
     return null;
   }
+}
+
+/** The readable manifest, or null when there is none. */
+function declaredManifest(root: string): ProjectManifest | null {
+  try {
+    return readManifest(root).manifest;
+  } catch (error) {
+    if (error instanceof OperationError) return null;
+    throw error;
+  }
+}
+
+const ISSUE_TRACKER = 'docs/agents/issue-tracker.md';
+
+/** The convention files `/setup-matt-pocock-skills` writes. Any of them present is the layout. */
+const mattPocockFiles = (root: string): string[] =>
+  [ISSUE_TRACKER, 'docs/agents/triage-labels.md', 'docs/agents/domain.md'].filter((path) => existsSync(join(root, path)));
+
+/** The section is recognised by its heading, at any level, so that it is never appended twice. */
+const TICKET_HEADER_HEADING = /^#{1,6}\s+Ticket header\s*$/im;
+
+/**
+ * Step 5: `/to-tickets` learns the ticket header (ADR-0024) from the issue tracker file, so the
+ * section is offered as an append to it. `provider` is the tracker the manifest declares, or
+ * the one it would propose.
+ */
+async function mattPocockStep(session: Session, provider: TrackerProvider): Promise<void> {
+  const what = 'ticket-header section';
+  const found = mattPocockFiles(session.root);
+  if (found.length === 0) {
+    session.say(
+      `There is no Matt Pocock layout here: no ${ISSUE_TRACKER}, nor its sibling convention files. ` +
+        'Run /setup-matt-pocock-skills in your agent harness to set it up; binn init runs nothing for you.',
+    );
+    return record(session, 'skipped', `${what}: no Matt Pocock layout; /setup-matt-pocock-skills sets it up`);
+  }
+  session.say(`Matt Pocock layout: ${found.join(', ')}.`);
+  if (!found.includes(ISSUE_TRACKER)) {
+    session.say(`${ISSUE_TRACKER} is missing, so there is nothing to extend. /setup-matt-pocock-skills writes it.`);
+    return record(session, 'skipped', `${what}: no ${ISSUE_TRACKER}`);
+  }
+  if (TICKET_HEADER_HEADING.test(readFileSync(join(session.root, ISSUE_TRACKER), 'utf8'))) {
+    session.say(`${ISSUE_TRACKER} already has its ticket-header section.`);
+    return record(session, 'skipped', `${what}: ${ISSUE_TRACKER} has it`);
+  }
+  await offerFile(session, ISSUE_TRACKER, ticketHeaderSection(provider));
+}
+
+/** The convention `/to-tickets` writes by, for the tracker in use. It leads with a blank line, after the file's last section. */
+function ticketHeaderSection(provider: TrackerProvider): string {
+  const remote = provider !== 'local';
+  const states = TASK_STATES.map((state) => `\`${state}\``).join(', ');
+  const blockedBy = remote
+    ? 'the issue numbers of the issues it waits for, such as `#12, #15`'
+    : 'the numbers of the tickets in the same spec it waits for, such as `01, 03`';
+  const spec = remote ? 'its path, such as `docs/specs/<slug>/spec.md`, or a link to that file pinned to a commit' : 'its path, such as `docs/specs/<slug>/spec.md`';
+  const closing = remote
+    ? '\nClosing an issue outranks its `Status:` line: a closed issue is done, or cancelled when closed as not planned, whatever the line says. ' +
+      'Update the line when you close the issue anyway, because Binnacle reports any disagreement between the two.\n'
+    : '';
+  return `
+## Ticket header
+
+Binnacle reads a ticket's state, dependencies and spec from its header: these lines, one per line, at the top of every ${remote ? 'issue body' : 'ticket'}, before anything else. Write them in every ticket, and keep \`Status:\` current.
+
+- \`Status:\` — the ticket's state, one of ${states}.
+- \`Blocked by:\` — ${blockedBy}, or \`None\`.
+- \`Spec:\` — the spec it implements, as ${spec}.
+${closing}
+For example:
+
+\`\`\`text
+Status: READY
+Blocked by: ${remote ? '#12, #15' : '01, 03'}
+Spec: \`docs/specs/<slug>/spec.md\`
+\`\`\`
+`;
+}
+
+/** Step 6: the agent instruction files, reported as the sets an agent reads. Nothing is written to either. */
+function instructionsStep(session: Session): void {
+  const files = Object.fromEntries(
+    ['AGENTS.md', 'CLAUDE.md']
+      .filter((name) => existsSync(join(session.root, name)))
+      .map((name) => [name, readFileSync(join(session.root, name), 'utf8')]),
+  );
+  const sets = instructionSets(files);
+  if (sets.length === 0) return session.say('There is no AGENTS.md or CLAUDE.md, so there are no agent instructions to report.');
+  const described = sets.map(([entry, ...imported]) => (imported.length === 0 ? entry : `${entry}, which imports ${imported.join(' and ')}`));
+  const count = sets.length === 1 ? 'one instruction set' : 'two instruction sets';
+  session.say(`Agent instructions: ${count}: ${described.join('; ')}. binn init writes nothing to them.`);
+}
+
+/**
+ * Step 7: one read of a remote tracker through its adapter, with the credentials the daemon
+ * would use. On a failure it says how to make a read-only token and where to put it; it never
+ * asks for, stores or prints one.
+ */
+async function trackerStep(session: Session, home: string): Promise<void> {
+  const manifest = declaredManifest(session.root);
+  if (!manifest) return session.say('There is no usable manifest, so no tracker is checked.');
+  const { provider, host } = manifest.tracker;
+  if (provider !== 'github' && provider !== 'gitlab') return session.say('The tracker is not a remote one, so there is nothing to check.');
+  const repository = manifest.tracker.repository ?? `the ${provider} tracker`;
+
+  // A remote tracker is read from its host, never from the tree.
+  const reading = await readTracker(home, workingTree(session.root), manifest);
+  if (reading.tasks !== null) {
+    session.say(`${repository} is readable: ${reading.tasks.length} issues read.`);
+    return record(session, 'checked', 'tracker: readable');
+  }
+  const failure = reading.diagnostics[0]!;
+  const how =
+    provider === 'github'
+      ? `On GitHub, create a fine-grained personal access token with read-only access to the issues of ${repository} ` +
+        '(Settings, Developer settings, Personal access tokens, Fine-grained tokens; Repository permissions, Issues: Read-only).'
+      : "On GitLab, create a personal, group or project access token with the read_api scope and nothing else (User settings, or the project's Settings, then Access tokens).";
+  session.say(
+    `${repository} could not be read. ${failure.code}: ${failure.message}\n\n${how} A public repository needs none.\n` +
+      `Put it in BINNACLE_${provider.toUpperCase()}_TOKEN in the environment the daemon starts with, or in ${credentialsPath(home)} ` +
+      `under the key ${JSON.stringify(credentialsKey(provider, host))}, owner-only (chmod 600). ` +
+      `Generic variables such as ${provider.toUpperCase()}_TOKEN are not read: they commonly hold tokens that can write. ` +
+      "Binnacle's docs/operations/05-installation-checklist.md, under Tracker credentials, has the details.",
+  );
+  record(session, 'failed', `tracker check: ${failure.code}`);
 }

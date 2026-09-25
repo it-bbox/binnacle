@@ -58,6 +58,9 @@ export const storePath = (home: string): string => join(home, 'binnacle.db');
 /** Read-only tracker tokens, a JSON object keyed by host. Binnacle reads it and never writes it. */
 export const credentialsPath = (home: string): string => join(home, 'credentials.json');
 
+/** The credentials file's key for a tracker: `tracker.host` as written, or the provider's default host. */
+export const credentialsKey = (provider: Exclude<TrackerProvider, 'local'>, host: string | null): string => host ?? `${provider}.com`;
+
 /** A token as an HTTP header can carry it. Anything else is refused before it can be sent, or quoted back in an error. */
 const USABLE_TOKEN = /^[\x21-\x7e]+$/;
 
@@ -118,7 +121,7 @@ export function trackerToken(
   if (typeof entries !== 'object' || entries === null || Array.isArray(entries)) {
     return { failure: { code: 'tracker.unavailable', message: `${path} is not a JSON object of host to token, so the tracker was not read.` } };
   }
-  const key = host ?? `${provider}.com`;
+  const key = credentialsKey(provider, host);
   if (!Object.hasOwn(entries, key)) return { token: null };
   const entry: unknown = (entries as Record<string, unknown>)[key];
   const token = typeof entry === 'string' ? entry.trim() : '';
