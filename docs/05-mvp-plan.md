@@ -61,11 +61,12 @@ Implement:
 - normalized usage schema;
 - session-artifact readers, Claude Code first, then Codex (ADR-0011);
 - historical import driven by a question `binn init` gains in this phase;
-- run-to-task correlation from `cwd` and `git reflog` (ADR-0018);
-- provenance tagging;
-- OpenTelemetry as an optional additional path.
+- run-to-task correlation from `cwd` and the branch — the harness's own record first, `git reflog` otherwise (ADR-0018, ADR-0028);
+- provenance tagging.
 
-Exit criterion: dashboard can attribute usage to runs/tasks for supported paths, and each harness reports the support level it actually reached (ADR-0014).
+OpenTelemetry, the optional live path (ADR-0011), is deferred: see the roadmap's Later list.
+
+Exit criterion: the Product Snapshot and MCP attribute usage to runs and Tasks for supported paths, and each harness reports the support level it actually reached (ADR-0014). The dashboard that draws this is phase 5. Specified in `specs/telemetry/spec.md`.
 
 ## Phase 5 — Minimal Dashboard
 

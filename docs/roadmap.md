@@ -42,6 +42,9 @@ Deferred deliberately, each with the decision that deferred it:
 - adopting a large third-party repository as a baseline case — `docs/00-scope.md`;
 - autopilot notifications through a Telegram bot, beside the push notification it sends today — `ADR-0022`;
 - CI state in the Product Snapshot, which stays marked unavailable — this repository has no CI to build it against;
+- OpenTelemetry as a live telemetry path, and support level 4 — `ADR-0011`, `specs/telemetry/spec.md`;
+- cost computed from a price table — `specs/telemetry/spec.md`: a subscription makes such a number conditional;
+- context pressure and its attention item — `docs/04-telemetry-dashboard.md`, deferred by `specs/telemetry/spec.md`;
 - CLI commands mirroring the MCP tools, for harnesses that have a shell but no MCP — `ADR-0014`, when such a user appears;
 - changing a local ticket's `Status:` from the dashboard — a separate ADR narrowing `ADR-0020`, only if working with the read-only dashboard shows it is needed;
 - forking the Matt Pocock skills into the `binnacle` plugin — only if a skill's procedure, not just its conventions in `docs/agents/`, has to change;

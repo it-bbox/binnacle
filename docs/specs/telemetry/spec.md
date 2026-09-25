@@ -228,7 +228,7 @@ The `product` skill's presentation of the usage section, as before: the exit dem
   - The observed run: a stretch of one session in one checkout on one branch, with no lifecycle state (`CONTEXT.md`).
   - The default window of 90 days, and `all`.
   - The exit criterion names the snapshot and MCP instead of the dashboard.
-- **The first ticket** should update `docs/05-mvp-plan.md`, `docs/roadmap.md`'s Later list and `docs/06-data-model.md` as listed above, so that the documents agree with this spec before code lands.
+- **The documents listed above were updated** in the Product session that sliced this spec, so they agree with it before code lands.
 - **Fixtures are cut from real artifacts**, never written from memory of the format. The ticket that adds a harness reader should say which session it cut them from and strip every content field it does not need to prove is ignored.
 - **Format drift.** Claude Code's artifact format already carries fields that did not exist a few versions ago. The readers match on the fields they need and ignore the rest; a missing needed field is the failure, not an unknown extra one.
 - **Exit demonstration.** The closing ticket runs `/binnacle:product` in a fresh session on this repository and checks that the usage section shows today's and the week's totals, that `usage_get` for tickets of epic 3 returns their runs with implementation roles and their subagents linked, that Product sessions on `main` carry the `product` role, and that the unassigned share is small enough to believe. Defects are filed as tickets.

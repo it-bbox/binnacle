@@ -58,6 +58,26 @@ initiator
 budget_policy?
 ```
 
+## Observed run
+
+An AgentRun Binnacle reads out of a session artifact rather than one it manages: one unbroken stretch of one session in one checkout on one branch (`CONTEXT.md`). It has no lifecycle state, because an artifact cannot tell a finished run from an abandoned one. It is derived from ingested records on every read and is not stored.
+
+```text
+id                 derived from its first record, stable across reads
+project_id
+task_id?           null is unassigned
+role               product | implementation | unknown, from the branch
+harness
+provider?
+model?
+branch?
+branch_source?     harness | reflog (ADR-0028)
+parent_run_id?     the run that started a subagent
+started_at
+last_activity_at
+active             calculated from last_activity_at
+```
+
 ## Review
 
 ```text
@@ -86,16 +106,29 @@ id, question_id, author_role, body_ref/body, created_at
 
 ## RawIngestRecord
 
-The verbatim normalised record parsed out of a harness artifact, with its provenance. This table is append-only and is the only one that is migrated rather than rebuilt (ADR-0015), because the artifact it came from may no longer exist.
+The normalised record parsed out of a harness artifact, with its provenance: metadata and token counts only, never content. This table is append-only and is migrated rather than rebuilt (ADR-0015), because the artifact it came from may no longer exist. The branch is resolved when the record is ingested, because the reflog it may come from can disappear; the Task is resolved on read.
 
 ```text
 id
 project_id
 harness
-source_ref
+natural_key        unique per harness: Claude Code's message id, Codex's record ordinal
+session_id
+subagent_id?
+source_ref         the artifact file
+timestamp
+cwd
+branch?
+branch_source?
+provider?
+model?
+input?             each token field null when not reported
+cached_input?
+cache_creation?
+output?
+reasoning?
+provenance         per field where it differs
 ingested_at
-payload
-provenance
 ```
 
 ## TelemetryRecord
