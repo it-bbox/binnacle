@@ -212,19 +212,19 @@ async function pluginStep(session: Session): Promise<void> {
     return record(session, 'skipped', `${what}: the project provides its own, at ${own}`);
   }
 
+  // ponytail: Claude Code is detected by its executable answering, the one thing this step needs;
+  // the harness step's detector (ticket 09) can replace this once it exists.
   const list = spawnSync('claude', ['plugin', 'list', '--json'], { cwd: session.root, encoding: 'utf8' });
   if ((list.error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') {
     session.say('Claude Code is not detected, so the binnacle plugin is not installed.');
     return record(session, 'skipped', `${what}: Claude Code is not detected`);
   }
-  let listed: string | undefined;
-  try {
-    if (list.status !== 0) throw new Error(list.stderr || `exit ${list.status}`);
-    listed = (JSON.parse(list.stdout) as { id: string }[]).map((plugin) => plugin.id).find((id) => id.startsWith('binnacle@'));
-  } catch (error) {
-    session.say(`\`claude plugin list --json\` failed, so the binnacle plugin is not installed: ${(error as Error).message.trim()}`);
+  const ids = list.status === 0 ? pluginIds(list.stdout) : null;
+  if (!ids) {
+    session.say(`\`claude plugin list --json\` failed, so the binnacle plugin is not installed.${list.stderr ? `\n${list.stderr.trim()}` : ''}`);
     return record(session, 'failed', 'claude plugin list --json');
   }
+  const listed = ids.find((id) => id.startsWith('binnacle@'));
   if (listed) {
     session.say(`Claude Code already lists ${listed}. It is left as it is.`);
     return record(session, 'skipped', `${what}: Claude Code already lists ${listed}`);
@@ -234,14 +234,24 @@ async function pluginStep(session: Session): Promise<void> {
     ['plugin', 'marketplace', 'add', PACKAGE_DIR, '--scope', 'user'],
     ['plugin', 'install', 'binnacle@binnacle', '--scope', 'user'],
   ];
-  const shown = commands.map((args) => `claude ${args.join(' ')}`);
-  session.say(`Install the binnacle plugin from this Binnacle package, at user scope, by running:\n\n${shown.map((line) => `  ${line}`).join('\n')}`);
+  const shown = (args: string[]): string => `claude ${args.join(' ')}`;
+  session.say(`Install the binnacle plugin from this Binnacle package, at user scope, by running:\n\n${commands.map((args) => `  ${shown(args)}`).join('\n')}`);
   if (!(await session.ask('Install the binnacle plugin?'))) return record(session, 'declined', what);
 
-  for (const [index, args] of commands.entries()) {
+  for (const args of commands) {
     // stdin stays with binn init's own questions; Claude Code's output is shown as it comes.
     const run = spawnSync('claude', args, { cwd: session.root, stdio: ['ignore', 'inherit', 'inherit'] });
-    if (run.status !== 0) return record(session, 'failed', shown[index]!);
-    record(session, 'ran', shown[index]!);
+    if (run.status !== 0) return record(session, 'failed', shown(args));
+    record(session, 'ran', shown(args));
+  }
+}
+
+/** The plugin ids in `claude plugin list --json` output, or null when it is not that. */
+function pluginIds(output: string): string[] | null {
+  try {
+    const plugins: unknown = JSON.parse(output);
+    return Array.isArray(plugins) ? plugins.map((plugin) => String((plugin as { id?: unknown }).id)) : null;
+  } catch {
+    return null;
   }
 }

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { delimiter, join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test, type TestContext } from 'node:test';
 import { isAlive, readRuntime } from '@binnacle/daemon';
@@ -10,7 +10,7 @@ import { offerFile, type Session } from '../src/init.ts';
 
 const BINN = fileURLToPath(new URL('../src/bin.ts', import.meta.url));
 /** The CLI package's directory: the marketplace `binn init` adds (ADR-0027). */
-const PACKAGE = fileURLToPath(new URL('..', import.meta.url)).replace(/\/$/, '');
+const PACKAGE = dirname(dirname(BINN));
 const GIT = (process.env.PATH ?? '').split(delimiter).map((dir) => join(dir, 'git')).find(existsSync);
 
 /** The environment minus anything that would point git at another repository. */
@@ -245,6 +245,7 @@ test('a valid existing manifest is reported with its warnings and left alone', (
 
 test('closed stdin is a no to every step, and writes nothing', (t) => {
   const home = makeHome(t);
+  const calls = fakeClaude(home);
   const root = makeRepository(t, 'quiet', { 'CONTEXT.md': '# Context\n' });
 
   const result = binnIn(home)(root, '', 'init');
@@ -252,6 +253,8 @@ test('closed stdin is a no to every step, and writes nothing', (t) => {
   assert.equal(result.status, 0, result.stderr);
   assert.equal(existsSync(join(root, '.binnacle')), false);
   assert.match(result.stdout, /declined\s+create \.binnacle\/project\.yaml/);
+  assert.match(result.stdout, /declined\s+the binnacle plugin/);
+  assert.deepEqual(calls(), [['plugin', 'list', '--json']]);
   assert.equal(git(root, 'status', '--porcelain'), '?? CONTEXT.md\n');
 });
 
@@ -305,8 +308,11 @@ test('the plugin: Claude Code adds the package as a marketplace and installs bin
   const install = ['plugin', 'install', 'binnacle@binnacle', '--scope', 'user'];
   assert.deepEqual(calls(), [['plugin', 'list', '--json'], add, install]);
   // Both commands are shown before the question, and summarised after.
-  assert.ok(result.stdout.includes(`claude ${add.join(' ')}`), result.stdout);
-  assert.ok(result.stdout.includes(`claude ${install.join(' ')}`), result.stdout);
+  const question = result.stdout.indexOf('Install the binnacle plugin?');
+  for (const args of [add, install]) {
+    const shown = result.stdout.indexOf(`claude ${args.join(' ')}`);
+    assert.ok(shown >= 0 && shown < question, result.stdout);
+  }
   assert.match(result.stdout, /ran\s+claude plugin marketplace add/);
   assert.match(result.stdout, /ran\s+claude plugin install binnacle@binnacle/);
   // Claude Code's settings files are Claude Code's to write: binn init writes none.
