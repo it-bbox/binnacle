@@ -50,12 +50,61 @@ export type TrackerTask = {
   /** The identities this Task is declared blocked by, as declared: they may name no Task. */
   blockedBy: string[];
   spec: string | null;
+  /**
+   * The slug of the Task's spec, which links it to its roadmap epic on every tracker. On the
+   * local Markdown tracker, the spec directory the ticket lives in.
+   */
+  specSlug: string | null;
   triage: string | null;
   /** The ticket's path relative to the repository root, or its URL. */
   ticket: string;
 };
 
 export type TaskReading = { tasks: TrackerTask[]; diagnostics: Diagnostic[] };
+
+/**
+ * The ticket header (ADR-0024) as written, one field per line; null when its line is not
+ * there. `heading` is the leading heading's text, without its `#`s.
+ */
+export type TicketHeader = {
+  heading: string | null;
+  status: string | null;
+  triage: string | null;
+  blockedBy: string | null;
+  spec: string | null;
+};
+
+const HEADER_FIELDS = { Status: 'status', Triage: 'triage', 'Blocked by': 'blockedBy', Spec: 'spec' } as const;
+const HEADER_LINE = /^(Status|Triage|Blocked by|Spec):\s*(.*)$/;
+const HEADING = /^#{1,6}\s+/;
+
+/**
+ * One reading of the ticket header for every tracker, so a Markdown ticket and an issue
+ * body cannot drift apart. The header block is the first run of non-blank lines at the top
+ * of the text, after one leading heading if the text starts with one. Only that block is
+ * read: a `Status:` further down, in the body or the comments, is not the header's.
+ */
+export function parseTicketHeader(text: string): TicketHeader {
+  const lines = text.split(/\r?\n/);
+  const header: TicketHeader = { heading: null, status: null, triage: null, blockedBy: null, spec: null };
+  let line = 0;
+  const skipBlank = (): void => {
+    while (lines[line]?.trim() === '') line++;
+  };
+
+  skipBlank();
+  if (HEADING.test(lines[line] ?? '')) {
+    header.heading = lines[line]!.replace(HEADING, '').trim();
+    line++;
+    skipBlank();
+  }
+  for (; line < lines.length && lines[line]!.trim() !== ''; line++) {
+    const match = HEADER_LINE.exec(lines[line]!.trim());
+    const field = match && HEADER_FIELDS[match[1] as keyof typeof HEADER_FIELDS];
+    if (field && header[field] === null) header[field] = match[2]!.trim();
+  }
+  return header;
+}
 
 export type ResolvedTask = TrackerTask & {
   /** Declared dependencies whose Task is not `DONE`. A dependency naming no Task is not one. */

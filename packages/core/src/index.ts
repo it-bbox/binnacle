@@ -5,11 +5,13 @@ export {
   type ProjectManifest,
 } from './manifest.ts';
 export {
+  parseTicketHeader,
   resolveDependencies,
   trackerRemoteMismatch,
   type Diagnostic,
   type ResolvedTask,
   type TaskReading,
+  type TicketHeader,
   type TrackerTask,
 } from './tracker.ts';
 export { parseRoadmap, roadmapAttention, type Epic, type Roadmap, type RoadmapStatus } from './roadmap.ts';

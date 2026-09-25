@@ -1,8 +1,8 @@
 import type { Diagnostic, TrackerTask } from './tracker.ts';
 
 /**
- * The roadmap of a project on the local Markdown tracker (ADR-0017), whose format is a
- * contract: one table headed `# | Epic | Status | Spec`, and a `## Current focus` section.
+ * The roadmap of a project, `<knowledge.docs>/roadmap.md` whatever its tracker (ADR-0025),
+ * whose format is a contract: one table headed `# | Epic | Status | Spec`, and a `## Current focus` section.
  * It is parsed strictly. A row that does not parse is reported and left out, never
  * repaired, because a guessed position is worse than a missing one.
  */
@@ -98,8 +98,8 @@ const sameCells = (row: string[] | null, expected: string[]): boolean =>
 
 /**
  * Where the roadmap and the tickets disagree, and where an epic that has been specified
- * cannot be followed to its spec. An epic reaches its Tasks through its spec slug: on the
- * local Markdown tracker a Task's identity is `<spec-slug>/<NN>`.
+ * cannot be followed to its spec. An epic reaches its Tasks through the spec slug each Task
+ * carries, never through the shape of its identity, so every tracker is checked alike.
  *
  * Deterministic only. Nothing here judges how long something has taken or whether a
  * branch was merged; those checks produce false positives, and a noisy list gets ignored.
@@ -118,7 +118,7 @@ export function roadmapAttention(epics: Epic[], tasks: TrackerTask[]): Diagnosti
       continue;
     }
 
-    const own = tasks.filter((task) => task.id.startsWith(`${epic.spec}/`));
+    const own = tasks.filter((task) => task.specSlug === epic.spec);
     const mismatch = (message: string): void => void attention.push({ code: 'roadmap.status_mismatch', message: `${name} ${message}` });
     if (epic.status === 'done') {
       const open = own.filter((task) => !finished(task)).map((task) => task.id);

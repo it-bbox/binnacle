@@ -501,6 +501,8 @@ describe('recent decisions, Git and the unavailable sections', () => {
         'manifest.warning',
         'tracker.remote_mismatch',
         'tracker.unavailable',
+        // The roadmap is expected on every tracker (ADR-0025), and this project declares no knowledge.docs.
+        'roadmap.missing',
       ]);
       assert.match(body.attention[0]!.message, /project\.colour/);
     });

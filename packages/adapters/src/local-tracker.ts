@@ -1,5 +1,5 @@
 import { posix } from 'node:path';
-import { isTaskState, type Diagnostic, type TaskReading, type TrackerTask } from '@binnacle/core';
+import { isTaskState, parseTicketHeader, type Diagnostic, type TaskReading, type TrackerTask } from '@binnacle/core';
 import type { Tree } from './tree.ts';
 
 /**
@@ -7,8 +7,8 @@ import type { Tree } from './tree.ts';
  * is a Task. It is read on every call and never cached, so an edit to a ticket shows in
  * the next answer, and it only ever reads.
  *
- * Only the header lines under the first heading are read — `Status:`, `Triage:`,
- * `Blocked by:`, `Spec:`. The body and `## Comments` are for the session to read.
+ * Only the ticket header is read, through the parser every tracker shares — `Status:`,
+ * `Triage:`, `Blocked by:`, `Spec:`. The body and `## Comments` are for the session to read.
  *
  * `issues` is relative to the tree, as the manifest declares it. The tree is the working
  * tree for the snapshot, and a commit for the daily delta.
@@ -41,7 +41,6 @@ export async function readLocalTasks(tree: Tree, issues: string): Promise<TaskRe
 }
 
 const TICKET_FILE = /^(\d+)-.*\.md$/;
-const HEADER = /^(Status|Triage|Blocked by|Spec):\s*(.*)$/;
 
 const ticketNumber = (file: string): number => Number(TICKET_FILE.exec(file)![1]);
 
@@ -49,36 +48,26 @@ const ticketNumber = (file: string): number => Number(TICKET_FILE.exec(file)![1]
 const identity = (spec: string, number: string): string => `${spec}/${String(Number(number)).padStart(2, '0')}`;
 
 function parseTicket(spec: string, file: string, ticket: string, text: string, diagnostics: Diagnostic[]): TrackerTask {
-  const lines = text.split(/\r?\n/);
-  const heading = lines.findIndex((line) => /^#\s/.test(line));
-
-  // The header block: the first run of non-blank lines after the heading.
-  const header = new Map<string, string>();
-  let line = heading + 1;
-  while (lines[line]?.trim() === '') line++;
-  for (; line < lines.length && lines[line]!.trim() !== ''; line++) {
-    const match = HEADER.exec(lines[line]!.trim());
-    if (match && !header.has(match[1]!)) header.set(match[1]!, match[2]!.trim());
-  }
-
+  const header = parseTicketHeader(text);
   const id = identity(spec, TICKET_FILE.exec(file)![1]!);
-  const status = header.get('Status');
-  if (status === undefined || !isTaskState(status)) {
+  const status = header.status;
+  if (status === null || !isTaskState(status)) {
     diagnostics.push({
       code: 'task.unknown_state',
       message:
-        status === undefined
+        status === null
           ? `${id} (${ticket}) has no Status: line.`
           : `${id} (${ticket}) has Status: ${JSON.stringify(status)}, which is not a Task state.`,
     });
   }
   return {
     id,
-    title: heading === -1 ? null : lines[heading]!.replace(/^#\s+/, '').replace(/^\d+:\s*/, '').trim(),
-    state: status !== undefined && isTaskState(status) ? status : null,
-    blockedBy: dependencies(spec, header.get('Blocked by') ?? 'None'),
-    spec: unquote(header.get('Spec')),
-    triage: header.get('Triage') || null,
+    title: header.heading?.replace(/^\d+:\s*/, '') ?? null,
+    state: status !== null && isTaskState(status) ? status : null,
+    blockedBy: dependencies(spec, header.blockedBy ?? 'None'),
+    spec: unquote(header.spec),
+    specSlug: spec,
+    triage: header.triage || null,
     ticket,
   };
 }
@@ -90,4 +79,4 @@ function dependencies(spec: string, value: string): string[] {
   return [...new Set(numbers.map((number) => identity(spec, number)))];
 }
 
-const unquote = (value: string | undefined): string | null => value?.replace(/^`(.*)`$/, '$1') || null;
+const unquote = (value: string | null): string | null => value?.replace(/^`(.*)`$/, '$1') || null;

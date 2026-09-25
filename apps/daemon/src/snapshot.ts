@@ -56,7 +56,7 @@ export type Snapshot = {
   checkout: CallerCheckout['checkout'];
   /** The facts of the caller's checkout, as `project.status` gives them. */
   git: GitFacts;
-  /** Null when there is no roadmap to read: on a tracker other than the local one, or with a diagnostic. */
+  /** Null when there is no roadmap to read: without a readable manifest, or with a diagnostic. */
   roadmap: {
     epics: Epic[];
     /** `## Current focus` as written, cut at `FOCUS_LIMIT`; `truncated` says whether it was. */
@@ -175,12 +175,12 @@ export const limited = <T>(items: T[], limit = SECTION_LIMIT): { items: T[]; rem
 });
 
 /**
- * On the local Markdown tracker the roadmap is `<knowledge.docs>/roadmap.md` (ADR-0017).
- * On any other tracker, or with no readable manifest, it is simply absent: `tracker.unavailable`
- * already says why, and saying it twice only makes the attention list noisier.
+ * The roadmap is `<knowledge.docs>/roadmap.md` whatever the tracker (ADR-0025). With no
+ * readable manifest it is simply absent: `tracker.unavailable` already says why, and saying
+ * it twice only makes the attention list noisier.
  */
 async function readRoadmap(tree: Tree, manifest: ProjectManifest | null, attention: Diagnostic[]): Promise<Roadmap | null> {
-  if (manifest?.tracker.provider !== 'local') return null;
+  if (manifest === null) return null;
   const docs = manifest.knowledge.docs;
   if (docs === null) {
     attention.push({ code: 'roadmap.missing', message: 'The roadmap is <knowledge.docs>/roadmap.md, and this project declares no knowledge.docs.' });

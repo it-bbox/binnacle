@@ -21,8 +21,8 @@ export type PromotionTarget = { type: PromotionType; path: string | null };
 
 /**
  * Where each kind lands in this project, from the manifest's `knowledge` section and its
- * tracker. New work and the roadmap have a path only on the local Markdown tracker, where
- * tickets are files and the roadmap is `<knowledge.docs>/roadmap.md` (ADR-0017).
+ * tracker. New work has a path only on the local Markdown tracker, where tickets are files;
+ * the roadmap is `<knowledge.docs>/roadmap.md` whatever the tracker (ADR-0025).
  */
 export function promotionTargets(manifest: ProjectManifest | null): PromotionTarget[] {
   const local = manifest?.tracker.provider === 'local';
@@ -32,7 +32,7 @@ export function promotionTargets(manifest: ProjectManifest | null): PromotionTar
     trade_off: manifest?.knowledge.adr ?? null,
     new_work: local ? manifest.tracker.local.issues : null,
     product_rule: manifest?.knowledge.specs ?? null,
-    position: local && docs !== null ? posix.join(docs, 'roadmap.md') : null,
+    position: docs === null ? null : posix.join(docs, 'roadmap.md'),
   };
   return PROMOTION_TYPES.map((type) => ({ type, path: paths[type] }));
 }

@@ -311,3 +311,34 @@ describe('the daily delta', () => {
     });
   });
 });
+
+describe('the roadmap on a remote tracker', () => {
+  it('is in the snapshot, its changes are in the daily and it is a checkpoint target, while Tasks stay unavailable', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeRepository();
+      write(root, '.binnacle/project.yaml', MANIFEST.replace(/tracker:\n(?: {2}.*\n)+/, 'tracker:\n  provider: github\n'));
+      commitAll(root, 'Move the tickets to GitHub', LONG_AGO);
+      await register(daemon, root);
+
+      type Snapshot = { roadmap: { epics: unknown[] } | null; tasks: unknown; attention: Daily['attention'] };
+      const snapshot = (await daemon.call<Snapshot>('project.snapshot', { path: root })).body;
+      assert.deepEqual(snapshot.roadmap?.epics, [{ number: 1, title: 'First epic', status: 'tickets', spec: 'first' }]);
+      assert.equal(snapshot.tasks, null);
+      assert.deepEqual(snapshot.attention.map((item) => item.code), ['tracker.unavailable']);
+
+      await daily(daemon, root);
+      write(root, 'docs/roadmap.md', roadmapText([row(1, 'First epic', 'in progress', 'first')]));
+      commitAll(root, 'Start epic 1');
+
+      const body = await daily(daemon, root);
+      assert.deepEqual(body.roadmap, [{ number: 1, title: 'First epic', from: 'tickets', to: 'in progress' }]);
+      assert.equal(body.transitions, null);
+      assert.equal(body.newTickets, null);
+      assert.equal(body.readyToStart, null);
+      assert.deepEqual(body.attention.map((item) => item.code), ['tracker.unavailable']);
+
+      const prepared = await daemon.call<{ targets: { type: string; path: string | null }[] }>('checkpoint.prepare', { path: root });
+      assert.deepEqual(prepared.body.targets.find((target) => target.type === 'position'), { type: 'position', path: 'docs/roadmap.md' });
+    });
+  });
+});
