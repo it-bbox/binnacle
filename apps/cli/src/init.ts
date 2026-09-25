@@ -337,12 +337,15 @@ async function pluginStep(session: Session): Promise<void> {
     return record(session, 'skipped', `${what}: the project provides its own, at ${own}`);
   }
 
-  // ponytail: Claude Code is detected by its executable answering, the one thing this step needs;
-  // the harness step's detector (ticket 09) can replace this once it exists.
-  const list = spawnSync('claude', ['plugin', 'list', '--json'], { cwd: session.root, encoding: 'utf8' });
-  if ((list.error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') {
+  if (!detect(HARNESSES.find(({ executable }) => executable === 'claude')!)) {
     session.say('Claude Code is not detected, so the binnacle plugin is not installed.');
     return record(session, 'skipped', `${what}: Claude Code is not detected`);
+  }
+  const list = spawnSync('claude', ['plugin', 'list', '--json'], { cwd: session.root, encoding: 'utf8' });
+  // Detected by its user directory alone, Claude Code may have no `claude` to run.
+  if ((list.error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') {
+    session.say('Claude Code is detected, but `claude` is not on PATH, so the binnacle plugin is not installed.');
+    return record(session, 'skipped', `${what}: \`claude\` is not on PATH`);
   }
   const ids = list.status === 0 ? pluginIds(list.stdout) : null;
   if (!ids) {

@@ -392,7 +392,7 @@ test('the plugin: declined runs nothing but the listing', (t) => {
   assert.match(result.stdout, /declined\s+the binnacle plugin/);
 });
 
-test('the plugin: without Claude Code on PATH nothing is offered and nothing runs', (t) => {
+test('the plugin: without Claude Code detected nothing is offered and nothing runs', (t) => {
   const home = makeHome(t);
   const root = makeRepository(t, 'no-claude');
 
@@ -401,6 +401,19 @@ test('the plugin: without Claude Code on PATH nothing is offered and nothing run
   assert.equal(result.status, 0, result.stderr);
   assert.doesNotMatch(result.stdout, /Install the binnacle plugin/);
   assert.match(result.stdout, /skipped\s+the binnacle plugin: Claude Code is not detected/);
+});
+
+test('the plugin: Claude Code detected by ~/.claude alone, with no claude to run, is skipped and reported', (t) => {
+  const home = makeHome(t);
+  installUserDirectory(home, '.claude');
+  const root = makeRepository(t, 'no-cli');
+
+  // The second answer declines `.mcp.json`; the plugin is never asked about.
+  const result = binnIn(home)(root, 'n\nn\ny\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(result.stdout, /Install the binnacle plugin/);
+  assert.match(result.stdout, /skipped\s+the binnacle plugin: `claude` is not on PATH/);
 });
 
 test('Claude Code on PATH gets a new .mcp.json, and only the detected harness is offered', (t) => {
