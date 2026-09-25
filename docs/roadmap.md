@@ -13,7 +13,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 1 | Core and persistence | done | [`core-and-persistence`](specs/core-and-persistence/spec.md) |
 | 2 | MCP and Product Snapshot | done | [`mcp-and-product-snapshot`](specs/mcp-and-product-snapshot/spec.md) |
 | 3 | Tracker and Matt Pocock integration | done | [`tracker-and-matt-pocock-integration`](specs/tracker-and-matt-pocock-integration/spec.md) |
-| 4 | Telemetry | tickets | [`telemetry`](specs/telemetry/spec.md) |
+| 4 | Telemetry | in progress | [`telemetry`](specs/telemetry/spec.md) |
 | 5 | Minimal dashboard | not started | — |
 | 6 | Audit and adopt | not started | — |
 
@@ -31,7 +31,9 @@ Epic 3 is done, closed on 2026-09-25 after its exit demonstration, which found n
 
 Epic 4, Telemetry, is specified (ADR-0028): session artifacts from Claude Code and Codex become observed AgentRuns attributed to Tasks, shown in the snapshot's usage section and `usage_get`.
 
-Next action: epic 4's nine tickets are sliced; ticket 01, Claude Code usage in the snapshot, can start now, in a fresh session on its own branch.
+Epic 4's ticket 01 is done: the snapshot's usage section shows Claude Code's totals for today and the week, by model, with its support level.
+
+Next action: tickets 02 (observed runs and Task attribution), 06 (import window, time budget and re-reading) and 07 (unreadable artifacts) can start now, each in a fresh session on its own branch.
 
 ## Later
 
