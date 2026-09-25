@@ -507,17 +507,17 @@ describe('the import window, the time budget and re-reading', () => {
   });
 });
 
+type Attention = { code: string; message: string }[];
+
+async function snapshotWithAttention(daemon: TestDaemon, root: string): Promise<{ usage: Usage; attention: Attention }> {
+  const result = await daemon.call<{ usage: Usage; attention: Attention }>('project.snapshot', { path: root });
+  assert.equal(result.status, 200, JSON.stringify(result.body));
+  return result.body;
+}
+
+const unreadable = (attention: Attention): Attention => attention.filter((item) => item.code === 'telemetry.unreadable');
+
 describe('unreadable artifacts', () => {
-  type Attention = { code: string; message: string }[];
-
-  async function snapshotWithAttention(daemon: TestDaemon, root: string): Promise<{ usage: Usage; attention: Attention }> {
-    const result = await daemon.call<{ usage: Usage; attention: Attention }>('project.snapshot', { path: root });
-    assert.equal(result.status, 200, JSON.stringify(result.body));
-    return result.body;
-  }
-
-  const unreadable = (attention: Attention): Attention => attention.filter((item) => item.code === 'telemetry.unreadable');
-
   /** Claude Code's lines with a field it did not write before, at the top and in the usage, as a newer version might add. */
   const newer = (source: Line[]): Line[] =>
     source.map((line) =>
@@ -1141,20 +1141,16 @@ describe('Codex usage in the Product Snapshot', () => {
 
       const body = await usage(daemon, root);
       assert.equal(body.harnesses[1]?.level, 1);
-      assert.match(body.harnesses[1]?.reason ?? '', new RegExp(`^Codex could not read ${file} at line 10: .*nothing after that line is counted`));
+      assert.match(body.harnesses[1]?.reason ?? '', new RegExp(`^Codex could not read ${file} at line 10: .*nothing after it is counted, however the file grows`));
       assert.equal(body.today.records, 3);
       assert.equal(body.harnesses[0]?.harness, 'claude-code');
       assert.notEqual(body.harnesses[0]?.level, 1);
 
       // Codex appends to its rollout: the file is read again from its start, and stops at the same line.
       appendFileSync(file, `${JSON.stringify(records.at(-1))}\n`);
-      const { status, body: snapshot } = await daemon.call<{ usage: Usage; attention: { code: string; message: string }[] }>('project.snapshot', { path: root });
-      assert.equal(status, 200);
+      const snapshot = await snapshotWithAttention(daemon, root);
       assert.equal(snapshot.usage.today.records, 3);
-      assert.deepEqual(
-        snapshot.attention.filter((item) => item.code === 'telemetry.unreadable').map((item) => item.message),
-        [snapshot.usage.harnesses[1]?.reason],
-      );
+      assert.deepEqual(unreadable(snapshot.attention).map((item) => item.message), [snapshot.usage.harnesses[1]?.reason]);
 
       // Another project's rollout is not this one's to report.
       const other = makeProject(temporary('binnacle-usage-'));

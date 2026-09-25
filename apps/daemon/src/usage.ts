@@ -24,7 +24,7 @@ const HARNESSES: { harness: Harness; name: string; root: keyof ArtifactRoots }[]
 ];
 
 /** Per harness, why its artifacts of a project cannot be read, if they cannot. */
-type Failures = Record<Harness, string | null>;
+type Unreadable = Record<Harness, string | null>;
 
 /**
  * The daemon's ingests: one at a time on this machine, each queued behind the one before,
@@ -101,7 +101,7 @@ export async function usage(
   tasks: TrackerTask[] | Unavailable,
 ): Promise<Usage> {
   const { importing, checkouts } = await ingested(context, projectPath, manifest);
-  const failures = unreadableNow(context, [projectPath, ...checkouts.linked]);
+  const failures = unreadableArtifacts(context, [projectPath, ...checkouts.linked]);
 
   const week = context.store.usage(projectPath, localMidnight(6).toISOString());
   const since = localMidnight(0).toISOString();
@@ -208,7 +208,7 @@ async function ingested(
  * message that names the first unreadable one and counts the rest; null when every one can.
  * `directoriesOfProject` are the project's directory in each of its checkouts.
  */
-function unreadableNow(context: OperationContext, directoriesOfProject: string[]): Failures {
+function unreadableArtifacts(context: OperationContext, directoriesOfProject: string[]): Unreadable {
   const { artifacts } = context.runtime;
   const { unreadable } = context.importer;
   const places = directoriesOfProject.map((path) => ({ path }));
@@ -499,7 +499,7 @@ async function ingestFile(
   }
   context.store.ingest({ path, size, offset: reading.stop.offset, line: reading.stop.line, windowDays: window }, records);
   // Every later reading stops at the same line, a rollout's included, though it is read from its start.
-  return reading.failure ? `${path} at line ${reading.failure.line}: ${reading.failure.reason}, and nothing after that line is counted until it can be read` : null;
+  return reading.failure ? `${path} at line ${reading.failure.line}: ${reading.failure.reason}, and nothing after it is counted, however the file grows, until Binnacle can read that line` : null;
 }
 
 /**
