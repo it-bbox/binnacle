@@ -65,11 +65,13 @@ export async function init(home: string, path?: string): Promise<ExitCode> {
     session.say('');
     await pluginStep(session);
     session.say('');
-    await mattPocockStep(session, declaredManifest(session.root)?.tracker.provider ?? forgeRemote(git.remotes)?.provider ?? 'local');
+    // The manifest as the steps above left it: the tracker it declares, or the one it would propose.
+    const manifest = declaredManifest(session.root);
+    await mattPocockStep(session, manifest?.tracker.provider ?? forgeRemote(git.remotes)?.provider ?? 'local');
     session.say('');
     instructionsStep(session);
     session.say('');
-    await trackerStep(session, home);
+    await trackerStep(session, home, manifest);
     session.say('');
   } finally {
     answers.return?.();
@@ -446,32 +448,57 @@ async function mattPocockStep(session: Session, provider: TrackerProvider): Prom
   await offerFile(session, ISSUE_TRACKER, ticketHeaderSection(provider));
 }
 
+const ISSUE_NUMBERS = 'the issue numbers of the issues it waits for, such as `#12, #15`';
+const PATH_OR_LINK = 'its path, such as `docs/specs/<slug>/spec.md`, or a link to that file pinned to a commit';
+const KEEP_CURRENT = 'Binnacle reports any disagreement between the two, so keep the line current when you close the issue.';
+
+/** What the section says differently on each tracker (ADR-0024, and the spec's closed-issue states). */
+const CONVENTIONS: Record<TrackerProvider, { ticket: string; blockedBy: string; example: string; spec: string; closing: string | null }> = {
+  local: {
+    ticket: 'ticket',
+    blockedBy: 'the numbers of the tickets in the same spec it waits for, such as `01, 03`',
+    example: '01, 03',
+    spec: 'its path, such as `docs/specs/<slug>/spec.md`',
+    closing: null,
+  },
+  github: {
+    ticket: 'issue body',
+    blockedBy: ISSUE_NUMBERS,
+    example: '#12, #15',
+    spec: PATH_OR_LINK,
+    closing:
+      'Closing an issue outranks its `Status:` line: an issue closed as completed is done, and one closed as not planned or as a duplicate is cancelled, whatever the line says. ' +
+      `An issue closed with no reason is cancelled when its \`Status:\` says \`CANCELLED\`, and done otherwise. ${KEEP_CURRENT}`,
+  },
+  gitlab: {
+    ticket: 'issue body',
+    blockedBy: ISSUE_NUMBERS,
+    example: '#12, #15',
+    spec: PATH_OR_LINK,
+    closing:
+      'Closing an issue outranks its `Status:` line, and GitLab reports no reason for closing: a closed issue is done, unless its `Status:` says `CANCELLED`. ' +
+      `Set \`Status: CANCELLED\` before closing work that was abandoned. ${KEEP_CURRENT}`,
+  },
+};
+
 /** The convention `/to-tickets` writes by, for the tracker in use. It leads with a blank line, after the file's last section. */
 function ticketHeaderSection(provider: TrackerProvider): string {
-  const remote = provider !== 'local';
+  const { ticket, blockedBy, example, spec, closing } = CONVENTIONS[provider];
   const states = TASK_STATES.map((state) => `\`${state}\``).join(', ');
-  const blockedBy = remote
-    ? 'the issue numbers of the issues it waits for, such as `#12, #15`'
-    : 'the numbers of the tickets in the same spec it waits for, such as `01, 03`';
-  const spec = remote ? 'its path, such as `docs/specs/<slug>/spec.md`, or a link to that file pinned to a commit' : 'its path, such as `docs/specs/<slug>/spec.md`';
-  const closing = remote
-    ? '\nClosing an issue outranks its `Status:` line: a closed issue is done, or cancelled when closed as not planned, whatever the line says. ' +
-      'Update the line when you close the issue anyway, because Binnacle reports any disagreement between the two.\n'
-    : '';
   return `
 ## Ticket header
 
-Binnacle reads a ticket's state, dependencies and spec from its header: these lines, one per line, at the top of every ${remote ? 'issue body' : 'ticket'}, before anything else. Write them in every ticket, and keep \`Status:\` current.
+Binnacle reads a ticket's state, dependencies and spec from its header: these lines, one per line, at the top of every ${ticket}, before anything else. Write them in every ticket, and keep \`Status:\` current.
 
 - \`Status:\` — the ticket's state, one of ${states}.
 - \`Blocked by:\` — ${blockedBy}, or \`None\`.
 - \`Spec:\` — the spec it implements, as ${spec}.
-${closing}
+${closing === null ? '' : `\n${closing}\n`}
 For example:
 
 \`\`\`text
 Status: READY
-Blocked by: ${remote ? '#12, #15' : '01, 03'}
+Blocked by: ${example}
 Spec: \`docs/specs/<slug>/spec.md\`
 \`\`\`
 `;
@@ -492,35 +519,43 @@ function instructionsStep(session: Session): void {
 }
 
 /**
- * Step 7: one read of a remote tracker through its adapter, with the credentials the daemon
- * would use. On a failure it says how to make a read-only token and where to put it; it never
- * asks for, stores or prints one.
+ * Step 7: one read of a remote tracker through its adapter, with the credentials lookup the
+ * daemon uses. On a failure it says how to make a read-only token and where to put it; it
+ * never asks for, stores or prints one. `manifest` is the readable manifest, if any.
  */
-async function trackerStep(session: Session, home: string): Promise<void> {
-  const manifest = declaredManifest(session.root);
+async function trackerStep(session: Session, home: string, manifest: ProjectManifest | null): Promise<void> {
   if (!manifest) return session.say('There is no usable manifest, so no tracker is checked.');
-  const { provider, host } = manifest.tracker;
+  const { provider, repository, host } = manifest.tracker;
   if (provider !== 'github' && provider !== 'gitlab') return session.say('The tracker is not a remote one, so there is nothing to check.');
-  const repository = manifest.tracker.repository ?? `the ${provider} tracker`;
+  const name = repository ?? `the ${provider} tracker`;
+  const variable = `BINNACLE_${provider.toUpperCase()}_TOKEN`;
+  // The check reads binn init's own environment; the daemon reads the one it was started with.
+  const fromShell = process.env[variable]?.trim()
+    ? `\nThis check used ${variable} from this shell. The daemon reads it only from the environment it starts with, so start it from a shell that has it, or use the credentials file.`
+    : '';
 
   // A remote tracker is read from its host, never from the tree.
   const reading = await readTracker(home, workingTree(session.root), manifest);
   if (reading.tasks !== null) {
-    session.say(`${repository} is readable: ${reading.tasks.length} issues read.`);
+    session.say(`${name} is readable: ${reading.tasks.length} issues read.${fromShell}`);
     return record(session, 'checked', 'tracker: readable');
   }
   const failure = reading.diagnostics[0]!;
+  record(session, 'failed', `tracker check: ${failure.code}`);
+  session.say(`${name} could not be read. ${failure.code}: ${failure.message}`);
+  // Without a repository the fix is in the manifest, not a token.
+  if (repository === null) return;
+
   const how =
     provider === 'github'
       ? `On GitHub, create a fine-grained personal access token with read-only access to the issues of ${repository} ` +
         '(Settings, Developer settings, Personal access tokens, Fine-grained tokens; Repository permissions, Issues: Read-only).'
       : "On GitLab, create a personal, group or project access token with the read_api scope and nothing else (User settings, or the project's Settings, then Access tokens).";
   session.say(
-    `${repository} could not be read. ${failure.code}: ${failure.message}\n\n${how} A public repository needs none.\n` +
-      `Put it in BINNACLE_${provider.toUpperCase()}_TOKEN in the environment the daemon starts with, or in ${credentialsPath(home)} ` +
+    `\n${how} A public repository needs none.\n` +
+      `Put it in ${variable} in the environment the daemon starts with, or in ${credentialsPath(home)} ` +
       `under the key ${JSON.stringify(credentialsKey(provider, host))}, owner-only (chmod 600). ` +
       `Generic variables such as ${provider.toUpperCase()}_TOKEN are not read: they commonly hold tokens that can write. ` +
-      "Binnacle's docs/operations/05-installation-checklist.md, under Tracker credentials, has the details.",
+      `Binnacle's docs/operations/05-installation-checklist.md, under Tracker credentials, has the details.${fromShell}`,
   );
-  record(session, 'failed', `tracker check: ${failure.code}`);
 }

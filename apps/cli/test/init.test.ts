@@ -112,13 +112,24 @@ function installUserDirectory(home: Home, relative: string): void {
  */
 const OFFLINE = { NODE_USE_ENV_PROXY: '1', HTTPS_PROXY: 'http://127.0.0.1:9', HTTP_PROXY: 'http://127.0.0.1:9', NO_PROXY: '127.0.0.1,localhost' };
 
+/** The environment every `binn` in these tests runs with: offline, in the temporary home, with only `home.bin` on PATH. */
+const envFor = (home: Home): NodeJS.ProcessEnv => ({
+  ...baseEnv,
+  ...OFFLINE,
+  HOME: home.home,
+  BINNACLE_HOME: home.binnacleHome,
+  BINNACLE_PORT: '0',
+  PATH: home.bin,
+  XDG_CONFIG_HOME: join(home.home, '.config'),
+});
+
 function binnIn(home: Home) {
   return (cwd: string, input: string, ...args: string[]) =>
     spawnSync(process.execPath, [BINN, ...args], {
       cwd,
       input,
       encoding: 'utf8',
-      env: { ...baseEnv, ...OFFLINE, HOME: home.home, BINNACLE_HOME: home.binnacleHome, BINNACLE_PORT: '0', PATH: home.bin, XDG_CONFIG_HOME: join(home.home, '.config') },
+      env: envFor(home),
     });
 }
 
@@ -438,7 +449,7 @@ async function binnInit(home: Home, cwd: string, input: string, env: Record<stri
   const run = promisify(execFile)(process.execPath, [BINN, 'init'], {
     cwd,
     encoding: 'utf8',
-    env: { ...baseEnv, ...OFFLINE, HOME: home.home, BINNACLE_HOME: home.binnacleHome, BINNACLE_PORT: '0', PATH: home.bin, ...env },
+    env: { ...envFor(home), ...env },
   });
   run.child.stdin!.end(input);
   return await run;
@@ -541,17 +552,38 @@ test('a readable remote tracker is reported readable, and its section says issue
   assert.match(section, /issue numbers/);
   assert.match(section, /#12/);
   assert.match(section, /[Cc]losing an issue outranks its `Status:`/);
+  assert.match(section, /closed as not planned or as a duplicate is cancelled/);
+  assert.doesNotMatch(stdout, /from this shell/);
+});
+
+test('a remote tracker with no repository is reported as the manifest to fix, not a token to make', (t) => {
+  const home = makeHome(t);
+  const root = makeRepository(t, 'unnamed', { '.binnacle/project.yaml': 'version: 1\nproject:\n  id: unnamed\ntracker:\n  provider: github\n' });
+
+  const result = binnIn(home)(root, '', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /tracker\.unavailable: .*no tracker\.repository/);
+  assert.doesNotMatch(result.stdout, /fine-grained/);
+  assert.match(result.stdout, /failed\s+tracker check: tracker\.unavailable/);
 });
 
 test('an unreadable remote tracker gives the failure code and how to make a read-only token, and never the token', async (t) => {
   const home = makeHome(t);
   const gitlab = await trackerStandIn(t, 401, { message: '401 Unauthorized' });
-  const root = makeRepository(t, 'remote', { '.binnacle/project.yaml': remoteManifest('gitlab', 'group/project', gitlab.base) });
+  const root = makeRepository(t, 'remote', {
+    '.binnacle/project.yaml': remoteManifest('gitlab', 'group/project', gitlab.base),
+    [TRACKER_FILE]: '# Issue tracker: GitLab\n',
+  });
   const token = 'glpat-never-printed-anywhere';
 
-  const { stdout, stderr } = await binnInit(home, root, '', { BINNACLE_GITLAB_TOKEN: token });
+  const { stdout, stderr } = await binnInit(home, root, 'y\n', { BINNACLE_GITLAB_TOKEN: token });
 
+  // GitLab reports no close reason, so its section says what closing means there.
+  assert.match(readFileSync(join(root, TRACKER_FILE), 'utf8'), /GitLab reports no reason for closing: a closed issue is done, unless its `Status:` says `CANCELLED`/);
   assert.equal(gitlab.requests.length, 1);
+  // The token came from this shell, which the daemon does not share.
+  assert.match(stdout, /This check used BINNACLE_GITLAB_TOKEN from this shell/);
   assert.match(stdout, /tracker\.unauthorized/);
   assert.match(stdout, /a token was used/);
   assert.match(stdout, /read_api/);
