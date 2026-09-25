@@ -3,6 +3,7 @@ import { resolveHome, packageVersion } from '@binnacle/daemon';
 import { start, status, stop } from './daemon-commands.ts';
 import { list, register, status as projectStatus, unregister } from './project-commands.ts';
 import { EXIT, type ExitCode } from './exit.ts';
+import { init } from './init.ts';
 import { mcp } from './mcp.ts';
 
 const VERSION = packageVersion(import.meta.url);
@@ -10,6 +11,9 @@ const VERSION = packageVersion(import.meta.url);
 const USAGE = `binn — Binnacle, a local AI engineering control plane.
 
 Usage:
+  binn init [path]      Set up the Git repository containing path (default: the working directory),
+                        asking before each write; it never overwrites a file and never commits
+
   binn daemon start     Start the Binnacle daemon on loopback
   binn daemon status    Report whether a daemon is running, and where
   binn daemon stop      Stop the daemon and remove its runtime file
@@ -57,6 +61,8 @@ async function run(argv: string[]): Promise<ExitCode> {
     if (second === 'status') return await status(home);
     if (second === 'stop') return await stop(home);
   }
+
+  if (first === 'init' && rest.length === 0) return await init(resolveHome(), second);
 
   if (first === 'mcp' && second === undefined) {
     await mcp(resolveHome(), VERSION);

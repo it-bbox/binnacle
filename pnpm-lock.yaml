@@ -17,6 +17,12 @@ importers:
 
   apps/cli:
     dependencies:
+      '@binnacle/adapters':
+        specifier: workspace:*
+        version: link:../../packages/adapters
+      '@binnacle/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@binnacle/daemon':
         specifier: workspace:*
         version: link:../daemon

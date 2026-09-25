@@ -26,7 +26,7 @@ export function trackerRemoteMismatch(tracker: ProjectManifest['tracker'], remot
 }
 
 const agrees = (remote: { host: string; path: string } | null, host: string, path: string | null): boolean =>
-  remote !== null && remote.host === host && (path === null || remote.path === path);
+  remote !== null && remote.host === host && (path === null || remote.path.toLowerCase() === path);
 
 /**
  * The declared `host`'s hostname, without a port, or the provider's default; a base URL
@@ -38,13 +38,17 @@ function declaredHostname(provider: 'github' | 'gitlab', host: string | null): s
   return URL.canParse(url) ? new URL(url).hostname : host.toLowerCase();
 }
 
-/** `scheme://[user@]host[:port]/path`, or scp-like `[user@]host:path`. */
-function remoteLocation(url: string): { host: string; path: string } | null {
+/**
+ * `scheme://[user@]host[:port]/path`, or scp-like `[user@]host:path`: the host lowercased,
+ * the path as written, without its slashes at either end or a `.git` suffix.
+ */
+export function remoteLocation(url: string): { host: string; path: string } | null {
   const match = /^[a-z][a-z0-9+.-]*:\/\/(?:[^/@]*@)?([^/:]+)(?::\d*)?\/(.*)$/i.exec(url) ?? /^(?:[^/@]*@)?([^/:]+):(.*)$/.exec(url);
-  return match ? { host: match[1]!.toLowerCase(), path: trimPath(match[2]!).replace(/\.git$/, '') } : null;
+  return match ? { host: match[1]!.toLowerCase(), path: trimSlashes(match[2]!).replace(/\.git$/, '') } : null;
 }
 
-const trimPath = (path: string): string => path.toLowerCase().replace(/^\/+|\/+$/g, '');
+const trimSlashes = (path: string): string => path.replace(/^\/+|\/+$/g, '');
+const trimPath = (path: string): string => trimSlashes(path).toLowerCase();
 
 /**
  * The Task-reading half of the tracker contract: what every tracker adapter returns,

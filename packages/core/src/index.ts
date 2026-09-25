@@ -7,6 +7,7 @@ export {
 export {
   blockedByNumbers,
   parseTicketHeader,
+  remoteLocation,
   resolveDependencies,
   trackerRemoteMismatch,
   TRIAGE_ROLES,

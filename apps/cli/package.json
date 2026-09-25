@@ -9,6 +9,8 @@
     "binn": "./src/bin.ts"
   },
   "dependencies": {
+    "@binnacle/adapters": "workspace:*",
+    "@binnacle/core": "workspace:*",
     "@binnacle/daemon": "workspace:*",
     "@binnacle/mcp": "workspace:*"
   },
