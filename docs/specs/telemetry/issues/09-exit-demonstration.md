@@ -116,9 +116,9 @@ Spec: `docs/specs/telemetry/spec.md`
   - Criteria 2 and 4 read new work. Epic 3's runs were in worktrees removed before Binnacle read them, and under ADR-0030 they are unassigned, so criterion 2 cannot hold on them. It reads tickets 10 and 11 instead, built by autopilot after ticket 12. Criterion 4 judges the unassigned share on that work, and asks of history only that its unassigned part be explained.
   - The demonstration reads the owner's running daemon, not a temporary home. A new store cannot read the reflog of a worktree that is gone, so only the running one can credit tickets 10 and 11. Under ADR-0030, the harness branches it stored under ADR-0028 attribute nothing, which answers *The owner's store is not a clean demonstration* above.
 - **The owner's script, after the decision.**
-  1. Build ticket 12 in a fresh session, and merge it.
-  2. Just before `/binnacle:autopilot`, in the session that will run it, ask for `usage_get` without arguments and note its total records.
-  3. Run `/binnacle:autopilot` for epic 4. It builds tickets 10 and 11. Do little else meanwhile: every other session's records count as new work too.
+  1. Run `/binnacle:autopilot`. It builds ticket 12 alone, because tickets 10 and 11 wait in `BACKLOG`.
+  2. A Product session sets tickets 10 and 11 to `READY`, and notes here the total records `usage_get` gives without arguments.
+  3. Run `/binnacle:autopilot` again. It builds tickets 10 and 11. Do little else meanwhile: every other session's records count as new work too.
   4. Restart the daemon on `main`'s code: `binn daemon stop`, then `binn daemon start`.
   5. **Criterion 1.** In a fresh session, which may be the desktop app's, run `/binnacle:product`. Check the usage section as step 2 of the superseded script says.
   6. **Criterion 2.** Ask for `usage_get` with `task` set to `telemetry/10`, then to `telemetry/11`. Each returns runs with the `implementation` role, and every subagent run names its parent.

@@ -14,6 +14,6 @@ Spec: `docs/specs/telemetry/spec.md`
 
 - **Open for the owner.** The run also honoured the manifest's `automation.maxParallelDevelopmentTasks: 2`, which the skill does not mention; whether the skill should say so is part of triage.
 - **Decided by the owner on 2026-09-25, in a Product session.**
-  - Part of epic 4, and built first, in a fresh session rather than by autopilot. An autopilot run keeps the skill text it started with, so a run that built this ticket would still remove tickets 10's and 11's worktrees before reading them.
+  - Part of epic 4, and built first, by an autopilot run of its own. An autopilot run keeps the skill text it started with, so a run that went on to tickets 10 and 11 after this one would still remove their worktrees before reading them. They wait in `BACKLOG` until this ticket merges, and a second run builds them.
   - The skill names the manifest's limit. Its key is `automation.max_parallel_development_tasks`.
   - The re-check on a new autopilot run moved to ticket 09's criterion 2, which reads tickets 10 and 11. So this ticket is done when it merges.

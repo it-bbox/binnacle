@@ -1,6 +1,6 @@
 # 11: Two tickets with the same slug get one branch, and it credits neither
 
-Status: READY
+Status: BACKLOG
 Triage: ready-for-agent
 Blocked by: 12
 Spec: `docs/specs/telemetry/spec.md`, `docs/specs/tracker-and-matt-pocock-integration/spec.md`
@@ -23,4 +23,4 @@ The owner chose option 2 under *Comments*: the convention stays, slugs are uniqu
 - **Decided by the owner on 2026-09-25, in a Product session.**
   - Option 2. `docs/agents/issue-tracker.md` now requires a ticket's slug to be unique across epics.
   - The existing pair keeps its names. Renaming `telemetry/09` would make `feat/exit-demonstration` map to `tracker-and-matt-pocock-integration/12` alone, and ticket 09's own records on that branch would move to it. So that branch credits neither, as user story 22 wants.
-  - Built after ticket 12, by autopilot, so that ticket 09's criterion 2 can read this ticket's own runs.
+  - Built after ticket 12, by autopilot, so that ticket 09's criterion 2 can read this ticket's own runs. It waits in `BACKLOG` while ticket 12's own autopilot run goes, so that run does not take it. A Product session sets it `READY` after ticket 12 merges.

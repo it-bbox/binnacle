@@ -1,6 +1,6 @@
 # 10: Work in removed worktrees reads as Product work, or as the wrong Task's
 
-Status: READY
+Status: BACKLOG
 Triage: ready-for-agent
 Blocked by: 12
 Spec: `docs/specs/telemetry/spec.md`, `docs/adr/ADR-0030-branch-from-the-reflog-or-none.md`
@@ -29,4 +29,4 @@ The owner chose option 3 under *Comments*: a run's branch comes from its checkou
 - **Decided by the owner on 2026-09-25, in a Product session.**
   - Option 3, in its simplest form: the branch a harness wrote attributes nothing, wherever the reflog has no answer. It stays in the store with source `harness`. ADR-0030 records this and supersedes ADR-0029's fallback.
   - It applies at read, so the history already stored follows it too. Of the 4,096 records measured, about 85% become unassigned, against 74%. Ticket 09's table explains every group.
-  - Built after ticket 12, by autopilot, so that ticket 09's criterion 2 can read this ticket's own runs.
+  - Built after ticket 12, by autopilot, so that ticket 09's criterion 2 can read this ticket's own runs. It waits in `BACKLOG` while ticket 12's own autopilot run goes, so that run does not take it. A Product session sets it `READY` after ticket 12 merges.
