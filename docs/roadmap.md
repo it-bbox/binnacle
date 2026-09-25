@@ -13,7 +13,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 1 | Core and persistence | done | [`core-and-persistence`](specs/core-and-persistence/spec.md) |
 | 2 | MCP and Product Snapshot | done | [`mcp-and-product-snapshot`](specs/mcp-and-product-snapshot/spec.md) |
 | 3 | Tracker and Matt Pocock integration | done | [`tracker-and-matt-pocock-integration`](specs/tracker-and-matt-pocock-integration/spec.md) |
-| 4 | Telemetry | not started | — |
+| 4 | Telemetry | spec | [`telemetry`](specs/telemetry/spec.md) |
 | 5 | Minimal dashboard | not started | — |
 | 6 | Audit and adopt | not started | — |
 
@@ -29,7 +29,9 @@ Epic 2 is done, closed on 2026-09-24 after its exit demonstration and hand check
 
 Epic 3 is done, closed on 2026-09-25 after its exit demonstration, which found no defect (ADR-0024 to ADR-0027). GitHub and GitLab issues are Tasks in the snapshot, the daily and the checkpoint, read with a read-only token when one is configured. `/binnacle:task` gives one Task's brief and branch name. `binn init` sets up a fresh repository end to end: the manifest, registration, each harness's MCP server, the `binnacle` plugin from the CLI package, the ticket-header section and the tracker check. `pnpm test:live` proves both adapters against the owner's test projects.
 
-Next action: epic 4, Telemetry, which is not started. It begins with `/grill-with-docs` or `/to-spec` in a Product session.
+Epic 4, Telemetry, is specified (ADR-0028): session artifacts from Claude Code and Codex become observed AgentRuns attributed to Tasks, shown in the snapshot's usage section and `usage_get`.
+
+Next action: slice epic 4's spec into tickets with `/to-tickets` in a Product session.
 
 ## Later
 

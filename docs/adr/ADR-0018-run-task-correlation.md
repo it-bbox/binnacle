@@ -1,6 +1,6 @@
 # ADR-0018: Run-to-Task Correlation Uses cwd and Git Reflog
 
-**Status:** Accepted
+**Status:** Accepted. The order of branch sources is superseded by ADR-0028.
 
 ## Context
 
