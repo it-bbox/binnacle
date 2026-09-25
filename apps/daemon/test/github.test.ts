@@ -499,8 +499,8 @@ describe('the credentials a GitHub tracker is read with', () => {
           assert.deepEqual(codes(body), ['tracker.unauthorized']);
           assert.match(body.attention.find((item) => item.code === 'tracker.unauthorized')!.message, /a token was used/);
           bodies.push(body);
-          for (const operation of ['project.status', 'daily.get', 'checkpoint.prepare', 'project.list', 'event.list']) {
-            bodies.push((await daemon.call(operation, { path: root })).body);
+          for (const operation of ['project.status', 'daily.get', 'checkpoint.prepare', 'checkpoint.record', 'project.list', 'event.list']) {
+            bodies.push((await daemon.call(operation, { path: root, promoted: [] })).body);
           }
 
           await withEnv({ BINNACLE_GITHUB_TOKEN: unusable }, async () => {
@@ -510,7 +510,7 @@ describe('the credentials a GitHub tracker is read with', () => {
             assert.match(refused.attention.find((item) => item.code === 'tracker.unavailable')!.message, /BINNACLE_GITHUB_TOKEN/);
             bodies.push(refused);
           });
-          assert.equal(fake.requests.length, 3);
+          assert.equal(fake.requests.length, 4);
         }),
       );
     } finally {
