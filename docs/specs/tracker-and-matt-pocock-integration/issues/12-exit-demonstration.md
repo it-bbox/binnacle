@@ -14,7 +14,55 @@ Spec: `docs/specs/tracker-and-matt-pocock-integration/spec.md`
 
 ## Comments
 
-- **Not done by an agent.** Every criterion here is performed by the owner in real, fresh Claude Code sessions, so none is ticked and `Status:` stays `READY`. The implementation session on `feat/exit-demonstration` did a dry run of each tool sequence, found no defect, and wrote the hand-check script below. Once the owner has run it, the last commit ticks the criteria, sets `Status: DONE`, and, with no defect filed, marks epic 3 `done` in the roadmap and moves the current focus to epic 4.
+- **Performed by the owner.** Every criterion here is performed by the owner in real, fresh Claude Code sessions. The implementation session on `feat/exit-demonstration` did a dry run of each tool sequence, found no defect, and wrote the hand-check script below. The owner then ran the script. Its result is next.
+- **The demonstration's result, on 2026-09-25: no defect, so no ticket was filed.** The script ran from `main` at `95d75ad`, against the owner's running daemon, with the owner's approval for each step.
+  - **Step 0.** `pnpm install` ran on `main` and the daemon was restarted. `binnacle@binnacle` was not installed beforehand.
+  - **Step 1, criterion 2.** `binn init` ran on a fresh clone of `it-bbox/binnacle-tracker-fixture`, and every answer was yes. The summary was exactly as the script expects:
+    - created `.binnacle/project.yaml`, with `id: binnacle-tracker-fixture`, `provider: github` and `repository: it-bbox/binnacle-tracker-fixture`;
+    - ran `project.register`;
+    - created `.mcp.json` and `.codex/config.toml`;
+    - ran the real `claude plugin marketplace add …/apps/cli --scope user` and `claude plugin install binnacle@binnacle --scope user`, and both succeeded;
+    - skipped the ticket-header section, because the fixture has no Matt Pocock layout;
+    - `checked tracker: readable`, with 16 issues.
+
+    Afterwards `binnacle@binnacle` was listed, the `binnacle` marketplace was at `…/dev-control-starter/apps/cli`, the clone was registered, and the clone had only untracked files. The installed copy, `~/.claude/plugins/cache/binnacle/binnacle/95d75adcf93e`, held all five skills, each with `disable-model-invocation: true`.
+  - **Step 2, criterion 1.** In that clone, the real `binn mcp` listed seven tools.
+    - `project_snapshot` gave:
+      - in flight: #3 to #7;
+      - ready to start: #2, #14, #15 and #16;
+      - counts: `BACKLOG` 1, `MERGED` 1, `DONE` 3, `CANCELLED` 1, unknown 1;
+      - attention: `task.unknown_state`, `tracker.state_mismatch` twice, `task.dangling_dependency` and `roadmap.missing`;
+      - pending decisions, CI and usage marked unavailable.
+    - `task_get #14`: `READY`, `#11` `DONE` and met, branch `feat/14-unblocked-by-a-closed-issue`.
+    - `task_get #2`: spec `docs/specs/demo/spec.md`, triage `ready-for-agent`, branch `feat/2-ready-task`.
+    - `task_get #99`: `task.not_found`.
+
+    Then the owner opened a fresh interactive Claude Code session in the clone, in the desktop app. There, `/binnacle:task #14` from the installed plugin called the tools and presented:
+    - `READY`, with no triage and no spec;
+    - `#11` "Finished task", `DONE` and met;
+    - the whole body;
+    - "The branch for this Task is `feat/14-unblocked-by-a-closed-issue`."
+  - **Step 3, GitLab.** `binn init` on a fresh GitLab clone read 16 issues, and skipped the plugin because it was already listed. `task_get #16` gave:
+    - ticket `https://gitlab.com/miker059/binnacle-tracker-fixture/-/work_items/16`, the same as GitLab's own `web_url`;
+    - spec a `/-/blob/9f7c345…/docs/specs/demo/spec.md` permalink, whose content at that commit is `# Spec: Demo`;
+    - branch `feat/16-spec-by-permalink`.
+  - **Step 4.** The plugin was uninstalled and the marketplace removed, leaving only `binnacle@skills-dir`. Both clones were unregistered and deleted.
+  - **Step 5, this repository.**
+    - `task_get tracker-and-matt-pocock-integration/06` gave:
+      - `DONE`;
+      - dependency `02` `DONE` and met;
+      - the spec path;
+      - the body without `## Comments`;
+      - branch `feat/task-brief`.
+    - `…/99` gave `task.not_found`.
+    - `binn init` on a throwaway clone, every answer no:
+      - offered the `## Ticket header` section, as ticket 11 noted;
+      - reported one instruction set, `CLAUDE.md` importing `AGENTS.md`;
+      - skipped the plugin, because the project provides its own;
+      - wrote nothing.
+  - **Step 6.** With no token and an empty `BINNACLE_HOME`, the tracker check failed with `tracker.not_found`, said "no token was used", and printed the fine-grained token advice with Issues read-only.
+  - **Timeouts.** No remote read timed out, so there is no ticket 13 for the dry run's timeouts.
+  - **One deviation: where step 2 ran.** The headless `claude -p` could not authenticate, because its OAuth sign-in had expired. So step 2's tool sequence was driven through the real `binn mcp` over the MCP SDK's stdio client, and the slash command was run in the owner's own interactive session.
 - **The dry run, on 2026-09-25.** It used this branch's CLI, run as `node apps/cli/src/bin.ts`, with a temporary `BINNACLE_HOME` and `BINNACLE_PORT=0`. The owner's daemon and `~/.binnacle` were not touched. The read-only tokens from `~/.binnacle/credentials.json` were passed only in the environment of the temporary daemon and of `binn init`. MCP tools were called over `binn mcp`'s stdio, as a harness calls them.
   - **The `/binnacle:product` sequence.** The scratch project was a clone of `it-bbox/binnacle-tracker-fixture` with a hand-written manifest declaring `provider: github` and that repository. It was registered, then `project_detect` and `project_snapshot` ran.
     - In flight: #3 to #7.
