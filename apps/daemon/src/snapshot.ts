@@ -12,7 +12,7 @@ import {
   type TaskReading,
   type TaskState,
 } from '@binnacle/core';
-import { resolveGitTimeout } from './home.ts';
+import { resolveGitTimeout, trackerToken } from './home.ts';
 import type { Projected } from './projection.ts';
 import type { ProjectRow } from './store.ts';
 
@@ -89,10 +89,13 @@ export type Snapshot = {
   attention: Diagnostic[];
 };
 
-/** `diagnostics` are the caller's own findings about the checkout, such as a tracker-remote mismatch. */
-export async function snapshot(projected: Projected, caller: CallerCheckout, diagnostics: Diagnostic[]): Promise<Snapshot> {
+/**
+ * `diagnostics` are the caller's own findings about the checkout, such as a tracker-remote
+ * mismatch; `home` is the Binnacle home, where a remote tracker's credentials are.
+ */
+export async function snapshot(home: string, projected: Projected, caller: CallerCheckout, diagnostics: Diagnostic[]): Promise<Snapshot> {
   const tree = workingTree(caller.project);
-  const { tasks, roadmap, adrs, attention } = await readState(tree, projected, diagnostics);
+  const { tasks, roadmap, adrs, attention } = await readState(home, tree, projected, diagnostics);
   // By code point, so that a cut never splits a character in two.
   const focus = roadmap?.focus == null ? null : Array.from(roadmap.focus);
 
@@ -128,6 +131,7 @@ export type State = {
  * no past version to read at a commit, which is what the daily's baseline side reads.
  */
 export async function readState(
+  home: string,
   tree: Tree,
   { manifest, warnings }: Projected,
   diagnostics: Diagnostic[],
@@ -137,22 +141,33 @@ export async function readState(
     ...warnings.map((warning) => ({ code: 'manifest.warning', message: `${warning.path}: ${warning.message}` })),
     ...diagnostics,
   ];
-  const tasks = await readTasks(tree, manifest, attention, readRemoteTracker);
+  const tasks = await readTasks(home, tree, manifest, attention, readRemoteTracker);
   const roadmap = await readRoadmap(tree, manifest, attention);
   if (roadmap && tasks) attention.push(...roadmapAttention(roadmap.epics, tasks));
   const adrs = await readAdrs(tree, manifest, attention);
   return { tasks, roadmap, adrs, attention };
 }
 
-/** The project's Tasks, or null with the reason pushed to `attention`. */
-export async function readTasks(tree: Tree, manifest: ProjectManifest | null, attention: Diagnostic[], readRemoteTracker = true): Promise<ResolvedTask[] | null> {
+/** The project's Tasks, or null with the reason pushed to `attention`. `home` is where a remote tracker's credentials are. */
+export async function readTasks(
+  home: string,
+  tree: Tree,
+  manifest: ProjectManifest | null,
+  attention: Diagnostic[],
+  readRemoteTracker = true,
+): Promise<ResolvedTask[] | null> {
   const tracker = manifest?.tracker;
   let reading: TaskReading;
   if (tracker?.provider === 'local' && tracker.local.issues !== null) {
     reading = await readLocalTasks(tree, tracker.local.issues);
   } else if ((tracker?.provider === 'github' || tracker?.provider === 'gitlab') && tracker.repository !== null) {
     if (!readRemoteTracker) return null;
-    reading = await (tracker.provider === 'github' ? readGitHubTasks : readGitLabTasks)(tracker.repository, tracker.host);
+    // A credentials problem reads nothing: the token that would have been used is unknown.
+    const credential = trackerToken(home, tracker.provider, tracker.host);
+    reading =
+      'failure' in credential
+        ? { tasks: null, diagnostics: [credential.failure] }
+        : await (tracker.provider === 'github' ? readGitHubTasks : readGitLabTasks)(tracker.repository, tracker.host, credential.token);
   } else {
     attention.push({ code: 'tracker.unavailable', message: unavailable(tracker) });
     return null;

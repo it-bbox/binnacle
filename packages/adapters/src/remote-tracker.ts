@@ -29,6 +29,8 @@ export type RemoteIssue = {
 export type Forge = {
   name: 'GitHub' | 'GitLab';
   headers: Record<string, string>;
+  /** The header a read-only token is sent in. */
+  authorization(token: string): Record<string, string>;
   /** One entry of a page as an issue, or null for one that is not an issue. */
   toIssue(entry: unknown): RemoteIssue | null;
 };
@@ -39,8 +41,10 @@ export type Forge = {
  * call, read-only, with the platform `fetch`. Requests go to the declared host only: a next
  * page elsewhere is refused. A failure on any page gives no Tasks at all, never a partial
  * list, and one diagnostic that says why. `where` names the repository and API root.
+ * `token`, when there is one, is sent with every request and appears in nothing this
+ * returns; null reads anonymously.
  */
-export async function readRemoteTasks(forge: Forge, firstPage: string, where: string): Promise<TaskReading> {
+export async function readRemoteTasks(forge: Forge, firstPage: string, where: string, token: string | null): Promise<TaskReading> {
   const failed = (code: string, message: string): TaskReading => ({ tasks: null, diagnostics: [{ code, message }] });
   let url: URL;
   try {
@@ -49,13 +53,14 @@ export async function readRemoteTasks(forge: Forge, firstPage: string, where: st
     return failed('tracker.unreachable', `tracker.host gives no URL for ${where}.`);
   }
   const origin = url.origin;
+  const headers = token === null ? forge.headers : { ...forge.headers, ...forge.authorization(token) };
   const issues: RemoteIssue[] = [];
   for (;;) {
     let response: Response;
     let page: unknown;
     try {
-      response = await fetch(url, { headers: forge.headers, signal: AbortSignal.timeout(TRACKER_TIMEOUT_MS) });
-      if (!response.ok) return failed(...statusFailure(forge.name, response, where));
+      response = await fetch(url, { headers, signal: AbortSignal.timeout(TRACKER_TIMEOUT_MS) });
+      if (!response.ok) return failed(...statusFailure(forge.name, response, where, token !== null));
       page = await response.json();
     } catch (error) {
       return failed('tracker.unreachable', `${forge.name} could not be read for ${where}: ${(error as Error).message}.`);
@@ -78,17 +83,22 @@ export async function readRemoteTasks(forge: Forge, firstPage: string, where: st
 }
 
 /**
- * No token is sent in this version, so a refusal is always of an anonymous request. GitHub
- * signals its primary rate limit as a 403 with no requests remaining; GitLab uses 429.
+ * Each refusal says whether a token was used: the fix is to create one, or to fix or widen
+ * the one there is. GitHub signals its primary rate limit as a 403 with no requests
+ * remaining; GitLab uses 429.
  */
-function statusFailure(name: Forge['name'], response: Response, where: string): [string, string] {
+function statusFailure(name: Forge['name'], response: Response, where: string, authenticated: boolean): [string, string] {
   const { status, headers } = response;
+  const used = authenticated ? 'a token was used' : 'no token was used';
   if (status === 429 || (status === 403 && (headers.get('x-ratelimit-remaining') === '0' || headers.has('retry-after')))) {
     return ['tracker.rate_limited', `${name} rate-limited the reading of ${where} (${status}).`];
   }
-  if (status === 401) return ['tracker.unauthorized', `${name} refused an anonymous request for ${where} (401); no token was used.`];
-  if (status === 403) return ['tracker.forbidden', `${name} gave no read access to the issues of ${where} (403).`];
-  if (status === 404 || status === 410) return ['tracker.not_found', `${name} has nothing at ${where} with issues visible to this request (${status}).`];
+  if (status === 401) {
+    const refused = authenticated ? 'rejected the token' : 'refused an anonymous request';
+    return ['tracker.unauthorized', `${name} ${refused} for ${where} (401); ${used}.`];
+  }
+  if (status === 403) return ['tracker.forbidden', `${name} gave no read access to the issues of ${where} (403); ${used}.`];
+  if (status === 404 || status === 410) return ['tracker.not_found', `${name} has nothing at ${where} with issues visible to this request (${status}); ${used}.`];
   return ['tracker.unreachable', `${name} answered ${status} for ${where}.`];
 }
 

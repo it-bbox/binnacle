@@ -107,7 +107,7 @@ export const operations: Record<string, Operation> = {
     const path = repositoryPath(body, { mustExist: false });
     const projected = reproject(context.store, await resolveEntry(path, context));
     const caller = await callerCheckout(path, projected.row.path);
-    return snapshot(projected, caller, remoteMismatch(projected.manifest, caller.git));
+    return snapshot(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git));
   },
 
   /**
@@ -122,7 +122,7 @@ export const operations: Record<string, Operation> = {
     const projected = reproject(context.store, await resolveEntry(path, context));
     const caller = await callerCheckout(path, projected.row.path);
     const baseline: Baseline | null = since ? { commit: since, source: 'since', states: null } : recordedBaseline(context.store, projected.row.path, BASELINE_EVENTS);
-    const { delta, states } = await daily(projected, caller, remoteMismatch(projected.manifest, caller.git), baseline);
+    const { delta, states } = await daily(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git), baseline);
     if (!since) context.store.appendEvent({ type: 'daily', projectPath: projected.row.path, payload: { head: delta.head, ...(states && { states }) } });
     return delta;
   },
@@ -138,7 +138,7 @@ export const operations: Record<string, Operation> = {
     const caller = await callerCheckout(path, projected.row.path);
     const recorded = ['checkpoint'] as const;
     const baseline = recordedBaseline(context.store, projected.row.path, recorded);
-    const { delta } = await daily(projected, caller, remoteMismatch(projected.manifest, caller.git), baseline, recorded);
+    const { delta } = await daily(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git), baseline, recorded);
     return { ...delta, targets: promotionTargets(projected.manifest) };
   },
 
@@ -157,7 +157,7 @@ export const operations: Record<string, Operation> = {
     const { head } = committedHead(caller);
     const diagnostics = await promotionDiagnostics(caller.project, promoted, head);
     // An unreadable tracker records no states, and the next checkpoint's delta says so.
-    const tasks = isRemoteTracker(projected.manifest) ? await readTasks(workingTree(caller.project), projected.manifest, []) : null;
+    const tasks = isRemoteTracker(projected.manifest) ? await readTasks(context.home, workingTree(caller.project), projected.manifest, []) : null;
     context.store.appendEvent({ type: 'checkpoint', projectPath: projected.row.path, payload: { head, promoted, ...(tasks && { states: taskStates(tasks) }) } });
     return { project: projected.row, checkout: caller.checkout, head, promoted, diagnostics };
   },

@@ -16,6 +16,7 @@ type Issue = { iid: number; title: string; state: string; description?: string |
 const GITLAB: Forge = {
   name: 'GitLab',
   headers: { accept: 'application/json' },
+  authorization: (token) => ({ 'private-token': token }),
   toIssue(entry) {
     const issue = entry as Issue;
     return {
@@ -33,9 +34,9 @@ const GITLAB: Forge = {
 /**
  * A GitLab project's issues as Tasks, read through `readRemoteTasks`. The project is its
  * full path, subgroups included, which the API takes URL-encoded as one segment. GitLab
- * lists issues in every state unless asked for one.
+ * lists issues in every state unless asked for one. `token`, or null, as for GitHub.
  */
-export function readGitLabTasks(repository: string, host: string | null): Promise<TaskReading> {
+export function readGitLabTasks(repository: string, host: string | null, token: string | null): Promise<TaskReading> {
   const root = gitlabApiRoot(host);
-  return readRemoteTasks(GITLAB, `${root}/projects/${encodeURIComponent(repository)}/issues?per_page=100`, `${repository} at ${root}`);
+  return readRemoteTasks(GITLAB, `${root}/projects/${encodeURIComponent(repository)}/issues?per_page=100`, `${repository} at ${root}`, token);
 }

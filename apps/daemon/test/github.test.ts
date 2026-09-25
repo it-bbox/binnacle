@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -20,6 +20,10 @@ type Snapshot = {
 };
 
 const REPOSITORY = 'octo-org/octo-repo';
+
+// The daemon runs in this process and reads its environment: a token the developer has set
+// would otherwise reach the loopback server, and every test below that expects none.
+delete process.env.BINNACLE_GITHUB_TOKEN;
 
 const roots: string[] = [];
 after(() => {
@@ -52,15 +56,24 @@ type Reply = { status: number; headers?: Record<string, string>; body: unknown }
 /**
  * A loopback stand-in for GitHub at the network boundary: it serves `pages` of issues for
  * `REPOSITORY` with GitHub's `Link` pagination header, or whatever `reply` says instead.
- * Every request it receives is kept, so a test can see what Binnacle asked for.
+ * Every request it receives is kept, with the `authorization` header it carried, so a test
+ * can see what Binnacle asked for and with which token.
  */
-type FakeGitHub = { base: string; pages: unknown[][]; reply: ((request: URL) => Reply | null) | null; requests: URL[]; close(): Promise<void> };
+type FakeGitHub = {
+  base: string;
+  pages: unknown[][];
+  reply: ((request: URL) => Reply | null) | null;
+  requests: URL[];
+  authorizations: (string | undefined)[];
+  close(): Promise<void>;
+};
 
 async function fakeGitHub(pages: unknown[][]): Promise<FakeGitHub> {
-  const fake: FakeGitHub = { base: '', pages, reply: null, requests: [], close: async () => {} };
+  const fake: FakeGitHub = { base: '', pages, reply: null, requests: [], authorizations: [], close: async () => {} };
   const server: Server = createServer((request: IncomingMessage, response) => {
     const url = new URL(request.url ?? '/', fake.base);
     fake.requests.push(url);
+    fake.authorizations.push(request.headers.authorization);
     const reply = fake.reply?.(url) ?? pageReply(fake, url);
     response.writeHead(reply.status, { 'content-type': 'application/json', ...reply.headers });
     response.end(JSON.stringify(reply.body));
@@ -331,6 +344,180 @@ describe('a GitHub tracker that cannot be read', () => {
       assert.deepEqual(codes(body), ['tracker.unreachable']);
       assert.equal(fake.requests.length, 1);
     });
+  });
+});
+
+describe('the credentials a GitHub tracker is read with', () => {
+  const ENV_TOKEN = 'ghp_fromTheEnvironment0001';
+  const FILE_TOKEN = 'ghp_fromTheCredentialsFile2';
+
+  /** Sets the daemon's environment for one test: it runs in this process. `undefined` unsets. */
+  async function withEnv(vars: Record<string, string | undefined>, body: () => Promise<void>): Promise<void> {
+    const saved = Object.fromEntries(Object.keys(vars).map((name) => [name, process.env[name]]));
+    const apply = (values: Record<string, string | undefined>): void => {
+      for (const [name, value] of Object.entries(values)) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+    };
+    apply(vars);
+    try {
+      await body();
+    } finally {
+      apply(saved);
+    }
+  }
+
+  function credentials(daemon: TestDaemon, contents: unknown, mode = 0o600): void {
+    const path = join(daemon.home, 'credentials.json');
+    writeFileSync(path, typeof contents === 'string' ? contents : JSON.stringify(contents));
+    chmodSync(path, mode);
+  }
+
+  const noToken = { BINNACLE_GITHUB_TOKEN: undefined, BINNACLE_GITLAB_TOKEN: undefined, GITHUB_TOKEN: undefined, GH_TOKEN: undefined };
+
+  it('sends BINNACLE_GITHUB_TOKEN from the daemon’s environment first, before the credentials file', async () => {
+    await withEnv({ ...noToken, BINNACLE_GITHUB_TOKEN: ENV_TOKEN }, () =>
+      withGitHub([[issue(1, 'One', { body: header({ Status: 'ACTIVE' }) })]], async (daemon, fake) => {
+        credentials(daemon, { [fake.base]: FILE_TOKEN });
+        const body = await snapshot(daemon, makeProject(manifest(fake.base)));
+        assert.deepEqual(ids(body.tasks!.inFlight), ['#1']);
+        assert.deepEqual(fake.authorizations, [`Bearer ${ENV_TOKEN}`]);
+      }),
+    );
+  });
+
+  it('sends the declared host’s entry in the credentials file when the environment has none, on every page', async () => {
+    await withEnv(noToken, () =>
+      withGitHub([[issue(1, 'One')], [issue(2, 'Two')]], async (daemon, fake) => {
+        credentials(daemon, { 'github.com': 'ghp_anotherHost', [fake.base]: FILE_TOKEN });
+        const body = await snapshot(daemon, makeProject(manifest(fake.base)));
+        assert.equal(body.tasks!.counts.unknown, 2);
+        assert.deepEqual(fake.authorizations, [`Bearer ${FILE_TOKEN}`, `Bearer ${FILE_TOKEN}`]);
+      }),
+    );
+  });
+
+  it('reads anonymously when neither holds a token for the declared host, and never reads GITHUB_TOKEN or the other provider’s variable', async () => {
+    await withEnv({ ...noToken, GITHUB_TOKEN: 'ghp_generic', GH_TOKEN: 'ghp_ghCli', BINNACLE_GITLAB_TOKEN: 'glpat_other' }, () =>
+      withGitHub([[issue(1, 'One', { body: header({ Status: 'ACTIVE' }) })]], async (daemon, fake) => {
+        const root = makeProject(manifest(fake.base));
+        assert.deepEqual(ids((await snapshot(daemon, root)).tasks!.inFlight), ['#1']);
+
+        credentials(daemon, { 'github.com': 'ghp_anotherHost' });
+        const body = await snapshot(daemon, root);
+        assert.deepEqual(ids(body.tasks!.inFlight), ['#1']);
+        assert.deepEqual(codes(body), []);
+        assert.deepEqual(fake.authorizations, [undefined, undefined]);
+      }),
+    );
+  });
+
+  it('looks the token up on every call, so a token added to the file is used by the next snapshot', async () => {
+    await withEnv(noToken, () =>
+      withGitHub([[issue(1, 'One')]], async (daemon, fake) => {
+        const root = makeProject(manifest(fake.base));
+        await snapshot(daemon, root);
+        credentials(daemon, { [fake.base]: FILE_TOKEN });
+        await snapshot(daemon, root);
+        assert.deepEqual(fake.authorizations, [undefined, `Bearer ${FILE_TOKEN}`]);
+      }),
+    );
+  });
+
+  it('refuses a credentials file others can read, and reads nothing from the tracker', { skip: process.platform === 'win32' && 'no POSIX modes' }, async () => {
+    await withEnv(noToken, () =>
+      withGitHub([[issue(1, 'One', { body: header({ Status: 'ACTIVE' }) })]], async (daemon, fake) => {
+        const root = makeProject(manifest(fake.base, '\nknowledge:\n  docs: docs\n'));
+        mkdirSync(join(root, 'docs'));
+        writeFileSync(join(root, 'docs', 'roadmap.md'), '# Roadmap\n\n| # | Epic | Status | Spec |\n| --- | --- | --- | --- |\n| 1 | First | tickets | — |\n');
+        for (const mode of [0o644, 0o640, 0o602]) {
+          credentials(daemon, { [fake.base]: FILE_TOKEN }, mode);
+          const body = await snapshot(daemon, root);
+          assert.equal(body.tasks, null);
+          assert.equal(body.roadmap?.epics.length, 1);
+          assert.deepEqual(codes(body), ['tracker.credentials_insecure']);
+          assert.equal(JSON.stringify(body).includes(FILE_TOKEN), false);
+        }
+        assert.equal(fake.requests.length, 0);
+
+        // The environment comes first, so a token there is used without the file being read.
+        await withEnv({ BINNACLE_GITHUB_TOKEN: ENV_TOKEN }, async () => {
+          assert.deepEqual(codes(await snapshot(daemon, root)), []);
+        });
+        assert.deepEqual(fake.authorizations, [`Bearer ${ENV_TOKEN}`]);
+      }),
+    );
+  });
+
+  it('refuses a credentials file that is not an object of host to token, without quoting it', async () => {
+    await withEnv(noToken, () =>
+      withGitHub([[issue(1, 'One')]], async (daemon, fake) => {
+        const root = makeProject(manifest(fake.base));
+        const broken = [`{"${fake.base}": "${FILE_TOKEN}"`, `["${FILE_TOKEN}"]`, { [fake.base]: 42 }, { [fake.base]: `${FILE_TOKEN}\n${FILE_TOKEN}` }];
+        for (const contents of broken) {
+          credentials(daemon, contents);
+          const body = await snapshot(daemon, root);
+          assert.equal(body.tasks, null);
+          assert.deepEqual(codes(body), ['tracker.unavailable']);
+          assert.match(body.attention.find((item) => item.code === 'tracker.unavailable')!.message, /credentials\.json/);
+          assert.equal(JSON.stringify(body).includes(FILE_TOKEN), false);
+        }
+        assert.equal(fake.requests.length, 0);
+      }),
+    );
+  });
+
+  it('says a token was used when it is rejected, and lets the token reach no response, diagnostic, event or log line', async () => {
+    // Characters a header cannot carry would otherwise come back quoted in fetch's own error.
+    const unusable = 'ghp_notAHeader\rvalue';
+    const written: string[] = [];
+    const capture = (stream: NodeJS.WriteStream): (() => void) => {
+      const write = stream.write;
+      stream.write = function (this: NodeJS.WriteStream, chunk: unknown, ...rest: unknown[]) {
+        written.push(String(chunk));
+        return (write as (...args: unknown[]) => boolean).call(this, chunk, ...rest);
+      } as typeof stream.write;
+      return () => {
+        stream.write = write;
+      };
+    };
+    const restore = [capture(process.stdout), capture(process.stderr)];
+    const bodies: unknown[] = [];
+    try {
+      await withEnv({ ...noToken, BINNACLE_GITHUB_TOKEN: ENV_TOKEN }, () =>
+        withGitHub([[]], async (daemon, fake) => {
+          fake.reply = () => ({ status: 401, body: { message: 'Bad credentials' } });
+          const root = makeProject(manifest(fake.base));
+          execFileSync('git', ['init', '--quiet'], { cwd: root });
+          execFileSync('git', ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', '-c', 'commit.gpgsign=false', 'commit', '--quiet', '--allow-empty', '-m', 'x'], {
+            cwd: root,
+          });
+
+          const body = await snapshot(daemon, root);
+          assert.equal(body.tasks, null);
+          assert.deepEqual(codes(body), ['tracker.unauthorized']);
+          assert.match(body.attention.find((item) => item.code === 'tracker.unauthorized')!.message, /a token was used/);
+          bodies.push(body);
+          for (const operation of ['project.status', 'daily.get', 'checkpoint.prepare', 'project.list', 'event.list']) {
+            bodies.push((await daemon.call(operation, { path: root })).body);
+          }
+
+          await withEnv({ BINNACLE_GITHUB_TOKEN: unusable }, async () => {
+            const refused = await snapshot(daemon, root);
+            assert.equal(refused.tasks, null);
+            assert.deepEqual(codes(refused), ['tracker.unavailable']);
+            assert.match(refused.attention.find((item) => item.code === 'tracker.unavailable')!.message, /BINNACLE_GITHUB_TOKEN/);
+            bodies.push(refused);
+          });
+          assert.equal(fake.requests.length, 3);
+        }),
+      );
+    } finally {
+      for (const undo of restore) undo();
+    }
+    const everything = JSON.stringify(bodies) + written.join('');
+    for (const token of [ENV_TOKEN, unusable, 'notAHeader']) assert.equal(everything.includes(token), false, `${token} leaked`);
   });
 });
 
@@ -627,7 +814,7 @@ describe('the GitHub adapter', () => {
       ],
     ]);
     try {
-      const reading = await readGitHubTasks(REPOSITORY, fake.base);
+      const reading = await readGitHubTasks(REPOSITORY, fake.base, null);
       assert.deepEqual(
         reading.tasks?.map(({ id, triage, spec, specSlug }) => ({ id, triage, spec, specSlug })),
         [

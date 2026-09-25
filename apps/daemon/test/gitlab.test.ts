@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, it } from 'node:test';
@@ -20,6 +20,10 @@ type Snapshot = {
 /** A full project path with a subgroup, which GitLab's API takes URL-encoded as one segment. */
 const REPOSITORY = 'gitlab-org/sub-group/project';
 const ISSUES_PATH = `/projects/${encodeURIComponent(REPOSITORY)}/issues`;
+
+// The daemon runs in this process and reads its environment: a token the developer has set
+// would otherwise reach the loopback server, and every test below that expects none.
+delete process.env.BINNACLE_GITLAB_TOKEN;
 
 const roots: string[] = [];
 after(() => {
@@ -52,14 +56,23 @@ type Reply = { status: number; headers?: Record<string, string>; body: unknown }
 /**
  * A loopback stand-in for GitLab at the network boundary: it serves `pages` of issues for
  * `REPOSITORY` with GitLab's `Link` pagination header, or whatever `reply` says instead.
- * Every request path it receives is kept as sent, still encoded.
+ * Every request path it receives is kept as sent, still encoded, with the `private-token`
+ * header it carried.
  */
-type FakeGitLab = { base: string; pages: unknown[][]; reply: ((request: URL) => Reply | null) | null; requests: string[]; close(): Promise<void> };
+type FakeGitLab = {
+  base: string;
+  pages: unknown[][];
+  reply: ((request: URL) => Reply | null) | null;
+  requests: string[];
+  tokens: (string | undefined)[];
+  close(): Promise<void>;
+};
 
 async function fakeGitLab(pages: unknown[][]): Promise<FakeGitLab> {
-  const fake: FakeGitLab = { base: '', pages, reply: null, requests: [], close: async () => {} };
+  const fake: FakeGitLab = { base: '', pages, reply: null, requests: [], tokens: [], close: async () => {} };
   const server: Server = createServer((request, response) => {
     fake.requests.push(request.url ?? '/');
+    fake.tokens.push(request.headers['private-token'] as string | undefined);
     const url = new URL(request.url ?? '/', fake.base);
     const reply = fake.reply?.(url) ?? pageReply(fake, url);
     response.writeHead(reply.status, { 'content-type': 'application/json', ...reply.headers });
@@ -300,6 +313,45 @@ describe('a GitLab tracker that cannot be read', () => {
   });
 });
 
+describe('the credentials a GitLab tracker is read with', () => {
+  // The lookup itself, its order, the insecure file and every leak are tested on GitHub
+  // (`github.test.ts`); here, that GitLab gets its own variable, its own header and the same file.
+  const credentials = (daemon: TestDaemon, entries: Record<string, string>): void => {
+    const path = join(daemon.home, 'credentials.json');
+    writeFileSync(path, JSON.stringify(entries));
+    chmodSync(path, 0o600);
+  };
+
+  it('sends BINNACLE_GITLAB_TOKEN as private-token, then the declared host’s entry, and never the GitHub variable', async () => {
+    await withGitLab([[issue(1, 'One', { description: header({ Status: 'ACTIVE' }) })]], async (daemon, fake) => {
+      const root = makeProject(manifest(fake.base));
+      credentials(daemon, { [fake.base]: 'glpat-fromTheFile' });
+      process.env.BINNACLE_GITHUB_TOKEN = 'ghp_notForGitLab';
+      try {
+        process.env.BINNACLE_GITLAB_TOKEN = 'glpat-fromTheEnvironment';
+        assert.deepEqual(ids((await snapshot(daemon, root)).tasks!.inFlight), ['#1']);
+        delete process.env.BINNACLE_GITLAB_TOKEN;
+        await snapshot(daemon, root);
+      } finally {
+        delete process.env.BINNACLE_GITLAB_TOKEN;
+        delete process.env.BINNACLE_GITHUB_TOKEN;
+      }
+      assert.deepEqual(fake.tokens, ['glpat-fromTheEnvironment', 'glpat-fromTheFile']);
+    });
+  });
+
+  it('says a token was used when GitLab rejects it, without quoting it', async () => {
+    await withGitLab([[]], async (daemon, fake) => {
+      fake.reply = () => ({ status: 401, body: { message: '401 Unauthorized' } });
+      credentials(daemon, { [fake.base]: 'glpat-rejected' });
+      const body = await snapshot(daemon, makeProject(manifest(fake.base)));
+      assert.deepEqual(codes(body), ['tracker.unauthorized']);
+      assert.match(body.attention.find((item) => item.code === 'tracker.unauthorized')!.message, /a token was used/);
+      assert.equal(JSON.stringify(body).includes('glpat-rejected'), false);
+    });
+  });
+});
+
 describe('the GitLab tracker in the manifest', () => {
   it('makes Tasks unavailable, naming the field, when no repository is declared', async () => {
     const daemon = await startTestDaemon();
@@ -403,7 +455,7 @@ describe('the GitLab adapter', () => {
       ],
     ]);
     try {
-      const reading = await readGitLabTasks(REPOSITORY, fake.base);
+      const reading = await readGitLabTasks(REPOSITORY, fake.base, null);
       assert.deepEqual(
         reading.tasks?.map(({ id, triage, spec, specSlug }) => ({ id, triage, spec, specSlug })),
         [

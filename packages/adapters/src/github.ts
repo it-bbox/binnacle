@@ -27,6 +27,7 @@ type Issue = {
 const GITHUB: Forge = {
   name: 'GitHub',
   headers: { accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28' },
+  authorization: (token) => ({ authorization: `Bearer ${token}` }),
   toIssue(entry) {
     const issue = entry as Issue;
     if (issue.pull_request !== undefined) return null;
@@ -42,9 +43,9 @@ const GITHUB: Forge = {
   },
 };
 
-/** A GitHub repository's issues as Tasks, read through `readRemoteTasks`. */
-export function readGitHubTasks(repository: string, host: string | null): Promise<TaskReading> {
+/** A GitHub repository's issues as Tasks, read through `readRemoteTasks`, with `token` or anonymously. */
+export function readGitHubTasks(repository: string, host: string | null, token: string | null): Promise<TaskReading> {
   const root = githubApiRoot(host);
   const path = repository.split('/').map(encodeURIComponent).join('/');
-  return readRemoteTasks(GITHUB, `${root}/repos/${path}/issues?state=all&per_page=100`, `${repository} at ${root}`);
+  return readRemoteTasks(GITHUB, `${root}/repos/${path}/issues?state=all&per_page=100`, `${repository} at ${root}`, token);
 }

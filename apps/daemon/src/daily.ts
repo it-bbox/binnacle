@@ -84,6 +84,7 @@ export type Transition = { id: string; title: string | null; from: TaskState | n
  * `daily` event recording this delta's head records beside it.
  */
 export async function daily(
+  home: string,
   projected: Projected,
   caller: CallerCheckout,
   diagnostics: Diagnostic[],
@@ -101,8 +102,8 @@ export async function daily(
     const [commits, before, after] = await Promise.all([
       readLog(cwd, from.commit, head, timeout),
       // The baseline's own attention items are not news. A remote tracker has no past to read here.
-      readState(beforeTree, projected, [], { readRemoteTracker: false }),
-      readState(afterTree, projected, diagnostics),
+      readState(home, beforeTree, projected, [], { readRemoteTracker: false }),
+      readState(home, afterTree, projected, diagnostics),
     ]);
 
     const remote = isRemoteTracker(projected.manifest);

@@ -31,7 +31,7 @@ Content-level diagnostics must be explicit opt-in.
 
 ## Tracker credentials
 
-Requested with **read-only scope** — Binnacle never writes to a tracker (`ADR-0013`), so a leaked token cannot damage a repository. Stored in the environment or in `~/.binnacle/credentials.json` with `0600` permissions, one per host, never in `.binnacle/project.yaml`. On GitHub that is a fine-grained token with Issues read access; on GitLab, a token with `read_api`. Tokens are not imported from `gh` or `glab`: theirs can usually write, and the promise above would no longer hold.
+Requested with **read-only scope** — Binnacle never writes to a tracker (`ADR-0013`), so a leaked token cannot damage a repository. Given in the daemon's environment as `BINNACLE_GITHUB_TOKEN` or `BINNACLE_GITLAB_TOKEN`, or in `~/.binnacle/credentials.json` with `0600` permissions, one per host, and never in `.binnacle/project.yaml` (`docs/operations/05-installation-checklist.md`). A credentials file others can read is refused with `tracker.credentials_insecure`. A token is sent only to the declared host, and never appears in a response, diagnostic, event or log line. On GitHub that is a fine-grained token with Issues read access; on GitLab, a token with `read_api`. Tokens are not imported from `gh` or `glab`: theirs can usually write, and the promise above would no longer hold.
 
 ## Local network
 

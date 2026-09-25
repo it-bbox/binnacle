@@ -12,13 +12,32 @@ npm i -g @binnacle/cli
 
 It runs natively on Linux, macOS and Windows. The daemon is started by `binn daemon start`; installing it as an auto-starting service is not part of v1.
 
-Three environment variables configure it:
+Five environment variables configure it, all read by the daemon from its own environment:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `BINNACLE_HOME` | `~/.binnacle` | Where Binnacle keeps the daemon's runtime file, the API token and the store. Point it elsewhere to run a throwaway instance beside the real one. |
+| `BINNACLE_HOME` | `~/.binnacle` | Where Binnacle keeps the daemon's runtime file, the API token, the store and the tracker credentials file. Point it elsewhere to run a throwaway instance beside the real one. |
 | `BINNACLE_PORT` | `7717` | The loopback port the daemon binds. `0` takes an ephemeral port. |
 | `BINNACLE_GIT_TIMEOUT_MS` | `5000` | How long one read-only `git` call may take before `project.status` reports Git facts unavailable. Raise it for a repository on a slow filesystem. |
+| `BINNACLE_GITHUB_TOKEN` | none | A read-only token for every project whose `tracker.provider` is `github`. |
+| `BINNACLE_GITLAB_TOKEN` | none | A read-only token for every project whose `tracker.provider` is `gitlab`. |
+
+### Tracker credentials
+
+A project on GitHub or GitLab issues is read with a read-only token: on GitHub a fine-grained token with Issues read access, on GitLab a token with `read_api` (`docs/operations/04-security-resilience.md`). A public repository needs none.
+
+For one host, or several, keep the tokens in `credentials.json` in the Binnacle home (`~/.binnacle/credentials.json`): a JSON object keyed by the project's `tracker.host` exactly as its manifest writes it, or by `github.com` or `gitlab.com` when the manifest writes none.
+
+```json
+{
+  "github.com": "github_pat_…",
+  "gitlab.example.com": "glpat-…"
+}
+```
+
+Make it owner-only (`chmod 600 ~/.binnacle/credentials.json`). A file anyone else can read or write is not read at all, and the snapshot says `tracker.credentials_insecure`. Binnacle reads the file and never writes it.
+
+On every call the daemon takes the provider's variable first, then the host's entry in the file, and otherwise reads anonymously. `GITHUB_TOKEN` and other generic names are not read, and nothing is taken from `gh` or `glab`: their tokens can usually write. A variable is read from the environment the daemon started with, so restart it after changing one; the file is read on every call.
 
 One daemon runs per Binnacle home. `binn daemon status` reports whether one is running and where; `binn daemon stop` stops it. Exit codes are `0` success, `2` usage error, `3` operation failed, `4` daemon unreachable.
 

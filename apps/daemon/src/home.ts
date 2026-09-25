@@ -1,7 +1,8 @@
 import { randomBytes } from 'node:crypto';
-import { closeSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync, writeSync } from 'node:fs';
+import { closeSync, fstatSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync, writeSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import type { Diagnostic } from '@binnacle/core';
 
 /**
  * The Binnacle home directory holds everything this machine keeps about Binnacle
@@ -54,6 +55,74 @@ export const logPath = (home: string): string => join(home, 'daemon.log');
 /** The project registry is a file, not a table (ADR-0019). */
 export const registryPath = (home: string): string => join(home, 'projects.json');
 export const storePath = (home: string): string => join(home, 'binnacle.db');
+/** Read-only tracker tokens, a JSON object keyed by host. Binnacle reads it and never writes it. */
+export const credentialsPath = (home: string): string => join(home, 'credentials.json');
+
+/** A token as an HTTP header can carry it. Anything else is refused before it can be sent, or quoted back in an error. */
+const USABLE_TOKEN = /^[\x21-\x7e]+$/;
+
+/**
+ * The token a tracker on `host` is read with, looked up on every call, in this order:
+ * `BINNACLE_<PROVIDER>_TOKEN` from the daemon's environment; then the declared host's entry
+ * in the credentials file, keyed by `tracker.host` as written, or by the provider's default
+ * host when none is; then none, and the read is anonymous. Generic names like `GITHUB_TOKEN`
+ * are never read, and nothing is taken from `gh` or `glab`: those tokens can usually write.
+ * A token never appears in a diagnostic; `failure` names only where it came from.
+ */
+export function trackerToken(
+  home: string,
+  provider: 'github' | 'gitlab',
+  host: string | null,
+  env: NodeJS.ProcessEnv = process.env,
+): { token: string | null } | { failure: Diagnostic } {
+  const variable = `BINNACLE_${provider.toUpperCase()}_TOKEN`;
+  const path = credentialsPath(home);
+  const unusable = (source: string): { failure: Diagnostic } => ({
+    failure: { code: 'tracker.unavailable', message: `${source} is not a usable token, so the tracker was not read.` },
+  });
+
+  const fromEnv = env[variable]?.trim();
+  if (fromEnv) return USABLE_TOKEN.test(fromEnv) ? { token: fromEnv } : unusable(variable);
+
+  let text: string;
+  try {
+    // One descriptor for the check and the read, so the file checked is the file read.
+    const fd = openSync(path, 'r');
+    try {
+      // Only where there are POSIX modes; on Windows the profile's ACL protects the file.
+      if (process.platform !== 'win32' && (fstatSync(fd).mode & 0o077) !== 0) {
+        return {
+          failure: {
+            code: 'tracker.credentials_insecure',
+            message: `${path} can be read by others than its owner, so it was not read; make it owner-only (chmod 600).`,
+          },
+        };
+      }
+      text = readFileSync(fd, 'utf8');
+    } finally {
+      closeSync(fd);
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { token: null };
+    return { failure: { code: 'tracker.unavailable', message: `${path} could not be read (${(error as NodeJS.ErrnoException).code ?? 'error'}).` } };
+  }
+
+  let entries: unknown;
+  try {
+    entries = JSON.parse(text);
+  } catch {
+    // Never the parser's message: it quotes the text, which holds tokens.
+    entries = null;
+  }
+  if (typeof entries !== 'object' || entries === null || Array.isArray(entries)) {
+    return { failure: { code: 'tracker.unavailable', message: `${path} is not a JSON object of host to token, so the tracker was not read.` } };
+  }
+  const key = host ?? `${provider}.com`;
+  if (!Object.hasOwn(entries, key)) return { token: null };
+  const entry: unknown = (entries as Record<string, unknown>)[key];
+  const token = typeof entry === 'string' ? entry.trim() : '';
+  return USABLE_TOKEN.test(token) ? { token } : unusable(`The entry for ${key} in ${path}`);
+}
 
 /**
  * Writes a file owner-only, but only if it does not exist yet. Returns false when
