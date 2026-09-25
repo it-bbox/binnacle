@@ -12,7 +12,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | --- | --- | --- | --- |
 | 1 | Core and persistence | done | [`core-and-persistence`](specs/core-and-persistence/spec.md) |
 | 2 | MCP and Product Snapshot | done | [`mcp-and-product-snapshot`](specs/mcp-and-product-snapshot/spec.md) |
-| 3 | Tracker and Matt Pocock integration | tickets | [`tracker-and-matt-pocock-integration`](specs/tracker-and-matt-pocock-integration/spec.md) |
+| 3 | Tracker and Matt Pocock integration | in progress | [`tracker-and-matt-pocock-integration`](specs/tracker-and-matt-pocock-integration/spec.md) |
 | 4 | Telemetry | not started | — |
 | 5 | Minimal dashboard | not started | — |
 | 6 | Audit and adopt | not started | — |
@@ -27,7 +27,7 @@ Epic 1 is done: the daemon and its authenticated loopback API, the machine store
 
 Epic 2 is done, closed on 2026-09-24 after its exit demonstration and hand checks. Binnacle now runs its own Product work: `binn mcp` serves the snapshot, the daily delta and the checkpoint as MCP tools over the running daemon, the committed `.mcp.json` connects every session, and the `binnacle` plugin (ADR-0023) provides `/binnacle:product`, `/binnacle:daily`, `/binnacle:checkpoint` and `/binnacle:autopilot` (ADR-0022). Status, detect and the snapshot answer from linked worktrees with the caller's own checkout. Binnacle writes nothing into the repository.
 
-Epic 3, Tracker and Matt Pocock integration, was grilled on 2026-09-24 (ADR-0024 to ADR-0027) and is specified. The spec settles the branch naming convention the task brief needs, and one clarification to ADR-0024: a closed issue with no close reason stays `CANCELLED` when its `Status:` says so. It is sliced into twelve tickets: 01 first, then 02, after which 03 to 06 and 08 can run in parallel. Next action: implement ticket 01, or start `/binnacle:autopilot` for the epic. Ticket 07, the live adapter tests, is `ready-for-human`: it needs a GitHub and a GitLab test project with read-only tokens, which only the owner can create, and ticket 12 waits on it.
+Epic 3, Tracker and Matt Pocock integration, was grilled on 2026-09-24 (ADR-0024 to ADR-0027) and is specified. The spec settles the branch naming convention the task brief needs, and one clarification to ADR-0024: a closed issue with no close reason stays `CANCELLED` when its `Status:` says so. It is sliced into twelve tickets. Ticket 01 is done: one ticket-header parser, epics linked to Tasks by spec slug, the roadmap on every tracker, and a test that no daemon operation writes into a repository. Next action: implement ticket 02, after which 03 to 06 and 08 can run in parallel, or start `/binnacle:autopilot` for the epic. Ticket 07, the live adapter tests, is `ready-for-human`: it needs a GitHub and a GitLab test project with read-only tokens, which only the owner can create, and ticket 12 waits on it.
 
 ## Later
 
