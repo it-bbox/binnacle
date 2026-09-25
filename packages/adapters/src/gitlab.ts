@@ -13,7 +13,7 @@ export function gitlabApiRoot(host: string | null): string {
 type Issue = { iid: number; title: string; state: string; description?: string | null; labels?: string[]; web_url: string };
 
 /** GitLab's issue number is its `iid`, and it reports no close reason. */
-const GITLAB: Forge = {
+export const GITLAB: Forge = {
   name: 'GitLab',
   headers: { accept: 'application/json' },
   authorization: (token) => ({ 'private-token': token }),

@@ -24,7 +24,7 @@ type Issue = {
 };
 
 /** GitHub lists pull requests among issues; those are skipped. */
-const GITHUB: Forge = {
+export const GITHUB: Forge = {
   name: 'GitHub',
   headers: { accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28' },
   authorization: (token) => ({ authorization: `Bearer ${token}` }),

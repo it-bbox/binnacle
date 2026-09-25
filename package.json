@@ -12,7 +12,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "node --test \"{apps,packages}/*/test/**/*.test.ts\""
+    "test": "node --test \"{apps,packages}/*/test/**/*.test.ts\"",
+    "test:live": "node --test \"{apps,packages}/*/test/**/*.live.ts\""
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
