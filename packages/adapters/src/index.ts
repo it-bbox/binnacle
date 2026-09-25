@@ -15,5 +15,6 @@ export {
   type GitRemote,
 } from './git.ts';
 export { githubApiRoot, readGitHubTasks } from './github.ts';
+export { gitlabApiRoot, readGitLabTasks } from './gitlab.ts';
 export { readLocalTasks } from './local-tracker.ts';
 export { EMPTY_TREE, workingTree, type Tree, type TreeEntry } from './tree.ts';

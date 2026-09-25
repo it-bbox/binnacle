@@ -338,9 +338,10 @@ describe('ADR-0012: the daemon opens no outbound connections but its tracker rea
 
     const fetchCall = /\bfetch\s*\(/;
     const forbidden = [/node:https/, /node:net/, /node:tls/, /node:dgram/, /XMLHttpRequest/, /undici/];
-    // The one exception, named file by file: a remote tracker adapter reads its issues from
-    // the declared host with the platform fetch, and that is the only traffic the spec allows.
-    const trackerReads = new Set([new URL('github.ts', adapters).pathname]);
+    // The one exception, named file by file: the GitHub and GitLab adapters read their issues
+    // from the declared host with the platform fetch, through this one shared reader, and that
+    // is the only traffic the spec allows.
+    const trackerReads = new Set([new URL('remote-tracker.ts', adapters).pathname]);
     for (const file of runtimeSources) {
       const name = file.pathname;
       const text = readFileSync(file, 'utf8');

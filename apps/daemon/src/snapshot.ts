@@ -1,5 +1,5 @@
 import { posix } from 'node:path';
-import { readGitHubTasks, readLastCommitTimes, readLocalTasks, workingTree, type GitFacts, type Tree } from '@binnacle/adapters';
+import { readGitHubTasks, readGitLabTasks, readLastCommitTimes, readLocalTasks, workingTree, type GitFacts, type Tree } from '@binnacle/adapters';
 import {
   parseRoadmap,
   resolveDependencies,
@@ -149,9 +149,9 @@ async function readTasks(tree: Tree, manifest: ProjectManifest | null, attention
   let reading: TaskReading;
   if (tracker?.provider === 'local' && tracker.local.issues !== null) {
     reading = await readLocalTasks(tree, tracker.local.issues);
-  } else if (tracker?.provider === 'github' && tracker.repository !== null) {
+  } else if ((tracker?.provider === 'github' || tracker?.provider === 'gitlab') && tracker.repository !== null) {
     if (!readRemoteTracker) return null;
-    reading = await readGitHubTasks(tracker.repository, tracker.host);
+    reading = await (tracker.provider === 'github' ? readGitHubTasks : readGitLabTasks)(tracker.repository, tracker.host);
   } else {
     attention.push({ code: 'tracker.unavailable', message: unavailable(tracker) });
     return null;
@@ -167,8 +167,7 @@ function unavailable(tracker: ProjectManifest['tracker'] | undefined): string {
   if (tracker === undefined) return 'Tasks cannot be read without a readable manifest.';
   if (tracker.provider === null) return 'This project declares no tracker.provider.';
   if (tracker.provider === 'local') return 'tracker.provider is local, and this project declares no tracker.local.issues.';
-  if (tracker.repository === null) return `tracker.provider is ${tracker.provider}, and this project declares no tracker.repository.`;
-  return `Tasks are not read from ${tracker.provider} in this version of Binnacle.`;
+  return `tracker.provider is ${tracker.provider}, and this project declares no tracker.repository.`;
 }
 
 export function taskSections(tasks: ResolvedTask[]): NonNullable<Snapshot['tasks']> {
