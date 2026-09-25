@@ -27,7 +27,7 @@ Epics 1 to 3 are done. The daemon, its store and `packages/core` (epic 1). `binn
 
 Epic 4, Telemetry, is in progress (ADR-0028, ADR-0029). Tickets 01 to 08 are done: the snapshot's usage section shows Claude Code's and Codex's totals for today and the week, by model, by Task and unassigned, with each harness's support level, dropped to 1 with a `telemetry.unreadable` attention item while one of its files cannot be read; subagents count as runs of their own, linked to the run that started them; a run's branch comes from its checkout's reflog while that checkout exists, from the harness otherwise; `usage_get` gives the project's usage by Task and by role, or one Task's with its runs; the import window can be `all` or widened, a call waits for the import no longer than a fixed budget, and the daemon imports every registered project on start. `binn init` shows each harness's sessions in the repository and asks for the window.
 
-Next action: ticket 09, the exit demonstration, is the only ticket left. Work in worktrees removed before Binnacle read it keeps the branch the harness wrote, which for Claude Code's subagents is often `main` (ADR-0029), so part of epics 1 to 3 stays unassigned or reads as Product work; ticket 04's comments give the numbers.
+Next action: the owner's. Ticket 09, the exit demonstration, is prepared: its comments give what was measured on this repository's artifacts and the script for the fresh session. It found two defects, filed as tickets 10 and 11 for triage. Work in removed worktrees reads as Product work or as the wrong Task's (ADR-0029), and two tickets with one slug share a branch that credits neither. Epic 4 is done once the demonstration has passed and neither ticket is open.
 
 ## Later
 
