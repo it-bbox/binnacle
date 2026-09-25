@@ -30,7 +30,7 @@ Rules for the whole run. Never force-push, change settings, touch another reposi
 
 ## Loop
 
-5. **Start ready tickets.** The epic's tickets are the snapshot's Tasks whose ticket lies under the epic's spec directory. Start one background agent for every ticket of the epic in `readyToStart` (`READY`, no Unmet dependency) that has no agent yet and was not stopped. Such tickets have no blocking edge between them, so they may run side by side. One ticket never has two agents. If `readyToStart` has a remainder, read the rest from the tickets' `Status:` and `Blocked by:` lines.
+5. **Start ready tickets.** The epic's tickets are the snapshot's Tasks whose ticket lies under the epic's spec directory. Start one background agent for every ticket of the epic in `readyToStart` (`READY`, no Unmet dependency) that has no agent yet and was not stopped, but never more agents at once than the manifest's `automation.max_parallel_development_tasks` (`.binnacle/project.yaml`), or two where it writes none. An agent counts until its ticket merges or stops, and the others wait until then. Such tickets have no blocking edge between them, so they may run side by side. One ticket never has two agents. If `readyToStart` has a remainder, read the rest from the tickets' `Status:` and `Blocked by:` lines.
 
    Use the Agent tool with `run_in_background: true` and `isolation: "worktree"`, and give it this brief, filled in:
 
@@ -58,11 +58,12 @@ Rules for the whole run. Never force-push, change settings, touch another reposi
    A failed check goes back to the agent once, with the exact failure. If it fails again, the ticket stops. Otherwise, in the main checkout, with `main` checked out there:
    - `git merge --ff-only <branch>`. Fetching into a checked-out branch is refused, so merge, do not fetch.
    - `git push origin main`, never forced. If the push fails, keep going and report it.
+   - Call `project_snapshot` again. Its ingest takes the branch of the agent's work from the worktree's reflog, which `git worktree remove` deletes: read later, that work is credited to no Task (ADR-0030). If its `usage.importing.incomplete` is true, call it again until it is false, because what did not fit in the call goes on in the background.
    - `git worktree remove <path>`. A worktree created for an agent may be locked: if `git worktree list` shows it `locked`, run `git worktree unlock <path>` first. Then delete, with `git branch -d`, the ticket's branch and the branch the Agent tool created for the worktree.
    - If the merge changed the lockfile or added a workspace package, run the project's frozen install in the main checkout (`pnpm install --frozen-lockfile` in a pnpm workspace), so that what runs from it matches what was merged. If it changed the code of the Binnacle daemon the human runs (only when this project is Binnacle itself), restart that daemon with `binn daemon stop` then `binn daemon start`, and say so in the report. Never stop a daemon for any other reason.
 
-   Then call `project_snapshot` again and go back to step 5.
-8. **Stop a ticket** on a question only the owner can answer, on checks that fail twice, on a review finding left unresolved without a reason, on a conflict that is not mechanical, or on a change outside the ticket. Merge nothing of it and set nothing `DONE`. Leave its branch and worktree in place for the owner. Every ticket that depends on it stays unstarted, because its dependency never becomes `DONE`. Tickets that do not depend on it go on. For a question, send a push notification at once naming the ticket and the question.
+   Then go back to step 5.
+8. **Stop a ticket** on a question only the owner can answer, on checks that fail twice, on a review finding left unresolved without a reason, on a conflict that is not mechanical, or on a change outside the ticket. Merge nothing of it and set nothing `DONE`. Leave its branch and worktree in place for the owner. Every ticket that depends on it stays unstarted, because its dependency never becomes `DONE`. Tickets that do not depend on it go on. For a question, send a push notification at once naming the ticket and the question. Then go back to step 5.
 
 ## End
 

@@ -1356,6 +1356,28 @@ describe('Where a record’s branch comes from', () => {
     });
   });
 
+  it('keeps a worktree’s run on its Task after the worktree and its branch are removed, when a snapshot read it before', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
+      ticket(root, 'epic', '01-first.md', 'First');
+      const worktree = repositoryWithWorktree(root);
+      // Claude Code writes its parent's `main`, so only the worktree's reflog names the ticket.
+      subagent(artifacts, root, 'parent', worktree, onBranch('main', lines(SUBAGENT, at(0, 1))));
+      await register(daemon, root);
+
+      // Autopilot's order after a merge: the snapshot, then the removal.
+      await snapshotUsage(daemon, root);
+      git(root, 'worktree', 'remove', worktree);
+      git(root, 'branch', '-d', 'feat/first');
+
+      const body = await usageGet<TaskUsage>(daemon, root, 'epic/01');
+      assert.deepEqual(
+        body.runs.items.map((run) => [run.id, run.role, run.branch, run.branchSource]),
+        [[SUBAGENT_RUN, 'implementation', 'feat/first', 'reflog']],
+      );
+    });
+  });
+
   it('takes the branch a Codex session started on where the reflog has no answer', async () => {
     await withDaemon(async (daemon, _artifacts, codex) => {
       const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
