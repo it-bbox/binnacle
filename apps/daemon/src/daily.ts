@@ -30,14 +30,12 @@ export type TaskStates = Record<string, TaskState | null>;
 export type Baseline = { commit: string; source: BaselineEvent | 'since'; states: TaskStates | null };
 
 /**
- * What a `daily` or `checkpoint` event records beside its head: every Task's state on a
- * remote tracker. Null on the local tracker, whose past is read from Git, and when the
- * tracker could not be read, so that the next delta says so instead of guessing.
+ * A tracker whose past Binnacle cannot read at a commit. A `daily` or `checkpoint` event
+ * records its Task states beside the head instead; the local tracker's past is in Git.
  */
-export function recordableStates(manifest: ProjectManifest | null, tasks: ResolvedTask[] | null): TaskStates | null {
-  if (tasks === null || manifest?.tracker.provider === 'local') return null;
-  return Object.fromEntries(tasks.map(({ id, state }) => [id, state]));
-}
+export const isRemoteTracker = (manifest: ProjectManifest | null): boolean => manifest !== null && manifest.tracker.provider !== 'local';
+
+export const taskStates = (tasks: ResolvedTask[]): TaskStates => Object.fromEntries(tasks.map(({ id, state }) => [id, state]));
 
 export type Fallback = {
   /** `no_baseline`: nothing recorded yet; `baseline_missing`: not a commit here; `baseline_diverged`: not an ancestor of HEAD. */
@@ -107,7 +105,8 @@ export async function daily(
       readState(afterTree, projected, diagnostics),
     ]);
 
-    const remote = projected.manifest?.tracker.provider !== 'local';
+    const remote = isRemoteTracker(projected.manifest);
+    const was = remote ? recordedStates(baseline, fallback, recorded) : before.tasks && taskStates(before.tasks);
     const delta: Daily = {
       project: projected.row,
       checkout: caller.checkout,
@@ -116,12 +115,13 @@ export async function daily(
       from,
       fallback,
       commits: { count: commits.length, ...limited(commits) },
-      ...taskChanges(remote ? recordedStates(baseline, fallback, recorded) : before.tasks && new Map(before.tasks.map(({ id, state }) => [id, state])), after),
+      ...taskChanges(was, after),
       roadmap: roadmapChanges(before, after),
       decisions: await decisionChanges(before, after, beforeTree, afterTree),
       attention: after.attention,
     };
-    return { delta, states: recordableStates(projected.manifest, after.tasks) };
+    // An unreadable tracker records no states, so that the next delta says so instead of guessing.
+    return { delta, states: remote && after.tasks ? taskStates(after.tasks) : null };
   } catch (error) {
     if (isGitUnavailable(error)) throw new OperationError(error.code, error.reason, 503);
     throw error;
@@ -179,7 +179,7 @@ export function committedHead({ git }: CallerCheckout): { head: string; dirty: b
  * The Task states a remote tracker's delta runs from: those the baseline event recorded, or
  * why there are none. They are never taken from a commit, a fallback window or a guess.
  */
-function recordedStates(baseline: Baseline | null, fallback: Fallback | null, recorded: readonly BaselineEvent[]): Map<string, TaskState | null> | Unavailable {
+function recordedStates(baseline: Baseline | null, fallback: Fallback | null, recorded: readonly BaselineEvent[]): TaskStates | Unavailable {
   const known = 'On a remote tracker, past Task states are known only as a daily or checkpoint recorded them';
   let reason: string;
   if (baseline?.source === 'since') reason = `${known}, and an explicit since names a commit instead.`;
@@ -187,19 +187,22 @@ function recordedStates(baseline: Baseline | null, fallback: Fallback | null, re
   else if (fallback !== null) reason = `${known}, and this delta fell back to a window of commits instead of the last ${baseline.source}.`;
   else if (baseline.states === null) {
     reason = `The last ${baseline.source} recorded no Task states: it was recorded before Binnacle recorded them, while the tracker could not be read, or on another tracker.`;
-  } else return new Map(Object.entries(baseline.states));
+  } else return baseline.states;
   return { available: false, reason };
 }
 
-function taskChanges(was: Map<string, TaskState | null> | Unavailable | null, after: State): Pick<Daily, 'transitions' | 'newTickets' | 'readyToStart'> {
+// No Task state is `false`, so this cannot mistake recorded states for a reason.
+const isUnavailable = (value: TaskStates | Unavailable): value is Unavailable => value.available === false;
+
+function taskChanges(was: TaskStates | Unavailable | null, after: State): Pick<Daily, 'transitions' | 'newTickets' | 'readyToStart'> {
   if (after.tasks === null) return { transitions: null, newTickets: null, readyToStart: null };
   const readyToStart = taskSections(after.tasks).readyToStart;
   if (was === null) return { transitions: null, newTickets: null, readyToStart };
-  if (!(was instanceof Map)) return { transitions: was, newTickets: was, readyToStart };
+  if (isUnavailable(was)) return { transitions: was, newTickets: was, readyToStart };
   const transitions: Transition[] = [];
-  const created = after.tasks.filter((task) => !was.has(task.id));
+  const created = after.tasks.filter((task) => !Object.hasOwn(was, task.id));
   for (const { id, title, state, ticket } of after.tasks) {
-    const old = was.get(id);
+    const old = Object.hasOwn(was, id) ? was[id] : undefined;
     if (old !== undefined && old !== state) transitions.push({ id, title, from: old, to: state, ticket });
   }
   return { transitions: limited(transitions), newTickets: section(created), readyToStart };

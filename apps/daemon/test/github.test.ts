@@ -114,7 +114,7 @@ async function snapshot(daemon: TestDaemon, root: string): Promise<Snapshot> {
 
 const ids = (section: Section): string[] => section.items.map((task) => task.id);
 /** Tracker and Task attention only: these projects declare no roadmap, which is not what is tested here. */
-const codes = (body: Snapshot): string[] => body.attention.map((item) => item.code).filter((code) => /^(tracker|task)\./.test(code));
+const codes = (body: Pick<Snapshot, 'attention'>): string[] => body.attention.map((item) => item.code).filter((code) => /^(tracker|task)\./.test(code));
 
 describe('GitHub issues as Tasks in the Product Snapshot', () => {
   it('reads every issue, open and closed, through every page, and skips pull requests', async () => {
@@ -526,6 +526,21 @@ describe('Task transitions on a GitHub tracker', () => {
     });
   });
 
+  it('says they are unavailable when the recorded baseline was rewritten away and the delta fell back', async () => {
+    await withGitHub([before()], async (daemon, fake) => {
+      const root = await gitProject(daemon, fake);
+      commit(root, 'To be rewritten');
+      await call(daemon, 'daily.get', { path: root });
+      execFileSync('git', ['reset', '--quiet', '--hard', 'HEAD~1'], { cwd: root });
+      commit(root, 'Rewritten');
+
+      fake.pages[0] = changed();
+      const body = await call(daemon, 'daily.get', { path: root });
+      assert.equal(body.fallback?.reason, 'baseline_diverged');
+      assertUnavailable(body, /fell back to a window of commits/);
+    });
+  });
+
   it('answers the rest of a daily while the tracker is unreadable, records no states then, and says so the next time', async () => {
     await withGitHub([before()], async (daemon, fake) => {
       const root = await gitProject(daemon, fake);
@@ -538,7 +553,7 @@ describe('Task transitions on a GitHub tracker', () => {
       assert.equal(down.transitions, null);
       assert.equal(down.newTickets, null);
       assert.equal(down.readyToStart, null);
-      assert.deepEqual(codes(down as unknown as Snapshot), ['tracker.not_found']);
+      assert.deepEqual(codes(down), ['tracker.not_found']);
       assert.deepEqual((await recorded(daemon, 'daily'))[0]?.payload, { head: down.head });
 
       fake.reply = null;

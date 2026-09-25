@@ -8,7 +8,7 @@ import { readManifest } from './manifest.ts';
 import { projectRegistry, reproject } from './projection.ts';
 import { readRegistry, writeRegistry, type RegistryEntry } from './registry.ts';
 import { promotedItems, promotionDiagnostics, promotionTargets } from './checkpoint.ts';
-import { BASELINE_EVENTS, committedHead, daily, recordableStates, type Baseline, type BaselineEvent, type TaskStates } from './daily.ts';
+import { BASELINE_EVENTS, committedHead, daily, isRemoteTracker, taskStates, type Baseline, type BaselineEvent, type TaskStates } from './daily.ts';
 import { readTasks, snapshot, type CallerCheckout } from './snapshot.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type ProjectRow, type Store } from './store.ts';
 
@@ -156,8 +156,9 @@ export const operations: Record<string, Operation> = {
     const caller = await callerCheckout(path, projected.row.path);
     const { head } = committedHead(caller);
     const diagnostics = await promotionDiagnostics(caller.project, promoted, head);
-    const states = recordableStates(projected.manifest, await readTasks(workingTree(caller.project), projected.manifest, []));
-    context.store.appendEvent({ type: 'checkpoint', projectPath: projected.row.path, payload: { head, promoted, ...(states && { states }) } });
+    // An unreadable tracker records no states, and the next checkpoint's delta says so.
+    const tasks = isRemoteTracker(projected.manifest) ? await readTasks(workingTree(caller.project), projected.manifest, []) : null;
+    context.store.appendEvent({ type: 'checkpoint', projectPath: projected.row.path, payload: { head, promoted, ...(tasks && { states: taskStates(tasks) }) } });
     return { project: projected.row, checkout: caller.checkout, head, promoted, diagnostics };
   },
 
@@ -258,10 +259,11 @@ function containingEntry(path: string, entries: RegistryEntry[]): RegistryEntry 
 function recordedBaseline(store: Store, projectPath: string, types: readonly BaselineEvent[]): Baseline | null {
   const event = store.latestEvent(projectPath, types);
   const head = event?.payload.head;
-  const states = event?.payload.states;
-  return event && typeof head === 'string'
-    ? { commit: head, source: event.type as BaselineEvent, states: states !== null && typeof states === 'object' && !Array.isArray(states) ? (states as TaskStates) : null }
-    : null;
+  if (!event || typeof head !== 'string') return null;
+  // Absent from an event recorded on the local tracker, before Task states were recorded, or while the tracker could not be read.
+  const states = event.payload.states;
+  const recorded = typeof states === 'object' && states !== null && !Array.isArray(states) ? (states as TaskStates) : null;
+  return { commit: head, source: event.type as BaselineEvent, states: recorded };
 }
 
 /** `since`, when given, is a commit hash: never a ref or an expression, which Git could read as an option. */
