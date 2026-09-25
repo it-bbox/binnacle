@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync,
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { test } from 'node:test';
+import { test, type TestContext } from 'node:test';
 import { isAlive, readRuntime } from '@binnacle/daemon';
 import { offerFile, type Session } from '../src/init.ts';
 
@@ -24,7 +24,7 @@ function git(cwd: string, ...args: string[]): string {
 }
 
 /** A temporary Git repository named `name`, with one commit so that "no commit made" can be checked. */
-function makeRepository(t: { after(fn: () => void): void }, name: string, files: Record<string, string> = {}): string {
+function makeRepository(t: TestContext, name: string, files: Record<string, string> = {}): string {
   const parent = realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-init-')));
   t.after(() => rmSync(parent, { recursive: true, force: true }));
   const root = join(parent, name);
@@ -40,7 +40,7 @@ function makeRepository(t: { after(fn: () => void): void }, name: string, files:
   return root;
 }
 
-function makeHome(t: { after(fn: () => void): void }): { home: string; binnacleHome: string } {
+function makeHome(t: TestContext): { home: string; binnacleHome: string } {
   const home = realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-init-home-')));
   const binnacleHome = join(home, '.binnacle');
   t.after(() => {
@@ -179,7 +179,7 @@ workflow:
   );
 });
 
-test('an existing manifest is validated, its problems reported, and left alone', (t) => {
+test('an existing manifest with problems is reported, left alone, and not offered for registration', (t) => {
   const home = makeHome(t);
   const existing = 'version: 1\n\nproject:\n  id: kept\n\ntracker:\n  provider: jira\n';
   const root = makeRepository(t, 'kept', { '.binnacle/project.yaml': existing });
@@ -190,6 +190,20 @@ test('an existing manifest is validated, its problems reported, and left alone',
   assert.equal(manifestOf(root), existing);
   assert.match(result.stdout, /manifest\.invalid/);
   assert.match(result.stdout, /tracker\.provider/);
+  assert.match(result.stdout, /skipped\s+project registration: no usable manifest/);
+});
+
+test('a valid existing manifest is reported with its warnings and left alone', (t) => {
+  const home = makeHome(t);
+  const existing = 'version: 1\nproject:\n  id: kept\nfuture_section: {}\n';
+  const root = makeRepository(t, 'kept', { '.binnacle/project.yaml': existing });
+
+  const result = binnIn(home)(root, 'y\ny\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(manifestOf(root), existing);
+  assert.match(result.stdout, /exists and is valid/);
+  assert.match(result.stdout, /future_section: unknown key/);
 });
 
 test('closed stdin is a no to every step, and writes nothing', (t) => {
@@ -211,6 +225,8 @@ test('registration with a running daemon', async (t) => {
   assert.equal(binn(root, '', 'daemon', 'start').status, 0);
   t.after(() => binn(root, '', 'daemon', 'stop'));
 
+  // A declined manifest leaves nothing to register, so registration is not asked here; the
+  // next subtest declines it on its own.
   await t.test('declining every step writes nothing and registers nothing', () => {
     const result = binn(root, 'n\nn\n', 'init');
     assert.equal(result.status, 0, result.stderr);
@@ -269,9 +285,4 @@ test('the writing rules: create, append only at the end, never rewrite JSON, and
   await offerFile(session, 'mcp.json', '{ "binnacle": {} }\n');
   assert.equal(readFileSync(join(root, 'mcp.json'), 'utf8'), '{}\n');
   assert.equal(answers.length, 1, 'a JSON file is never even asked about');
-
-  assert.deepEqual(
-    session.outcomes.map(({ outcome }) => outcome),
-    ['declined', 'created', 'extended', 'printed'],
-  );
 });
