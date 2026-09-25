@@ -17,6 +17,7 @@ import { OperationError } from './errors.ts';
 import { operations, type OperationContext } from './operations.ts';
 import { projectRegistry } from './projection.ts';
 import { openStore } from './store.ts';
+import { importer, INGEST_BUDGET_MS, startIngest } from './usage.ts';
 import { VERSION } from './version.ts';
 
 export const LOOPBACK = '127.0.0.1';
@@ -43,6 +44,8 @@ export type DaemonOptions = {
   host?: string;
   /** Resolved from the environment when omitted. */
   artifacts?: Runtime['artifacts'];
+  /** How long a call waits for its project's ingest; `0` never waits. */
+  ingestBudgetMs?: number;
 };
 
 export type Daemon = {
@@ -77,15 +80,16 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
   // from the registry file on every start — which is what makes losing the database
   // cost runtime history only (ADR-0019, ADR-0015).
   let store;
+  let projects;
   try {
     store = openStore(home);
-    projectRegistry(home, store);
+    projects = projectRegistry(home, store);
   } catch (error) {
     store?.close();
     releaseRuntime(home, runtime.pid);
     throw error;
   }
-  const context: OperationContext = { home, runtime, store };
+  const context: OperationContext = { home, runtime, store, importer: importer(options.ingestBudgetMs ?? INGEST_BUDGET_MS) };
 
   const server = createServer((request, response) => {
     handle(request, response, context, token).catch((error: unknown) => fail(response, error));
@@ -101,6 +105,8 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
   writeRuntime(home, runtime);
   // Recorded once the daemon is listening, so a start that failed is not in the history.
   store.appendEvent({ type: 'daemon.started', payload: { pid: runtime.pid, port: runtime.port, version: VERSION } });
+  // Every registered project's history starts importing now, in the background, rather than on its first call.
+  for (const { row, manifest } of projects) void startIngest(context, row.path, manifest);
 
   return {
     home,
@@ -112,6 +118,9 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
       await new Promise<void>((resolve, reject) => {
         server.close((error) => (error ? reject(error) : resolve()));
       });
+      // An ingest stops between files, each of which committed whole, before the store closes.
+      context.importer.stopped = true;
+      await context.importer.queue;
       // Only a clean stop is recorded. A killed daemon leaves a start with no stop after
       // it, which is the honest record of what happened.
       store.appendEvent({ type: 'daemon.stopped', payload: { pid: runtime.pid, version: VERSION } });

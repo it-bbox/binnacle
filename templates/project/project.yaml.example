@@ -39,5 +39,5 @@ automation:
 telemetry:
   privacy: metadata
   import:
-    # Asked at `binn init`. null imports the whole archive.
+    # Asked at `binn init`: a number of days, or `all` for the whole archive. Unwritten, 90.
     window_days: 30

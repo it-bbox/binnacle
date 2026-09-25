@@ -56,8 +56,8 @@ export type EventFilter = {
   limit?: number | undefined;
 };
 
-/** How far one artifact file has been read, and under which import window. */
-export type IngestCursor = { path: string; size: number; offset: number; line: number; windowDays: number };
+/** How far one artifact file has been read, and under which import window: a number of days, or everything on disk. */
+export type IngestCursor = { path: string; size: number; offset: number; line: number; windowDays: number | 'all' };
 
 /** A record to store, with the registered project its `cwd` lies in and the file it was read from. */
 export type Ingested = { record: UsageRecord; projectPath: string; sourceRef: string };
@@ -202,6 +202,7 @@ export function openStore(home: string): Store {
     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     on conflict (harness, natural_key) do nothing
   `);
+  // `window_days` holds `all` as text: SQLite keeps a value its column's type cannot convert as it is.
   const upsertCursor = db.prepare(`
     insert into ingest_cursor (path, size, offset, line, window_days) values (?, ?, ?, ?, ?)
     on conflict (path) do update set size = excluded.size, offset = excluded.offset, line = excluded.line, window_days = excluded.window_days
@@ -284,7 +285,7 @@ export function openStore(home: string): Store {
     cursor: (path) => {
       const row = selectCursor.get(path);
       return row
-        ? { path: String(row.path), size: Number(row.size), offset: Number(row.offset), line: Number(row.line), windowDays: Number(row.window_days) }
+        ? { path: String(row.path), size: Number(row.size), offset: Number(row.offset), line: Number(row.line), windowDays: row.window_days === 'all' ? 'all' : Number(row.window_days) }
         : null;
     },
     ingest: (cursor, records) => {

@@ -42,7 +42,7 @@ export type ProjectManifest = {
   workflow: { provider: string | null; scratch: string | null };
   capabilities: Record<string, Capability>;
   automation: { mode: AutomationMode | null; maxParallelDevelopmentTasks: number | null };
-  telemetry: { privacy: TelemetryPrivacy | null; import: { windowDays: number | null } };
+  telemetry: { privacy: TelemetryPrivacy | null; import: { windowDays: number | 'all' | null } };
 };
 
 export type ManifestValidation = {
@@ -184,9 +184,12 @@ function readTelemetry(value: unknown, notes: Notes): ProjectManifest['telemetry
   warnUnknownKeys(importing, 'telemetry.import', ['window_days'], notes);
   return {
     privacy: oneOf(section.privacy, 'telemetry.privacy', TELEMETRY_PRIVACY, notes),
-    // Null here carries two meanings the manifest cannot tell apart — "import everything"
-    // and "not stated" — and the distinction belongs to whoever imports, not to validation.
-    import: { windowDays: positiveInteger(importing.window_days, 'telemetry.import.window_days', notes) },
+    // A number of days, or `all` for everything on disk. Null is "not stated"; the default
+    // it falls back to belongs to whoever imports, not to validation.
+    import: {
+      windowDays:
+        importing.window_days === 'all' ? 'all' : positiveInteger(importing.window_days, 'telemetry.import.window_days', notes, 'or all'),
+    },
   };
 }
 
@@ -233,10 +236,10 @@ function oneOf<T extends string>(value: unknown, path: string, allowed: T[], not
   return null;
 }
 
-function positiveInteger(value: unknown, path: string, notes: Notes): number | null {
+function positiveInteger(value: unknown, path: string, notes: Notes, alternative = ''): number | null {
   if (value === undefined || value === null) return null;
   if (Number.isInteger(value) && (value as number) > 0) return value as number;
-  notes.problems.push({ path, message: 'expected a positive integer' });
+  notes.problems.push({ path, message: `expected a positive integer${alternative ? ` ${alternative}` : ''}` });
   return null;
 }
 

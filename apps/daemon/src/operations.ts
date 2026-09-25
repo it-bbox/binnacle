@@ -12,12 +12,13 @@ import { BASELINE_EVENTS, committedHead, daily, isRemoteTracker, taskStates, typ
 import { readTasks, snapshot, type CallerCheckout } from './snapshot.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type ProjectRow, type Store } from './store.ts';
 import { taskBrief } from './task.ts';
-import { usage } from './usage.ts';
+import { usage, type Importer } from './usage.ts';
 
 export type OperationContext = {
   home: string;
   runtime: Runtime;
   store: Store;
+  importer: Importer;
 };
 
 export type ProjectStatus = {
@@ -110,7 +111,7 @@ export const operations: Record<string, Operation> = {
     const path = repositoryPath(body, { mustExist: false });
     const projected = reproject(context.store, await resolveEntry(path, context));
     const caller = await callerCheckout(path, projected.row.path);
-    const usageSection = usage(context, projected.row.path, projected.manifest);
+    const usageSection = await usage(context, projected.row.path, projected.manifest);
     return snapshot(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git), usageSection);
   },
 

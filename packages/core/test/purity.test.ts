@@ -59,3 +59,10 @@ test('a declared field comes back as declared', () => {
   assert.equal(manifest.tracker.provider, 'gitlab');
   assert.equal(manifest.telemetry.privacy, 'content');
 });
+
+test('an import window is a positive number of days or all, and nothing else', () => {
+  const window = (value: unknown) => validateManifest({ version: 1, project: { id: 'window' }, telemetry: { import: { window_days: value } } });
+  assert.equal(window('all').manifest?.telemetry.import.windowDays, 'all');
+  assert.equal(window(30).manifest?.telemetry.import.windowDays, 30);
+  for (const value of ['forever', 0, 1.5]) assert.deepEqual(window(value).problems.map((problem) => problem.path), ['telemetry.import.window_days']);
+});

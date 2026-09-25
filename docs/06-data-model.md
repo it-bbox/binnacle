@@ -132,7 +132,7 @@ provenance         one per record while its fields share it, as they do on Claud
 ingested_at
 ```
 
-Beside it, in the same tier, one cursor per artifact file (`ingest_cursor`): its path, its size, the byte offset and line read to, and the import window it was read under. A file's records and its cursor commit in one transaction, so a call reads only what was appended since the last.
+Beside it, in the same tier, one cursor per artifact file (`ingest_cursor`): its path, its size, the byte offset and line read to, and the import window it was read under, a number of days or `all`. A file's records and its cursor commit in one transaction, so a call reads only what was appended since the last. A file that shrank, or a window wider than its cursor's, is read again from the start, and the unique key absorbs what was already stored.
 
 ## TelemetryRecord
 

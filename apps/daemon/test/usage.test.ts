@@ -18,7 +18,7 @@ type FieldTotal = { tokens: number | null; partial: boolean; provenance: string 
 type Totals = { records: number; input: FieldTotal; cachedInput: FieldTotal; cacheCreation: FieldTotal; output: FieldTotal; reasoning: FieldTotal };
 type Unavailable = { available: false; reason: string };
 type Usage = {
-  importing: { incomplete: boolean; windowStart: string };
+  importing: { incomplete: boolean; windowStart: string | null };
   today: Totals;
   last7Days: Totals;
   byModel: { items: { model: string | null; totals: Totals }[]; remainder: number };
@@ -88,9 +88,9 @@ function session(artifacts: string, cwd: string, sessionId: string, records: Lin
   return file;
 }
 
-async function withDaemon(body: (daemon: TestDaemon, artifacts: string) => Promise<void>): Promise<void> {
+async function withDaemon(body: (daemon: TestDaemon, artifacts: string) => Promise<void>, options: { home?: string; ingestBudgetMs?: number } = {}): Promise<void> {
   const artifacts = temporary('binnacle-claude-projects-');
-  const daemon = await startTestDaemon({ artifacts: { claudeCode: artifacts } });
+  const daemon = await startTestDaemon({ ...options, artifacts: { claudeCode: artifacts } });
   try {
     await body(daemon, artifacts);
   } finally {
@@ -100,6 +100,10 @@ async function withDaemon(body: (daemon: TestDaemon, artifacts: string) => Promi
 
 async function usage(daemon: TestDaemon, root: string): Promise<Usage> {
   assert.equal((await daemon.call('project.register', { path: root })).status, 200);
+  return snapshotUsage(daemon, root);
+}
+
+async function snapshotUsage(daemon: TestDaemon, root: string): Promise<Usage> {
   const result = await daemon.call<{ usage: Usage }>('project.snapshot', { path: root });
   assert.equal(result.status, 200, JSON.stringify(result.body));
   return result.body.usage;
@@ -325,5 +329,150 @@ describe('Claude Code usage in the Product Snapshot', () => {
     });
     assert.deepEqual(resolveArtifactRoots({ CLAUDE_CONFIG_DIR: '/config/claude' }), { claudeCode: join('/config/claude', 'projects') });
     assert.deepEqual(resolveArtifactRoots({}), { claudeCode: join(homedir(), '.claude', 'projects') });
+  });
+});
+
+const window = (days: number | string): string => `\ntelemetry:\n  import:\n    window_days: ${days}\n`;
+
+/** Calls the snapshot until the import is complete, as a caller that came back later would. */
+async function untilImported(daemon: TestDaemon, root: string): Promise<Usage> {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    const body = await snapshotUsage(daemon, root);
+    if (!body.importing.incomplete) return body;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.fail('the import never completed');
+}
+
+describe('the import window, the time budget and re-reading', () => {
+  it('imports everything on disk when the window is all', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'), window('all'));
+      session(artifacts, root, 'history', [...lines(GRILL, daysAgo(0), '-today'), ...lines(ABORTED, daysAgo(400), '-old')]);
+
+      const body = await usage(daemon, root);
+      assert.deepEqual(body.importing, { incomplete: false, windowStart: null });
+      assert.equal(body.last7Days.records, 1);
+      assert.equal(stored(daemon).length, 2);
+    });
+  });
+
+  it('refuses a window that is neither a positive number of days nor all', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject(temporary('binnacle-usage-'), window('forever'));
+      const { status, body } = await daemon.call<{ error: { details?: { path: string }[] } }>('project.register', { path: root });
+      assert.equal(status, 400);
+      assert.deepEqual(body.error.details?.map((detail) => detail.path), ['telemetry.import.window_days']);
+    });
+  });
+
+  it('imports the older records still on disk when the window widens, and counts none twice', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'), window(5));
+      session(artifacts, root, 'history', [
+        ...lines(GRILL, daysAgo(0), '-today'),
+        ...lines(ABORTED, daysAgo(20), '-twenty'),
+        ...lines(GRILL, daysAgo(200), '-two-hundred'),
+      ]);
+      await usage(daemon, root);
+      assert.equal(stored(daemon).length, 1);
+
+      makeProject(root, window(30));
+      await snapshotUsage(daemon, root);
+      assert.deepEqual(stored(daemon).map((record) => record.natural_key), ['msg_011CfQGNrVrPXXM5Kt7SPr4S-twenty', 'msg_011CfLMEGjvuTXtzfiK6XfsV-today']);
+
+      // Narrowing again keeps what was imported; widening to all brings the rest.
+      makeProject(root, window(5));
+      await snapshotUsage(daemon, root);
+      makeProject(root, window('all'));
+      const body = await snapshotUsage(daemon, root);
+      assert.equal(stored(daemon).length, 3);
+      assert.equal(body.today.records, 1);
+    });
+  });
+
+  it('re-reads a file that shrank from the start, and counts none of it twice', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'));
+      const file = session(artifacts, root, 'rewritten', [...lines(GRILL, daysAgo(0), '-kept'), ...lines(ABORTED, daysAgo(0), '-dropped')]);
+      assert.equal((await usage(daemon, root)).today.records, 2);
+
+      // Rewritten shorter, with a message the first read never saw.
+      writeFileSync(file, lines(ABORTED, daysAgo(0), '-new').map((line) => `${JSON.stringify({ ...line, cwd: root, sessionId: 'rewritten' })}\n`).join(''));
+      assert.equal((await snapshotUsage(daemon, root)).today.records, 3);
+      assert.equal(stored(daemon).length, 3);
+    });
+  });
+
+  it('answers within its time budget while the import continues in the background, then completes', async () => {
+    await withDaemon(
+      async (daemon, artifacts) => {
+        const root = makeProject(temporary('binnacle-usage-'));
+        for (let index = 0; index < 5; index += 1) session(artifacts, root, `session-${index}`, lines(GRILL, daysAgo(index), `-${index}`));
+
+        const first = await usage(daemon, root);
+        assert.equal(first.importing.incomplete, true);
+        assert.ok(first.last7Days.records < 5);
+
+        const done = await untilImported(daemon, root);
+        assert.equal(done.last7Days.records, 5);
+        assert.equal(stored(daemon).length, 5);
+      },
+      { ingestBudgetMs: 0 },
+    );
+  });
+
+  it('starts an import for every registered project when the daemon starts', async () => {
+    const home = temporary('binnacle-home-');
+    const root = makeProject(temporary('binnacle-usage-'));
+    let artifactRoot = '';
+    await withDaemon(
+      async (daemon, artifacts) => {
+        artifactRoot = artifacts;
+        assert.equal((await daemon.call('project.register', { path: root })).status, 200);
+      },
+      { home },
+    );
+    session(artifactRoot, root, 'before-start', lines(GRILL, daysAgo(1)));
+
+    const daemon = await startTestDaemon({ home, artifacts: { claudeCode: artifactRoot }, ingestBudgetMs: 0 });
+    try {
+      // No call has been made: the records are there because the start imported them.
+      for (let attempt = 0; attempt < 200 && stored(daemon).length === 0; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 10));
+      assert.equal(stored(daemon).length, 1);
+      assert.equal((await snapshotUsage(daemon, root)).importing.incomplete, false);
+    } finally {
+      await daemon.stop();
+    }
+  });
+
+  it('imports the history of a project registered later under its own window', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const first = makeProject(temporary('binnacle-usage-'));
+      session(artifacts, first, 'first', lines(GRILL, daysAgo(0), '-first'));
+      assert.equal((await usage(daemon, first)).today.records, 1);
+
+      const later = makeProject(temporary('binnacle-usage-'), window(30));
+      session(artifacts, later, 'later', [...lines(ABORTED, daysAgo(20), '-twenty'), ...lines(GRILL, daysAgo(40), '-forty')]);
+      const body = await usage(daemon, later);
+      assert.equal(body.last7Days.records, 0);
+      assert.deepEqual(
+        stored(daemon).filter((record) => record.project_path === later).map((record) => record.natural_key),
+        ['msg_011CfQGNrVrPXXM5Kt7SPr4S-twenty'],
+      );
+    });
+  });
+
+  it('still counts the records of an artifact that was deleted', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'));
+      const file = session(artifacts, root, 'deleted', lines(GRILL, daysAgo(0)));
+      assert.deepEqual((await usage(daemon, root)).today, GRILL_TOTALS);
+
+      rmSync(file);
+      const body = await snapshotUsage(daemon, root);
+      assert.deepEqual(body.today, GRILL_TOTALS);
+      assert.deepEqual(body.harnesses, [{ harness: 'claude-code', level: 3, reason: null }]);
+    });
   });
 });

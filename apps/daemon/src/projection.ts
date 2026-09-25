@@ -9,10 +9,11 @@ import type { ProjectRow, Store } from './store.ts';
  * own manifest. This is the ADR-0015 rule executed: the projection is something the
  * daemon can throw away and rebuild, and the registry file is what it rebuilds from.
  */
-export function projectRegistry(home: string, store: Store): void {
+export function projectRegistry(home: string, store: Store): Projected[] {
   const entries = readRegistry(home);
-  for (const entry of entries) reproject(store, entry);
+  const projected = entries.map((entry) => reproject(store, entry));
   store.dropProjectsExcept(entries.map((entry) => entry.path));
+  return projected;
 }
 
 /**
