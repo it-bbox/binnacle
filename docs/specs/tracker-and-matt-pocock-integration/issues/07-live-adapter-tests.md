@@ -1,6 +1,6 @@
 # 07: Live adapter tests — `pnpm test:live`
 
-Status: READY
+Status: DONE
 Triage: ready-for-human
 Blocked by: 03, 04
 Spec: `docs/specs/tracker-and-matt-pocock-integration/spec.md`
