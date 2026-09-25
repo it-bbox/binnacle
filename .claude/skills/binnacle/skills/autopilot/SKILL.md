@@ -72,4 +72,5 @@ Rules for the whole run. Never force-push, change settings, touch another reposi
     - **Reviews**: per ticket, what the review found and what was fixed, kept or left.
     - **Waiting for the owner**: each stopped ticket with its reason, branch and worktree; each question; each human step prepared and not done (a hand check, a `/binnacle:checkpoint` confirmation, a demonstration); a failed push; a daemon restarted.
     - **Attention**: every item with its code, or "none".
-11. Send a push notification: the epic, how many tickets merged, and how many wait for the owner.
+    - **Next**: tell the owner to run `/binnacle:checkpoint` in this session before closing it, so that what the run decided reaches canonical sources and the checkpoint is recorded. You cannot run it: only a human starts it.
+11. Send a push notification: the epic, how many tickets merged, how many wait for the owner, and that `/binnacle:checkpoint` is next.
