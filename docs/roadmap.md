@@ -13,7 +13,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 1 | Core and persistence | done | [`core-and-persistence`](specs/core-and-persistence/spec.md) |
 | 2 | MCP and Product Snapshot | done | [`mcp-and-product-snapshot`](specs/mcp-and-product-snapshot/spec.md) |
 | 3 | Tracker and Matt Pocock integration | done | [`tracker-and-matt-pocock-integration`](specs/tracker-and-matt-pocock-integration/spec.md) |
-| 4 | Telemetry | spec | [`telemetry`](specs/telemetry/spec.md) |
+| 4 | Telemetry | tickets | [`telemetry`](specs/telemetry/spec.md) |
 | 5 | Minimal dashboard | not started | — |
 | 6 | Audit and adopt | not started | — |
 
@@ -23,7 +23,7 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 Design is complete: every question in `docs/08-open-questions.md` is resolved across ADR-0001 to ADR-0018; specifying and building epics 1 and 2 added ADR-0019 to ADR-0023.
 
-Epic 1 is done: the daemon and its authenticated loopback API, the machine store and the project registry, projections that rebuild on a schema change, `project.status` and `project.detect`, and manifest validation and the domain state machines in `packages/core`.
+Epic 1 is done: the daemon, its loopback API, the store, the registry and `packages/core`.
 
 Epic 2 is done, closed on 2026-09-24 after its exit demonstration and hand checks. Binnacle now runs its own Product work: `binn mcp` serves the snapshot, the daily delta and the checkpoint as MCP tools over the running daemon, the committed `.mcp.json` connects every session, and the `binnacle` plugin (ADR-0023) provides `/binnacle:product`, `/binnacle:daily`, `/binnacle:checkpoint` and `/binnacle:autopilot` (ADR-0022). Status, detect and the snapshot answer from linked worktrees with the caller's own checkout. Binnacle writes nothing into the repository.
 
@@ -31,7 +31,7 @@ Epic 3 is done, closed on 2026-09-25 after its exit demonstration, which found n
 
 Epic 4, Telemetry, is specified (ADR-0028): session artifacts from Claude Code and Codex become observed AgentRuns attributed to Tasks, shown in the snapshot's usage section and `usage_get`.
 
-Next action: slice epic 4's spec into tickets with `/to-tickets` in a Product session.
+Next action: epic 4's nine tickets are sliced; ticket 01, Claude Code usage in the snapshot, can start now, in a fresh session on its own branch.
 
 ## Later
 
