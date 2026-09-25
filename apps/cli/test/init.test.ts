@@ -6,7 +6,6 @@ import { delimiter, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test, type TestContext } from 'node:test';
 import { isAlive, readRuntime } from '@binnacle/daemon';
-import { offerFile, type Session } from '../src/init.ts';
 
 const BINN = fileURLToPath(new URL('../src/bin.ts', import.meta.url));
 /** The CLI package's directory: the marketplace `binn init` adds (ADR-0027). */
@@ -46,8 +45,8 @@ function makeRepository(t: TestContext, name: string, files: Record<string, stri
 type Home = { home: string; binnacleHome: string; bin: string };
 
 /**
- * A temporary home whose `bin` is the whole PATH `binn init` sees: `git`, and a `claude`
- * only when a test puts one there, so the machine's own Claude Code is never run.
+ * A temporary home whose `bin` is the whole PATH `binn init` sees: `git`, and whatever fake
+ * harness executables a test puts there, so no harness of this machine is detected or run.
  */
 function makeHome(t: TestContext): Home {
   const home = realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-init-home-')));
@@ -86,6 +85,16 @@ exit ${exitCode}
     existsSync(calls)
       ? readFileSync(calls, 'utf8').trimEnd().split('\n').map((line) => line.replace(/\t$/, '').split('\t'))
       : [];
+}
+
+/** A harness "installed" by its executable on PATH. */
+function installExecutable(home: Home, name: string): void {
+  writeFileSync(join(home.bin, name), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+}
+
+/** A harness "installed" by its user configuration directory. */
+function installUserDirectory(home: Home, relative: string): void {
+  mkdirSync(join(home.home, relative), { recursive: true });
 }
 
 function binnIn(home: Home) {
@@ -300,8 +309,8 @@ test('the plugin: Claude Code adds the package as a marketplace and installs bin
   const calls = fakeClaude(home);
   const root = makeRepository(t, 'plugged');
 
-  // No manifest, so no registration question: the second answer is the plugin's.
-  const result = binnIn(home)(root, 'n\ny\n', 'init');
+  // No manifest, so no registration question: the second answer declines `.mcp.json`, and the third is the plugin's.
+  const result = binnIn(home)(root, 'n\nn\ny\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
   const add = ['plugin', 'marketplace', 'add', PACKAGE, '--scope', 'user'];
@@ -325,7 +334,7 @@ test('the plugin: a failed marketplace add is reported, and the install is not a
   const calls = fakeClaude(home, [], 1);
   const root = makeRepository(t, 'unplugged');
 
-  const result = binnIn(home)(root, 'n\ny\n', 'init');
+  const result = binnIn(home)(root, 'n\nn\ny\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(
@@ -369,7 +378,7 @@ test('the plugin: declined runs nothing but the listing', (t) => {
   const calls = fakeClaude(home);
   const root = makeRepository(t, 'declined');
 
-  const result = binnIn(home)(root, 'n\nn\n', 'init');
+  const result = binnIn(home)(root, 'n\nn\nn\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(calls(), [['plugin', 'list', '--json']]);
@@ -387,34 +396,110 @@ test('the plugin: without Claude Code on PATH nothing is offered and nothing run
   assert.match(result.stdout, /skipped\s+the binnacle plugin: Claude Code is not detected/);
 });
 
-/**
- * The writing rules, below the subprocess seam: no step of this ticket extends a file, so
- * the append and JSON branches are reached here until the harness and Matt Pocock steps
- * (tickets 09 and 11) reach them through `binn init` itself.
- */
-test('the writing rules: create, append only at the end, never rewrite JSON, and a no writes nothing', async (t) => {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-init-writes-')));
-  t.after(() => rmSync(root, { recursive: true, force: true }));
-  writeFileSync(join(root, 'notes.md'), '# Notes');
-  writeFileSync(join(root, 'mcp.json'), '{}\n');
+const read = (root: string, relative: string): string => readFileSync(join(root, relative), 'utf8');
 
-  const answers: boolean[] = [];
-  const session: Session = { root, ask: async () => answers.shift() ?? false, say: () => {}, outcomes: [] };
+test('Claude Code on PATH gets a new .mcp.json, and only the detected harness is offered', (t) => {
+  const home = makeHome(t);
+  fakeClaude(home);
+  const root = makeRepository(t, 'harnessed');
+  const before = commits(root);
 
-  answers.push(false);
-  await offerFile(session, 'new/file.toml', 'a = 1\n');
-  assert.equal(existsSync(join(root, 'new')), false);
+  // The manifest is declined; the harness step still runs.
+  const result = binnIn(home)(root, 'n\ny\n', 'init');
 
-  answers.push(true);
-  await offerFile(session, 'new/file.toml', 'a = 1\n');
-  assert.equal(readFileSync(join(root, 'new', 'file.toml'), 'utf8'), 'a = 1\n');
-
-  answers.push(true);
-  await offerFile(session, 'notes.md', '## Added\n');
-  assert.equal(readFileSync(join(root, 'notes.md'), 'utf8'), '# Notes\n## Added\n');
-
-  answers.push(true);
-  await offerFile(session, 'mcp.json', '{ "binnacle": {} }\n');
-  assert.equal(readFileSync(join(root, 'mcp.json'), 'utf8'), '{}\n');
-  assert.equal(answers.length, 1, 'a JSON file is never even asked about');
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(read(root, '.mcp.json')), {
+    mcpServers: { binnacle: { type: 'stdio', command: 'binn', args: ['mcp'] } },
+  });
+  assert.match(result.stdout, /Claude Code/);
+  assert.doesNotMatch(result.stdout, /Codex|opencode|VS Code/);
+  assert.equal(existsSync(join(root, '.codex')), false);
+  assert.equal(existsSync(join(root, '.vscode')), false);
+  assert.equal(existsSync(join(root, 'opencode.json')), false);
+  assert.match(result.stdout, /created\s+\.mcp\.json/);
+  assert.equal(commits(root), before);
 });
+
+test('an existing .mcp.json is left untouched and the entry is printed', (t) => {
+  const home = makeHome(t);
+  installUserDirectory(home, '.claude');
+  const existing = '{\n  "mcpServers": {\n    "other": { "command": "other" }\n  }\n}\n';
+  const root = makeRepository(t, 'configured', { '.mcp.json': existing });
+
+  const result = binnIn(home)(root, 'n\ny\ny\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(read(root, '.mcp.json'), existing);
+  assert.match(result.stdout, /"binnacle": \{/);
+  assert.match(result.stdout, /"command": "binn",\s+"args": \["mcp"\]/);
+  assert.match(result.stdout, /printed\s+the entry for \.mcp\.json/);
+});
+
+test('an existing Codex configuration gets the binnacle table appended, with the trust note', (t) => {
+  const home = makeHome(t);
+  installUserDirectory(home, '.codex');
+  const root = makeRepository(t, 'codexed', { '.codex/config.toml': 'model = "o3"' });
+
+  const result = binnIn(home)(root, 'n\ny\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(read(root, '.codex/config.toml'), 'model = "o3"\n[mcp_servers.binnacle]\ncommand = "binn"\nargs = ["mcp"]\n');
+  assert.match(result.stdout, /trusted project/);
+  assert.match(result.stdout, /extended\s+\.codex\/config\.toml/);
+});
+
+test('a configuration that already names binnacle is skipped and reported', (t) => {
+  const home = makeHome(t);
+  fakeClaude(home);
+  installExecutable(home, 'codex');
+  const mcpJson = '{ "mcpServers": { "binnacle": { "command": "binn", "args": ["mcp"] } } }\n';
+  const codexToml = '[mcp_servers.binnacle]\ncommand = "binn"\n';
+  const root = makeRepository(t, 'twice', { '.mcp.json': mcpJson, '.codex/config.toml': codexToml });
+
+  const result = binnIn(home)(root, 'n\ny\ny\ny\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(read(root, '.mcp.json'), mcpJson);
+  assert.equal(read(root, '.codex/config.toml'), codexToml);
+  assert.match(result.stdout, /skipped\s+\.mcp\.json: it already names binnacle/);
+  assert.match(result.stdout, /skipped\s+\.codex\/config\.toml: it already names binnacle/);
+  assert.doesNotMatch(result.stdout, /Append to|Create \.mcp\.json/);
+});
+
+test('every known harness gets its own template, and the generic snippet follows them', (t) => {
+  const home = makeHome(t);
+  fakeClaude(home);
+  installExecutable(home, 'codex');
+  installUserDirectory(home, '.config/opencode');
+  installExecutable(home, 'code');
+  const root = makeRepository(t, 'everywhere');
+
+  const result = binnIn(home)(root, 'n\ny\ny\ny\ny\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(existsSync(join(root, '.mcp.json')));
+  assert.equal(read(root, '.codex/config.toml'), '[mcp_servers.binnacle]\ncommand = "binn"\nargs = ["mcp"]\n');
+  assert.deepEqual(JSON.parse(read(root, 'opencode.json')), {
+    $schema: 'https://opencode.ai/config.json',
+    mcp: { binnacle: { type: 'local', command: ['binn', 'mcp'] } },
+  });
+  assert.deepEqual(JSON.parse(read(root, '.vscode/mcp.json')), {
+    servers: { binnacle: { type: 'stdio', command: 'binn', args: ['mcp'] } },
+  });
+  const generic = result.stdout.indexOf('any other harness');
+  assert.ok(generic > result.stdout.indexOf('Create .vscode/mcp.json'), result.stdout);
+  assert.ok(generic < result.stdout.indexOf('Summary:'), result.stdout);
+});
+
+test('with no known harness, none is offered and the generic snippet is still printed', (t) => {
+  const home = makeHome(t);
+  const root = makeRepository(t, 'bare');
+
+  const result = binnIn(home)(root, 'n\ny\ny\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /No known harness/);
+  assert.match(result.stdout, /any other harness/);
+  assert.equal(git(root, 'status', '--porcelain'), '');
+});
+

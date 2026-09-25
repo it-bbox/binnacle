@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
+import { accessSync, appendFileSync, constants, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { basename, delimiter, dirname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { readGitFacts, type GitRemote } from '@binnacle/adapters';
@@ -12,7 +13,7 @@ import { register } from './project-commands.ts';
 type Outcome = 'created' | 'extended' | 'printed' | 'ran' | 'failed' | 'declined' | 'skipped';
 
 /** What one run of `binn init` knows and has done: where it works, how it asks, and what it will summarise. */
-export type Session = {
+type Session = {
   root: string;
   ask(question: string): Promise<boolean>;
   say(text: string): void;
@@ -50,6 +51,8 @@ export async function init(home: string, path?: string): Promise<ExitCode> {
     session.say('');
     await registrationStep(session, home, manifestUsable);
     session.say('');
+    await harnessStep(session);
+    session.say('');
     await pluginStep(session);
     session.say('');
   } finally {
@@ -69,7 +72,7 @@ export async function init(home: string, path?: string): Promise<ExitCode> {
  * printed instead; nothing is overwritten. `text` is the whole new file, or the addition.
  * Answers whether it wrote.
  */
-export async function offerFile(session: Session, relative: string, text: string): Promise<boolean> {
+async function offerFile(session: Session, relative: string, text: string): Promise<boolean> {
   const path = join(session.root, relative);
   const existing = existsSync(path) ? readFileSync(path, 'utf8') : null;
 
@@ -86,7 +89,7 @@ export async function offerFile(session: Session, relative: string, text: string
     return true;
   }
 
-  if (relative.endsWith('.json')) {
+  if (/\.jsonc?$/.test(relative)) {
     session.say(`${relative} exists, and binn init never rewrites a JSON file. Add this yourself:\n\n${text}`);
     record(session, 'printed', `the entry for ${relative}`);
     return false;
@@ -194,6 +197,120 @@ async function registrationStep(session: Session, home: string, manifestUsable: 
   const code = await register(home, session.root);
   record(session, code === EXIT.ok ? 'ran' : 'failed', 'project.register');
 }
+
+/**
+ * A harness `binn init` registers the `binnacle` MCP server with: how it is detected, and the
+ * project-scoped configuration that declares a stdio server running `binn mcp` (ADR-0014,
+ * level 1). Supporting another harness is adding one of these.
+ */
+type Harness = {
+  name: string;
+  /** Detected by this executable on PATH… */
+  executable: string;
+  /** …or by this user configuration directory, relative to the home directory. */
+  userDirectory: string;
+  /** The project's configuration file: the first of these that exists, or else the first. */
+  files: string[];
+  /** The whole new file, which is also the addition for a format that allows a pure append. */
+  entry: string;
+  note?: string;
+};
+
+/** Indented JSON, with an array of strings kept on one line, as a person writes `"args": ["mcp"]`. */
+const json = (value: unknown): string =>
+  `${JSON.stringify(value, null, 2).replace(/\[\s+("[^\]]*")\s+\]/g, (_, items: string) => `[${items.split(/,\s+/).join(', ')}]`)}\n`;
+
+const HARNESSES: Harness[] = [
+  {
+    name: 'Claude Code',
+    executable: 'claude',
+    userDirectory: '.claude',
+    files: ['.mcp.json'],
+    entry: json({ mcpServers: { binnacle: { type: 'stdio', command: 'binn', args: ['mcp'] } } }),
+  },
+  {
+    name: 'Codex',
+    executable: 'codex',
+    userDirectory: '.codex',
+    files: ['.codex/config.toml'],
+    entry: '[mcp_servers.binnacle]\ncommand = "binn"\nargs = ["mcp"]\n',
+    note: 'Codex reads .codex/config.toml only in a trusted project: trust this project in Codex for the entry to take effect.',
+  },
+  {
+    name: 'opencode',
+    executable: 'opencode',
+    userDirectory: join('.config', 'opencode'),
+    files: ['opencode.json', 'opencode.jsonc'],
+    entry: json({ $schema: 'https://opencode.ai/config.json', mcp: { binnacle: { type: 'local', command: ['binn', 'mcp'] } } }),
+  },
+  {
+    name: 'VS Code',
+    executable: 'code',
+    userDirectory:
+      process.platform === 'darwin'
+        ? join('Library', 'Application Support', 'Code')
+        : process.platform === 'win32'
+          ? join('AppData', 'Roaming', 'Code')
+          : join('.config', 'Code'),
+    files: ['.vscode/mcp.json'],
+    entry: json({ servers: { binnacle: { type: 'stdio', command: 'binn', args: ['mcp'] } } }),
+  },
+];
+
+/** Step 3: the MCP registration for each detected harness, then a generic snippet for any other. */
+async function harnessStep(session: Session): Promise<void> {
+  const found = HARNESSES.map((harness) => ({ harness, how: detect(harness) })).filter(({ how }) => how !== null);
+  if (found.length === 0) session.say(`No known harness is installed (${HARNESSES.map(({ name }) => name).join(', ')}).\n`);
+
+  for (const { harness, how } of found) {
+    const file = harness.files.find((candidate) => existsSync(join(session.root, candidate))) ?? harness.files[0]!;
+    session.say(`${harness.name} is installed (${how}). It reads this project's MCP servers from ${file}.`);
+    if (harness.note) session.say(harness.note);
+    const path = join(session.root, file);
+    if (existsSync(path) && namesBinnacle(readFileSync(path, 'utf8'))) {
+      session.say(`${file} already names binnacle. It is left as it is.\n`);
+      record(session, 'skipped', `${file}: it already names binnacle`);
+      continue;
+    }
+    await offerFile(session, file, harness.entry);
+    session.say('');
+  }
+
+  session.say(
+    `For any other harness that speaks MCP, register a stdio server named binnacle that runs \`binn mcp\`, for example:\n\n${json({ mcpServers: { binnacle: { command: 'binn', args: ['mcp'] } } }).trimEnd()}`,
+  );
+}
+
+function detect(harness: Harness): string | null {
+  if (onPath(harness.executable)) return `${harness.executable} is on PATH`;
+  if (existsSync(join(homedir(), harness.userDirectory))) return `~/${harness.userDirectory} exists`;
+  return null;
+}
+
+function onPath(name: string): boolean {
+  const extensions = process.platform === 'win32' ? (process.env.PATHEXT ?? '.EXE;.CMD;.BAT').split(';') : [''];
+  return (process.env.PATH ?? '')
+    .split(delimiter)
+    .filter(Boolean)
+    .some((dir) =>
+      extensions.some((extension) => {
+        const path = join(dir, name + extension);
+        try {
+          accessSync(path, constants.X_OK);
+          return statSync(path).isFile();
+        } catch {
+          return false;
+        }
+      }),
+    );
+}
+
+/**
+ * ponytail: a textual check, not a parse. A `"binnacle":` key anywhere in a JSON file, or a
+ * `[mcp_servers.binnacle]` table in a TOML one, counts as naming it; a parser per format would
+ * tell a server entry from any other key of that name.
+ */
+const namesBinnacle = (text: string): boolean => /"binnacle"\s*:|^\s*\[\s*mcp_servers\s*\.\s*["']?binnacle["']?\s*[\].]/m.test(text);
 
 /** This package's directory, which carries the plugin and the marketplace that lists it (ADR-0027). */
 const PACKAGE_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
