@@ -1365,8 +1365,8 @@ describe('Where a record’s branch comes from', () => {
       subagent(artifacts, root, 'parent', worktree, onBranch('main', lines(SUBAGENT, at(0, 1))));
       await register(daemon, root);
 
-      // Autopilot's order after a merge: the snapshot, then the removal.
-      await snapshotUsage(daemon, root);
+      // Autopilot's order after a merge: the snapshot until the import is complete, then the removal.
+      await untilImported(daemon, root);
       git(root, 'worktree', 'remove', worktree);
       git(root, 'branch', '-d', 'feat/first');
 
