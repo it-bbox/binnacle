@@ -3,6 +3,7 @@ export {
   validateManifest,
   type ManifestProblem,
   type ProjectManifest,
+  type TrackerProvider,
 } from './manifest.ts';
 export {
   blockedByNumbers,

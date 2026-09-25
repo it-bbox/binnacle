@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { closeSync, fstatSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync, writeSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import type { Diagnostic } from '@binnacle/core';
+import type { Diagnostic, TrackerProvider } from '@binnacle/core';
 
 /**
  * The Binnacle home directory holds everything this machine keeps about Binnacle
@@ -71,7 +71,7 @@ const USABLE_TOKEN = /^[\x21-\x7e]+$/;
  */
 export function trackerToken(
   home: string,
-  provider: 'github' | 'gitlab',
+  provider: Exclude<TrackerProvider, 'local'>,
   host: string | null,
   env: NodeJS.ProcessEnv = process.env,
 ): { token: string | null } | { failure: Diagnostic } {
@@ -103,8 +103,9 @@ export function trackerToken(
       closeSync(fd);
     }
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { token: null };
-    return { failure: { code: 'tracker.unavailable', message: `${path} could not be read (${(error as NodeJS.ErrnoException).code ?? 'error'}).` } };
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT') return { token: null };
+    return { failure: { code: 'tracker.unavailable', message: `${path} could not be read (${code ?? 'error'}).` } };
   }
 
   let entries: unknown;
