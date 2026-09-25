@@ -2,17 +2,17 @@ import { closeSync, openSync, readdirSync, readSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { readClaudeCode } from '@binnacle/adapters';
 import type { ProjectManifest } from '@binnacle/core';
-import { magnitude, sum, type Totals } from '@binnacle/telemetry';
+import { magnitude, sum, type Harness, type Totals } from '@binnacle/telemetry';
 import type { OperationContext } from './operations.ts';
 import { containingEntry, readRegistry } from './registry.ts';
 import { limited, UNAVAILABLE, type Unavailable } from './snapshot.ts';
 import type { Ingested } from './store.ts';
 
 /** The import window when the manifest writes none: the horizon of Git's own reflog. */
-export const DEFAULT_WINDOW_DAYS = 90;
+const DEFAULT_WINDOW_DAYS = 90;
 
 export type HarnessLevel = {
-  harness: 'claude-code';
+  harness: Harness;
   /**
    * ADR-0014, for this project: 3 when records with token counts were read, 2 when records
    * were read without any, 1 when an artifact could not be read, null when none were found.
@@ -75,7 +75,7 @@ function level(context: OperationContext, projectPath: string, failure: string |
  * it only selects candidates: every directory whose name starts with the project's, which
  * includes its subdirectories and the worktrees under it. Each record's own `cwd` decides.
  */
-export const claudeCodeDirectory = (path: string): string => path.replace(/[^a-zA-Z0-9]/g, '-');
+const claudeCodeDirectory = (path: string): string => path.replace(/[^a-zA-Z0-9]/g, '-');
 
 /**
  * Reads the new tail of every main session file of the project's candidate directories,
@@ -100,8 +100,7 @@ function ingest(context: OperationContext, projectPath: string, windowDays: numb
       .filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix))
       .map((entry) => join(root, entry.name));
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    return code === 'ENOENT' ? null : `${root} could not be read (${code ?? 'error'}).`;
+    return (error as NodeJS.ErrnoException).code === 'ENOENT' ? null : unreadable(root, error);
   }
 
   const files = directories.flatMap((directory) => {
@@ -110,7 +109,7 @@ function ingest(context: OperationContext, projectPath: string, windowDays: numb
         .filter((entry) => entry.isFile() && entry.name.endsWith('.jsonl'))
         .map((entry) => join(directory, entry.name));
     } catch (error) {
-      failures.push(`${directory} could not be read (${(error as NodeJS.ErrnoException).code ?? 'error'}).`);
+      failures.push(unreadable(directory, error));
       return [];
     }
   });
@@ -118,19 +117,19 @@ function ingest(context: OperationContext, projectPath: string, windowDays: numb
   for (const path of files) {
     const cursor = context.store.cursor(path) ?? { path, size: 0, offset: 0, line: 0, windowDays };
     let size: number;
-    let text: string;
+    let bytes: Buffer;
     try {
       size = statSync(path).size;
       // ponytail: a file that shrank is left alone until re-reading from the start lands.
       if (size <= cursor.offset) continue;
-      text = readFrom(path, cursor.offset, size);
+      bytes = readFrom(path, cursor.offset, size);
     } catch (error) {
       // A file that vanished or cannot be opened is reported, never a failed snapshot.
-      failures.push(`${path} could not be read (${(error as NodeJS.ErrnoException).code ?? 'error'}).`);
+      failures.push(unreadable(path, error));
       continue;
     }
 
-    const reading = readClaudeCode(text, cursor);
+    const reading = readClaudeCode(bytes, cursor);
     const records: Ingested[] = [];
     for (const record of reading.records) {
       const project = containingEntry(record.cwd, registered);
@@ -142,15 +141,16 @@ function ingest(context: OperationContext, projectPath: string, windowDays: numb
   return failures[0] ?? null;
 }
 
-function readFrom(path: string, offset: number, size: number): string {
+const unreadable = (path: string, error: unknown): string => `${path} could not be read (${(error as NodeJS.ErrnoException).code ?? 'error'}).`;
+
+function readFrom(path: string, offset: number, size: number): Buffer {
   const buffer = Buffer.alloc(size - offset);
   const fd = openSync(path, 'r');
   try {
-    readSync(fd, buffer, 0, buffer.length, offset);
+    return buffer.subarray(0, readSync(fd, buffer, 0, buffer.length, offset));
   } finally {
     closeSync(fd);
   }
-  return buffer.toString('utf8');
 }
 
 /** Local midnight `days` days before today. */

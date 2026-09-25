@@ -32,7 +32,6 @@ export type ProjectRow = {
   manifestDigest: string | null;
 };
 
-export type { Provenance };
 
 export type EventRow = {
   id: number;
@@ -313,11 +312,11 @@ export function openStore(home: string): Store {
         model: row.model === null ? null : String(row.model),
         provenance: String(row.provenance) as Provenance,
         tokens: {
-          input: tokens(row.input),
-          cachedInput: tokens(row.cached_input),
-          cacheCreation: tokens(row.cache_creation),
-          output: tokens(row.output),
-          reasoning: tokens(row.reasoning),
+          input: numberOrNull(row.input),
+          cachedInput: numberOrNull(row.cached_input),
+          cacheCreation: numberOrNull(row.cache_creation),
+          output: numberOrNull(row.output),
+          reasoning: numberOrNull(row.reasoning),
         } satisfies Record<TokenField, number | null>,
       })),
     usageCounts: (projectPath, harness) => {
@@ -328,7 +327,7 @@ export function openStore(home: string): Store {
   };
 }
 
-const tokens = (value: unknown): number | null => (value === null ? null : Number(value));
+const numberOrNull = (value: unknown): number | null => (value === null ? null : Number(value));
 
 function toEvent(row: Record<string, unknown>): EventRow {
   return {

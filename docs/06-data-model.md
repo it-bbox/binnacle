@@ -128,7 +128,7 @@ cached_input?
 cache_creation?
 output?
 reasoning?
-provenance         one per record; every field of a record shares it
+provenance         one per record while its fields share it, as they do on Claude Code; per field where they differ
 ingested_at
 ```
 

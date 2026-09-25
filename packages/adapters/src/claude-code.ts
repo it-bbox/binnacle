@@ -13,7 +13,8 @@ export type ArtifactReading = {
 
 /**
  * A Claude Code session artifact, from `start`, to normalised records: one per assistant
- * record that carries usage. `text` is the file from `start.offset` on.
+ * record that carries usage. `bytes` are the file's from `start.offset` on; positions are
+ * counted in bytes of the file, whatever a line decodes to.
  *
  * Only complete lines are read, so a line still being written is left for the next reading.
  * The reader takes the fields it needs and ignores every other one, content, tool input and
@@ -25,16 +26,16 @@ export type ArtifactReading = {
  * Claude Code's own `<synthetic>` messages, written for an API error, are no call to a
  * model and give no record.
  */
-export function readClaudeCode(text: string, start: ArtifactPosition): ArtifactReading {
+export function readClaudeCode(bytes: Buffer, start: ArtifactPosition): ArtifactReading {
   const records: UsageRecord[] = [];
   let { offset, line } = start;
   let from = 0;
-  for (let end = text.indexOf('\n'); end !== -1; from = end + 1, end = text.indexOf('\n', from)) {
-    const raw = text.slice(from, end);
+  for (let end = bytes.indexOf(NEWLINE); end !== -1; from = end + 1, end = bytes.indexOf(NEWLINE, from)) {
+    const raw = bytes.subarray(from, end).toString('utf8');
     const read = raw.trim() === '' ? null : readLine(raw);
     if (typeof read === 'string') return { records, stop: { offset, line }, failure: { line: line + 1, reason: read } };
     if (read) records.push(read);
-    offset += Buffer.byteLength(raw) + 1;
+    offset += end - from + 1;
     line += 1;
   }
   return { records, stop: { offset, line }, failure: null };
@@ -83,5 +84,6 @@ function readLine(raw: string): UsageRecord | null | string {
   };
 }
 
+const NEWLINE = 0x0a;
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 const count = (value: unknown): number | null => (typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null);
