@@ -21,13 +21,13 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 ## Current focus
 
-Design is complete: `docs/08-open-questions.md` is resolved by ADR-0001 to ADR-0018; building the epics added ADR-0019 to ADR-0028.
+Design is complete: `docs/08-open-questions.md` is resolved by ADR-0001 to ADR-0018; building the epics added ADR-0019 to ADR-0029.
 
 Epics 1 to 3 are done. The daemon, its store and `packages/core` (epic 1). `binn mcp` serves the snapshot, the daily and the checkpoint to every session through the committed `.mcp.json`, and the `binnacle` plugin gives `/binnacle:product`, `:daily`, `:checkpoint` and `:autopilot` (epic 2, ADR-0022, ADR-0023). GitHub and GitLab issues are Tasks, `/binnacle:task` gives a Task's brief and branch, and `binn init` sets up a fresh repository (epic 3, ADR-0024 to ADR-0027). Binnacle writes nothing into the repository.
 
-Epic 4, Telemetry, is in progress (ADR-0028). Tickets 01, 02, 03, 05, 06, 07 and 08 are done: the snapshot's usage section shows Claude Code's and Codex's totals for today and the week, by model, by Task and unassigned, with each harness's support level, dropped to 1 with a `telemetry.unreadable` attention item while one of its files cannot be read; runs are attributed to Tasks by branch, Codex's from the reflog; `usage_get` gives the project's usage by Task, or one Task's with its runs; the import window can be `all` or widened, a call waits for the import no longer than a fixed budget, and the daemon imports every registered project on start. `binn init` shows each harness's sessions in the repository and asks for the window.
+Epic 4, Telemetry, is in progress (ADR-0028, ADR-0029). Tickets 01 to 08 are done: the snapshot's usage section shows Claude Code's and Codex's totals for today and the week, by model, by Task and unassigned, with each harness's support level, dropped to 1 with a `telemetry.unreadable` attention item while one of its files cannot be read; subagents count as runs of their own, linked to the run that started them; a run's branch comes from its checkout's reflog while that checkout exists, from the harness otherwise; `usage_get` gives the project's usage by Task and by role, or one Task's with its runs; the import window can be `all` or widened, a call waits for the import no longer than a fixed budget, and the daemon imports every registered project on start. `binn init` shows each harness's sessions in the repository and asks for the window.
 
-Next action: ticket 04 (subagents) is stopped on an owner question: Claude Code's `gitBranch` is per process, not per worktree. 09, the exit demonstration, waits for 04 and for the owner's answer below. Ticket 03's comments leave a question for 09: no answer shows the role of an unassigned run, so a Product session on `main` cannot be seen as `product`.
+Next action: ticket 09, the exit demonstration, is the only ticket left. Work in worktrees removed before Binnacle read it keeps the branch the harness wrote, which for Claude Code's subagents is often `main` (ADR-0029), so part of epics 1 to 3 stays unassigned or reads as Product work; ticket 04's comments give the numbers.
 
 ## Later
 
