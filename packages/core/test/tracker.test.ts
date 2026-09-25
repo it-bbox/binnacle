@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { parseTicketHeader, roadmapAttention, type Epic, type TrackerTask } from '../src/index.ts';
+import { branchTask, parseTicketHeader, roadmapAttention, taskBranch, type Epic, type TrackerTask } from '../src/index.ts';
 
 /**
  * The ticket header is read by one pure function for every tracker (ADR-0024), so its rule
@@ -90,4 +90,39 @@ test('the roadmap checks reach an epic’s Tasks by spec slug, whatever their id
   const attention = roadmapAttention(epics, tasks);
   assert.deepEqual(attention.map((item) => item.code), ['roadmap.status_mismatch']);
   assert.match(attention[0]!.message, /Epic 1 .*#7/);
+});
+
+/**
+ * The branch convention and its inverse live side by side, and this is what keeps them one
+ * convention: every Task's branch maps back to that Task, on either kind of tracker. The
+ * daemon seam shows attribution; only here are all the shapes of a name checked.
+ */
+test('a Task’s branch maps back to that Task, and a branch naming none or several maps to none', () => {
+  const local = (id: string, ticket: string): Pick<TrackerTask, 'id' | 'title' | 'ticket'> => ({ id, title: null, ticket });
+  const tickets = [
+    local('telemetry/02', 'docs/specs/telemetry/issues/02-runs-and-task-attribution.md'),
+    local('odd/03', 'docs/specs/odd/issues/03-Mixed Case_and.dots.md'),
+    local('odd/04', 'docs/specs/odd/issues/04-.md'),
+    local('one/01', 'docs/specs/one/issues/01-shared.md'),
+    local('two/01', 'docs/specs/two/issues/01-shared.md'),
+  ];
+  for (const task of tickets.slice(0, 3)) assert.equal(branchTask(taskBranch(task, false), tickets, false), task, taskBranch(task, false));
+  assert.equal(taskBranch(tickets[0]!, false), 'feat/runs-and-task-attribution');
+  assert.equal(branchTask('feat/shared', tickets, false), null);
+  assert.equal(branchTask('feat/nothing', tickets, false), null);
+  assert.equal(branchTask('main', tickets, false), null);
+
+  const issues = [
+    { id: '#7', title: 'Read the runs, and attribute them!', ticket: 'https://example.invalid/7' },
+    { id: '#12', title: 'x'.repeat(80), ticket: 'https://example.invalid/12' },
+    { id: '#30', title: '***', ticket: 'https://example.invalid/30' },
+    { id: '#31', title: null, ticket: 'https://example.invalid/31' },
+  ];
+  for (const task of issues) assert.equal(branchTask(taskBranch(task, true), issues, true), task, taskBranch(task, true));
+  // By number alone: a branch whose slug no longer matches its issue's title keeps its Task.
+  assert.equal(branchTask('feat/7-something-else', issues, true), issues[0]);
+  assert.equal(branchTask('feat/8-no-such-issue', issues, true), null);
+  assert.equal(branchTask('feat/7x', issues, true), null);
+  assert.equal(branchTask('fix/7-not-the-convention', issues, true), null);
+  assert.equal(branchTask('feat/runs-and-task-attribution', issues, true), null);
 });

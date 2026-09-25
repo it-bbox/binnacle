@@ -63,7 +63,8 @@ export type IngestCursor = { path: string; size: number; offset: number; line: n
 /** A record to store, with the registered project its `cwd` lies in and the file it was read from. */
 export type Ingested = { record: UsageRecord; projectPath: string; sourceRef: string };
 
-export type StoredUsage = Pick<UsageRecord, 'timestamp' | 'model' | 'tokens' | 'provenance'>;
+/** A stored record, with its subagent, which is null until subagents are read. */
+export type StoredUsage = UsageRecord & { subagentId: string | null };
 
 export const EVENT_LIMIT_DEFAULT = 50;
 export const EVENT_LIMIT_MAX = 500;
@@ -213,8 +214,9 @@ export function openStore(home: string): Store {
   const selectCursor = db.prepare('select path, size, offset, line, window_days from ingest_cursor where path = ?');
   const deleteCursors = db.prepare('delete from ingest_cursor where substr(path, 1, length(?1)) = ?1');
   const selectUsage = db.prepare(`
-    select timestamp, model, provenance, input, cached_input, cache_creation, output, reasoning from ingested_record
-    where project_path = ? and harness = ? and timestamp >= ?
+    select harness, natural_key, session_id, subagent_id, timestamp, cwd, branch, branch_source, provider, model, provenance,
+      input, cached_input, cache_creation, output, reasoning
+    from ingested_record where project_path = ? and harness = ? and timestamp >= ?
   `);
   const countUsage = db.prepare(`
     select count(*) as records,
@@ -316,8 +318,15 @@ export function openStore(home: string): Store {
     },
     usage: (projectPath, harness, since) =>
       selectUsage.all(projectPath, harness, since).map((row) => ({
+        harness: String(row.harness) as Harness,
+        naturalKey: String(row.natural_key),
+        sessionId: String(row.session_id),
+        subagentId: stringOrNull(row.subagent_id),
         timestamp: String(row.timestamp),
-        model: row.model === null ? null : String(row.model),
+        cwd: String(row.cwd),
+        branch: row.branch === null ? null : { name: String(row.branch), source: String(row.branch_source) as 'harness' | 'reflog' },
+        provider: stringOrNull(row.provider),
+        model: stringOrNull(row.model),
         provenance: String(row.provenance) as Provenance,
         tokens: {
           input: numberOrNull(row.input),
@@ -336,6 +345,7 @@ export function openStore(home: string): Store {
 }
 
 const numberOrNull = (value: unknown): number | null => (value === null ? null : Number(value));
+const stringOrNull = (value: unknown): string | null => (value === null ? null : String(value));
 
 function toEvent(row: Record<string, unknown>): EventRow {
   return {

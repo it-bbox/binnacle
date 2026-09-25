@@ -17,7 +17,7 @@ import { OperationError } from './errors.ts';
 import { operations, type OperationContext } from './operations.ts';
 import { projectRegistry } from './projection.ts';
 import { openStore } from './store.ts';
-import { importer, INGEST_BUDGET_MS, startIngest, stopImporting } from './usage.ts';
+import { importer, INGEST_BUDGET_MS, projectCheckouts, startIngest, stopImporting } from './usage.ts';
 import { VERSION } from './version.ts';
 
 export const LOOPBACK = '127.0.0.1';
@@ -106,7 +106,12 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
   // Recorded once the daemon is listening, so a start that failed is not in the history.
   store.appendEvent({ type: 'daemon.started', payload: { pid: runtime.pid, port: runtime.port, version: VERSION } });
   // Every registered project's history starts importing now, in the background, rather than on its first call.
-  for (const { row, manifest } of projects) void startIngest(context, row.path, manifest);
+  // Its linked worktrees are asked of Git first, and a daemon stopped meanwhile starts none.
+  for (const { row, manifest } of projects) {
+    void projectCheckouts(row.path).then(({ linked }) => {
+      if (!context.importer.stopped) void startIngest(context, row.path, manifest, linked);
+    });
+  }
 
   return {
     home,

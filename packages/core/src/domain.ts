@@ -8,7 +8,9 @@ import type { TrackerProvider } from './manifest.ts';
  *
  * Task, AgentRun and Review each have their own state union and their own transition
  * function. There is deliberately no status spanning them (`docs/06-data-model.md`), which
- * is why Task's `APPROVED` and Review's `APPROVED` are unrelated values.
+ * is why Task's `APPROVED` and Review's `APPROVED` are unrelated values. The observed run
+ * is a type of its own with no state at all: the AgentRun machine is for runs Binnacle
+ * will manage, of which there are none yet.
  *
  * A field the data model marks optional is null when absent, never undefined and never a
  * substituted default, the same rule the manifest follows. Timestamps are ISO 8601 strings.
@@ -76,6 +78,36 @@ export type AgentRun = {
   finishedAt: string | null;
   initiator: string;
   budgetPolicy: string | null;
+};
+
+/** From the run's branch: the default branch is Product work, a Task's branch implementation. */
+export type RunRole = 'product' | 'implementation' | 'unknown';
+
+/**
+ * An AgentRun Binnacle reads out of a session artifact rather than one it manages: one
+ * unbroken stretch of one session in one checkout on one branch. It has no lifecycle
+ * state, since an artifact cannot tell a finished run from an abandoned one, and it is
+ * derived from the ingested records on every read, never stored.
+ */
+export type ObservedRun = {
+  /** Derived from its first record's key, so stable across reads. */
+  id: string;
+  projectPath: string;
+  /** Null is unassigned. */
+  taskId: string | null;
+  role: RunRole;
+  harness: string;
+  /** Its latest record's, null when that record does not state one. */
+  provider: string | null;
+  model: string | null;
+  branch: string | null;
+  branchSource: 'harness' | 'reflog' | null;
+  /** The run that started a subagent. */
+  parentRunId: string | null;
+  startedAt: string;
+  lastActivityAt: string;
+  /** Binnacle's own reading of `lastActivityAt` against a fixed recency, never an observed state. */
+  active: { value: boolean; provenance: 'calculated' };
 };
 
 export type ReviewState = 'PENDING' | 'IN_REVIEW' | 'APPROVED' | 'CHANGES_REQUESTED' | 'RESOLVED';

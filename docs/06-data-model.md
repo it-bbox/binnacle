@@ -64,18 +64,18 @@ An AgentRun Binnacle reads out of a session artifact rather than one it manages:
 
 ```text
 id                 derived from its first record, stable across reads
-project_id
+project_path       as the ingested records it is read from are keyed
 task_id?           null is unassigned
 role               product | implementation | unknown, from the branch
 harness
-provider?
-model?
+provider?          its latest record's
+model?             its latest record's
 branch?
 branch_source?     harness | reflog (ADR-0028)
 parent_run_id?     the run that started a subagent
 started_at
 last_activity_at
-active             calculated from last_activity_at
+active             calculated: last_activity_at within a fixed ten minutes of now
 ```
 
 ## Review

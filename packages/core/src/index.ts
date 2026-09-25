@@ -8,6 +8,7 @@ export {
 } from './manifest.ts';
 export {
   blockedByNumbers,
+  branchTask,
   BRANCH_SLUG_LIMIT,
   parseTicketHeader,
   remoteLocation,
@@ -33,9 +34,11 @@ export {
   transitionTask,
   type AgentRun,
   type AgentRunState,
+  type ObservedRun,
   type Project,
   type Review,
   type ReviewState,
+  type RunRole,
   type Task,
   type TaskState,
   type TransitionResult,

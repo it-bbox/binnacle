@@ -171,6 +171,22 @@ export function taskBranch(task: Pick<TrackerTask, 'id' | 'title' | 'ticket'>, r
   return `feat/${branchSlug(name) || number}`;
 }
 
+/**
+ * The inverse of `taskBranch`: the one Task `branch` maps back to, or null when none or
+ * several do, which is unassigned and never a guess (ADR-0018).
+ *
+ * - Local tracker: `feat/<slug>` to the ticket whose file slug gives that branch.
+ * - Remote tracker: `feat/<number>` or `feat/<number>-…` to issue `#<number>`, whatever the
+ *   rest says, when the tracker holds it.
+ */
+export function branchTask<T extends Pick<TrackerTask, 'id' | 'title' | 'ticket'>>(branch: string, tasks: T[], remote: boolean): T | null {
+  const number = /^feat\/(\d+)(?:-|$)/.exec(branch)?.[1];
+  const matches = remote
+    ? tasks.filter((task) => number !== undefined && task.id === `#${Number(number)}`)
+    : tasks.filter((task) => taskBranch(task, false) === branch);
+  return matches.length === 1 ? matches[0]! : null;
+}
+
 const branchSlug = (text: string): string => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
 /**

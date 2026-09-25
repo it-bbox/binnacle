@@ -11,6 +11,7 @@ import {
   type Roadmap,
   type TaskReading,
   type TaskState,
+  type TrackerTask,
 } from '@binnacle/core';
 import { resolveGitTimeout, trackerToken } from './home.ts';
 import type { Projected } from './projection.ts';
@@ -92,11 +93,18 @@ export type Snapshot = {
 
 /**
  * `diagnostics` are the caller's own findings about the checkout, such as a tracker-remote
- * mismatch; `home` is the Binnacle home, where a remote tracker's credentials are.
+ * mismatch; `home` is the Binnacle home, where a remote tracker's credentials are. `usage`
+ * answers the usage section from the Tasks this snapshot read, so the tracker is read once.
  */
-export async function snapshot(home: string, projected: Projected, caller: CallerCheckout, diagnostics: Diagnostic[], usage: Usage): Promise<Snapshot> {
+export async function snapshot(
+  home: string,
+  projected: Projected,
+  caller: CallerCheckout,
+  diagnostics: Diagnostic[],
+  usage: (tasks: TrackerTask[] | Unavailable) => Promise<Usage>,
+): Promise<Snapshot> {
   const tree = workingTree(caller.project);
-  const { tasks, roadmap, adrs, attention } = await readState(home, tree, projected, diagnostics);
+  const { tasks, unreadable, roadmap, adrs, attention } = await readState(home, tree, projected, diagnostics);
 
   return {
     project: projected.row,
@@ -107,7 +115,7 @@ export async function snapshot(home: string, projected: Projected, caller: Calle
     decisions: adrs && (await recentDecisions(tree, caller.project, adrs)),
     pendingDecisions: UNAVAILABLE,
     ci: UNAVAILABLE,
-    usage,
+    usage: await usage(tasks ?? { available: false, reason: unreadable.map((item) => item.message).join(' ') || 'The tracker cannot be read.' }),
     attention,
   };
 }
@@ -122,6 +130,8 @@ export function cut(text: string, limit: number): { text: string; truncated: boo
 export type State = {
   /** Null when the project's tracker cannot be read yet; `attention` says why. */
   tasks: ResolvedTask[] | null;
+  /** The tracker's own diagnostics, which say why `tasks` is null when it is. */
+  unreadable: Diagnostic[];
   roadmap: Roadmap | null;
   /** The ADR directory and the ADRs in it; null when the project declares none or it is not there. */
   adrs: { dir: string; paths: string[] } | null;
@@ -143,11 +153,13 @@ export async function readState(
     ...warnings.map((warning) => ({ code: 'manifest.warning', message: `${warning.path}: ${warning.message}` })),
     ...diagnostics,
   ];
-  const tasks = await readTasks(home, tree, manifest, attention, readRemoteTracker);
+  const tracker: Diagnostic[] = [];
+  const tasks = await readTasks(home, tree, manifest, tracker, readRemoteTracker);
+  attention.push(...tracker);
   const roadmap = await readRoadmap(tree, manifest, attention);
   if (roadmap && tasks) attention.push(...roadmapAttention(roadmap.epics, tasks));
   const adrs = await readAdrs(tree, manifest, attention);
-  return { tasks, roadmap, adrs, attention };
+  return { tasks, unreadable: tasks === null ? tracker : [], roadmap, adrs, attention };
 }
 
 /** The project's Tasks, or null with the reason pushed to `attention`. `home` is where a remote tracker's credentials are. */

@@ -364,7 +364,7 @@ describe('ADR-0012: the daemon opens no outbound connections but its tracker rea
     // Node has no YAML parser, and the project manifest is YAML. The adapters package is
     // this repository's own and is scanned above; its only dependencies are core, whose own
     // test holds it to no dependencies and no imports at all, and telemetry, scanned above
-    // and held here to none.
+    // and held here to core alone.
     const allowed = new Set(['@binnacle/adapters', '@binnacle/core', '@binnacle/telemetry', 'yaml']);
     const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
       dependencies?: Record<string, string>;
@@ -377,6 +377,6 @@ describe('ADR-0012: the daemon opens no outbound connections but its tracker rea
     };
     assert.deepEqual(Object.keys(adaptersManifest.dependencies ?? {}), ['@binnacle/core', '@binnacle/telemetry']);
     const telemetryManifest = JSON.parse(readFileSync(new URL('../package.json', telemetry), 'utf8')) as { dependencies?: Record<string, string> };
-    assert.equal(telemetryManifest.dependencies, undefined);
+    assert.deepEqual(Object.keys(telemetryManifest.dependencies ?? {}), ['@binnacle/core']);
   });
 });

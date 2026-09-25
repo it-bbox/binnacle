@@ -73,10 +73,10 @@ export function writeRegistry(home: string, entries: RegistryEntry[]): void {
  * The registered project whose directory is `path` or contains it, so that an agent that
  * knows only its working directory — wherever the harness happened to start it — finds
  * its project. The deepest registration wins, which is the one that was meant when one
- * project is nested inside another.
+ * project is nested inside another. Any list of directories can be searched the same way.
  */
-export function containingEntry(path: string, entries: RegistryEntry[]): RegistryEntry | undefined {
-  const contains = (entry: RegistryEntry): boolean => {
+export function containingEntry<T extends Pick<RegistryEntry, 'path'>>(path: string, entries: T[]): T | undefined {
+  const contains = (entry: T): boolean => {
     const inside = relative(entry.path, path);
     return inside === '' || (!isAbsolute(inside) && inside.split(sep)[0] !== '..');
   };

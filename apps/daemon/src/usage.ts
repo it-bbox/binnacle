@@ -1,13 +1,14 @@
 import { closeSync, openSync, readdirSync, readSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { setImmediate, setTimeout } from 'node:timers/promises';
-import { readClaudeCode } from '@binnacle/adapters';
-import type { ImportWindow, ProjectManifest } from '@binnacle/core';
-import { magnitude, sum, type Harness, type Totals } from '@binnacle/telemetry';
+import { readClaudeCode, readDefaultBranch, readWorktrees } from '@binnacle/adapters';
+import type { ImportWindow, ObservedRun, ProjectManifest, TrackerTask } from '@binnacle/core';
+import { magnitude, observedRuns, sum, type Harness, type RunRecord, type Totals } from '@binnacle/telemetry';
+import { resolveGitTimeout } from './home.ts';
 import type { OperationContext } from './operations.ts';
-import { containingEntry, readRegistry, type RegistryEntry } from './registry.ts';
-import { limited, UNAVAILABLE, type Unavailable } from './snapshot.ts';
-import type { Ingested, IngestCursor } from './store.ts';
+import { containingEntry, readRegistry } from './registry.ts';
+import { limited, type Unavailable } from './snapshot.ts';
+import type { Ingested, IngestCursor, StoredUsage } from './store.ts';
 
 /** The import window when the manifest writes none: the horizon of Git's own reflog. */
 const DEFAULT_WINDOW_DAYS = 90;
@@ -62,23 +63,32 @@ export type Usage = {
   today: Totals;
   last7Days: Totals;
   byModel: { items: { model: string | null; totals: Totals }[]; remainder: number };
-  tasks: Unavailable;
-  unassigned: Unavailable;
+  /** The last seven days by Task, largest first; unavailable, with the tracker's reason, when it cannot be read. */
+  tasks: { items: { id: string; title: string | null; totals: Totals }[]; remainder: number } | Unavailable;
+  /** The last seven days of runs no Task's branch accounts for. */
+  unassigned: Totals | Unavailable;
   harnesses: HarnessLevel[];
 };
 
 /**
  * Reads what is new in the Claude Code artifacts of `projectPath`, for as long as the time
- * budget allows, and answers the snapshot's `usage` section from everything stored. What
- * the budget does not cover goes on in the background. "Today" and "the last seven days"
- * are calendar days in the daemon's local time zone.
+ * budget allows, and answers the snapshot's `usage` section from everything stored,
+ * attributed to `tasks`, the tracker's current Tasks, or unavailable with why they cannot
+ * be read. What the budget does not cover goes on in the background. "Today" and "the last
+ * seven days" are calendar days in the daemon's local time zone.
  */
-export async function usage(context: OperationContext, projectPath: string, manifest: ProjectManifest | null): Promise<Usage> {
+export async function usage(
+  context: OperationContext,
+  projectPath: string,
+  manifest: ProjectManifest | null,
+  tasks: TrackerTask[] | Unavailable,
+): Promise<Usage> {
   const window = windowOf(manifest);
+  const checkouts = await projectCheckouts(projectPath);
   const { running, budgetMs } = context.importer;
   const current = running.get(projectPath);
   // One started under another window, on startup or before the manifest changed, is not this call's.
-  const run = current?.window === window ? current.run : startIngest(context, projectPath, manifest);
+  const run = current?.window === window ? current.run : startIngest(context, projectPath, manifest, checkouts.linked);
   if (budgetMs > 0) await Promise.race([run, setTimeout(budgetMs, undefined, { ref: false })]);
   // A run leaves `running` as it settles, so one still there is still going.
   const incomplete = running.get(projectPath)?.run === run;
@@ -87,6 +97,9 @@ export async function usage(context: OperationContext, projectPath: string, mani
   const week = context.store.usage(projectPath, 'claude-code', localMidnight(6).toISOString());
   const since = localMidnight(0).toISOString();
   const today = week.filter((record) => record.timestamp >= since);
+  const attributed = Array.isArray(tasks)
+    ? byTask(await runs(week, projectPath, tasks, manifest?.tracker.provider !== 'local', checkouts), tasks)
+    : { tasks, unassigned: tasks };
 
   const models = new Map<string | null, typeof week>();
   for (const record of week) models.set(record.model, [...(models.get(record.model) ?? []), record]);
@@ -98,10 +111,54 @@ export async function usage(context: OperationContext, projectPath: string, mani
     today: sum(today),
     last7Days: sum(week),
     byModel: limited(byModel),
-    tasks: UNAVAILABLE,
-    unassigned: UNAVAILABLE,
+    ...attributed,
     harnesses: [level(context, projectPath, failure, incomplete)],
   };
+}
+
+/**
+ * The project's observed runs among `records`, each attributed to the one Task of
+ * `tasks` its branch maps back to. The default branch is the one `origin/HEAD` names in
+ * the registered checkout, otherwise `main`.
+ */
+export async function runs(
+  records: StoredUsage[],
+  projectPath: string,
+  tasks: Pick<TrackerTask, 'id' | 'title' | 'ticket'>[],
+  remote: boolean,
+  checkouts: Checkouts,
+): Promise<(ObservedRun & { records: RunRecord[] })[]> {
+  const defaultBranch = (await readDefaultBranch(projectPath, resolveGitTimeout())) ?? 'main';
+  // ponytail: a record's checkout is found among the ones that exist now, so a removed
+  // worktree's records read as the registered checkout's; its branch still splits them.
+  const withCheckout = records.map((record) => ({ ...record, checkout: containingEntry(record.cwd, checkouts.roots)?.path ?? projectPath }));
+  return observedRuns(withCheckout, { projectPath, defaultBranch, tasks, remote, now: new Date() });
+}
+
+function byTask(attributed: { taskId: string | null; records: RunRecord[] }[], tasks: Pick<TrackerTask, 'id' | 'title'>[]): Pick<Usage, 'tasks' | 'unassigned'> {
+  const records = new Map<string | null, RunRecord[]>();
+  for (const run of attributed) records.set(run.taskId, (records.get(run.taskId) ?? []).concat(run.records));
+  const titles = new Map(tasks.map((task) => [task.id, task.title]));
+  const items = [...records]
+    .filter((entry): entry is [string, RunRecord[]] => entry[0] !== null)
+    .map(([id, taskRecords]) => ({ id, title: titles.get(id) ?? null, totals: sum(taskRecords) }));
+  items.sort((a, b) => magnitude(b.totals) - magnitude(a.totals) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return { tasks: limited(items), unassigned: sum(records.get(null) ?? []) };
+}
+
+/**
+ * The checkouts of the project's repository that exist now, and the project's directory in
+ * each linked one: a session there is the project's, wherever the worktree is.
+ */
+export type Checkouts = { roots: { path: string }[]; linked: string[] };
+
+/** The project's checkouts, from Git's list of worktrees; none when Git cannot say. */
+export async function projectCheckouts(projectPath: string): Promise<Checkouts> {
+  const roots = ((await readWorktrees(projectPath, resolveGitTimeout())) ?? []).map((path) => ({ path }));
+  const own = containingEntry(projectPath, roots);
+  if (!own) return { roots: [], linked: [] };
+  const inside = relative(own.path, projectPath);
+  return { roots, linked: roots.filter((root) => root !== own).map((root) => join(root.path, inside)) };
 }
 
 function level(context: OperationContext, projectPath: string, failure: string | null, incomplete: boolean): HarnessLevel {
@@ -118,11 +175,12 @@ const windowOf = (manifest: ProjectManifest | null): ImportWindow => manifest?.t
 /**
  * Queues an ingest of the project's artifacts behind the machine's others and returns it,
  * settling with why one of its files could not be read, if one could not. Which files have
- * anything to read is decided now, so a project with nothing new settles at once.
+ * anything to read is decided now, so a project with nothing new settles at once. `linked` is
+ * the project's directory in each of its linked worktrees (`projectCheckouts`).
  */
-export function startIngest(context: OperationContext, projectPath: string, manifest: ProjectManifest | null): Promise<string | null> {
+export function startIngest(context: OperationContext, projectPath: string, manifest: ProjectManifest | null, linked: string[]): Promise<string | null> {
   const window = windowOf(manifest);
-  const { files, failures } = candidates(context, projectPath);
+  const { files, failures } = candidates(context, [projectPath, ...linked]);
   const pending = files.filter((path) => {
     try {
       return readPosition(context.store.cursor(path), statSync(path).size, window) !== null;
@@ -136,13 +194,17 @@ export function startIngest(context: OperationContext, projectPath: string, mani
   const { importer } = context;
   const run = importer.queue
     .then(async () => {
-      const registered = readRegistry(context.home);
+      // A record is the project's whose `cwd` it contains, or one of its linked worktrees does.
+      const places = [
+        ...readRegistry(context.home).map((entry) => ({ path: entry.path, project: entry.path })),
+        ...linked.map((path) => ({ path, project: projectPath })),
+      ];
       for (const path of pending) {
         // The yield between files is what lets a waiting call answer when its budget runs out.
         // ponytail: a single file is read in one go; read it in chunks if one ever outlasts the budget.
         await setImmediate();
         if (importer.stopped) break;
-        const failure = ingestFile(context, path, window, registered);
+        const failure = ingestFile(context, path, window, places);
         if (failure) failures.push(failure);
       }
       return failures[0] ?? null;
@@ -166,16 +228,19 @@ export function startIngest(context: OperationContext, projectPath: string, mani
  */
 const claudeCodeDirectory = (path: string): string => path.replace(/[^a-zA-Z0-9]/g, '-');
 
-/** The main session files of the project's candidate directories, and why a directory could not be listed. */
-function candidates(context: OperationContext, projectPath: string): { files: string[]; failures: string[] } {
+/**
+ * The main session files of the candidate directories of the project's directories, in its
+ * own checkout and in each of its linked worktrees, and why a directory could not be listed.
+ */
+function candidates(context: OperationContext, directoriesOfProject: string[]): { files: string[]; failures: string[] } {
   const root = context.runtime.artifacts.claudeCode;
-  const prefix = claudeCodeDirectory(projectPath);
+  const prefixes = directoriesOfProject.map(claudeCodeDirectory);
   const failures: string[] = [];
 
   let directories: string[];
   try {
     directories = readdirSync(root, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix))
+      .filter((entry) => entry.isDirectory() && prefixes.some((prefix) => entry.name.startsWith(prefix)))
       .map((entry) => join(root, entry.name));
   } catch (error) {
     return { files: [], failures: (error as NodeJS.ErrnoException).code === 'ENOENT' ? [] : [unreadable(root, error)] };
@@ -211,14 +276,15 @@ const wider = (window: ImportWindow, than: ImportWindow): boolean => than !== 'a
  * Reads one file from its read position to its end, and returns why it could not be read,
  * if it could not. Its records and its cursor commit together; a failing line stops the
  * file just before it, and the next call tries it again. A record whose `cwd` lies in no
- * registered project is never stored, and neither is one older than the window.
+ * registered project, nor in a linked worktree of the one being read, is never stored, and
+ * neither is one older than the window.
  *
  * ponytail: a record of another registered project found here is stored under that
  * project, but read under this one's window. That project's own ingest re-reads the file
  * when its window is wider, so nothing is lost, but two such projects with different
  * windows take turns re-reading the files they share.
  */
-function ingestFile(context: OperationContext, path: string, window: ImportWindow, registered: RegistryEntry[]): string | null {
+function ingestFile(context: OperationContext, path: string, window: ImportWindow, places: { path: string; project: string }[]): string | null {
   let size: number;
   let from: { offset: number; line: number } | null;
   let bytes: Buffer;
@@ -237,8 +303,8 @@ function ingestFile(context: OperationContext, path: string, window: ImportWindo
   const reading = readClaudeCode(bytes, from);
   const records: Ingested[] = [];
   for (const record of reading.records) {
-    const project = containingEntry(record.cwd, registered);
-    if (project && record.timestamp >= windowStart) records.push({ record, projectPath: project.path, sourceRef: path });
+    const project = containingEntry(record.cwd, places)?.project;
+    if (project && record.timestamp >= windowStart) records.push({ record, projectPath: project, sourceRef: path });
   }
   context.store.ingest({ path, size, offset: reading.stop.offset, line: reading.stop.line, windowDays: window }, records);
   return reading.failure ? `${path} could not be read at line ${reading.failure.line}: ${reading.failure.reason}.` : null;

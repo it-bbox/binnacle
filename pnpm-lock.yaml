@@ -68,7 +68,11 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
 
-  packages/telemetry: {}
+  packages/telemetry:
+    dependencies:
+      '@binnacle/core':
+        specifier: workspace:*
+        version: link:../core
 
 packages:
 

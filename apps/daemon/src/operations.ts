@@ -112,8 +112,9 @@ export const operations: Record<string, Operation> = {
     const path = repositoryPath(body, { mustExist: false });
     const projected = reproject(context.store, await resolveEntry(path, context));
     const caller = await callerCheckout(path, projected.row.path);
-    const usageSection = await usage(context, projected.row.path, projected.manifest);
-    return snapshot(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git), usageSection);
+    return snapshot(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git), (tasks) =>
+      usage(context, projected.row.path, projected.manifest, tasks),
+    );
   },
 
   /**

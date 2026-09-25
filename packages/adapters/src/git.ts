@@ -8,8 +8,8 @@ import type { Tree } from './tree.ts';
  * than by care:
  *
  * - only inspecting commands run — `rev-parse`, `symbolic-ref` without a new value,
- *   `status`, `remote -v`, `log`, `show`, `ls-tree`, `merge-base --is-ancestor` — and
- *   nothing that fetches, writes, or changes config or refs;
+ *   `worktree list`, `status`, `remote -v`, `log`, `show`, `ls-tree`,
+ *   `merge-base --is-ancestor` — and nothing that fetches, writes, or changes config or refs;
  * - a revision is only ever passed as a commit hash, never as caller text that git could
  *   read as an option, and a caller's path only after `--` as a `:(literal)` pathspec;
  * - `--no-optional-locks` stops `status` refreshing the index, which it otherwise does
@@ -100,6 +100,40 @@ export async function readGitLocation(cwd: string, timeoutMs: number): Promise<G
     // registered paths are, so that one repository reached through a symlinked prefix
     // compares equal to itself.
     return { root: realpathSync(root), commonDir: realpathSync(resolve(cwd, commonDir)) };
+  } catch (error) {
+    if (isGitUnavailable(error)) return null;
+    throw error;
+  }
+}
+
+/**
+ * The roots of the checkouts of the repository `cwd` is in that still exist, the main one
+ * first, resolved like registered paths are. A worktree Git still lists whose directory is
+ * gone is left out. Null whenever Git cannot say.
+ */
+export async function readWorktrees(cwd: string, timeoutMs: number): Promise<string[] | null> {
+  if (!statSync(cwd, { throwIfNoEntry: false })?.isDirectory()) return null;
+  try {
+    const run = await git(cwd, timeoutMs, ['worktree', 'list', '--porcelain', '-z']);
+    if (run.code !== 0) return null;
+    return run.stdout
+      .split('\0')
+      .filter((field) => field.startsWith('worktree '))
+      .map((field) => field.slice('worktree '.length))
+      .filter((path) => statSync(path, { throwIfNoEntry: false })?.isDirectory())
+      .map((path) => realpathSync(path));
+  } catch (error) {
+    if (isGitUnavailable(error)) return null;
+    throw error;
+  }
+}
+
+/** The branch `origin/HEAD` names, without `origin/`; null when there is none or Git cannot say. */
+export async function readDefaultBranch(cwd: string, timeoutMs: number): Promise<string | null> {
+  if (!statSync(cwd, { throwIfNoEntry: false })?.isDirectory()) return null;
+  try {
+    const run = await git(cwd, timeoutMs, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD']);
+    return run.code === 0 ? run.stdout.trim().replace(/^origin\//, '') || null : null;
   } catch (error) {
     if (isGitUnavailable(error)) return null;
     throw error;
