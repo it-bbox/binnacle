@@ -40,7 +40,7 @@ Binnacle remains optional and read-only everywhere else: the daemon and the MCP 
 11. As a developer, I want an open issue with no `Status:` line to have a `null` state and a diagnostic, so that an issue filed by hand is visible and never given a guessed state.
 12. As a developer, I want `Blocked by:` on an issue to list issue numbers, with or without `#`, so that dependencies read naturally in the tracker's own UI.
 13. As a developer, I want a dependency on an issue that does not exist reported as dangling, as on the local tracker, so that a typo does not block work forever.
-14. As a developer, I want a dependency on a closed issue to count as met, so that finishing a ticket unblocks the next one without editing anything else.
+14. As a developer, I want a dependency on an issue closed as done to count as met, and one closed as cancelled to stay unmet, so that finishing a ticket unblocks the next one without editing anything else, while abandoned work never silently unblocks what depended on it.
 15. As a developer, I want pull requests left out of the Tasks, so that GitHub's habit of listing them among issues does not pollute the snapshot.
 16. As a developer, I want a remote Task's triage role taken from its labels, so that the triage axis stays separate from the state axis (ADR-0017).
 17. As a developer, I want each remote Task to carry its issue's URL as its ticket, so that I can open it in one click.
