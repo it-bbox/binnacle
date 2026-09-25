@@ -21,19 +21,13 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 ## Current focus
 
-Design is complete: every question in `docs/08-open-questions.md` is resolved across ADR-0001 to ADR-0018; specifying and building epics 1 and 2 added ADR-0019 to ADR-0023.
+Design is complete: `docs/08-open-questions.md` is resolved by ADR-0001 to ADR-0018; building the epics added ADR-0019 to ADR-0028.
 
-Epic 1 is done: the daemon, its loopback API, the store, the registry and `packages/core`.
+Epics 1 to 3 are done. The daemon, its store and `packages/core` (epic 1). `binn mcp` serves the snapshot, the daily and the checkpoint to every session through the committed `.mcp.json`, and the `binnacle` plugin gives `/binnacle:product`, `:daily`, `:checkpoint` and `:autopilot` (epic 2, ADR-0022, ADR-0023). GitHub and GitLab issues are Tasks, `/binnacle:task` gives a Task's brief and branch, and `binn init` sets up a fresh repository (epic 3, ADR-0024 to ADR-0027). Binnacle writes nothing into the repository.
 
-Epic 2 is done, closed on 2026-09-24 after its exit demonstration and hand checks. Binnacle now runs its own Product work: `binn mcp` serves the snapshot, the daily delta and the checkpoint as MCP tools over the running daemon, the committed `.mcp.json` connects every session, and the `binnacle` plugin (ADR-0023) provides `/binnacle:product`, `/binnacle:daily`, `/binnacle:checkpoint` and `/binnacle:autopilot` (ADR-0022). Status, detect and the snapshot answer from linked worktrees with the caller's own checkout. Binnacle writes nothing into the repository.
+Epic 4, Telemetry, is in progress (ADR-0028). Tickets 01, 02 and 06 are done: the snapshot's usage section shows Claude Code's totals for today and the week, by model, by Task and unassigned, with its support level; runs are attributed to Tasks by branch; the import window can be `all` or widened, a call waits for the import no longer than a fixed budget, and the daemon imports every registered project on start.
 
-Epic 3 is done, closed on 2026-09-25 after its exit demonstration, which found no defect (ADR-0024 to ADR-0027). GitHub and GitLab issues are Tasks in the snapshot, the daily and the checkpoint, read with a read-only token when one is configured. `/binnacle:task` gives one Task's brief and branch name. `binn init` sets up a fresh repository end to end: the manifest, registration, each harness's MCP server, the `binnacle` plugin from the CLI package, the ticket-header section and the tracker check. `pnpm test:live` proves both adapters against the owner's test projects.
-
-Epic 4, Telemetry, is specified (ADR-0028): session artifacts from Claude Code and Codex become observed AgentRuns attributed to Tasks, shown in the snapshot's usage section and `usage_get`.
-
-Epic 4's tickets 01 and 06 are done: the snapshot's usage section shows Claude Code's totals for today and the week, by model, with its support level. The import window can be `all` and can be widened without double counting, a call waits for the import no longer than a fixed budget, and the daemon starts importing every registered project when it starts.
-
-Next action: tickets 02 (observed runs and Task attribution), 07 (unreadable artifacts) and 08 (`binn init`'s import window) can start now, each in a fresh session on its own branch.
+Next action: tickets 03 (`usage_get`), 04 (subagents), 05 (Codex), 07 (unreadable artifacts) and 08 (`binn init`'s import window) can start, each in a fresh session on its own branch; 09, the exit demonstration, waits for them.
 
 ## Later
 
