@@ -69,6 +69,7 @@ export const ACTIVE_WITHIN_MS = 10 * 60_000;
 /** A stored record, with its subagent and the checkout its `cwd` lies in, which the daemon knows. */
 export type RunRecord = UsageRecord & { subagentId: string | null; checkout: string };
 
+/** What a run is attributed with: the facts of its project and tracker, read by the daemon. */
 export type RunAttribution<T extends Pick<TrackerTask, 'id' | 'title' | 'ticket'>> = {
   projectPath: string;
   /** The repository's default branch, whose runs are Product work. */

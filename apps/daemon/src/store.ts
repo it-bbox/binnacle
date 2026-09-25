@@ -1,7 +1,7 @@
 import { chmodSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import type { ImportWindow } from '@binnacle/core';
-import type { Harness, Provenance, TokenField, UsageRecord } from '@binnacle/telemetry';
+import type { Harness, Provenance, RunRecord, TokenField, UsageRecord } from '@binnacle/telemetry';
 import { OWNER_ONLY_FILE, storePath } from './home.ts';
 
 /**
@@ -64,7 +64,7 @@ export type IngestCursor = { path: string; size: number; offset: number; line: n
 export type Ingested = { record: UsageRecord; projectPath: string; sourceRef: string };
 
 /** A stored record, with its subagent, which is null until subagents are read. */
-export type StoredUsage = UsageRecord & { subagentId: string | null };
+export type StoredUsage = Omit<RunRecord, 'checkout'>;
 
 export const EVENT_LIMIT_DEFAULT = 50;
 export const EVENT_LIMIT_MAX = 500;
