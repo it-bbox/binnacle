@@ -1,17 +1,18 @@
 # 10: Work in removed worktrees reads as Product work, or as the wrong Task's
 
-Status: BACKLOG
-Triage: needs-triage
-Blocked by: None (can start immediately)
-Spec: `docs/specs/telemetry/spec.md`, `docs/adr/ADR-0029-branch-from-the-reflog-while-the-checkout-exists.md`
+Status: READY
+Triage: ready-for-agent
+Blocked by: 12
+Spec: `docs/specs/telemetry/spec.md`, `docs/adr/ADR-0030-branch-from-the-reflog-or-none.md`
 
 **What to build:** found by ticket 09's run on the owner's artifacts. Where a worktree has been removed, a record's branch is the one Claude Code wrote (ADR-0029). In a linked worktree Claude Code mostly wrote `main`, so that work gets the `product` role. Where it wrote a ticket branch, it often wrote the same one in several worktrees at once, so one Task is credited with other Tasks' work. Both break the spec's rule that attribution is a fact or nothing (user story 22). ADR-0029 accepted that such history keeps "Claude Code's mix-ups". It did not measure what they do to the role and to one Task's total.
 
-This ticket needs the owner's decision first. The options are under *Comments*.
+The owner chose option 3 under *Comments*: a run's branch comes from its checkout's reflog, or it has none (ADR-0030).
 
-- [ ] A record in a checkout that no longer exists does not get the `product` role from a harness's default branch alone, or the owner records why it should.
-- [ ] A harness branch that several removed worktrees claim at the same time is not credited to that Task, or the owner records why it should.
-- [ ] ADR-0029 says what was decided, and the tests at the daemon seam show it.
+- [ ] A record whose checkout's reflog has no answer has no branch, whatever its harness wrote, so its run is `unknown` and unassigned.
+- [ ] The rule applies when runs are read: a record already stored with a `harness` branch, under ADR-0028's order or ADR-0029's, attributes nothing.
+- [ ] The tests at the daemon seam show both, for a removed worktree whose records say `main` and for one whose records say a ticket's branch.
+- [ ] The code comments that cite ADR-0029's fallback, in `apps/daemon/src/usage.ts` and `packages/adapters/src/codex.ts`, say ADR-0030's rule.
 
 ## Comments
 
@@ -25,3 +26,7 @@ This ticket needs the owner's decision first. The options are under *Comments*.
   3. **Believe no harness branch in a checkout that no longer exists.** Every such run becomes `unknown`: an honest total, and no credit at all for most of epics 1 to 3.
   4. **Refuse a branch that several checkouts claim at the same time.** This covers the `feat/task-brief` case. It needs the records of other sessions at ingest, or else it must run at read, where runs are built.
 - **Records already stored keep their branch.** A record is ingested once (ADR-0029, *Consequences*), so any option applies at read, or only to records ingested after it lands. That is part of the decision.
+- **Decided by the owner on 2026-09-25, in a Product session.**
+  - Option 3, in its simplest form: the branch a harness wrote attributes nothing, wherever the reflog has no answer. It stays in the store with source `harness`. ADR-0030 records this and supersedes ADR-0029's fallback.
+  - It applies at read, so the history already stored follows it too. Of the 4,096 records measured, about 85% become unassigned, against 74%. Ticket 09's table explains every group.
+  - Built after ticket 12, by autopilot, so that ticket 09's criterion 2 can read this ticket's own runs.

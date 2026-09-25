@@ -1,16 +1,16 @@
 # 09: The exit demonstration
 
-Status: READY
-Triage: ready-for-agent
-Blocked by: 03, 04, 05, 07, 08
+Status: BLOCKED
+Triage: ready-for-human
+Blocked by: 03, 04, 05, 07, 08, 10, 11, 12
 Spec: `docs/specs/telemetry/spec.md`
 
 **What to build:** epic 4's exit criterion, demonstrated on this repository against its own history. Decided in the spec, under *Further Notes*.
 
 - [ ] In a fresh session, `/binnacle:product` shows the usage section: today's and the week's totals, by model, the top Tasks, unassigned, and each harness's level.
-- [ ] `usage_get` for tickets of epic 3 returns their runs with the `implementation` role and their subagents linked.
+- [ ] `usage_get` for tickets 10 and 11, built by autopilot after ticket 12, returns their runs with the `implementation` role and their subagents linked.
 - [x] Product sessions on `main` carry the `product` role, as `usage_get`'s `byRole` shows for the project.
-- [ ] The unassigned share is small enough to believe, and whatever is unassigned is explained.
+- [ ] Whatever is unassigned is explained, and little of the work built after ticket 12 is unassigned.
 - [x] The daemon's store holds no message content.
 - [ ] Defects are filed as tickets; the roadmap marks epic 4 done only when none is open.
 
@@ -93,7 +93,7 @@ Spec: `docs/specs/telemetry/spec.md`
   - A fresh temporary home reads the artifacts under ADR-0029, as they are now. It is what the script below uses.
   - It does not bring back what the old store may hold from worktrees it read while they still existed. For example, it would give nothing for ticket 04's 185 records.
   - Nothing has to be deleted: the temporary home is new and separate, and `~/.binnacle` stays as it is.
-- **The owner's script.** Run it from `main` after merging this branch. This branch changes no code, so `main`'s code is the code measured here.
+- **The owner's script**, superseded by the owner's decision below. Run it from `main` after merging this branch. This branch changes no code, so `main`'s code is the code measured here.
   1. In a terminal, start a second daemon on an empty home, beside the running one:
 
      ```sh
@@ -111,6 +111,19 @@ Spec: `docs/specs/telemetry/spec.md`
   3. **Criteria 2 to 4, optional.** In the same session, ask for `usage_get` without arguments, and with `task` set to `tracker-and-matt-pocock-integration/11`. Compare with the numbers above. They will be slightly higher, because the artifacts grow.
   4. **Decide.** Triage tickets 10 and 11. Tick criterion 4 if the unassigned share, as explained above, is believable. The last criterion, and marking epic 4 `done` on the roadmap, wait until neither ticket is open.
   5. **Clean up, if you choose.** Run `binn daemon stop` in the same terminal. The temporary home can then be removed with `rm -rf "$BINNACLE_HOME"`; it holds only what this demonstration read.
+- **Decided by the owner on 2026-09-25, in a Product session.**
+  - Tickets 10 and 11 are triaged, ADR-0030 records ticket 10's decision, and ticket 12 is part of this epic. This ticket waits for all three. Its `Status:` is `BLOCKED`, so that autopilot does not start it.
+  - Criteria 2 and 4 read new work. Epic 3's runs were in worktrees removed before Binnacle read them, and under ADR-0030 they are unassigned, so criterion 2 cannot hold on them. It reads tickets 10 and 11 instead, built by autopilot after ticket 12. Criterion 4 judges the unassigned share on that work, and asks of history only that its unassigned part be explained.
+  - The demonstration reads the owner's running daemon, not a temporary home. A new store cannot read the reflog of a worktree that is gone, so only the running one can credit tickets 10 and 11. Under ADR-0030, the harness branches it stored under ADR-0028 attribute nothing, which answers *The owner's store is not a clean demonstration* above.
+- **The owner's script, after the decision.**
+  1. Build ticket 12 in a fresh session, and merge it.
+  2. Just before `/binnacle:autopilot`, in the session that will run it, ask for `usage_get` without arguments and note its total records.
+  3. Run `/binnacle:autopilot` for epic 4. It builds tickets 10 and 11. Do little else meanwhile: every other session's records count as new work too.
+  4. Restart the daemon on `main`'s code: `binn daemon stop`, then `binn daemon start`.
+  5. **Criterion 1.** In a fresh session, which may be the desktop app's, run `/binnacle:product`. Check the usage section as step 2 of the superseded script says.
+  6. **Criterion 2.** Ask for `usage_get` with `task` set to `telemetry/10`, then to `telemetry/11`. Each returns runs with the `implementation` role, and every subagent run names its parent.
+  7. **Criterion 4.** Ask for `usage_get` without arguments. The new work is its total records less the total noted in step 2. Its unassigned part is that, less the two tickets' records, and should be about the autopilot session's own records on `main`. The other unassigned records are the groups of the table above, with the removed worktrees now `unknown` rather than `product`.
+  8. Tick what holds. Epic 4 is marked `done` on the roadmap once none of its tickets is open.
 
 ### Review
 

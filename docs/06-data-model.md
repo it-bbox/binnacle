@@ -70,8 +70,8 @@ role               product | implementation | unknown, from the branch
 harness
 provider?          its latest record's
 model?             its latest record's
-branch?
-branch_source?     reflog | harness (ADR-0029)
+branch?            its checkout's reflog's; none where the reflog has no answer, whatever the harness wrote (ADR-0030)
+branch_source?     reflog, the only source a run's branch has; a record's own may also be harness (ADR-0029, ADR-0030)
 parent_run_id?     a subagent's: its parent session's run that had started when the subagent's first record was written
 started_at
 last_activity_at

@@ -9,6 +9,7 @@ Specs and issues for this repo live in Git under `docs/specs/`, not in `.scratch
 - One effort per directory: `docs/specs/<slug>/`
 - The spec is `docs/specs/<slug>/spec.md`
 - Implementation issues are one file per ticket at `docs/specs/<slug>/issues/NN-<slug>.md`, numbered from `01`, never a single combined tickets file
+- A ticket's slug — its file name without the number — is unique across every `docs/specs/*/issues/`, because it names the ticket's branch, `feat/<slug>`. A branch two tickets share credits neither (`docs/specs/telemetry/spec.md`, ticket 11)
 - Two separate fields near the top of each issue file, because they are orthogonal axes and must not share one line:
   - `Status:` — lifecycle state from `docs/workflow/03-state-machines.md`
   - `Triage:` — role string from `triage-labels.md`

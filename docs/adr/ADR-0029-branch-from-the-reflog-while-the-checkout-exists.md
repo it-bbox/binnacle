@@ -1,6 +1,6 @@
 # ADR-0029: A Run's Branch Comes From the Reflog While Its Checkout Exists, From the Harness Otherwise
 
-**Status:** Accepted
+**Status:** Accepted. The fallback to the harness's branch is superseded by ADR-0030.
 
 **Supersedes:** the order of sources in ADR-0028, which put the branch the harness wrote first and the reflog second. The rest of ADR-0028 stands: both sources carry `measured` provenance, neither is a guess, and a record neither answers for is `unassigned`. ADR-0018's other decisions stand as ADR-0028 left them.
 
