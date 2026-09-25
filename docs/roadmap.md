@@ -25,9 +25,9 @@ Design is complete: `docs/08-open-questions.md` is resolved by ADR-0001 to ADR-0
 
 Epics 1 to 3 are done. The daemon, its store and `packages/core` (epic 1). `binn mcp` serves the snapshot, the daily and the checkpoint to every session through the committed `.mcp.json`, and the `binnacle` plugin gives `/binnacle:product`, `:daily`, `:checkpoint` and `:autopilot` (epic 2, ADR-0022, ADR-0023). GitHub and GitLab issues are Tasks, `/binnacle:task` gives a Task's brief and branch, and `binn init` sets up a fresh repository (epic 3, ADR-0024 to ADR-0027). Binnacle writes nothing into the repository.
 
-Epic 4, Telemetry, is in progress (ADR-0028). Tickets 01, 02, 06 and 08 are done: the snapshot's usage section shows Claude Code's totals for today and the week, by model, by Task and unassigned, with its support level; runs are attributed to Tasks by branch; the import window can be `all` or widened, a call waits for the import no longer than a fixed budget, and the daemon imports every registered project on start. `binn init` shows each harness's sessions in the repository and asks for the window.
+Epic 4, Telemetry, is in progress (ADR-0028). Tickets 01, 02, 03, 06 and 08 are done: the snapshot's usage section shows Claude Code's totals for today and the week, by model, by Task and unassigned, with its support level; runs are attributed to Tasks by branch; `usage_get` gives the project's usage by Task, or one Task's with its runs; the import window can be `all` or widened, a call waits for the import no longer than a fixed budget, and the daemon imports every registered project on start. `binn init` shows each harness's sessions in the repository and asks for the window.
 
-Next action: tickets 03 (`usage_get`), 04 (subagents), 05 (Codex) and 07 (unreadable artifacts) can start, each in a fresh session on its own branch; 09, the exit demonstration, waits for them.
+Next action: ticket 05 (Codex) is in progress; tickets 04 (subagents) and 07 (unreadable artifacts) can start, each in a fresh session on its own branch; 09, the exit demonstration, waits for them. Ticket 03's comments leave a question for 09: no answer shows the role of an unassigned run, so a Product session on `main` cannot be seen as `product`.
 
 ## Later
 
