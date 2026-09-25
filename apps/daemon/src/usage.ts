@@ -1,7 +1,7 @@
 import { closeSync, openSync, readdirSync, readSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { setImmediate, setTimeout } from 'node:timers/promises';
-import { branchAt, readClaudeCode, readCodex, readDefaultBranch, readHeadHistory, readWorktrees, type HeadHistory, type Tree } from '@binnacle/adapters';
+import { branchAt, codexSession, readClaudeCode, readCodex, readDefaultBranch, readHeadHistory, readWorktrees, type HeadHistory, type Tree } from '@binnacle/adapters';
 import type { ImportWindow, ObservedRun, ProjectManifest, TrackerTask } from '@binnacle/core';
 import { magnitude, observedRuns, sum, type Harness, type RunRecord, type Totals, type UsageRecord } from '@binnacle/telemetry';
 import { resolveGitTimeout, type ArtifactRoots } from './home.ts';
@@ -113,7 +113,7 @@ export async function usage(
     last7Days: sum(week),
     byModel: limited(byModel),
     ...attributed,
-    harnesses: HARNESSES.map((harness) => level(context, projectPath, harness, failures?.[harness.harness] ?? null, importing.incomplete)),
+    harnesses: HARNESSES.map((entry) => level(context, projectPath, entry, failures?.[entry.harness] ?? null, importing.incomplete)),
   };
 }
 
@@ -296,12 +296,14 @@ export function startIngest(context: OperationContext, projectPath: string, mani
         ...readRegistry(context.home).map((entry) => ({ path: entry.path, project: entry.path })),
         ...linked.map((path) => ({ path, project: projectPath })),
       ];
+      // Each checkout's reflog is read once per ingest.
+      const histories = new Map<string, Promise<HeadHistory | null>>();
       for (const file of pending) {
         // The yield between files is what lets a waiting call answer when its budget runs out.
         // ponytail: a single file is read in one go; read it in chunks if one ever outlasts the budget.
         await setImmediate();
         if (importer.stopped) break;
-        const failure = await ingestFile(context, file, window, places);
+        const failure = await ingestFile(context, file, window, places, histories);
         if (failure) failures[file.harness].push(failure);
       }
       return first();
@@ -388,8 +390,7 @@ function rolloutCwd(path: string): string | null {
       position += read;
     }
     const meta: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-    const payload = (meta as { type?: unknown; payload?: { cwd?: unknown } } | null)?.type === 'session_meta' ? (meta as { payload?: { cwd?: unknown } }).payload : null;
-    return typeof payload?.cwd === 'string' ? payload.cwd : null;
+    return typeof meta === 'object' && meta !== null ? (codexSession(meta as Record<string, unknown>)?.cwd ?? null) : null;
   } catch {
     // A first line that is not JSON yet is still being written.
     return null;
@@ -429,6 +430,7 @@ async function ingestFile(
   { path, harness }: { path: string; harness: Harness },
   window: ImportWindow,
   places: { path: string; project: string }[],
+  histories: Map<string, Promise<HeadHistory | null>>,
 ): Promise<string | null> {
   let size: number;
   let from: { offset: number; line: number } | null;
@@ -450,7 +452,6 @@ async function ingestFile(
   const windowStart = window === 'all' ? '' : localMidnight(window - 1).toISOString();
   const reading = harness === 'codex' ? readCodex(bytes) : readClaudeCode(bytes, from);
   const records: Ingested[] = [];
-  const histories = new Map<string, Promise<HeadHistory | null>>();
   for (const record of reading.records) {
     const project = containingEntry(record.cwd, places)?.project;
     if (project && record.timestamp >= windowStart) records.push({ record: await withBranch(record, histories), projectPath: project, sourceRef: path });
@@ -462,7 +463,7 @@ async function ingestFile(
 /**
  * `record`, with the branch the `HEAD` reflog of the checkout its `cwd` names was on at its
  * timestamp where its harness recorded none; as it was when the reflog has no answer.
- * `histories` holds each `cwd`'s reflog for the rest of the file.
+ * `histories` holds each `cwd`'s reflog for the rest of the ingest.
  */
 async function withBranch(record: UsageRecord, histories: Map<string, Promise<HeadHistory | null>>): Promise<UsageRecord> {
   if (record.branch !== null) return record;

@@ -1,6 +1,6 @@
 export { type ArtifactPosition, type ArtifactReading } from './artifact.ts';
 export { readClaudeCode } from './claude-code.ts';
-export { readCodex } from './codex.ts';
+export { codexSession, readCodex } from './codex.ts';
 export {
   branchAt,
   commitTree,

@@ -46,4 +46,5 @@ function readObject(raw: string, read: (value: Record<string, unknown>) => Usage
 const NEWLINE = 0x0a;
 /** A token count as a harness reports one: a non-negative integer, or null. */
 export const count = (value: unknown): number | null => (typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null);
+/** A JSON object, as opposed to an array, null or a primitive. */
 export const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);

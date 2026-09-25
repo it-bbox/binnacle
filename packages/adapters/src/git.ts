@@ -185,6 +185,9 @@ export async function readHeadHistory(cwd: string, timeoutMs: number): Promise<H
  * The branch `history` says its checkout was on at `time`, in milliseconds: the one the next
  * switch after it left, or the current one when none came after. Null when HEAD was detached,
  * and before the reflog's oldest entry, where it no longer says.
+ *
+ * ponytail: only `checkout` entries are switches, so the detached HEAD of a rebase in progress
+ * reads as the branch being rebased; read `rebase` entries too if that ever misattributes.
  */
 export function branchAt(history: HeadHistory, time: number): string | null {
   if (time < history.since) return null;

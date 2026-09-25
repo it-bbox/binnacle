@@ -4,7 +4,7 @@ import { homedir } from 'node:os';
 import { basename, delimiter, dirname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
-import { readGitFacts, workingTree, type GitRemote } from '@binnacle/adapters';
+import { codexSession, readGitFacts, workingTree, type GitRemote } from '@binnacle/adapters';
 import { instructionSets, remoteLocation, TASK_STATES, type ImportWindow, type ProjectManifest, type TrackerProvider } from '@binnacle/core';
 import {
   claudeCodeSessions,
@@ -288,7 +288,7 @@ const HISTORIES: { name: string; files(directories: string[]): string[]; cwd(rec
   {
     name: 'Codex',
     files: () => codexSessions(resolveArtifactRoots().codex).files,
-    cwd: (record) => (record.type === 'session_meta' && isRecord(record.payload) ? record.payload.cwd : undefined),
+    cwd: (record) => codexSession(record)?.cwd,
   },
 ];
 

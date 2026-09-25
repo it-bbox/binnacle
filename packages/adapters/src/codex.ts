@@ -32,9 +32,8 @@ export function readCodex(bytes: Buffer): ArtifactReading {
   return readLines(bytes, { offset: 0, line: 0 }, (value): UsageRecord | null | string => {
     const payload = value.payload;
     if (value.type === 'session_meta') {
-      if (!isObject(payload) || typeof payload.id !== 'string' || typeof payload.cwd !== 'string') return 'a session meta without an id or a cwd';
-      session = { id: payload.id, cwd: payload.cwd, provider: typeof payload.model_provider === 'string' ? payload.model_provider : null };
-      return null;
+      session = codexSession(value);
+      return session ? null : 'a session meta without an id or a cwd';
     }
     if (value.type === 'turn_context' && isObject(payload)) {
       model = typeof payload.model === 'string' ? payload.model : null;
@@ -76,4 +75,14 @@ export function readCodex(bytes: Buffer): ArtifactReading {
       provenance: 'calculated',
     };
   });
+}
+
+/**
+ * The session a rollout's `session_meta` record names: its id, the `cwd` it ran in, and the
+ * provider it states. Null for any other record, or one without an id or a `cwd`.
+ */
+export function codexSession(value: Record<string, unknown>): { id: string; cwd: string; provider: string | null } | null {
+  const payload = value.payload;
+  if (value.type !== 'session_meta' || !isObject(payload) || typeof payload.id !== 'string' || typeof payload.cwd !== 'string') return null;
+  return { id: payload.id, cwd: payload.cwd, provider: typeof payload.model_provider === 'string' ? payload.model_provider : null };
 }

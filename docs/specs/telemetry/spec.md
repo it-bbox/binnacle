@@ -106,7 +106,7 @@ The Product Snapshot's `usage` section fills in: token totals for today and the 
 
 ### Normalised record
 
-- Identity: harness (`claude-code`, `codex`), session id, subagent id or `null`, parent session, and a natural key unique within the harness: Claude Code's message id, Codex's record ordinal.
+- Identity: harness (`claude-code`, `codex`), session id, subagent id or `null`, parent session, and a natural key unique within the harness: Claude Code's message id, Codex's session id and record ordinal.
 - Facts: timestamp, `cwd`, branch with its source (`harness` or `reflog`) or `null`, provider or `null`, model or `null`, and the token fields: input not read from cache, cached input read, cache creation, output, reasoning. Each is `null` when the record does not report it.
 - Claude Code: `input_tokens`, `cache_read_input_tokens`, `cache_creation_input_tokens`, `output_tokens`, and the thinking tokens under `output_tokens_details`, all `provider_reported`. The records of one message repeat its usage once per content block — measured: 320 messages, 206 repeats, all identical — so one message is one record, keyed by its id. Provider is `null`; the artifact does not state it. The branch is `gitBranch`.
 - Codex: the difference between consecutive `total_token_usage` values of `token_count` records, which is `calculated`. Codex's `input_tokens` includes the cached part, so input not read from cache is `input_tokens − cached_input_tokens`, also `calculated`. A total that decreases is a failure, not a reset. Provider is `session_meta.model_provider`, model is the turn context's. There is no branch; it comes from the reflog.
