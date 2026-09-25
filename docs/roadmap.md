@@ -12,7 +12,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | --- | --- | --- | --- |
 | 1 | Core and persistence | done | [`core-and-persistence`](specs/core-and-persistence/spec.md) |
 | 2 | MCP and Product Snapshot | done | [`mcp-and-product-snapshot`](specs/mcp-and-product-snapshot/spec.md) |
-| 3 | Tracker and Matt Pocock integration | in progress | [`tracker-and-matt-pocock-integration`](specs/tracker-and-matt-pocock-integration/spec.md) |
+| 3 | Tracker and Matt Pocock integration | done | [`tracker-and-matt-pocock-integration`](specs/tracker-and-matt-pocock-integration/spec.md) |
 | 4 | Telemetry | not started | — |
 | 5 | Minimal dashboard | not started | — |
 | 6 | Audit and adopt | not started | — |
@@ -27,7 +27,9 @@ Epic 1 is done: the daemon and its authenticated loopback API, the machine store
 
 Epic 2 is done, closed on 2026-09-24 after its exit demonstration and hand checks. Binnacle now runs its own Product work: `binn mcp` serves the snapshot, the daily delta and the checkpoint as MCP tools over the running daemon, the committed `.mcp.json` connects every session, and the `binnacle` plugin (ADR-0023) provides `/binnacle:product`, `/binnacle:daily`, `/binnacle:checkpoint` and `/binnacle:autopilot` (ADR-0022). Status, detect and the snapshot answer from linked worktrees with the caller's own checkout. Binnacle writes nothing into the repository.
 
-Epic 3, Tracker and Matt Pocock integration, is specified (ADR-0024 to ADR-0027) in twelve tickets. Tickets 01 to 11 are done: GitHub and GitLab issues are Tasks in the snapshot, the daily and the checkpoint, read with a read-only token when one is configured, `/binnacle:task` gives one Task's brief and branch name, and `binn init` proposes a manifest, registers the project and the MCP server with each detected harness, installs the `binnacle` plugin that ships in the CLI package, offers the ticket-header section to the Matt Pocock tracker file, reports the agent instructions, and checks that a remote tracker can be read. `pnpm test:live` proves the GitHub and GitLab adapters against the owner's test projects, `it-bbox/binnacle-tracker-fixture` on GitHub and `miker059/binnacle-tracker-fixture` on GitLab. Next action: ticket 12, the exit demonstration, whose blockers are all done.
+Epic 3 is done, closed on 2026-09-25 after its exit demonstration, which found no defect (ADR-0024 to ADR-0027). GitHub and GitLab issues are Tasks in the snapshot, the daily and the checkpoint, read with a read-only token when one is configured. `/binnacle:task` gives one Task's brief and branch name. `binn init` sets up a fresh repository end to end: the manifest, registration, each harness's MCP server, the `binnacle` plugin from the CLI package, the ticket-header section and the tracker check. `pnpm test:live` proves both adapters against the owner's test projects.
+
+Next action: epic 4, Telemetry, which is not started. It begins with `/grill-with-docs` or `/to-spec` in a Product session.
 
 ## Later
 
