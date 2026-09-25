@@ -93,11 +93,16 @@ function session(artifacts: string, cwd: string, sessionId: string, records: Lin
   return file;
 }
 
-async function withDaemon(body: (daemon: TestDaemon, artifacts: string) => Promise<void>, options: { home?: string; ingestBudgetMs?: number } = {}): Promise<void> {
+/** Runs `body` against a daemon whose Claude Code and Codex artifact roots are temporary directories. */
+async function withDaemon(
+  body: (daemon: TestDaemon, artifacts: string, codex: string) => Promise<void>,
+  options: { home?: string; ingestBudgetMs?: number } = {},
+): Promise<void> {
   const artifacts = temporary('binnacle-claude-projects-');
-  const daemon = await startTestDaemon({ ...options, artifacts: { claudeCode: artifacts } });
+  const codex = temporary('binnacle-codex-sessions-');
+  const daemon = await startTestDaemon({ ...options, artifacts: { claudeCode: artifacts, codex } });
   try {
-    await body(daemon, artifacts);
+    await body(daemon, artifacts, codex);
   } finally {
     await daemon.stop();
   }
@@ -145,7 +150,7 @@ describe('Claude Code usage in the Product Snapshot', () => {
       assert.deepEqual(body.today, GRILL_TOTALS);
       assert.deepEqual(body.last7Days, GRILL_TOTALS);
       assert.deepEqual(body.byModel, { items: [{ model: 'claude-opus-5-5', totals: GRILL_TOTALS }], remainder: 0 });
-      assert.deepEqual(body.harnesses, [{ harness: 'claude-code', level: 3, reason: null }]);
+      assert.deepEqual(body.harnesses[0], { harness: 'claude-code', level: 3, reason: null });
       // This project declares no tracker, so nothing can be attributed to a Task.
       assert.deepEqual(body.tasks, { available: false, reason: 'This project declares no tracker.provider.' });
       assert.deepEqual(body.unassigned, { available: false, reason: 'This project declares no tracker.provider.' });
@@ -294,27 +299,30 @@ describe('Claude Code usage in the Product Snapshot', () => {
 
       const partial = await usage(daemon, root);
       assert.equal(partial.today.records, 2);
-      assert.deepEqual(partial.harnesses, [{ harness: 'claude-code', level: 3, reason: null }]);
+      assert.deepEqual(partial.harnesses[0], { harness: 'claude-code', level: 3, reason: null });
 
       appendFileSync(file, `${two!.slice(40)}\n`);
       const complete = await usage(daemon, root);
       assert.equal(complete.today.records, 2);
-      assert.deepEqual(complete.harnesses, [{ harness: 'claude-code', level: 3, reason: null }]);
+      assert.deepEqual(complete.harnesses[0], { harness: 'claude-code', level: 3, reason: null });
       assert.equal(stored(daemon).length, 2);
     });
   });
 
   it('reports the level Claude Code reached for the project', async () => {
-    await withDaemon(async (daemon, artifacts) => {
+    await withDaemon(async (daemon, artifacts, codex) => {
       const none = makeProject(temporary('binnacle-usage-'));
-      const [absent] = (await usage(daemon, none)).harnesses;
+      const [absent, codexAbsent] = (await usage(daemon, none)).harnesses;
       assert.equal(absent?.level, null);
       assert.match(absent?.reason ?? '', new RegExp(artifacts));
+      assert.equal(codexAbsent?.harness, 'codex');
+      assert.equal(codexAbsent?.level, null);
+      assert.match(codexAbsent?.reason ?? '', new RegExp(`No Codex session of this project was found under ${codex}`));
 
       const unreported = makeProject(temporary('binnacle-usage-'));
       session(artifacts, unreported, 'unreported', lines(ABORTED, daysAgo(0), '-unreported', { usage: {} }));
       const level2 = await usage(daemon, unreported);
-      assert.deepEqual(level2.harnesses, [{ harness: 'claude-code', level: 2, reason: null }]);
+      assert.deepEqual(level2.harnesses[0], { harness: 'claude-code', level: 2, reason: null });
       assert.deepEqual(level2.today.input, NONE);
 
       const broken = makeProject(temporary('binnacle-usage-'));
@@ -328,13 +336,16 @@ describe('Claude Code usage in the Product Snapshot', () => {
     });
   });
 
-  it('carries the Claude Code artifact root in the runtime', async () => {
-    await withDaemon(async (daemon, artifacts) => {
-      const { body } = await daemon.call<{ artifacts: { claudeCode: string } }>('daemon.status');
-      assert.deepEqual(body.artifacts, { claudeCode: artifacts });
+  it('carries the Claude Code and Codex artifact roots in the runtime', async () => {
+    await withDaemon(async (daemon, artifacts, codex) => {
+      const { body } = await daemon.call<{ artifacts: { claudeCode: string; codex: string } }>('daemon.status');
+      assert.deepEqual(body.artifacts, { claudeCode: artifacts, codex });
     });
-    assert.deepEqual(resolveArtifactRoots({ CLAUDE_CONFIG_DIR: '/config/claude' }), { claudeCode: join('/config/claude', 'projects') });
-    assert.deepEqual(resolveArtifactRoots({}), { claudeCode: join(homedir(), '.claude', 'projects') });
+    assert.deepEqual(resolveArtifactRoots({ CLAUDE_CONFIG_DIR: '/config/claude', CODEX_HOME: '/config/codex' }), {
+      claudeCode: join('/config/claude', 'projects'),
+      codex: join('/config/codex', 'sessions'),
+    });
+    assert.deepEqual(resolveArtifactRoots({}), { claudeCode: join(homedir(), '.claude', 'projects'), codex: join(homedir(), '.codex', 'sessions') });
   });
 });
 
@@ -441,7 +452,7 @@ describe('the import window, the time budget and re-reading', () => {
     );
     session(artifactRoot, root, 'before-start', lines(GRILL, daysAgo(1)));
 
-    const daemon = await startTestDaemon({ home, artifacts: { claudeCode: artifactRoot }, ingestBudgetMs: 0 });
+    const daemon = await startTestDaemon({ home, artifacts: { claudeCode: artifactRoot, codex: join(home, 'no-codex-sessions') }, ingestBudgetMs: 0 });
     try {
       // No call has been made: the records are there because the start imported them.
       for (let attempt = 0; attempt < 200 && stored(daemon).length === 0; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 10));
@@ -491,7 +502,7 @@ describe('the import window, the time budget and re-reading', () => {
       rmSync(file);
       const body = await snapshotUsage(daemon, root);
       assert.deepEqual(body.today, GRILL_TOTALS);
-      assert.deepEqual(body.harnesses, [{ harness: 'claude-code', level: 3, reason: null }]);
+      assert.deepEqual(body.harnesses[0], { harness: 'claude-code', level: 3, reason: null });
     });
   });
 });
@@ -717,7 +728,7 @@ describe('Observed runs and Task attribution in the Product Snapshot', () => {
       const store = openStore(daemon.home);
       try {
         const roles = async (root: string): Promise<[string | null, string, string | null][]> =>
-          (await runs(store.usage(root, 'claude-code', at(1, 0)), root, tasks, false, await projectCheckouts(root))).map((run) => [run.branch, run.role, run.taskId]);
+          (await runs(store.usage(root, at(1, 0)), root, tasks, false, await projectCheckouts(root))).map((run) => [run.branch, run.role, run.taskId]);
         const expected: [string, string, string | null][] = [
           ['trunk', 'product', null],
           ['main', 'unknown', null],
@@ -920,5 +931,173 @@ describe('usage.get', () => {
     } finally {
       await github.close();
     }
+  });
+});
+
+type CodexLine = { timestamp: string; ordinal: number; type: string; payload: Record<string, unknown> };
+
+/**
+ * One turn of a real Codex rollout: its session meta, a turn context, a prompt, a tool call
+ * and its output, the per-call usage record Codex also writes, and eleven token counts, the
+ * last of them repeating the total before it. See `fixtures/codex`.
+ */
+const TOOL_CALLS = readFileSync(join(import.meta.dirname, 'fixtures', 'codex', 'tool-calls.jsonl'), 'utf8')
+  .trim()
+  .split('\n')
+  .map((line) => JSON.parse(line) as CodexLine);
+const TOKEN_COUNTS = TOOL_CALLS.filter((record) => record.payload.type === 'token_count');
+const [META, CONTEXT] = TOOL_CALLS as [CodexLine, CodexLine];
+
+const calculated = (tokens: number): FieldTotal => ({ tokens, partial: false, provenance: 'calculated' });
+/** The session's last total, as ten differences: the eleventh count repeats the tenth. */
+const TOOL_CALLS_TOTALS: Totals = {
+  records: 10,
+  // Codex's 359,975 input tokens include the 280,704 read from cache.
+  input: calculated(359975 - 280704),
+  cachedInput: calculated(280704),
+  cacheCreation: NONE,
+  output: calculated(1876),
+  reasoning: calculated(425),
+};
+
+/** Writes the rollout of session `id`, launched in `cwd`, under Codex's root, and returns its file. */
+function rollout(root: string, cwd: string, id: string, records: CodexLine[]): string {
+  const dir = join(root, '2026', '09', '07');
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, `rollout-2026-09-07T20-39-35-${id}.jsonl`);
+  const placed = records.map((record) =>
+    record.type === 'session_meta' ? { ...record, payload: { ...record.payload, id, session_id: id, cwd } } : record.type === 'turn_context' ? { ...record, payload: { ...record.payload, cwd } } : record,
+  );
+  writeFileSync(file, placed.map((record) => `${JSON.stringify(record)}\n`).join(''));
+  return file;
+}
+
+/** The records moved so that the first is at `start`, keeping the time between them. */
+function movedTo(records: CodexLine[], start: string): CodexLine[] {
+  const shift = Date.parse(start) - Date.parse(records[0]!.timestamp);
+  return records.map((record) => ({ ...record, timestamp: new Date(Date.parse(record.timestamp) + shift).toISOString() }));
+}
+
+const timed = (record: CodexLine, timestamp: string): CodexLine => ({ ...record, timestamp });
+
+/** Git, with the reflog entries it writes dated `timestamp`. */
+function gitAt(timestamp: string, cwd: string, ...args: string[]): void {
+  const date = `@${Math.floor(Date.parse(timestamp) / 1000)} +0000`;
+  execFileSync('git', ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', '-c', 'commit.gpgsign=false', ...args], {
+    cwd,
+    stdio: 'ignore',
+    env: { ...process.env, GIT_COMMITTER_DATE: date, GIT_AUTHOR_DATE: date },
+  });
+}
+
+describe('Codex usage in the Product Snapshot', () => {
+  it('turns running totals into differences and input into what was not read from cache, and counts a repeated total once', async () => {
+    await withDaemon(async (daemon, _artifacts, codex) => {
+      const root = makeProject(temporary('binnacle-usage-'));
+      const records = movedTo(TOOL_CALLS, daysAgo(0));
+      // Up to the third token count; the rest is appended later.
+      const file = rollout(codex, root, 'tool-calls', records.slice(0, 9));
+      // A session launched elsewhere is never stored.
+      rollout(codex, temporary('binnacle-elsewhere-'), 'elsewhere', records);
+
+      const first = await usage(daemon, root);
+      assert.equal(first.today.records, 3);
+      assert.deepEqual(first.today.input, calculated(101001 - 33152));
+      assert.deepEqual(first.today.cachedInput, calculated(33152));
+
+      appendFileSync(file, records.slice(9).map((record) => `${JSON.stringify(record)}\n`).join(''));
+      const body = await snapshotUsage(daemon, root);
+      assert.deepEqual(body.today, TOOL_CALLS_TOTALS);
+      assert.deepEqual(body.byModel, { items: [{ model: 'gpt-5.6-sol', totals: TOOL_CALLS_TOTALS }], remainder: 0 });
+      assert.deepEqual(body.harnesses.map((item) => item.harness), ['claude-code', 'codex']);
+      assert.deepEqual(body.harnesses[1], { harness: 'codex', level: 3, reason: null });
+
+      const rows = stored(daemon);
+      assert.equal(rows.length, 10);
+      assert.ok(rows.every((row) => row.harness === 'codex' && row.provider === 'openai' && row.provenance === 'calculated' && row.cwd === root));
+      const { natural_key, session_id, model, branch, input, cached_input, cache_creation, output, reasoning } = rows[0]!;
+      assert.deepEqual(
+        { natural_key, session_id, model, branch, input, cached_input, cache_creation, output, reasoning },
+        { natural_key: 'tool-calls:33', session_id: 'tool-calls', model: 'gpt-5.6-sol', branch: null, input: 33332, cached_input: 0, cache_creation: null, output: 304, reasoning: 76 },
+      );
+      assert.doesNotMatch(JSON.stringify(rows), new RegExp(MARKER));
+    });
+  });
+
+  it('takes each call’s model from the turn context in force', async () => {
+    await withDaemon(async (daemon, _artifacts, codex) => {
+      const root = makeProject(temporary('binnacle-usage-'));
+      const records = movedTo(TOOL_CALLS, daysAgo(0));
+      const at58 = records.findIndex((record) => record.ordinal === 58);
+      const switched = { ...CONTEXT, ordinal: 57, timestamp: records[at58 - 1]!.timestamp, payload: { ...CONTEXT.payload, model: 'gpt-6-astra' } };
+      rollout(codex, root, 'switched', [...records.slice(0, at58), switched, ...records.slice(at58)]);
+
+      const body = await usage(daemon, root);
+      assert.deepEqual(body.byModel.items.map((item) => [item.model, item.totals.records]), [['gpt-6-astra', 7], ['gpt-5.6-sol', 3]]);
+    });
+  });
+
+  it('stops reading a rollout at a total that decreases, and keeps what came before it', async () => {
+    await withDaemon(async (daemon, _artifacts, codex) => {
+      const root = makeProject(temporary('binnacle-usage-'));
+      const records = movedTo(TOOL_CALLS, daysAgo(0));
+      const at58 = records.findIndex((record) => record.ordinal === 58);
+      const info = records[at58]!.payload.info as { total_token_usage: Record<string, number> };
+      const lowered = { ...records[at58]!, payload: { ...records[at58]!.payload, info: { ...info, total_token_usage: { ...info.total_token_usage, output_tokens: 1 } } } };
+      const file = rollout(codex, root, 'decreasing', [...records.slice(0, at58), lowered, ...records.slice(at58 + 1)]);
+
+      const body = await usage(daemon, root);
+      assert.equal(body.harnesses[1]?.level, 1);
+      assert.match(body.harnesses[1]?.reason ?? '', new RegExp(`${file}.*line 10`));
+      assert.equal(body.today.records, 3);
+    });
+  });
+
+  it('recovers a run’s branch from the reflog of the checkout its cwd names, matched by time', async () => {
+    await withDaemon(async (daemon, _artifacts, codex) => {
+      const parent = temporary('binnacle-usage-');
+      const root = makeProject(join(parent, 'project'), LOCAL_TRACKER);
+      ticket(root, 'epic', '01-first.md', 'First');
+      ticket(root, 'epic', '02-second.md', 'Second');
+      gitAt(at(1, 0), root, 'init', '--quiet', '--initial-branch=main');
+      gitAt(at(1, 0), root, 'add', '.');
+      gitAt(at(1, 0), root, 'commit', '--quiet', '-m', 'initial');
+      gitAt(at(1, 10), root, 'switch', '--quiet', '-c', 'feat/first');
+      gitAt(at(1, 20), root, 'switch', '--quiet', 'main');
+      const linked = join(parent, 'linked');
+      gitAt(at(1, 30), root, 'worktree', 'add', '--quiet', '-b', 'feat/second', linked);
+      gitAt(at(1, 40), root, 'switch', '--quiet', '--detach');
+      gitAt(at(1, 50), root, 'switch', '--quiet', 'main');
+
+      const [before, onMain, onFirst, back, detached] = TOKEN_COUNTS as [CodexLine, CodexLine, CodexLine, CodexLine, CodexLine];
+      rollout(codex, root, 'switching', [
+        timed(META, at(2, 0)),
+        timed(CONTEXT, at(2, 0)),
+        // Before the reflog begins, so it has no answer.
+        timed(before, at(2, 0)),
+        timed(onMain, at(1, 5)),
+        timed(onFirst, at(1, 15)),
+        timed(back, at(1, 25)),
+        timed(detached, at(1, 45)),
+      ]);
+      // The linked worktree's own reflog answers, while the main checkout is on main.
+      rollout(codex, linked, 'linked', [timed(META, at(1, 35)), timed(CONTEXT, at(1, 35)), timed(before, at(1, 35))]);
+
+      const body = await usage(daemon, root);
+      assert.deepEqual(taskRecords(body), [['epic/01', 'First', 1], ['epic/02', 'Second', 1]]);
+      assert.equal(available(body.unassigned).records, 4);
+      assert.deepEqual(
+        stored(daemon).map((row) => [row.natural_key, row.branch, row.branch_source]),
+        [
+          ['switching:33', null, null],
+          ['switching:42', 'main', 'reflog'],
+          ['switching:51', 'feat/first', 'reflog'],
+          ['switching:58', 'main', 'reflog'],
+          ['linked:33', 'feat/second', 'reflog'],
+          // A detached HEAD is no branch.
+          ['switching:65', null, null],
+        ],
+      );
+    });
   });
 });

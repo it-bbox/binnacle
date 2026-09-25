@@ -82,8 +82,8 @@ export type Store = {
   forgetCursors(prefix: string): void;
   /** Stores the records a file gave and moves its cursor, together or not at all. A record already stored is left as it was. */
   ingest(cursor: IngestCursor, records: Ingested[]): void;
-  /** A project's records of one harness from `since` on, an ISO timestamp. */
-  usage(projectPath: string, harness: Harness, since: string): StoredUsage[];
+  /** A project's records, of every harness, from `since` on, an ISO timestamp. */
+  usage(projectPath: string, since: string): StoredUsage[];
   /** How many of a project's records of one harness there are, and how many report any token count. */
   usageCounts(projectPath: string, harness: Harness): { records: number; withTokens: number };
   close(): void;
@@ -216,7 +216,7 @@ export function openStore(home: string): Store {
   const selectUsage = db.prepare(`
     select harness, natural_key, session_id, subagent_id, timestamp, cwd, branch, branch_source, provider, model, provenance,
       input, cached_input, cache_creation, output, reasoning
-    from ingested_record where project_path = ? and harness = ? and timestamp >= ?
+    from ingested_record where project_path = ? and timestamp >= ?
   `);
   const countUsage = db.prepare(`
     select count(*) as records,
@@ -316,8 +316,8 @@ export function openStore(home: string): Store {
         throw error;
       }
     },
-    usage: (projectPath, harness, since) =>
-      selectUsage.all(projectPath, harness, since).map((row) => ({
+    usage: (projectPath, since) =>
+      selectUsage.all(projectPath, since).map((row) => ({
         harness: String(row.harness) as Harness,
         naturalKey: String(row.natural_key),
         sessionId: String(row.session_id),

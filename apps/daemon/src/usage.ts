@@ -1,10 +1,10 @@
 import { closeSync, openSync, readdirSync, readSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { setImmediate, setTimeout } from 'node:timers/promises';
-import { readClaudeCode, readDefaultBranch, readWorktrees, type Tree } from '@binnacle/adapters';
+import { branchAt, readClaudeCode, readCodex, readDefaultBranch, readHeadHistory, readWorktrees, type HeadHistory, type Tree } from '@binnacle/adapters';
 import type { ImportWindow, ObservedRun, ProjectManifest, TrackerTask } from '@binnacle/core';
-import { magnitude, observedRuns, sum, type Harness, type RunRecord, type Totals } from '@binnacle/telemetry';
-import { resolveGitTimeout } from './home.ts';
+import { magnitude, observedRuns, sum, type Harness, type RunRecord, type Totals, type UsageRecord } from '@binnacle/telemetry';
+import { resolveGitTimeout, type ArtifactRoots } from './home.ts';
 import type { OperationContext } from './operations.ts';
 import { containingEntry, readRegistry } from './registry.ts';
 import { limited, readTracker, trackerUnavailable, type Unavailable } from './snapshot.ts';
@@ -17,6 +17,15 @@ export const DEFAULT_WINDOW_DAYS = 90;
 /** How long a call waits for its project's ingest before answering from what is stored. */
 export const INGEST_BUDGET_MS = 1000;
 
+/** The harnesses Binnacle has an adapter for, in the order the snapshot lists them, with their names and artifact roots. */
+const HARNESSES: { harness: Harness; name: string; root: keyof ArtifactRoots }[] = [
+  { harness: 'claude-code', name: 'Claude Code', root: 'claudeCode' },
+  { harness: 'codex', name: 'Codex', root: 'codex' },
+];
+
+/** Per harness, why one of its files could not be read, if one could not. */
+type Failures = Record<Harness, string | null>;
+
 /**
  * The daemon's ingests: one at a time on this machine, each queued behind the one before,
  * and one queued or running per project, which a call under the same window waits for
@@ -25,7 +34,7 @@ export const INGEST_BUDGET_MS = 1000;
 export type Importer = {
   budgetMs: number;
   queue: Promise<void>;
-  running: Map<string, { run: Promise<string | null>; window: ImportWindow }>;
+  running: Map<string, { run: Promise<Failures>; window: ImportWindow }>;
   /** Set when the daemon stops: a running ingest ends before its next file. */
   stopped: boolean;
 };
@@ -72,8 +81,8 @@ export type Usage = {
 };
 
 /**
- * Reads what is new in the Claude Code artifacts of `projectPath`, for as long as the time
- * budget allows, and answers the snapshot's `usage` section from everything stored,
+ * Reads what is new in the Claude Code and Codex artifacts of `projectPath`, for as long as
+ * the time budget allows, and answers the snapshot's `usage` section from everything stored,
  * attributed to `tasks`, the tracker's current Tasks, or unavailable with why they cannot
  * be read. What the budget does not cover goes on in the background. "Today" and "the last
  * seven days" are calendar days in the daemon's local time zone.
@@ -84,9 +93,9 @@ export async function usage(
   manifest: ProjectManifest | null,
   tasks: TrackerTask[] | Unavailable,
 ): Promise<Usage> {
-  const { importing, failure, checkouts } = await ingested(context, projectPath, manifest);
+  const { importing, failures, checkouts } = await ingested(context, projectPath, manifest);
 
-  const week = context.store.usage(projectPath, 'claude-code', localMidnight(6).toISOString());
+  const week = context.store.usage(projectPath, localMidnight(6).toISOString());
   const since = localMidnight(0).toISOString();
   const today = week.filter((record) => record.timestamp >= since);
   const attributed = Array.isArray(tasks)
@@ -104,7 +113,7 @@ export async function usage(
     last7Days: sum(week),
     byModel: limited(byModel),
     ...attributed,
-    harnesses: [level(context, projectPath, failure, importing.incomplete)],
+    harnesses: HARNESSES.map((harness) => level(context, projectPath, harness, failures?.[harness.harness] ?? null, importing.incomplete)),
   };
 }
 
@@ -146,7 +155,7 @@ export async function usageGet(
   }
 
   // Since the earliest timestamp there is: every record stored, whatever the window is now.
-  const records = context.store.usage(projectPath, 'claude-code', '');
+  const records = context.store.usage(projectPath, '');
   if (!Array.isArray(tasks)) return { importing, totals: sum(records), tasks, unassigned: tasks };
   const attributed = await runs(records, projectPath, tasks, manifest?.tracker.provider !== 'local', checkouts);
   if (!found) return { importing, totals: sum(records), ...byTask(attributed, tasks) };
@@ -164,13 +173,14 @@ export async function usageGet(
 /**
  * Starts the project's ingest, or joins the one already running under the same window, and
  * waits for it up to the budget: whether it is still incomplete, the local date its window
- * starts, why a file could not be read if one could not, and the project's checkouts.
+ * starts, why one of each harness's files could not be read, null while it is still
+ * incomplete, and the project's checkouts.
  */
 async function ingested(
   context: OperationContext,
   projectPath: string,
   manifest: ProjectManifest | null,
-): Promise<{ importing: Usage['importing']; failure: string | null; checkouts: Checkouts }> {
+): Promise<{ importing: Usage['importing']; failures: Failures | null; checkouts: Checkouts }> {
   const window = windowOf(manifest);
   const checkouts = await projectCheckouts(projectPath);
   const { running, budgetMs } = context.importer;
@@ -182,7 +192,7 @@ async function ingested(
   const incomplete = running.get(projectPath)?.run === run;
   return {
     importing: { incomplete, windowStart: window === 'all' ? null : localDate(localMidnight(window - 1)) },
-    failure: incomplete ? null : await run,
+    failures: incomplete ? null : await run,
     checkouts,
   };
 }
@@ -232,35 +242,51 @@ export async function projectCheckouts(projectPath: string): Promise<Checkouts> 
   return { roots, linked: roots.filter((root) => root !== own).map((root) => join(root.path, inside)) };
 }
 
-function level(context: OperationContext, projectPath: string, failure: string | null, incomplete: boolean): HarnessLevel {
-  if (failure !== null) return { harness: 'claude-code', level: 1, reason: failure };
-  const { records, withTokens } = context.store.usageCounts(projectPath, 'claude-code');
-  if (withTokens > 0) return { harness: 'claude-code', level: 3, reason: null };
-  if (records > 0) return { harness: 'claude-code', level: 2, reason: null };
-  if (incomplete) return { harness: 'claude-code', level: null, reason: 'The import of this project has not reached a record yet.' };
-  return { harness: 'claude-code', level: null, reason: `No Claude Code session of this project was found under ${context.runtime.artifacts.claudeCode}.` };
+function level(
+  context: OperationContext,
+  projectPath: string,
+  { harness, name, root }: (typeof HARNESSES)[number],
+  failure: string | null,
+  incomplete: boolean,
+): HarnessLevel {
+  if (failure !== null) return { harness, level: 1, reason: failure };
+  const { records, withTokens } = context.store.usageCounts(projectPath, harness);
+  if (withTokens > 0) return { harness, level: 3, reason: null };
+  if (records > 0) return { harness, level: 2, reason: null };
+  if (incomplete) return { harness, level: null, reason: 'The import of this project has not reached a record yet.' };
+  return { harness, level: null, reason: `No ${name} session of this project was found under ${context.runtime.artifacts[root]}.` };
 }
 
 const windowOf = (manifest: ProjectManifest | null): ImportWindow => manifest?.telemetry.import.windowDays ?? DEFAULT_WINDOW_DAYS;
 
 /**
  * Queues an ingest of the project's artifacts behind the machine's others and returns it,
- * settling with why one of its files could not be read, if one could not. Which files have
- * anything to read is decided now, so a project with nothing new settles at once. `linked` is
- * the project's directory in each of its linked worktrees (`projectCheckouts`).
+ * settling with why one of each harness's files could not be read, if one could not. Which
+ * files have anything to read is decided now, so a project with nothing new settles at once.
+ * `linked` is the project's directory in each of its linked worktrees (`projectCheckouts`).
  */
-export function startIngest(context: OperationContext, projectPath: string, manifest: ProjectManifest | null, linked: string[]): Promise<string | null> {
+export function startIngest(context: OperationContext, projectPath: string, manifest: ProjectManifest | null, linked: string[]): Promise<Failures> {
   const window = windowOf(manifest);
-  const { files, failures } = claudeCodeSessions(context.runtime.artifacts.claudeCode, [projectPath, ...linked]);
-  const pending = files.filter((path) => {
-    try {
-      return readPosition(context.store.cursor(path), statSync(path).size, window) !== null;
-    } catch (error) {
-      failures.push(unreadable(path, error));
-      return false;
+  const directories = [projectPath, ...linked].map((path) => ({ path }));
+  const { artifacts } = context.runtime;
+  const found = { 'claude-code': claudeCodeSessions(artifacts.claudeCode, [projectPath, ...linked]), codex: codexSessions(artifacts.codex) };
+  const failures = { 'claude-code': found['claude-code'].failures, codex: found.codex.failures };
+  const first = (): Failures => ({ 'claude-code': failures['claude-code'][0] ?? null, codex: failures.codex[0] ?? null });
+
+  const pending: { path: string; harness: Harness }[] = [];
+  for (const { harness } of HARNESSES) {
+    for (const path of found[harness].files) {
+      try {
+        if (readPosition(context.store.cursor(path), statSync(path).size, window) === null) continue;
+        // A rollout's name says nothing of where it ran; its first line does.
+        if (harness === 'codex' && !containingEntry(rolloutCwd(path) ?? '', directories)) continue;
+        pending.push({ path, harness });
+      } catch (error) {
+        failures[harness].push(unreadable(path, error));
+      }
     }
-  });
-  if (pending.length === 0) return Promise.resolve(failures[0] ?? null);
+  }
+  if (pending.length === 0) return Promise.resolve(first());
 
   const { importer } = context;
   const run = importer.queue
@@ -270,15 +296,15 @@ export function startIngest(context: OperationContext, projectPath: string, mani
         ...readRegistry(context.home).map((entry) => ({ path: entry.path, project: entry.path })),
         ...linked.map((path) => ({ path, project: projectPath })),
       ];
-      for (const path of pending) {
+      for (const file of pending) {
         // The yield between files is what lets a waiting call answer when its budget runs out.
         // ponytail: a single file is read in one go; read it in chunks if one ever outlasts the budget.
         await setImmediate();
         if (importer.stopped) break;
-        const failure = ingestFile(context, path, window, places);
-        if (failure) failures.push(failure);
+        const failure = await ingestFile(context, file, window, places);
+        if (failure) failures[file.harness].push(failure);
       }
-      return failures[0] ?? null;
+      return first();
     })
     .finally(() => {
       if (importer.running.get(projectPath)?.run === run) importer.running.delete(projectPath);
@@ -330,6 +356,48 @@ export function claudeCodeSessions(root: string, directoriesOfProject: string[])
   return { files, failures };
 }
 
+/** Every rollout under Codex's `root`, which files them by the day each session started, and why the root could not be listed. */
+export function codexSessions(root: string): { files: string[]; failures: string[] } {
+  try {
+    const files = readdirSync(root, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.jsonl'))
+      .map((entry) => join(entry.parentPath, entry.name));
+    return { files, failures: [] };
+  } catch (error) {
+    return { files: [], failures: (error as NodeJS.ErrnoException).code === 'ENOENT' ? [] : [unreadable(root, error)] };
+  }
+}
+
+/**
+ * The `cwd` a rollout's first line, its `session_meta`, names; null when it names none, or
+ * the line cannot be read yet. Only that line is read.
+ *
+ * ponytail: the first line of a rollout of no registered project is read again by every call
+ * that finds it has grown; remember each rollout's `cwd` if that ever costs.
+ */
+function rolloutCwd(path: string): string | null {
+  const fd = openSync(path, 'r');
+  try {
+    const chunks: Buffer[] = [];
+    const chunk = Buffer.alloc(64 * 1024);
+    for (let position = 0; ; ) {
+      const read = readSync(fd, chunk, 0, chunk.length, position);
+      const end = chunk.subarray(0, read).indexOf(0x0a);
+      chunks.push(Buffer.from(chunk.subarray(0, end === -1 ? read : end)));
+      if (end !== -1 || read === 0) break;
+      position += read;
+    }
+    const meta: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    const payload = (meta as { type?: unknown; payload?: { cwd?: unknown } } | null)?.type === 'session_meta' ? (meta as { payload?: { cwd?: unknown } }).payload : null;
+    return typeof payload?.cwd === 'string' ? payload.cwd : null;
+  } catch {
+    // A first line that is not JSON yet is still being written.
+    return null;
+  } finally {
+    closeSync(fd);
+  }
+}
+
 /**
  * Where to read a file of `size` bytes from, or null when it has nothing new. A file that
  * shrank, or a window wider than the one its cursor was read under, is read from the
@@ -348,14 +416,20 @@ const wider = (window: ImportWindow, than: ImportWindow): boolean => than !== 'a
  * if it could not. Its records and its cursor commit together; a failing line stops the
  * file just before it, and the next call tries it again. A record whose `cwd` lies in no
  * registered project, nor in a linked worktree of the one being read, is never stored, and
- * neither is one older than the window.
+ * neither is one older than the window. A record whose harness wrote no branch gets the
+ * reflog's, now, while the reflog still says (ADR-0028).
  *
  * ponytail: a record of another registered project found here is stored under that
  * project, but read under this one's window. That project's own ingest re-reads the file
  * when its window is wider, so nothing is lost, but two such projects with different
  * windows take turns re-reading the files they share.
  */
-function ingestFile(context: OperationContext, path: string, window: ImportWindow, places: { path: string; project: string }[]): string | null {
+async function ingestFile(
+  context: OperationContext,
+  { path, harness }: { path: string; harness: Harness },
+  window: ImportWindow,
+  places: { path: string; project: string }[],
+): Promise<string | null> {
   let size: number;
   let from: { offset: number; line: number } | null;
   let bytes: Buffer;
@@ -364,6 +438,9 @@ function ingestFile(context: OperationContext, path: string, window: ImportWindo
     size = statSync(path).size;
     from = readPosition(context.store.cursor(path), size, window);
     if (from === null) return null;
+    // ponytail: a rollout is read whole whenever it has grown, since its differences need the
+    // totals before them; keep the reader's running totals on the cursor if rollouts outgrow that.
+    if (harness === 'codex') from = { offset: 0, line: 0 };
     bytes = readFrom(path, from.offset, size);
   } catch (error) {
     // A file that vanished or cannot be opened is reported, never a failed snapshot.
@@ -371,14 +448,28 @@ function ingestFile(context: OperationContext, path: string, window: ImportWindo
   }
 
   const windowStart = window === 'all' ? '' : localMidnight(window - 1).toISOString();
-  const reading = readClaudeCode(bytes, from);
+  const reading = harness === 'codex' ? readCodex(bytes) : readClaudeCode(bytes, from);
   const records: Ingested[] = [];
+  const histories = new Map<string, Promise<HeadHistory | null>>();
   for (const record of reading.records) {
     const project = containingEntry(record.cwd, places)?.project;
-    if (project && record.timestamp >= windowStart) records.push({ record, projectPath: project, sourceRef: path });
+    if (project && record.timestamp >= windowStart) records.push({ record: await withBranch(record, histories), projectPath: project, sourceRef: path });
   }
   context.store.ingest({ path, size, offset: reading.stop.offset, line: reading.stop.line, windowDays: window }, records);
   return reading.failure ? `${path} could not be read at line ${reading.failure.line}: ${reading.failure.reason}.` : null;
+}
+
+/**
+ * `record`, with the branch the `HEAD` reflog of the checkout its `cwd` names was on at its
+ * timestamp where its harness recorded none; as it was when the reflog has no answer.
+ * `histories` holds each `cwd`'s reflog for the rest of the file.
+ */
+async function withBranch(record: UsageRecord, histories: Map<string, Promise<HeadHistory | null>>): Promise<UsageRecord> {
+  if (record.branch !== null) return record;
+  if (!histories.has(record.cwd)) histories.set(record.cwd, readHeadHistory(record.cwd, resolveGitTimeout()));
+  const history = await histories.get(record.cwd)!;
+  const name = history && branchAt(history, Date.parse(record.timestamp));
+  return name ? { ...record, branch: { name, source: 'reflog' } } : record;
 }
 
 const unreadable = (path: string, error: unknown): string => `${path} could not be read (${(error as NodeJS.ErrnoException).code ?? 'error'}).`;

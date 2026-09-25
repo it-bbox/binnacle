@@ -8,7 +8,7 @@ import { branchTask, type ObservedRun, type TrackerTask } from '@binnacle/core';
 /** ADR-0007: a value says where it came from, and nothing is ever invented to fill a gap. */
 export type Provenance = 'measured' | 'provider_reported' | 'calculated' | 'estimated';
 
-export type Harness = 'claude-code';
+export type Harness = 'claude-code' | 'codex';
 
 export const TOKEN_FIELDS = ['input', 'cachedInput', 'cacheCreation', 'output', 'reasoning'] as const;
 /**
@@ -22,7 +22,7 @@ export const SUBSET_OF: Partial<Record<TokenField, TokenField>> = { reasoning: '
 /** One call to a model, as a harness recorded it: metadata and token counts, never content. */
 export type UsageRecord = {
   harness: Harness;
-  /** Unique within the harness: Claude Code's message id. */
+  /** Unique within the harness: Claude Code's message id; Codex's session id and record ordinal. */
   naturalKey: string;
   sessionId: string;
   timestamp: string;

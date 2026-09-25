@@ -26,5 +26,5 @@ export { operations, type Operation, type OperationContext, type ProjectStatus }
 export { type ProjectRow } from './store.ts';
 export { readTracker } from './snapshot.ts';
 export { containingEntry } from './registry.ts';
-export { claudeCodeSessions, DEFAULT_WINDOW_DAYS, projectCheckouts } from './usage.ts';
+export { claudeCodeSessions, codexSessions, DEFAULT_WINDOW_DAYS, projectCheckouts } from './usage.ts';
 export { packageVersion } from './version.ts';

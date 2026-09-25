@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { accessSync, appendFileSync, constants, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { accessSync, appendFileSync, constants, createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, delimiter, dirname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -8,6 +8,7 @@ import { readGitFacts, workingTree, type GitRemote } from '@binnacle/adapters';
 import { instructionSets, remoteLocation, TASK_STATES, type ImportWindow, type ProjectManifest, type TrackerProvider } from '@binnacle/core';
 import {
   claudeCodeSessions,
+  codexSessions,
   containingEntry,
   credentialsKey,
   credentialsPath,
@@ -286,9 +287,7 @@ const HISTORIES: { name: string; files(directories: string[]): string[]; cwd(rec
   },
   {
     name: 'Codex',
-    // ponytail: the daemon's rule for this root, resolved here until ticket 05 of the telemetry
-    // spec puts it into the daemon's artifact roots; then use `resolveArtifactRoots().codex`.
-    files: () => jsonlFilesUnder(join(process.env.CODEX_HOME?.trim() || join(homedir(), '.codex'), 'sessions')),
+    files: () => codexSessions(resolveArtifactRoots().codex).files,
     cwd: (record) => (record.type === 'session_meta' && isRecord(record.payload) ? record.payload.cwd : undefined),
   },
 ];
@@ -347,16 +346,6 @@ async function sessionStart(path: string, cwdOf: (record: Record<string, unknown
   } finally {
     lines.close();
     input.destroy();
-  }
-}
-
-function jsonlFilesUnder(directory: string): string[] {
-  try {
-    return readdirSync(directory, { recursive: true, withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.jsonl'))
-      .map((entry) => join(entry.parentPath, entry.name));
-  } catch {
-    return [];
   }
 }
 

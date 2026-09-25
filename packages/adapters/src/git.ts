@@ -8,7 +8,7 @@ import type { Tree } from './tree.ts';
  * than by care:
  *
  * - only inspecting commands run — `rev-parse`, `symbolic-ref` without a new value,
- *   `worktree list`, `status`, `remote -v`, `log`, `show`, `ls-tree`,
+ *   `worktree list`, `status`, `remote -v`, `log` (the reflog's too), `show`, `ls-tree`,
  *   `merge-base --is-ancestor` — and nothing that fetches, writes, or changes config or refs;
  * - a revision is only ever passed as a commit hash, never as caller text that git could
  *   read as an option, and a caller's path only after `--` as a `:(literal)` pathspec;
@@ -138,6 +138,58 @@ export async function readDefaultBranch(cwd: string, timeoutMs: number): Promise
     if (isGitUnavailable(error)) return null;
     throw error;
   }
+}
+
+/**
+ * What the `HEAD` reflog of one checkout says about the branches it was on: when its oldest
+ * entry was written, each `checkout` or `switch` it records, oldest first, with the branch it
+ * left, null when HEAD was detached, and the branch HEAD is on now, null when detached. Times
+ * are in milliseconds.
+ */
+export type HeadHistory = { since: number; switches: { at: number; from: string | null }[]; current: string | null };
+
+/**
+ * The `HEAD` reflog of the checkout `cwd` is in, a linked worktree's own included. Null
+ * whenever Git cannot say, or the reflog is empty.
+ */
+export async function readHeadHistory(cwd: string, timeoutMs: number): Promise<HeadHistory | null> {
+  if (!statSync(cwd, { throwIfNoEntry: false })?.isDirectory()) return null;
+  try {
+    const [log, head] = await Promise.all([
+      git(cwd, timeoutMs, ['log', '--walk-reflogs', '--date=unix', '--format=%gd%x00%gs', 'HEAD']),
+      git(cwd, timeoutMs, ['symbolic-ref', '--quiet', '--short', 'HEAD']),
+    ]);
+    if (log.code !== 0) return null;
+    // Newest first. `%gd` is `HEAD@{<unix seconds>}` with `--date=unix`.
+    const entries = log.stdout
+      .split('\n')
+      .filter((line) => line !== '')
+      .map((line) => {
+        const [selector = '', subject = ''] = line.split('\0');
+        return { at: Number(/\{(\d+)\}$/.exec(selector)?.[1]) * 1000, subject };
+      });
+    if (entries.length === 0 || entries.some((entry) => Number.isNaN(entry.at))) return null;
+    // Git names the branch it left by its short name, or by the full hash when HEAD was detached.
+    const switches = entries.flatMap(({ at, subject }) => {
+      const from = /^checkout: moving from (\S+) to \S+$/.exec(subject)?.[1];
+      return from === undefined ? [] : [{ at, from: /^[0-9a-f]{40}([0-9a-f]{24})?$/.test(from) ? null : from }];
+    });
+    return { since: entries.at(-1)!.at, switches: switches.reverse(), current: head.code === 0 ? head.stdout.trim() : null };
+  } catch (error) {
+    if (isGitUnavailable(error)) return null;
+    throw error;
+  }
+}
+
+/**
+ * The branch `history` says its checkout was on at `time`, in milliseconds: the one the next
+ * switch after it left, or the current one when none came after. Null when HEAD was detached,
+ * and before the reflog's oldest entry, where it no longer says.
+ */
+export function branchAt(history: HeadHistory, time: number): string | null {
+  if (time < history.since) return null;
+  const next = history.switches.find((change) => change.at > time);
+  return next ? next.from : history.current;
 }
 
 /**

@@ -91,27 +91,44 @@ function contents(root: string): Map<string, string> {
   return files;
 }
 
-/** A Claude Code session of the repository, from the fixture cut from a real one. */
-function makeArtifacts(root: string): string {
-  const artifacts = realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-write-guarantee-claude-')));
-  roots.push(artifacts);
-  const fixture = readFileSync(join(import.meta.dirname, 'fixtures', 'claude-code', 'grill-on-main.jsonl'), 'utf8');
+/**
+ * A Claude Code session and a Codex rollout of the repository, from the fixtures cut from
+ * real ones. The rollout records no branch, so reading it also reads the repository's reflog.
+ */
+function makeArtifacts(root: string): { claudeCode: string; codex: string } {
+  const artifacts = { claudeCode: temporary('binnacle-write-guarantee-claude-'), codex: temporary('binnacle-write-guarantee-codex-') };
   const now = new Date().toISOString();
-  const lines = fixture
-    .trim()
-    .split('\n')
-    .map((line) => `${JSON.stringify({ ...(JSON.parse(line) as object), cwd: root, timestamp: now })}\n`);
-  write(artifacts, join(root.replace(/[^a-zA-Z0-9]/g, '-'), 'session.jsonl'), lines.join(''));
+  const fixture = (harness: string, name: string, line: (record: Record<string, unknown>) => object): string =>
+    readFileSync(join(import.meta.dirname, 'fixtures', harness, name), 'utf8')
+      .trim()
+      .split('\n')
+      .map((text) => `${JSON.stringify(line(JSON.parse(text) as Record<string, unknown>))}\n`)
+      .join('');
+  write(artifacts.claudeCode, join(root.replace(/[^a-zA-Z0-9]/g, '-'), 'session.jsonl'), fixture('claude-code', 'grill-on-main.jsonl', (record) => ({ ...record, cwd: root, timestamp: now })));
+  write(
+    artifacts.codex,
+    join('2026', '09', '07', 'rollout.jsonl'),
+    fixture('codex', 'tool-calls.jsonl', (record) =>
+      record.type === 'session_meta' ? { ...record, timestamp: now, payload: { ...(record.payload as object), cwd: root } } : { ...record, timestamp: now },
+    ),
+  );
   return artifacts;
+}
+
+function temporary(prefix: string): string {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), prefix)));
+  roots.push(root);
+  return root;
 }
 
 it('no daemon operation changes the working tree, the index or anything else in the repository, or the artifacts it reads', async () => {
   const root = makeRepository();
   const artifacts = makeArtifacts(root);
-  const daemon = await startTestDaemon({ artifacts: { claudeCode: artifacts } });
+  const daemon = await startTestDaemon({ artifacts });
   try {
     const before = contents(root);
-    const artifactsBefore = contents(artifacts);
+    const claudeCodeBefore = contents(artifacts.claudeCode);
+    const codexBefore = contents(artifacts.codex);
     assert.ok(before.has(join('.git', 'index')));
 
     for (const name of Object.keys(operations)) {
@@ -120,11 +137,13 @@ it('no daemon operation changes the working tree, the index or anything else in 
       const result = await daemon.call(name, { path: root, ...INPUT[name] });
       assert.equal(result.status, 200, `${name}: ${JSON.stringify(result.body)}`);
       assert.deepEqual(contents(root), before, `${name} changed the repository`);
-      assert.deepEqual(contents(artifacts), artifactsBefore, `${name} changed the artifacts`);
+      assert.deepEqual(contents(artifacts.claudeCode), claudeCodeBefore, `${name} changed the Claude Code artifacts`);
+      assert.deepEqual(contents(artifacts.codex), codexBefore, `${name} changed the Codex artifacts`);
     }
     // The artifacts were read, not merely present.
     const snapshot = await daemon.call<{ usage: { today: { records: number } } }>('project.snapshot', { path: root });
-    assert.equal(snapshot.body.usage.today.records, 1);
+    // One Claude Code message and ten Codex calls.
+    assert.equal(snapshot.body.usage.today.records, 11);
   } finally {
     await daemon.stop();
   }

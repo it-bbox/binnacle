@@ -1,5 +1,8 @@
-export { readClaudeCode, type ArtifactPosition, type ArtifactReading } from './claude-code.ts';
+export { type ArtifactPosition, type ArtifactReading } from './artifact.ts';
+export { readClaudeCode } from './claude-code.ts';
+export { readCodex } from './codex.ts';
 export {
+  branchAt,
   commitTree,
   hasUncommittedChanges,
   isAncestor,
@@ -9,6 +12,7 @@ export {
   readDefaultBranch,
   readGitFacts,
   readGitLocation,
+  readHeadHistory,
   readLastCommitTimes,
   readLog,
   readWorktrees,
@@ -16,6 +20,7 @@ export {
   type GitFacts,
   type GitLocation,
   type GitRemote,
+  type HeadHistory,
 } from './git.ts';
 export { githubApiRoot, readGitHubTasks } from './github.ts';
 export { gitlabApiRoot, readGitLabTasks } from './gitlab.ts';

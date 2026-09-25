@@ -112,7 +112,7 @@ The normalised record parsed out of a harness artifact, with its provenance: met
 id
 project_path       the registered project its cwd lies in; a record in none is never stored
 harness
-natural_key        unique per harness: Claude Code's message id, Codex's record ordinal
+natural_key        unique per harness: Claude Code's message id, Codex's session id and record ordinal
 session_id
 subagent_id?
 parent_session?
@@ -128,11 +128,11 @@ cached_input?
 cache_creation?
 output?
 reasoning?
-provenance         one per record while its fields share it, as they do on Claude Code; per field where they differ
+provenance         one per record while its fields share it, as they do on both harnesses; per field where they differ
 ingested_at
 ```
 
-Beside it, in the same tier, one cursor per artifact file (`ingest_cursor`): its path, its size, the byte offset and line read to, and the import window it was read under, a number of days or `all`. A file's records and its cursor commit in one transaction, so a call reads only what was appended since the last. A file that shrank, or a window wider than its cursor's, is read again from the start, and the unique key absorbs what was already stored.
+Beside it, in the same tier, one cursor per artifact file (`ingest_cursor`): its path, its size, the byte offset and line read to, and the import window it was read under, a number of days or `all`. A file's records and its cursor commit in one transaction, so a call reads only what was appended since the last. A file that shrank, or a window wider than its cursor's, is read again from the start, and the unique key absorbs what was already stored. A Codex rollout is read again from its start whenever it has grown, because each of its records is the difference from the running total before it.
 
 ## TelemetryRecord
 
