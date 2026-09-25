@@ -19,7 +19,7 @@ function record(minute: number, fields: Partial<RunRecord> = {}): RunRecord {
     timestamp: new Date(NOW.getTime() - (60 - minute) * 60_000).toISOString(),
     cwd: '/repo',
     checkout: '/repo',
-    branch: { name: 'main', source: 'harness' },
+    branch: { name: 'main', source: 'reflog' },
     provider: null,
     model: 'claude-opus-5-5',
     tokens: { input: 1, cachedInput: null, cacheCreation: null, output: 1, reasoning: null },
@@ -30,7 +30,7 @@ function record(minute: number, fields: Partial<RunRecord> = {}): RunRecord {
 
 const tasks = [{ id: 'epic/01', title: 'First', ticket: 'docs/specs/epic/issues/01-first.md' }];
 const attribution = { projectPath: '/repo', defaultBranch: 'main', tasks, remote: false, now: NOW };
-const feat = { name: 'feat/first', source: 'harness' } as const;
+const feat = { name: 'feat/first', source: 'reflog' } as const;
 
 test('a run is one stretch of one session in one checkout on one branch, with the id of its first record', () => {
   const records = [
@@ -38,21 +38,23 @@ test('a run is one stretch of one session in one checkout on one branch, with th
     record(1, { branch: feat }),
     record(2, { branch: feat, cwd: '/repo/apps/cli' }),
     record(3, { branch: feat, checkout: '/repo/.claude/worktrees/x', cwd: '/repo/.claude/worktrees/x' }),
-    record(4, { branch: { name: 'fix/other', source: 'harness' } }),
+    record(4, { branch: { name: 'fix/other', source: 'reflog' } }),
     record(5, { branch: null }),
-    record(6, { sessionId: 'another' }),
+    // A branch the harness wrote is no branch (ADR-0030): it neither credits a Task nor starts a run.
+    record(6, { branch: { name: 'feat/first', source: 'harness' } }),
+    record(7, { sessionId: 'another' }),
   ];
   // Given in any order, they are read in time order.
   const runs = observedRuns([...records].reverse(), attribution);
   assert.deepEqual(
-    runs.map((run) => [run.id, run.records.length, run.branch, run.taskId, run.role]),
+    runs.map((run) => [run.id, run.records.length, run.branch, run.branchSource, run.taskId, run.role]),
     [
-      ['claude-code:msg_001', 1, 'main', null, 'product'],
-      ['claude-code:msg_002', 2, 'feat/first', 'epic/01', 'implementation'],
-      ['claude-code:msg_004', 1, 'feat/first', 'epic/01', 'implementation'],
-      ['claude-code:msg_005', 1, 'fix/other', null, 'unknown'],
-      ['claude-code:msg_006', 1, null, null, 'unknown'],
-      ['claude-code:msg_007', 1, 'main', null, 'product'],
+      ['claude-code:msg_001', 1, 'main', 'reflog', null, 'product'],
+      ['claude-code:msg_002', 2, 'feat/first', 'reflog', 'epic/01', 'implementation'],
+      ['claude-code:msg_004', 1, 'feat/first', 'reflog', 'epic/01', 'implementation'],
+      ['claude-code:msg_005', 1, 'fix/other', 'reflog', null, 'unknown'],
+      ['claude-code:msg_006', 2, null, null, null, 'unknown'],
+      ['claude-code:msg_008', 1, 'main', 'reflog', null, 'product'],
     ],
   );
 
@@ -74,7 +76,7 @@ test('a run is active while its latest record is recent, which is a calculated r
       provider: 'anthropic',
       model: 'latest',
       branch: 'main',
-      branchSource: 'harness',
+      branchSource: 'reflog',
       parentRunId: null,
       startedAt: '2026-09-25T11:00:00.000Z',
       lastActivityAt: '2026-09-25T11:50:00.000Z',

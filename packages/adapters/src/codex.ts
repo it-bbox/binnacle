@@ -18,7 +18,8 @@ type Counts = Record<(typeof COUNTS)[number], number>;
  * `input_tokens` is not known, and counting it twice would be worse than not at all. The
  * model is the one of the turn context in force; the provider is `session_meta`'s. Codex
  * records no branch per call, only the one its session started on (`session_meta.git.branch`),
- * which every record carries as the harness's, for when the reflog cannot say (ADR-0029).
+ * which every record carries as the harness's. It is stored, but attributes nothing: a run's
+ * branch comes from its checkout's reflog, or it has none (ADR-0030).
  *
  * A total that decreases is a failure, not a reset, and so is a token count before the
  * session's meta or without a field the difference needs. A count that repeats the total

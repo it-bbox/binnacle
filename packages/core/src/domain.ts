@@ -100,8 +100,9 @@ export type ObservedRun = {
   /** Its latest record's, null when that record does not state one. */
   provider: string | null;
   model: string | null;
+  /** Its checkout's reflog's, or none: the branch a harness wrote attributes nothing (ADR-0030). */
   branch: string | null;
-  branchSource: 'harness' | 'reflog' | null;
+  branchSource: 'reflog' | null;
   /** The run that started a subagent. */
   parentRunId: string | null;
   startedAt: string;

@@ -620,10 +620,16 @@ function git(cwd: string, ...args: string[]): void {
   execFileSync('git', ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', '-c', 'commit.gpgsign=false', ...args], { cwd, stdio: 'ignore' });
 }
 
-function repository(root: string): string {
-  git(root, 'init', '--quiet', '--initial-branch=main');
-  git(root, 'add', '.');
-  git(root, 'commit', '--quiet', '-m', 'initial');
+/**
+ * Makes `root` a repository whose `HEAD` reflog begins on `main` at `since`, then switches to
+ * each branch at its time, in order. The reflog is where a record's branch comes from; the one
+ * Claude Code wrote attributes nothing (ADR-0030).
+ */
+function repository(root: string, since: string, ...switches: [at: string, branch: string][]): string {
+  gitAt(since, root, 'init', '--quiet', '--initial-branch=main');
+  gitAt(since, root, 'add', '.');
+  gitAt(since, root, 'commit', '--quiet', '-m', 'initial');
+  for (const [time, branch] of switches) gitAt(time, root, 'switch', '--quiet', '-C', branch);
   return root;
 }
 
@@ -665,13 +671,14 @@ describe('Observed runs and Task attribution in the Product Snapshot', () => {
       const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
       ticket(root, 'epic', '01-first.md', 'First');
       ticket(root, 'epic', '02-second.md', 'Second');
+      repository(root, at(2, 0), [at(1, 0), 'feat/first'], [at(1, 1), 'feat/second'], [at(1, 2), 'feat/first'], [at(1, 3), 'main']);
       session(artifacts, root, 'switching', [
-        ...onBranch('feat/first', lines(GRILL, at(1, 0), '-first')),
-        ...onBranch('feat/second', lines(ABORTED, at(1, 1), '-second')),
-        ...onBranch('feat/first', lines(GRILL, at(1, 2), '-back')),
-        ...onBranch('main', lines(ABORTED, at(1, 3), '-main')),
+        ...lines(GRILL, at(1, 0), '-first'),
+        ...lines(ABORTED, at(1, 1), '-second'),
+        ...lines(GRILL, at(1, 2), '-back'),
+        ...lines(ABORTED, at(1, 3), '-main'),
         // Outside the last seven days.
-        ...onBranch('feat/first', lines(GRILL, at(7, 0), '-old')),
+        ...lines(GRILL, at(7, 0), '-old'),
       ]);
 
       const body = await usage(daemon, root);
@@ -684,16 +691,31 @@ describe('Observed runs and Task attribution in the Product Snapshot', () => {
     });
   });
 
-  it('attributes a run in a worktree that no longer exists by the branch Claude Code recorded', async () => {
+  it('gives no branch to a worktree that no longer exists, whether Claude Code wrote main or a Task’s branch there, so its runs are unknown and unassigned', async () => {
     await withDaemon(async (daemon, artifacts) => {
       const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
       ticket(root, 'epic', '01-first.md', 'First');
-      // Where Claude Code puts its worktrees, removed after the merge with its branch.
-      session(artifacts, join(root, '.claude', 'worktrees', 'agent-gone'), 'gone', onBranch('feat/first', lines(GRILL, daysAgo(0))));
+      repository(root, at(1, 0));
+      // Where Claude Code puts its worktrees, removed after their merges, before Binnacle read them.
+      const removed = (name: string): string => join(root, '.claude', 'worktrees', name);
+      session(artifacts, removed('agent-main'), 'wrote-main', onBranch('main', lines(GRILL, at(0, 0), '-main')));
+      session(artifacts, removed('agent-ticket'), 'wrote-ticket', onBranch('feat/first', lines(GRILL, at(0, 1), '-ticket')));
+      await register(daemon, root);
 
-      const body = await usage(daemon, root);
-      assert.deepEqual(taskRecords(body), [['epic/01', 'First', 1]]);
-      assert.deepEqual(body.unassigned, NO_RECORDS);
+      const body = await usageGet<ProjectUsage>(daemon, root);
+      assert.deepEqual(taskRecords(body), []);
+      assert.equal(available(body.unassigned).records, 2);
+      const byRole = available(body.byRole);
+      assert.deepEqual([byRole.product.records, byRole.implementation.records, byRole.unknown.records], [0, 0, 2]);
+      assert.deepEqual((await usageGet<TaskUsage>(daemon, root, 'epic/01')).runs, { items: [], remainder: 0 });
+      // Stored as Claude Code wrote it: the rule applies when runs are read.
+      assert.deepEqual(
+        stored(daemon).map((row) => [row.natural_key, row.branch, row.branch_source]),
+        [
+          ['msg_011CfLMEGjvuTXtzfiK6XfsV-main', 'main', 'harness'],
+          ['msg_011CfLMEGjvuTXtzfiK6XfsV-ticket', 'feat/first', 'harness'],
+        ],
+      );
     });
   });
 
@@ -702,13 +724,13 @@ describe('Observed runs and Task attribution in the Product Snapshot', () => {
       const parent = temporary('binnacle-usage-');
       const root = makeProject(join(parent, 'project'), LOCAL_TRACKER);
       ticket(root, 'epic', '01-first.md', 'First');
-      repository(root);
+      repository(root, at(1, 0));
       const outside = join(parent, 'elsewhere');
-      git(root, 'worktree', 'add', '--quiet', '-b', 'feat/first', outside);
-      session(artifacts, outside, 'outside', onBranch('feat/first', lines(GRILL, daysAgo(0), '-outside')));
-      session(artifacts, join(outside, 'apps'), 'nested', onBranch('feat/first', lines(ABORTED, daysAgo(0), '-nested')));
+      gitAt(at(1, 10), root, 'worktree', 'add', '--quiet', '-b', 'feat/first', outside);
+      session(artifacts, outside, 'outside', lines(GRILL, daysAgo(0), '-outside'));
+      session(artifacts, join(outside, 'docs'), 'nested', lines(ABORTED, daysAgo(0), '-nested'));
       // A directory beside it that is no worktree of the project.
-      session(artifacts, join(parent, 'unrelated'), 'unrelated', onBranch('feat/first', lines(GRILL, daysAgo(0), '-unrelated')));
+      session(artifacts, join(parent, 'unrelated'), 'unrelated', lines(GRILL, daysAgo(0), '-unrelated'));
 
       const body = await usage(daemon, root);
       assert.deepEqual(taskRecords(body), [['epic/01', 'First', 2]]);
@@ -722,11 +744,12 @@ describe('Observed runs and Task attribution in the Product Snapshot', () => {
       ticket(root, 'epic', '01-first.md', 'First');
       ticket(root, 'one', '01-shared.md', 'Shared once');
       ticket(root, 'two', '01-shared.md', 'Shared twice');
+      repository(root, at(1, 0), [at(0, 0), 'feat/shared'], [at(0, 1), 'feat/nothing'], [at(0, 2), 'main'], [at(0, 3), 'feat/first']);
       session(artifacts, root, 'several', [
-        ...onBranch('feat/shared', lines(GRILL, at(0, 0), '-shared')),
-        ...onBranch('feat/nothing', lines(GRILL, at(0, 1), '-nothing')),
-        ...onBranch('main', lines(GRILL, at(0, 2), '-main')),
-        ...onBranch('feat/first', lines(ABORTED, at(0, 3), '-first')),
+        ...lines(GRILL, at(0, 0), '-shared'),
+        ...lines(GRILL, at(0, 1), '-nothing'),
+        ...lines(GRILL, at(0, 2), '-main'),
+        ...lines(ABORTED, at(0, 3), '-first'),
       ]);
 
       const body = await usage(daemon, root);
@@ -741,7 +764,8 @@ describe('Observed runs and Task attribution in the Product Snapshot', () => {
       const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
       const numbers = Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, '0'));
       for (const number of numbers) ticket(root, 'epic', `${number}-task-${number}.md`, `Task ${number}`);
-      session(artifacts, root, 'many', numbers.flatMap((number, index) => onBranch(`feat/task-${number}`, lines(GRILL, at(0, index), `-${number}`))));
+      repository(root, at(1, 0), ...numbers.map((number, index): [string, string] => [at(0, index), `feat/task-${number}`]));
+      session(artifacts, root, 'many', numbers.flatMap((number, index) => lines(GRILL, at(0, index), `-${number}`)));
 
       const tasks = available((await usage(daemon, root)).tasks);
       // Equal totals go by id.
@@ -755,12 +779,9 @@ describe('Observed runs and Task attribution in the Product Snapshot', () => {
     try {
       await withDaemon(async (daemon, artifacts) => {
         const root = makeProject(temporary('binnacle-usage-'), githubTracker(github.base));
-        session(artifacts, root, 'issues', [
-          ...onBranch('feat/7-seven', lines(GRILL, at(0, 0), '-seven')),
-          // Renamed since: the number still names the issue.
-          ...onBranch('feat/7-renamed', lines(GRILL, at(0, 1), '-renamed')),
-          ...onBranch('feat/8-no-such-issue', lines(GRILL, at(0, 2), '-eight')),
-        ]);
+        // The issue was renamed between the first two branches: its number still names it.
+        repository(root, at(1, 0), [at(0, 0), 'feat/7-seven'], [at(0, 1), 'feat/7-renamed'], [at(0, 2), 'feat/8-no-such-issue']);
+        session(artifacts, root, 'issues', [...lines(GRILL, at(0, 0), '-seven'), ...lines(GRILL, at(0, 1), '-renamed'), ...lines(GRILL, at(0, 2), '-eight')]);
 
         const body = await usage(daemon, root);
         assert.deepEqual(taskRecords(body), [['#7', 'Seven', 2]]);
@@ -794,22 +815,22 @@ describe('Observed runs and Task attribution in the Product Snapshot', () => {
 
   it('gives a run on the default branch the product role, on a Task’s branch implementation, and unknown otherwise', async () => {
     await withDaemon(async (daemon, artifacts) => {
+      // One record on the first branch, two on the second, four and eight on the others.
+      const branches = ['trunk', 'main', 'feat/first', 'feat/nothing'];
+      const switches = branches.map((branch, index): [string, string] => [at(1, index), branch]);
       const trunk = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
       ticket(trunk, 'epic', '01-first.md', 'First');
-      repository(trunk);
+      repository(trunk, at(2, 0), ...switches);
       // `origin/HEAD` names the default branch, here not `main`.
       git(trunk, 'update-ref', 'refs/remotes/origin/trunk', 'HEAD');
       git(trunk, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/trunk');
       const plain = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
       ticket(plain, 'epic', '01-first.md', 'First');
-      repository(plain);
+      repository(plain, at(2, 0), ...switches);
 
-      // One record on the first branch, two on the second, four and eight on the others. They
-      // are dated before either repository's reflog begins, so the branch Claude Code recorded decides.
-      const branches = ['trunk', 'main', 'feat/first', 'feat/nothing'];
       const roles = async (root: string): Promise<Record<string, number>> => {
-        const records = branches.flatMap((branch, index) =>
-          Array.from({ length: 2 ** index }, (_, copy) => onBranch(branch, lines(ABORTED, at(1, index), `-${index}-${copy}-${root}`))).flat(),
+        const records = switches.flatMap(([time], index) =>
+          Array.from({ length: 2 ** index }, (_, copy) => lines(ABORTED, time, `-${index}-${copy}-${root}`)).flat(),
         );
         session(artifacts, root, 'roles', records);
         await register(daemon, root);
@@ -857,11 +878,12 @@ describe('usage.get', () => {
       const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
       ticket(root, 'epic', '01-first.md', 'First');
       ticket(root, 'epic', '02-second.md', 'Second');
+      repository(root, at(21, 0), [at(20, 0), 'feat/first'], [at(0, 0), 'feat/second'], [at(0, 1), 'main']);
       session(artifacts, root, 'window', [
         // Older than the snapshot's week, still in the window.
-        ...onBranch('feat/first', lines(GRILL, at(20, 0), '-old')),
-        ...onBranch('feat/second', lines(ABORTED, at(0, 0), '-second')),
-        ...onBranch('main', lines(GRILL, at(0, 1), '-main')),
+        ...lines(GRILL, at(20, 0), '-old'),
+        ...lines(ABORTED, at(0, 0), '-second'),
+        ...lines(GRILL, at(0, 1), '-main'),
       ]);
       await register(daemon, root);
 
@@ -880,10 +902,12 @@ describe('usage.get', () => {
       ticket(root, 'epic', '01-first.md', 'First');
       ticket(root, 'epic', '02-second.md', 'Second');
       const recent = new Date(Date.now() - 60_000).toISOString();
+      // On the first Task's branch, but for a minute on the second's.
+      repository(root, at(10, 0), [at(9, 0), 'feat/first'], [at(1, 30), 'feat/second'], [at(1, 31), 'feat/first']);
       // One run that began before the last seven days: its id is still its first record's.
-      session(artifacts, root, 'long', [...onBranch('feat/first', lines(GRILL, at(9, 0), '-nine')), ...onBranch('feat/first', lines(ABORTED, at(1, 0), '-one'))]);
-      session(artifacts, root, 'recent', onBranch('feat/first', lines(GRILL, recent, '-recent')));
-      session(artifacts, root, 'other', onBranch('feat/second', lines(GRILL, at(0, 0), '-other')));
+      session(artifacts, root, 'long', [...lines(GRILL, at(9, 0), '-nine'), ...lines(ABORTED, at(1, 0), '-one')]);
+      session(artifacts, root, 'recent', lines(GRILL, recent, '-recent'));
+      session(artifacts, root, 'other', lines(GRILL, at(1, 30), '-other'));
       await register(daemon, root);
 
       // The id in any form `task.get` takes.
@@ -891,7 +915,7 @@ describe('usage.get', () => {
       assert.deepEqual(body.task, { id: 'epic/01', title: 'First' });
       assert.equal(body.totals.records, 3);
       assert.deepEqual(body.totals.output, reported(2 * 137 + 2));
-      const run = { harness: 'claude-code', provider: null, model: 'claude-opus-5-5', role: 'implementation', branch: 'feat/first', branchSource: 'harness', taskId: 'epic/01', parentRunId: null };
+      const run = { harness: 'claude-code', provider: null, model: 'claude-opus-5-5', role: 'implementation', branch: 'feat/first', branchSource: 'reflog', taskId: 'epic/01', parentRunId: null };
       assert.deepEqual(body.runs, {
         items: [
           { ...run, id: 'claude-code:msg_011CfLMEGjvuTXtzfiK6XfsV-recent', startedAt: recent, lastActivityAt: recent, active: { value: true, provenance: 'calculated' }, totals: GRILL_TOTALS },
@@ -924,10 +948,11 @@ describe('usage.get', () => {
       const numbers = Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, '0'));
       for (const number of numbers) {
         ticket(root, 'epic', `${number}-task-${number}.md`, `Task ${number}`);
-        session(artifacts, root, `task-${number}`, onBranch(`feat/task-${number}`, lines(GRILL, at(1, Number(number)), `-${number}`)));
+        session(artifacts, root, `task-${number}`, lines(GRILL, at(1, Number(number)), `-${number}`));
       }
       // Eleven more runs of the first Task, a session each.
-      for (const number of numbers.slice(1)) session(artifacts, root, `again-${number}`, onBranch('feat/task-01', lines(ABORTED, at(0, Number(number)), `-again-${number}`)));
+      for (const number of numbers.slice(1)) session(artifacts, root, `again-${number}`, lines(ABORTED, at(0, Number(number)), `-again-${number}`));
+      repository(root, at(2, 0), ...numbers.map((number): [string, string] => [at(1, Number(number)), `feat/task-${number}`]), [at(0, 0), 'feat/task-01']);
       await register(daemon, root);
 
       const tasks = available((await usageGet<ProjectUsage>(daemon, root)).tasks);
@@ -950,12 +975,11 @@ describe('usage.get', () => {
       const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
       ticket(root, 'epic', '01-first.md', 'First');
       ticket(root, 'epic', '02-second.md', 'Second');
-      repository(root);
+      repository(root, at(2, 0), [at(1, 0), 'feat/first'], [at(1, 1), 'feat/second']);
       // `origin/HEAD` names the default branch, here the first Task's.
       git(root, 'update-ref', 'refs/remotes/origin/feat/first', 'HEAD');
       git(root, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/feat/first');
-      // Before the reflog begins, so the branch Claude Code recorded decides.
-      session(artifacts, root, 'roles', [...onBranch('feat/first', lines(GRILL, at(1, 0), '-first')), ...onBranch('feat/second', lines(GRILL, at(1, 1), '-second'))]);
+      session(artifacts, root, 'roles', [...lines(GRILL, at(1, 0), '-first'), ...lines(GRILL, at(1, 1), '-second')]);
       await register(daemon, root);
 
       const roles = async (task: string): Promise<[string, string | null][]> =>
@@ -1222,9 +1246,7 @@ function subagent(artifacts: string, parentCwd: string, parentSession: string, c
 
 /** A repository whose reflog began yesterday on `main`, with a linked worktree on `feat/first` under it, where Claude Code puts its own. */
 function repositoryWithWorktree(root: string): string {
-  gitAt(at(1, 0), root, 'init', '--quiet', '--initial-branch=main');
-  gitAt(at(1, 0), root, 'add', '.');
-  gitAt(at(1, 0), root, 'commit', '--quiet', '-m', 'initial');
+  repository(root, at(1, 0));
   const worktree = join(root, '.claude', 'worktrees', `agent-${SUBAGENT_ID}`);
   gitAt(at(1, 10), root, 'worktree', 'add', '--quiet', '-b', 'feat/first', worktree);
   return worktree;
@@ -1235,8 +1257,9 @@ describe('Subagent runs', () => {
     await withDaemon(async (daemon, artifacts) => {
       const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
       ticket(root, 'epic', '01-first.md', 'First');
-      session(artifacts, root, 'parent', onBranch('feat/first', lines(GRILL, at(0, 0), '-parent')));
-      const file = subagent(artifacts, root, 'parent', root, onBranch('feat/first', lines(SUBAGENT, at(0, 1))));
+      repository(root, at(1, 0), [at(1, 10), 'feat/first']);
+      session(artifacts, root, 'parent', lines(GRILL, at(0, 0), '-parent'));
+      const file = subagent(artifacts, root, 'parent', root, lines(SUBAGENT, at(0, 1)));
       assert.match(readFileSync(file, 'utf8'), new RegExp(MARKER));
       await register(daemon, root);
 
@@ -1301,8 +1324,9 @@ describe('The unfinished tail of a Claude Code file', () => {
       async (daemon, artifacts) => {
         const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
         ticket(root, 'epic', '01-first.md', 'First');
-        session(artifacts, root, 'parent', onBranch('feat/first', lines(GRILL, at(0, 0), '-parent')));
-        const records = onBranch('feat/first', lines(SUBAGENT, at(0, 1)));
+        repository(root, at(1, 0), [at(1, 10), 'feat/first']);
+        session(artifacts, root, 'parent', lines(GRILL, at(0, 0), '-parent'));
+        const records = lines(SUBAGENT, at(0, 1));
         // The task and the first two records of its message, which carry the output counted so far.
         const file = subagent(artifacts, root, 'parent', root, records.slice(0, 3));
         await register(daemon, root);
@@ -1316,7 +1340,7 @@ describe('The unfinished tail of a Claude Code file', () => {
         append(records.slice(3));
         assert.deepEqual(await runs(), []);
         // A later message has started, so the one before it is finished.
-        append(onBranch('feat/first', lines(ABORTED, at(0, 2), '-later')).map((line) => ({ ...line, isSidechain: true, agentId: SUBAGENT_ID })));
+        append(lines(ABORTED, at(0, 2), '-later').map((line) => ({ ...line, isSidechain: true, agentId: SUBAGENT_ID })));
         assert.deepEqual(await runs(), [[SUBAGENT_RUN, 1421]]);
 
         // Files unwritten for long enough are finished.
@@ -1334,17 +1358,18 @@ describe('The unfinished tail of a Claude Code file', () => {
 });
 
 describe('Where a record’s branch comes from', () => {
-  it('takes the reflog of the checkout a Claude Code record names over the branch Claude Code wrote', async () => {
+  it('takes a Claude Code record’s branch from the reflog of the checkout it names, never from the branch Claude Code wrote', async () => {
     await withDaemon(async (daemon, artifacts) => {
       const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
       ticket(root, 'epic', '01-first.md', 'First');
       const worktree = repositoryWithWorktree(root);
       session(artifacts, worktree, 'wrong', onBranch('main', lines(GRILL, at(0, 0), '-in-worktree')));
       session(artifacts, root, 'leaked', onBranch('feat/first', lines(GRILL, at(0, 1), '-in-root')));
-      // Older than the reflog, so the branch Claude Code wrote is the only answer.
+      // Older than the reflog, which has no answer: the branch Claude Code wrote is stored, and credits no Task.
       session(artifacts, root, 'older', onBranch('feat/first', lines(ABORTED, at(2, 0), '-older')));
-      await usage(daemon, root);
+      const body = await usage(daemon, root);
 
+      assert.deepEqual(taskRecords(body), [['epic/01', 'First', 1]]);
       assert.deepEqual(
         stored(daemon).map((row) => [row.natural_key, row.branch, row.branch_source]),
         [
@@ -1378,7 +1403,7 @@ describe('Where a record’s branch comes from', () => {
     });
   });
 
-  it('takes the branch a Codex session started on where the reflog has no answer', async () => {
+  it('stores the branch a Codex session started on where the reflog has no answer, and attributes nothing by it', async () => {
     await withDaemon(async (daemon, _artifacts, codex) => {
       const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
       ticket(root, 'epic', '01-first.md', 'First');
@@ -1388,7 +1413,8 @@ describe('Where a record’s branch comes from', () => {
       rollout(codex, root, 'started-on-first', [meta, ...records.slice(1)]);
 
       const body = await usage(daemon, root);
-      assert.deepEqual(taskRecords(body), [['epic/01', 'First', 10]]);
+      assert.deepEqual(taskRecords(body), []);
+      assert.equal(available(body.unassigned).records, 10);
       assert.ok(stored(daemon).every((row) => row.branch === 'feat/first' && row.branch_source === 'harness'));
     });
   });

@@ -87,10 +87,11 @@ export type RunAttribution<T extends Pick<TrackerTask, 'id' | 'title' | 'ticket'
 
 /**
  * Records grouped into observed runs: by harness, session and subagent, in time order, a
- * new run starting wherever the checkout or the branch changes. A run's id is its first
- * record's key, so more records never change it. Its Task is the one its branch maps back
- * to (`branchTask`), none being unassigned; its role follows from the branch. Runs come
- * in the order they started.
+ * new run starting wherever the checkout or the branch changes. A record's branch is the one
+ * its checkout's reflog gave it; one only its harness wrote is no branch (ADR-0030). A run's
+ * id is its first record's key, so more records never change it. Its Task is the one its
+ * branch maps back to (`branchTask`), none being unassigned; its role follows from the
+ * branch. Runs come in the order they started.
  *
  * A subagent's runs name their parent run: the run of the parent session that had started
  * by the subagent's first record. None does when that session has no run among `records`.
@@ -111,7 +112,7 @@ export function observedRuns<R extends RunRecord, T extends Pick<TrackerTask, 'i
       last.sessionId === record.sessionId &&
       last.subagentId === record.subagentId &&
       last.checkout === record.checkout &&
-      last.branch?.name === record.branch?.name;
+      branchOf(last) === branchOf(record);
     if (same) groups.at(-1)!.push(record);
     else groups.push([record]);
   }
@@ -130,7 +131,7 @@ export function observedRuns<R extends RunRecord, T extends Pick<TrackerTask, 'i
   const runs = groups.map((group) => {
     const first = group[0]!;
     const latest = group.at(-1)!;
-    const branch = first.branch?.name ?? null;
+    const branch = branchOf(first);
     const task = branch === null ? null : branchTask(branch, tasks, remote);
     return {
       id: runId(first),
@@ -141,7 +142,7 @@ export function observedRuns<R extends RunRecord, T extends Pick<TrackerTask, 'i
       provider: latest.provider,
       model: latest.model,
       branch,
-      branchSource: first.branch?.source ?? null,
+      branchSource: branch === null ? null : 'reflog',
       parentRunId: first.subagentId === null ? null : parentRun(first),
       startedAt: first.timestamp,
       lastActivityAt: latest.timestamp,
@@ -153,6 +154,9 @@ export function observedRuns<R extends RunRecord, T extends Pick<TrackerTask, 'i
 }
 
 const runId = (first: UsageRecord): string => `${first.harness}:${first.naturalKey}`;
+
+/** A record's branch as runs read it: the reflog's, since one its harness wrote attributes nothing, however long stored (ADR-0030). */
+const branchOf = (record: UsageRecord): string | null => (record.branch?.source === 'reflog' ? record.branch.name : null);
 
 /** Code-unit order, element by element, so the same records give the same runs anywhere. */
 function compare(a: string[], b: string[]): number {

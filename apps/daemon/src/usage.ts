@@ -262,7 +262,9 @@ async function runs(
 ): Promise<(ObservedRun & { records: RunRecord[] })[]> {
   const defaultBranch = (await readDefaultBranch(projectPath, resolveGitTimeout())) ?? 'main';
   // ponytail: a record's checkout is found among the ones that exist now, so a removed
-  // worktree's records read as the registered checkout's; its branch still splits them.
+  // worktree's records read as the registered checkout's. They have no branch (ADR-0030), so
+  // they join a stretch of the same session there only where it has none either, and both
+  // are unassigned; tell removed worktrees apart if a run's checkout is ever shown.
   const withCheckout = records.map((record) => ({ ...record, checkout: containingEntry(record.cwd, checkouts.roots)?.path ?? projectPath }));
   return observedRuns(withCheckout, { projectPath, defaultBranch, tasks, remote, now: new Date() });
 }
@@ -486,9 +488,10 @@ const wider = (window: ImportWindow, than: ImportWindow): boolean => than !== 'a
  * be read, if it could not. Its records and its cursor commit together; a failing line stops the
  * file just before it, and the next call tries it again. A record whose `cwd` lies in no
  * registered project, nor in a linked worktree of the one being read, is never stored, and
- * neither is one older than the window. A record's branch is the reflog's, now, while the
- * reflog still says, and the one its harness wrote otherwise (ADR-0029). A Claude Code file's
- * last message waits until it is finished (`readClaudeCode`).
+ * neither is one older than the window. A record's branch is the reflog's, read now, while
+ * the reflog still says; otherwise the record keeps the one its harness wrote, which
+ * attributes nothing (ADR-0030). A Claude Code file's last message waits until it is
+ * finished (`readClaudeCode`).
  *
  * ponytail: a record of another registered project found here is stored under that
  * project, but read under this one's window. That project's own ingest re-reads the file
@@ -536,9 +539,10 @@ async function ingestFile(
 
 /**
  * `record`, with the branch the `HEAD` reflog of the checkout its `cwd` names was on at its
- * timestamp; with the branch its harness wrote where the reflog has no answer, because the
- * checkout is gone, its reflog does not reach back that far, or HEAD was detached (ADR-0029).
- * `histories` holds each `cwd`'s reflog for the rest of the ingest.
+ * timestamp. Where the reflog has no answer, because the checkout is gone, its reflog does
+ * not reach back that far, or HEAD was detached, the record keeps the branch its harness
+ * wrote, stored as recorded, and has none when runs are read (ADR-0030). `histories` holds
+ * each `cwd`'s reflog for the rest of the ingest.
  */
 async function withBranch(record: UsageRecord, histories: Map<string, Promise<HeadHistory | null>>): Promise<UsageRecord> {
   if (!histories.has(record.cwd)) histories.set(record.cwd, readHeadHistory(record.cwd, resolveGitTimeout()));
