@@ -1,7 +1,7 @@
 import type { Tree } from '@binnacle/adapters';
 import { taskBranch, type ProjectManifest, type TaskState, type TrackerTask } from '@binnacle/core';
 import { OperationError } from './errors.ts';
-import { readTracker } from './snapshot.ts';
+import { cut, readTracker } from './snapshot.ts';
 
 /** In characters: Unicode code points. */
 export const BODY_LIMIT = 8000;
@@ -12,10 +12,11 @@ export const BODY_LIMIT = 8000;
  */
 export type TaskBrief = Pick<TrackerTask, 'id' | 'title' | 'state' | 'triage' | 'ticket' | 'spec'> & {
   /**
-   * Each declared dependency, in the order declared. A dangling one names no known Task: it
-   * has no title or state, and is not met.
+   * Each declared dependency, in the order declared; met when its Task is `DONE`. A dangling one
+   * names no known Task: it has no title or state, and `met` is null, since it is neither met
+   * nor unmet, as the snapshot never counts it as unmet.
    */
-  dependencies: { id: string; title: string | null; state: TaskState | null; met: boolean; dangling: boolean }[];
+  dependencies: { id: string; title: string | null; state: TaskState | null; met: boolean | null; dangling: boolean }[];
   /** The ticket body without its header or comments, cut at `BODY_LIMIT`; `truncated` says whether it was. */
   body: { text: string; truncated: boolean };
   branch: string;
@@ -36,7 +37,6 @@ export async function taskBrief(home: string, tree: Tree, manifest: ProjectManif
   const task = byId.get(normalized(id));
   if (!task) throw new OperationError('task.not_found', `This project's tracker holds no Task ${JSON.stringify(id)}.`, 404);
 
-  const text = Array.from(task.body);
   return {
     id: task.id,
     title: task.title,
@@ -46,9 +46,11 @@ export async function taskBrief(home: string, tree: Tree, manifest: ProjectManif
     spec: task.spec,
     dependencies: task.blockedBy.map((dependency) => {
       const known = byId.get(dependency);
-      return { id: dependency, title: known?.title ?? null, state: known?.state ?? null, met: known?.state === 'DONE', dangling: !known };
+      return known
+        ? { id: dependency, title: known.title, state: known.state, met: known.state === 'DONE', dangling: false }
+        : { id: dependency, title: null, state: null, met: null, dangling: true };
     }),
-    body: { text: text.slice(0, BODY_LIMIT).join(''), truncated: text.length > BODY_LIMIT },
+    body: cut(task.body, BODY_LIMIT),
     branch: taskBranch(task, manifest?.tracker.provider !== 'local'),
   };
 }

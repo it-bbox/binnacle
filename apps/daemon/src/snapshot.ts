@@ -96,17 +96,12 @@ export type Snapshot = {
 export async function snapshot(home: string, projected: Projected, caller: CallerCheckout, diagnostics: Diagnostic[]): Promise<Snapshot> {
   const tree = workingTree(caller.project);
   const { tasks, roadmap, adrs, attention } = await readState(home, tree, projected, diagnostics);
-  // By code point, so that a cut never splits a character in two.
-  const focus = roadmap?.focus == null ? null : Array.from(roadmap.focus);
 
   return {
     project: projected.row,
     checkout: caller.checkout,
     git: caller.git,
-    roadmap: roadmap && {
-      ...roadmap,
-      focus: focus === null ? null : { text: focus.slice(0, FOCUS_LIMIT).join(''), truncated: focus.length > FOCUS_LIMIT },
-    },
+    roadmap: roadmap && { ...roadmap, focus: roadmap.focus == null ? null : cut(roadmap.focus, FOCUS_LIMIT) },
     tasks: tasks && taskSections(tasks),
     decisions: adrs && (await recentDecisions(tree, caller.project, adrs)),
     pendingDecisions: UNAVAILABLE,
@@ -114,6 +109,12 @@ export async function snapshot(home: string, projected: Projected, caller: Calle
     usage: UNAVAILABLE,
     attention,
   };
+}
+
+/** `text` cut at `limit` code points, so that a cut never splits a character in two, and whether it was. */
+export function cut(text: string, limit: number): { text: string; truncated: boolean } {
+  const characters = Array.from(text);
+  return { text: characters.slice(0, limit).join(''), truncated: characters.length > limit };
 }
 
 /** What the snapshot and the daily delta read from one version of the project, and the attention it calls for. */

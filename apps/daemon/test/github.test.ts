@@ -810,7 +810,7 @@ describe('the task brief on a GitHub tracker', () => {
     triage: string | null;
     ticket: string;
     spec: string | null;
-    dependencies: { id: string; title: string | null; state: string | null; met: boolean; dangling: boolean }[];
+    dependencies: { id: string; title: string | null; state: string | null; met: boolean | null; dangling: boolean }[];
     body: { text: string; truncated: boolean };
     branch: string;
   };
@@ -848,7 +848,7 @@ describe('the task brief on a GitHub tracker', () => {
         dependencies: [
           { id: '#1', title: 'Done', state: 'DONE', met: true, dangling: false },
           { id: '#2', title: 'In flight', state: 'ACTIVE', met: false, dangling: false },
-          { id: '#99', title: null, state: null, met: false, dangling: true },
+          { id: '#99', title: null, state: null, met: null, dangling: true },
         ],
         body: { text: '**What to build:** a brief.\n\nStatus: DONE', truncated: false },
         branch: 'feat/5-add-a-task-brief-task-get-friends',

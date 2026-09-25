@@ -449,7 +449,7 @@ describe('the task brief on a GitLab tracker', () => {
     triage: string | null;
     ticket: string;
     spec: string | null;
-    dependencies: { id: string; title: string | null; state: string | null; met: boolean; dangling: boolean }[];
+    dependencies: { id: string; title: string | null; state: string | null; met: boolean | null; dangling: boolean }[];
     body: { text: string; truncated: boolean };
     branch: string;
   };
@@ -482,7 +482,7 @@ describe('the task brief on a GitLab tracker', () => {
         spec: 'docs/specs/first/spec.md',
         dependencies: [
           { id: '#1', title: 'Done', state: 'DONE', met: true, dangling: false },
-          { id: '#7', title: null, state: null, met: false, dangling: true },
+          { id: '#7', title: null, state: null, met: null, dangling: true },
         ],
         body: { text: '**What to build:** GitLab.\n\nStatus: DONE', truncated: false },
         branch: 'feat/3-read-gitlab-issues-by-iid',

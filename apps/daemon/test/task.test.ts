@@ -14,7 +14,7 @@ type Brief = {
   triage: string | null;
   ticket: string;
   spec: string | null;
-  dependencies: { id: string; title: string | null; state: string | null; met: boolean; dangling: boolean }[];
+  dependencies: { id: string; title: string | null; state: string | null; met: boolean | null; dangling: boolean }[];
   body: { text: string; truncated: boolean };
   branch: string;
 };
@@ -86,7 +86,7 @@ describe('the task brief on the local tracker', () => {
         dependencies: [
           { id: 'epic/01', title: 'Done first', state: 'DONE', met: true, dangling: false },
           { id: 'epic/02', title: 'In flight', state: 'ACTIVE', met: false, dangling: false },
-          { id: 'epic/09', title: null, state: null, met: false, dangling: true },
+          { id: 'epic/09', title: null, state: null, met: null, dangling: true },
         ],
         body: { text: '**What to build:** the thing.\n\nStatus: DONE\n\n- [ ] It works.', truncated: false },
         branch: 'feat/build-the-thing',
@@ -118,6 +118,11 @@ describe('the task brief on the local tracker', () => {
       assert.equal(result.body.state, null);
       assert.deepEqual(result.body.body, { text: '# 04: Fix the thing\n\nSomething is broken.', truncated: false });
       assert.equal(result.body.branch, 'feat/fix-the-thing');
+
+      // Not cut, so that the branch maps back to the file.
+      const long = 'a-ticket-whose-file-name-runs-well-past-any-remote-branch-slug-limit';
+      write(root, `docs/specs/epic/issues/05-${long}.md`, ticketText('05: Long', ['Status: READY'], 'Body.'));
+      assert.equal((await taskGet(daemon, root, 'epic/05')).body.branch, `feat/${long}`);
     });
   });
 

@@ -109,7 +109,9 @@ const HEADING = /^#{1,6}\s+/;
  * of the text, after one leading heading if the text starts with one. Only that block is
  * read: a `Status:` further down, in the body or the comments, is not the header's.
  */
-export const parseTicketHeader = (text: string): TicketHeader => readHeader(text).header;
+export function parseTicketHeader(text: string): TicketHeader {
+  return readHeader(text).header;
+}
 
 /**
  * The text after the header block, without the blank lines around it. A block that holds no
@@ -117,15 +119,15 @@ export const parseTicketHeader = (text: string): TicketHeader => readHeader(text
  * whole text is the body.
  */
 export function ticketBody(text: string): string {
-  const { header, lines, end } = readHeader(text);
-  const fielded = header.status ?? header.triage ?? header.blockedBy ?? header.spec;
-  return (fielded === null ? lines : lines.slice(end)).join('\n').replace(/^(?:[ \t]*\n)+/, '').trimEnd();
+  const { fielded, lines, end } = readHeader(text);
+  return (fielded ? lines.slice(end) : lines).join('\n').replace(/^(?:[ \t]*\n)+/, '').trimEnd();
 }
 
-/** The header, the text's lines, and the line the header block ends before. */
-function readHeader(text: string): { header: TicketHeader; lines: string[]; end: number } {
+/** The header, whether its block holds any header field, the text's lines, and the line the block ends before. */
+function readHeader(text: string): { header: TicketHeader; fielded: boolean; lines: string[]; end: number } {
   const lines = text.split(/\r?\n/);
   const header: TicketHeader = { heading: null, status: null, triage: null, blockedBy: null, spec: null };
+  let fielded = false;
   let line = 0;
   const skipBlank = (): void => {
     while (lines[line]?.trim() === '') line++;
@@ -141,29 +143,35 @@ function readHeader(text: string): { header: TicketHeader; lines: string[]; end:
     const match = HEADER_LINE.exec(lines[line]!.trim());
     if (!match || !Object.hasOwn(HEADER_FIELDS, match[1]!)) continue;
     const field = HEADER_FIELDS[match[1] as keyof typeof HEADER_FIELDS];
+    fielded = true;
     if (header[field] === null) header[field] = match[2]!.trim();
   }
-  return { header, lines, end: line };
+  return { header, fielded, lines, end: line };
 }
 
-/** In characters of the slug, after `feat/` and, on a remote tracker, the number. */
+/** In characters of a remote Task's slug, after `feat/<number>-`. */
 export const BRANCH_SLUG_LIMIT = 50;
 
 /**
- * The branch a Task's work goes on (ADR-0018), chosen so that it maps back to the Task: on the
- * local tracker `feat/<slug>` from the ticket's file name without its number, as this
- * repository has always named them; on a remote one `feat/<number>-<slug>` from the issue
- * title. The slug is lowercased, every run of characters other than ASCII letters and digits
- * is one hyphen, and it is cut at `BRANCH_SLUG_LIMIT`. A slug with nothing left leaves the number.
+ * The branch a Task's work goes on (ADR-0018), chosen so that it maps back to the Task. The
+ * slug is lowercased, and every run of characters other than ASCII letters and digits is one
+ * hyphen, trimmed; a slug with nothing left leaves the number alone.
+ *
+ * - Local tracker: `feat/<slug>` from the ticket's file name without its number, as this
+ *   repository has always named them. It is not cut, so it maps back by the file slug.
+ * - Remote tracker: `feat/<number>-<slug>` from the issue title, the slug cut at
+ *   `BRANCH_SLUG_LIMIT`. It maps back by the number.
  */
 export function taskBranch(task: Pick<TrackerTask, 'id' | 'title' | 'ticket'>, remote: boolean): string {
-  if (remote) return `feat/${[task.id.replace(/^#/, ''), branchSlug(task.title ?? '')].filter(Boolean).join('-')}`;
+  if (remote) {
+    const slug = branchSlug(task.title ?? '').slice(0, BRANCH_SLUG_LIMIT).replace(/-+$/, '');
+    return `feat/${[task.id.replace(/^#/, ''), slug].filter(Boolean).join('-')}`;
+  }
   const [, number = '', name = ''] = /(\d+)-([^/]*)\.md$/.exec(task.ticket) ?? [];
   return `feat/${branchSlug(name) || number}`;
 }
 
-const branchSlug = (text: string): string =>
-  text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, BRANCH_SLUG_LIMIT).replace(/-+$/, '');
+const branchSlug = (text: string): string => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
 /**
  * The numbers a `Blocked by:` value names: `None`, with or without a parenthetical, is

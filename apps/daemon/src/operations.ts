@@ -166,13 +166,10 @@ export const operations: Record<string, Operation> = {
   // Read now, from the caller's checkout on the local tracker, as the snapshot reads its tickets.
   'task.get': async (body, context) => {
     const path = repositoryPath(body, { mustExist: false });
-    const id = (body as { id?: unknown } | null)?.id;
-    if (typeof id !== 'string' || id.trim() === '') {
-      throw new OperationError('request.invalid', 'This operation needs an "id".', 400, [{ path: 'id', message: 'expected a non-empty string' }]);
-    }
+    const id = taskId(body);
     const projected = reproject(context.store, await resolveEntry(path, context));
     const caller = await callerCheckout(path, projected.row.path);
-    return taskBrief(context.home, workingTree(caller.project), projected.manifest, id.trim());
+    return taskBrief(context.home, workingTree(caller.project), projected.manifest, id);
   },
 
   'project.unregister': (body, context) => {
@@ -288,6 +285,14 @@ function sinceCommit(body: unknown): string | undefined {
     ]);
   }
   return since;
+}
+
+function taskId(body: unknown): string {
+  const id = (body as { id?: unknown } | null)?.id;
+  if (typeof id !== 'string' || id.trim() === '') {
+    throw new OperationError('request.invalid', 'This operation needs an "id".', 400, [{ path: 'id', message: 'expected a non-empty string' }]);
+  }
+  return id.trim();
 }
 
 function eventFilter(body: unknown): EventFilter {

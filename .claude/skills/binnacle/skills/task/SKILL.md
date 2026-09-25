@@ -16,7 +16,7 @@ disable-model-invocation: true
    - Any other error: quote its code and message. A `tracker.` code means the tracker could not be read, not that the Task is missing.
 3. Present the brief, compactly:
    - **Task**: id, title, state, triage role and ticket path or URL.
-   - **Dependencies**: each with its id, title and state, marked met or not met. Say plainly when one is not met, and when one is dangling: it names no known Task.
+   - **Dependencies**: each with its id, title and state, marked met or not met. Say plainly when one is not met, and when one is dangling (`met` is null): it names no known Task, probably a typo in the ticket, and blocks nothing.
    - **Spec**: the path, to read when the ticket needs it. Do not read it now.
    - **Body**: the text as given. If `truncated` is true, say that the brief cut it, and that the full ticket is at the ticket path or URL.
 4. State the branch name: "The branch for this Task is `<branch>`."
