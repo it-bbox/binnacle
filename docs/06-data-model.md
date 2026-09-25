@@ -71,8 +71,8 @@ harness
 provider?          its latest record's
 model?             its latest record's
 branch?
-branch_source?     harness | reflog (ADR-0028)
-parent_run_id?     the run that started a subagent
+branch_source?     reflog | harness (ADR-0029)
+parent_run_id?     a subagent's: its parent session's run that had started when the subagent's first record was written
 started_at
 last_activity_at
 active             calculated: last_activity_at within a fixed ten minutes of now
@@ -113,9 +113,9 @@ id
 project_path       the registered project its cwd lies in; a record in none is never stored
 harness
 natural_key        unique per harness: Claude Code's message id, Codex's session id and record ordinal
-session_id
-subagent_id?
-parent_session?
+session_id         Claude Code writes a subagent's records under the session that started it
+subagent_id?       a subagent's id, null in a main session
+parent_session?    the session that started a subagent
 source_ref         the artifact file
 timestamp
 cwd
@@ -132,7 +132,7 @@ provenance         one per record while its fields share it, as they do on both 
 ingested_at
 ```
 
-Beside it, in the same tier, one cursor per artifact file (`ingest_cursor`): its path, its size, the byte offset and line read to, and the import window it was read under, a number of days or `all`. A file's records and its cursor commit in one transaction, so a call reads only what was appended since the last. A file that shrank, or a window wider than its cursor's, is read again from the start, and the unique key absorbs what was already stored. A Codex rollout is read again from its start whenever it has grown, because each of its records is the difference from the running total before it.
+Beside it, in the same tier, one cursor per artifact file (`ingest_cursor`): its path, its size, the byte offset and line read to, and the import window it was read under, a number of days or `all`. A file's records and its cursor commit in one transaction, so a call reads only what was appended since the last. A file that shrank, or a window wider than its cursor's, is read again from the start, and the unique key absorbs what was already stored. A Codex rollout is read again from its start whenever it has grown, because each of its records is the difference from the running total before it. A Claude Code file's cursor stays before its last message until a later one has started or the file has gone unwritten for a minute, because that message may still be being written.
 
 ## TelemetryRecord
 

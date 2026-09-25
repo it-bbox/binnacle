@@ -92,8 +92,8 @@ function contents(root: string): Map<string, string> {
 }
 
 /**
- * A Claude Code session and a Codex rollout of the repository, from the fixtures cut from
- * real ones. The rollout records no branch, so reading it also reads the repository's reflog.
+ * A Claude Code session with a subagent's beside it, and a Codex rollout of the repository,
+ * from the fixtures cut from real ones. Every record's branch is read from the repository's reflog.
  */
 function makeArtifacts(root: string): { claudeCode: string; codex: string } {
   const artifacts = { claudeCode: temporary('binnacle-write-guarantee-claude-'), codex: temporary('binnacle-write-guarantee-codex-') };
@@ -104,7 +104,11 @@ function makeArtifacts(root: string): { claudeCode: string; codex: string } {
       .split('\n')
       .map((text) => `${JSON.stringify(line(JSON.parse(text) as Record<string, unknown>))}\n`)
       .join('');
-  write(artifacts.claudeCode, join(root.replace(/[^a-zA-Z0-9]/g, '-'), 'session.jsonl'), fixture('claude-code', 'grill-on-main.jsonl', (record) => ({ ...record, cwd: root, timestamp: now })));
+  const session = join(root.replace(/[^a-zA-Z0-9]/g, '-'), 'session');
+  const claudeCode = (record: Record<string, unknown>): object => ({ ...record, cwd: root, sessionId: 'session', timestamp: now });
+  write(artifacts.claudeCode, `${session}.jsonl`, fixture('claude-code', 'grill-on-main.jsonl', claudeCode));
+  write(artifacts.claudeCode, join(session, 'subagents', 'agent-a.jsonl'), fixture('claude-code', 'subagent-in-worktree.jsonl', claudeCode));
+  write(artifacts.claudeCode, join(session, 'subagents', 'agent-a.meta.json'), readFileSync(join(import.meta.dirname, 'fixtures', 'claude-code', 'subagent-in-worktree.meta.json'), 'utf8'));
   write(
     artifacts.codex,
     join('2026', '09', '07', 'rollout.jsonl'),
@@ -142,8 +146,8 @@ it('no daemon operation changes the working tree, the index or anything else in 
     }
     // The artifacts were read, not merely present.
     const snapshot = await daemon.call<{ usage: { today: { records: number } } }>('project.snapshot', { path: root });
-    // One Claude Code message and ten Codex calls.
-    assert.equal(snapshot.body.usage.today.records, 11);
+    // One Claude Code message, one of its subagent's, and ten Codex calls.
+    assert.equal(snapshot.body.usage.today.records, 12);
   } finally {
     await daemon.stop();
   }

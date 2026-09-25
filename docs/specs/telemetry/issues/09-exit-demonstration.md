@@ -9,7 +9,7 @@ Spec: `docs/specs/telemetry/spec.md`
 
 - [ ] In a fresh session, `/binnacle:product` shows the usage section: today's and the week's totals, by model, the top Tasks, unassigned, and each harness's level.
 - [ ] `usage_get` for tickets of epic 3 returns their runs with the `implementation` role and their subagents linked.
-- [ ] Product sessions on `main` carry the `product` role.
+- [ ] Product sessions on `main` carry the `product` role, as `usage_get`'s `byRole` shows for the project.
 - [ ] The unassigned share is small enough to believe, and whatever is unassigned is explained.
 - [ ] The daemon's store holds no message content.
 - [ ] Defects are filed as tickets; the roadmap marks epic 4 done only when none is open.

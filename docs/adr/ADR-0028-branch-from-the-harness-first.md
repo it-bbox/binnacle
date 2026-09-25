@@ -1,6 +1,6 @@
 # ADR-0028: A Run's Branch Comes From Its Harness First, From the Reflog Otherwise
 
-**Status:** Accepted
+**Status:** Accepted. The order of branch sources is superseded by ADR-0029.
 
 **Supersedes:** the order of sources in ADR-0018's decision, which made the repository's `git reflog` the source of a session's branch and the harness's own report only a cross-check. The rest of ADR-0018 stands: `cwd` identifies the Project, the branch maps to a Task by naming convention, and no match is `unassigned`.
 

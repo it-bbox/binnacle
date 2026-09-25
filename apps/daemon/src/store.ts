@@ -1,7 +1,7 @@
 import { chmodSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import type { ImportWindow } from '@binnacle/core';
-import type { Harness, Provenance, RunRecord, TokenField, UsageRecord } from '@binnacle/telemetry';
+import type { Harness, Provenance, TokenField, UsageRecord } from '@binnacle/telemetry';
 import { OWNER_ONLY_FILE, storePath } from './home.ts';
 
 /**
@@ -63,9 +63,6 @@ export type IngestCursor = { path: string; size: number; offset: number; line: n
 /** A record to store, with the registered project its `cwd` lies in and the file it was read from. */
 export type Ingested = { record: UsageRecord; projectPath: string; sourceRef: string };
 
-/** A stored record, with its subagent, which is null until subagents are read. */
-export type StoredUsage = Omit<RunRecord, 'checkout'>;
-
 export const EVENT_LIMIT_DEFAULT = 50;
 export const EVENT_LIMIT_MAX = 500;
 
@@ -83,7 +80,7 @@ export type Store = {
   /** Stores the records a file gave and moves its cursor, together or not at all. A record already stored is left as it was. */
   ingest(cursor: IngestCursor, records: Ingested[]): void;
   /** A project's records, of every harness, from `since` on, an ISO timestamp. */
-  usage(projectPath: string, since: string): StoredUsage[];
+  usage(projectPath: string, since: string): UsageRecord[];
   /** How many of a project's records of one harness there are, and how many report any token count. */
   usageCounts(projectPath: string, harness: Harness): { records: number; withTokens: number };
   close(): void;
@@ -199,11 +196,10 @@ export function openStore(home: string): Store {
     throw error;
   }
 
-  // `subagent_id` and `parent_session` stay null until subagents are read.
   const insertRecord = db.prepare(`
-    insert into ingested_record (harness, natural_key, project_path, session_id, source_ref, timestamp, cwd, branch, branch_source,
-      provider, model, input, cached_input, cache_creation, output, reasoning, provenance, ingested_at)
-    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    insert into ingested_record (harness, natural_key, project_path, session_id, subagent_id, parent_session, source_ref, timestamp, cwd,
+      branch, branch_source, provider, model, input, cached_input, cache_creation, output, reasoning, provenance, ingested_at)
+    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     on conflict (harness, natural_key) do nothing
   `);
   // `window_days` holds `all` as text: SQLite keeps a value its column's type cannot convert as it is.
@@ -214,7 +210,7 @@ export function openStore(home: string): Store {
   const selectCursor = db.prepare('select path, size, offset, line, window_days from ingest_cursor where path = ?');
   const deleteCursors = db.prepare('delete from ingest_cursor where substr(path, 1, length(?1)) = ?1');
   const selectUsage = db.prepare(`
-    select harness, natural_key, session_id, subagent_id, timestamp, cwd, branch, branch_source, provider, model, provenance,
+    select harness, natural_key, session_id, subagent_id, parent_session, timestamp, cwd, branch, branch_source, provider, model, provenance,
       input, cached_input, cache_creation, output, reasoning
     from ingested_record where project_path = ? and timestamp >= ?
   `);
@@ -304,7 +300,8 @@ export function openStore(home: string): Store {
         for (const { record, projectPath, sourceRef } of records) {
           const { input, cachedInput, cacheCreation, output, reasoning } = record.tokens;
           insertRecord.run(
-            record.harness, record.naturalKey, projectPath, record.sessionId, sourceRef, record.timestamp, record.cwd,
+            record.harness, record.naturalKey, projectPath, record.sessionId, record.subagentId, record.parentSession, sourceRef,
+            record.timestamp, record.cwd,
             record.branch?.name ?? null, record.branch?.source ?? null, record.provider, record.model,
             input, cachedInput, cacheCreation, output, reasoning, record.provenance, now,
           );
@@ -322,6 +319,7 @@ export function openStore(home: string): Store {
         naturalKey: String(row.natural_key),
         sessionId: String(row.session_id),
         subagentId: stringOrNull(row.subagent_id),
+        parentSession: stringOrNull(row.parent_session),
         timestamp: String(row.timestamp),
         cwd: String(row.cwd),
         branch: row.branch === null ? null : { name: String(row.branch), source: String(row.branch_source) as 'harness' | 'reflog' },

@@ -35,9 +35,12 @@ export type TestDaemon = {
 
 /**
  * `artifacts` defaults to directories inside the home that do not exist, so that no test
- * reads the harness artifacts of the machine it runs on.
+ * reads the harness artifacts of the machine it runs on. `settledAfterMs` defaults to `0`, so
+ * that a file a test has just written is read to its end.
  */
-export async function startTestDaemon(options: { home?: string; artifacts?: ArtifactRoots; ingestBudgetMs?: number } = {}): Promise<TestDaemon> {
+export async function startTestDaemon(
+  options: { home?: string; artifacts?: ArtifactRoots; ingestBudgetMs?: number; settledAfterMs?: number } = {},
+): Promise<TestDaemon> {
   const home = options.home ?? mkdtempSync(join(tmpdir(), 'binnacle-test-'));
   const temporary = options.home === undefined;
   const daemon = await startDaemon({
@@ -45,6 +48,7 @@ export async function startTestDaemon(options: { home?: string; artifacts?: Arti
     port: 0,
     artifacts: options.artifacts ?? { claudeCode: join(home, 'no-claude-code-artifacts'), codex: join(home, 'no-codex-sessions') },
     ...(options.ingestBudgetMs === undefined ? {} : { ingestBudgetMs: options.ingestBudgetMs }),
+    settledAfterMs: options.settledAfterMs ?? 0,
   });
   const url = (path: string): string => `http://${daemon.runtime.host}:${daemon.runtime.port}${path}`;
 

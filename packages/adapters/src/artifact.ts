@@ -16,9 +16,15 @@ export type ArtifactReading = {
  * record, null for a line that carries none, or why it cannot be read, which stops the
  * reading there. `bytes` are the file's from `start.offset` on; positions are counted in
  * bytes of the file, whatever a line decodes to. A line still being written, with no
- * newline yet, is left for the next reading.
+ * newline yet, is left for the next reading. `seen`, if given, is told each record with the
+ * position of the line it came from.
  */
-export function readLines(bytes: Buffer, start: ArtifactPosition, read: (value: Record<string, unknown>) => UsageRecord | null | string): ArtifactReading {
+export function readLines(
+  bytes: Buffer,
+  start: ArtifactPosition,
+  read: (value: Record<string, unknown>) => UsageRecord | null | string,
+  seen?: (record: UsageRecord, at: ArtifactPosition) => void,
+): ArtifactReading {
   const records: UsageRecord[] = [];
   let { offset, line } = start;
   let from = 0;
@@ -26,7 +32,10 @@ export function readLines(bytes: Buffer, start: ArtifactPosition, read: (value: 
     const raw = bytes.subarray(from, end).toString('utf8');
     const result = raw.trim() === '' ? null : readObject(raw, read);
     if (typeof result === 'string') return { records, stop: { offset, line }, failure: { line: line + 1, reason: result } };
-    if (result) records.push(result);
+    if (result) {
+      records.push(result);
+      seen?.(result, { offset, line });
+    }
     offset += end - from + 1;
     line += 1;
   }

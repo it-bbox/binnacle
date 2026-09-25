@@ -20,7 +20,7 @@ MCP is the stable contract. Client-specific slash commands/skills are thin UX wr
 - `run.list`
 - `question.list`
 - `review.status`
-- `usage.get` (the tool `usage_get`: the project's token usage by Task, or one Task's with its runs)
+- `usage.get` (the tool `usage_get`: the project's token usage by Task and by role, or one Task's with its runs)
 - `audit.project`
 
 ### Controlled mutations

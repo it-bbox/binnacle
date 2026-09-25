@@ -1,21 +1,24 @@
-import { closeSync, openSync, readdirSync, readSync, statSync } from 'node:fs';
+import { closeSync, openSync, readdirSync, readSync, statSync, type Dirent } from 'node:fs';
 import { join, relative } from 'node:path';
 import { setImmediate, setTimeout } from 'node:timers/promises';
 import { branchAt, codexSession, readClaudeCode, readCodex, readDefaultBranch, readHeadHistory, readWorktrees, type HeadHistory, type Tree } from '@binnacle/adapters';
-import type { ImportWindow, ObservedRun, ProjectManifest, TrackerTask } from '@binnacle/core';
+import type { ImportWindow, ObservedRun, ProjectManifest, RunRole, TrackerTask } from '@binnacle/core';
 import { magnitude, observedRuns, sum, type Harness, type RunRecord, type Totals, type UsageRecord } from '@binnacle/telemetry';
 import { resolveGitTimeout, type ArtifactRoots } from './home.ts';
 import type { OperationContext } from './operations.ts';
 import { containingEntry, readRegistry } from './registry.ts';
 import { limited, readTracker, trackerUnavailable, type Unavailable } from './snapshot.ts';
 import { findTask } from './task.ts';
-import type { Ingested, IngestCursor, StoredUsage } from './store.ts';
+import type { Ingested, IngestCursor } from './store.ts';
 
 /** The import window when the manifest writes none: the horizon of Git's own reflog. */
 export const DEFAULT_WINDOW_DAYS = 90;
 
 /** How long a call waits for its project's ingest before answering from what is stored. */
 export const INGEST_BUDGET_MS = 1000;
+
+/** How long a Claude Code file must go unwritten before its last message is taken as finished. */
+export const SETTLED_AFTER_MS = 60_000;
 
 /** The harnesses Binnacle has an adapter for, in the order the snapshot lists them, with their names and artifact roots. */
 const HARNESSES: { harness: Harness; name: string; root: keyof ArtifactRoots }[] = [
@@ -33,6 +36,8 @@ type Unreadable = Record<Harness, string | null>;
  */
 export type Importer = {
   budgetMs: number;
+  /** How long a Claude Code file must go unwritten before its last message is taken as finished. */
+  settledAfterMs: number;
   queue: Promise<void>;
   running: Map<string, { run: Promise<void>; window: ImportWindow }>;
   /**
@@ -46,7 +51,14 @@ export type Importer = {
   stopped: boolean;
 };
 
-export const importer = (budgetMs: number): Importer => ({ budgetMs, queue: Promise.resolve(), running: new Map(), unreadable: new Map(), stopped: false });
+export const importer = (budgetMs: number, settledAfterMs: number): Importer => ({
+  budgetMs,
+  settledAfterMs,
+  queue: Promise.resolve(),
+  running: new Map(),
+  unreadable: new Map(),
+  stopped: false,
+});
 
 /** Lets the running ingest end after its current file, each of which commits whole, and waits for it. */
 export async function stopImporting(importer: Importer): Promise<void> {
@@ -125,8 +137,8 @@ export async function usage(
   };
 }
 
-/** `usage.get` without a Task: the project's totals over everything ingested, by Task and unassigned. */
-export type ProjectUsage = Pick<Usage, 'importing' | 'tasks' | 'unassigned'> & { totals: Totals };
+/** `usage.get` without a Task: the project's totals over everything ingested, by Task and unassigned, and by role. */
+export type ProjectUsage = Pick<Usage, 'importing' | 'tasks' | 'unassigned'> & { totals: Totals; byRole: Record<RunRole, Totals> | Unavailable };
 
 /** A run as `usage.get` shows it: the observed run, less its project, with its totals. */
 export type RunUsage = Omit<ObservedRun, 'projectPath'> & { totals: Totals };
@@ -164,9 +176,9 @@ export async function usageGet(
 
   // Since the earliest timestamp there is: every record stored, whatever the window is now.
   const records = context.store.usage(projectPath, '');
-  if (!Array.isArray(tasks)) return { importing, totals: sum(records), tasks, unassigned: tasks };
+  if (!Array.isArray(tasks)) return { importing, totals: sum(records), tasks, unassigned: tasks, byRole: tasks };
   const attributed = await runs(records, projectPath, tasks, manifest?.tracker.provider !== 'local', checkouts);
-  if (!found) return { importing, totals: sum(records), ...byTask(attributed, tasks) };
+  if (!found) return { importing, totals: sum(records), ...byTask(attributed, tasks), byRole: byRole(attributed) };
 
   // Runs come oldest first.
   const own = attributed.filter((run) => run.taskId === found.task.id).reverse();
@@ -213,7 +225,7 @@ function unreadableArtifacts(context: OperationContext, directoriesOfProject: st
   const { unreadable } = context.importer;
   const places = directoriesOfProject.map((path) => ({ path }));
   const failed = (files: string[]): string[] => files.sort().flatMap((path) => unreadable.get(path) ?? []);
-  const claudeCode = claudeCodeSessions(artifacts.claudeCode, directoriesOfProject);
+  const claudeCode = claudeCodeFiles(artifacts.claudeCode, directoriesOfProject);
   const codex = codexSessions(artifacts.codex);
   // A rollout says whose it is on its first line; one that cannot be opened may be anyone's, this project's included.
   const ours = (path: string): boolean => {
@@ -242,7 +254,7 @@ function summary(name: string, failures: string[]): string | null {
  * the registered checkout, otherwise `main`.
  */
 export async function runs(
-  records: StoredUsage[],
+  records: UsageRecord[],
   projectPath: string,
   tasks: Pick<TrackerTask, 'id' | 'title' | 'ticket'>[],
   remote: boolean,
@@ -264,6 +276,12 @@ function byTask(attributed: { taskId: string | null; records: RunRecord[] }[], t
     .map(([id, taskRecords]) => ({ id, title: titles.get(id) ?? null, totals: sum(taskRecords) }));
   items.sort((a, b) => magnitude(b.totals) - magnitude(a.totals) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   return { tasks: limited(items), unassigned: sum(records.get(null) ?? []) };
+}
+
+/** Totals by role, with every role listed, one that no run has with no records. */
+function byRole(attributed: { role: RunRole; records: RunRecord[] }[]): Record<RunRole, Totals> {
+  const records = (role: RunRole): RunRecord[] => attributed.filter((run) => run.role === role).flatMap((run) => run.records);
+  return { product: sum(records('product')), implementation: sum(records('implementation')), unknown: sum(records('unknown')) };
 }
 
 /**
@@ -309,7 +327,7 @@ export function startIngest(context: OperationContext, projectPath: string, mani
   const directories = [projectPath, ...linked].map((path) => ({ path }));
   const { artifacts } = context.runtime;
   const { importer } = context;
-  const found = { 'claude-code': claudeCodeSessions(artifacts.claudeCode, [projectPath, ...linked]), codex: codexSessions(artifacts.codex) };
+  const found = { 'claude-code': claudeCodeFiles(artifacts.claudeCode, [projectPath, ...linked]), codex: codexSessions(artifacts.codex) };
 
   const pending: { path: string; harness: Harness }[] = [];
   for (const { harness } of HARNESSES) {
@@ -369,34 +387,44 @@ export function startIngest(context: OperationContext, projectPath: string, mani
 const claudeCodeDirectory = (path: string): string => path.replace(/[^a-zA-Z0-9]/g, '-');
 
 /**
- * The main session files under Claude Code's `root` of the candidate directories of the
- * project's directories, in its own checkout and in each of its linked worktrees, and why a
- * directory could not be listed.
+ * The session files under Claude Code's `root` of the candidate directories of the
+ * project's directories, in its own checkout and in each of its linked worktrees: its main
+ * sessions, the sessions of their subagents beside them, and why a directory could not be
+ * listed. A subagent's `.meta.json` is not among them.
  */
-export function claudeCodeSessions(root: string, directoriesOfProject: string[]): { files: string[]; failures: string[] } {
+export function claudeCodeSessions(root: string, directoriesOfProject: string[]): { files: string[]; subagents: string[]; failures: string[] } {
   const prefixes = directoriesOfProject.map(claudeCodeDirectory);
   const failures: string[] = [];
-
-  let directories: string[];
-  try {
-    directories = readdirSync(root, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && prefixes.some((prefix) => entry.name.startsWith(prefix)))
-      .map((entry) => join(root, entry.name));
-  } catch (error) {
-    return { files: [], failures: (error as NodeJS.ErrnoException).code === 'ENOENT' ? [] : [openFailure(root, error)] };
-  }
-
-  const files = directories.flatMap((directory) => {
+  const list = (directory: string, missing: boolean): Dirent[] => {
     try {
-      return readdirSync(directory, { withFileTypes: true })
-        .filter((entry) => entry.isFile() && entry.name.endsWith('.jsonl'))
-        .map((entry) => join(directory, entry.name));
+      return readdirSync(directory, { withFileTypes: true });
     } catch (error) {
-      failures.push(openFailure(directory, error));
+      if (!missing || (error as NodeJS.ErrnoException).code !== 'ENOENT') failures.push(openFailure(directory, error));
       return [];
     }
-  });
-  return { files, failures };
+  };
+  const paths = (entries: Dirent[], name: (entry: Dirent) => boolean): string[] =>
+    entries.filter((entry) => entry.isFile() && name(entry)).map((entry) => join(entry.parentPath, entry.name));
+
+  // A root that does not exist holds no session, and neither does a session with no subagents.
+  const directories = list(root, true)
+    .filter((entry) => entry.isDirectory() && prefixes.some((prefix) => entry.name.startsWith(prefix)))
+    .map((entry) => list(join(root, entry.name), false));
+  // Beside `<session>.jsonl`, the directory `<session>/subagents` holds its subagents' sessions.
+  const subagentDirectories = directories.flatMap((entries) =>
+    entries.filter((entry) => entry.isDirectory()).map((entry) => list(join(entry.parentPath, entry.name, 'subagents'), true)),
+  );
+  return {
+    files: directories.flatMap((entries) => paths(entries, (entry) => entry.name.endsWith('.jsonl'))),
+    subagents: subagentDirectories.flatMap((entries) => paths(entries, (entry) => /^agent-.+\.jsonl$/.test(entry.name))),
+    failures,
+  };
+}
+
+/** Every Claude Code file the daemon reads for the project: its main sessions and its subagents'. */
+function claudeCodeFiles(root: string, directoriesOfProject: string[]): { files: string[]; failures: string[] } {
+  const { files, subagents, failures } = claudeCodeSessions(root, directoriesOfProject);
+  return { files: [...files, ...subagents], failures };
 }
 
 /** Every rollout under Codex's `root`, which files them by the day each session started, and why the root could not be listed. */
@@ -458,8 +486,9 @@ const wider = (window: ImportWindow, than: ImportWindow): boolean => than !== 'a
  * be read, if it could not. Its records and its cursor commit together; a failing line stops the
  * file just before it, and the next call tries it again. A record whose `cwd` lies in no
  * registered project, nor in a linked worktree of the one being read, is never stored, and
- * neither is one older than the window. A record whose harness wrote no branch gets the
- * reflog's, now, while the reflog still says (ADR-0028).
+ * neither is one older than the window. A record's branch is the reflog's, now, while the
+ * reflog still says, and the one its harness wrote otherwise (ADR-0029). A Claude Code file's
+ * last message waits until it is finished (`readClaudeCode`).
  *
  * ponytail: a record of another registered project found here is stored under that
  * project, but read under this one's window. That project's own ingest re-reads the file
@@ -474,11 +503,14 @@ async function ingestFile(
   histories: Map<string, Promise<HeadHistory | null>>,
 ): Promise<string | null> {
   let size: number;
+  let settled: boolean;
   let from: { offset: number; line: number } | null;
   let bytes: Buffer;
   try {
     // Decided again: the file, or its cursor, may have moved while this ingest was queued.
-    size = statSync(path).size;
+    const stat = statSync(path);
+    size = stat.size;
+    settled = Date.now() - stat.mtimeMs >= context.importer.settledAfterMs;
     from = readPosition(context.store.cursor(path), size, window);
     if (from === null) return null;
     // ponytail: a rollout is read whole whenever it has grown, since its differences need the
@@ -491,7 +523,7 @@ async function ingestFile(
   }
 
   const windowStart = window === 'all' ? '' : localMidnight(window - 1).toISOString();
-  const reading = harness === 'codex' ? readCodex(bytes) : readClaudeCode(bytes, from);
+  const reading = harness === 'codex' ? readCodex(bytes) : readClaudeCode(bytes, from, settled);
   const records: Ingested[] = [];
   for (const record of reading.records) {
     const project = containingEntry(record.cwd, places)?.project;
@@ -504,11 +536,11 @@ async function ingestFile(
 
 /**
  * `record`, with the branch the `HEAD` reflog of the checkout its `cwd` names was on at its
- * timestamp where its harness recorded none; as it was when the reflog has no answer.
+ * timestamp; with the branch its harness wrote where the reflog has no answer, because the
+ * checkout is gone, its reflog does not reach back that far, or HEAD was detached (ADR-0029).
  * `histories` holds each `cwd`'s reflog for the rest of the ingest.
  */
 async function withBranch(record: UsageRecord, histories: Map<string, Promise<HeadHistory | null>>): Promise<UsageRecord> {
-  if (record.branch !== null) return record;
   if (!histories.has(record.cwd)) histories.set(record.cwd, readHeadHistory(record.cwd, resolveGitTimeout()));
   const history = await histories.get(record.cwd)!;
   const name = history && branchAt(history, Date.parse(record.timestamp));

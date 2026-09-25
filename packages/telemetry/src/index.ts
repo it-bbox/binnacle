@@ -24,7 +24,12 @@ export type UsageRecord = {
   harness: Harness;
   /** Unique within the harness: Claude Code's message id; Codex's session id and record ordinal. */
   naturalKey: string;
+  /** For a subagent, the session that started it, which Claude Code writes as its session id. */
   sessionId: string;
+  /** The subagent whose session this record is from; null in a main session. */
+  subagentId: string | null;
+  /** The session that started the subagent; null in a main session. */
+  parentSession: string | null;
   timestamp: string;
   cwd: string;
   branch: { name: string; source: 'harness' | 'reflog' } | null;
@@ -66,8 +71,8 @@ export const magnitude = (totals: Totals): number =>
 /** How recent a run's latest record must be for Binnacle to read the run as active. */
 export const ACTIVE_WITHIN_MS = 10 * 60_000;
 
-/** A stored record, with its subagent and the checkout its `cwd` lies in, which the daemon knows. */
-export type RunRecord = UsageRecord & { subagentId: string | null; checkout: string };
+/** A stored record, with the checkout its `cwd` lies in, which the daemon knows. */
+export type RunRecord = UsageRecord & { checkout: string };
 
 /** What a run is attributed with: the facts of its project and tracker, read by the daemon. */
 export type RunAttribution<T extends Pick<TrackerTask, 'id' | 'title' | 'ticket'>> = {
@@ -86,6 +91,9 @@ export type RunAttribution<T extends Pick<TrackerTask, 'id' | 'title' | 'ticket'
  * record's key, so more records never change it. Its Task is the one its branch maps back
  * to (`branchTask`), none being unassigned; its role follows from the branch. Runs come
  * in the order they started.
+ *
+ * A subagent's runs name their parent run: the run of the parent session that had started
+ * by the subagent's first record. None does when that session has no run among `records`.
  */
 export function observedRuns<R extends RunRecord, T extends Pick<TrackerTask, 'id' | 'title' | 'ticket'>>(
   records: R[],
@@ -108,13 +116,24 @@ export function observedRuns<R extends RunRecord, T extends Pick<TrackerTask, 'i
     else groups.push([record]);
   }
 
+  // The subagent's first group holds its first record, when its parent started it, and the
+  // parent session's groups are in time order: the last of them started by then is its run.
+  // ponytail: two scans of the groups per subagent run; index them by session if runs ever number in the tens of thousands.
+  const parentRun = (record: R): string | null => {
+    const same = (own: R, sessionId: string | null, subagentId: string | null): boolean =>
+      own.harness === record.harness && own.sessionId === sessionId && own.subagentId === subagentId;
+    const spawned = groups.find(([own]) => same(own!, record.sessionId, record.subagentId))![0]!.timestamp;
+    const parent = groups.findLast(([own]) => same(own!, record.parentSession, null) && own!.timestamp <= spawned);
+    return parent ? runId(parent[0]!) : null;
+  };
+
   const runs = groups.map((group) => {
     const first = group[0]!;
     const latest = group.at(-1)!;
     const branch = first.branch?.name ?? null;
     const task = branch === null ? null : branchTask(branch, tasks, remote);
     return {
-      id: `${first.harness}:${first.naturalKey}`,
+      id: runId(first),
       projectPath,
       taskId: task?.id ?? null,
       role: branch === defaultBranch ? 'product' : task ? 'implementation' : 'unknown',
@@ -123,7 +142,7 @@ export function observedRuns<R extends RunRecord, T extends Pick<TrackerTask, 'i
       model: latest.model,
       branch,
       branchSource: first.branch?.source ?? null,
-      parentRunId: null,
+      parentRunId: first.subagentId === null ? null : parentRun(first),
       startedAt: first.timestamp,
       lastActivityAt: latest.timestamp,
       active: { value: now.getTime() - Date.parse(latest.timestamp) <= ACTIVE_WITHIN_MS, provenance: 'calculated' },
@@ -132,6 +151,8 @@ export function observedRuns<R extends RunRecord, T extends Pick<TrackerTask, 'i
   });
   return runs.sort((a, b) => compare([a.startedAt, a.id], [b.startedAt, b.id]));
 }
+
+const runId = (first: UsageRecord): string => `${first.harness}:${first.naturalKey}`;
 
 /** Code-unit order, element by element, so the same records give the same runs anywhere. */
 function compare(a: string[], b: string[]): number {

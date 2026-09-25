@@ -15,7 +15,7 @@ So the scope's third success criterion — usage analysed per project, Task and 
 
 The daemon reads the **session artifacts** Claude Code and Codex already write, for registered projects only, and keeps what it parsed in an append-only table (ADR-0011, ADR-0015). It reads incrementally: new files and the new tail of files it has already read. The first read of a project goes back as far as the manifest's import window, 90 days when none is written — the horizon of Git's own reflog.
 
-Each session becomes one or more **observed AgentRuns**: one unbroken stretch of a session in one checkout on one branch. A subagent's session is a run of its own, linked to the run that started it. A run belongs to the Project its `cwd` lies in (ADR-0018), and to the Task its branch maps to by the branch naming convention epic 3 defined. The branch is the one the harness recorded, or the reflog's where the harness records none (ADR-0028). A run's role follows from its branch: the default branch is Product work, a Task's branch is implementation, anything else is unknown. No proven mapping means **unassigned**, never a guess.
+Each session becomes one or more **observed AgentRuns**: one unbroken stretch of a session in one checkout on one branch. A subagent's session is a run of its own, linked to the run that started it. A run belongs to the Project its `cwd` lies in (ADR-0018), and to the Task its branch maps to by the branch naming convention epic 3 defined. The branch is the one the reflog of the run's checkout gives while that checkout exists, or the one the harness recorded where the reflog has no answer (ADR-0029). A run's role follows from its branch: the default branch is Product work, a Task's branch is implementation, anything else is unknown. No proven mapping means **unassigned**, never a guess.
 
 Only metadata is kept: identities, timestamps, `cwd`, branch, model and token counts. No message content, no tool input, no subagent description.
 
@@ -45,8 +45,8 @@ The Product Snapshot's `usage` section fills in: token totals for today and the 
 15. As a developer, I want a session attributed to the registered project whose checkout its `cwd` lies in, including a linked worktree of it, so that work in a worktree counts for its project.
 16. As a developer, I want a session outside every registered project never read, so that Binnacle does not collect what I did not ask it to watch.
 17. As a developer, I want a project I register later to get its history imported under its window, so that registering late loses nothing still on disk.
-18. As a developer, I want a run's branch taken from the harness where it records one, so that work in a worktree removed after its merge still counts for its Task (ADR-0028).
-19. As a developer using Codex, I want a run's branch recovered from the reflog of its checkout, matched by time, so that a harness that records no branch is still attributed while the reflog exists.
+18. As a developer, I want a run's branch taken from the harness where the reflog has no answer, so that work in a worktree removed after its merge still counts for its Task (ADR-0029).
+19. As a developer, I want a run's branch recovered from the reflog of its checkout, matched by time, while that checkout exists, so that a harness that records no branch, or records the wrong one, is still attributed rightly (ADR-0029).
 20. As a developer, I want a session that switches branch split into one run per branch, so that each part counts for its own Task.
 21. As a developer, I want a branch mapped to a Task by the same convention `task_get` gives, so that the branch `/binnacle:task` names is the branch that gets the credit.
 22. As a developer, I want a branch that maps to no Task, or to more than one, left unassigned, so that attribution is a fact or nothing.
@@ -108,8 +108,8 @@ The Product Snapshot's `usage` section fills in: token totals for today and the 
 
 - Identity: harness (`claude-code`, `codex`), session id, subagent id or `null`, parent session, and a natural key unique within the harness: Claude Code's message id, Codex's session id and record ordinal.
 - Facts: timestamp, `cwd`, branch with its source (`harness` or `reflog`) or `null`, provider or `null`, model or `null`, and the token fields: input not read from cache, cached input read, cache creation, output, reasoning. Each is `null` when the record does not report it.
-- Claude Code: `input_tokens`, `cache_read_input_tokens`, `cache_creation_input_tokens`, `output_tokens`, and the thinking tokens under `output_tokens_details`, all `provider_reported`. The records of one message repeat its usage once per content block — measured: 320 messages, 206 repeats, all identical — so one message is one record, keyed by its id. Provider is `null`; the artifact does not state it. The branch is `gitBranch`.
-- Codex: the difference between consecutive `total_token_usage` values of `token_count` records, which is `calculated`. Codex's `input_tokens` includes the cached part, so input not read from cache is `input_tokens − cached_input_tokens`, also `calculated`. A total that decreases is a failure, not a reset. Provider is `session_meta.model_provider`, model is the turn context's. There is no branch; it comes from the reflog.
+- Claude Code: `input_tokens`, `cache_read_input_tokens`, `cache_creation_input_tokens`, `output_tokens`, and the thinking tokens under `output_tokens_details`, all `provider_reported`. The records of one message repeat its usage once per content block — measured: 320 messages, 206 repeats, all identical — so one message is one record, keyed by its id. In a subagent's session the repeats differ: the earlier ones carry the output counted so far and the last the message's own (measured in ticket 04: 1,625 of 1,643 repeated messages), so a message's last record is the one read. Provider is `null`; the artifact does not state it. The harness's branch is `gitBranch`, which is one value per Claude Code process rather than per checkout, so it is used only where the reflog has no answer (ADR-0029).
+- Codex: the difference between consecutive `total_token_usage` values of `token_count` records, which is `calculated`. Codex's `input_tokens` includes the cached part, so input not read from cache is `input_tokens − cached_input_tokens`, also `calculated`. A total that decreases is a failure, not a reset. Provider is `session_meta.model_provider`, model is the turn context's. The harness's branch is `session_meta.git.branch`, the branch the session started on, used only where the reflog has no answer (ADR-0029). Cache creation stays `null`: `cache_write_input_tokens` is mapped once a real rollout shows it non-zero.
 - The adapter contract states, for each field, whether it is a subset of another (reasoning of output, on both harnesses). Totals never add a subset to its superset.
 - Content, tool inputs and outputs, and subagent descriptions are never read into a record, whatever `telemetry.privacy` says. Content telemetry is not built in this epic.
 
@@ -117,16 +117,17 @@ The Product Snapshot's `usage` section fills in: token totals for today and the 
 
 - New append-only table of ingested records: tier 2 under ADR-0015, created with `create table if not exists` and never dropped, with a unique constraint on harness and natural key. Inserting an existing record is a no-op, which is what makes re-reading idempotent. `docs/06-data-model.md`'s RawIngestRecord is this table.
 - A cursor per artifact file — path, size, the position read to, and the window it was read under — sits in the same tier and commits in the same transaction as the records it produced. A file that has shrunk, or a window that has grown, is re-read from the start; the unique constraint absorbs the repeats.
-- The reflog branch is resolved **at ingest**, because the reflog may be gone by the next read, and stored on the record. The Task is resolved **at read**, from the tracker's current contents, as the snapshot resolves everything else.
+- The branch is resolved **at ingest**, because the reflog may be gone by the next read, and stored on the record. The Task is resolved **at read**, from the tracker's current contents, as the snapshot resolves everything else.
 - Records older than the window are skipped. The window is `telemetry.import.window_days`: a positive integer, or `all`; unwritten, 90. The manifest validator accepts `all`.
 - Every `project.snapshot` and `usage.get` call runs the ingest for its project and waits for it up to a fixed time budget. What does not fit continues in the background, one ingest at a time per machine, and the response says the import is incomplete. The daemon also starts one on startup for every registered project.
 - A failure stops that file at the failing line: the cursor stays before it, earlier records stay, and `telemetry.unreadable` names the harness, file and line, until a successful read of that file clears it.
+- The last message of a Claude Code file may still be being written, and its records repeat with growing usage. It is not stored until a later message has started after it, or the file has gone unwritten for a fixed period of a minute. Until then the cursor stays before its first record. A stored record is never completed from a later one: the table stays append-only.
 
 ### Observed runs and attribution
 
 - Records are grouped by harness, session and subagent, in time order. A new run starts wherever the checkout (from `cwd`) or the branch changes. A run's id is derived from its first record's key, so it is stable across calls.
 - Project: the registered project whose path contains the `cwd`, or of which the `cwd` lies in a linked worktree. A record in no registered project is never stored.
-- Branch: ADR-0028. Reflog matching uses the checkout's `HEAD` reflog: the branch checked out at the record's timestamp.
+- Branch: ADR-0029. Reflog matching uses the `HEAD` reflog of the checkout the record's `cwd` names: the branch checked out at the record's timestamp. Where it has no answer, the harness's branch.
 - Task: the inverse of the branch convention in `packages/core`. On the local tracker, `feat/<slug>` maps to the one ticket whose file name, without its number and extension, is `<slug>`; on a remote tracker, `feat/<number>-…` maps to issue `#<number>` when it exists. Zero matches or several is unassigned. The inverse function lives next to the forward one, with a test that the two agree.
 - Role: `product` on the repository's default branch — the target of `origin/HEAD`, otherwise `main` — `implementation` on a branch that maps to a Task, `unknown` otherwise.
 - Active: the latest record within a fixed recency constant. It is a `calculated` reading and is labelled so.
@@ -152,7 +153,7 @@ Task attribution unavailable (tracker unreadable) leaves `tasks` and `unassigned
 ### `usage.get` and `usage_get`
 
 - Input: the caller's path and an optional Task id, in the same forms `task.get` takes.
-- Without a Task: the project's totals over the whole ingested window, per Task and unassigned, with a limit and remainder.
+- Without a Task: the project's totals over the whole ingested window, per Task and unassigned, with a limit and remainder, and `byRole`: the totals per role, `product`, `implementation` and `unknown`, over the same window. `byRole` is unavailable with the tracker's reason when the tracker cannot be read, like `tasks`.
 - With a Task: its totals and its runs, newest first, with a limit and remainder. Each run carries its id, harness, provider, model, role, branch and its source, Task, parent run, start, latest activity, whether it is active, and its totals.
 - An unknown Task id is `task.not_found`. A Task with no runs is an empty list, not an error.
 - `usage_get` takes one optional argument, `task`, and returns compact JSON, like every other tool.
@@ -187,7 +188,7 @@ As in epics 1 to 3: a test states an externally observable fact — a total, a r
 
 The main seam, through the existing in-process test daemon helper. The runtime's artifact roots point at temporary directories holding artifacts cut from real Claude Code and Codex sessions, reduced to the fields the adapters read plus the ones they must ignore, including a content field that must not reach the store. Fixture repositories are real, with real branches, worktrees and commits, as before.
 
-Through this seam: a Claude Code session with repeated message records counted once; subagent runs linked to their parent; a session split at a branch switch; Codex running totals turned into differences and its cached input subtracted; a Codex branch recovered from the reflog; a branch from a worktree that no longer exists, attributed through the harness; a branch mapping to no Task and to a Task on each tracker; roles from the default branch; `null` fields and partial totals; a session outside every registered project not stored; the window, `all`, and widening it; re-reading without duplicates; a deleted artifact's records still counted; an unrecognised line stopping its file with `telemetry.unreadable` and the level dropping; the tracker unreadable leaving totals and making Task attribution unavailable; the snapshot's `usage` section; `usage.get` with and without a Task, and `task.not_found`; and no content in the store.
+Through this seam: a Claude Code session with repeated message records counted once; subagent runs linked to their parent; a session split at a branch switch; Codex running totals turned into differences and its cached input subtracted; a Codex branch recovered from the reflog, or taken from its session where the reflog has no answer; a Claude Code branch taken from the reflog over the one Claude Code wrote; a branch from a worktree that no longer exists, attributed through the harness; a file's unfinished last message held back; a branch mapping to no Task and to a Task on each tracker; roles from the default branch, through `byRole`; `null` fields and partial totals; a session outside every registered project not stored; the window, `all`, and widening it; re-reading without duplicates; a deleted artifact's records still counted; an unrecognised line stopping its file with `telemetry.unreadable` and the level dropping; the tracker unreadable leaving totals and making Task attribution unavailable; the snapshot's `usage` section; `usage.get` with and without a Task, and `task.not_found`; and no content in the store.
 
 Also through this seam, the existing **write guarantee** now runs with artifacts present, and additionally checks that the artifact directories are unchanged.
 
@@ -225,6 +226,11 @@ The `product` skill's presentation of the usage section, as before: the exit dem
 
 - **Decided while specifying this epic.**
   - ADR-0028: the harness's recorded branch comes first, the reflog second. Measured here: the registered checkout's reflog holds about thirty branch switches; epics 1 to 3 were built in removed worktrees on deleted branches.
+- **Decided while building it.** The owner's decisions of 2026-09-25, on ticket 04's questions:
+  - ADR-0029 supersedes ADR-0028's order: the reflog while the checkout exists, the harness otherwise. Claude Code's `gitBranch` turned out to be one value per process, and Codex does write the branch its session started on.
+  - A Claude Code file's unfinished last message is held back rather than stored early, so the table stays append-only.
+  - `usage.get` gains `byRole`, which is where the exit demonstration sees the `product` role.
+  - Codex's `cache_write_input_tokens` stays unmapped until a real non-zero example exists.
   - The observed run: a stretch of one session in one checkout on one branch, with no lifecycle state (`CONTEXT.md`).
   - The default window of 90 days, and `all`.
   - The exit criterion names the snapshot and MCP instead of the dashboard.

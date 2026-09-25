@@ -17,7 +17,8 @@ type Counts = Record<(typeof COUNTS)[number], number>;
  * output, as on every harness. Cache creation is not mapped: whether Codex counts it inside
  * `input_tokens` is not known, and counting it twice would be worse than not at all. The
  * model is the one of the turn context in force; the provider is `session_meta`'s. Codex
- * records no branch per call, so the branch is left for the reflog.
+ * records no branch per call, only the one its session started on (`session_meta.git.branch`),
+ * which every record carries as the harness's, for when the reflog cannot say (ADR-0029).
  *
  * A total that decreases is a failure, not a reset, and so is a token count before the
  * session's meta or without a field the difference needs. A count that repeats the total
@@ -25,7 +26,7 @@ type Counts = Record<(typeof COUNTS)[number], number>;
  * nor does one with no totals yet. Content, tool input and output are never read.
  */
 export function readCodex(bytes: Buffer): ArtifactReading {
-  let session: { id: string; cwd: string; provider: string | null } | null = null;
+  let session: CodexSession | null = null;
   let model: string | null = null;
   let previous: Counts = { input_tokens: 0, cached_input_tokens: 0, output_tokens: 0, reasoning_output_tokens: 0 };
 
@@ -62,7 +63,9 @@ export function readCodex(bytes: Buffer): ArtifactReading {
       sessionId: session.id,
       timestamp: new Date(time).toISOString(),
       cwd: session.cwd,
-      branch: null,
+      subagentId: null,
+      parentSession: null,
+      branch: session.branch === null ? null : { name: session.branch, source: 'harness' },
       provider: session.provider,
       model,
       tokens: {
@@ -77,12 +80,21 @@ export function readCodex(bytes: Buffer): ArtifactReading {
   });
 }
 
+type CodexSession = { id: string; cwd: string; provider: string | null; branch: string | null };
+
 /**
- * The session a rollout's `session_meta` record names: its id, the `cwd` it ran in, and the
- * provider it states. Null for any other record, or one without an id or a `cwd`.
+ * The session a rollout's `session_meta` record names: its id, the `cwd` it ran in, the
+ * provider it states and the branch it started on. Null for any other record, or one without
+ * an id or a `cwd`.
  */
-export function codexSession(value: Record<string, unknown>): { id: string; cwd: string; provider: string | null } | null {
+export function codexSession(value: Record<string, unknown>): CodexSession | null {
   const payload = value.payload;
   if (value.type !== 'session_meta' || !isObject(payload) || typeof payload.id !== 'string' || typeof payload.cwd !== 'string') return null;
-  return { id: payload.id, cwd: payload.cwd, provider: typeof payload.model_provider === 'string' ? payload.model_provider : null };
+  const repository = payload.git;
+  return {
+    id: payload.id,
+    cwd: payload.cwd,
+    provider: typeof payload.model_provider === 'string' ? payload.model_provider : null,
+    branch: isObject(repository) && typeof repository.branch === 'string' && repository.branch !== '' ? repository.branch : null,
+  };
 }

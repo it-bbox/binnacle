@@ -15,6 +15,7 @@ function record(minute: number, fields: Partial<RunRecord> = {}): RunRecord {
     naturalKey: `msg_${String(++ordinal).padStart(3, '0')}`,
     sessionId: 'session',
     subagentId: null,
+    parentSession: null,
     timestamp: new Date(NOW.getTime() - (60 - minute) * 60_000).toISOString(),
     cwd: '/repo',
     checkout: '/repo',
@@ -83,4 +84,29 @@ test('a run is active while its latest record is recent, which is a calculated r
   );
   const [idle] = observedRuns([record(59 - ACTIVE_WITHIN_MS / 60_000)], attribution);
   assert.deepEqual(idle!.active, { value: false, provenance: 'calculated' });
+});
+
+test('every run of a subagent names the run of its parent session that had started when the subagent did', () => {
+  const agent = (minute: number, fields: Partial<RunRecord> = {}): RunRecord => record(minute, { subagentId: 'agent', parentSession: 'session', ...fields });
+  const records = [
+    record(0),
+    record(2, { branch: feat }),
+    agent(3),
+    agent(4, { branch: feat, checkout: '/repo/.claude/worktrees/agent', cwd: '/repo/.claude/worktrees/agent' }),
+    record(5),
+    // Its parent session has no record here.
+    agent(6, { sessionId: 'elsewhere', parentSession: 'elsewhere', subagentId: 'orphan' }),
+  ];
+  const id = (index: number): string => `claude-code:${records[index]!.naturalKey}`;
+  assert.deepEqual(
+    observedRuns(records, attribution).map((run) => [run.id, run.parentRunId]),
+    [
+      [id(0), null],
+      [id(1), null],
+      [id(2), id(1)],
+      [id(3), id(1)],
+      [id(4), null],
+      [id(5), null],
+    ],
+  );
 });

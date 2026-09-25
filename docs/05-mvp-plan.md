@@ -61,7 +61,7 @@ Implement:
 - normalized usage schema;
 - session-artifact readers, Claude Code first, then Codex (ADR-0011);
 - historical import driven by a question `binn init` gains in this phase;
-- run-to-task correlation from `cwd` and the branch — the harness's own record first, `git reflog` otherwise (ADR-0018, ADR-0028);
+- run-to-task correlation from `cwd` and the branch — the checkout's `git reflog` while the checkout exists, the harness's own record otherwise (ADR-0018, ADR-0029);
 - provenance tagging.
 
 OpenTelemetry, the optional live path (ADR-0011), is deferred: see the roadmap's Later list.

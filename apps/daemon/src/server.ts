@@ -17,7 +17,7 @@ import { OperationError } from './errors.ts';
 import { operations, type OperationContext } from './operations.ts';
 import { projectRegistry } from './projection.ts';
 import { openStore } from './store.ts';
-import { importer, INGEST_BUDGET_MS, projectCheckouts, startIngest, stopImporting } from './usage.ts';
+import { importer, INGEST_BUDGET_MS, projectCheckouts, SETTLED_AFTER_MS, startIngest, stopImporting } from './usage.ts';
 import { VERSION } from './version.ts';
 
 export const LOOPBACK = '127.0.0.1';
@@ -46,6 +46,8 @@ export type DaemonOptions = {
   artifacts?: Runtime['artifacts'];
   /** How long a call waits for its project's ingest; `0` never waits. */
   ingestBudgetMs?: number;
+  /** How long a Claude Code file goes unwritten before its last message counts as finished. */
+  settledAfterMs?: number;
 };
 
 export type Daemon = {
@@ -89,7 +91,7 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
     releaseRuntime(home, runtime.pid);
     throw error;
   }
-  const context: OperationContext = { home, runtime, store, importer: importer(options.ingestBudgetMs ?? INGEST_BUDGET_MS) };
+  const context: OperationContext = { home, runtime, store, importer: importer(options.ingestBudgetMs ?? INGEST_BUDGET_MS, options.settledAfterMs ?? SETTLED_AFTER_MS) };
 
   const server = createServer((request, response) => {
     handle(request, response, context, token).catch((error: unknown) => fail(response, error));
