@@ -54,6 +54,8 @@ Spec: `docs/specs/tracker-and-matt-pocock-integration/spec.md`
 - **For ticket 12.** Point its scratch project at `it-bbox/binnacle-tracker-fixture`. #2 is the natural `/binnacle:task` subject, because it has a spec, a triage label and no blocker.
 - **Question answered in the smallest way the spec allows.** *How can the fixtures show that the close reason was read, when every closed issue's `Status:` agrees with how it was closed?* The fixed issues are the owner's, and the tokens are read-only. So the suite checks GitHub's own `state_reason` on the closed issues, and the offline suite already checks how the adapter maps it. If the owner wants the Tasks themselves to show it, a closed-as-not-planned issue with no header would be read as `CANCELLED` only through its close reason. That issue would be #18 on GitHub.
 
+- **Issue #18, decided by the owner on 2026-09-25: not added.** The suite already checks GitHub's `state_reason` on the three closed fixtures directly, and the close-state rule is covered offline; #18 would repeat that check at the cost of a write token and another test change.
+
 ### Review
 
 `/code-review` ran against `main` on both axes.
