@@ -48,9 +48,8 @@ const ticketNumber = (file: string): number => Number(TICKET_FILE.exec(file)![1]
 const identity = (spec: string, number: string): string => `${spec}/${String(Number(number)).padStart(2, '0')}`;
 
 function parseTicket(spec: string, file: string, ticket: string, text: string, diagnostics: Diagnostic[]): TrackerTask {
-  const header = parseTicketHeader(text);
+  const { heading, status, blockedBy, spec: specLine, triage } = parseTicketHeader(text);
   const id = identity(spec, TICKET_FILE.exec(file)![1]!);
-  const status = header.status;
   if (status === null || !isTaskState(status)) {
     diagnostics.push({
       code: 'task.unknown_state',
@@ -62,12 +61,12 @@ function parseTicket(spec: string, file: string, ticket: string, text: string, d
   }
   return {
     id,
-    title: header.heading?.replace(/^\d+:\s*/, '') ?? null,
+    title: heading?.replace(/^\d+:\s*/, '') ?? null,
     state: status !== null && isTaskState(status) ? status : null,
-    blockedBy: dependencies(spec, header.blockedBy ?? 'None'),
-    spec: unquote(header.spec),
+    blockedBy: dependencies(spec, blockedBy ?? 'None'),
+    spec: unquote(specLine),
     specSlug: spec,
-    triage: header.triage || null,
+    triage: triage || null,
     ticket,
   };
 }

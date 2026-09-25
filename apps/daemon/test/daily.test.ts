@@ -316,7 +316,7 @@ describe('the roadmap on a remote tracker', () => {
   it('is in the snapshot, its changes are in the daily and it is a checkpoint target, while Tasks stay unavailable', async () => {
     await withDaemon(async (daemon) => {
       const root = makeRepository();
-      write(root, '.binnacle/project.yaml', MANIFEST.replace(/tracker:\n(?: {2}.*\n)+/, 'tracker:\n  provider: github\n'));
+      write(root, '.binnacle/project.yaml', 'version: 1\n\nproject:\n  id: daily-project\n\ntracker:\n  provider: github\n\nknowledge:\n  docs: docs\n  adr: docs/adr\n');
       commitAll(root, 'Move the tickets to GitHub', LONG_AGO);
       await register(daemon, root);
 

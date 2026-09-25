@@ -75,7 +75,7 @@ export type TicketHeader = {
 };
 
 const HEADER_FIELDS = { Status: 'status', Triage: 'triage', 'Blocked by': 'blockedBy', Spec: 'spec' } as const;
-const HEADER_LINE = /^(Status|Triage|Blocked by|Spec):\s*(.*)$/;
+const HEADER_LINE = /^([^:]+):\s*(.*)$/;
 const HEADING = /^#{1,6}\s+/;
 
 /**
@@ -100,8 +100,9 @@ export function parseTicketHeader(text: string): TicketHeader {
   }
   for (; line < lines.length && lines[line]!.trim() !== ''; line++) {
     const match = HEADER_LINE.exec(lines[line]!.trim());
-    const field = match && HEADER_FIELDS[match[1] as keyof typeof HEADER_FIELDS];
-    if (field && header[field] === null) header[field] = match[2]!.trim();
+    if (!match || !Object.hasOwn(HEADER_FIELDS, match[1]!)) continue;
+    const field = HEADER_FIELDS[match[1] as keyof typeof HEADER_FIELDS];
+    if (header[field] === null) header[field] = match[2]!.trim();
   }
   return header;
 }

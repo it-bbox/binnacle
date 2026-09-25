@@ -69,6 +69,11 @@ const task = (id: string, specSlug: string | null, state: TrackerTask['state']):
   ticket: id,
 });
 
+/**
+ * Also on the function, deliberately: on the local tracker a Task's identity starts with its
+ * spec slug, so through the daemon linking by slug and by identity prefix look the same, and
+ * a Task whose identity is not shaped that way only arrives with the remote adapters.
+ */
 test('the roadmap checks reach an epic’s Tasks by spec slug, whatever their identity looks like', () => {
   const epics: Epic[] = [
     { number: 1, title: 'Remote', status: 'done', spec: 'remote' },
