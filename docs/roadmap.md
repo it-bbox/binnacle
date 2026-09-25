@@ -31,9 +31,9 @@ Epic 3 is done, closed on 2026-09-25 after its exit demonstration, which found n
 
 Epic 4, Telemetry, is specified (ADR-0028): session artifacts from Claude Code and Codex become observed AgentRuns attributed to Tasks, shown in the snapshot's usage section and `usage_get`.
 
-Epic 4's ticket 01 is done: the snapshot's usage section shows Claude Code's totals for today and the week, by model, with its support level.
+Epic 4's tickets 01 and 06 are done: the snapshot's usage section shows Claude Code's totals for today and the week, by model, with its support level. The import window can be `all` and can be widened without double counting, a call waits for the import no longer than a fixed budget, and the daemon starts importing every registered project when it starts.
 
-Next action: tickets 02 (observed runs and Task attribution), 06 (import window, time budget and re-reading) and 07 (unreadable artifacts) can start now, each in a fresh session on its own branch.
+Next action: tickets 02 (observed runs and Task attribution), 07 (unreadable artifacts) and 08 (`binn init`'s import window) can start now, each in a fresh session on its own branch.
 
 ## Later
 
