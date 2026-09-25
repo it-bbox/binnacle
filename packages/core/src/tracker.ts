@@ -180,11 +180,16 @@ export function taskBranch(task: Pick<TrackerTask, 'id' | 'title' | 'ticket'>, r
  *   rest says, when the tracker holds it.
  */
 export function branchTask<T extends Pick<TrackerTask, 'id' | 'title' | 'ticket'>>(branch: string, tasks: T[], remote: boolean): T | null {
+  const matches = tasksOnBranch(branch, tasks, remote);
+  return matches.length === 1 ? matches[0]! : null;
+}
+
+/** Every Task `branch` maps back to, by the rules `branchTask` states; it credits one only when it is alone. */
+function tasksOnBranch<T extends Pick<TrackerTask, 'id' | 'title' | 'ticket'>>(branch: string, tasks: T[], remote: boolean): T[] {
   const number = /^feat\/(\d+)(?:-|$)/.exec(branch)?.[1];
-  const matches = remote
+  return remote
     ? tasks.filter((task) => number !== undefined && task.id === `#${Number(number)}`)
     : tasks.filter((task) => taskBranch(task, false) === branch);
-  return matches.length === 1 ? matches[0]! : null;
 }
 
 /**
@@ -196,8 +201,8 @@ export function branchTask<T extends Pick<TrackerTask, 'id' | 'title' | 'ticket'
  */
 export function sharedBranch<T extends Pick<TrackerTask, 'id' | 'title' | 'ticket'>>(task: T, tasks: T[], remote: boolean): Diagnostic | null {
   const branch = taskBranch(task, remote);
-  // By ticket, not id: `03-a.md` and `3-a.md` in one spec are both `<spec>/03`, and `branchTask` counts both.
-  const others = tasks.filter((other) => other.ticket !== task.ticket && taskBranch(other, remote) === branch);
+  // By ticket, not id: `03-a.md` and `3-a.md` in one spec are both `<spec>/03`, and both are on its branch.
+  const others = tasksOnBranch(branch, tasks, remote).filter((other) => other.ticket !== task.ticket);
   if (others.length === 0) return null;
   return {
     code: 'task.shared_branch',
