@@ -27,7 +27,7 @@ type Issue = {
 const GITHUB: Forge = {
   name: 'GitHub',
   headers: { accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28' },
-  issue(entry) {
+  toIssue(entry) {
     const issue = entry as Issue;
     if (issue.pull_request !== undefined) return null;
     return {

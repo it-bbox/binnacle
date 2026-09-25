@@ -16,7 +16,7 @@ type Issue = { iid: number; title: string; state: string; description?: string |
 const GITLAB: Forge = {
   name: 'GitLab',
   headers: { accept: 'application/json' },
-  issue(entry) {
+  toIssue(entry) {
     const issue = entry as Issue;
     return {
       number: issue.iid,

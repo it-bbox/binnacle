@@ -30,7 +30,7 @@ export type Forge = {
   name: 'GitHub' | 'GitLab';
   headers: Record<string, string>;
   /** One entry of a page as an issue, or null for one that is not an issue. */
-  issue(entry: unknown): RemoteIssue | null;
+  toIssue(entry: unknown): RemoteIssue | null;
 };
 
 /**
@@ -62,7 +62,7 @@ export async function readRemoteTasks(forge: Forge, firstPage: string, where: st
     }
     if (!Array.isArray(page)) return failed('tracker.unreachable', `${forge.name} answered for ${where} with something other than a list of issues.`);
     for (const entry of page) {
-      const issue = forge.issue(entry);
+      const issue = forge.toIssue(entry);
       if (issue !== null) issues.push(issue);
     }
 
@@ -88,7 +88,7 @@ function statusFailure(name: Forge['name'], response: Response, where: string): 
   }
   if (status === 401) return ['tracker.unauthorized', `${name} refused an anonymous request for ${where} (401); no token was used.`];
   if (status === 403) return ['tracker.forbidden', `${name} gave no read access to the issues of ${where} (403).`];
-  if (status === 404 || status === 410) return ['tracker.not_found', `${name} has no repository ${where} with issues visible to this request (${status}).`];
+  if (status === 404 || status === 410) return ['tracker.not_found', `${name} has nothing at ${where} with issues visible to this request (${status}).`];
   return ['tracker.unreachable', `${name} answered ${status} for ${where}.`];
 }
 
