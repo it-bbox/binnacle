@@ -506,6 +506,99 @@ describe('the import window, the time budget and re-reading', () => {
     });
   });
 });
+
+describe('unreadable artifacts', () => {
+  type Attention = { code: string; message: string }[];
+
+  async function snapshotWithAttention(daemon: TestDaemon, root: string): Promise<{ usage: Usage; attention: Attention }> {
+    const result = await daemon.call<{ usage: Usage; attention: Attention }>('project.snapshot', { path: root });
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    return result.body;
+  }
+
+  const unreadable = (attention: Attention): Attention => attention.filter((item) => item.code === 'telemetry.unreadable');
+
+  /** Claude Code's lines with a field it did not write before, at the top and in the usage, as a newer version might add. */
+  const newer = (source: Line[]): Line[] =>
+    source.map((line) =>
+      line.message && isUsage(line.message.usage)
+        ? { ...line, fieldFromANewerVersion: true, message: { ...line.message, usage: { ...line.message.usage, counter_from_a_newer_version: 7 } } }
+        : { ...line, fieldFromANewerVersion: true },
+    );
+  const isUsage = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+
+  /** A message whose first record has lost its usage, as a format change might drop it. */
+  const withoutUsage = (source: Line[]): Line[] =>
+    source.map((line, index) => {
+      if (index > 0 || !line.message) return line;
+      const { usage: _usage, ...message } = line.message;
+      return { ...line, message };
+    });
+
+  /** The grill message (lines 1 to 5), the aborted one (lines 6 and 7), and the grill message again (lines 8 to 12). */
+  const sessionLines = (aborted: Line[]): Line[] => [...newer(lines(GRILL, daysAgo(0))), ...aborted, ...lines(GRILL, daysAgo(0), '-after')];
+
+  it('stops a file at a line without the usage it needs, keeps what came before, and reads on from that line once it is readable', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'));
+      assert.equal((await daemon.call('project.register', { path: root })).status, 200);
+      const file = session(artifacts, root, 'drifted', sessionLines(withoutUsage(lines(ABORTED, daysAgo(0)))));
+
+      const broken = await snapshotWithAttention(daemon, root);
+      // Fields Claude Code did not write before are ignored; nothing at or after the failing line counts.
+      assert.deepEqual(broken.usage.today, GRILL_TOTALS);
+      assert.equal(broken.usage.harnesses[0]?.level, 1);
+      const [item, ...others] = unreadable(broken.attention);
+      assert.deepEqual(others, []);
+      assert.match(item?.message ?? '', new RegExp(`^Claude Code .*${file} at line 6: an assistant record without usage`));
+      assert.equal(broken.usage.harnesses[0]?.reason, item?.message);
+
+      // Still unreadable: still reported, and nothing counted twice.
+      const again = await snapshotWithAttention(daemon, root);
+      assert.equal(again.usage.today.records, 1);
+      assert.equal(unreadable(again.attention).length, 1);
+
+      // Repaired, the file is read on from the line it stopped at, and the item clears.
+      session(artifacts, root, 'drifted', sessionLines(lines(ABORTED, daysAgo(0))));
+      const repaired = await snapshotWithAttention(daemon, root);
+      assert.equal(repaired.usage.today.records, 3);
+      assert.deepEqual(repaired.usage.harnesses[0], { harness: 'claude-code', level: 3, reason: null });
+      assert.deepEqual(unreadable(repaired.attention), []);
+      assert.equal(stored(daemon).length, 3);
+    });
+  });
+
+  it('names the first unreadable file of the project and counts the others in one item, and keeps the level at 1 while the import runs on', async () => {
+    await withDaemon(
+      async (daemon, artifacts) => {
+        const root = makeProject(temporary('binnacle-usage-'));
+        assert.equal((await daemon.call('project.register', { path: root })).status, 200);
+        const first = session(artifacts, root, 'drifted-1', sessionLines(withoutUsage(lines(ABORTED, daysAgo(0)))));
+        session(artifacts, root, 'drifted-2', withoutUsage(lines(ABORTED, daysAgo(0), '-2')));
+
+        let body = await snapshotWithAttention(daemon, root);
+        for (let attempt = 0; attempt < 200 && unreadable(body.attention).length === 0; attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          body = await snapshotWithAttention(daemon, root);
+        }
+        // The failing files are read again on every call, so the import is running here too.
+        assert.equal(body.usage.importing.incomplete, true);
+        assert.equal(body.usage.harnesses[0]?.level, 1);
+        const [item, ...others] = unreadable(body.attention);
+        assert.deepEqual(others, []);
+        assert.match(item?.message ?? '', new RegExp(`${first} at line 6: .*1 other file`));
+
+        rmSync(join(dirname(first), 'drifted-2.jsonl'));
+        session(artifacts, root, 'drifted-1', sessionLines(lines(ABORTED, daysAgo(0))));
+        const repaired = await untilImported(daemon, root);
+        assert.deepEqual(repaired.harnesses[0], { harness: 'claude-code', level: 3, reason: null });
+        assert.deepEqual(unreadable((await snapshotWithAttention(daemon, root)).attention), []);
+      },
+      { ingestBudgetMs: 0 },
+    );
+  });
+});
+
 // The daemon runs in this process and reads its environment: a token the developer has set
 // would otherwise reach the loopback GitHub stand-in.
 delete process.env.BINNACLE_GITHUB_TOKEN;
@@ -1037,7 +1130,7 @@ describe('Codex usage in the Product Snapshot', () => {
     });
   });
 
-  it('stops reading a rollout at a total that decreases, and keeps what came before it', async () => {
+  it('stops reading a rollout at a total that decreases, keeps what came before it, and says so in telemetry.unreadable', async () => {
     await withDaemon(async (daemon, _artifacts, codex) => {
       const root = makeProject(temporary('binnacle-usage-'));
       const records = movedTo(TOOL_CALLS, daysAgo(0));
@@ -1048,8 +1141,24 @@ describe('Codex usage in the Product Snapshot', () => {
 
       const body = await usage(daemon, root);
       assert.equal(body.harnesses[1]?.level, 1);
-      assert.match(body.harnesses[1]?.reason ?? '', new RegExp(`${file}.*line 10`));
+      assert.match(body.harnesses[1]?.reason ?? '', new RegExp(`^Codex could not read ${file} at line 10: .*nothing after that line is counted`));
       assert.equal(body.today.records, 3);
+      assert.equal(body.harnesses[0]?.harness, 'claude-code');
+      assert.notEqual(body.harnesses[0]?.level, 1);
+
+      // Codex appends to its rollout: the file is read again from its start, and stops at the same line.
+      appendFileSync(file, `${JSON.stringify(records.at(-1))}\n`);
+      const { status, body: snapshot } = await daemon.call<{ usage: Usage; attention: { code: string; message: string }[] }>('project.snapshot', { path: root });
+      assert.equal(status, 200);
+      assert.equal(snapshot.usage.today.records, 3);
+      assert.deepEqual(
+        snapshot.attention.filter((item) => item.code === 'telemetry.unreadable').map((item) => item.message),
+        [snapshot.usage.harnesses[1]?.reason],
+      );
+
+      // Another project's rollout is not this one's to report.
+      const other = makeProject(temporary('binnacle-usage-'));
+      assert.equal((await usage(daemon, other)).harnesses[1]?.level, null);
     });
   });
 

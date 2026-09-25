@@ -105,6 +105,9 @@ export async function snapshot(
 ): Promise<Snapshot> {
   const tree = workingTree(caller.project);
   const { tasks, unreadable, roadmap, adrs, attention } = await readState(home, tree, projected, diagnostics);
+  const usageSection = await usage(tasks ?? trackerUnavailable(unreadable));
+  // A harness whose artifacts cannot be read is at level 1, and says why.
+  for (const { level, reason } of usageSection.harnesses) if (level === 1 && reason !== null) attention.push({ code: 'telemetry.unreadable', message: reason });
 
   return {
     project: projected.row,
@@ -115,7 +118,7 @@ export async function snapshot(
     decisions: adrs && (await recentDecisions(tree, caller.project, adrs)),
     pendingDecisions: UNAVAILABLE,
     ci: UNAVAILABLE,
-    usage: await usage(tasks ?? trackerUnavailable(unreadable)),
+    usage: usageSection,
     attention,
   };
 }
