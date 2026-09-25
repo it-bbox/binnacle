@@ -112,7 +112,7 @@ export function observedRuns<R extends RunRecord, T extends Pick<TrackerTask, 'i
       last.sessionId === record.sessionId &&
       last.subagentId === record.subagentId &&
       last.checkout === record.checkout &&
-      branchOf(last) === branchOf(record);
+      reflogBranch(last) === reflogBranch(record);
     if (same) groups.at(-1)!.push(record);
     else groups.push([record]);
   }
@@ -131,7 +131,7 @@ export function observedRuns<R extends RunRecord, T extends Pick<TrackerTask, 'i
   const runs = groups.map((group) => {
     const first = group[0]!;
     const latest = group.at(-1)!;
-    const branch = branchOf(first);
+    const branch = reflogBranch(first);
     const task = branch === null ? null : branchTask(branch, tasks, remote);
     return {
       id: runId(first),
@@ -156,7 +156,7 @@ export function observedRuns<R extends RunRecord, T extends Pick<TrackerTask, 'i
 const runId = (first: UsageRecord): string => `${first.harness}:${first.naturalKey}`;
 
 /** A record's branch as runs read it: the reflog's, since one its harness wrote attributes nothing, however long stored (ADR-0030). */
-const branchOf = (record: UsageRecord): string | null => (record.branch?.source === 'reflog' ? record.branch.name : null);
+const reflogBranch = (record: UsageRecord): string | null => (record.branch?.source === 'reflog' ? record.branch.name : null);
 
 /** Code-unit order, element by element, so the same records give the same runs anywhere. */
 function compare(a: string[], b: string[]): number {

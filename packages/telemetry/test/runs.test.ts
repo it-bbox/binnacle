@@ -40,27 +40,37 @@ test('a run is one stretch of one session in one checkout on one branch, with th
     record(3, { branch: feat, checkout: '/repo/.claude/worktrees/x', cwd: '/repo/.claude/worktrees/x' }),
     record(4, { branch: { name: 'fix/other', source: 'reflog' } }),
     record(5, { branch: null }),
-    // A branch the harness wrote is no branch (ADR-0030): it neither credits a Task nor starts a run.
-    record(6, { branch: { name: 'feat/first', source: 'harness' } }),
-    record(7, { sessionId: 'another' }),
+    record(6, { sessionId: 'another' }),
   ];
   // Given in any order, they are read in time order.
   const runs = observedRuns([...records].reverse(), attribution);
   assert.deepEqual(
-    runs.map((run) => [run.id, run.records.length, run.branch, run.branchSource, run.taskId, run.role]),
+    runs.map((run) => [run.id, run.records.length, run.branch, run.taskId, run.role]),
     [
-      ['claude-code:msg_001', 1, 'main', 'reflog', null, 'product'],
-      ['claude-code:msg_002', 2, 'feat/first', 'reflog', 'epic/01', 'implementation'],
-      ['claude-code:msg_004', 1, 'feat/first', 'reflog', 'epic/01', 'implementation'],
-      ['claude-code:msg_005', 1, 'fix/other', 'reflog', null, 'unknown'],
-      ['claude-code:msg_006', 2, null, null, null, 'unknown'],
-      ['claude-code:msg_008', 1, 'main', 'reflog', null, 'product'],
+      ['claude-code:msg_001', 1, 'main', null, 'product'],
+      ['claude-code:msg_002', 2, 'feat/first', 'epic/01', 'implementation'],
+      ['claude-code:msg_004', 1, 'feat/first', 'epic/01', 'implementation'],
+      ['claude-code:msg_005', 1, 'fix/other', null, 'unknown'],
+      ['claude-code:msg_006', 1, null, null, 'unknown'],
+      ['claude-code:msg_007', 1, 'main', null, 'product'],
     ],
   );
 
   // More records of a run keep its id.
   const later = observedRuns([...records.slice(0, 2), record(7, { branch: feat })], attribution);
   assert.deepEqual(later.map((run) => [run.id, run.records.length]), [['claude-code:msg_001', 1], ['claude-code:msg_002', 2]]);
+});
+
+test('a branch only the harness wrote is no branch: it credits no Task and starts no run, and its run is unknown (ADR-0030)', () => {
+  const harness = (name: string): RunRecord['branch'] => ({ name, source: 'harness' });
+  const runs = observedRuns([record(0, { branch: harness('main') }), record(1, { branch: harness('feat/first') }), record(2, { branch: null }), record(3)], attribution);
+  assert.deepEqual(
+    runs.map((run) => [run.records.length, run.branch, run.branchSource, run.taskId, run.role]),
+    [
+      [3, null, null, null, 'unknown'],
+      [1, 'main', 'reflog', null, 'product'],
+    ],
+  );
 });
 
 test('a run is active while its latest record is recent, which is a calculated reading', () => {

@@ -262,9 +262,10 @@ async function runs(
 ): Promise<(ObservedRun & { records: RunRecord[] })[]> {
   const defaultBranch = (await readDefaultBranch(projectPath, resolveGitTimeout())) ?? 'main';
   // ponytail: a record's checkout is found among the ones that exist now, so a removed
-  // worktree's records read as the registered checkout's. They have no branch (ADR-0030), so
-  // they join a stretch of the same session there only where it has none either, and both
-  // are unassigned; tell removed worktrees apart if a run's checkout is ever shown.
+  // worktree's records read as the registered checkout's. The branch its reflog gave them
+  // while it existed still splits them off; those first read after its removal have none
+  // (ADR-0030), and join a stretch of the same session there that has none either, all of it
+  // unassigned. Tell removed worktrees apart if a run's checkout is ever shown.
   const withCheckout = records.map((record) => ({ ...record, checkout: containingEntry(record.cwd, checkouts.roots)?.path ?? projectPath }));
   return observedRuns(withCheckout, { projectPath, defaultBranch, tasks, remote, now: new Date() });
 }

@@ -696,10 +696,17 @@ describe('Observed runs and Task attribution in the Product Snapshot', () => {
       const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
       ticket(root, 'epic', '01-first.md', 'First');
       repository(root, at(1, 0));
-      // Where Claude Code puts its worktrees, removed after their merges, before Binnacle read them.
-      const removed = (name: string): string => join(root, '.claude', 'worktrees', name);
-      session(artifacts, removed('agent-main'), 'wrote-main', onBranch('main', lines(GRILL, at(0, 0), '-main')));
-      session(artifacts, removed('agent-ticket'), 'wrote-ticket', onBranch('feat/first', lines(GRILL, at(0, 1), '-ticket')));
+      // A worktree where Claude Code puts its own, on the branch made for it, removed with that
+      // branch after the merge, before Binnacle read it.
+      const removed = (name: string, records: Line[]): void => {
+        const worktree = join(root, '.claude', 'worktrees', name);
+        gitAt(at(1, 10), root, 'worktree', 'add', '--quiet', '-b', `worktree-${name}`, worktree);
+        session(artifacts, worktree, name, records);
+        git(root, 'worktree', 'remove', worktree);
+        git(root, 'branch', '-d', `worktree-${name}`);
+      };
+      removed('agent-main', onBranch('main', lines(GRILL, at(0, 0), '-main')));
+      removed('agent-ticket', onBranch('feat/first', lines(GRILL, at(0, 1), '-ticket')));
       await register(daemon, root);
 
       const body = await usageGet<ProjectUsage>(daemon, root);
@@ -797,7 +804,7 @@ describe('Observed runs and Task attribution in the Product Snapshot', () => {
     try {
       await withDaemon(async (daemon, artifacts) => {
         const root = makeProject(temporary('binnacle-usage-'), githubTracker(github.base));
-        session(artifacts, root, 'unreadable', onBranch('feat/7-seven', lines(GRILL, daysAgo(0))));
+        session(artifacts, root, 'unreadable', lines(GRILL, daysAgo(0)));
 
         assert.equal((await daemon.call('project.register', { path: root })).status, 200);
         const { body } = await daemon.call<{ usage: Usage; attention: { code: string; message: string }[] }>('project.snapshot', { path: root });
@@ -993,7 +1000,7 @@ describe('usage.get', () => {
     await withDaemon(async (daemon, artifacts) => {
       const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
       ticket(root, 'epic', '01-first.md', 'First');
-      session(artifacts, root, 'main', onBranch('main', lines(GRILL, daysAgo(0))));
+      session(artifacts, root, 'main', lines(GRILL, daysAgo(0)));
       await register(daemon, root);
 
       const missing = await daemon.call<{ error: { code: string } }>('usage.get', { path: root, task: 'epic/99' });
@@ -1014,7 +1021,7 @@ describe('usage.get', () => {
     try {
       await withDaemon(async (daemon, artifacts) => {
         const root = makeProject(temporary('binnacle-usage-'), githubTracker(github.base));
-        session(artifacts, root, 'unreadable', onBranch('feat/7-seven', lines(GRILL, daysAgo(0))));
+        session(artifacts, root, 'unreadable', lines(GRILL, daysAgo(0)));
         await register(daemon, root);
 
         const body = await usageGet<ProjectUsage>(daemon, root);
@@ -1170,11 +1177,7 @@ describe('Codex usage in the Product Snapshot', () => {
       const root = makeProject(join(parent, 'project'), LOCAL_TRACKER);
       ticket(root, 'epic', '01-first.md', 'First');
       ticket(root, 'epic', '02-second.md', 'Second');
-      gitAt(at(1, 0), root, 'init', '--quiet', '--initial-branch=main');
-      gitAt(at(1, 0), root, 'add', '.');
-      gitAt(at(1, 0), root, 'commit', '--quiet', '-m', 'initial');
-      gitAt(at(1, 10), root, 'switch', '--quiet', '-c', 'feat/first');
-      gitAt(at(1, 20), root, 'switch', '--quiet', 'main');
+      repository(root, at(1, 0), [at(1, 10), 'feat/first'], [at(1, 20), 'main']);
       const linked = join(parent, 'linked');
       gitAt(at(1, 30), root, 'worktree', 'add', '--quiet', '-b', 'feat/second', linked);
       gitAt(at(1, 40), root, 'switch', '--quiet', '--detach');
@@ -1378,6 +1381,28 @@ describe('Where a record’s branch comes from', () => {
           ['msg_011CfLMEGjvuTXtzfiK6XfsV-in-root', 'main', 'reflog'],
         ],
       );
+    });
+  });
+
+  it('attributes nothing by a branch Claude Code wrote that the store holds from ADR-0028’s order, though the reflog would answer', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
+      ticket(root, 'epic', '01-first.md', 'First');
+      repository(root, at(1, 0), [at(1, 10), 'feat/first']);
+      session(artifacts, root, 'stored', lines(GRILL, at(0, 0)));
+      await register(daemon, root);
+      assert.deepEqual(taskRecords(await usageGet<ProjectUsage>(daemon, root)), [['epic/01', 'First', 1]]);
+
+      // The record as a daemon that took Claude Code's branch first stored it: a fixture, since
+      // there is no API for an earlier release's store. A record is ingested once, so nothing rewrites it.
+      const db = new DatabaseSync(storePath(daemon.home));
+      db.exec("update ingested_record set branch = 'main', branch_source = 'harness'");
+      db.close();
+
+      const body = await usageGet<ProjectUsage>(daemon, root);
+      assert.deepEqual(taskRecords(body), []);
+      const byRole = available(body.byRole);
+      assert.deepEqual([byRole.product.records, byRole.implementation.records, byRole.unknown.records], [0, 0, 1]);
     });
   });
 
