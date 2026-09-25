@@ -5,8 +5,10 @@ import type { AddressInfo } from 'node:net';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { after, describe, it } from 'node:test';
 import { githubApiRoot, readGitHubTasks } from '@binnacle/adapters';
+import { storePath } from '../src/index.ts';
 import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
 
 type SnapshotTask = { id: string; title: string | null; state: string | null; unmetDependencies: string[]; ticket: string };
@@ -406,23 +408,192 @@ describe('the GitHub remote against the declared tracker', () => {
   });
 });
 
-describe('the daily on a GitHub tracker', () => {
-  it('lists what can start, and leaves transitions and new tickets unavailable until states are recorded', async () => {
-    await withGitHub([[issue(1, 'Start', { body: header({ Status: 'READY' }) })]], async (daemon, fake) => {
-      const root = makeProject(manifest(fake.base));
-      execFileSync('git', ['init', '--quiet'], { cwd: root });
-      execFileSync('git', ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', '-c', 'commit.gpgsign=false', 'commit', '--quiet', '--allow-empty', '-m', 'x'], {
-        cwd: root,
-      });
-      assert.equal((await daemon.call('project.register', { path: root })).status, 200);
+describe('Task transitions on a GitHub tracker', () => {
+  type Unavailable = { available: false; reason: string };
+  type Transition = { id: string; title: string | null; from: string | null; to: string | null; ticket: string };
+  type Delta = {
+    head: string;
+    fallback: { reason: string } | null;
+    commits: { count: number };
+    transitions: { items: Transition[]; remainder: number } | Unavailable | null;
+    newTickets: Section | Unavailable | null;
+    readyToStart: Section | null;
+    attention: { code: string; message: string }[];
+  };
+  type Event = { type: string; payload: Record<string, unknown> };
 
-      type Daily = { transitions: unknown; newTickets: unknown; readyToStart: Section | null };
-      const result = await daemon.call<Daily>('daily.get', { path: root });
-      assert.equal(result.status, 200, JSON.stringify(result.body));
-      assert.equal(result.body.transitions, null);
-      assert.equal(result.body.newTickets, null);
-      assert.deepEqual(ids(result.body.readyToStart!), ['#1']);
+  function commit(root: string, message: string): void {
+    execFileSync('git', ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', '-c', 'commit.gpgsign=false', 'commit', '--quiet', '--allow-empty', '-m', message], {
+      cwd: root,
     });
+  }
+
+  /** A committed repository whose manifest points at the loopback stand-in, registered with `daemon`. */
+  async function gitProject(daemon: TestDaemon, fake: FakeGitHub): Promise<string> {
+    const root = makeProject(manifest(fake.base));
+    execFileSync('git', ['init', '--quiet'], { cwd: root });
+    commit(root, 'Start');
+    assert.equal((await daemon.call('project.register', { path: root })).status, 200);
+    return root;
+  }
+
+  async function call(daemon: TestDaemon, operation: string, body: Record<string, unknown>): Promise<Delta> {
+    const result = await daemon.call<Delta>(operation, body);
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    return result.body;
+  }
+
+  async function recorded(daemon: TestDaemon, type: string): Promise<Event[]> {
+    return (await daemon.call<{ events: Event[] }>('event.list')).body.events.filter((event) => event.type === type);
+  }
+
+  const before = (): unknown[] => [
+    issue(1, 'Close me', { body: header({ Status: 'ACTIVE' }) }),
+    issue(2, 'Start me', { body: header({ Status: 'READY' }) }),
+    issue(3, 'Leave me', { body: header({ Status: 'READY' }) }),
+  ];
+  const changed = (): unknown[] => [
+    issue(1, 'Close me', { state: 'closed', state_reason: 'completed', body: header({ Status: 'ACTIVE' }) }),
+    issue(2, 'Start me', { body: header({ Status: 'ACTIVE' }) }),
+    issue(3, 'Leave me', { body: header({ Status: 'READY' }) }),
+    issue(4, 'Filed since', { body: header({ Status: 'BACKLOG' }) }),
+  ];
+  const STATES_BEFORE = { '#1': 'ACTIVE', '#2': 'READY', '#3': 'READY' };
+  const MOVES = [
+    { id: '#1', from: 'ACTIVE', to: 'DONE' },
+    { id: '#2', from: 'READY', to: 'ACTIVE' },
+  ];
+  const moves = (body: Delta): unknown[] => (body.transitions as { items: Transition[] }).items.map(({ id, from, to }) => ({ id, from, to }));
+
+  function assertUnavailable(body: Delta, reason: RegExp): void {
+    for (const list of [body.transitions, body.newTickets]) {
+      assert.equal((list as Unavailable | null)?.available, false, JSON.stringify(list));
+      assert.match((list as Unavailable).reason, reason);
+    }
+  }
+
+  it('says transitions and new tickets are unavailable on the first daily, and records every Task’s state', async () => {
+    await withGitHub([before()], async (daemon, fake) => {
+      const root = await gitProject(daemon, fake);
+
+      const body = await call(daemon, 'daily.get', { path: root });
+      assert.equal(body.fallback?.reason, 'no_baseline');
+      assertUnavailable(body, /no daily or checkpoint/i);
+      assert.deepEqual(ids(body.readyToStart!), ['#2', '#3']);
+      assert.deepEqual((await recorded(daemon, 'daily'))[0]?.payload, { head: body.head, states: STATES_BEFORE });
+    });
+  });
+
+  it('lists what closed, what started and what was filed between two dailies, and nothing after a third', async () => {
+    await withGitHub([before()], async (daemon, fake) => {
+      const root = await gitProject(daemon, fake);
+      await call(daemon, 'daily.get', { path: root });
+
+      fake.pages[0] = changed();
+      const body = await call(daemon, 'daily.get', { path: root });
+      assert.equal(body.fallback, null);
+      assert.deepEqual(body.transitions, {
+        items: [
+          { id: '#1', title: 'Close me', from: 'ACTIVE', to: 'DONE', ticket: `https://github.com/${REPOSITORY}/issues/1` },
+          { id: '#2', title: 'Start me', from: 'READY', to: 'ACTIVE', ticket: `https://github.com/${REPOSITORY}/issues/2` },
+        ],
+        remainder: 0,
+      });
+      assert.deepEqual(body.newTickets, {
+        items: [{ id: '#4', title: 'Filed since', state: 'BACKLOG', unmetDependencies: [], ticket: `https://github.com/${REPOSITORY}/issues/4` }],
+        remainder: 0,
+      });
+
+      const again = await call(daemon, 'daily.get', { path: root });
+      assert.deepEqual(again.transitions, { items: [], remainder: 0 });
+      assert.deepEqual(again.newTickets, { items: [], remainder: 0 });
+    });
+  });
+
+  it('says they are unavailable with an explicit since, which records nothing', async () => {
+    await withGitHub([before()], async (daemon, fake) => {
+      const root = await gitProject(daemon, fake);
+      const first = await call(daemon, 'daily.get', { path: root });
+
+      fake.pages[0] = changed();
+      const since = await call(daemon, 'daily.get', { path: root, since: first.head });
+      assert.equal(since.fallback, null);
+      assertUnavailable(since, /since/);
+      assert.equal((await recorded(daemon, 'daily')).length, 1);
+
+      // The recorded baseline is untouched by `since`.
+      assert.deepEqual(moves(await call(daemon, 'daily.get', { path: root })), MOVES);
+    });
+  });
+
+  it('answers the rest of a daily while the tracker is unreadable, records no states then, and says so the next time', async () => {
+    await withGitHub([before()], async (daemon, fake) => {
+      const root = await gitProject(daemon, fake);
+      await call(daemon, 'daily.get', { path: root });
+
+      commit(root, 'While the tracker is down');
+      fake.reply = () => ({ status: 404, body: { message: 'Not Found' } });
+      const down = await call(daemon, 'daily.get', { path: root });
+      assert.equal(down.commits.count, 1);
+      assert.equal(down.transitions, null);
+      assert.equal(down.newTickets, null);
+      assert.equal(down.readyToStart, null);
+      assert.deepEqual(codes(down as unknown as Snapshot), ['tracker.not_found']);
+      assert.deepEqual((await recorded(daemon, 'daily'))[0]?.payload, { head: down.head });
+
+      fake.reply = null;
+      const back = await call(daemon, 'daily.get', { path: root });
+      assert.equal(back.fallback, null);
+      assertUnavailable(back, /last daily recorded no Task states/);
+    });
+  });
+
+  it('gives the checkpoint’s delta the transitions since the last checkpoint, not since the last daily', async () => {
+    await withGitHub([before()], async (daemon, fake) => {
+      const root = await gitProject(daemon, fake);
+
+      assertUnavailable(await call(daemon, 'checkpoint.prepare', { path: root }), /no checkpoint/i);
+      assert.equal((await daemon.call('checkpoint.record', { path: root, promoted: [] })).status, 200);
+      assert.deepEqual((await recorded(daemon, 'checkpoint'))[0]?.payload.states, STATES_BEFORE);
+
+      fake.pages[0] = changed();
+      await call(daemon, 'daily.get', { path: root });
+      const prepared = await call(daemon, 'checkpoint.prepare', { path: root });
+      assert.deepEqual(moves(prepared), MOVES);
+      assert.deepEqual(ids(prepared.newTickets as Section), ['#4']);
+    });
+  });
+
+  it('keeps the recorded states through a projection rebuild', async () => {
+    const home = realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-home-')));
+    roots.push(home);
+    const fake = await fakeGitHub([before()]);
+    try {
+      const first = await startTestDaemon({ home });
+      let root: string;
+      try {
+        root = await gitProject(first, fake);
+        await call(first, 'daily.get', { path: root });
+      } finally {
+        await first.stop();
+      }
+
+      // A store another Binnacle wrote: its projections are dropped and re-derived on the next start.
+      const db = new DatabaseSync(storePath(home));
+      db.exec("update meta set value = '0' where key = 'schema_version'");
+      db.close();
+
+      fake.pages[0] = changed();
+      const second = await startTestDaemon({ home });
+      try {
+        assert.equal((await recorded(second, 'store.rebuilt')).length, 1);
+        assert.deepEqual(moves(await call(second, 'daily.get', { path: root })), MOVES);
+      } finally {
+        await second.stop();
+      }
+    } finally {
+      await fake.close();
+    }
   });
 });
 

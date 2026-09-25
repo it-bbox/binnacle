@@ -1,6 +1,6 @@
 import { existsSync, realpathSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
-import { readGitFacts, readGitLocation, type GitFacts } from '@binnacle/adapters';
+import { readGitFacts, readGitLocation, workingTree, type GitFacts } from '@binnacle/adapters';
 import { trackerRemoteMismatch, type Diagnostic, type ProjectManifest } from '@binnacle/core';
 import { OperationError, pathNotFound } from './errors.ts';
 import { resolveGitTimeout, type Runtime } from './home.ts';
@@ -8,8 +8,8 @@ import { readManifest } from './manifest.ts';
 import { projectRegistry, reproject } from './projection.ts';
 import { readRegistry, writeRegistry, type RegistryEntry } from './registry.ts';
 import { promotedItems, promotionDiagnostics, promotionTargets } from './checkpoint.ts';
-import { BASELINE_EVENTS, committedHead, daily, type Baseline, type BaselineEvent } from './daily.ts';
-import { snapshot, type CallerCheckout } from './snapshot.ts';
+import { BASELINE_EVENTS, committedHead, daily, recordableStates, type Baseline, type BaselineEvent, type TaskStates } from './daily.ts';
+import { readTasks, snapshot, type CallerCheckout } from './snapshot.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type ProjectRow, type Store } from './store.ts';
 
 export type OperationContext = {
@@ -121,9 +121,9 @@ export const operations: Record<string, Operation> = {
     const since = sinceCommit(body);
     const projected = reproject(context.store, await resolveEntry(path, context));
     const caller = await callerCheckout(path, projected.row.path);
-    const baseline: Baseline | null = since ? { commit: since, source: 'since' } : recordedBaseline(context.store, projected.row.path, BASELINE_EVENTS);
-    const delta = await daily(projected, caller, remoteMismatch(projected.manifest, caller.git), baseline);
-    if (!since) context.store.appendEvent({ type: 'daily', projectPath: projected.row.path, payload: { head: delta.head } });
+    const baseline: Baseline | null = since ? { commit: since, source: 'since', states: null } : recordedBaseline(context.store, projected.row.path, BASELINE_EVENTS);
+    const { delta, states } = await daily(projected, caller, remoteMismatch(projected.manifest, caller.git), baseline);
+    if (!since) context.store.appendEvent({ type: 'daily', projectPath: projected.row.path, payload: { head: delta.head, ...(states && { states }) } });
     return delta;
   },
 
@@ -138,7 +138,7 @@ export const operations: Record<string, Operation> = {
     const caller = await callerCheckout(path, projected.row.path);
     const recorded = ['checkpoint'] as const;
     const baseline = recordedBaseline(context.store, projected.row.path, recorded);
-    const delta = await daily(projected, caller, remoteMismatch(projected.manifest, caller.git), baseline, recorded);
+    const { delta } = await daily(projected, caller, remoteMismatch(projected.manifest, caller.git), baseline, recorded);
     return { ...delta, targets: promotionTargets(projected.manifest) };
   },
 
@@ -147,6 +147,7 @@ export const operations: Record<string, Operation> = {
    * the next daily start from, and what the session reports it promoted. The session has
    * already written and committed those itself; Binnacle writes nothing (ADR-0020). A
    * promoted path that is uncommitted, or names nothing, is recorded all the same, with a diagnostic.
+   * On a remote tracker it also records every Task's state, as a daily does.
    */
   'checkpoint.record': async (body, context) => {
     const path = repositoryPath(body, { mustExist: false });
@@ -155,7 +156,8 @@ export const operations: Record<string, Operation> = {
     const caller = await callerCheckout(path, projected.row.path);
     const { head } = committedHead(caller);
     const diagnostics = await promotionDiagnostics(caller.project, promoted, head);
-    context.store.appendEvent({ type: 'checkpoint', projectPath: projected.row.path, payload: { head, promoted } });
+    const states = recordableStates(projected.manifest, await readTasks(workingTree(caller.project), projected.manifest, []));
+    context.store.appendEvent({ type: 'checkpoint', projectPath: projected.row.path, payload: { head, promoted, ...(states && { states }) } });
     return { project: projected.row, checkout: caller.checkout, head, promoted, diagnostics };
   },
 
@@ -252,11 +254,14 @@ function containingEntry(path: string, entries: RegistryEntry[]): RegistryEntry 
   return entries.filter(contains).sort((a, b) => b.path.length - a.path.length)[0];
 }
 
-/** The head of the latest event of `types` for the project, which a delta starts from. */
+/** The head of the latest event of `types` for the project, which a delta starts from, and the Task states it recorded. */
 function recordedBaseline(store: Store, projectPath: string, types: readonly BaselineEvent[]): Baseline | null {
   const event = store.latestEvent(projectPath, types);
   const head = event?.payload.head;
-  return event && typeof head === 'string' ? { commit: head, source: event.type as BaselineEvent } : null;
+  const states = event?.payload.states;
+  return event && typeof head === 'string'
+    ? { commit: head, source: event.type as BaselineEvent, states: states !== null && typeof states === 'object' && !Array.isArray(states) ? (states as TaskStates) : null }
+    : null;
 }
 
 /** `since`, when given, is a commit hash: never a ref or an expression, which Git could read as an option. */

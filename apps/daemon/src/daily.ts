@@ -1,9 +1,9 @@
 import { commitTree, EMPTY_TREE, isAncestor, isGitUnavailable, readCommit, readCommitBefore, readLog, type Commit, type Tree } from '@binnacle/adapters';
-import type { Diagnostic, RoadmapStatus, TaskState } from '@binnacle/core';
+import type { Diagnostic, ProjectManifest, ResolvedTask, RoadmapStatus, TaskState } from '@binnacle/core';
 import { OperationError } from './errors.ts';
 import { resolveGitTimeout } from './home.ts';
 import type { Projected } from './projection.ts';
-import { firstHeading, limited, readState, section, taskSections, type CallerCheckout, type Section, type State } from './snapshot.ts';
+import { firstHeading, limited, readState, section, taskSections, type CallerCheckout, type Section, type State, type Unavailable } from './snapshot.ts';
 import type { ProjectRow } from './store.ts';
 
 /**
@@ -11,6 +11,10 @@ import type { ProjectRow } from './store.ts';
  * over committed state only. Both ends are read from Git, so an uncommitted edit is never
  * part of the answer; `dirty` says there is one. Lists share the snapshot's limit and
  * remainder count (ADR-0012).
+ *
+ * A remote tracker has no past Binnacle can read at a commit, so its Task changes are
+ * computed against the Task states the baseline event recorded, and are unavailable, with
+ * the reason, when it recorded none.
  */
 export const FALLBACK_DAYS = 7;
 
@@ -19,7 +23,21 @@ export const BASELINE_EVENTS = ['daily', 'checkpoint'] as const;
 
 export type BaselineEvent = (typeof BASELINE_EVENTS)[number];
 
-export type Baseline = { commit: string; source: BaselineEvent | 'since' };
+/** `{ id → state }` for every Task, as a `daily` or `checkpoint` event records it on a remote tracker. */
+export type TaskStates = Record<string, TaskState | null>;
+
+/** `states` is null for `since`, and for an event that recorded none. */
+export type Baseline = { commit: string; source: BaselineEvent | 'since'; states: TaskStates | null };
+
+/**
+ * What a `daily` or `checkpoint` event records beside its head: every Task's state on a
+ * remote tracker. Null on the local tracker, whose past is read from Git, and when the
+ * tracker could not be read, so that the next delta says so instead of guessing.
+ */
+export function recordableStates(manifest: ProjectManifest | null, tasks: ResolvedTask[] | null): TaskStates | null {
+  if (tasks === null || manifest?.tracker.provider === 'local') return null;
+  return Object.fromEntries(tasks.map(({ id, state }) => [id, state]));
+}
 
 export type Fallback = {
   /** `no_baseline`: nothing recorded yet; `baseline_missing`: not a commit here; `baseline_diverged`: not an ancestor of HEAD. */
@@ -44,11 +62,12 @@ export type Daily = {
   commits: { count: number; items: Commit[]; remainder: number };
   /**
    * Tickets whose `Status:` differs between the two ends. Null, like the next two, when Tasks
-   * cannot be read; null, like the next one, on a remote tracker, whose baseline is unknown.
+   * cannot be read now. Unavailable, like the next one, on a remote tracker whose baseline
+   * recorded no Task states: never empty, which would read as "nothing changed".
    */
-  transitions: { items: Transition[]; remainder: number } | null;
+  transitions: { items: Transition[]; remainder: number } | Unavailable | null;
   /** Tickets that did not exist at the baseline. */
-  newTickets: Section | null;
+  newTickets: Section | Unavailable | null;
   readyToStart: Section | null;
   /** Epics whose status differs, or that are new (`from` null). Null when there is no roadmap at HEAD. */
   roadmap: { number: number; title: string; from: RoadmapStatus | null; to: RoadmapStatus }[] | null;
@@ -63,7 +82,8 @@ export type Transition = { id: string; title: string | null; from: TaskState | n
 /**
  * `baseline` is null when no event of the `recorded` types exists; `diagnostics` are the
  * caller's findings, as for the snapshot. `checkpoint.prepare` calls this with its own
- * baseline, so its delta is the daily's code with the daily's fallback.
+ * baseline, so its delta is the daily's code with the daily's fallback. `states` is what a
+ * `daily` event recording this delta's head records beside it.
  */
 export async function daily(
   projected: Projected,
@@ -71,7 +91,7 @@ export async function daily(
   diagnostics: Diagnostic[],
   baseline: Baseline | null,
   recorded: readonly BaselineEvent[] = BASELINE_EVENTS,
-): Promise<Daily> {
+): Promise<{ delta: Daily; states: TaskStates | null }> {
   const { head, dirty } = committedHead(caller);
   const cwd = caller.project;
   const timeout = resolveGitTimeout();
@@ -87,7 +107,8 @@ export async function daily(
       readState(afterTree, projected, diagnostics),
     ]);
 
-    return {
+    const remote = projected.manifest?.tracker.provider !== 'local';
+    const delta: Daily = {
       project: projected.row,
       checkout: caller.checkout,
       head,
@@ -95,11 +116,12 @@ export async function daily(
       from,
       fallback,
       commits: { count: commits.length, ...limited(commits) },
-      ...taskChanges(before, after),
+      ...taskChanges(remote ? recordedStates(baseline, fallback, recorded) : before.tasks && new Map(before.tasks.map(({ id, state }) => [id, state])), after),
       roadmap: roadmapChanges(before, after),
       decisions: await decisionChanges(before, after, beforeTree, afterTree),
       attention: after.attention,
     };
+    return { delta, states: recordableStates(projected.manifest, after.tasks) };
   } catch (error) {
     if (isGitUnavailable(error)) throw new OperationError(error.code, error.reason, 503);
     throw error;
@@ -153,17 +175,32 @@ export function committedHead({ git }: CallerCheckout): { head: string; dirty: b
   return { head: git.commit, dirty: git.dirty };
 }
 
-function taskChanges(before: State, after: State): Pick<Daily, 'transitions' | 'newTickets' | 'readyToStart'> {
+/**
+ * The Task states a remote tracker's delta runs from: those the baseline event recorded, or
+ * why there are none. They are never taken from a commit, a fallback window or a guess.
+ */
+function recordedStates(baseline: Baseline | null, fallback: Fallback | null, recorded: readonly BaselineEvent[]): Map<string, TaskState | null> | Unavailable {
+  const known = 'On a remote tracker, past Task states are known only as a daily or checkpoint recorded them';
+  let reason: string;
+  if (baseline?.source === 'since') reason = `${known}, and an explicit since names a commit instead.`;
+  else if (baseline === null) reason = `No ${recorded.join(' or ')} has recorded Task states for this project on this machine.`;
+  else if (fallback !== null) reason = `${known}, and this delta fell back to a window of commits instead of the last ${baseline.source}.`;
+  else if (baseline.states === null) {
+    reason = `The last ${baseline.source} recorded no Task states: it was recorded before Binnacle recorded them, while the tracker could not be read, or on another tracker.`;
+  } else return new Map(Object.entries(baseline.states));
+  return { available: false, reason };
+}
+
+function taskChanges(was: Map<string, TaskState | null> | Unavailable | null, after: State): Pick<Daily, 'transitions' | 'newTickets' | 'readyToStart'> {
   if (after.tasks === null) return { transitions: null, newTickets: null, readyToStart: null };
   const readyToStart = taskSections(after.tasks).readyToStart;
-  // A remote tracker's baseline states are unknown, and a change is never computed against a guess.
-  if (before.tasks === null) return { transitions: null, newTickets: null, readyToStart };
-  const was = new Map(before.tasks.map((task) => [task.id, task]));
+  if (was === null) return { transitions: null, newTickets: null, readyToStart };
+  if (!(was instanceof Map)) return { transitions: was, newTickets: was, readyToStart };
   const transitions: Transition[] = [];
   const created = after.tasks.filter((task) => !was.has(task.id));
   for (const { id, title, state, ticket } of after.tasks) {
     const old = was.get(id);
-    if (old && old.state !== state) transitions.push({ id, title, from: old.state, to: state, ticket });
+    if (old !== undefined && old !== state) transitions.push({ id, title, from: old, to: state, ticket });
   }
   return { transitions: limited(transitions), newTickets: section(created), readyToStart };
 }

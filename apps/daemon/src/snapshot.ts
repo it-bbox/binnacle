@@ -144,7 +144,8 @@ export async function readState(
   return { tasks, roadmap, adrs, attention };
 }
 
-async function readTasks(tree: Tree, manifest: ProjectManifest | null, attention: Diagnostic[], readRemoteTracker: boolean): Promise<ResolvedTask[] | null> {
+/** The project's Tasks, or null with the reason pushed to `attention`. */
+export async function readTasks(tree: Tree, manifest: ProjectManifest | null, attention: Diagnostic[], readRemoteTracker = true): Promise<ResolvedTask[] | null> {
   const tracker = manifest?.tracker;
   let reading: TaskReading;
   if (tracker?.provider === 'local' && tracker.local.issues !== null) {

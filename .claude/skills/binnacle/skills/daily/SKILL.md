@@ -19,7 +19,7 @@ disable-model-invocation: true
    - **Range**: from `from.commit` (`from.source`) to `head`. A null `from.commit` means the range starts at the first commit. If `fallback` is set, quote its message, because the range was chosen by the fallback and not by a baseline.
    - If `dirty` is true, say that uncommitted edits are not in the delta.
    - **Commits**: the count, then the subjects, with "and N more" for any remainder.
-   - **Task transitions** (`from` → `to`), **new tickets**, **roadmap status changes** and **decisions**, each with its ticket or ADR path. Leave out a list that is empty or null. A null list means its source could not be read, and the attention items say why.
+   - **Task transitions** (`from` → `to`), **new tickets**, **roadmap status changes** and **decisions**, each with its ticket or ADR path. Leave out a list that is empty or null. A null list means its source could not be read, and the attention items say why. A list with `available: false` could not be computed, as on a remote tracker's first daily or with a commit passed: quote its `reason` instead, so that it is not read as "nothing changed".
    - **Attention**: every item with its code. If there are none, say "none".
    - **Can start next**: the `readyToStart` Tasks, with id, title and ticket path.
    - If nothing changed, say "nothing changed since `<from.commit>`" in one line instead of the empty lists, and still give the attention items and what can start next.
