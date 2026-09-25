@@ -12,7 +12,7 @@ import { BASELINE_EVENTS, committedHead, daily, isRemoteTracker, taskStates, typ
 import { readTasks, snapshot, type CallerCheckout } from './snapshot.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type ProjectRow, type Store } from './store.ts';
 import { taskBrief } from './task.ts';
-import { forgetRead, usage, type Importer } from './usage.ts';
+import { forgetRead, usage, usageGet, type Importer } from './usage.ts';
 
 export type OperationContext = {
   home: string;
@@ -176,6 +176,15 @@ export const operations: Record<string, Operation> = {
     const projected = reproject(context.store, await resolveEntry(path, context));
     const caller = await callerCheckout(path, projected.row.path);
     return taskBrief(context.home, workingTree(caller.project), projected.manifest, id);
+  },
+
+  // The project's usage, or one Task's with its runs, after the ingest the snapshot also runs.
+  'usage.get': async (body, context) => {
+    const path = repositoryPath(body, { mustExist: false });
+    const task = optionalString((body as { task?: unknown } | null)?.task, 'task');
+    const projected = reproject(context.store, await resolveEntry(path, context));
+    const caller = await callerCheckout(path, projected.row.path);
+    return usageGet(context, projected.row.path, projected.manifest, workingTree(caller.project), task);
   },
 
   'project.unregister': (body, context) => {

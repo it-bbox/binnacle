@@ -18,7 +18,7 @@ type ToolResult = { isError?: boolean; content: { type: string; text: string }[]
  * result encoding and the proxy path. Everything behind the tools is tested through
  * `@binnacle/daemon/testing`.
  */
-test('binn mcp lists its tools, explains a stopped daemon, and proxies the snapshot and the task brief', async (t) => {
+test('binn mcp lists its tools, explains a stopped daemon, and proxies the snapshot, the task brief and usage', async (t) => {
   const home = mkdtempSync(join(tmpdir(), 'binnacle-mcp-home-'));
   const project = realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-mcp-project-')));
   mkdirSync(join(project, '.binnacle'));
@@ -51,6 +51,7 @@ test('binn mcp lists its tools, explains a stopped daemon, and proxies the snaps
     'project_snapshot',
     'project_status',
     'task_get',
+    'usage_get',
   ]);
 
   const down = (await client.callTool({ name: 'project_status' })) as ToolResult;
@@ -84,6 +85,11 @@ test('binn mcp lists its tools, explains a stopped daemon, and proxies the snaps
     body: { text: '', truncated: false },
     branch: 'feat/first',
   });
+
+  const usage = (await client.callTool({ name: 'usage_get', arguments: { task: 'epic/01' } })) as ToolResult;
+  assert.equal(usage.isError, undefined, usage.content[0]?.text);
+  const task = JSON.parse(usage.content[0]!.text) as { task: { id: string }; totals: { records: number }; runs: { items: unknown[]; remainder: number } };
+  assert.deepEqual([task.task.id, task.totals.records, task.runs], ['epic/01', 0, { items: [], remainder: 0 }]);
 
   // A tool's own argument reaches its operation: the daemon, not the server, refuses this one.
   const refused = (await client.callTool({ name: 'daily_get', arguments: { since: 'not-a-commit' } })) as ToolResult;

@@ -530,7 +530,7 @@ const available = <T>(section: T | Unavailable): T => {
   assert.ok(!(typeof section === 'object' && section !== null && 'available' in section), JSON.stringify(section));
   return section as T;
 };
-const taskRecords = (body: Usage): [string, string | null, number][] =>
+const taskRecords = (body: Pick<Usage, 'tasks'>): [string, string | null, number][] =>
   available(body.tasks).items.map((item) => [item.id, item.title, item.totals.records]);
 
 /** A loopback stand-in for GitHub's issue list, serving `issues` for `octo/repo`, or `status` with no issues. */
@@ -691,9 +691,10 @@ describe('Observed runs and Task attribution in the Product Snapshot', () => {
   });
 
   /**
-   * A run's role is not in the snapshot; `usage.get` (ticket 03) is where runs are shown. Until
-   * then this reads the runs the daemon derives from what it ingested, through the function
-   * the snapshot uses, over the daemon's own store and a real repository.
+   * `usage.get` shows only a Task's runs, so a run with no Task — `unknown`, or `product` on a
+   * default branch no Task's branch is — is in no answer; `usage.get`'s own test shows the
+   * roles it can. This reads the runs the daemon derives from what it ingested, through the
+   * function `usage.get` uses, over the daemon's own store and a real repository.
    */
   it('gives a run on the default branch the product role, on a Task’s branch implementation, and unknown otherwise', async () => {
     await withDaemon(async (daemon, artifacts) => {
@@ -735,5 +736,189 @@ describe('Observed runs and Task attribution in the Product Snapshot', () => {
         store.close();
       }
     });
+  });
+});
+
+type Run = {
+  id: string;
+  harness: string;
+  provider: string | null;
+  model: string | null;
+  role: string;
+  branch: string | null;
+  branchSource: string | null;
+  taskId: string | null;
+  parentRunId: string | null;
+  startedAt: string;
+  lastActivityAt: string;
+  active: { value: boolean; provenance: string };
+  totals: Totals;
+};
+type ProjectUsage = Pick<Usage, 'importing' | 'tasks' | 'unassigned'> & { totals: Totals };
+type TaskUsage = Pick<Usage, 'importing'> & { task: { id: string; title: string | null }; totals: Totals; runs: { items: Run[]; remainder: number } };
+
+async function usageGet<T>(daemon: TestDaemon, root: string, task?: string): Promise<T> {
+  const result = await daemon.call<T>('usage.get', { path: root, ...(task === undefined ? {} : { task }) });
+  assert.equal(result.status, 200, JSON.stringify(result.body));
+  return result.body;
+}
+
+async function register(daemon: TestDaemon, root: string): Promise<void> {
+  assert.equal((await daemon.call('project.register', { path: root })).status, 200);
+}
+
+describe('usage.get', () => {
+  it('gives the project’s totals over the whole window, by Task and unassigned', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
+      ticket(root, 'epic', '01-first.md', 'First');
+      ticket(root, 'epic', '02-second.md', 'Second');
+      session(artifacts, root, 'window', [
+        // Older than the snapshot's week, still in the window.
+        ...onBranch('feat/first', lines(GRILL, at(20, 0), '-old')),
+        ...onBranch('feat/second', lines(ABORTED, at(0, 0), '-second')),
+        ...onBranch('main', lines(GRILL, at(0, 1), '-main')),
+      ]);
+      await register(daemon, root);
+
+      const body = await usageGet<ProjectUsage>(daemon, root);
+      assert.equal(body.importing.incomplete, false);
+      assert.equal(body.totals.records, 3);
+      assert.deepEqual(taskRecords(body), [['epic/02', 'Second', 1], ['epic/01', 'First', 1]]);
+      assert.equal(available(body.tasks).remainder, 0);
+      assert.deepEqual(available(body.unassigned), GRILL_TOTALS);
+    });
+  });
+
+  it('gives a Task’s totals and its runs, newest first, each run grouped over the whole window', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
+      ticket(root, 'epic', '01-first.md', 'First');
+      ticket(root, 'epic', '02-second.md', 'Second');
+      const recent = new Date(Date.now() - 60_000).toISOString();
+      // One run that began before the last seven days: its id is still its first record's.
+      session(artifacts, root, 'long', [...onBranch('feat/first', lines(GRILL, at(9, 0), '-nine')), ...onBranch('feat/first', lines(ABORTED, at(1, 0), '-one'))]);
+      session(artifacts, root, 'recent', onBranch('feat/first', lines(GRILL, recent, '-recent')));
+      session(artifacts, root, 'other', onBranch('feat/second', lines(GRILL, at(0, 0), '-other')));
+      await register(daemon, root);
+
+      // The id in any form `task.get` takes.
+      const body = await usageGet<TaskUsage>(daemon, root, 'epic/1');
+      assert.deepEqual(body.task, { id: 'epic/01', title: 'First' });
+      assert.equal(body.totals.records, 3);
+      assert.deepEqual(body.totals.output, reported(2 * 137 + 2));
+      const run = { harness: 'claude-code', provider: null, model: 'claude-opus-5-5', role: 'implementation', branch: 'feat/first', branchSource: 'harness', taskId: 'epic/01', parentRunId: null };
+      assert.deepEqual(body.runs, {
+        items: [
+          { ...run, id: 'claude-code:msg_011CfLMEGjvuTXtzfiK6XfsV-recent', startedAt: recent, lastActivityAt: recent, active: { value: true, provenance: 'calculated' }, totals: GRILL_TOTALS },
+          {
+            ...run,
+            id: 'claude-code:msg_011CfLMEGjvuTXtzfiK6XfsV-nine',
+            startedAt: at(9, 0),
+            lastActivityAt: at(1, 0),
+            active: { value: false, provenance: 'calculated' },
+            totals: {
+              records: 2,
+              input: reported(2 + 4),
+              cachedInput: reported(39225 + 167306),
+              cacheCreation: reported(29831 + 994),
+              output: reported(137 + 2),
+              reasoning: { tokens: 18, partial: true, provenance: 'provider_reported' },
+            },
+          },
+        ],
+        remainder: 0,
+      });
+      // The same runs, the same ids, on the next call.
+      assert.deepEqual((await usageGet<TaskUsage>(daemon, root, 'epic/01')).runs, body.runs);
+    });
+  });
+
+  it('lists at most ten Tasks and ten runs, with a remainder', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
+      const numbers = Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, '0'));
+      for (const number of numbers) {
+        ticket(root, 'epic', `${number}-task-${number}.md`, `Task ${number}`);
+        session(artifacts, root, `task-${number}`, onBranch(`feat/task-${number}`, lines(GRILL, at(1, Number(number)), `-${number}`)));
+      }
+      // Eleven more runs of the first Task, a session each.
+      for (const number of numbers.slice(1)) session(artifacts, root, `again-${number}`, onBranch('feat/task-01', lines(ABORTED, at(0, Number(number)), `-again-${number}`)));
+      await register(daemon, root);
+
+      const tasks = available((await usageGet<ProjectUsage>(daemon, root)).tasks);
+      assert.equal(tasks.items.length, 10);
+      assert.equal(tasks.remainder, 2);
+      assert.equal(tasks.items[0]!.id, 'epic/01');
+
+      const task = await usageGet<TaskUsage>(daemon, root, 'epic/01');
+      assert.equal(task.totals.records, 12);
+      assert.equal(task.runs.remainder, 2);
+      assert.deepEqual(
+        task.runs.items.map((item) => item.startedAt),
+        numbers.slice(2).reverse().map((number) => at(0, Number(number))),
+      );
+    });
+  });
+
+  it('gives a run on the default branch the product role even on a Task’s branch, and one on another Task’s branch implementation', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
+      ticket(root, 'epic', '01-first.md', 'First');
+      ticket(root, 'epic', '02-second.md', 'Second');
+      repository(root);
+      // `origin/HEAD` names the default branch, here the first Task's.
+      git(root, 'update-ref', 'refs/remotes/origin/feat/first', 'HEAD');
+      git(root, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/feat/first');
+      session(artifacts, root, 'roles', [...onBranch('feat/first', lines(GRILL, at(0, 0), '-first')), ...onBranch('feat/second', lines(GRILL, at(0, 1), '-second'))]);
+      await register(daemon, root);
+
+      const roles = async (task: string): Promise<[string, string | null][]> =>
+        (await usageGet<TaskUsage>(daemon, root, task)).runs.items.map((item) => [item.role, item.taskId]);
+      assert.deepEqual(await roles('epic/01'), [['product', 'epic/01']]);
+      assert.deepEqual(await roles('epic/02'), [['implementation', 'epic/02']]);
+    });
+  });
+
+  it('answers an unknown Task with task.not_found, and a Task with no runs with an empty list', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
+      ticket(root, 'epic', '01-first.md', 'First');
+      session(artifacts, root, 'main', onBranch('main', lines(GRILL, daysAgo(0))));
+      await register(daemon, root);
+
+      const missing = await daemon.call<{ error: { code: string } }>('usage.get', { path: root, task: 'epic/99' });
+      assert.equal(missing.status, 404);
+      assert.equal(missing.body.error.code, 'task.not_found');
+      const invalid = await daemon.call<{ error: { code: string } }>('usage.get', { path: root, task: 7 });
+      assert.equal(invalid.status, 400);
+      assert.equal(invalid.body.error.code, 'request.invalid');
+
+      const empty = await usageGet<TaskUsage>(daemon, root, 'epic/01');
+      assert.deepEqual(empty.runs, { items: [], remainder: 0 });
+      assert.deepEqual(empty.totals, NO_RECORDS);
+    });
+  });
+
+  it('makes Tasks and unassigned unavailable when the tracker cannot be read, still answers the totals, and refuses a Task', async () => {
+    const github = await fakeGitHub([], 500);
+    try {
+      await withDaemon(async (daemon, artifacts) => {
+        const root = makeProject(temporary('binnacle-usage-'), githubTracker(github.base));
+        session(artifacts, root, 'unreadable', onBranch('feat/7-seven', lines(GRILL, daysAgo(0))));
+        await register(daemon, root);
+
+        const body = await usageGet<ProjectUsage>(daemon, root);
+        assert.deepEqual(body.totals, GRILL_TOTALS);
+        assert.equal((body.tasks as Unavailable).available, false);
+        assert.deepEqual(body.unassigned, body.tasks);
+
+        const refused = await daemon.call<{ error: { code: string } }>('usage.get', { path: root, task: '#7' });
+        assert.equal(refused.status, 503);
+        assert.match(refused.body.error.code, /^tracker\./);
+      });
+    } finally {
+      await github.close();
+    }
   });
 });

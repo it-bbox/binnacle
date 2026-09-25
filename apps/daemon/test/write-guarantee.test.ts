@@ -21,6 +21,7 @@ import { startTestDaemon } from '../src/testing.ts';
 const INPUT: Record<string, object> = {
   'checkpoint.record': { promoted: [] },
   'task.get': { id: 'first/01' },
+  'usage.get': { task: 'first/01' },
 };
 
 const MANIFEST = `version: 1

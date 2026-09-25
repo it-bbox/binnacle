@@ -28,14 +28,8 @@ export type TaskBrief = Pick<TrackerTask, 'id' | 'title' | 'state' | 'triage' | 
  * hold is `task.not_found`. A tracker that cannot be read is an error with its own code.
  */
 export async function taskBrief(home: string, tree: Tree, manifest: ProjectManifest | null, id: string): Promise<TaskBrief> {
-  const { tasks, diagnostics } = await readTracker(home, tree, manifest);
-  // A missing issues directory reads as no Tasks, which the snapshot and the daily need; here it is a broken tracker, not a typo.
-  const failure = diagnostics.find((item) => tasks === null || item.code === 'tracker.issues_missing');
-  if (failure || tasks === null) throw new OperationError(failure?.code ?? 'tracker.unavailable', failure?.message ?? 'The tracker cannot be read.', 503);
-
-  const byId = new Map(tasks.map((task) => [task.id, task]));
-  const task = byId.get(normalized(id));
-  if (!task) throw new OperationError('task.not_found', `This project's tracker holds no Task ${JSON.stringify(id)}.`, 404);
+  const { tasks, task } = await findTask(home, tree, manifest, id);
+  const byId = new Map(tasks.map((known) => [known.id, known]));
 
   return {
     id: task.id,
@@ -53,6 +47,21 @@ export async function taskBrief(home: string, tree: Tree, manifest: ProjectManif
     body: cut(task.body, BODY_LIMIT),
     branch: taskBranch(task, manifest?.tracker.provider !== 'local'),
   };
+}
+
+/**
+ * The tracker's Tasks and the one `id` names, in the forms `taskBrief` takes. An id the
+ * tracker does not hold is `task.not_found`; a tracker that cannot be read is an error with its own code.
+ */
+export async function findTask(home: string, tree: Tree, manifest: ProjectManifest | null, id: string): Promise<{ tasks: TrackerTask[]; task: TrackerTask }> {
+  const { tasks, diagnostics } = await readTracker(home, tree, manifest);
+  // A missing issues directory reads as no Tasks, which the snapshot and the daily need; here it is a broken tracker, not a typo.
+  const failure = diagnostics.find((item) => tasks === null || item.code === 'tracker.issues_missing');
+  if (failure || tasks === null) throw new OperationError(failure?.code ?? 'tracker.unavailable', failure?.message ?? 'The tracker cannot be read.', 503);
+
+  const task = tasks.find((known) => known.id === normalized(id));
+  if (!task) throw new OperationError('task.not_found', `This project's tracker holds no Task ${JSON.stringify(id)}.`, 404);
+  return { tasks, task };
 }
 
 function normalized(id: string): string {

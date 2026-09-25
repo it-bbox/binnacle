@@ -44,6 +44,14 @@ const TOOLS = {
       id: z.string().describe('The Task id: `<spec-slug>/<NN>` on the local tracker, `#<number>` or `<number>` on GitHub or GitLab.'),
     },
   },
+  usage_get: {
+    operation: 'usage.get',
+    description:
+      'Token usage read from the harnesses\' session artifacts: without `task`, the project\'s totals by Task and unassigned; with `task`, that Task\'s totals and its runs, newest first. Tokens only, never cost; a field no harness reported is null.',
+    inputSchema: {
+      task: z.string().optional().describe('A Task id, in the forms task_get takes; omit it for the whole project.'),
+    },
+  },
   checkpoint_prepare: {
     operation: 'checkpoint.prepare',
     description:

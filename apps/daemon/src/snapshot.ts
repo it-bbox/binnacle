@@ -115,10 +115,16 @@ export async function snapshot(
     decisions: adrs && (await recentDecisions(tree, caller.project, adrs)),
     pendingDecisions: UNAVAILABLE,
     ci: UNAVAILABLE,
-    usage: await usage(tasks ?? { available: false, reason: unreadable.map((item) => item.message).join(' ') || 'The tracker cannot be read.' }),
+    usage: await usage(tasks ?? trackerUnavailable(unreadable)),
     attention,
   };
 }
+
+/** Attribution to Tasks, unavailable with the tracker's own reasons for being unreadable. */
+export const trackerUnavailable = (unreadable: Diagnostic[]): Unavailable => ({
+  available: false,
+  reason: unreadable.map((item) => item.message).join(' ') || 'The tracker cannot be read.',
+});
 
 /** `text` cut at `limit` code points, so that a cut never splits a character in two, and whether it was. */
 export function cut(text: string, limit: number): { text: string; truncated: boolean } {

@@ -1,13 +1,14 @@
 import { closeSync, openSync, readdirSync, readSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { setImmediate, setTimeout } from 'node:timers/promises';
-import { readClaudeCode, readDefaultBranch, readWorktrees } from '@binnacle/adapters';
+import { readClaudeCode, readDefaultBranch, readWorktrees, type Tree } from '@binnacle/adapters';
 import type { ImportWindow, ObservedRun, ProjectManifest, TrackerTask } from '@binnacle/core';
 import { magnitude, observedRuns, sum, type Harness, type RunRecord, type Totals } from '@binnacle/telemetry';
 import { resolveGitTimeout } from './home.ts';
 import type { OperationContext } from './operations.ts';
 import { containingEntry, readRegistry } from './registry.ts';
-import { limited, type Unavailable } from './snapshot.ts';
+import { limited, readTracker, trackerUnavailable, type Unavailable } from './snapshot.ts';
+import { findTask } from './task.ts';
 import type { Ingested, IngestCursor, StoredUsage } from './store.ts';
 
 /** The import window when the manifest writes none: the horizon of Git's own reflog. */
@@ -83,16 +84,7 @@ export async function usage(
   manifest: ProjectManifest | null,
   tasks: TrackerTask[] | Unavailable,
 ): Promise<Usage> {
-  const window = windowOf(manifest);
-  const checkouts = await projectCheckouts(projectPath);
-  const { running, budgetMs } = context.importer;
-  const current = running.get(projectPath);
-  // One started under another window, on startup or before the manifest changed, is not this call's.
-  const run = current?.window === window ? current.run : startIngest(context, projectPath, manifest, checkouts.linked);
-  if (budgetMs > 0) await Promise.race([run, setTimeout(budgetMs, undefined, { ref: false })]);
-  // A run leaves `running` as it settles, so one still there is still going.
-  const incomplete = running.get(projectPath)?.run === run;
-  const failure = incomplete ? null : await run;
+  const { importing, failure, checkouts } = await ingested(context, projectPath, manifest);
 
   const week = context.store.usage(projectPath, 'claude-code', localMidnight(6).toISOString());
   const since = localMidnight(0).toISOString();
@@ -107,12 +99,84 @@ export async function usage(
   byModel.sort((a, b) => magnitude(b.totals) - magnitude(a.totals) || String(a.model).localeCompare(String(b.model), 'en'));
 
   return {
-    importing: { incomplete, windowStart: window === 'all' ? null : localDate(localMidnight(window - 1)) },
+    importing,
     today: sum(today),
     last7Days: sum(week),
     byModel: limited(byModel),
     ...attributed,
-    harnesses: [level(context, projectPath, failure, incomplete)],
+    harnesses: [level(context, projectPath, failure, importing.incomplete)],
+  };
+}
+
+/** `usage.get` without a Task: the project's totals over everything ingested, by Task and unassigned. */
+export type ProjectUsage = Pick<Usage, 'importing' | 'tasks' | 'unassigned'> & { totals: Totals };
+
+/** A run as `usage.get` shows it: the observed run, less its project, with its totals. */
+export type RunUsage = Omit<ObservedRun, 'projectPath'> & { totals: Totals };
+
+/** `usage.get` with a Task: its totals over everything ingested, and its runs, newest first. */
+export type TaskUsage = Pick<Usage, 'importing'> & {
+  task: Pick<TrackerTask, 'id' | 'title'>;
+  totals: Totals;
+  runs: { items: RunUsage[]; remainder: number };
+};
+
+/**
+ * `usage.get`: reads what is new first, as the snapshot does, then answers from every stored
+ * record, grouped into runs all at once, so that a run's id does not depend on how far back
+ * a call looks. `tree` is the caller's checkout, where the tracker is read. With `taskId`, in
+ * any form `task.get` takes, the tracker must be readable and hold that Task, as for `task.get`.
+ */
+export async function usageGet(
+  context: OperationContext,
+  projectPath: string,
+  manifest: ProjectManifest | null,
+  tree: Tree,
+  taskId: string | undefined,
+): Promise<ProjectUsage | TaskUsage> {
+  const found = taskId === undefined ? null : await findTask(context.home, tree, manifest, taskId);
+  const reading = found ? null : await readTracker(context.home, tree, manifest);
+  const tasks = found?.tasks ?? reading?.tasks ?? trackerUnavailable(reading?.diagnostics ?? []);
+  const { importing, checkouts } = await ingested(context, projectPath, manifest);
+
+  const records = context.store.usage(projectPath, 'claude-code', '');
+  if (!Array.isArray(tasks)) return { importing, totals: sum(records), tasks, unassigned: tasks };
+  const attributed = await runs(records, projectPath, tasks, manifest?.tracker.provider !== 'local', checkouts);
+  if (!found) return { importing, totals: sum(records), ...byTask(attributed, tasks) };
+
+  // Runs come oldest first.
+  const own = attributed.filter((run) => run.taskId === found.task.id).reverse();
+  return {
+    importing,
+    task: { id: found.task.id, title: found.task.title },
+    totals: sum(own.flatMap((run) => run.records)),
+    runs: limited(own.map(({ records: runRecords, projectPath: _project, ...run }) => ({ ...run, totals: sum(runRecords) }))),
+  };
+}
+
+/**
+ * Starts the project's ingest, or joins the one already running under the same window, and
+ * waits for it up to the budget: whether it is still incomplete, the local date its window
+ * starts, why a file could not be read if one could not, and the project's checkouts.
+ */
+async function ingested(
+  context: OperationContext,
+  projectPath: string,
+  manifest: ProjectManifest | null,
+): Promise<{ importing: Usage['importing']; failure: string | null; checkouts: Checkouts }> {
+  const window = windowOf(manifest);
+  const checkouts = await projectCheckouts(projectPath);
+  const { running, budgetMs } = context.importer;
+  const current = running.get(projectPath);
+  // One started under another window, on startup or before the manifest changed, is not this call's.
+  const run = current?.window === window ? current.run : startIngest(context, projectPath, manifest, checkouts.linked);
+  if (budgetMs > 0) await Promise.race([run, setTimeout(budgetMs, undefined, { ref: false })]);
+  // A run leaves `running` as it settles, so one still there is still going.
+  const incomplete = running.get(projectPath)?.run === run;
+  return {
+    importing: { incomplete, windowStart: window === 'all' ? null : localDate(localMidnight(window - 1)) },
+    failure: incomplete ? null : await run,
+    checkouts,
   };
 }
 
