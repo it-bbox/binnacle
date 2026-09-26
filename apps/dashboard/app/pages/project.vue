@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import RoleUsage from '~/components/RoleUsage.vue';
-import { call, usePolling, type Failure } from '~/composables/daemon';
-import { ago, checkout, projectName, RUNNING_READING, RUNS_READING, type Epic, type ProjectRow, type Snapshot, type Unavailable } from '~/composables/projects';
+import { call, usePolling } from '~/composables/daemon';
+import { ago, checkout, projectName, RUNNING_READING, RUNS_READING, type Board, type LatestRun, type ProjectRow, type Snapshot, type Unavailable } from '~/composables/projects';
 import { IMPORTING, windowLabel, type ProjectUsage } from '~/composables/usage';
 
 type Section<T> = { items: T[]; remainder: number };
@@ -10,18 +10,6 @@ type ProjectSnapshot = Snapshot & {
   decisions: Section<{ title: string | null; path: string }> | null;
   pendingDecisions: Unavailable;
   ci: Unavailable;
-};
-
-/** `task.list`'s board, as the page renders it. */
-type LatestRun = { harness: string; model: string | null; role: string; lastActivityAt: string; active: { value: boolean } };
-type Card = { id: string; title: string | null; state: string | null; source: 'state' | 'runs' | null; unmetDependencies: string[]; review: boolean | null; latestRun: LatestRun | null };
-type Board = {
-  epic: Epic | null;
-  spec: string | null;
-  columns: Record<'backlog' | 'ready' | 'inProgress' | 'done', Section<Card>>;
-  unknown: Section<Card & { diagnostic: Failure | null }>;
-  cancelled: number;
-  withoutSpec: number;
 };
 
 const COLUMNS = [

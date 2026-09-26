@@ -1,3 +1,4 @@
+import type { InjectionKey, Ref } from 'vue';
 import { call, DaemonError, type Failure } from './daemon';
 import type { SnapshotUsage } from './usage';
 
@@ -11,7 +12,8 @@ type GitFacts =
   | { available: true; branch: string | null; detached: boolean; commit: string | null; dirty: boolean }
   | { available: false; reason: string };
 
-export type SnapshotTask = { id: string; title: string | null; state: string | null; start: string | null };
+export type SnapshotTask = { id: string; title: string | null; state: string | null; unmetDependencies: string[]; start: string | null };
+type Section<T> = { items: T[]; remainder: number };
 export type Unavailable = { available: false; reason: string };
 
 /** A run as the snapshot's `activity` gives it. */
@@ -36,13 +38,35 @@ export type Snapshot = {
   git: GitFacts;
   roadmap: { epics: Epic[] } | null;
   next: { action: { description: string; command: string } | null; suggested: SuggestedStep | null | Unavailable };
-  tasks: { inFlight: { items: SnapshotTask[]; remainder: number }; readyToStart: { items: SnapshotTask[]; remainder: number } } | null;
+  tasks: {
+    inFlight: Section<SnapshotTask>;
+    readyToStart: Section<SnapshotTask>;
+    /** Every Task not listed by name, by state. */
+    counts: Record<string, number>;
+    /** How many Tasks may be worked on at once, Binnacle's calculation. */
+    parallel: { limit: number; inProgress: number; free: number; provenance: 'calculated' };
+  } | null;
   activity: Activity | Unavailable;
   usage: SnapshotUsage;
   attention: Failure[];
 };
 
 export type ProjectView = { project: ProjectRow; snapshot: Snapshot | null; failure: Failure | null };
+
+/** The shell's view of the selected project, which it polls for the rail and the sidebar; a page reads it rather than polling the snapshot again. */
+export const SELECTED_VIEW: InjectionKey<Ref<ProjectView | null>> = Symbol('selected project');
+
+/** `task.list`'s board: one epic's Tasks in four columns. */
+export type LatestRun = { harness: string; model: string | null; role: string; lastActivityAt: string; active: { value: boolean } };
+export type Card = { id: string; title: string | null; state: string | null; source: 'state' | 'runs' | null; unmetDependencies: string[]; review: boolean | null; latestRun: LatestRun | null };
+export type Board = {
+  epic: Epic | null;
+  spec: string | null;
+  columns: Record<'backlog' | 'ready' | 'inProgress' | 'done', Section<Card>>;
+  unknown: Section<Card & { diagnostic: Failure | null }>;
+  cancelled: number;
+  withoutSpec: number;
+};
 
 /** Every registered project, with its snapshot read from its registered checkout. */
 export async function loadProjects(): Promise<ProjectView[]> {
@@ -77,9 +101,6 @@ export function checkout(git: GitFacts): string {
 }
 
 export const isUnavailable = (section: object): section is Unavailable => 'available' in section;
-
-/** How the pages label the Suggested step. */
-export const SUGGESTED_READING = "Binnacle's calculation from the Tasks, their runs and the roadmap. The Next action leads.";
 
 /** How the pages label a `READY` Task In progress from its runs (ADR-0032). */
 export const RUNS_READING = "Binnacle's reading: the ticket says READY, and AgentRuns are attributed to it (ADR-0032)";

@@ -2,7 +2,7 @@
 import type { RouteLocationNormalizedLoaded } from 'vue-router';
 import { REFRESH_MS, useAuthorised, usePolling } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
-import { loadProjects } from '~/composables/projects';
+import { loadProjects, SELECTED_VIEW } from '~/composables/projects';
 
 /**
  * The shell: the project rail, the sidebar and the page. It polls every registered project's
@@ -26,6 +26,7 @@ const route = useRoute();
 const router = useRouter();
 const selected = computed(() => (typeof route.query.project === 'string' ? route.query.project : null));
 const view = computed(() => data.value?.find((item) => item.project.path === selected.value) ?? null);
+provide(SELECTED_VIEW, view);
 watchEffect(() => {
   const first = data.value?.[0];
   if (selected.value === null && first !== undefined) void router.replace({ query: { ...route.query, project: first.project.path } });
@@ -74,8 +75,9 @@ const pageKey = (page: RouteLocationNormalizedLoaded): string => `${page.path}|$
           </div>
           <p class="text-xs text-dimmed">{{ t.loading }}</p>
         </div>
-        <div v-else class="legacy mx-auto max-w-[1120px] px-8 pt-3 pb-14">
-          <p v-if="error" class="warn">{{ t.failed }} <code>{{ error.code }}</code> {{ error.message }}</p>
+        <!-- The Overview is rebuilt to the mockup; the other pages keep epic 5's plain CSS until their tickets rebuild them. -->
+        <div v-else class="mx-auto max-w-[1120px] px-8 pt-3 pb-14" :class="{ legacy: route.path !== '/' }">
+          <p v-if="error" class="warn my-3 text-warning">{{ t.failed }} <code>{{ error.code }}</code> {{ error.message }}</p>
           <!-- Held back while the first project is being written into the address, so that no page opens without it. -->
           <NuxtPage v-if="selected !== null || !data?.length" :page-key="pageKey" />
         </div>
