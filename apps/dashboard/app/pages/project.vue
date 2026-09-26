@@ -97,7 +97,7 @@ const who = (run: LatestRun): string => `${run.harness}, ${run.model ?? 'model n
                 <span v-if="card.source === 'runs'" class="label" title="Binnacle's reading: the ticket says READY, and AgentRuns are attributed to it (ADR-0032)">runs</span>
               </div>
               <div v-if="card.unmetDependencies.length > 0" class="warn">Waits on {{ card.unmetDependencies.join(', ') }}</div>
-              <div v-if="key === 'done' && card.review === false" class="warn">No Review recorded</div>
+              <div v-if="card.state === 'DONE' && card.review === false" class="warn">No Review recorded</div>
               <div v-if="card.latestRun" class="muted">
                 {{ who(card.latestRun) }}:
                 <strong v-if="card.latestRun.active.value" :title="RUNNING_READING">running now</strong>

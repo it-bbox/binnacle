@@ -288,6 +288,11 @@ describe('the Review', () => {
         '# a comment, not a heading',
         '```',
         '',
+        '````md',
+        '```',
+        '## A fenced fence, not a heading either',
+        '````',
+        '',
         '### Afterwards',
         '',
         'Not the Review.',
@@ -297,7 +302,7 @@ describe('the Review', () => {
       write(root, 'docs/specs/epic/issues/02-above.md', ticketText('02: Above', ['Status: DONE'], 'Body.', 'Kept.\n\n## After the comments\n\nNot the Review.'));
 
       assert.deepEqual((await taskGet(daemon, root, 'epic/01')).body.review, {
-        text: '  Found two things.\n\n#### Standards\n\n```sh\n# a comment, not a heading\n```',
+        text: '  Found two things.\n\n#### Standards\n\n```sh\n# a comment, not a heading\n```\n\n````md\n```\n## A fenced fence, not a heading either\n````',
         truncated: false,
       });
       assert.deepEqual((await taskGet(daemon, root, 'epic/02')).body.review, { text: 'Kept.', truncated: false });

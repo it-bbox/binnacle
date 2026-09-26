@@ -78,20 +78,24 @@ function parseTicket(spec: string, file: string, ticket: string, text: string, d
 const COMMENTS = /^## +Comments[ \t\r]*$/m;
 const REVIEW = /^### +Review[ \t]*$/;
 const HEADING = /^ {0,3}(#{1,6})(?:[ \t]|$)/;
-const FENCE = /^ {0,3}(?:```|~~~)/;
+const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 
 /**
  * The text under the first `### Review` heading inside `## Comments`, up to the next heading of
  * the same level or above, without the blank lines around it; null when there is none, or it is
- * empty. A line inside a code fence is never a heading.
+ * empty. A line inside a code fence is never a heading: a fence closes only with a run of its own
+ * character at least as long as the one that opened it.
  */
 function ticketReview(text: string): string | null {
   let comments = false;
-  let fenced = false;
+  let fence: string | null = null;
   let review: string[] | null = null;
   for (const line of text.split(/\r?\n/)) {
-    if (FENCE.test(line)) fenced = !fenced;
-    const level = fenced ? 0 : (HEADING.exec(line)?.[1]!.length ?? 0);
+    // A fence line is never a heading either, so the fence can open or close before the test below.
+    const run = FENCE.exec(line)?.[1];
+    if (run !== undefined && fence === null) fence = run;
+    else if (run !== undefined && run[0] === fence![0] && run.length >= fence!.length) fence = null;
+    const level = fence !== null ? 0 : (HEADING.exec(line)?.[1]!.length ?? 0);
     if (review !== null) {
       if (level >= 1 && level <= 3) break;
       review.push(line);
