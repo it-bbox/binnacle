@@ -5,7 +5,7 @@
  */
 
 const TOKEN_KEY = 'binnacle.token';
-const REFRESH_MS = 15_000;
+export const REFRESH_MS = 15_000;
 
 export type Failure = { code: string; message: string };
 

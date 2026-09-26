@@ -26,15 +26,17 @@ const attention = (view: ProjectView): number => view.snapshot?.attention.length
 const rail = computed(() =>
   props.views.map((view) => {
     const name = projectName(view.project);
-    const counts = [running(view) > 0 ? plural(running(view), t.value.runsRunning) : null, attention(view) > 0 ? plural(attention(view), t.value.attentionItems) : null];
+    const runs = running(view);
+    const items = attention(view);
+    const counts = [runs > 0 ? plural(runs, t.value.runsRunning) : null, items > 0 ? plural(items, t.value.attentionItems) : null];
     return {
       view,
       initials: initials(name.split('/').at(-1) ?? name),
       title: [name, ...counts.filter((count) => count !== null)].join(' · '),
       selected: view.project.path === props.selected,
-      dot: running(view) > 0 || attention(view) > 0,
+      dot: runs > 0 || items > 0,
       // A running project's dot is green; one that only needs attention, amber.
-      color: running(view) > 0 ? ('success' as const) : ('warning' as const),
+      color: runs > 0 ? ('success' as const) : ('warning' as const),
       // The Task page belongs to one project, so switching leaves it for that project's Overview.
       to: { path: route.path === '/task' ? '/' : route.path, query: { project: view.project.path } },
     };

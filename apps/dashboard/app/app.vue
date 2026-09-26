@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { RouteLocationNormalizedLoaded } from 'vue-router';
-import { useAuthorised, usePolling } from '~/composables/daemon';
+import { REFRESH_MS, useAuthorised, usePolling } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
 import { loadProjects } from '~/composables/projects';
 
@@ -10,7 +10,7 @@ import { loadProjects } from '~/composables/projects';
  * does not answer, polling on until it does.
  */
 const authorised = useAuthorised();
-const { language, t, uiLocale } = useLanguage();
+const { language, t, uiLocale, plural } = useLanguage();
 useHead({ htmlAttrs: { lang: language } });
 
 const updatedAt = ref<number | null>(null);
@@ -57,7 +57,7 @@ const pageKey = (page: RouteLocationNormalizedLoaded): string => `${page.path}|$
               <p class="leading-normal text-muted">{{ t.daemonBody }}</p>
             </div>
             <CopyCommand command="binn daemon start" primary />
-            <p class="text-[11.5px] text-dimmed">{{ t.retrying }}</p>
+            <p class="text-[11.5px] text-dimmed">{{ plural(REFRESH_MS / 1000, t.retrying) }}</p>
           </div>
         </div>
         <div v-else-if="data === null && error === null" class="mx-auto flex max-w-[1120px] flex-col gap-6 px-8 pt-7" :aria-label="t.loading" aria-busy="true">

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ago, plural, startingLanguage } from '../app/i18n/index.ts';
+import { plural, secondsAgo, startingLanguage } from '../app/i18n/index.ts';
 
 /**
  * The dashboard's own dictionary (ADR-0033): which language the page starts in, and how a
@@ -46,10 +46,10 @@ describe('a count', () => {
 
 describe('a relative time', () => {
   it('reads in seconds under a minute and in minutes after, in the language', () => {
-    assert.equal(ago('en', 5), '5 sec. ago');
-    assert.equal(ago('ru', 5), '5 сек. назад');
-    assert.equal(ago('en', 0), 'now');
-    assert.equal(ago('en', 150), '2 min. ago');
-    assert.equal(ago('ru', 150), '2 мин. назад');
+    assert.equal(secondsAgo('en', 5), '5 sec. ago');
+    assert.equal(secondsAgo('ru', 5), '5 сек. назад');
+    assert.equal(secondsAgo('en', 0), 'now');
+    assert.equal(secondsAgo('en', 150), '2 min. ago');
+    assert.equal(secondsAgo('ru', 150), '2 мин. назад');
   });
 });

@@ -18,12 +18,15 @@ export function startingLanguage(stored: string | null, preferred: readonly stri
   return /^ru\b/i.test(preferred[0] ?? '') ? 'ru' : 'en';
 }
 
+/** A number as the language writes it. */
+export const formatNumber = (language: Language, value: number): string => new Intl.NumberFormat(language).format(value);
+
 /** A count in the plural form the language takes for it; `#` is the count, formatted in the language. */
 export const plural = (language: Language, count: number, forms: Forms): string =>
-  (forms[new Intl.PluralRules(language).select(count)] ?? forms.other).replace('#', new Intl.NumberFormat(language).format(count));
+  (forms[new Intl.PluralRules(language).select(count)] ?? forms.other).replace('#', formatNumber(language, count));
 
 /** How long ago, `seconds` before now, in the language: seconds under a minute, then minutes, then hours. */
-export function ago(language: Language, seconds: number): string {
+export function secondsAgo(language: Language, seconds: number): string {
   const format = new Intl.RelativeTimeFormat(language, { numeric: 'auto', style: 'short' });
   if (seconds < 60) return format.format(-Math.max(0, Math.floor(seconds)), 'second');
   if (seconds < 3600) return format.format(-Math.floor(seconds / 60), 'minute');

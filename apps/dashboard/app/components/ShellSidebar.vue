@@ -2,10 +2,11 @@
 import type { NavigationMenuItem } from '@nuxt/ui';
 import { useLanguage } from '~/composables/language';
 import { projectName, type ProjectView } from '~/composables/projects';
+import type { Language } from '~/i18n';
 
 /** The selected project's name and current Epic, the menu, the language switch and the data's freshness. */
 const props = defineProps<{ view: ProjectView | null; selected: string | null; updatedAt: number | null; unreachable: boolean }>();
-const { language, choose, t, number, ago } = useLanguage();
+const { language, choose, t, number, secondsAgo } = useLanguage();
 const route = useRoute();
 
 /** The roadmap's first Epic not done, or why there is none. */
@@ -42,7 +43,7 @@ const menu = computed((): NavigationMenuItem[][] => {
   ];
 });
 
-const languages = [
+const languages: { label: string; value: Language }[] = [
   { label: 'English', value: 'en' },
   { label: 'Русский', value: 'ru' },
 ];
@@ -55,7 +56,7 @@ onUnmounted(() => clearInterval(ticker));
 
 const freshness = computed((): { text: string; dot: string } => {
   if (props.updatedAt === null) return { text: t.value.connecting, dot: 'bg-(--ui-text-dimmed)' };
-  const since = ago((now.value - props.updatedAt) / 1000);
+  const since = secondsAgo((now.value - props.updatedAt) / 1000);
   return props.unreachable ? { text: t.value.lastReply(since), dot: 'bg-warning' } : { text: t.value.updated(since), dot: 'bg-success' };
 });
 </script>

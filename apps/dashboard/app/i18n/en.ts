@@ -39,7 +39,7 @@ export const en = {
   loading: 'Connecting to the daemon…',
   daemonTitle: "Binnacle's daemon is not reachable",
   daemonBody: 'The dashboard reads everything from the local daemon. Start it, and this page reconnects by itself.',
-  retrying: 'Asking again every 15 seconds.',
+  retrying: { one: 'Asking again every # second.', other: 'Asking again every # seconds.' } as Forms,
   failed: 'The daemon answered with an error:',
 
   copy: 'Copy',

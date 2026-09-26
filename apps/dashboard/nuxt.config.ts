@@ -25,8 +25,11 @@ export default defineNuxtConfig({
   },
   hooks: {
     // Nuxt UI's colours plugin writes an inline <style>, which the CSP refuses; main.css declares them.
+    // A Nuxt UI that moves the plugin fails the build here rather than bring the <style> back.
     'app:resolve'(app) {
-      app.plugins = app.plugins.filter((plugin) => !/[\\/]@nuxt[\\/]ui[\\/].*[\\/]plugins[\\/]colors/.test(plugin.src));
+      const kept = app.plugins.filter((plugin) => !/[\\/]@nuxt[\\/]ui[\\/].*[\\/]plugins[\\/]colors/.test(plugin.src));
+      if (kept.length === app.plugins.length) throw new Error("Nuxt UI's colours plugin was not found to remove; its inline <style> would break the daemon's CSP.");
+      app.plugins = kept;
     },
   },
   app: {

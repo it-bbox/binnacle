@@ -1,5 +1,5 @@
 import { en as uiEnglish, ru as uiRussian } from '@nuxt/ui/locale';
-import { ago, DICTIONARIES, plural, startingLanguage, type Forms, type Language } from '~/i18n';
+import { DICTIONARIES, formatNumber, plural, secondsAgo, startingLanguage, type Forms, type Language } from '~/i18n';
 
 const LANGUAGE_KEY = 'binnacle.language';
 
@@ -29,7 +29,7 @@ export function useLanguage() {
     /** Nuxt UI's own strings, in the same language. */
     uiLocale: computed(() => (language.value === 'ru' ? uiRussian : uiEnglish)),
     plural: (count: number, forms: Forms): string => plural(language.value, count, forms),
-    number: (value: number): string => new Intl.NumberFormat(language.value).format(value),
-    ago: (seconds: number): string => ago(language.value, seconds),
+    number: (value: number): string => formatNumber(language.value, value),
+    secondsAgo: (seconds: number): string => secondsAgo(language.value, seconds),
   };
 }
