@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { call, usePolling } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
-import { count, isUnavailable, projectName, type Board, type Card, type LatestRun, type ProjectRow, type Section, type Snapshot, type Unavailable } from '~/composables/projects';
+import { count, isUnavailable, projectName, SELECTED_VIEW, type Board, type Card, type LatestRun, type Section, type Snapshot, type Unavailable } from '~/composables/projects';
 import type { ProjectUsage } from '~/composables/usage';
 
 type ProjectSnapshot = Snapshot & {
-  project: ProjectRow;
   decisions: Section<{ title: string | null; path: string }> | null;
   pendingDecisions: Unavailable;
   ci: Unavailable;
@@ -33,7 +32,9 @@ const group = (): { spec?: string | null } => {
   return typeof route.query.spec === 'string' ? { spec: route.query.spec } : {};
 };
 
-const snapshot = usePolling(async () => (project === null ? null : call<ProjectSnapshot>('project.snapshot', { path: project })));
+const view = inject(SELECTED_VIEW, ref(null));
+/** The shell's snapshot of the selected project, whose answer also carries the decisions, pending decisions and CI. */
+const snapshot = computed(() => (view.value?.snapshot ?? null) as ProjectSnapshot | null);
 const board = usePolling(async () => (project === null ? null : call<Board>('task.list', { path: project, ...group() })));
 const usage = usePolling(async () => (project === null ? null : call<ProjectUsage>('usage.get', { path: project })));
 const doneOpen = ref(false);
@@ -45,7 +46,7 @@ watch(
   },
 );
 
-const epics = computed(() => snapshot.data.value?.roadmap?.epics ?? []);
+const epics = computed(() => snapshot.value?.roadmap?.epics ?? []);
 /** The roadmap's first epic not done: the board's default, as `task.list` reads it. */
 const current = computed(() => epics.value.find((epic) => epic.status !== 'done') ?? null);
 const tabs = computed(() =>
@@ -72,7 +73,7 @@ const boardEmpty = computed(() => {
 const shown = (key: ColumnKey, cards: Card[]): Card[] => (key === 'done' && !doneOpen.value ? cards.slice(0, DONE_SHOWN) : cards);
 const runLabel = (latest: LatestRun): string => [latest.harness, latest.model ?? t.value.modelNotReported, latest.role].join(' · ');
 
-const roadmapAttention = computed(() => snapshot.data.value?.attention.filter((item) => item.code.startsWith('roadmap.')) ?? []);
+const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) => item.code.startsWith('roadmap.')) ?? []);
 function gitLine(git: Snapshot['git']): string {
   if (!git.available) return `${t.value.gitUnavailable} ${git.reason}`;
   const head = git.detached ? t.value.detachedHead : (git.branch ?? t.value.noBranch);
@@ -84,15 +85,18 @@ function gitLine(git: Snapshot['git']): string {
   <div class="flex flex-col gap-6 pt-4">
     <p v-if="project === null" class="m-0 text-warning">{{ t.noProjectAddress }}</p>
     <template v-else>
-      <p v-if="snapshot.error.value" class="m-0 text-warning"><code>{{ snapshot.error.value.code }}</code> {{ snapshot.error.value.message }}</p>
-      <USkeleton v-else-if="snapshot.data.value === null" class="h-40 w-full" />
-      <template v-else>
+      <p v-if="view === null" class="m-0 text-muted">{{ t.unknownProject }}</p>
+      <p v-else-if="view.project.unavailable !== null" class="m-0 text-muted">
+        <span class="font-medium text-default">{{ t.notAvailable }}</span> · <span lang="en">{{ view.project.unavailable }}</span>
+      </p>
+      <p v-else-if="view.failure" class="m-0 text-warning"><code>{{ view.failure.code }}</code> <span lang="en">{{ view.failure.message }}</span></p>
+      <template v-else-if="snapshot">
         <div class="flex flex-col gap-0.5">
-          <h1 class="m-0 text-lg font-semibold text-highlighted">{{ projectName(snapshot.data.value.project) }}</h1>
-          <span class="font-mono text-[11.5px] text-dimmed">{{ snapshot.data.value.project.path }}</span>
+          <h1 class="m-0 text-lg font-semibold text-highlighted">{{ projectName(view.project) }}</h1>
+          <span class="font-mono text-[11.5px] text-dimmed">{{ view.project.path }}</span>
         </div>
 
-        <div v-if="snapshot.data.value.roadmap === null" class="flex flex-col gap-1.5 rounded-lg border border-dashed border-accented p-4">
+        <div v-if="snapshot.roadmap === null" class="flex flex-col gap-1.5 rounded-lg border border-dashed border-accented p-4">
           <div><span class="font-medium">{{ t.notAvailable }}</span> · {{ t.noRoadmap }}</div>
           <div v-if="roadmapAttention.length > 0" class="text-muted">{{ t.roadmapReason }}</div>
           <div v-for="(item, index) in roadmapAttention" :key="index" lang="en" class="text-xs">
@@ -278,25 +282,25 @@ function gitLine(git: Snapshot['git']): string {
         </div>
       </section>
 
-      <div v-if="snapshot.data.value" class="grid grid-cols-2 gap-2.5">
+      <div v-if="snapshot" class="grid grid-cols-2 gap-2.5">
         <section class="flex flex-col gap-1.5 rounded-lg border border-default bg-default px-3.5 py-2.5">
           <h2 class="m-0 text-[13px] font-semibold">{{ t.registeredCheckout }}</h2>
-          <div class="font-mono text-xs">{{ gitLine(snapshot.data.value.git) }}</div>
+          <div class="font-mono text-xs">{{ gitLine(snapshot.git) }}</div>
         </section>
         <section class="flex flex-col gap-1.5 rounded-lg border border-default bg-default px-3.5 py-2.5">
           <h2 class="m-0 text-[13px] font-semibold">{{ t.recentDecisions }}</h2>
-          <div v-if="snapshot.data.value.decisions === null" class="text-muted">{{ t.noAdrDirectory }}</div>
+          <div v-if="snapshot.decisions === null" class="text-muted">{{ t.noAdrDirectory }}</div>
           <template v-else>
-            <div v-for="item in snapshot.data.value.decisions.items" :key="item.path" class="text-xs">
+            <div v-for="item in snapshot.decisions.items" :key="item.path" class="text-xs">
               <span lang="en">{{ item.title ?? t.untitled }}</span> <code class="font-mono text-dimmed">{{ item.path }}</code>
             </div>
-            <div v-if="snapshot.data.value.decisions.remainder > 0" class="text-xs text-dimmed">{{ t.more(number(snapshot.data.value.decisions.remainder)) }}</div>
+            <div v-if="snapshot.decisions.remainder > 0" class="text-xs text-dimmed">{{ t.more(number(snapshot.decisions.remainder)) }}</div>
           </template>
         </section>
         <section
           v-for="{ title, element } in [
-            { title: t.pendingDecisions, element: snapshot.data.value.pendingDecisions },
-            { title: t.ci, element: snapshot.data.value.ci },
+            { title: t.pendingDecisions, element: snapshot.pendingDecisions },
+            { title: t.ci, element: snapshot.ci },
           ]"
           :key="title"
           class="flex flex-col gap-0.5 rounded-lg border border-default bg-default px-3.5 py-2.5"

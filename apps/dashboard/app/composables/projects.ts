@@ -106,9 +106,6 @@ export function checkout(git: GitFacts): string {
 
 export const isUnavailable = (section: object): section is Unavailable => 'available' in section;
 
-/** How the pages label a `READY` Task In progress from its runs (ADR-0032). */
-export const RUNS_READING = "Binnacle's reading: the ticket says READY, and AgentRuns are attributed to it (ADR-0032)";
-
 /** How the pages label a run as running: `active` is the daemon's reading, within telemetry's recency. */
 export const RUNNING_READING = "Running means active in the last ten minutes, Binnacle's reading of the latest activity, not a state the harness reports.";
 
