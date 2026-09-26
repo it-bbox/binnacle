@@ -184,7 +184,7 @@ The daemon computes everything once. The Product Snapshot therefore carries the 
 
 - It is a pure function of the roadmap's epics, the Tasks, the project's observed runs and the manifest's `workflow.provider`. It returns a description, a command or none, and the Task it names if it names one. Its provenance is `calculated`.
 - The current epic is the first row whose status is not `done`. The first rule that applies wins:
-  1. An implementation run of a Task is active: that Task is being worked on. No command.
+  1. An implementation run of a Task the board places In progress is active: that Task is being worked on. No command. A Task `DONE`, `MERGED` or `CANCELLED` is not waited on, whatever its runs.
   2. A Task is In progress with no active run: resume it, with its start command.
   3. The current epic is `tickets` or `in progress`, and one of its `READY` Tasks has no Unmet dependency: `/binnacle:autopilot`.
   4. The current epic has `READY` Tasks, and every one of them waits on an Unmet dependency: nothing can start, and it says which Tasks they wait on. No command.

@@ -218,6 +218,31 @@ describe('the Suggested step', () => {
     });
   });
 
+  it('1 waits only on a Task the board places In progress: a DONE Task with an active implementation run is not waited on', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject([row(1, 'First', 'in progress', 'first')]);
+      ticket(root, 'first', '01-merged.md', 'Status: DONE');
+      ticket(root, 'first', '02-worked.md', 'Status: ACTIVE');
+      repository(root, minutesAgo(60), [minutesAgo(8), 'feat/merged'], [minutesAgo(5), 'feat/worked']);
+      session(artifacts, root, 'merged', minutesAgo(7));
+      session(artifacts, root, 'working', minutesAgo(2));
+
+      const step = suggested(await snapshot(daemon, root));
+      assert.equal(step.rule, 1);
+      assert.equal(step.task, 'first/02');
+      assert.doesNotMatch(step.description, /first\/01/);
+    });
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject([row(1, 'First', 'in progress', 'first')]);
+      ticket(root, 'first', '01-merged.md', 'Status: DONE');
+      repository(root, minutesAgo(60), [minutesAgo(3), 'feat/merged']);
+      session(artifacts, root, 'merged', minutesAgo(1));
+
+      // Falls through to the next rule that applies.
+      assert.equal(suggested(await snapshot(daemon, root)).rule, 5);
+    });
+  });
+
   it("1 is never a Product session's active run: its own run does not turn the step into waiting", async () => {
     await withDaemon(async (daemon, artifacts) => {
       const root = makeProject([row(1, 'First', 'in progress', 'first')]);
