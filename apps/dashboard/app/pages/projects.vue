@@ -22,7 +22,7 @@ const { data, error } = usePolling(loadProjects);
     </thead>
     <tbody>
       <tr v-for="view in data" :key="view.project.path">
-        <td>{{ projectName(view.project) }}</td>
+        <td><NuxtLink :to="{ path: '/project', query: { project: view.project.path } }">{{ projectName(view.project) }}</NuxtLink></td>
         <td><code>{{ view.project.path }}</code></td>
         <td v-if="view.project.unavailable !== null" colspan="3" class="warn">Unavailable: {{ view.project.unavailable }}</td>
         <td v-else-if="view.failure" colspan="3" class="warn"><code>{{ view.failure.code }}</code> {{ view.failure.message }}</td>

@@ -4,7 +4,7 @@ import { call, DaemonError, type Failure } from './daemon';
 
 export type ProjectRow = { id: string | null; name: string | null; path: string; unavailable: string | null };
 
-type Epic = { number: number; title: string; status: string };
+export type Epic = { number: number; title: string; status: string; spec: string | null };
 
 type GitFacts =
   | { available: true; branch: string | null; detached: boolean; commit: string | null; dirty: boolean }

@@ -12,6 +12,7 @@ import { BASELINE_EVENTS, committedHead, daily, isRemoteTracker, taskStates, typ
 import { readTasks, snapshot, type CallerCheckout } from './snapshot.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type ProjectRow, type Store } from './store.ts';
 import { taskBrief } from './task.ts';
+import { taskList } from './board.ts';
 import { forgetRead, usageAndActivity, usageGet, type Importer } from './usage.ts';
 
 export type OperationContext = {
@@ -178,6 +179,15 @@ export const operations: Record<string, Operation> = {
     return taskBrief(context.home, workingTree(caller.project), projected.manifest, id);
   },
 
+  // The board: one epic's Tasks in their columns, In progress read from runs where the ticket still says READY (ADR-0032).
+  'task.list': async (body, context) => {
+    const path = repositoryPath(body, { mustExist: false });
+    const spec = specSlug(body);
+    const projected = reproject(context.store, await resolveEntry(path, context));
+    const caller = await callerCheckout(path, projected.row.path);
+    return taskList(context, projected, workingTree(caller.project), spec);
+  },
+
   // The project's usage, or one Task's with its runs, after the ingest the snapshot also runs.
   'usage.get': async (body, context) => {
     const path = repositoryPath(body, { mustExist: false });
@@ -294,6 +304,16 @@ function taskId(body: unknown): string {
     throw new OperationError('request.invalid', 'This operation needs an "id".', 400, [{ path: 'id', message: 'expected a non-empty string' }]);
   }
   return id.trim();
+}
+
+/** A spec slug, `null` for the Tasks that carry none, or absent for the current epic. */
+function specSlug(body: unknown): string | null | undefined {
+  const spec = (body as { spec?: unknown } | null)?.spec;
+  if (spec === undefined || spec === null) return spec;
+  if (typeof spec === 'string' && spec.trim() !== '') return spec.trim();
+  throw new OperationError('request.invalid', '"spec" must be a spec slug, or null for the Tasks without one.', 400, [
+    { path: 'spec', message: 'expected a non-empty string or null' },
+  ]);
 }
 
 function eventFilter(body: unknown): EventFilter {

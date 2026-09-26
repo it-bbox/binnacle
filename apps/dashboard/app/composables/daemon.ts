@@ -63,7 +63,7 @@ const failure = (error: unknown): Failure =>
     ? { code: error.code, message: error.message }
     : { code: 'daemon.unreachable', message: 'The Binnacle daemon did not answer. Start it with `binn daemon start`.' };
 
-/** Loads now, then every 15 seconds while the page is visible, and at once when it becomes visible again. */
+/** Loads now, then every 15 seconds while the page is visible, and at once when it becomes visible again or `refresh` is called. */
 export function usePolling<T>(load: () => Promise<T>) {
   const data = ref<T | null>(null);
   const error = ref<Failure | null>(null);
@@ -88,5 +88,5 @@ export function usePolling<T>(load: () => Promise<T>) {
     clearInterval(timer);
     document.removeEventListener('visibilitychange', visible);
   });
-  return { data, error };
+  return { data, error, refresh };
 }

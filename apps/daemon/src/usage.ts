@@ -225,6 +225,26 @@ export async function usageGet(
 }
 
 /**
+ * Each of `tasks`' latest run, the one with the latest activity, among every stored record,
+ * after the ingest `usage.get` also runs. A Task with no attributed run is not in the map.
+ */
+export async function latestRuns(
+  context: OperationContext,
+  projectPath: string,
+  manifest: ProjectManifest | null,
+  tasks: TrackerTask[],
+): Promise<Map<string, ObservedRun>> {
+  const { checkouts } = await ingested(context, projectPath, manifest);
+  const attributed = await runs(context.store.usage(projectPath, ''), projectPath, tasks, manifest?.tracker.provider !== 'local', checkouts);
+  const latest = new Map<string, ObservedRun>();
+  for (const run of attributed) {
+    const known = run.taskId === null ? undefined : latest.get(run.taskId);
+    if (run.taskId !== null && (known === undefined || run.lastActivityAt >= known.lastActivityAt)) latest.set(run.taskId, run);
+  }
+  return latest;
+}
+
+/**
  * Starts the project's ingest, or joins the one already running under the same window, and
  * waits for it up to the budget: whether it is still incomplete, the local date its window
  * starts, and the project's checkouts.

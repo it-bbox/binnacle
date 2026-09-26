@@ -182,6 +182,32 @@ export function startCommand(task: Pick<TrackerTask, 'state' | 'ticket'>, workfl
   return `/mattpocock-skills:implement ${task.ticket}`;
 }
 
+/** The board's columns, in order. */
+export type BoardColumn = 'backlog' | 'ready' | 'inProgress' | 'done';
+
+/**
+ * A Task's column on the board, and what it is read from (ADR-0032): its state, or, for a
+ * `READY` Task with AgentRuns attributed to it, those runs, which stand it In progress while its
+ * ticket still says `READY`. None for `CANCELLED`, which is counted and not listed, nor for an
+ * unknown state, which is listed apart.
+ */
+export function boardColumn(state: TaskState | null, runs: boolean): { column: BoardColumn; source: 'state' | 'runs' } | null {
+  switch (state) {
+    case null:
+    case 'CANCELLED':
+      return null;
+    case 'BACKLOG':
+      return { column: 'backlog', source: 'state' };
+    case 'READY':
+      return runs ? { column: 'inProgress', source: 'runs' } : { column: 'ready', source: 'state' };
+    case 'MERGED':
+    case 'DONE':
+      return { column: 'done', source: 'state' };
+    default:
+      return { column: 'inProgress', source: 'state' };
+  }
+}
+
 /**
  * The inverse of `taskBranch`: the one Task `branch` maps back to, or null when none or
  * several do, which is unassigned and never a guess (ADR-0018).

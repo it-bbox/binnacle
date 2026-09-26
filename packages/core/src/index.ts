@@ -8,6 +8,7 @@ export {
 } from './manifest.ts';
 export {
   blockedByNumbers,
+  boardColumn,
   branchTask,
   BRANCH_SLUG_LIMIT,
   parseTicketHeader,
@@ -20,6 +21,7 @@ export {
   trackerRemoteMismatch,
   TRIAGE_ROLES,
   unquote,
+  type BoardColumn,
   type Diagnostic,
   type ResolvedTask,
   type TaskReading,
