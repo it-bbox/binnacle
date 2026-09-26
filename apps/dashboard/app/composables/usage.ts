@@ -42,7 +42,7 @@ export type Derived = {
 export type TaskUsage = { importing: Importing; totals: Totals; runs: Limited<TaskRun> };
 
 /** A run of a Task, as `usage.get` gives it. */
-export type TaskRun = Omit<Run, 'taskTitle'> & { startedAt: string; totals: Totals };
+export type TaskRun = Omit<Run, 'taskTitle'> & { startedAt: string; active: { value: boolean }; totals: Totals };
 
 /** The token fields in the order the pages show them; reasoning is a part of output, never added to it. */
 export const FIELDS = [

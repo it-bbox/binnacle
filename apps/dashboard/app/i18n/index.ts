@@ -25,10 +25,11 @@ export const formatNumber = (language: Language, value: number): string => new I
 export const plural = (language: Language, count: number, forms: Forms): string =>
   (forms[new Intl.PluralRules(language).select(count)] ?? forms.other).replace('#', formatNumber(language, count));
 
-/** How long ago, `seconds` before now, in the language: seconds under a minute, then minutes, then hours. */
+/** How long ago, `seconds` before now, in the language: seconds under a minute, then minutes, hours, and days. */
 export function secondsAgo(language: Language, seconds: number): string {
   const format = new Intl.RelativeTimeFormat(language, { numeric: 'auto', style: 'short' });
   if (seconds < 60) return format.format(-Math.max(0, Math.floor(seconds)), 'second');
   if (seconds < 3600) return format.format(-Math.floor(seconds / 60), 'minute');
-  return format.format(-Math.floor(seconds / 3600), 'hour');
+  if (seconds < 86_400) return format.format(-Math.floor(seconds / 3600), 'hour');
+  return format.format(-Math.floor(seconds / 86_400), 'day');
 }

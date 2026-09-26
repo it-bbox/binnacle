@@ -52,4 +52,10 @@ describe('a relative time', () => {
     assert.equal(secondsAgo('en', 150), '2 min. ago');
     assert.equal(secondsAgo('ru', 150), '2 мин. назад');
   });
+
+  it('reads in hours under a day and in days after, as a run found days ago does', () => {
+    assert.equal(secondsAgo('en', 5 * 3600), '5 hr. ago');
+    assert.equal(secondsAgo('en', 3 * 86_400 + 60), '3 days ago');
+    assert.equal(secondsAgo('ru', 3 * 86_400), '3 дн. назад');
+  });
 });

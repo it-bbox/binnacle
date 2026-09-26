@@ -87,16 +87,16 @@ A roadmap that cannot be read, and a project or epic with no Tasks, each show th
 
 ### Project
 
-- tasks, on a mini kanban: Backlog, Ready, In progress, Done. A `READY` Task with AgentRuns attributed to it stands In progress, marked as read from runs, and a card names who works on it;
-- runs;
-- reviews: the Review each ticket records, and the `DONE` Tasks without one;
-- usage;
-- active/blocking state.
+- the roadmap's epics, with their status and spec;
+- tasks, on a mini kanban for one epic, the current one unless another is picked: Backlog, Ready, In progress, Done. A card shows its Unmet dependencies and `BLOCKED`. A `READY` Task with AgentRuns attributed to it stands In progress, marked as read from runs, and a card names who works on it, with a live dot while its run is active. Done shows its count and its latest cards until opened;
+- reviews: whether a `DONE` Task's ticket records a Review, and never a review state the ticket does not;
+- usage by role;
+- the registered checkout, recent decisions, and pending decisions and CI, not available.
 
 ### Task
 
-- the brief, the branch and the command that starts the Task;
-- its Review, as the ticket records it;
+- the brief, the branch and the command that starts the Task; for a Task In progress from its runs, the same command, labelled as resuming it, and none for a `DONE` or `CANCELLED` one;
+- the ticket's body and its Review, as plain text, or "no Review yet";
 - AgentRun timeline;
 - implementation usage;
 - review usage — not available: review runs are not told apart from implementation runs;

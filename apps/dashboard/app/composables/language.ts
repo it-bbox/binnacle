@@ -31,5 +31,9 @@ export function useLanguage() {
     plural: (count: number, forms: Forms): string => plural(language.value, count, forms),
     number: (value: number): string => formatNumber(language.value, value),
     secondsAgo: (seconds: number): string => secondsAgo(language.value, seconds),
+    /** How long ago an ISO timestamp from the daemon was. */
+    since: (timestamp: string): string => secondsAgo(language.value, (Date.now() - Date.parse(timestamp)) / 1000),
+    /** An ISO timestamp from the daemon as a date and time. */
+    dateTime: (timestamp: string): string => new Date(timestamp).toLocaleString(language.value, { dateStyle: 'medium', timeStyle: 'short' }),
   };
 }
