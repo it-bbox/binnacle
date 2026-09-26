@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { call, usePolling, type Failure } from '~/composables/daemon';
-import { ago, checkout, projectName, RUNNING_READING, type Epic, type ProjectRow, type Snapshot } from '~/composables/projects';
+import { ago, checkout, projectName, RUNNING_READING, type Epic, type ProjectRow, type Snapshot, type Unavailable } from '~/composables/projects';
 
 type Section<T> = { items: T[]; remainder: number };
-type Unavailable = { available: false; reason: string };
 type ProjectSnapshot = Snapshot & {
   project: ProjectRow;
   decisions: Section<{ title: string | null; path: string }> | null;
@@ -33,7 +32,7 @@ const COLUMNS = [
 const route = useRoute();
 const project = typeof route.query.project === 'string' ? route.query.project : null;
 /** The board's group: an epic's spec, the Tasks without one, or, by default, the current epic. */
-const group = (): object => {
+const group = (): { spec?: string | null } => {
   if (route.query.withoutSpec !== undefined) return { spec: null };
   return typeof route.query.spec === 'string' ? { spec: route.query.spec } : {};
 };
@@ -80,7 +79,7 @@ const who = (run: LatestRun): string => `${run.harness}, ${run.model ?? 'model n
       <h2 v-else-if="route.query.withoutSpec !== undefined">Board: Tasks without a spec</h2>
       <h2 v-else>Board</h2>
       <p v-if="board.data.value.epic === null && board.data.value.spec === null && route.query.withoutSpec === undefined" class="muted">
-        No epic is current on the roadmap.
+        No epic is current: every epic on the roadmap is done, or there is no roadmap to read.
       </p>
       <div class="board">
         <section v-for="[key, label] in COLUMNS" :key="key" class="column">

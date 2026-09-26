@@ -200,11 +200,15 @@ export function boardColumn(state: TaskState | null, runs: boolean): { column: B
       return { column: 'backlog', source: 'state' };
     case 'READY':
       return runs ? { column: 'inProgress', source: 'runs' } : { column: 'ready', source: 'state' };
+    case 'ACTIVE':
+    case 'BLOCKED':
+    case 'READY_FOR_REVIEW':
+    case 'APPROVED':
+    case 'MERGE_READY':
+      return { column: 'inProgress', source: 'state' };
     case 'MERGED':
     case 'DONE':
       return { column: 'done', source: 'state' };
-    default:
-      return { column: 'inProgress', source: 'state' };
   }
 }
 

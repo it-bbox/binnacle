@@ -312,7 +312,7 @@ describe('the board', () => {
 });
 
 describe('the board on a remote tracker', () => {
-  it('groups the Tasks that carry no spec on their own, which `spec: null` lists', async () => {
+  it('groups the Tasks that carry no spec on their own, which `spec: null` lists, an unknown state with its diagnostic', async () => {
     const server = createServer((request, response) => {
       const found = new URL(request.url ?? '/', 'http://x').pathname === '/repos/octo/repo/issues';
       const issue = (number: number, body: string): object => ({
@@ -325,7 +325,7 @@ describe('the board on a remote tracker', () => {
         html_url: `https://github.com/octo/repo/issues/${number}`,
       });
       response.writeHead(found ? 200 : 404, { 'content-type': 'application/json' });
-      response.end(JSON.stringify(found ? [issue(1, 'Status: READY\nSpec: `docs/specs/second/spec.md`'), issue(2, 'Status: READY'), issue(3, 'Status: BACKLOG')] : {}));
+      response.end(JSON.stringify(found ? [issue(1, 'Status: READY\nSpec: `docs/specs/second/spec.md`'), issue(2, 'Status: READY'), issue(3, 'Status: BACKLOG'), issue(4, 'Status: WIP')] : {}));
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     try {
@@ -336,13 +336,17 @@ describe('the board on a remote tracker', () => {
 
         const current = await taskList(daemon, root);
         assert.deepEqual(ids(current.columns.ready), ['#1']);
-        assert.equal(current.withoutSpec, 2);
+        assert.equal(current.withoutSpec, 3);
 
         const without = await taskList(daemon, root, { spec: null });
         assert.equal(without.epic, null);
         assert.equal(without.spec, null);
         assert.deepEqual(ids(without.columns.ready), ['#2']);
         assert.deepEqual(ids(without.columns.backlog), ['#3']);
+        assert.deepEqual(without.unknown.items[0]!.diagnostic, {
+          code: 'task.unknown_state',
+          message: '#4 (https://github.com/octo/repo/issues/4) has Status: "WIP", which is not a Task state.',
+        });
         assert.deepEqual(without.columns.ready.items[0]!.start, '/mattpocock-skills:implement https://github.com/octo/repo/issues/2');
       });
     } finally {

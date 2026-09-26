@@ -67,12 +67,17 @@ const failure = (error: unknown): Failure =>
 export function usePolling<T>(load: () => Promise<T>) {
   const data = ref<T | null>(null);
   const error = ref<Failure | null>(null);
+  // Only the latest load's answer is kept, so a slow one started earlier never overwrites it.
+  let latest = 0;
   const refresh = async (): Promise<void> => {
+    const own = ++latest;
     try {
-      data.value = await load();
+      const value = await load();
+      if (own !== latest) return;
+      data.value = value;
       error.value = null;
     } catch (caught) {
-      error.value = failure(caught);
+      if (own === latest) error.value = failure(caught);
     }
   };
   const visible = (): void => {

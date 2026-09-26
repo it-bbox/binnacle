@@ -11,7 +11,7 @@ type GitFacts =
   | { available: false; reason: string };
 
 export type SnapshotTask = { id: string; title: string | null; state: string | null; start: string | null };
-type Unavailable = { available: false; reason: string };
+export type Unavailable = { available: false; reason: string };
 
 /** A run as the snapshot's `activity` gives it. */
 export type Run = {
