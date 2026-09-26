@@ -37,6 +37,15 @@ Spec: `docs/specs/minimal-dashboard/spec.md`
   - **Runs per Task counts a Task of any state**, as the spec's "for each Task with runs" reads. It has the section limit and a remainder, as every list does, though the spec names them only for the completed Tasks.
   - **The weekly trend runs from the first stored record's week to this week, and includes the weeks without records**, so a gap shows as one. It covers every stored record, like `totals`, so the weeks add up to it. Weeks are counted by local calendar date, so a daylight-saving change does not move a Monday.
   - **The page rounds a token total to whole tokens**, which changes only a mean, and shows the runs means to one decimal. The daemon's answer is exact.
+- **Ticket 06 ran at the same time and merged first.** This branch was rebased onto it. The one conflict was the roadmap's current focus. Nothing of 06 needed changing here:
+  - its `review` in `task.get` and `task.list`, and `review.missing`, are beside `usage.get`, which it did not touch;
+  - its edits to the Task and Project pages, `docs/03-mcp-and-skills.md` and `usage_get`'s neighbours in `packages/mcp/src/index.ts` do not overlap this ticket's.
+
+  With 08 done, every agent ticket of epic 5 is done. The focus had grown past the snapshot's 2000-character limit, which cut it inside the `Next action:` line, so this ticket's last commit rewrites it:
+  - the epic 5 paragraph no longer lists what each ticket delivered, and the whole focus is 1,608 characters;
+  - its Next action is the owner's exit demonstration, ticket 09, with `binn dashboard` as the command.
+
+  A temporary daemon registered on this worktree read `next.action` with that description and command, `truncated: false`, and no `next_action.*` attention item.
 - **For the next tickets.**
   - Ticket 09's check of the Usage page against `usage_get` now covers `derived` too.
 - **Checked by hand on 2026-09-26.** A daemon ran on a temporary `BINNACLE_HOME` and an ephemeral port. The dashboard was generated, the main checkout was registered read-only, and the page was opened in the built-in browser. The Usage page showed:
