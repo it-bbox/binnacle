@@ -30,6 +30,11 @@ Spec: `docs/specs/minimal-dashboard/spec.md`
   - **Did the dashboard answer "what do I type" at every step?** Not entirely. The dashboard is in English only, which made it hard to follow; it needs i18n, with English and Russian to begin with. And it needs a design: today it is one long sheet of text.
   - **Ready to start listing a Task in progress** is a defect, filed as ticket 11.
 - **What follows.** Ticket 11 keeps epic 5 `in progress`, with ticket 10. The dashboard's languages and its design change what the spec decided, English with no UI kit (*Further Notes*), so they are not filed as defects of this spec: they go to `/grill-with-docs` in a Product session, recorded in the roadmap's current focus.
+- **Found by the owner after the merge, 2026-09-26**, reading the Overview for the step after this ticket:
+  - **The Next action and the Suggested step disagree.** One named ticket 11 alone, the other `/binnacle:autopilot`. Both are valid ways to work, one ticket at a time or the whole epic, but the screen does not say it is offering a choice between them.
+  - ***Ready to start* reads as a queue.** The owner took its order, 10 before 11, for the order to work in. It lists the ready Tasks by id, each with a copy button, and implies no order.
+  - **Nothing says which Tasks can run in parallel**, though 10 and 11 block neither: the worktree rule is only in `docs/workflow/02-development-workflow.md`.
+  - **What the dashboard is for.** Its main screen was made to answer what to type next (*Further Notes*). The owner now asks whether it is first a view of the state, with the commands beside it, or a guide through the steps; how to make it convenient for a person is the question the design starts from.
 
 ### Review
 
