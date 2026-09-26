@@ -14,18 +14,20 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 2 | MCP and Product Snapshot | done | [`mcp-and-product-snapshot`](specs/mcp-and-product-snapshot/spec.md) |
 | 3 | Tracker and Matt Pocock integration | done | [`tracker-and-matt-pocock-integration`](specs/tracker-and-matt-pocock-integration/spec.md) |
 | 4 | Telemetry | done | [`telemetry`](specs/telemetry/spec.md) |
-| 5 | Minimal dashboard | not started | — |
+| 5 | Minimal dashboard | spec | — |
 | 6 | Audit and adopt | not started | — |
 
 Epics are ordered by dependency, not by preference. Epic 1 is the foundation; epics 5 and 6 are only meaningful once 1 to 4 exist.
 
 ## Current focus
 
-Design is complete: `docs/08-open-questions.md` is resolved by ADR-0001 to ADR-0018; building the epics added ADR-0019 to ADR-0030.
+Design is complete: `docs/08-open-questions.md` is resolved by ADR-0001 to ADR-0018; building the epics added ADR-0019 to ADR-0032.
 
 Epics 1 to 4 are done. The daemon, its store and `packages/core` (epic 1). `binn mcp` serves the snapshot, the daily and the checkpoint to every session through the committed `.mcp.json`, and the `binnacle` plugin gives `/binnacle:product`, `:daily`, `:checkpoint` and `:autopilot` (epic 2, ADR-0022, ADR-0023). GitHub and GitLab issues are Tasks, `/binnacle:task` gives a Task's brief and branch, and `binn init` sets up a fresh repository (epic 3, ADR-0024 to ADR-0027). The snapshot's usage section and `usage_get` give Claude Code's and Codex's tokens by model, by Task and by role; a run's branch comes from its checkout's reflog or not at all, and autopilot lets Binnacle read a ticket's worktree before removing it (epic 4, ADR-0028 to ADR-0030). Binnacle writes nothing into the repository.
 
-Next action: plan epic 5, Minimal dashboard, whose scope is `docs/05-mvp-plan.md`, phase 5. Planning is the owner's: `/grill-with-docs`, then `/to-spec`, then `/to-tickets`. Its grilling starts from the owner's feedback of 2026-09-26: the process was hard to follow. `/binnacle:task` shows a ticket's brief but does not start it, and a next action written as a paragraph left the owner asking what to type.
+Epic 5, Minimal dashboard, was grilled on 2026-09-26, starting from the owner's feedback that the process was hard to follow. Its main screen answers where each project stands and what to type next: the Next action from this focus, Binnacle's Suggested step beside it, what is running, and what can start, with the command that starts it. The dashboard is read-only and served by the daemon (`docs/05-mvp-plan.md`, phase 5; ADR-0031, ADR-0032).
+
+Next action: write epic 5's spec from the grilling. `/mattpocock-skills:to-spec`
 
 ## Later
 
@@ -55,4 +57,4 @@ Update the status column when an epic changes state, and fill the spec link when
 
 The epic table's header and the `## Current focus` heading are a contract with Binnacle (`specs/mcp-and-product-snapshot/spec.md`). Change them and the snapshot reports a diagnostic instead of a position. Each row's `#` must be a number, its Status one of the vocabulary above, written exactly, and its Spec cell `—` or a link to `specs/<slug>/spec.md`; a row that is not is left out of the snapshot, with a diagnostic. The current focus reaches a fresh session only up to its first 2000 characters, so keep it short.
 
-The current focus ends with `Next action:` and the command the owner types to take it, such as `/binnacle:autopilot` or `/mattpocock-skills:implement <ticket path>`, so that the next step can be copied rather than worked out (the owner, 2026-09-26).
+The current focus ends with a paragraph that starts with `Next action:` and ends with exactly one command in backticks, the one the owner types to take it, such as `/binnacle:autopilot` or `/mattpocock-skills:implement <ticket path>`, so that the next step can be copied rather than worked out (the owner, 2026-09-26). Epic 5's dashboard reads that command as the Next action and shows Binnacle's Suggested step beside it (ADR-0032). A focus that ends otherwise, or whose command names a Task already done, is an attention item there.

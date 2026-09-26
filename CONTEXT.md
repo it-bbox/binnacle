@@ -25,6 +25,12 @@ A permanent logical role, but not a permanent chat. A new Product session must r
 ### Product Snapshot
 A compact projection of current project state for a fresh Product session: milestone, roadmap position, active tasks, blockers, pending decisions, recent durable decisions, Git/CI state and usage.
 
+### Next action
+The step the roadmap's current focus ends with, and the command the owner types to take it. The Product session writes it: it is the course, and Binnacle only reads it.
+
+### Suggested step
+Binnacle's own reading of what comes next, computed from the Tasks, their AgentRuns and the roadmap's epic statuses, and labelled as a calculation. It stands beside the Next action and never replaces it. A Next action that is missing, or names work already done, is an attention item.
+
 ### Harness
 The coding client a run happens inside: Claude Code, Codex, Gemini CLI and others. A harness is not a provider — the same harness can be pointed at different backends.
 
@@ -73,6 +79,12 @@ A Task state: work started and now waits on something. It is not the same as an 
 
 ### Unmet dependency
 A Ticket this Task is declared to be blocked by, which is not yet done. A Task with one can be in any state, `READY` included.
+
+### In progress
+A Task in flight by its state (`ACTIVE`, `BLOCKED`, `READY_FOR_REVIEW`, `APPROVED` or `MERGE_READY`), or a `READY` Task with an AgentRun attributed to it. The second is Binnacle's reading of the runs: it is shown as such and never written back to the ticket.
+
+### Review
+One review of a Task's work: its findings, and what was fixed or kept. It is recorded in the ticket, under a `### Review` heading.
 
 ### Checkpoint
 An operation that persists only the new durable delta from the current session into canonical project sources. It is not a retelling of the whole chat. The calling session writes the delta after the human confirms it; Binnacle computes what to consider and records that the checkpoint happened, and writes nothing into the repository itself.

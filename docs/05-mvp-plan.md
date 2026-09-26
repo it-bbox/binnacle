@@ -70,16 +70,20 @@ Exit criterion: the Product Snapshot and MCP attribute usage to runs and Tasks f
 
 ## Phase 5 — Minimal Dashboard
 
-Nuxt pages:
+Nuxt pages, read-only, served by the daemon at its own address (ADR-0031):
 
-- Overview;
+- Overview — the main screen. It answers where each project stands and what to type next: its roadmap position, the Next action with its command, Binnacle's Suggested step beside it (ADR-0032), what is running now, the Tasks ready to start with the command that starts each, attention, and usage today and this week;
 - Projects;
-- Project detail;
-- Task detail;
-- Usage;
+- Project detail, with a mini kanban of its Tasks: Backlog, Ready, In progress, Done. In progress includes a `READY` Task with AgentRuns attributed to it, and each card names who works on it: harness, model, role and latest activity;
+- Task detail, with its Review, read from the ticket's `### Review` section;
+- Usage, with derived metrics labelled as Binnacle's calculations: tokens per completed Task, runs per Task, weekly trend;
 - Attention/current activity.
 
+Every view element in `docs/04-telemetry-dashboard.md` appears. An element with no source yet says so, and why, as the snapshot does: questions and answers, and review and rework usage. A page's only action is copying a command; the human types it. A `DONE` ticket without a Review is an attention item. `/binnacle:task` ends with the command that starts its Task, the same one the dashboard shows.
+
 No decorative enterprise functionality.
+
+Exit criterion: on the owner's running daemon, the owner takes the next step from the dashboard alone, without asking an agent what to type. The Task it starts moves to In progress, naming who works on it, and then to Done. The Usage page's figures equal `usage_get`'s for the same window, and every element without a source says why.
 
 ## Phase 6 — Audit/adopt
 
