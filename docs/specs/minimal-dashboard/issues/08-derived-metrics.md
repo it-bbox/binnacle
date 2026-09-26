@@ -1,6 +1,6 @@
 # 08: Derived metrics
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 07
 Spec: `docs/specs/minimal-dashboard/spec.md`
