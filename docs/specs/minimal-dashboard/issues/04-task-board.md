@@ -1,6 +1,6 @@
 # 04: The board on the Project page
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 01, 02
 Spec: `docs/specs/minimal-dashboard/spec.md`
