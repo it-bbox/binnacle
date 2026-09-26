@@ -6,6 +6,8 @@ Build only enough to validate the central claim:
 
 > Externalized project state + fresh snapshots + task isolation + telemetry improves controllability and can reduce waste compared with long chat-centric workflows.
 
+What a phase below lists is its floor. Planning an epic may add to it and never cuts it (the owner, 2026-09-26, while grilling epic 5).
+
 ## Phase 1 — Core and persistence
 
 Implement:
