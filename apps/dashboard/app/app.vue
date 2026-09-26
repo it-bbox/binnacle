@@ -77,7 +77,7 @@ const pageKey = (page: RouteLocationNormalizedLoaded): string => `${page.path}|$
         </div>
         <!-- The Overview is rebuilt to the mockup; the other pages keep epic 5's plain CSS until their tickets rebuild them. -->
         <div v-else class="mx-auto max-w-[1120px] px-8 pt-3 pb-14" :class="{ legacy: route.path !== '/' }">
-          <p v-if="error" class="warn my-3 text-warning">{{ t.failed }} <code>{{ error.code }}</code> {{ error.message }}</p>
+          <p v-if="error" class="my-3 text-warning">{{ t.failed }} <code>{{ error.code }}</code> {{ error.message }}</p>
           <!-- Held back while the first project is being written into the address, so that no page opens without it. -->
           <NuxtPage v-if="selected !== null || !data?.length" :page-key="pageKey" />
         </div>

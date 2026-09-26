@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useLanguage } from '~/composables/language';
-import { isUnavailable, projectName, type ProjectView } from '~/composables/projects';
+import { count, isUnavailable, projectName, type ProjectView } from '~/composables/projects';
 
 /** The project rail: one icon per registered project, and "+" to show how to add one. Nothing is registered from here. */
 const props = defineProps<{ views: ProjectView[]; selected: string | null }>();
@@ -19,7 +19,7 @@ const initials = (name: string): string =>
 
 const running = (view: ProjectView): number => {
   const activity = view.snapshot?.activity;
-  return activity === undefined || isUnavailable(activity) ? 0 : activity.running.items.length + activity.running.remainder;
+  return activity === undefined || isUnavailable(activity) ? 0 : count(activity.running);
 };
 const attention = (view: ProjectView): number => view.snapshot?.attention.length ?? 0;
 

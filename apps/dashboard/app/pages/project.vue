@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import RoleUsage from '~/components/RoleUsage.vue';
 import { call, usePolling } from '~/composables/daemon';
-import { ago, checkout, projectName, RUNNING_READING, RUNS_READING, type Board, type LatestRun, type ProjectRow, type Snapshot, type Unavailable } from '~/composables/projects';
+import { ago, checkout, count, projectName, RUNNING_READING, RUNS_READING, type Board, type LatestRun, type ProjectRow, type Section, type Snapshot, type Unavailable } from '~/composables/projects';
 import { IMPORTING, windowLabel, type ProjectUsage } from '~/composables/usage';
 
-type Section<T> = { items: T[]; remainder: number };
 type ProjectSnapshot = Snapshot & {
   project: ProjectRow;
   decisions: Section<{ title: string | null; path: string }> | null;
@@ -32,7 +31,6 @@ const board = usePolling(async () => (project === null ? null : call<Board>('tas
 watch(() => route.query, board.refresh);
 const usage = usePolling(async () => (project === null ? null : call<ProjectUsage>('usage.get', { path: project })));
 
-const count = (section: Section<unknown>): number => section.items.length + section.remainder;
 const who = (run: LatestRun): string => `${run.harness}, ${run.model ?? 'model not reported'}, ${run.role}, last active ${ago(run.lastActivityAt)}`;
 </script>
 

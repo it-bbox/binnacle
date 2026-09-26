@@ -13,7 +13,11 @@ type GitFacts =
   | { available: false; reason: string };
 
 export type SnapshotTask = { id: string; title: string | null; state: string | null; unmetDependencies: string[]; start: string | null };
-type Section<T> = { items: T[]; remainder: number };
+export type Section<T> = { items: T[]; remainder: number };
+
+/** How many a section holds: the items it lists and the remainder it leaves out. */
+export const count = (section: Section<unknown>): number => section.items.length + section.remainder;
+
 export type Unavailable = { available: false; reason: string };
 
 /** A run as the snapshot's `activity` gives it. */

@@ -148,7 +148,7 @@ export async function snapshot(
       action: nextAction(roadmap?.focus ?? null),
       suggested: tasks ? suggestedStep(roadmap?.epics ?? [], tasks, runs, workflow) : trackerUnavailable(unreadable),
     },
-    tasks: tasks && withStart(taskSections(tasks, new Set(runs.flatMap((run) => run.taskId ?? []))), workflow, projected.manifest?.automation.maxParallelDevelopmentTasks ?? PARALLEL_LIMIT),
+    tasks: tasks && withStartAndParallel(taskSections(tasks, new Set(runs.flatMap((run) => run.taskId ?? []))), workflow, projected.manifest?.automation.maxParallelDevelopmentTasks ?? PARALLEL_LIMIT),
     decisions: adrs && (await recentDecisions(tree, caller.project, adrs)),
     pendingDecisions: UNAVAILABLE,
     ci: UNAVAILABLE,
@@ -272,7 +272,7 @@ export function taskSections(tasks: ResolvedTask[], attributed: ReadonlySet<stri
 }
 
 /** The snapshot's sections, each Task with its start command under the project's `workflow.provider`, and the parallel capacity under `limit`. */
-function withStart({ inFlight, readyToStart, counts }: ReturnType<typeof taskSections>, workflow: string | null, limit: number): NonNullable<Snapshot['tasks']> {
+function withStartAndParallel({ inFlight, readyToStart, counts }: ReturnType<typeof taskSections>, workflow: string | null, limit: number): NonNullable<Snapshot['tasks']> {
   const startable = ({ items, remainder }: Section): SectionWithStart => ({ items: items.map((task) => ({ ...task, start: startCommand(task, workflow) })), remainder });
   const inProgress = inFlight.items.length + inFlight.remainder;
   return {

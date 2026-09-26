@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { call, usePolling } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
-import { isUnavailable, SELECTED_VIEW, type Board } from '~/composables/projects';
+import { count, isUnavailable, SELECTED_VIEW, type Board } from '~/composables/projects';
 import type { Totals } from '~/composables/usage';
 
 /**
@@ -17,12 +17,13 @@ const { t, number, secondsAgo } = useLanguage();
 
 const board = usePolling(async () => (project === null ? null : call<Board>('task.list', { path: project })));
 
-const count = (section: { items: unknown[]; remainder: number }): number => section.items.length + section.remainder;
-
 /** The attention items that say why a section is empty: those whose code starts with `prefix`. */
 const reasons = (prefix: string) => snapshot.value?.attention.filter((item) => item.code.startsWith(prefix)) ?? [];
 // Without a readable manifest there is no roadmap item, and the tracker's says why.
-const roadmapReasons = computed(() => (reasons('roadmap.').length > 0 ? reasons('roadmap.') : reasons('tracker.')));
+const roadmapReasons = computed(() => {
+  const own = reasons('roadmap.');
+  return own.length > 0 ? own : reasons('tracker.');
+});
 const trackerReasons = computed(() => reasons('tracker.'));
 
 /** The roadmap's epics as steps: done, the current one (the first not done), and those after it. */
@@ -64,13 +65,13 @@ const parallel = computed((): string | null => {
   if (!tasks) return null;
   const ready = count(tasks.readyToStart);
   const { free, inProgress } = tasks.parallel;
-  return free >= 1 && ready > 0 && (ready >= 2 || inProgress >= 1) ? t.value.inParallel(number(free)) : null;
+  return free >= 1 && (ready >= 2 || inProgress >= 1) ? t.value.inParallel(number(free)) : null;
 });
 
-const since = (timestamp: string): string => secondsAgo((Date.now() - Date.parse(timestamp)) / 1000);
+const lastActivity = (timestamp: string): string => secondsAgo((Date.now() - Date.parse(timestamp)) / 1000);
 
 /** Output tokens as the line shows them: none recorded, not reported, or the total, marked when partial. */
-function output(totals: Totals): string {
+function outputTokens(totals: Totals): string {
   if (totals.records === 0) return t.value.noRecords;
   const { tokens, partial } = totals.output;
   if (tokens === null) return t.value.notReported;
@@ -248,7 +249,7 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
                     <span class="text-xs text-dimmed">{{ t.noTask }}</span>
                   </template>
                   <span class="flex-1" />
-                  <span class="flex-none text-[11.5px] whitespace-nowrap text-muted">{{ since(run.lastActivityAt) }}</span>
+                  <span class="flex-none text-[11.5px] whitespace-nowrap text-muted">{{ lastActivity(run.lastActivityAt) }}</span>
                 </div>
                 <div class="flex flex-wrap gap-x-3 gap-y-1 pl-3.5 font-mono text-[11px] text-dimmed">
                   <span>{{ run.harness }}</span>
@@ -289,9 +290,9 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
       >
         <span class="font-semibold">{{ t.usage }}</span>
         <span class="text-muted">{{ t.outputTokens }}</span>
-        <span><span class="text-muted">{{ t.today }}</span> <span class="tabular-nums">{{ output(snapshot.usage.today) }}</span></span>
+        <span><span class="text-muted">{{ t.today }}</span> <span class="tabular-nums">{{ outputTokens(snapshot.usage.today) }}</span></span>
         <span class="text-dimmed">·</span>
-        <span><span class="text-muted">{{ t.last7Days }}</span> <span class="tabular-nums">{{ output(snapshot.usage.last7Days) }}</span></span>
+        <span><span class="text-muted">{{ t.last7Days }}</span> <span class="tabular-nums">{{ outputTokens(snapshot.usage.last7Days) }}</span></span>
         <span class="flex-1" />
         <UIcon name="i-lucide-arrow-right" class="size-3.5 text-primary" />
       </ULink>
