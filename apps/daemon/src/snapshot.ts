@@ -101,19 +101,19 @@ export type Snapshot = {
 
 /**
  * `diagnostics` are the caller's own findings about the checkout, such as a tracker-remote
- * mismatch; `home` is the Binnacle home, where a remote tracker's credentials are. `usage`
- * answers the usage and activity sections from the Tasks this snapshot read, so the tracker is read once.
+ * mismatch; `home` is the Binnacle home, where a remote tracker's credentials are.
+ * `usageAndActivity` answers the usage and activity sections from the Tasks this snapshot read, so the tracker is read once.
  */
 export async function snapshot(
   home: string,
   projected: Projected,
   caller: CallerCheckout,
   diagnostics: Diagnostic[],
-  usage: (tasks: TrackerTask[] | Unavailable) => Promise<Pick<Snapshot, 'usage' | 'activity'>>,
+  usageAndActivity: (tasks: TrackerTask[] | Unavailable) => Promise<Pick<Snapshot, 'usage' | 'activity'>>,
 ): Promise<Snapshot> {
   const tree = workingTree(caller.project);
   const { tasks, unreadable, roadmap, adrs, attention } = await readState(home, tree, projected, diagnostics);
-  const { usage: usageSection, activity } = await usage(tasks ?? trackerUnavailable(unreadable));
+  const { usage: usageSection, activity } = await usageAndActivity(tasks ?? trackerUnavailable(unreadable));
   // A harness whose artifacts cannot be read is at level 1, and says why.
   for (const { level, reason } of usageSection.harnesses) if (level === 1 && reason !== null) attention.push({ code: 'telemetry.unreadable', message: reason });
 

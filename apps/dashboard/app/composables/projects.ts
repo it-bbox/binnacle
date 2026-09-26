@@ -70,7 +70,10 @@ export function checkout(git: GitFacts): string {
   return `${head} at ${git.commit?.slice(0, 12) ?? 'no commits'}, ${git.dirty ? 'dirty' : 'clean'}`;
 }
 
-export const unavailable = (section: object): section is Unavailable => 'available' in section;
+export const isUnavailable = (section: object): section is Unavailable => 'available' in section;
+
+/** How the pages label a run as running: `active` is the daemon's reading, within telemetry's recency. */
+export const RUNNING_READING = "Running means active in the last ten minutes, Binnacle's reading of the latest activity, not a state the harness reports.";
 
 /** The run's Task, or its role when it has none. */
 export const runSubject = (run: Run): string =>
@@ -87,7 +90,7 @@ export function ago(timestamp: string): string {
 
 /** The latest run's activity: the first running one, or the latest recent one. */
 export function latestActivity(activity: Snapshot['activity']): string {
-  if (unavailable(activity)) return `Not available: ${activity.reason}`;
+  if (isUnavailable(activity)) return `Not available: ${activity.reason}`;
   const run = activity.running.items[0] ?? activity.recent[0];
   return run === undefined ? 'No runs observed' : `${ago(run.lastActivityAt)}, ${runSubject(run)}`;
 }

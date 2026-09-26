@@ -81,4 +81,23 @@ code {
 .signin {
   padding: 2rem 1.25rem;
 }
+.project {
+  margin: 1rem 0;
+  padding: 0.25rem 1rem 0.75rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.project h2 {
+  font-size: 1.05rem;
+}
+.project h3 {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+.project ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
 </style>

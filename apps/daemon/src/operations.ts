@@ -12,7 +12,7 @@ import { BASELINE_EVENTS, committedHead, daily, isRemoteTracker, taskStates, typ
 import { readTasks, snapshot, type CallerCheckout } from './snapshot.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type ProjectRow, type Store } from './store.ts';
 import { taskBrief } from './task.ts';
-import { forgetRead, usage, usageGet, type Importer } from './usage.ts';
+import { forgetRead, usageAndActivity, usageGet, type Importer } from './usage.ts';
 
 export type OperationContext = {
   home: string;
@@ -113,7 +113,7 @@ export const operations: Record<string, Operation> = {
     const projected = reproject(context.store, await resolveEntry(path, context));
     const caller = await callerCheckout(path, projected.row.path);
     return snapshot(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git), (tasks) =>
-      usage(context, projected.row.path, projected.manifest, tasks),
+      usageAndActivity(context, projected.row.path, projected.manifest, tasks),
     );
   },
 

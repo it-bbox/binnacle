@@ -106,7 +106,7 @@ export type Usage = {
  * why they cannot be read. What the budget does not cover goes on in the background. "Today"
  * and "the last seven days" are calendar days in the daemon's local time zone.
  */
-export async function usage(
+export async function usageAndActivity(
   context: OperationContext,
   projectPath: string,
   manifest: ProjectManifest | null,
@@ -298,8 +298,9 @@ async function runs(
   // ponytail: a record's checkout is found among the ones that exist now, so a removed
   // worktree's records have none: its directory is gone, and the registered checkout that
   // still contains its path is not where they ran. Store each record's checkout at ingest if
-  // past runs ever need theirs. The branch its reflog gave them while it existed still
-  // attributes them; those first read after its removal have none (ADR-0030), and are unassigned.
+  // past runs ever need theirs. A directory deleted inside the registered checkout looks the
+  // same, so a session launched there has none either. The branch its reflog gave them while
+  // it existed still attributes them; those first read after its removal have none (ADR-0030).
   const registered = containingEntry(projectPath, checkouts.roots);
   const exists = new Map<string, boolean>();
   const checkout = (cwd: string): string | null => {
