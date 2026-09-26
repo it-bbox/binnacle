@@ -12,7 +12,7 @@ MCP is the stable contract. Client-specific slash commands/skills are thin UX wr
 
 - `project.detect`
 - `project.status`
-- `project.snapshot` (the tool `project_snapshot`: the Product Snapshot, including `next` — the Next action and Binnacle's Suggested step beside it (ADR-0032) — and `activity`, the runs running now and recently)
+- `project.snapshot` (the tool `project_snapshot`: the Product Snapshot, including `next` — the Next action and Binnacle's Suggested step beside it (ADR-0032) — and `activity`, the runs running now and recently; each Task in flight and ready to start carries `start`, the command that starts it)
 - `task.get` (the tool `task_get`: the Task brief, with the Task's Review and the command that starts it)
 - `task.list` (the daemon's only, for the dashboard's board: an epic's Tasks, each with its column, In progress read from runs where the ticket still says `READY`)
 - `task.plan`

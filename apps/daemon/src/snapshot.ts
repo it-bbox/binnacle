@@ -37,8 +37,8 @@ const inFlight = (state: TaskState | null): state is InFlight => (IN_FLIGHT as r
 
 export type SnapshotTask = Pick<ResolvedTask, 'id' | 'title' | 'state' | 'unmetDependencies' | 'ticket'>;
 export type Section = { items: SnapshotTask[]; remainder: number };
-/** A Task the snapshot lists by name, with the command that starts it (`startCommand`), or null when there is none. */
-export type StartableSection = { items: (SnapshotTask & { start: string | null })[]; remainder: number };
+/** A section whose Tasks each carry the command that starts them (`startCommand`), or null when there is none. */
+export type SectionWithStart = { items: (SnapshotTask & { start: string | null })[]; remainder: number };
 
 export type TaskCounts = Record<Exclude<TaskState, InFlight> | 'unknown', number>;
 
@@ -73,9 +73,9 @@ export type Snapshot = {
   /** Null when the project's tracker cannot be read yet; `attention` says why. */
   tasks: {
     /** `ACTIVE`, `BLOCKED`, `READY_FOR_REVIEW`, `APPROVED`, `MERGE_READY`. */
-    inFlight: StartableSection;
+    inFlight: SectionWithStart;
     /** `READY` with no Unmet dependencies. */
-    readyToStart: StartableSection;
+    readyToStart: SectionWithStart;
     /**
      * Every Task not listed by name, by state: `READY` here is a Task waiting on an Unmet
      * dependency, and `unknown` one whose tracker value is not a Task state.
@@ -229,7 +229,7 @@ export function taskSections(tasks: ResolvedTask[]): { inFlight: Section; readyT
 
 /** The snapshot's sections, each Task with its start command under the project's `workflow.provider`. */
 function withStart({ inFlight, readyToStart, counts }: ReturnType<typeof taskSections>, workflow: string | null): NonNullable<Snapshot['tasks']> {
-  const startable = ({ items, remainder }: Section): StartableSection => ({ items: items.map((task) => ({ ...task, start: startCommand(task, workflow) })), remainder });
+  const startable = ({ items, remainder }: Section): SectionWithStart => ({ items: items.map((task) => ({ ...task, start: startCommand(task, workflow) })), remainder });
   return { inFlight: startable(inFlight), readyToStart: startable(readyToStart), counts };
 }
 

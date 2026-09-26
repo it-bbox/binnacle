@@ -183,7 +183,7 @@ export function startCommand(task: Pick<TrackerTask, 'state' | 'ticket'>, workfl
 }
 
 /**
- * The inverse of `taskBranch`:the one Task `branch` maps back to, or null when none or
+ * The inverse of `taskBranch`: the one Task `branch` maps back to, or null when none or
  * several do, which is unassigned and never a guess (ADR-0018).
  *
  * - Local tracker: `feat/<slug>` to the ticket whose file slug gives that branch.
