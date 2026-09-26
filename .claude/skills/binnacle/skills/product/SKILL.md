@@ -25,7 +25,7 @@ You are the Product Steward for this project for the rest of this session (`docs
    - **Not available**: name every section marked `available: false`, with its reason, and do not fill it in.
 5. End with `next`, in this order:
    - **Next action**: `next.action`'s description, then its command on a line of its own, in backticks, exactly as given. It is the roadmap's course, so it comes first. When it is `null`, say there is no Next action, because the roadmap cannot be read or its current focus does not end with one; attention says which.
-   - **Suggested step**, labelled as Binnacle's calculation from the Tasks, their runs and the roadmap, not the roadmap's course: `next.suggested`'s description, then its command the same way when it has one. When it is `null`, say Binnacle has no suggestion. When it is marked `available: false`, give its reason.
+   - **Or, Binnacle's alternatives**: each of `next.alternatives` in order, labelled as Binnacle's calculation from the Tasks, their runs and the roadmap, not the roadmap's course: its description, then its command the same way when it has one. They are a choice beside the Next action, not a contradiction of it. When the list is empty, say Binnacle offers nothing beside the Next action. When it is marked `available: false`, give its reason.
 
    Then suggest `/binnacle:daily` if the human wants to see what changed.
 

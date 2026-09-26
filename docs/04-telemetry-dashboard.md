@@ -72,7 +72,7 @@ It speaks English and Russian, starting in Russian when the browser prefers Russ
 
 The main screen, for the selected project. It answers where the project stands and what to type next.
 
-- What's next: the Next action with its command, and Binnacle's Suggested step beside it, labelled as a calculation (ADR-0032);
+- What's next: the Next action, labelled as the roadmap's, with its command to copy, and a warning inside the block when `next_action.missing` or `next_action.stale` is raised; under "or", labelled as Binnacle's calculation (ADR-0032), the snapshot's `next.alternatives`, each with a title and a reason the page writes in its language from the alternative's `kind` and `tasks`, and its command to copy when it has one. An alternative that agrees with the Next action is already left out, so when they agree only the Next action shows;
 - the roadmap's epics as a compact stepper, and the current epic's Tasks done out of all of them, `CANCELLED` left out;
 - Ready to start, in any order, each Task with the command that starts it; a Task In progress is not one of them. It says how many can run in parallel, from the snapshot's `tasks.parallel`, when at least one place is free and either two Tasks are ready or one is in progress. The current epic's `READY` Tasks that wait on an Unmet dependency follow, dimmed, with what they wait on;
 - Running now: each run with its Task or role, harness, model, branch and latest activity, "running" being Binnacle's reading of recent activity;
