@@ -200,6 +200,9 @@ export type Alternative = {
   provenance: 'calculated';
 };
 
+/** What the Suggested step reads of a run: its Task, its role, and whether and when it was last active. */
+type RunReading = Pick<ObservedRun, 'taskId' | 'role' | 'lastActivityAt' | 'active'>;
+
 /**
  * The Suggested step as alternatives, by the first of eight rules that applies; none when no rule
  * does, as without a roadmap and with no Task in progress. The current epic is the first not
@@ -213,7 +216,7 @@ export type Alternative = {
 export function suggestedStep(
   epics: Epic[],
   tasks: ResolvedTask[],
-  runs: Pick<ObservedRun, 'taskId' | 'role' | 'lastActivityAt' | 'active'>[],
+  runs: RunReading[],
   { workflow, free, next }: { workflow: string | null; free: number; next: NextAction | null },
 ): Alternative[] {
   return byRule(epics, tasks, runs, workflow, free)
@@ -222,7 +225,7 @@ export function suggestedStep(
 }
 
 /** The alternatives of the first rule that applies, before any is left out. */
-function byRule(epics: Epic[], tasks: ResolvedTask[], runs: Parameters<typeof suggestedStep>[2], workflow: string | null, free: number): Alternative[] {
+function byRule(epics: Epic[], tasks: ResolvedTask[], runs: RunReading[], workflow: string | null, free: number): Alternative[] {
   const byId = new Map(tasks.map((task) => [task.id, task]));
   const name = (id: string): string => {
     const title = byId.get(id)?.title;

@@ -28,8 +28,12 @@ const trackerReasons = computed(() => reasons('tracker.'));
 /** `next_action.missing` or `next_action.stale`, shown inside What's next. */
 const nextActionWarnings = computed(() => reasons('next_action.'));
 
-/** An alternative's title and reason, written by the page in its language from `kind` and `tasks`. */
-const written = (alternative: Alternative) => t.value.alternatives[alternative.kind](list(alternative.tasks), alternative.tasks.length);
+/** The alternatives, each with its title and reason written by the page in its language from `kind` and `tasks`. */
+const alternatives = computed(() => {
+  const next = snapshot.value?.next.alternatives;
+  if (!Array.isArray(next)) return [];
+  return next.map((alternative) => ({ ...alternative, ...t.value.alternatives[alternative.kind](list(alternative.tasks), alternative.tasks.length) }));
+});
 /** Written out, so that the build bundles each icon. */
 const ICONS: Record<Alternative['kind'], string> = {
   wait: 'i-lucide-hourglass',
@@ -143,14 +147,14 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
         <p v-if="isUnavailable(snapshot.next.alternatives)" class="text-muted">
           <span class="font-medium text-default">{{ t.notAvailable }}</span> · <span lang="en">{{ snapshot.next.alternatives.reason }}</span>
         </p>
-        <div v-else-if="snapshot.next.alternatives.length > 0" class="flex flex-col">
+        <div v-else-if="alternatives.length > 0" class="flex flex-col">
           <div class="mb-1.5 flex items-center gap-2.5">
             <span class="text-[13px] font-semibold text-muted">{{ t.or }}</span>
             <UBadge :label="t.calculation" color="neutral" variant="outline" icon="i-lucide-calculator" class="border-dashed" />
             <div class="h-px flex-1 bg-(--ui-border)" />
           </div>
           <div
-            v-for="alternative in snapshot.next.alternatives"
+            v-for="alternative in alternatives"
             :key="alternative.kind"
             class="grid grid-cols-[28px_minmax(0,1fr)] gap-x-2.5 gap-y-1 border-t border-default py-3"
           >
@@ -159,8 +163,8 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
             </div>
             <div class="flex min-w-0 flex-col gap-2">
               <div class="flex flex-col gap-0.5">
-                <div class="text-sm font-medium">{{ written(alternative).title }}</div>
-                <div class="leading-snug text-muted">{{ written(alternative).reason }}</div>
+                <div class="text-sm font-medium">{{ alternative.title }}</div>
+                <div class="leading-snug text-muted">{{ alternative.reason }}</div>
               </div>
               <CopyCommand v-if="alternative.command !== null" :command="alternative.command" />
             </div>
