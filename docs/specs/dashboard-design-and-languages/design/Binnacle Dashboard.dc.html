@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap&subset=cyrillic" rel="stylesheet">
+<style>
+:root{--sans:'IBM Plex Sans',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;--bg:#fafaf9;--rail:#f1f1ef;--sidebar:#f6f6f4;--panel:#ffffff;--code-bg:#f5f5f3;--hover:#efefec;--chip:#eeeeeb;--border:#e5e4e0;--border-strong:#d3d2cd;--text:#1a1b1e;--muted:#5d6068;--faint:#8a8d94;--accent:oklch(0.52 0.11 205);--on-accent:#ffffff;--accent-soft:oklch(0.95 0.025 205);--accent-line:oklch(0.8 0.06 205);--accent-text:oklch(0.45 0.1 205);--warn:oklch(0.68 0.14 70);--warn-soft:oklch(0.97 0.03 80);--warn-line:oklch(0.86 0.07 75);--warn-text:oklch(0.47 0.11 60);--ok:oklch(0.62 0.14 150);--err-text:oklch(0.5 0.17 25);--err-soft:oklch(0.96 0.025 25)}
+@media (prefers-color-scheme:dark){:root{--bg:#111215;--rail:#0c0d0f;--sidebar:#0f1013;--panel:#17181c;--code-bg:#0d0e11;--hover:#1f2025;--chip:#23252a;--border:#26282d;--border-strong:#35373d;--text:#e7e8ea;--muted:#9da0a7;--faint:#6f727a;--accent:oklch(0.76 0.1 205);--on-accent:#081417;--accent-soft:oklch(0.29 0.04 210);--accent-line:oklch(0.45 0.07 210);--accent-text:oklch(0.82 0.09 205);--warn:oklch(0.8 0.13 78);--warn-soft:oklch(0.26 0.04 70);--warn-line:oklch(0.42 0.07 70);--warn-text:oklch(0.85 0.11 80);--ok:oklch(0.74 0.15 150);--err-text:oklch(0.78 0.13 25);--err-soft:oklch(0.27 0.05 25)}}
+[data-theme=light]{--bg:#fafaf9;--rail:#f1f1ef;--sidebar:#f6f6f4;--panel:#ffffff;--code-bg:#f5f5f3;--hover:#efefec;--chip:#eeeeeb;--border:#e5e4e0;--border-strong:#d3d2cd;--text:#1a1b1e;--muted:#5d6068;--faint:#8a8d94;--accent:oklch(0.52 0.11 205);--on-accent:#ffffff;--accent-soft:oklch(0.95 0.025 205);--accent-line:oklch(0.8 0.06 205);--accent-text:oklch(0.45 0.1 205);--warn:oklch(0.68 0.14 70);--warn-soft:oklch(0.97 0.03 80);--warn-line:oklch(0.86 0.07 75);--warn-text:oklch(0.47 0.11 60);--ok:oklch(0.62 0.14 150);--err-text:oklch(0.5 0.17 25);--err-soft:oklch(0.96 0.025 25)}
+[data-theme=dark]{--bg:#111215;--rail:#0c0d0f;--sidebar:#0f1013;--panel:#17181c;--code-bg:#0d0e11;--hover:#1f2025;--chip:#23252a;--border:#26282d;--border-strong:#35373d;--text:#e7e8ea;--muted:#9da0a7;--faint:#6f727a;--accent:oklch(0.76 0.1 205);--on-accent:#081417;--accent-soft:oklch(0.29 0.04 210);--accent-line:oklch(0.45 0.07 210);--accent-text:oklch(0.82 0.09 205);--warn:oklch(0.8 0.13 78);--warn-soft:oklch(0.26 0.04 70);--warn-line:oklch(0.42 0.07 70);--warn-text:oklch(0.85 0.11 80);--ok:oklch(0.74 0.15 150);--err-text:oklch(0.78 0.13 25);--err-soft:oklch(0.27 0.05 25)}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+a{color:var(--accent-text);text-decoration:none;cursor:pointer}
+a:hover{text-decoration:underline}
+[data-nuxt-show=true] [data-nuxt]{outline:1px dashed color-mix(in oklch,var(--accent) 55%,transparent);outline-offset:1px}
+@keyframes bn-pulse{0%{box-shadow:0 0 0 0 color-mix(in oklch,var(--ok) 55%,transparent)}70%{box-shadow:0 0 0 5px transparent}100%{box-shadow:0 0 0 0 transparent}}
+@keyframes bn-shimmer{0%,100%{opacity:.5}50%{opacity:1}}
+</style>
+</helmet>
+<div data-theme="{{ theme }}" data-nuxt-show="{{ nuxtShow }}" lang="{{ lang }}" style="display:flex;height:100vh;min-width:1024px;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;overflow:hidden">
+
+<nav data-nuxt="UNavigationMenu orientation=vertical (project rail)" style="width:56px;flex:none;display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 0;background:var(--rail);border-right:1px solid var(--border)">
+<div title="Binnacle" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--accent);margin-bottom:6px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"></path></svg>
+</div>
+<sc-for list="{{ rail }}" as="r" hint-placeholder-count="4">
+<button onClick="{{ r.onClick }}" title="{{ r.name }}" data-nuxt="UButton + UChip" style="position:relative;width:36px;height:36px;border-radius:9px;border:1px solid {{ r.bd }};background:{{ r.bg }};color:{{ r.fg }};font-size:12px;font-weight:600;letter-spacing:.02em;cursor:pointer;display:flex;align-items:center;justify-content:center">{{ r.initials }}<sc-if value="{{ r.hasDot }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:{{ r.dot }};border:2px solid var(--rail)"></span></sc-if></button>
+</sc-for>
+<div style="flex:1"></div>
+<button onClick="{{ openModal }}" title="{{ t.addProject }}" data-nuxt="UButton variant=ghost icon=i-lucide-plus" style="width:36px;height:36px;border-radius:9px;border:1px dashed var(--border-strong);background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:var(--hover);color:var(--text)">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+</button>
+</nav>
+
+<aside style="width:220px;flex:none;display:flex;flex-direction:column;background:var(--sidebar);border-right:1px solid var(--border)">
+<div style="padding:14px 14px 12px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--border)">
+<div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+<div style="font-size:14px;font-weight:600">{{ p.name }}</div>
+<div title="{{ p.path }}" style="font-family:var(--mono);font-size:10.5px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.path }}</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:3px">
+<div style="font-size:11px;color:var(--faint)">{{ t.currentEpic }}</div>
+<sc-if value="{{ side.hasEpic }}" hint-placeholder-val="{{ true }}"><div lang="en" style="font-size:12.5px;font-weight:500;line-height:1.3">{{ side.epic }}</div></sc-if>
+<sc-if value="{{ side.noEpic }}" hint-placeholder-val="{{ false }}"><div title="{{ side.noEpicReason }}" style="font-size:12px;color:var(--muted)">{{ t.na }}</div></sc-if>
+</div>
+</div>
+<div data-nuxt="UNavigationMenu orientation=vertical" style="display:flex;flex-direction:column;gap:1px;padding:8px">
+<button onClick="{{ nav.ov.go }}" style="display:flex;align-items:center;gap:9px;height:30px;padding:0 8px;border:0;border-radius:6px;background:{{ nav.ov.bg }};color:{{ nav.ov.fg }};font-weight:500;cursor:pointer;text-align:left" style-hover="background:var(--hover)">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg><span>{{ t.overview }}</span></button>
+<button onClick="{{ nav.pr.go }}" style="display:flex;align-items:center;gap:9px;height:30px;padding:0 8px;border:0;border-radius:6px;background:{{ nav.pr.bg }};color:{{ nav.pr.fg }};font-weight:500;cursor:pointer;text-align:left" style-hover="background:var(--hover)">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path><path d="M8 10v4"></path><path d="M12 10v2"></path><path d="M16 10v6"></path></svg><span>{{ t.project }}</span></button>
+<button onClick="{{ nav.us.go }}" style="display:flex;align-items:center;gap:9px;height:30px;padding:0 8px;border:0;border-radius:6px;background:{{ nav.us.bg }};color:{{ nav.us.fg }};font-weight:500;cursor:pointer;text-align:left" style-hover="background:var(--hover)">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg><span>{{ t.usage }}</span></button>
+<button onClick="{{ nav.at.go }}" style="display:flex;align-items:center;gap:9px;height:30px;padding:0 8px;border:0;border-radius:6px;background:{{ nav.at.bg }};color:{{ nav.at.fg }};font-weight:500;cursor:pointer;text-align:left" style-hover="background:var(--hover)">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg><span style="flex:1">{{ t.attention }}</span>
+<sc-if value="{{ nav.hasAttn }}" hint-placeholder-val="{{ true }}"><span data-nuxt="UBadge color=warning variant=soft size=sm" style="min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--warn-soft);color:var(--warn-text);font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;font-family:var(--mono)">{{ nav.attnCount }}</span></sc-if></button>
+<div style="height:1px;background:var(--border);margin:8px 4px"></div>
+<button onClick="{{ nav.pa.go }}" style="display:flex;align-items:center;gap:9px;height:30px;padding:0 8px;border:0;border-radius:6px;background:{{ nav.pa.bg }};color:{{ nav.pa.fg }};font-weight:500;cursor:pointer;text-align:left" style-hover="background:var(--hover)">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"></path><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"></path><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"></path></svg><span>{{ t.projectsAll }}</span></button>
+</div>
+<div style="flex:1"></div>
+<div style="padding:12px 14px;display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--border)">
+<div data-nuxt="UTabs variant=pill size=xs (language)" style="display:grid;grid-template-columns:1fr 1fr;padding:2px;border-radius:7px;background:var(--chip)">
+<button onClick="{{ setEn }}" style="height:24px;border:0;border-radius:5px;background:{{ langEn.bg }};color:{{ langEn.fg }};box-shadow:{{ langEn.sh }};font-size:11.5px;font-weight:500;cursor:pointer">English</button>
+<button onClick="{{ setRu }}" style="height:24px;border:0;border-radius:5px;background:{{ langRu.bg }};color:{{ langRu.fg }};box-shadow:{{ langRu.sh }};font-size:11.5px;font-weight:500;cursor:pointer">Русский</button>
+</div>
+<div style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--faint)"><span style="width:6px;height:6px;border-radius:50%;background:{{ fresh.dot }}"></span><span style="color:{{ fresh.fg }}">{{ fresh.text }}</span></div>
+</div>
+</aside>
+
+<main style="flex:1;min-width:0;overflow:auto;position:relative">
+<div style="position:sticky;top:0;z-index:3;height:44px;display:flex;align-items:center;gap:6px;padding:0 28px;background:var(--bg);border-bottom:1px solid var(--border);font-size:12.5px;color:var(--muted)" data-nuxt="UBreadcrumb">
+<sc-for list="{{ crumbs }}" as="c" hint-placeholder-count="2">
+<sc-if value="{{ c.sep }}" hint-placeholder-val="{{ false }}"><span style="color:var(--faint)">/</span></sc-if>
+<sc-if value="{{ c.link }}" hint-placeholder-val="{{ true }}"><a onClick="{{ c.go }}" style="color:var(--muted);font-family:{{ c.font }}">{{ c.label }}</a></sc-if>
+<sc-if value="{{ c.last }}" hint-placeholder-val="{{ false }}"><span style="color:var(--text);font-weight:500;font-family:{{ c.font }}">{{ c.label }}</span></sc-if>
+</sc-for>
+</div>
+
+<sc-if value="{{ conn.loading }}" hint-placeholder-val="{{ false }}">
+<div data-nuxt="USkeleton" style="padding:28px 32px;max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:24px">
+<div style="border:1px solid var(--border);border-radius:12px;background:var(--panel);padding:32px 36px;display:flex;flex-direction:column;gap:16px">
+<div style="width:120px;height:18px;border-radius:5px;background:var(--chip);animation:bn-shimmer 1.4s ease-in-out infinite"></div>
+<div style="width:70%;height:14px;border-radius:5px;background:var(--chip);animation:bn-shimmer 1.4s ease-in-out infinite"></div>
+<div style="width:100%;height:42px;border-radius:7px;background:var(--chip);animation:bn-shimmer 1.4s ease-in-out infinite"></div>
+<div style="width:45%;height:14px;border-radius:5px;background:var(--chip);animation:bn-shimmer 1.4s ease-in-out infinite"></div>
+</div>
+<div style="height:40px;border-radius:8px;background:var(--chip);animation:bn-shimmer 1.4s ease-in-out infinite"></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:20px">
+<div style="height:220px;border-radius:10px;background:var(--chip);animation:bn-shimmer 1.4s ease-in-out infinite"></div>
+<div style="height:220px;border-radius:10px;background:var(--chip);animation:bn-shimmer 1.4s ease-in-out infinite"></div>
+</div>
+<div style="font-size:12px;color:var(--faint)">{{ t.loading }}</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ conn.down }}" hint-placeholder-val="{{ false }}">
+<div style="min-height:calc(100% - 44px);display:flex;align-items:center;justify-content:center;padding:40px">
+<div data-nuxt="UCard" style="width:100%;max-width:520px;border:1px solid var(--border);border-radius:12px;background:var(--panel);padding:32px;display:flex;flex-direction:column;gap:16px">
+<div style="width:36px;height:36px;border-radius:9px;background:var(--warn-soft);color:var(--warn-text);display:flex;align-items:center;justify-content:center">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg></div>
+<div style="display:flex;flex-direction:column;gap:6px"><h1 style="margin:0;font-size:17px;font-weight:600">{{ t.daemonTitle }}</h1><p style="margin:0;color:var(--muted);line-height:1.5;text-wrap:pretty">{{ t.daemonBody }}</p></div>
+<dc-import name="Command" cmd="binn daemon start" lang="{{ lang }}" primary="{{ true }}" hint-size="100%,42px"></dc-import>
+<div style="font-size:11.5px;color:var(--faint)">{{ t.retrying }}</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ conn.live }}" hint-placeholder-val="{{ true }}">
+
+<sc-if value="{{ pg.overview }}" hint-placeholder-val="{{ true }}">
+<div style="padding:28px 32px 56px;max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:28px">
+
+<section data-nuxt="UCard (What's next)" style="border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:36px 40px 32px;display:flex;flex-direction:column;gap:26px;box-shadow:0 1px 2px rgba(0,0,0,.03)">
+<h1 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em">{{ t.whatsNext }}</h1>
+<sc-if value="{{ ov.roadmapOk }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+<span data-nuxt="UBadge color=primary variant=soft" style="height:20px;padding:0 8px;border-radius:5px;background:var(--accent-soft);color:var(--accent-text);font-size:11.5px;font-weight:600;display:inline-flex;align-items:center">Next action</span>
+<span style="font-size:12px;color:var(--muted)">{{ t.fromRoadmap }}</span>
+</div>
+<p lang="en" style="margin:0;font-size:17px;line-height:1.5;max-width:70ch;text-wrap:pretty;white-space:pre-wrap">{{ ov.next.sentence }}</p>
+<sc-if value="{{ ov.next.hasCmd }}" hint-placeholder-val="{{ true }}"><dc-import name="Command" cmd="{{ ov.next.cmd }}" lang="{{ lang }}" wrap="{{ true }}" primary="{{ true }}" hint-size="100%,44px"></dc-import></sc-if>
+<sc-if value="{{ ov.next.hasWarn }}" hint-placeholder-val="{{ false }}">
+<div data-nuxt="UAlert color=warning variant=soft" style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:8px;background:var(--warn-soft);border:1px solid var(--warn-line);color:var(--warn-text);font-size:12.5px;line-height:1.45">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+<span style="flex:1">{{ ov.next.warn }}</span><code style="font-family:var(--mono);font-size:11px;opacity:.85">{{ ov.next.warnCode }}</code>
+</div>
+</sc-if>
+</div>
+<sc-if value="{{ ov.hasAlts }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:4px">
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+<span style="font-size:13px;font-weight:600;color:var(--muted)">{{ t.or }}</span>
+<span data-nuxt="UBadge color=neutral variant=outline" style="height:20px;padding:0 7px;border-radius:5px;border:1px dashed var(--border-strong);color:var(--muted);font-size:11px;display:inline-flex;align-items:center;gap:5px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"></rect><line x1="8" x2="16" y1="6" y2="6"></line><line x1="16" x2="16" y1="14" y2="18"></line><path d="M16 10h.01"></path><path d="M12 10h.01"></path><path d="M8 10h.01"></path><path d="M12 14h.01"></path><path d="M8 14h.01"></path><path d="M12 18h.01"></path><path d="M8 18h.01"></path></svg>{{ t.calc }}</span>
+<div style="flex:1;height:1px;background:var(--border)"></div>
+</div>
+<sc-for list="{{ ov.alts }}" as="a" hint-placeholder-count="1">
+<div style="display:grid;grid-template-columns:28px minmax(0,1fr);gap:4px 10px;padding:12px 0;border-top:1px solid var(--border)">
+<div style="width:26px;height:26px;border-radius:7px;background:var(--chip);color:var(--muted);display:flex;align-items:center;justify-content:center">
+<sc-if value="{{ a.isAuto }}" hint-placeholder-val="{{ true }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3"></circle><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"></path><circle cx="18" cy="5" r="3"></circle></svg></sc-if>
+<sc-if value="{{ a.isHand }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" x2="20" y1="19" y2="19"></line></svg></sc-if>
+<sc-if value="{{ a.isPar }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"></path><path d="M8 3H3v5"></path><path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"></path><path d="m15 9 6-6"></path></svg></sc-if>
+<sc-if value="{{ a.isWait }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14"></path><path d="M5 2h14"></path><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"></path><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"></path></svg></sc-if>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px;min-width:0">
+<div style="display:flex;flex-direction:column;gap:2px"><div style="font-size:14px;font-weight:500">{{ a.title }}</div><div style="color:var(--muted);line-height:1.45;text-wrap:pretty">{{ a.reason }}</div></div>
+<sc-if value="{{ a.hasCmd }}" hint-placeholder-val="{{ true }}"><dc-import name="Command" cmd="{{ a.cmd }}" lang="{{ lang }}" hint-size="100%,34px"></dc-import></sc-if>
+</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+</sc-if>
+<sc-if value="{{ ov.roadmapBad }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;gap:8px"><span data-nuxt="UBadge color=neutral variant=outline" style="height:20px;padding:0 8px;border-radius:5px;border:1px dashed var(--border-strong);color:var(--muted);font-size:11.5px;font-weight:500;display:inline-flex;align-items:center">{{ t.na }}</span><span style="font-weight:500">{{ t.roadmapBad }}</span></div>
+<code style="font-family:var(--mono);font-size:12px;color:var(--muted);line-height:1.5">{{ ov.badReason }}</code>
+</div>
+</sc-if>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+<h2 style="margin:0;font-size:13px;font-weight:600">{{ t.epicProgress }}</h2>
+<a onClick="{{ nav.pr.go }}" style="font-size:12px">{{ t.openBoard }}</a>
+</div>
+<sc-if value="{{ ov.roadmapOk }}" hint-placeholder-val="{{ true }}">
+<ol data-nuxt="UStepper size=xs" style="list-style:none;margin:0;padding:0;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px">
+<sc-for list="{{ ov.epics }}" as="e" hint-placeholder-count="7">
+<li title="{{ e.tip }}" style="display:flex;flex-direction:column;gap:7px;min-width:0">
+<div style="height:4px;border-radius:2px;background:{{ e.bar }}"></div>
+<div style="display:flex;align-items:center;gap:6px;min-width:0">
+<sc-if value="{{ e.isDone }}" hint-placeholder-val="{{ true }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:var(--muted)"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg></sc-if>
+<sc-if value="{{ e.isActive }}" hint-placeholder-val="{{ false }}"><svg width="13" height="13" viewBox="0 0 24 24" style="flex:none;color:var(--accent)"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2.4"></circle><path d="M12 5.5a6.5 6.5 0 0 1 0 13z" fill="currentColor"></path></svg></sc-if>
+<sc-if value="{{ e.isTodo }}" hint-placeholder-val="{{ false }}"><svg width="13" height="13" viewBox="0 0 24 24" style="flex:none;color:var(--faint)"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3.5 3"></circle></svg></sc-if>
+<span style="font-family:var(--mono);font-size:11px;color:var(--faint)">{{ e.n }}</span>
+<span lang="en" style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{ e.fg }};font-weight:{{ e.fw }}">{{ e.name }}</span>
+</div>
+</li>
+</sc-for>
+</ol>
+<div style="display:flex;align-items:center;gap:14px;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--panel)">
+<span style="font-size:12px;color:var(--muted);white-space:nowrap">{{ t.currentEpic }}</span>
+<span lang="en" style="font-weight:500;white-space:nowrap">{{ ov.cur.label }}</span>
+<sc-if value="{{ ov.cur.hasTasks }}" hint-placeholder-val="{{ true }}">
+<div data-nuxt="UProgress size=sm" style="flex:1;min-width:80px;height:6px;border-radius:3px;background:var(--chip);overflow:hidden"><div style="height:100%;width:{{ ov.cur.w }};background:var(--accent);border-radius:3px"></div></div>
+<span style="font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap">{{ ov.cur.txt }}</span>
+</sc-if>
+<sc-if value="{{ ov.cur.noTasks }}" hint-placeholder-val="{{ false }}"><span style="flex:1;color:var(--muted)">{{ t.noTasksTitle }}</span></sc-if>
+</div>
+</sc-if>
+<sc-if value="{{ ov.roadmapBad }}" hint-placeholder-val="{{ false }}"><div style="padding:12px 14px;border:1px dashed var(--border-strong);border-radius:10px;color:var(--muted);font-size:12.5px"><span style="font-weight:500;color:var(--text)">{{ t.na }}</span> · {{ t.roadmapBad }}</div></sc-if>
+</section>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:20px;align-items:start">
+<section data-nuxt="UCard" style="border:1px solid var(--border);border-radius:10px;background:var(--panel);overflow:hidden">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;border-bottom:1px solid var(--border)"><h2 style="margin:0;font-size:13px;font-weight:600">{{ t.ready }}</h2><span style="font-family:var(--mono);font-size:11.5px;color:var(--faint)">{{ ov.readyCount }}</span></div>
+<sc-if value="{{ ov.hasReady }}" hint-placeholder-val="{{ true }}">
+<sc-for list="{{ ov.ready }}" as="r" hint-placeholder-count="2">
+<div style="padding:12px 14px;display:flex;flex-direction:column;gap:8px;border-top:{{ r.bt }};opacity:{{ r.op }}">
+<div style="display:flex;align-items:flex-start;gap:10px">
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+<a onClick="{{ r.open }}" style="font-family:var(--mono);font-size:11.5px;color:var(--muted)">{{ r.id }}</a>
+<span lang="en" style="line-height:1.4;text-wrap:pretty">{{ r.title }}</span>
+</div>
+<sc-if value="{{ r.parallel }}" hint-placeholder-val="{{ true }}"><span data-nuxt="UBadge color=primary variant=outline size=sm" title="{{ t.parallel }}" style="flex:none;height:20px;padding:0 7px;border-radius:5px;border:1px solid var(--accent-line);color:var(--accent-text);font-size:11px;font-weight:500;display:inline-flex;align-items:center;gap:4px;white-space:nowrap"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"></path><path d="M8 3H3v5"></path><path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"></path><path d="m15 9 6-6"></path></svg>{{ t.parallel }}</span></sc-if>
+<sc-if value="{{ r.waiting }}" hint-placeholder-val="{{ false }}"><span data-nuxt="UBadge color=neutral variant=outline size=sm" title="Unmet dependency" style="flex:none;height:20px;padding:0 7px;border-radius:5px;border:1px solid var(--border-strong);color:var(--muted);font-size:11px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>{{ r.waitTxt }}</span></sc-if>
+</div>
+<sc-if value="{{ r.hasCmd }}" hint-placeholder-val="{{ true }}"><dc-import name="Command" cmd="{{ r.cmd }}" lang="{{ lang }}" hint-size="100%,34px"></dc-import></sc-if>
+</div>
+</sc-for>
+</sc-if>
+<sc-if value="{{ ov.readyEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:18px 14px;display:flex;flex-direction:column;gap:4px"><div style="font-weight:500">{{ ov.readyEmptyTitle }}</div><div style="color:var(--muted);line-height:1.45">{{ ov.readyEmptyBody }}</div></div></sc-if>
+</section>
+
+<div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+<section data-nuxt="UCard" style="border:1px solid var(--border);border-radius:10px;background:var(--panel);overflow:hidden">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;border-bottom:1px solid var(--border)"><h2 style="margin:0;font-size:13px;font-weight:600">{{ t.runningNow }}</h2><span style="font-family:var(--mono);font-size:11.5px;color:var(--faint)">{{ ov.runCount }}</span></div>
+<sc-if value="{{ ov.hasRuns }}" hint-placeholder-val="{{ true }}">
+<sc-for list="{{ ov.runs }}" as="r" hint-placeholder-count="2">
+<div style="padding:11px 14px;display:flex;flex-direction:column;gap:5px;border-top:{{ r.bt }}">
+<div style="display:flex;align-items:center;gap:8px;min-width:0">
+<span style="flex:none;width:7px;height:7px;border-radius:50%;background:var(--ok);animation:bn-pulse 2s infinite"></span>
+<sc-if value="{{ r.hasTask }}" hint-placeholder-val="{{ true }}"><a onClick="{{ r.open }}" style="flex:none;font-family:var(--mono);font-size:11.5px;color:var(--muted)">{{ r.task }}</a><span lang="en" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.title }}</span></sc-if>
+<sc-if value="{{ r.noTask }}" hint-placeholder-val="{{ false }}"><span data-nuxt="UBadge color=neutral variant=soft size=sm" style="height:19px;padding:0 7px;border-radius:5px;background:var(--chip);font-family:var(--mono);font-size:11px;display:inline-flex;align-items:center">{{ r.role }}</span><span style="color:var(--faint);font-size:12px">{{ t.noTask }}</span></sc-if>
+<span style="flex:1"></span><span style="flex:none;font-size:11.5px;color:var(--muted);white-space:nowrap">{{ r.last }}</span>
+</div>
+<div style="padding-left:15px;display:flex;flex-wrap:wrap;gap:4px 12px;font-family:var(--mono);font-size:11px;color:var(--faint)">
+<span>{{ r.harness }}</span><span>{{ r.model }}</span><sc-if value="{{ r.hasTask }}" hint-placeholder-val="{{ true }}"><span>{{ r.role }}</span></sc-if>
+<span style="display:inline-flex;align-items:center;gap:4px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" x2="6" y1="3" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg>{{ r.branch }}</span>
+</div>
+</div>
+</sc-for>
+</sc-if>
+<sc-if value="{{ ov.noRuns }}" hint-placeholder-val="{{ false }}"><div style="padding:16px 14px;color:var(--muted)">{{ t.nothing }}</div></sc-if>
+<div style="padding:8px 14px;border-top:1px solid var(--border);font-size:11.5px;color:var(--faint);line-height:1.4">{{ t.runningNote }}</div>
+</section>
+
+<section data-nuxt="UCard" style="border:1px solid var(--border);border-radius:10px;background:var(--panel);overflow:hidden">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;border-bottom:1px solid var(--border)"><h2 style="margin:0;font-size:13px;font-weight:600">{{ t.attention }}</h2><a onClick="{{ nav.at.go }}" style="font-size:12px">{{ t.allProjects }}</a></div>
+<sc-if value="{{ ov.hasAttn }}" hint-placeholder-val="{{ true }}">
+<sc-for list="{{ ov.attn }}" as="x" hint-placeholder-count="2">
+<div style="padding:10px 14px;display:flex;gap:9px;align-items:flex-start;border-top:{{ x.bt }}">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:2px;color:var(--warn)"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px"><span style="line-height:1.4;text-wrap:pretty">{{ x.msg }}</span><code style="font-family:var(--mono);font-size:11px;color:var(--faint)">{{ x.code }}</code></div>
+</div>
+</sc-for>
+</sc-if>
+<sc-if value="{{ ov.noAttn }}" hint-placeholder-val="{{ false }}"><div style="padding:16px 14px;color:var(--muted)">{{ t.nothing }}</div></sc-if>
+</section>
+</div>
+</div>
+
+<a onClick="{{ nav.us.go }}" data-nuxt="ULink (usage line)" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:11px 14px;border:1px solid var(--border);border-radius:10px;background:var(--panel);color:var(--text);text-decoration:none" style-hover="border-color:var(--border-strong)">
+<span style="font-weight:600">{{ t.usage }}</span>
+<span style="color:var(--muted)">{{ t.usageOut }}</span>
+<sc-if value="{{ ov.usageOk }}" hint-placeholder-val="{{ true }}">
+<span><span style="color:var(--muted)">{{ t.today }}</span> <span style="font-family:var(--mono);font-size:12px">{{ ov.usToday }}</span></span>
+<span style="color:var(--faint)">·</span>
+<span><span style="color:var(--muted)">{{ t.last7 }}</span> <span style="font-family:var(--mono);font-size:12px">{{ ov.usWeek }}</span></span>
+</sc-if>
+<sc-if value="{{ ov.usageNa }}" hint-placeholder-val="{{ false }}"><span><span style="font-weight:500">{{ t.na }}</span> <span style="color:var(--muted)">· {{ ov.usReason }}</span></span></sc-if>
+<span style="flex:1"></span>
+<span style="display:inline-flex;align-items:center;gap:4px;color:var(--accent-text);font-size:12px">{{ t.openUsage }}<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg></span>
+</a>
+</div>
+</sc-if>
+
+<sc-if value="{{ pg.projects }}" hint-placeholder-val="{{ false }}">
+<div style="padding:24px 28px 48px;display:flex;flex-direction:column;gap:16px">
+<h1 style="margin:0;font-size:18px;font-weight:600">{{ t.projectsAll }}</h1>
+<div data-nuxt="UTable" style="border:1px solid var(--border);border-radius:10px;background:var(--panel);overflow:auto">
+<table style="width:100%;border-collapse:collapse;font-size:13px;min-width:720px">
+<thead><tr style="text-align:left;color:var(--muted);font-size:12px">
+<th style="padding:9px 14px;font-weight:500;border-bottom:1px solid var(--border)">{{ t.colProject }}</th>
+<th style="padding:9px 14px;font-weight:500;border-bottom:1px solid var(--border)">{{ t.currentEpic }}</th>
+<th style="padding:9px 14px;font-weight:500;border-bottom:1px solid var(--border)">Next action</th>
+<th style="padding:9px 14px;font-weight:500;border-bottom:1px solid var(--border);white-space:nowrap">{{ t.runningNow }}</th>
+<th style="padding:9px 14px;font-weight:500;border-bottom:1px solid var(--border)">{{ t.attention }}</th>
+</tr></thead>
+<tbody>
+<sc-for list="{{ projRows }}" as="r" hint-placeholder-count="4">
+<tr onClick="{{ r.open }}" style="cursor:pointer;vertical-align:top" style-hover="background:var(--hover)">
+<td style="padding:11px 14px;border-bottom:1px solid var(--border)"><div style="display:flex;gap:10px;align-items:center"><span style="flex:none;width:26px;height:26px;border-radius:7px;background:var(--chip);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center">{{ r.initials }}</span><div style="min-width:0"><div style="font-weight:500">{{ r.name }}</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint)">{{ r.path }}</div></div></div></td>
+<td style="padding:11px 14px;border-bottom:1px solid var(--border)">
+<sc-if value="{{ r.ok }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start"><span lang="en">{{ r.epic }}</span><span data-nuxt="UBadge size=sm" style="height:19px;padding:0 7px;border-radius:5px;background:{{ r.st.bg }};color:{{ r.st.fg }};border:1px solid {{ r.st.bd }};font-size:11px;font-weight:500;display:inline-flex;align-items:center">{{ r.st.label }}</span></div></sc-if>
+<sc-if value="{{ r.bad }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:2px"><span style="font-weight:500">{{ t.na }}</span><span style="font-size:12px;color:var(--muted)">{{ t.roadmapBad }}</span></div></sc-if>
+</td>
+<td style="padding:11px 14px;border-bottom:1px solid var(--border);max-width:340px"><sc-if value="{{ r.ok }}" hint-placeholder-val="{{ true }}"><span lang="en" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4;color:var(--muted)">{{ r.next }}</span></sc-if><sc-if value="{{ r.bad }}" hint-placeholder-val="{{ false }}"><span style="color:var(--muted)">{{ t.na }}</span></sc-if></td>
+<td style="padding:11px 14px;border-bottom:1px solid var(--border)"><span style="display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px"><span style="width:7px;height:7px;border-radius:50%;background:{{ r.runDot }}"></span>{{ r.running }}</span></td>
+<td style="padding:11px 14px;border-bottom:1px solid var(--border)"><span style="display:inline-flex;min-width:20px;height:19px;padding:0 6px;border-radius:10px;align-items:center;justify-content:center;font-family:var(--mono);font-size:11.5px;background:{{ r.atBg }};color:{{ r.atFg }}">{{ r.attn }}</span></td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ pg.project }}" hint-placeholder-val="{{ false }}">
+<div style="padding:24px 28px 48px;display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:3px"><h1 style="margin:0;font-size:18px;font-weight:600">{{ p.name }}</h1><span style="font-family:var(--mono);font-size:11.5px;color:var(--faint)">{{ p.path }}</span></div>
+
+<sc-if value="{{ pj.bad }}" hint-placeholder-val="{{ false }}"><div style="padding:16px;border:1px dashed var(--border-strong);border-radius:10px;display:flex;flex-direction:column;gap:6px"><div><span style="font-weight:500">{{ t.na }}</span> · {{ t.roadmapBad }}</div><code style="font-family:var(--mono);font-size:12px;color:var(--muted)">{{ pj.badReason }}</code></div></sc-if>
+
+<sc-if value="{{ pj.ok }}" hint-placeholder-val="{{ true }}">
+<section style="display:flex;flex-direction:column;gap:10px">
+<h2 style="margin:0;font-size:13px;font-weight:600">Epics</h2>
+<div data-nuxt="UTable" style="border:1px solid var(--border);border-radius:10px;background:var(--panel);overflow:auto">
+<table style="width:100%;border-collapse:collapse;min-width:640px">
+<thead><tr style="text-align:left;color:var(--muted);font-size:12px">
+<th style="padding:8px 14px;font-weight:500;border-bottom:1px solid var(--border);width:36px">#</th>
+<th style="padding:8px 14px;font-weight:500;border-bottom:1px solid var(--border)">Epic</th>
+<th style="padding:8px 14px;font-weight:500;border-bottom:1px solid var(--border)">{{ t.status }}</th>
+<th style="padding:8px 14px;font-weight:500;border-bottom:1px solid var(--border)">Tasks</th>
+<th style="padding:8px 14px;font-weight:500;border-bottom:1px solid var(--border)">{{ t.specCol }}</th>
+</tr></thead>
+<tbody>
+<sc-for list="{{ pj.epics }}" as="e" hint-placeholder-count="7">
+<tr onClick="{{ e.pick }}" style="cursor:pointer;background:{{ e.rowBg }}" style-hover="background:var(--hover)">
+<td style="padding:8px 14px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:12px;color:var(--faint)">{{ e.n }}</td>
+<td lang="en" style="padding:8px 14px;border-bottom:1px solid var(--border);font-weight:500">{{ e.name }}</td>
+<td style="padding:8px 14px;border-bottom:1px solid var(--border)"><span data-nuxt="UBadge size=sm" style="height:19px;padding:0 7px;border-radius:5px;background:{{ e.st.bg }};color:{{ e.st.fg }};border:1px solid {{ e.st.bd }};font-size:11px;font-weight:500;display:inline-flex;align-items:center;white-space:nowrap">{{ e.st.label }}</span></td>
+<td style="padding:8px 14px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap">{{ e.count }}</td>
+<td style="padding:8px 14px;border-bottom:1px solid var(--border)"><a title="{{ e.spec }}" style="display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11.5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path></svg>{{ e.spec }}</a></td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+<h2 style="margin:0;font-size:13px;font-weight:600">{{ t.board }}</h2>
+<div data-nuxt="UTabs variant=pill size=xs (Epic switcher)" style="display:flex;gap:2px;padding:2px;border-radius:7px;background:var(--chip)">
+<sc-for list="{{ pj.epics }}" as="e" hint-placeholder-count="7">
+<button onClick="{{ e.pick }}" title="{{ e.name }}" style="min-width:26px;height:24px;padding:0 8px;border:0;border-radius:5px;background:{{ e.tabBg }};color:{{ e.tabFg }};box-shadow:{{ e.tabSh }};font-family:var(--mono);font-size:11.5px;cursor:pointer">{{ e.n }}</button>
+</sc-for>
+</div>
+<span lang="en" style="font-weight:500">{{ pj.boardName }}</span>
+<span data-nuxt="UBadge size=sm" style="height:19px;padding:0 7px;border-radius:5px;background:{{ pj.boardSt.bg }};color:{{ pj.boardSt.fg }};border:1px solid {{ pj.boardSt.bd }};font-size:11px;font-weight:500;display:inline-flex;align-items:center">{{ pj.boardSt.label }}</span>
+</div>
+<sc-if value="{{ pj.boardEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 16px;border:1px dashed var(--border-strong);border-radius:10px;display:flex;flex-direction:column;gap:4px"><div style="font-weight:500">{{ t.noTasksTitle }}</div><div style="color:var(--muted)">{{ t.noTasksBody }}</div></div></sc-if>
+<sc-if value="{{ pj.boardHas }}" hint-placeholder-val="{{ true }}">
+<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:start">
+<sc-for list="{{ pj.cols }}" as="col" hint-placeholder-count="4">
+<div style="display:flex;flex-direction:column;gap:8px;padding:8px;border-radius:10px;background:var(--sidebar);border:1px solid var(--border);min-width:0">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:2px 4px"><span style="font-size:12px;font-weight:600">{{ col.name }}</span><span style="font-family:var(--mono);font-size:11.5px;color:var(--faint)">{{ col.count }}</span></div>
+<sc-if value="{{ col.empty }}" hint-placeholder-val="{{ false }}"><div style="padding:10px 6px;font-size:12px;color:var(--faint)">{{ t.empty }}</div></sc-if>
+<sc-for list="{{ col.cards }}" as="c" hint-placeholder-count="2">
+<div onClick="{{ c.open }}" data-nuxt="UCard (kanban card)" style="display:flex;flex-direction:column;gap:6px;padding:9px 10px;border-radius:8px;background:var(--panel);border:1px solid var(--border);cursor:pointer;opacity:{{ c.op }}" style-hover="border-color:var(--border-strong)">
+<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+<span style="font-family:var(--mono);font-size:11px;color:var(--muted)">{{ c.num }}</span><span style="flex:1"></span>
+<sc-if value="{{ c.blocked }}" hint-placeholder-val="{{ false }}"><span data-nuxt="UBadge color=error variant=soft size=sm" style="height:17px;padding:0 5px;border-radius:4px;background:var(--err-soft);color:var(--err-text);font-family:var(--mono);font-size:10px;font-weight:500;display:inline-flex;align-items:center">BLOCKED</span></sc-if>
+<sc-if value="{{ c.hasReview }}" hint-placeholder-val="{{ false }}"><span data-nuxt="UBadge size=sm" style="height:17px;padding:0 5px;border-radius:4px;background:{{ c.rvBg }};color:{{ c.rvFg }};font-size:10.5px;display:inline-flex;align-items:center;white-space:nowrap">{{ c.review }}</span></sc-if>
+</div>
+<div lang="en" style="font-size:12.5px;line-height:1.35;text-wrap:pretty">{{ c.title }}</div>
+<sc-if value="{{ c.hasDeps }}" hint-placeholder-val="{{ false }}"><div style="font-size:11px;color:var(--muted)">Unmet dependency <span style="font-family:var(--mono)">{{ c.deps }}</span></div></sc-if>
+<sc-if value="{{ c.fromRuns }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:3px;padding:6px 7px;border-radius:6px;background:var(--code-bg);font-size:11px">
+<div style="display:flex;align-items:center;gap:6px"><span style="width:6px;height:6px;border-radius:50%;background:var(--ok);animation:bn-pulse 2s infinite"></span><span style="font-weight:500;color:var(--accent-text)">{{ t.fromRuns }}</span><span style="color:var(--faint)">{{ c.last }}</span></div>
+<div style="font-family:var(--mono);color:var(--muted);line-height:1.5;word-break:break-word">{{ c.runTxt }}</div>
+<div style="color:var(--faint)">{{ c.ticketNote }}</div>
+</div></sc-if>
+</div>
+</sc-for>
+<sc-if value="{{ col.hasMore }}" hint-placeholder-val="{{ false }}"><button onClick="{{ col.toggle }}" data-nuxt="UButton variant=ghost size=xs" style="height:26px;border:0;border-radius:6px;background:transparent;color:var(--muted);font-size:12px;cursor:pointer" style-hover="background:var(--hover)">{{ col.moreLbl }}</button></sc-if>
+</div>
+</sc-for>
+</div>
+</sc-if>
+</section>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ pg.task }}" hint-placeholder-val="{{ false }}">
+<div style="padding:24px 28px 48px;max-width:1180px;display:flex;flex-direction:column;gap:22px">
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+<span style="font-family:var(--mono);font-size:12.5px;color:var(--muted)">{{ tk.id }}</span>
+<span data-nuxt="UBadge" style="height:20px;padding:0 8px;border-radius:5px;background:{{ tk.st.bg }};color:{{ tk.st.fg }};border:1px solid {{ tk.st.bd }};font-size:11.5px;font-weight:500;display:inline-flex;align-items:center">{{ tk.st.label }}</span>
+<sc-if value="{{ tk.fromRuns }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:var(--muted)">{{ tk.fromRunsNote }}</span></sc-if>
+</div>
+<h1 lang="en" style="margin:0;font-size:20px;font-weight:600;line-height:1.3;text-wrap:pretty">{{ tk.title }}</h1>
+</div>
+<dl data-nuxt="description list" style="margin:0;display:grid;grid-template-columns:max-content minmax(0,1fr);gap:7px 20px;font-size:12.5px">
+<dt style="color:var(--muted)">{{ t.triage }}</dt><dd style="margin:0;font-family:var(--mono);font-size:12px">{{ tk.triage }}</dd>
+<dt style="color:var(--muted)">Blocked by</dt><dd style="margin:0;font-family:var(--mono);font-size:12px">{{ tk.blockedBy }}</dd>
+<dt style="color:var(--muted)">{{ t.specCol }}</dt><dd style="margin:0;font-family:var(--mono);font-size:12px;word-break:break-all"><a>{{ tk.spec }}</a></dd>
+<dt style="color:var(--muted)">{{ t.ticketPath }}</dt><dd style="margin:0;font-family:var(--mono);font-size:12px;word-break:break-all"><a>{{ tk.ticket }}</a></dd>
+<dt style="color:var(--muted)">{{ t.branch }}</dt><dd style="margin:0"><sc-if value="{{ tk.hasBranch }}" hint-placeholder-val="{{ true }}"><span style="font-family:var(--mono);font-size:12px">{{ tk.branch }}</span></sc-if><sc-if value="{{ tk.noBranch }}" hint-placeholder-val="{{ false }}"><span><span style="font-weight:500">{{ t.na }}</span> <span style="color:var(--muted)">· {{ tk.branchReason }}</span></span></sc-if></dd>
+</dl>
+<section style="display:flex;flex-direction:column;gap:8px;padding:18px 20px;border:1px solid var(--border);border-radius:12px;background:var(--panel)">
+<h2 style="margin:0;font-size:13px;font-weight:600">{{ t.startCmd }}</h2>
+<sc-if value="{{ tk.hasCmd }}" hint-placeholder-val="{{ true }}"><dc-import name="Command" cmd="{{ tk.cmd }}" lang="{{ lang }}" wrap="{{ true }}" primary="{{ true }}" hint-size="100%,44px"></dc-import></sc-if>
+<sc-if value="{{ tk.noCmd }}" hint-placeholder-val="{{ false }}"><div style="color:var(--muted)">{{ tk.noCmdTxt }}</div></sc-if>
+</section>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:20px;align-items:start">
+<div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+<section data-nuxt="UCard" style="border:1px solid var(--border);border-radius:10px;background:var(--panel);overflow:hidden">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border)"><h2 style="margin:0;font-size:13px;font-weight:600">{{ t.ticketBody }}</h2><span style="font-size:11px;color:var(--faint)">plain text</span></div>
+<pre lang="en" style="margin:0;padding:14px;font-family:var(--mono);font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-word;color:var(--text)">{{ tk.body }}</pre>
+</section>
+<section data-nuxt="UCard" style="border:1px solid var(--border);border-radius:10px;background:var(--panel);overflow:hidden">
+<div style="padding:10px 14px;border-bottom:1px solid var(--border)"><h2 style="margin:0;font-size:13px;font-weight:600">Review</h2></div>
+<sc-if value="{{ tk.hasReview }}" hint-placeholder-val="{{ false }}"><pre lang="en" style="margin:0;padding:14px;font-family:var(--mono);font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-word">{{ tk.review }}</pre></sc-if>
+<sc-if value="{{ tk.noReview }}" hint-placeholder-val="{{ true }}"><div style="padding:12px 14px;display:flex;align-items:center;gap:8px;color:var(--warn-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--warn)"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg><span>{{ t.noReview }}</span></div></sc-if>
+</section>
+</div>
+<div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+<section data-nuxt="UCard + UTimeline" style="border:1px solid var(--border);border-radius:10px;background:var(--panel);overflow:hidden">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border)"><h2 style="margin:0;font-size:13px;font-weight:600">Runs</h2><span style="font-family:var(--mono);font-size:11.5px;color:var(--faint)">{{ tk.runCount }}</span></div>
+<sc-if value="{{ tk.noRuns }}" hint-placeholder-val="{{ false }}"><div style="padding:14px;color:var(--muted)">{{ t.noRuns }}</div></sc-if>
+<div style="padding:4px 14px">
+<sc-for list="{{ tk.runs }}" as="r" hint-placeholder-count="2">
+<div style="display:grid;grid-template-columns:14px minmax(0,1fr);gap:10px">
+<div style="display:flex;flex-direction:column;align-items:center"><span style="margin-top:15px;width:9px;height:9px;border-radius:50%;flex:none;background:{{ r.dot }};border:2px solid {{ r.dotBd }};animation:{{ r.anim }}"></span><span style="flex:1;width:1px;background:{{ r.line }}"></span></div>
+<div style="padding:10px 0 12px;display:flex;flex-direction:column;gap:6px;min-width:0">
+<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-family:var(--mono);font-size:12px;font-weight:500">{{ r.head }}</span><span style="font-size:11.5px;color:{{ r.stFg }}">{{ r.status }}</span></div>
+<dl style="margin:0;display:grid;grid-template-columns:max-content minmax(0,1fr);gap:3px 14px;font-size:11.5px">
+<dt style="color:var(--faint)">{{ t.branch }}</dt><dd style="margin:0;font-family:var(--mono);word-break:break-all">{{ r.branch }}</dd>
+<dt style="color:var(--faint)">{{ t.checkout }}</dt><dd style="margin:0;font-family:var(--mono);word-break:break-all">{{ r.checkout }}</dd>
+<dt style="color:var(--faint)">{{ t.started }}</dt><dd style="margin:0">{{ r.start }}</dd>
+<dt style="color:var(--faint)">{{ t.lastAct }}</dt><dd style="margin:0">{{ r.last }}</dd>
+<dt style="color:var(--faint)">{{ t.tokensOut }}</dt><dd style="margin:0;font-family:var(--mono)">{{ r.tokens }}</dd>
+</dl>
+</div>
+</div>
+</sc-for>
+</div>
+</section>
+<section data-nuxt="UCard" style="border:1px solid var(--border);border-radius:10px;background:var(--panel);overflow:hidden">
+<div style="padding:10px 14px;border-bottom:1px solid var(--border)"><h2 style="margin:0;font-size:13px;font-weight:600">{{ t.usage }}</h2></div>
+<div style="padding:12px 14px;display:flex;flex-direction:column;gap:8px">
+<div style="font-weight:500">{{ t.implUsage }}</div>
+<sc-if value="{{ tk.usageOk }}" hint-placeholder-val="{{ true }}">
+<sc-for list="{{ tk.usage }}" as="u" hint-placeholder-count="4">
+<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding-left:{{ u.pad }}"><span style="flex:1;color:var(--muted)">{{ u.label }}</span><sc-if value="{{ u.partial }}" hint-placeholder-val="{{ false }}"><span style="height:17px;padding:0 5px;border-radius:4px;border:1px dashed var(--border-strong);color:var(--muted);font-size:10.5px;display:inline-flex;align-items:center">{{ t.partial }}</span></sc-if><span style="font-family:var(--mono)">{{ u.v }}</span></div>
+</sc-for>
+</sc-if>
+<sc-if value="{{ tk.usageNa }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px"><span style="font-weight:500">{{ t.na }}</span> <span style="color:var(--muted)">· {{ tk.usageReason }}</span></div></sc-if>
+</div>
+<sc-for list="{{ tk.naRows }}" as="n" hint-placeholder-count="3">
+<div style="padding:10px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:2px"><div style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:500">{{ n.label }}</span><span style="font-size:12px;color:var(--muted)">{{ t.na }}</span></div><div style="font-size:11.5px;color:var(--faint);line-height:1.4">{{ n.reason }}</div></div>
+</sc-for>
+</section>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ pg.usage }}" hint-placeholder-val="{{ false }}">
+<div style="padding:24px 28px 48px;display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;align-items:baseline;gap:10px"><h1 style="margin:0;font-size:18px;font-weight:600">{{ t.usage }}</h1><span style="color:var(--muted)">{{ p.name }}</span></div>
+<sc-if value="{{ us.na }}" hint-placeholder-val="{{ false }}"><div style="padding:16px;border:1px dashed var(--border-strong);border-radius:10px"><span style="font-weight:500">{{ t.na }}</span> <span style="color:var(--muted)">· {{ us.reason }}</span></div></sc-if>
+<sc-if value="{{ us.ok }}" hint-placeholder-val="{{ true }}">
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:20px;align-items:start">
+
+<section data-nuxt="UCard + UTable" style="border:1px solid var(--border);border-radius:10px;background:var(--panel);overflow:hidden">
+<div style="padding:10px 14px;border-bottom:1px solid var(--border)"><h2 style="margin:0;font-size:13px;font-weight:600">{{ t.byKind }}</h2></div>
+<table style="width:100%;border-collapse:collapse;font-size:12.5px">
+<thead><tr style="color:var(--muted);font-size:11.5px"><th style="text-align:left;padding:7px 14px;font-weight:500"></th><th style="text-align:right;padding:7px 14px;font-weight:500">{{ t.today }}</th><th style="text-align:right;padding:7px 14px;font-weight:500">{{ t.last7 }}</th></tr></thead>
+<tbody>
+<sc-for list="{{ us.kinds }}" as="k" hint-placeholder-count="5">
+<tr><td style="padding:7px 14px;border-top:1px solid var(--border);padding-left:{{ k.pad }};color:{{ k.fg }}"><span style="display:inline-flex;align-items:center;gap:6px">{{ k.label }}<sc-if value="{{ k.partial }}" hint-placeholder-val="{{ false }}"><span data-nuxt="UBadge variant=outline size=xs" style="height:17px;padding:0 5px;border-radius:4px;border:1px dashed var(--border-strong);color:var(--muted);font-size:10.5px;display:inline-flex;align-items:center">{{ t.partial }}</span></sc-if></span></td>
+<td style="padding:7px 14px;border-top:1px solid var(--border);text-align:right;font-family:var(--mono);font-size:12px;color:{{ k.fg }}">{{ k.today }}</td>
+<td style="padding:7px 14px;border-top:1px solid var(--border);text-align:right;font-family:var(--mono);font-size:12px;color:{{ k.fg }}">{{ k.week }}</td></tr>
+</sc-for>
+</tbody>
+</table>
+<div style="padding:8px 14px;border-top:1px solid var(--border);font-size:11.5px;color:var(--faint)">{{ us.reasoningNote }}</div>
+</section>
+
+<section data-nuxt="UCard" style="border:1px solid var(--border);border-radius:10px;background:var(--panel);overflow:hidden">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border)"><h2 style="margin:0;font-size:13px;font-weight:600">{{ t.byModel }}</h2><span style="font-size:11.5px;color:var(--faint)">{{ t.outLast7 }}</span></div>
+<sc-for list="{{ us.models }}" as="m" hint-placeholder-count="2">
+<div style="padding:9px 14px;display:grid;grid-template-columns:minmax(0,160px) minmax(0,1fr) max-content;gap:12px;align-items:center;border-top:{{ m.bt }}"><span style="font-family:var(--mono);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.name }}</span><div style="height:6px;border-radius:3px;background:var(--chip)"><div style="height:100%;width:{{ m.w }};border-radius:3px;background:var(--accent)"></div></div><span style="font-family:var(--mono);font-size:12px">{{ m.v }}</span></div>
+</sc-for>
+<div style="padding:10px 14px 4px;border-top:1px solid var(--border);display:flex;justify-content:space-between"><span style="font-size:12px;font-weight:600">{{ t.byProvider }}</span></div>
+<sc-for list="{{ us.providers }}" as="m" hint-placeholder-count="2">
+<div style="padding:7px 14px;display:grid;grid-template-columns:minmax(0,160px) minmax(0,1fr) max-content;gap:12px;align-items:center"><span style="font-family:{{ m.font }};font-size:12px;color:{{ m.fg }};font-style:{{ m.fs }}">{{ m.name }}</span><div style="height:6px;border-radius:3px;background:var(--chip)"><div style="height:100%;width:{{ m.w }};border-radius:3px;background:{{ m.bar }}"></div></div><span style="font-family:var(--mono);font-size:12px">{{ m.v }}</span></div>
+</sc-for>
+<div style="height:6px"></div>
+</section>
+
+<section data-nuxt="UCard" style="border:1px solid var(--border);border-radius:10px;background:var(--panel);overflow:hidden">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border)"><h2 style="margin:0;font-size:13px;font-weight:600">{{ t.byTask }}</h2><span style="font-size:11.5px;color:var(--faint)">{{ t.largest }} · {{ t.outLast7 }}</span></div>
+<sc-for list="{{ us.tasks }}" as="m" hint-placeholder-count="6">
+<div style="padding:7px 14px;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) max-content;gap:12px;align-items:center;border-top:{{ m.bt }}"><a onClick="{{ m.open }}" style="font-family:{{ m.font }};font-size:12px;color:{{ m.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.name }}</a><div style="height:6px;border-radius:3px;background:var(--chip)"><div style="height:100%;width:{{ m.w }};border-radius:3px;background:{{ m.bar }}"></div></div><span style="font-family:var(--mono);font-size:12px">{{ m.v }}</span></div>
+</sc-for>
+<div style="padding:10px 14px 4px;border-top:1px solid var(--border)"><span style="font-size:12px;font-weight:600">{{ t.byRole }}</span></div>
+<sc-for list="{{ us.roles }}" as="m" hint-placeholder-count="3">
+<div style="padding:7px 14px;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) max-content;gap:12px;align-items:center"><span style="font-family:var(--mono);font-size:12px">{{ m.name }}</span><div style="height:6px;border-radius:3px;background:var(--chip)"><div style="height:100%;width:{{ m.w }};border-radius:3px;background:var(--accent)"></div></div><span style="font-family:var(--mono);font-size:12px">{{ m.v }}</span></div>
+</sc-for>
+<div style="height:6px"></div>
+</section>
+
+<section data-nuxt="UCard" style="border:1px solid var(--border);border-radius:10px;background:var(--panel);overflow:hidden">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border)"><h2 style="margin:0;font-size:13px;font-weight:600">{{ t.derived }}</h2><span data-nuxt="UBadge variant=outline" style="height:20px;padding:0 7px;border-radius:5px;border:1px dashed var(--border-strong);color:var(--muted);font-size:11px;display:inline-flex;align-items:center">{{ t.calc }}</span></div>
+<div style="display:grid;grid-template-columns:1fr 1fr">
+<div style="padding:12px 14px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;color:var(--muted);line-height:1.35">{{ t.tokPerTask }}</span><span style="font-family:var(--mono);font-size:18px;font-weight:500">{{ us.perTask }}</span><span style="font-size:11px;color:var(--faint)">{{ us.perTaskNote }}</span></div>
+<div style="padding:12px 14px;display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;color:var(--muted);line-height:1.35">{{ t.runsPerTask }}</span><span style="font-family:var(--mono);font-size:18px;font-weight:500">{{ us.runsPer }}</span><span style="font-size:11px;color:var(--faint)">{{ us.runsNote }}</span></div>
+</div>
+<div style="padding:12px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:10px">
+<span style="font-size:12px;color:var(--muted)">{{ t.weekly }}</span>
+<div style="display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px;align-items:end;height:96px">
+<sc-for list="{{ us.weeks }}" as="w" hint-placeholder-count="6">
+<div title="{{ w.v }}" style="display:flex;flex-direction:column;justify-content:flex-end;height:100%"><div style="height:{{ w.h }};border-radius:3px 3px 0 0;background:{{ w.bg }};border:{{ w.bd }};border-bottom:0"></div></div>
+</sc-for>
+</div>
+<div style="display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px;margin-top:-4px">
+<sc-for list="{{ us.weeks }}" as="w" hint-placeholder-count="6"><div style="display:flex;flex-direction:column;align-items:center;gap:1px"><span style="font-family:var(--mono);font-size:10.5px">{{ w.short }}</span><span style="font-size:10.5px;color:var(--faint);white-space:nowrap">{{ w.lbl }}</span></div></sc-for>
+</div>
+</div>
+</section>
+
+<section data-nuxt="UCard" style="border:1px solid var(--border);border-radius:10px;background:var(--panel);overflow:hidden">
+<div style="padding:10px 14px;border-bottom:1px solid var(--border)"><h2 style="margin:0;font-size:13px;font-weight:600">{{ t.harnesses }}</h2></div>
+<sc-for list="{{ us.harnesses }}" as="h" hint-placeholder-count="2">
+<div style="padding:11px 14px;display:flex;flex-direction:column;gap:6px;border-top:{{ h.bt }}">
+<div style="display:flex;align-items:center;gap:10px"><span style="font-family:var(--mono);font-size:12.5px;font-weight:500;flex:1">{{ h.name }}</span>
+<sc-if value="{{ h.has }}" hint-placeholder-val="{{ true }}"><div data-nuxt="UProgress steps" title="{{ h.lvl }}" style="display:flex;gap:3px"><sc-for list="{{ h.pips }}" as="pp" hint-placeholder-count="4"><span style="width:14px;height:6px;border-radius:2px;background:{{ pp.bg }}"></span></sc-for></div><span style="font-size:12px;color:var(--muted);white-space:nowrap">{{ h.lvl }}</span></sc-if>
+<sc-if value="{{ h.none }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:var(--muted)">{{ t.noneLvl }}</span></sc-if>
+</div>
+<div style="font-size:11.5px;color:var(--faint);line-height:1.4">{{ h.note }}</div>
+</div>
+</sc-for>
+<div style="padding:8px 14px;border-top:1px solid var(--border);font-size:11px;color:var(--faint);line-height:1.5">{{ us.levelsLegend }}</div>
+</section>
+
+<section data-nuxt="UCard" style="border:1px solid var(--border);border-radius:10px;background:var(--panel);overflow:hidden">
+<div style="padding:10px 14px;border-bottom:1px solid var(--border)"><h2 style="margin:0;font-size:13px;font-weight:600">{{ t.cost }}</h2></div>
+<div style="padding:14px;display:flex;flex-direction:column;gap:4px"><span style="font-weight:500">{{ t.na }}</span><span style="color:var(--muted)">{{ t.costReason }}</span></div>
+</section>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ pg.attention }}" hint-placeholder-val="{{ false }}">
+<div style="padding:24px 28px 48px;display:flex;flex-direction:column;gap:18px">
+<h1 style="margin:0;font-size:18px;font-weight:600">{{ t.attention }} <span style="font-weight:400;color:var(--muted);font-size:13px">· {{ t.allProjects }}</span></h1>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:20px;align-items:start">
+<div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+<sc-for list="{{ at.groups }}" as="g" hint-placeholder-count="3">
+<section data-nuxt="UCard" style="border:1px solid var(--border);border-radius:10px;background:var(--panel);overflow:hidden">
+<div style="display:flex;align-items:center;gap:9px;padding:9px 14px;border-bottom:1px solid var(--border)"><span style="width:22px;height:22px;border-radius:6px;background:var(--chip);font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center">{{ g.initials }}</span><a onClick="{{ g.open }}" style="font-weight:600;color:var(--text)">{{ g.name }}</a><span style="flex:1"></span><span style="font-family:var(--mono);font-size:11.5px;color:var(--faint)">{{ g.count }}</span></div>
+<sc-if value="{{ g.empty }}" hint-placeholder-val="{{ false }}"><div style="padding:12px 14px;color:var(--muted)">{{ t.nothing }}</div></sc-if>
+<sc-for list="{{ g.items }}" as="x" hint-placeholder-count="2">
+<div style="padding:10px 14px;display:flex;gap:9px;align-items:flex-start;border-top:{{ x.bt }}">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:2px;color:var(--warn)"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px"><span style="line-height:1.4">{{ x.msg }}</span><code style="font-family:var(--mono);font-size:11px;color:var(--faint)">{{ x.code }}</code></div>
+</div>
+</sc-for>
+</section>
+</sc-for>
+</div>
+<div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+<section data-nuxt="UCard" style="border:1px solid var(--border);border-radius:10px;background:var(--panel);overflow:hidden">
+<div style="display:flex;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border)"><h2 style="margin:0;font-size:13px;font-weight:600">{{ t.runningNow }}</h2><span style="font-family:var(--mono);font-size:11.5px;color:var(--faint)">{{ at.runCount }}</span></div>
+<sc-for list="{{ at.running }}" as="r" hint-placeholder-count="2">
+<div style="padding:9px 14px;display:flex;flex-direction:column;gap:3px;border-top:{{ r.bt }}">
+<div style="display:flex;align-items:center;gap:8px;min-width:0"><span style="flex:none;width:7px;height:7px;border-radius:50%;background:var(--ok);animation:bn-pulse 2s infinite"></span><span style="font-family:var(--mono);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.what }}</span><span style="flex:1"></span><span style="font-size:11.5px;color:var(--muted);white-space:nowrap">{{ r.last }}</span></div>
+<div style="padding-left:15px;font-size:11px;color:var(--faint)"><span style="color:var(--muted)">{{ r.project }}</span> · <span style="font-family:var(--mono)">{{ r.meta }}</span></div>
+</div>
+</sc-for>
+<div style="padding:8px 14px;border-top:1px solid var(--border);font-size:11.5px;color:var(--faint)">{{ t.runningNote }}</div>
+</section>
+<section data-nuxt="UCard" style="border:1px solid var(--border);border-radius:10px;background:var(--panel);overflow:hidden">
+<div style="padding:10px 14px;border-bottom:1px solid var(--border)"><h2 style="margin:0;font-size:13px;font-weight:600">{{ t.recentRuns }}</h2></div>
+<sc-for list="{{ at.recent }}" as="r" hint-placeholder-count="4">
+<div style="padding:9px 14px;display:flex;flex-direction:column;gap:3px;border-top:{{ r.bt }}">
+<div style="display:flex;align-items:center;gap:8px;min-width:0"><span style="flex:none;width:7px;height:7px;border-radius:50%;border:1.5px solid var(--faint)"></span><span style="font-family:var(--mono);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.what }}</span><span style="flex:1"></span><span style="font-size:11.5px;color:var(--muted);white-space:nowrap">{{ r.last }}</span></div>
+<div style="padding-left:15px;font-size:11px;color:var(--faint)"><span style="color:var(--muted)">{{ r.project }}</span> · <span style="font-family:var(--mono)">{{ r.meta }}</span></div>
+</div>
+</sc-for>
+</section>
+</div>
+</div>
+</div>
+</sc-if>
+
+</sc-if>
+</main>
+
+<sc-if value="{{ modal }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ closeModal }}" style="position:fixed;inset:0;z-index:20;background:rgba(10,12,14,.45);display:flex;align-items:center;justify-content:center;padding:24px">
+<div onClick="{{ stop }}" data-nuxt="UModal" style="width:100%;max-width:480px;border-radius:12px;background:var(--panel);border:1px solid var(--border);box-shadow:0 20px 50px rgba(0,0,0,.25);overflow:hidden">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)"><h2 style="margin:0;font-size:15px;font-weight:600">{{ t.addProject }}</h2><button onClick="{{ closeModal }}" data-nuxt="UButton variant=ghost icon=i-lucide-x" style="width:28px;height:28px;border:0;border-radius:6px;background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:var(--hover)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
+<div style="padding:18px;display:flex;flex-direction:column;gap:12px">
+<p style="margin:0;color:var(--muted)">{{ t.addBody }}</p>
+<dc-import name="Command" cmd="binn project register" lang="{{ lang }}" primary="{{ true }}" hint-size="100%,42px"></dc-import>
+<p style="margin:0;font-size:12px;color:var(--faint);line-height:1.5">{{ t.addNote }}</p>
+</div>
+</div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;connection&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;live&quot;,&quot;loading&quot;,&quot;daemon-down&quot;],&quot;default&quot;:&quot;live&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;States&quot;},&quot;alternatives&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;sample&quot;,&quot;all&quot;,&quot;none&quot;],&quot;default&quot;:&quot;sample&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;States&quot;},&quot;showWarnings&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;States&quot;},&quot;lang&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;en&quot;,&quot;ru&quot;],&quot;default&quot;:&quot;en&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Display&quot;},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;system&quot;,&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;system&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Display&quot;},&quot;showNuxtOutlines&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Display&quot;}}">
+const I18N = {
+  en: {
+    overview:'Overview', project:'Project', usage:'Usage', attention:'Attention', projectsAll:'Projects (all)', currentEpic:'Current Epic',
+    whatsNext:"What's next", fromRoadmap:'From the roadmap', or:'or', calc:"Binnacle's calculation",
+    runningNow:'Running now', ready:'Ready to start, in any order', parallel:'Can run in parallel', nothing:'Nothing', na:'Not available',
+    epicProgress:'Epic progress', openBoard:'Open the board', runningNote:'“Running” is Binnacle’s reading of recent activity.', noTask:'no Task',
+    usageOut:'Output tokens', today:'today', last7:'last 7 days', openUsage:'Usage', outLast7:'output, last 7 days',
+    addProject:'Add a project', addBody:"In the project's folder, run:", addNote:'Binnacle picks the project up on its next refresh. Nothing is registered from this page.',
+    colProject:'Project', status:'Status', specCol:'Spec', board:'Board', empty:'Empty', fromRuns:'from runs',
+    triage:'Triage', ticketPath:'Ticket', branch:'Branch', startCmd:'Start command', ticketBody:'Ticket', noReview:'no Review yet', noRuns:'No runs yet.',
+    checkout:'Checkout', started:'Started', lastAct:'Last activity', tokensOut:'Output tokens',
+    implUsage:'Implementation', partial:'partial', byKind:'Tokens by kind', byModel:'By model', byProvider:'By provider', byTask:'By Task', largest:'largest 5',
+    byRole:'By role', derived:'Derived', tokPerTask:'Output tokens per completed Task', runsPerTask:'Runs per Task', weekly:'Output tokens per week',
+    harnesses:'Harnesses', noneLvl:'no support', cost:'Cost', costReason:'No source reports cost.', recentRuns:'Recent runs', allProjects:'all projects',
+    daemonTitle:"Binnacle's daemon is not reachable", daemonBody:'The dashboard reads everything from the local daemon. Start it and this page reconnects by itself.',
+    retrying:'Retrying every 5 s. Last reply 2 min ago.', loading:'Connecting to the daemon…',
+    roadmapBad:'The roadmap cannot be read', noTasksTitle:'No Tasks yet', noTasksBody:'Tasks appear here once the Epic is sliced into tickets.',
+    notStarted:'Not started', running:'running', ended:'ended',
+    input:'Input', cachedInput:'Cached input', cacheCreation:'Cache creation', output:'Output', reasoning:'of which reasoning', unassigned:'Unassigned', notReported:'not reported',
+    reviewUsage:'Review', reworkUsage:'Rework', qa:'Questions and answers',
+    naReview:'Runs do not yet say which Review they belong to.', naRework:'Binnacle cannot tell a rework run from a first run yet.', naQa:'No harness reports questions and answers.',
+    noRunYet:'No run has started this Task.', noCmdDone:'None: this Task is Done.', noCmdCancel:'None: this Task is Cancelled.',
+    warnStale:'The Next action names a Task already Done. Check the roadmap before running it.', warnNoCmd:'The Next action has no command. There is nothing to copy from the roadmap.',
+    noSession:'No session of this project was found.',
+    reasoningNote:'Reasoning is the part of output the model reported as reasoning. Only claude-opus-5-5 reports it, so the figure is partial.',
+    levelsLegend:'Support levels: 1 sessions seen · 2 model and branch · 3 token counts · 4 cost.',
+    ccNote:'Sessions, models, branches and token counts. No cost.', codexNone:'No Codex session of this project was found.',
+    thisWeek:'this week', weeksAgo:n=>`−${n} wk`, level:n=>`Level ${n} of 4`, perTaskNote:n=>`${n} Tasks completed in 7 days`, runsNote:(r,t)=>`${r} runs across ${t} Tasks`,
+    updated:n=>`updated ${n} s ago`, stale:'no reply for 2 min', connecting:'connecting…', waitsOn:x=>`waits on ${x}`, tasksDone:(a,b)=>`${a} of ${b} Tasks done`,
+    moreDone:n=>`Show ${n} more`, showLess:'Show fewer', ticketSays:s=>`ticket says ${s}`, fromRunsNote:s=>`read from runs; the ticket says ${s}`,
+    ago:m=>m<1?'just now':m<60?`${m} min ago`:m<1440?`${Math.round(m/60)} h ago`:`${Math.round(m/1440)} d ago`,
+    tasksCount:(a,b)=>b?`${a} / ${b}`:'no Tasks',
+  },
+  ru: {
+    overview:'Обзор', project:'Проект', usage:'Расход', attention:'Внимание', projectsAll:'Проекты (все)', currentEpic:'Текущий Epic',
+    whatsNext:'Что дальше', fromRoadmap:'По плану', or:'или', calc:'расчёт Binnacle',
+    runningNow:'Идёт сейчас', ready:'Можно начинать, в любом порядке', parallel:'Можно параллельно', nothing:'Ничего', na:'Недоступно',
+    epicProgress:'Прогресс по Epic', openBoard:'Открыть доску', runningNote:'«Идёт» — это вывод Binnacle по недавней активности.', noTask:'без Task',
+    usageOut:'Выходные токены', today:'сегодня', last7:'за 7 дней', openUsage:'Расход', outLast7:'выходные, за 7 дней',
+    addProject:'Добавить проект', addBody:'В папке проекта выполните:', addNote:'Binnacle подхватит проект при следующем обновлении. С этой страницы ничего не регистрируется.',
+    colProject:'Проект', status:'Статус', specCol:'Спецификация', board:'Доска', empty:'Пусто', fromRuns:'по runs',
+    triage:'Триаж', ticketPath:'Тикет', branch:'Ветка', startCmd:'Команда запуска', ticketBody:'Тикет', noReview:'Review ещё нет', noRuns:'Runs пока нет.',
+    checkout:'Рабочая копия', started:'Начало', lastAct:'Последняя активность', tokensOut:'Выходные токены',
+    implUsage:'Реализация', partial:'частично', byKind:'Токены по видам', byModel:'По моделям', byProvider:'По провайдерам', byTask:'По Task', largest:'5 крупнейших',
+    byRole:'По ролям', derived:'Производные', tokPerTask:'Выходных токенов на завершённый Task', runsPerTask:'Runs на Task', weekly:'Выходные токены по неделям',
+    harnesses:'Агенты', noneLvl:'не поддерживается', cost:'Стоимость', costReason:'Ни один источник не сообщает стоимость.', recentRuns:'Недавние runs', allProjects:'все проекты',
+    daemonTitle:'Демон Binnacle недоступен', daemonBody:'Панель берёт все данные у локального демона. Запустите его, и страница переподключится сама.',
+    retrying:'Повтор каждые 5 с. Последний ответ 2 мин назад.', loading:'Подключение к демону…',
+    roadmapBad:'Roadmap не читается', noTasksTitle:'Task пока нет', noTasksBody:'Task появятся здесь, когда Epic нарежут на тикеты.',
+    notStarted:'Не начат', running:'идёт', ended:'завершён',
+    input:'Входные', cachedInput:'Входные из кэша', cacheCreation:'Запись в кэш', output:'Выходные', reasoning:'из них рассуждения', unassigned:'Без Task', notReported:'не сообщается',
+    reviewUsage:'Review', reworkUsage:'Доработка', qa:'Вопросы и ответы',
+    naReview:'Runs пока не сообщают, к какому Review они относятся.', naRework:'Binnacle пока не отличает run доработки от первого run.', naQa:'Ни один агент не сообщает вопросы и ответы.',
+    noRunYet:'Ни один run ещё не начинал этот Task.', noCmdDone:'Нет: этот Task в Done.', noCmdCancel:'Нет: этот Task отменён.',
+    warnStale:'Next action называет Task, который уже Done. Сверьтесь с roadmap перед запуском.', warnNoCmd:'У Next action нет команды. Из roadmap копировать нечего.',
+    noSession:'Сессий этого проекта не найдено.',
+    reasoningNote:'Рассуждения — часть выходных токенов, которую модель отметила как рассуждения. Их сообщает только claude-opus-5-5, поэтому сумма частичная.',
+    levelsLegend:'Уровни поддержки: 1 видны сессии · 2 модель и ветка · 3 число токенов · 4 стоимость.',
+    ccNote:'Сессии, модели, ветки и число токенов. Без стоимости.', codexNone:'Сессий Codex для этого проекта не найдено.',
+    thisWeek:'эта неделя', weeksAgo:n=>`−${n} нед.`, level:n=>`Уровень ${n} из 4`, perTaskNote:n=>`Завершено Task за 7 дней: ${n}`, runsNote:(r,t)=>`${r} runs на ${t} Task`,
+    updated:n=>`обновлено ${n} с назад`, stale:'нет ответа 2 мин', connecting:'подключение…', waitsOn:x=>`ждёт ${x}`, tasksDone:(a,b)=>`Done: ${a} из ${b} Task`,
+    moreDone:n=>`Показать ещё ${n}`, showLess:'Свернуть', ticketSays:s=>`в тикете: ${s}`, fromRunsNote:s=>`определено по runs; в тикете: ${s}`,
+    ago:m=>m<1?'только что':m<60?`${m} мин назад`:m<1440?`${Math.round(m/60)} ч назад`:`${Math.round(m/1440)} дн. назад`,
+    tasksCount:(a,b)=>b?`${a} / ${b}`:'нет Task',
+  },
+};
+
+const EP = (n, slug, name, st, done, total, cards) => ({ n, slug, name, st, done, total, cards: cards || [] });
+const C = (n, title, st, x) => Object.assign({ n, title, st }, x || {});
+const RUN09 = { harness:'claude-code', model:'claude-opus-5-5', role:'implementation', min:2 };
+
+const PROJECTS = {
+  binnacle: {
+    id:'binnacle', name:'Binnacle', initials:'B', path:'/home/owner/Projects/binnacle', roadmapOk:true, cur:5,
+    epics: [
+      EP(1,'core-and-persistence','Core and persistence','done',6,6,[C('06','Snapshot writes are atomic','done',{review:'approved'}),C('05','SQLite schema migrations run on start','done',{review:'approved'}),C('04','The project registry survives a restart','done',{review:'approved'})]),
+      EP(2,'mcp-and-product-snapshot','MCP and Product Snapshot','done',5,5,[C('05','Product Snapshot lists Epics in roadmap order','done',{review:'approved'}),C('04','The MCP tool returns the Next action','done',{review:'approved'}),C('01','The MCP server starts with the daemon','done',{review:'missing'})]),
+      EP(3,'tracker-and-matt-pocock','Tracker and Matt Pocock integration','done',8,8,[C('08','Triage labels map to Task states','done',{review:'approved'}),C('07','Blocked by is read from the ticket front matter','done',{review:'changes requested'}),C('06','The implement command is built from the ticket path','done',{review:'approved'})]),
+      EP(4,'telemetry','Telemetry','done',6,6,[C('06','Reasoning tokens are counted when a harness reports them','done',{review:'approved'}),C('05','Codex sessions are looked up by project path','done',{review:'approved'}),C('04','Runs are grouped by branch and checkout','done',{review:'approved'})]),
+      EP(5,'minimal-dashboard','Minimal dashboard','inprogress',9,11,[
+        C('10','Autopilot chooses a sliced epic and regenerates a merged dashboard','ready',{parallel:true,cmd:'/mattpocock-skills:implement docs/specs/minimal-dashboard/issues/10-autopilot-chooses-a-sliced-epic.md'}),
+        C('11','Ready to start leaves out a Task the board shows In progress','ready',{parallel:true,cmd:'/mattpocock-skills:implement docs/specs/minimal-dashboard/issues/11-ready-to-start-leaves-out-tasks-in-progress.md'}),
+        C('09','The exit demonstration','inprogress',{fromRuns:true,ticketSt:'Done',run:RUN09}),
+        C('09','The exit demonstration','done',{}),
+        C('08','Freshness line and polling every five seconds','done',{review:'approved'}),
+        C('07','Usage page reads token counts per harness','done',{review:'approved'}),
+      ]),
+      EP(6,'dashboard-design-and-languages','Dashboard design and languages','todo',0,4,[
+        C('01','Nuxt UI shell with a project rail','backlog'),
+        C('02','English and Russian interface text','backlog',{deps:['01']}),
+        C('03','Light and dark themes follow the system','backlog',{deps:['01'],blocked:true}),
+        C('04','Honest empty and unavailable states','backlog',{deps:['02']}),
+      ]),
+      EP(7,'audit-and-adopt','Audit and adopt','todo',0,0,[]),
+    ],
+    next: { sentence:'ticket 11, the defect from the exit demonstration; ticket 10 is ready beside it.', cmd:'/mattpocock-skills:implement docs/specs/minimal-dashboard/issues/11-ready-to-start-leaves-out-tasks-in-progress.md', warn:'stale' },
+    alts: {
+      sample: [{ kind:'auto', cmd:'/binnacle:autopilot', en:['Run the whole Epic','Tasks 10 and 11 are ready and neither blocks the other.'], ru:['Запустить весь Epic','Task 10 и 11 готовы и не блокируют друг друга.'] }],
+      all: [
+        { kind:'auto', cmd:'/binnacle:autopilot', en:['Run the whole Epic','Tasks 10 and 11 are ready and neither blocks the other.'], ru:['Запустить весь Epic','Task 10 и 11 готовы и не блокируют друг друга.'] },
+        { kind:'par', cmd:'/mattpocock-skills:implement docs/specs/minimal-dashboard/issues/10-autopilot-chooses-a-sliced-epic.md', en:['Start a second Task in parallel','minimal-dashboard/09 is in progress, and Task 10 does not depend on it.'], ru:['Начать второй Task параллельно','minimal-dashboard/09 в работе, а Task 10 от него не зависит.'] },
+        { kind:'wait', en:['Wait for minimal-dashboard/09','A run is working on it; its result may change what comes next.'], ru:['Дождаться minimal-dashboard/09','Над ним идёт run; от результата может зависеть следующий шаг.'] },
+      ],
+    },
+    runs: [
+      { task:'minimal-dashboard/09', title:'The exit demonstration', harness:'claude-code', model:'claude-opus-5-5', role:'implementation', branch:'feat/dashboard-exit-demonstration', min:2 },
+      { role:'product', harness:'claude-code', model:'claude-opus-5-5', branch:'main', min:0 },
+    ],
+    attention: [
+      { code:'review.missing', en:'mcp-and-product-snapshot/01 is DONE without a Review.', ru:'mcp-and-product-snapshot/01 в DONE без Review.' },
+      { code:'next_action.stale', en:'The Next action names a Task already DONE.', ru:'Next action называет Task, который уже DONE.' },
+    ],
+    usage: {
+      today:{ input:804, cached:61204113, creation:1622090, output:318442, reasoning:131090 },
+      week:{ input:12466, cached:956450757, creation:27750835, output:5306279, reasoning:2199628 },
+      reasoningPartial:true,
+      models:[['claude-opus-5-5',4935174],['claude-opus-5',371105]],
+      providers:[['anthropic',4935174],[null,371105]],
+      tasks:[['minimal-dashboard/09',1412330],['minimal-dashboard/08',988120],['minimal-dashboard/07',702415],['minimal-dashboard/06',541902],['minimal-dashboard/05',399610],[null,1261902]],
+      roles:[['implementation',3680211],['product',1261902],['review',364166]],
+      completed:5, runs:14, runTasks:5, weeks:[1904220,2611870,3120455,4402118,5306279,1210404],
+    },
+  },
+  shop: {
+    id:'shop', name:'Shop API', initials:'SA', path:'/home/owner/Projects/shop-api', roadmapOk:true, cur:3,
+    epics: [
+      EP(1,'catalog','Catalog','done',4,4,[C('04','Product search paginates by cursor','done',{review:'approved'}),C('03','Prices are stored in minor units','done',{review:'approved'}),C('02','Products carry a stock count','done',{review:'approved'})]),
+      EP(2,'orders','Orders','done',5,5,[C('05','Orders lock stock while payment is pending','done',{review:'approved'}),C('04','Order totals include tax lines','done',{review:'approved'}),C('03','Checkout returns a payment intent','done',{review:'approved'})]),
+      EP(3,'refunds','Refunds','inprogress',2,6,[
+        C('04','Refund endpoint validates partial amounts','ready',{cmd:'/mattpocock-skills:implement docs/specs/refunds/issues/04-refund-endpoint-validates-partial-amounts.md'}),
+        C('03','Partial-refund rules are written down','backlog',{}),
+        C('05','Partial refunds keep the order total consistent','backlog',{deps:['03']}),
+        C('06','Refund events reach the ledger webhook','backlog',{deps:['05']}),
+        C('02','Full refunds restore stock','done',{review:'approved'}),
+        C('01','Refunds table and migration','done',{review:'approved'}),
+      ]),
+      EP(4,'webhooks','Webhooks','todo',0,0,[]),
+    ],
+    next: { sentence:'Write down the partial-refund rules (ticket 03) before ticket 05 starts.', cmd:null, warn:'nocmd' },
+    alts: { sample:[{ kind:'hand', cmd:'/mattpocock-skills:implement docs/specs/refunds/issues/04-refund-endpoint-validates-partial-amounts.md', en:['Take refunds/04 by hand','It is ready and does not wait on the refund rules.'], ru:['Взять refunds/04 вручную','Он готов и не ждёт правил возврата.'] }] },
+    runs: [], attention: [],
+    usage: {
+      today:{ input:211, cached:4102337, creation:188204, output:42118, reasoning:null },
+      week:{ input:3902, cached:88120440, creation:3011208, output:611904, reasoning:null },
+      models:[['claude-opus-5',611904]], providers:[[null,611904]],
+      tasks:[['refunds/02',244310],['refunds/01',198021],['catalog/04',90442],[null,79131]],
+      roles:[['implementation',532773],['product',79131]],
+      completed:2, runs:5, runTasks:3, weeks:[402118,288004,512090,730221,611904,42118],
+    },
+  },
+  ledger: {
+    id:'ledger', name:'Ledger', initials:'L', path:'/home/owner/Projects/ledger', roadmapOk:false,
+    badReason:'docs/roadmap.md, line 14: an Epic heading has no number.', epics:[], runs:[],
+    attention:[{ code:'roadmap.unreadable', en:'docs/roadmap.md cannot be read: line 14 has an Epic heading without a number.', ru:'docs/roadmap.md не читается: в строке 14 у заголовка Epic нет номера.' }],
+    usage:null,
+  },
+  scratch: {
+    id:'scratch', name:'Scratch CLI', initials:'SC', path:'/home/owner/Projects/scratch-cli', roadmapOk:true, cur:1,
+    epics:[EP(1,'cli-skeleton','CLI skeleton','todo',0,0,[]),EP(2,'config-loading','Config loading','todo',0,0,[])],
+    next:{ sentence:'Slice Epic 1 into Tasks.', cmd:'/mattpocock-skills:to-issues docs/specs/cli-skeleton/spec.md' },
+    alts:{}, runs:[],
+    attention:[{ code:'tasks.none', en:'The roadmap has Epics, but no Task ticket was found under docs/specs.', ru:'В roadmap есть Epics, но в docs/specs не найдено ни одного тикета Task.' }],
+    usage:null,
+  },
+};
+const ORDER = ['binnacle','shop','ledger','scratch'];
+
+const BODY11 = `## What happened
+During the exit demonstration (ticket 09) the board showed
+minimal-dashboard/09 In progress, read from its runs, while
+Ready to start still listed it as ready to start.
+
+## What should happen
+Ready to start leaves out every Task the board shows
+In progress, whether that state comes from the ticket or
+from runs.
+
+## Acceptance
+- A Task with a running run is not listed in Ready to start.
+- The Overview and the Project page agree on each Task's state.
+- A test covers a Task that is Ready in its ticket but
+  In progress from runs.`;
+
+const TASKS = {
+  'minimal-dashboard/11': { triage:'ready-for-agent', body:BODY11, runs:[] },
+  'minimal-dashboard/10': { triage:'ready-for-agent', runs:[], body:`## What to build
+/binnacle:autopilot picks the first Epic that is sliced into
+Tasks and not yet Done, works through its Ready Tasks, and
+regenerates the dashboard once the branches are merged.
+
+## Acceptance
+- Autopilot skips an Epic with no Tasks.
+- After the last merge the Overview shows the new state
+  within one polling interval.` },
+  'minimal-dashboard/09': { triage:'ready-for-agent', branch:'feat/dashboard-exit-demonstration', body:`## What to build
+A recorded walk through the minimal dashboard on this
+repository: Overview, Project, Task and Usage, each read
+from real data.
+
+## Acceptance
+- Every page loads against the running daemon.
+- Any defect found is filed as its own ticket.`,
+    runs:[
+      { harness:'claude-code', model:'claude-opus-5-5', role:'implementation', branch:'feat/dashboard-exit-demonstration', checkout:'/home/owner/Projects/binnacle-wt/exit-demonstration', start:'2026-09-26T09:12', min:2, tokens:612904, live:true },
+      { harness:'claude-code', model:'claude-opus-5', role:'implementation', branch:'feat/dashboard-exit-demonstration', checkout:'/home/owner/Projects/binnacle-wt/exit-demonstration', start:'2026-09-25T18:05', end:'2026-09-25T18:31', tokens:88410 },
+      { harness:'claude-code', model:'claude-opus-5-5', role:'implementation', branch:'feat/dashboard-exit-demonstration', checkout:'/home/owner/Projects/binnacle-wt/exit-demonstration', start:'2026-09-25T14:20', end:'2026-09-25T16:48', tokens:711016 },
+    ],
+    usage:{ input:1904, cached:212330118, creation:5120441, output:1412330, reasoning:588210 } },
+  'minimal-dashboard/08': { triage:'ready-for-agent', branch:'feat/dashboard-freshness-line', body:`## What to build
+The sidebar shows how fresh the data is, and the page polls
+the daemon every five seconds.
+
+## Acceptance
+- The line reads "updated N s ago" and never shows a clock.
+- A failed poll keeps the last data and says so.`,
+    review:`Review: approved
+
+Polling interval matches the spec (5 s).
+The freshness line uses relative time and
+never shows a clock.
+A failed poll keeps the last snapshot.
+
+Follow-up: none.`,
+    runs:[
+      { harness:'claude-code', model:'claude-opus-5-5', role:'implementation', branch:'feat/dashboard-freshness-line', checkout:'/home/owner/Projects/binnacle-wt/freshness-line', start:'2026-09-25T08:30', end:'2026-09-25T09:05', tokens:75570 },
+      { harness:'claude-code', model:'claude-opus-5-5', role:'implementation', branch:'feat/dashboard-freshness-line', checkout:'/home/owner/Projects/binnacle-wt/freshness-line', start:'2026-09-24T10:02', end:'2026-09-24T13:47', tokens:912550 },
+    ],
+    usage:{ input:1210, cached:140220913, creation:3302118, output:988120, reasoning:402100 } },
+};
+
+const ST = {
+  done:{ bg:'var(--chip)', fg:'var(--muted)', bd:'transparent' },
+  inprogress:{ bg:'var(--accent-soft)', fg:'var(--accent-text)', bd:'transparent' },
+  ready:{ bg:'transparent', fg:'var(--accent-text)', bd:'var(--accent-line)' },
+  backlog:{ bg:'transparent', fg:'var(--muted)', bd:'var(--border-strong)' },
+  todo:{ bg:'transparent', fg:'var(--muted)', bd:'var(--border-strong)' },
+};
+const ST_LABEL = { done:'Done', inprogress:'In progress', ready:'Ready', backlog:'Backlog' };
+
+class Component extends DCLogic {
+  state = { pid:'binnacle', page:'overview', taskId:null, boardEpic:{}, doneOpen:false, modal:false, sec:2, lang:null };
+  componentDidMount() { this._i = setInterval(() => this.setState(s => ({ sec: s.sec >= 5 ? 1 : s.sec + 1 })), 1000); }
+  componentWillUnmount() { clearInterval(this._i); }
+  go = (page, extra) => { this.setState(Object.assign({ page }, extra || {})); const m = document.querySelector('main'); if (m) m.scrollTop = 0; };
+  openTask = (pid, id) => this.go('task', { pid, taskId: id });
+
+  renderVals() {
+    const lang = this.state.lang || this.props.lang || 'en';
+    const t = I18N[lang];
+    const loc = lang === 'ru' ? 'ru-RU' : 'en-US';
+    const fmt = n => n.toLocaleString(loc);
+    const short = n => n >= 1e6 ? (n/1e6).toLocaleString(loc,{maximumFractionDigits:1}) + (lang==='ru'?' млн':'M') : n >= 1e3 ? Math.round(n/1e3).toLocaleString(loc) + (lang==='ru'?' тыс.':'k') : String(n);
+    const dt = s => new Date(s).toLocaleString(loc, { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+    const L = o => o[lang];
+    const conn = this.props.connection || 'live';
+    const altMode = this.props.alternatives || 'sample';
+    const { pid, page } = this.state;
+    const p = PROJECTS[pid];
+    const stB = (st) => Object.assign({ label: st === 'todo' ? t.notStarted : ST_LABEL[st] }, ST[st]);
+    const curEpic = p.roadmapOk ? p.epics.find(e => e.n === p.cur) : null;
+    const idOf = (e, c) => `${e.slug}/${c.n}`;
+
+    // shell
+    const rail = ORDER.map(id => {
+      const q = PROJECTS[id], sel = id === pid, run = q.runs.length > 0, att = q.attention.length > 0;
+      return { name:q.name, initials:q.initials, onClick:() => this.setState({ pid:id, page: ['projects','attention'].includes(page) ? page : page === 'task' ? 'overview' : page }),
+        bg: sel ? 'var(--accent-soft)' : 'var(--panel)', fg: sel ? 'var(--accent-text)' : 'var(--muted)', bd: sel ? 'var(--accent)' : 'var(--border)',
+        hasDot: run || att, dot: run ? 'var(--ok)' : 'var(--warn)' };
+    });
+    const ni = (key, target) => ({ bg: page === key ? 'var(--hover)' : 'transparent', fg: page === key ? 'var(--text)' : 'var(--muted)', go: () => this.go(target || key) });
+    const nav = { ov:ni('overview'), pr:ni('project'), us:ni('usage'), at:ni('attention'), pa:ni('projects'), attnCount: p.attention.length, hasAttn: p.attention.length > 0 };
+    if (page === 'task') nav.pr = Object.assign(nav.pr, { bg:'var(--hover)', fg:'var(--text)' });
+    const segOn = { bg:'var(--panel)', fg:'var(--text)', sh:'0 1px 2px rgba(0,0,0,.08)' }, segOff = { bg:'transparent', fg:'var(--muted)', sh:'none' };
+    const fresh = conn === 'live' ? { text:t.updated(this.state.sec), dot:'var(--ok)', fg:'var(--faint)' }
+      : conn === 'loading' ? { text:t.connecting, dot:'var(--faint)', fg:'var(--faint)' } : { text:t.stale, dot:'var(--warn)', fg:'var(--warn-text)' };
+    const side = { hasEpic: !!curEpic, noEpic: !curEpic, epic: curEpic ? `${curEpic.n} ${curEpic.name}` : '', noEpicReason: p.badReason || '' };
+
+    const pageName = { overview:t.overview, project:t.project, usage:t.usage, attention:t.attention, projects:t.projectsAll, task:t.project }[page];
+    let crumbs;
+    if (page === 'projects' || page === 'attention') crumbs = [{ label: pageName, last:true, font:'var(--sans)' }];
+    else if (page === 'task') crumbs = [{ label:p.name, link:true, go:() => this.go('overview'), font:'var(--sans)' }, { label:t.project, link:true, sep:true, go:() => this.go('project'), font:'var(--sans)' }, { label:this.state.taskId, last:true, sep:true, font:'var(--mono)' }];
+    else crumbs = [{ label:p.name, link:true, go:() => this.go('overview'), font:'var(--sans)' }, { label:pageName, last:true, sep:true, font:'var(--sans)' }];
+
+    // overview
+    const ov = { roadmapOk: p.roadmapOk, roadmapBad: !p.roadmapOk, badReason: p.badReason };
+    if (p.roadmapOk) {
+      const warn = p.next.warn === 'stale' ? { txt:t.warnStale, code:'next_action.stale' } : p.next.warn === 'nocmd' ? { txt:t.warnNoCmd, code:'next_action.no_command' } : null;
+      ov.next = { sentence:p.next.sentence, cmd:p.next.cmd || '', hasCmd:!!p.next.cmd, hasWarn:!!warn && this.props.showWarnings !== false, warn:warn ? warn.txt : '', warnCode: warn ? warn.code : '' };
+      let alts = altMode === 'none' ? [] : (p.alts[altMode] || p.alts.sample || []);
+      ov.alts = alts.map(a => ({ title:a[lang][0], reason:a[lang][1], cmd:a.cmd || '', hasCmd:!!a.cmd, isAuto:a.kind==='auto', isHand:a.kind==='hand', isPar:a.kind==='par', isWait:a.kind==='wait' }));
+      ov.hasAlts = ov.alts.length > 0;
+      ov.epics = p.epics.map(e => {
+        const pct = e.total ? Math.round(e.done / e.total * 100) : 0;
+        return { n:e.n, name:e.name, tip:`${e.n} ${e.name} · ${stB(e.st).label}`, isDone:e.st==='done', isActive:e.st==='inprogress', isTodo:e.st==='todo',
+          bar: e.st==='done' ? 'var(--muted)' : e.st==='inprogress' ? `linear-gradient(90deg,var(--accent) ${pct}%,var(--chip) ${pct}%)` : 'var(--chip)',
+          fg: e.st==='todo' ? 'var(--faint)' : 'var(--text)', fw: e.st==='inprogress' ? '600' : '400' };
+      });
+      ov.cur = { label:`${curEpic.n} ${curEpic.name}`, hasTasks: curEpic.total > 0, noTasks: curEpic.total === 0, w:`${curEpic.total ? curEpic.done/curEpic.total*100 : 0}%`, txt:t.tasksDone(curEpic.done, curEpic.total) };
+      const readyCards = curEpic.cards.filter(c => c.st === 'ready');
+      const waiting = curEpic.cards.filter(c => c.st === 'backlog' && c.deps);
+      ov.ready = [...readyCards, ...waiting].map((c, i) => ({ id:idOf(curEpic, c), title:c.title, cmd:c.cmd || '', hasCmd: c.st === 'ready' && !!c.cmd, parallel: !!c.parallel,
+        waiting: !!c.deps && c.st !== 'ready', waitTxt: c.deps ? t.waitsOn(c.deps.join(', ')) : '', op: c.st === 'ready' ? 1 : 0.55, bt: i ? '1px solid var(--border)' : '0', open:() => this.openTask(pid, idOf(curEpic, c)) }));
+      ov.readyCount = readyCards.length;
+    } else { ov.ready = []; ov.readyCount = ''; ov.epics = []; ov.alts = []; ov.next = {}; ov.cur = {}; }
+    ov.hasReady = ov.ready.length > 0;
+    ov.readyEmpty = !ov.hasReady;
+    ov.readyEmptyTitle = !p.roadmapOk ? t.na : (curEpic && curEpic.total === 0) ? t.noTasksTitle : t.nothing;
+    ov.readyEmptyBody = !p.roadmapOk ? t.roadmapBad : (curEpic && curEpic.total === 0) ? t.noTasksBody : '';
+    ov.runs = p.runs.map((r, i) => ({ hasTask:!!r.task, noTask:!r.task, task:r.task, title:r.title, role:r.role, harness:r.harness, model:r.model, branch:r.branch, last:t.ago(r.min), bt: i ? '1px solid var(--border)' : '0', open:() => this.openTask(pid, r.task) }));
+    ov.hasRuns = ov.runs.length > 0; ov.noRuns = !ov.hasRuns; ov.runCount = ov.runs.length || '';
+    ov.attn = p.attention.map((a, i) => ({ msg:L(a), code:a.code, bt: i ? '1px solid var(--border)' : '0' }));
+    ov.hasAttn = ov.attn.length > 0; ov.noAttn = !ov.hasAttn;
+    ov.usageOk = !!p.usage; ov.usageNa = !p.usage; ov.usReason = t.noSession;
+    if (p.usage) { ov.usToday = fmt(p.usage.today.output); ov.usWeek = fmt(p.usage.week.output); }
+
+    // projects
+    const projRows = ORDER.map(id => {
+      const q = PROJECTS[id], ce = q.roadmapOk ? q.epics.find(e => e.n === q.cur) : null;
+      return { name:q.name, initials:q.initials, path:q.path, ok:q.roadmapOk, bad:!q.roadmapOk, epic: ce ? `${ce.n} ${ce.name}` : '', st: ce ? stB(ce.st) : {}, next: q.next ? q.next.sentence : '',
+        running:q.runs.length, runDot: q.runs.length ? 'var(--ok)' : 'var(--border-strong)', attn:q.attention.length,
+        atBg: q.attention.length ? 'var(--warn-soft)' : 'var(--chip)', atFg: q.attention.length ? 'var(--warn-text)' : 'var(--faint)', open:() => this.go('overview', { pid:id }) };
+    });
+
+    // project board
+    const pj = { ok:p.roadmapOk, bad:!p.roadmapOk, badReason:p.badReason };
+    if (p.roadmapOk) {
+      const bn = this.state.boardEpic[pid] || p.cur;
+      const be = p.epics.find(e => e.n === bn);
+      pj.epics = p.epics.map(e => ({ n:e.n, name:e.name, st:stB(e.st), count:t.tasksCount(e.done, e.total), spec:`docs/specs/${e.slug}/spec.md`,
+        pick:() => this.setState(s => ({ boardEpic:Object.assign({}, s.boardEpic, { [pid]:e.n }), doneOpen:false })),
+        rowBg: e.n === bn ? 'var(--accent-soft)' : 'transparent', tabBg: e.n === bn ? 'var(--panel)' : 'transparent', tabFg: e.n === bn ? 'var(--text)' : 'var(--muted)', tabSh: e.n === bn ? '0 1px 2px rgba(0,0,0,.08)' : 'none' }));
+      pj.boardName = `${be.n} ${be.name}`; pj.boardSt = stB(be.st);
+      pj.boardEmpty = be.total === 0; pj.boardHas = be.total > 0;
+      const card = c => {
+        const rv = c.review;
+        return { num:idOf(be, c), title:c.title, blocked:!!c.blocked, hasDeps:!!c.deps, deps:c.deps ? c.deps.join(', ') : '',
+          hasReview:!!rv, review: rv === 'missing' ? t.noReview : `Review: ${rv}`, rvBg: rv === 'missing' ? 'var(--warn-soft)' : rv === 'changes requested' ? 'var(--err-soft)' : 'var(--chip)', rvFg: rv === 'missing' ? 'var(--warn-text)' : rv === 'changes requested' ? 'var(--err-text)' : 'var(--muted)',
+          fromRuns:!!c.fromRuns, last: c.run ? t.ago(c.run.min) : '', runTxt: c.run ? `${c.run.harness} · ${c.run.model} · ${c.run.role}` : '', ticketNote: c.ticketSt ? t.ticketSays(c.ticketSt) : '',
+          op: c.deps ? 0.6 : 1, open:() => this.openTask(pid, idOf(be, c)) };
+      };
+      const by = st => be.cards.filter(c => c.st === st);
+      const doneCards = by('done');
+      const doneShown = this.state.doneOpen ? doneCards : doneCards.slice(0, 3);
+      const extra = be.done - doneShown.length;
+      pj.cols = [
+        { name:'Backlog', count:by('backlog').length, cards:by('backlog').map(card) },
+        { name:'Ready', count:by('ready').length, cards:by('ready').map(card) },
+        { name:'In progress', count:by('inprogress').length, cards:by('inprogress').map(card) },
+        { name:'Done', count:be.done, cards:doneShown.map(card), hasMore: be.done > 3 && (extra > 0 || this.state.doneOpen), moreLbl: this.state.doneOpen ? t.showLess : t.moreDone(extra), toggle:() => this.setState(s => ({ doneOpen:!s.doneOpen })) },
+      ].map(c => Object.assign(c, { empty: c.cards.length === 0 }));
+    }
+
+    // task
+    let tk = {};
+    if (page === 'task' && this.state.taskId) {
+      const id = this.state.taskId, [slug, n] = id.split('/');
+      const e = p.epics.find(x => x.slug === slug) || {};
+      const c = (e.cards || []).find(x => x.n === n) || { title:id, st:'ready' };
+      const d = TASKS[id] || { triage:'ready-for-agent', runs:[], body:`## ${c.title}\n\nSee docs/specs/${slug}/spec.md for the Epic's context.` };
+      const st = c.st;
+      const ticketFile = c.cmd ? c.cmd.split(' ')[1] : `docs/specs/${slug}/issues/${n}-${c.title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/-$/,'')}.md`;
+      const runs = d.runs || [];
+      tk = { id, title:c.title, st:stB(st), fromRuns:!!c.fromRuns, fromRunsNote: c.ticketSt ? t.fromRunsNote(c.ticketSt) : '',
+        triage:d.triage, blockedBy: c.deps ? c.deps.map(x => `${slug}/${x}`).join(', ') : '—', spec:`docs/specs/${slug}/spec.md`, ticket:ticketFile,
+        hasBranch:!!d.branch, noBranch:!d.branch, branch:d.branch || '', branchReason:t.noRunYet,
+        hasCmd: st !== 'done' && !c.fromRuns && st !== 'cancelled', cmd: c.cmd || `/mattpocock-skills:implement ${ticketFile}`,
+        body:d.body, hasReview:!!d.review, noReview:!d.review, review:d.review || '',
+        runCount: runs.length || '', noRuns: runs.length === 0,
+        runs: runs.map((r, i) => ({ head:`${r.harness} · ${r.model} · ${r.role}`, status: r.live ? t.running : t.ended, stFg: r.live ? 'var(--ok)' : 'var(--faint)',
+          dot: r.live ? 'var(--ok)' : 'var(--panel)', dotBd: r.live ? 'var(--ok)' : 'var(--border-strong)', anim: r.live ? 'bn-pulse 2s infinite' : 'none', line: i < runs.length - 1 ? 'var(--border)' : 'transparent',
+          branch:r.branch, checkout:r.checkout, start:dt(r.start), last: r.live ? t.ago(r.min) : dt(r.end), tokens:fmt(r.tokens) })),
+        usageOk:!!d.usage, usageNa:!d.usage, usageReason:t.noRunYet,
+        usage: d.usage ? [
+          { label:t.input, v:fmt(d.usage.input), pad:'0' }, { label:t.cachedInput, v:fmt(d.usage.cached), pad:'0' }, { label:t.cacheCreation, v:fmt(d.usage.creation), pad:'0' },
+          { label:t.output, v:fmt(d.usage.output), pad:'0' }, { label:t.reasoning, v:fmt(d.usage.reasoning), pad:'14px', partial:true } ] : [],
+        naRows: [{ label:t.reviewUsage, reason:t.naReview }, { label:t.reworkUsage, reason:t.naRework }, { label:t.qa, reason:t.naQa }] };
+      if (st === 'done') tk.noCmdTxt = t.noCmdDone;
+      if (c.fromRuns) tk.noCmdTxt = t.noCmdDone;
+      tk.noCmd = !tk.hasCmd;
+    }
+
+    // usage
+    const u = p.usage;
+    const us = { ok:!!u, na:!u, reason:t.noSession };
+    if (u) {
+      const val = v => v == null ? t.na : fmt(v);
+      us.kinds = [
+        { label:t.input, today:val(u.today.input), week:val(u.week.input) },
+        { label:t.cachedInput, today:val(u.today.cached), week:val(u.week.cached) },
+        { label:t.cacheCreation, today:val(u.today.creation), week:val(u.week.creation) },
+        { label:t.output, today:val(u.today.output), week:val(u.week.output) },
+        { label:t.reasoning, today:val(u.today.reasoning), week:val(u.week.reasoning), sub:true, partial:!!u.reasoningPartial },
+      ].map(k => Object.assign(k, { pad: k.sub ? '28px' : '14px', fg: k.sub ? 'var(--muted)' : 'var(--text)' }));
+      us.reasoningNote = u.week.reasoning == null ? `${t.reasoning}: ${t.na}. ${lang==='ru'?'Ни один run этого проекта не сообщает токены рассуждений.':'No run of this project reports reasoning tokens.'}` : t.reasoningNote;
+      const bars = (arr, max) => arr.map(([k, v], i) => ({ name: k || '', v:fmt(v), w:`${Math.max(2, v / max * 100)}%`, bt: i ? '1px solid var(--border)' : '0' }));
+      const mMax = Math.max(...u.models.map(m => m[1]));
+      us.models = bars(u.models, mMax);
+      us.providers = u.providers.map(([k, v]) => ({ name: k || t.notReported, v:fmt(v), w:`${Math.max(2, v / u.week.output * 100)}%`, font: k ? 'var(--mono)' : 'var(--sans)', fg: k ? 'var(--text)' : 'var(--muted)', fs: k ? 'normal' : 'italic', bar: k ? 'var(--accent)' : 'var(--border-strong)' }));
+      const tMax = Math.max(...u.tasks.map(m => m[1]));
+      us.tasks = u.tasks.map(([k, v], i) => ({ name: k || t.unassigned, v:fmt(v), w:`${Math.max(2, v / tMax * 100)}%`, font: k ? 'var(--mono)' : 'var(--sans)', fg: k ? 'var(--accent-text)' : 'var(--muted)', bar: k ? 'var(--accent)' : 'var(--border-strong)', bt: !k ? '1px dashed var(--border)' : i ? '1px solid var(--border)' : '0', open: k ? () => this.openTask(pid, k) : () => {} }));
+      const rMax = Math.max(...u.roles.map(m => m[1]));
+      us.roles = bars(u.roles, rMax);
+      const implTasks = u.tasks.filter(x => x[0]).slice(0, u.completed).reduce((a, x) => a + x[1], 0);
+      us.perTask = fmt(Math.round(implTasks / u.completed)); us.perTaskNote = t.perTaskNote(u.completed);
+      us.runsPer = (u.runs / u.runTasks).toLocaleString(loc, { maximumFractionDigits:1 }); us.runsNote = t.runsNote(u.runs, u.runTasks);
+      const wMax = Math.max(...u.weeks);
+      us.weeks = u.weeks.map((v, i) => { const last = i === u.weeks.length - 1; return { v:fmt(v), short:short(v), h:`${Math.max(3, v / wMax * 100)}%`, lbl: last ? `${t.thisWeek}, ${t.partial}` : t.weeksAgo(u.weeks.length - 1 - i), bg: last ? 'transparent' : 'var(--accent)', bd: last ? '1px dashed var(--accent)' : '0' }; });
+      us.harnesses = [
+        { name:'claude-code', has:true, none:false, lvl:t.level(3), note:t.ccNote, pips:[1,2,3,4].map(i => ({ bg: i <= 3 ? 'var(--accent)' : 'var(--chip)' })), bt:'0' },
+        { name:'codex', has:false, none:true, note:t.codexNone, pips:[], bt:'1px solid var(--border)' },
+      ];
+      us.levelsLegend = t.levelsLegend;
+    }
+
+    // attention (all)
+    const at = {
+      groups: ORDER.map(id => { const q = PROJECTS[id]; return { name:q.name, initials:q.initials, count:q.attention.length, empty:q.attention.length === 0,
+        items:q.attention.map((a, i) => ({ msg:L(a), code:a.code, bt: i ? '1px solid var(--border)' : '0' })), open:() => this.go('overview', { pid:id }) }; }),
+      running: ORDER.flatMap(id => PROJECTS[id].runs.map(r => ({ project:PROJECTS[id].name, what: r.task ? `${r.task}` : r.role, meta:`${r.harness} · ${r.model} · ${r.branch}`, last:t.ago(r.min) }))),
+      recent: [
+        { project:'Binnacle', what:'minimal-dashboard/09', meta:'claude-code · claude-opus-5 · implementation', min:960 },
+        { project:'Binnacle', what:'minimal-dashboard/08', meta:'claude-code · claude-opus-5-5 · implementation', min:1470 },
+        { project:'Binnacle', what:'product', meta:'claude-code · claude-opus-5 · main', min:1580 },
+        { project:'Shop API', what:'refunds/02', meta:'claude-code · claude-opus-5 · implementation', min:4320 },
+      ].map(r => Object.assign(r, { last:t.ago(r.min) })),
+    };
+    at.running.forEach((r, i) => r.bt = i ? '1px solid var(--border)' : '0');
+    at.recent.forEach((r, i) => r.bt = i ? '1px solid var(--border)' : '0');
+    at.runCount = at.running.length;
+
+    return {
+      t, lang, p, rail, nav, side, fresh, crumbs, ov, projRows, pj, tk, us, at,
+      theme: this.props.theme || 'system', nuxtShow: this.props.showNuxtOutlines ? 'true' : 'false',
+      conn: { live: conn === 'live', loading: conn === 'loading', down: conn === 'daemon-down' },
+      pg: { overview: page === 'overview', projects: page === 'projects', project: page === 'project', task: page === 'task', usage: page === 'usage', attention: page === 'attention' },
+      langEn: lang === 'en' ? segOn : segOff, langRu: lang === 'ru' ? segOn : segOff,
+      setEn: () => this.setState({ lang:'en' }), setRu: () => this.setState({ lang:'ru' }),
+      modal: this.state.modal, openModal: () => this.setState({ modal:true }), closeModal: () => this.setState({ modal:false }), stop: e => e.stopPropagation(),
+    };
+  }
+}
+</script>
+</body>
+</html>

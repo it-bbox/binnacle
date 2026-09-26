@@ -26,9 +26,9 @@ Design is complete: `docs/08-open-questions.md` is resolved by ADR-0001 to ADR-0
 
 Epics 1 to 5 are done: the daemon and its store (epic 1); the snapshot, daily and checkpoint over MCP, and the `binnacle` plugin with autopilot (epic 2); Tasks from GitHub, GitLab or local tickets, and `binn init` (epic 3); usage by model, Task and role (epic 4); the read-only dashboard, `binn dashboard` (epic 5). Binnacle writes nothing into the repository.
 
-Epic 6, Dashboard design and languages, was grilled on 2026-09-26 from the owner's findings on epic 5's dashboard (ticket 09's *Comments*): a "What's next" block that leads with the Next action and offers Binnacle's alternatives beside it, English and Russian, Paperclip's shell, Nuxt UI (ADR-0033). Its decisions and the prompt for the designer are in `specs/dashboard-design-and-languages/design-brief.md`. The owner gives that prompt to an AI design tool and saves the mockup in `design/` beside the brief.
+Epic 6, Dashboard design and languages, was grilled on 2026-09-26 from the owner's findings on epic 5's dashboard (ticket 09's *Comments*): a "What's next" block that leads with the Next action and offers Binnacle's alternatives beside it, English and Russian, Paperclip's shell, Nuxt UI (ADR-0033). Its decisions and the prompt for the designer are in `specs/dashboard-design-and-languages/design-brief.md`. The mockup, made in Claude Design from that prompt, is in `design/` beside it.
 
-Next action: once the mockup is saved beside the brief, specify epic 6 from both. `/mattpocock-skills:to-spec`
+Next action: specify epic 6 from its design brief and mockup. `/mattpocock-skills:to-spec`
 
 ## Later
 

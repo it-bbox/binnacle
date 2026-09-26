@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div data-nuxt="UInput (readonly) + UButton copy" style="display:flex;align-items:center;gap:8px;min-width:0;background:var(--code-bg);border:1px solid var(--border);border-radius:7px;padding:4px 4px 4px 10px">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:var(--faint)"><path d="m9 18 6-6-6-6"></path></svg>
+<sc-if value="{{ wrap }}" hint-placeholder-val="{{ false }}"><code style="flex:1;min-width:0;font-family:var(--mono);font-size:13px;line-height:1.5;padding:5px 0;word-break:break-all;color:var(--text)">{{ cmd }}</code></sc-if>
+<sc-if value="{{ nowrap }}" hint-placeholder-val="{{ true }}"><code title="{{ cmd }}" style="flex:1;min-width:0;font-family:var(--mono);font-size:12px;line-height:1.5;padding:3px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)">{{ cmd }}</code></sc-if>
+<sc-if value="{{ primary }}" hint-placeholder-val="{{ false }}"><button onClick="{{ copy }}" data-nuxt="UButton color=primary" style="flex:none;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:6px;border:0;background:var(--accent);color:var(--on-accent);font-size:12.5px;font-weight:500;cursor:pointer" style-hover="filter:brightness(1.08)">
+<sc-if value="{{ notCopied }}" hint-placeholder-val="{{ true }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg></sc-if>
+<sc-if value="{{ copied }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></sc-if>
+<span>{{ label }}</span></button></sc-if>
+<sc-if value="{{ secondary }}" hint-placeholder-val="{{ true }}"><button onClick="{{ copy }}" data-nuxt="UButton variant=outline size=xs" style="flex:none;display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 8px;border-radius:5px;border:1px solid var(--border-strong);background:var(--panel);color:var(--text);font-size:11.5px;font-weight:500;cursor:pointer" style-hover="background:var(--hover)">
+<sc-if value="{{ notCopied }}" hint-placeholder-val="{{ true }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg></sc-if>
+<sc-if value="{{ copied }}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></sc-if>
+<span>{{ label }}</span></button></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:520,&quot;height&quot;:60},&quot;cmd&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;/binnacle:autopilot&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;lang&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;en&quot;,&quot;ru&quot;],&quot;default&quot;:&quot;en&quot;,&quot;tsType&quot;:&quot;'en'|'ru'&quot;},&quot;wrap&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;primary&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { copied: false };
+  copy = () => {
+    const c = this.props.cmd || '';
+    const fallback = () => { const ta = document.createElement('textarea'); ta.value = c; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} ta.remove(); };
+    try { navigator.clipboard.writeText(c).catch(fallback); } catch (e) { fallback(); }
+    this.setState({ copied: true });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ copied: false }), 1600);
+  };
+  componentWillUnmount() { clearTimeout(this._t); }
+  renderVals() {
+    const ru = this.props.lang === 'ru';
+    const c = this.state.copied;
+    return {
+      cmd: this.props.cmd || '',
+      wrap: !!this.props.wrap, nowrap: !this.props.wrap,
+      primary: !!this.props.primary, secondary: !this.props.primary,
+      copied: c, notCopied: !c, copy: this.copy,
+      label: c ? (ru ? 'Скопировано' : 'Copied') : (ru ? 'Скопировать' : 'Copy'),
+    };
+  }
+}
+</script>
+</body>
+</html>

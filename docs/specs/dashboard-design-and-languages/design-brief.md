@@ -25,6 +25,18 @@ The order of work: the owner gives the prompt below to an AI design tool, the mo
 - **Desktop first:** the layout holds down to 1024 px; there is no phone layout.
 - **The mockup covers every page and its states:** loading, the daemon unreachable, a project without a roadmap, no Tasks, nothing running, elements not available.
 
+## The mockup
+
+Saved on 2026-09-26 in `design/`: `Binnacle Dashboard.dc.html`, the whole dashboard, and `Command.dc.html`, the command with its copy button, made in Claude Design. Open the first in a browser beside `support.js`, Claude Design's runtime, which loads React and Babel from unpkg: the mockup is a reference, never shipped. Its props switch the connection state (live, loading, daemon down), the alternatives shown (sample, all, none), the language, the theme, and outlines naming the Nuxt UI component each element stands for (`data-nuxt`). Its sample projects cover the other states: Shop API, a Next action without a command; Ledger, a roadmap that cannot be read; Scratch CLI, Epics without Tasks.
+
+It covers every page and state the prompt asked for. What `/mattpocock-skills:to-spec` takes from it is the layout, the components, the tokens and the strings, not its data or its codes, which the designer invented. Where they differ, Binnacle's truth wins:
+
+- **Fonts.** It loads IBM Plex Sans and JetBrains Mono from Google Fonts; the dashboard bundles them, or falls back to system fonts (ADR-0033).
+- **Attention codes and commands.** `next_action.no_command`, `roadmap.unreadable` and `tasks.none` do not exist: Binnacle's are `next_action.missing`, `roadmap.missing`, `roadmap.table_missing` and the others it emits. `/mattpocock-skills:to-issues` is `/mattpocock-skills:to-tickets`.
+- **Support levels.** Its legend reads "sessions seen, model and branch, token counts, cost"; the levels are Context, Attribution, Usage and Live (`CONTEXT.md`, *Harness support level*).
+- **Review states.** Its cards show "approved" and "changes requested"; Binnacle reads a Review as text from the ticket's `### Review`, and knows only whether a `DONE` Task has one.
+- **A Task in progress** from runs shows "None: this Task is Done" as its start command. The spec decides what that Task's page offers instead.
+
 ## The prompt for the designer
 
 Everything below the line is the prompt, as given to the design tool.
