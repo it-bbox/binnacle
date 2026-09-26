@@ -276,6 +276,32 @@ describe('GitHub issues as Tasks in the Product Snapshot', () => {
       assert.match(mismatch[0]!.message, /not DONE or CANCELLED: #1, #2\.$/);
     });
   });
+
+  it("calls the Next action stale when its command names a DONE issue by #number or by its URL", async () => {
+    const pages = [
+      [
+        issue(1, 'Finished', { state: 'closed', state_reason: 'completed', body: header({ Status: 'DONE', Spec: 'docs/specs/first/spec.md' }) }),
+        issue(2, 'Open', { body: header({ Status: 'READY', Spec: 'docs/specs/first/spec.md' }) }),
+      ],
+    ];
+    await withGitHub(pages, async (daemon, fake) => {
+      const root = makeProject(manifest(fake.base, '\nknowledge:\n  docs: docs\n'));
+      mkdirSync(join(root, 'docs'));
+      const roadmap = (command: string): string =>
+        ['# Roadmap', '', '| # | Epic | Status | Spec |', '| --- | --- | --- | --- |', '| 1 | First | in progress | [`first`](specs/first/spec.md) |', '', '## Current focus', '', `Next action: take it. \`${command}\``, ''].join('\n');
+      assert.equal((await daemon.call('project.register', { path: root })).status, 200);
+      for (const [command, stale] of [
+        ['/binnacle:task #1', true],
+        [`/mattpocock-skills:implement https://github.com/${REPOSITORY}/issues/1`, true],
+        ['/binnacle:task #2', false],
+      ] as const) {
+        writeFileSync(join(root, 'docs', 'roadmap.md'), roadmap(command));
+        const result = await daemon.call<Snapshot>('project.snapshot', { path: root });
+        const codes = result.body.attention.map((item) => item.code).filter((code) => code.startsWith('next_action.'));
+        assert.deepEqual(codes, stale ? ['next_action.stale'] : [], command);
+      }
+    });
+  });
 });
 
 describe('a GitHub tracker that cannot be read', () => {

@@ -26,7 +26,7 @@ const { data, error } = usePolling(loadProjects);
             <p>{{ view.snapshot.next.action.description }}</p>
             <CopyCommand :command="view.snapshot.next.action.command" />
           </template>
-          <p v-else class="warn">The current focus does not end with a Next action; attention says why.</p>
+          <p v-else class="warn">No Next action: the roadmap cannot be read, or its current focus does not end with one. Attention says why.</p>
         </div>
         <div>
           <h3>Suggested step</h3>

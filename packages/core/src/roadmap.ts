@@ -168,6 +168,9 @@ export function nextActionAttention(roadmap: Roadmap, tasks: TrackerTask[] | nul
       },
     ];
   }
+  // ponytail: whole words only, so a path written in quotes, from `./` or with trailing punctuation
+  // is not matched; the start command writes the ticket as the tracker gives it. Normalise words if
+  // hand-written commands miss a stale focus in practice.
   const words = next.command.split(/\s+/);
   const named = (tasks ?? []).filter((task) => (task.state === 'DONE' || task.state === 'CANCELLED') && words.some((word) => word === task.id || word === task.ticket));
   if (named.length === 0) return [];
@@ -217,7 +220,7 @@ export function suggestedStep(
     return title ? `${id} (${title})` : id;
   };
 
-  const working = [...runs]
+  const working = runs
     .filter((run) => run.role === 'implementation' && run.active.value && run.taskId !== null)
     .sort((a, b) => (a.lastActivityAt < b.lastActivityAt ? 1 : a.lastActivityAt > b.lastActivityAt ? -1 : 0));
   const worked = [...new Set(working.map((run) => run.taskId!))];
