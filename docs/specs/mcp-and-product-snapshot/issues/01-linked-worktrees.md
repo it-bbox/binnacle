@@ -30,3 +30,7 @@ Formerly ticket 08 of epic 1 (`core-and-persistence`), found by registering this
 - **Known limit.** Two projects registered in one repository make a worktree beside it ambiguous; it is refused as `project.not_registered` rather than guessed (a `ponytail:` note in `resolveEntry`).
 - **Cost.** A status from anywhere but the registered root makes two extra parallel `rev-parse` calls, one per side, where the spec accepted one. A status from a worktree beside the repository also reads every registered project's location once to resolve it.
 - **Checked on this repository.** From its `.claude/worktrees/` worktree, `binn project status` reports the worktree's branch and `checkout … (linked worktree)`; before, it reported the main checkout's branch.
+
+### Review
+
+No code review was recorded when this ticket was closed on 2026-09-23. None is reconstructed after the fact.
