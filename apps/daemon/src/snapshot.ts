@@ -37,6 +37,8 @@ export const SECTION_LIMIT = 10;
 export const DECISION_LIMIT = 5;
 /** In characters: Unicode code points. */
 export const FOCUS_LIMIT = 2000;
+/** Agents at once where the manifest writes no `automation.max_parallel_development_tasks`, as autopilot reads it. */
+export const PARALLEL_LIMIT = 2;
 
 type InFlight = 'ACTIVE' | 'BLOCKED' | 'READY_FOR_REVIEW' | 'APPROVED' | 'MERGE_READY';
 
@@ -95,6 +97,11 @@ export type Snapshot = {
      * dependency, with no attributed run, and `unknown` one whose tracker value is not a Task state.
      */
     counts: TaskCounts;
+    /**
+     * How many Tasks may be worked on at once: the manifest's limit, the Tasks in flight, and
+     * what is left of the limit, never below zero. Binnacle's calculation.
+     */
+    parallel: { limit: number; inProgress: number; free: number; provenance: 'calculated' };
   } | null;
   /**
    * The most recently committed ADRs; one never committed counts as the most recent, and
@@ -141,7 +148,7 @@ export async function snapshot(
       action: nextAction(roadmap?.focus ?? null),
       suggested: tasks ? suggestedStep(roadmap?.epics ?? [], tasks, runs, workflow) : trackerUnavailable(unreadable),
     },
-    tasks: tasks && withStart(taskSections(tasks, new Set(runs.flatMap((run) => run.taskId ?? []))), workflow),
+    tasks: tasks && withStart(taskSections(tasks, new Set(runs.flatMap((run) => run.taskId ?? []))), workflow, projected.manifest?.automation.maxParallelDevelopmentTasks ?? PARALLEL_LIMIT),
     decisions: adrs && (await recentDecisions(tree, caller.project, adrs)),
     pendingDecisions: UNAVAILABLE,
     ci: UNAVAILABLE,
@@ -264,10 +271,16 @@ export function taskSections(tasks: ResolvedTask[], attributed: ReadonlySet<stri
   return { inFlight: section(listedInFlight), readyToStart: section(readyToStart), counts };
 }
 
-/** The snapshot's sections, each Task with its start command under the project's `workflow.provider`. */
-function withStart({ inFlight, readyToStart, counts }: ReturnType<typeof taskSections>, workflow: string | null): NonNullable<Snapshot['tasks']> {
+/** The snapshot's sections, each Task with its start command under the project's `workflow.provider`, and the parallel capacity under `limit`. */
+function withStart({ inFlight, readyToStart, counts }: ReturnType<typeof taskSections>, workflow: string | null, limit: number): NonNullable<Snapshot['tasks']> {
   const startable = ({ items, remainder }: Section): SectionWithStart => ({ items: items.map((task) => ({ ...task, start: startCommand(task, workflow) })), remainder });
-  return { inFlight: startable(inFlight), readyToStart: startable(readyToStart), counts };
+  const inProgress = inFlight.items.length + inFlight.remainder;
+  return {
+    inFlight: startable(inFlight),
+    readyToStart: startable(readyToStart),
+    counts,
+    parallel: { limit, inProgress, free: Math.max(0, limit - inProgress), provenance: 'calculated' },
+  };
 }
 
 /** In tracker order, which the adapter makes stable. */

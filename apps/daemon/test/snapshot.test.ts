@@ -21,7 +21,12 @@ type Snapshot = {
   checkout: { root: string; registered: boolean };
   git: { available: true; branch: string | null; commit: string | null; dirty: boolean } | { available: false };
   roadmap: { epics: Epic[]; focus: { text: string; truncated: boolean } | null; sections: string[] } | null;
-  tasks: { inFlight: Section; readyToStart: Section; counts: Record<string, number> } | null;
+  tasks: {
+    inFlight: Section;
+    readyToStart: Section;
+    counts: Record<string, number>;
+    parallel: { limit: number; inProgress: number; free: number; provenance: string };
+  } | null;
   decisions: { items: { title: string | null; path: string }[]; remainder: number } | null;
   pendingDecisions: Unavailable;
   ci: Unavailable;
@@ -220,6 +225,32 @@ describe('Tasks in the Product Snapshot', () => {
       const body = await snapshot(daemon, root);
       assert.deepEqual(ids(body.tasks!.readyToStart), []);
       assert.deepEqual(ids(body.tasks!.inFlight), ['epic/01']);
+    });
+  });
+
+  it("computes the parallel capacity from the manifest's limit, counting every Task in flight, the ones past the list's limit too", async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject(`${MANIFEST}\nautomation:\n  max_parallel_development_tasks: 14\n`);
+      for (let index = 1; index <= 12; index++) {
+        const nn = String(index).padStart(2, '0');
+        ticket(root, 'epic', `${nn}-busy.md`, { title: `${nn}: Busy`, status: 'ACTIVE' });
+      }
+      ticket(root, 'epic', '13-ready.md', { title: '13: Ready', status: 'READY' });
+
+      const body = await snapshot(daemon, root);
+      assert.equal(body.tasks!.inFlight.remainder, 2);
+      assert.deepEqual(body.tasks!.parallel, { limit: 14, inProgress: 12, free: 2, provenance: 'calculated' });
+    });
+  });
+
+  it('takes a parallel limit of two where the manifest writes none, and never gives less than nothing free', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject();
+      ticket(root, 'epic', '01-ready.md', { title: '01: Ready', status: 'READY' });
+      assert.deepEqual((await snapshot(daemon, root)).tasks!.parallel, { limit: 2, inProgress: 0, free: 2, provenance: 'calculated' });
+
+      for (const nn of ['02', '03', '04']) ticket(root, 'epic', `${nn}-busy.md`, { title: `${nn}: Busy`, status: 'READY_FOR_REVIEW' });
+      assert.deepEqual((await snapshot(daemon, root)).tasks!.parallel, { limit: 2, inProgress: 3, free: 0, provenance: 'calculated' });
     });
   });
 
