@@ -25,11 +25,11 @@ Design is complete: `docs/08-open-questions.md` is resolved by ADR-0001 to ADR-0
 
 Epics 1 to 4 are done. The daemon, its store and `packages/core` (epic 1). `binn mcp` serves the snapshot, the daily and the checkpoint to every session through the committed `.mcp.json`, and the `binnacle` plugin gives `/binnacle:product`, `:daily`, `:checkpoint` and `:autopilot` (epic 2, ADR-0022, ADR-0023). GitHub and GitLab issues are Tasks, `/binnacle:task` gives a Task's brief and branch, and `binn init` sets up a fresh repository (epic 3, ADR-0024 to ADR-0027). The snapshot's usage section and `usage_get` give Claude Code's and Codex's tokens by model, by Task and by role; a run's branch comes from its checkout's reflog or not at all, and autopilot lets Binnacle read a ticket's worktree before removing it (epic 4, ADR-0028 to ADR-0030). Binnacle writes nothing into the repository.
 
-Epic 5, Minimal dashboard, grilled on 2026-09-26 from the owner's feedback that the process was hard to follow, gives a read-only dashboard, served by the daemon, that answers where each project stands and what to type next (phase 5; ADR-0031, ADR-0032). Tickets 01 to 11 are done: in the exit demonstration the owner started ticket 09 from a command copied from the dashboard, and filed ticket 11, *Ready to start* listing a Task the board shows In progress, which now lists it In progress instead. Every ticket of epic 5 is done, and a Product session closes it.
+Epic 5, Minimal dashboard, grilled on 2026-09-26 from the owner's feedback that the process was hard to follow, gives a read-only dashboard, served by the daemon, that answers where each project stands and what to type next (phase 5; ADR-0031, ADR-0032). Tickets 01 to 11 are done: in the exit demonstration the owner started ticket 09 from a command copied from the dashboard, and filed ticket 11, *Ready to start* listing a Task the board shows In progress, which now lists it In progress instead. Ticket 12, filed at the autopilot run's checkpoint, is the Suggested step waiting on a Task already done; epic 5 is done once it is.
 
 The owner found the dashboard hard to follow (ticket 09's Comments): English only, one long sheet, two suggestions that disagree, a list read as a queue, nothing on what can run in parallel. Its languages, English and Russian first, and its design go to `/grill-with-docs` in a Product session.
 
-Next action: in a Product session, close epic 5, then grill the dashboard's languages and design. `/binnacle:product`
+Next action: ticket 12. `/mattpocock-skills:implement docs/specs/minimal-dashboard/issues/12-suggested-step-waits-on-a-done-task.md`
 
 ## Later
 
