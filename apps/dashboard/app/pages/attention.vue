@@ -41,7 +41,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
       <p class="text-muted">{{ t.noProject }}</p>
       <CopyCommand command="binn project register" primary />
     </div>
-    <div v-else class="grid grid-cols-[repeat(auto-fit,minmax(380px,1fr))] items-start gap-5">
+    <div v-else class="grid grid-cols-2 items-start gap-5">
       <div class="flex min-w-0 flex-col gap-3.5">
         <UCard v-for="view in views ?? []" :key="view.project.path" :ui="card">
           <template #header>

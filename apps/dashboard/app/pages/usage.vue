@@ -25,7 +25,10 @@ const LEVELS = ['Context', 'Attribution', 'Usage', 'Live'];
 const kind = ref<Field>('output');
 const kinds = computed(() => FIELDS.map((name) => ({ label: t.value[name], value: name })));
 
-/** A set of totals as a bar: the picked kind, not reported rather than zero, marked partial, calculated or estimated. */
+/**
+ * A set of totals as a bar: the picked kind, not reported rather than zero, marked partial,
+ * calculated or estimated, with how many records it counts after the row's own note.
+ */
 function tokenRow(key: string, label: string, totals: Totals, extra: Partial<BarRow> = {}): BarRow {
   const field = totals[kind.value];
   if (totals.records === 0) return { key, label, value: null, text: t.value.noRecords, ...extra };
@@ -36,14 +39,16 @@ function tokenRow(key: string, label: string, totals: Totals, extra: Partial<Bar
     text: field.tokens === null ? t.value.notReported : number(Math.round(field.tokens)),
     marks: marks(field).map((mark) => t.value[mark]),
     ...extra,
+    note: [extra.note, plural(totals.records, t.value.recordsCount)].filter((part) => part !== undefined).join(' · '),
   };
 }
 
-/** What `usage.get` answers over, said beside what it gives. */
-const windowLabel = computed(() => {
+/** Where the import window starts, as a column names it, and as a note says it. */
+const windowColumn = computed(() => {
   const start = usage.data.value?.importing.windowStart ?? null;
-  return start === null ? t.value.importWindow : `${t.value.importWindow}, ${t.value.since(start)}`;
+  return start === null ? t.value.importWindow : t.value.sinceDate(start);
 });
+const windowLabel = computed(() => (usage.data.value?.importing.windowStart ? `${t.value.importWindow}, ${windowColumn.value}` : t.value.importWindow));
 
 const taskLink = (id: string) => ({ path: '/task', query: { project, id } });
 
@@ -54,7 +59,7 @@ const perCompleted = computed(() => {
   return {
     mean: metric.mean === null ? null : tokenRow('mean', '', metric.mean),
     rows: metric.items.map((item) =>
-      tokenRow(item.id, item.id, item.totals, { to: taskLink(item.id), note: [item.title, plural(item.runs, t.value.runsCount)].filter((part) => part !== null).join(' · ') }),
+      tokenRow(item.id, item.id, item.totals, { to: taskLink(item.id), title: item.title, note: plural(item.runs, t.value.runsCount) }),
     ),
     remainder: metric.remainder,
     count: metric.items.length + metric.remainder,
@@ -71,7 +76,8 @@ const runsPer = computed(() => {
         key: item.id,
         label: item.id,
         to: taskLink(item.id),
-        note: [item.title, t.value.ofWhichSubagents(number(item.subagentRuns))].filter((part) => part !== null).join(' · '),
+        title: item.title,
+        note: t.value.ofWhichSubagents(number(item.subagentRuns)),
         value: item.runs,
         text: number(item.runs),
       }),
@@ -90,7 +96,7 @@ const weeks = computed(() => {
   return items.map((item, index) => {
     const value = values[index] ?? null;
     const text = item.totals.records === 0 ? t.value.noRecords : value === null ? t.value.notReported : number(Math.round(value));
-    return { week: item.week, value, largest, short: value === null ? '—' : compact(value), title: `${t.value.weekOf(item.week)}: ${text}`, partial: item.totals[kind.value].partial };
+    return { week: item.week, value, largest, short: value === null ? '—' : compact(value), title: `${t.value.weekOf(item.week)}: ${text}`, marks: marks(item.totals[kind.value]).map((mark) => t.value[mark]) };
   });
 });
 
@@ -130,15 +136,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
               :columns="[
                 { key: 'today', label: t.today, totals: snapshot.usage.today },
                 { key: 'week', label: t.last7Days, totals: snapshot.usage.last7Days },
-                ...(usage.data.value
-                  ? [
-                      {
-                        key: 'window',
-                        label: usage.data.value.importing.windowStart === null ? t.importWindow : t.since(usage.data.value.importing.windowStart),
-                        totals: usage.data.value.totals,
-                      },
-                    ]
-                  : []),
+                ...(usage.data.value ? [{ key: 'window', label: windowColumn, totals: usage.data.value.totals }] : []),
               ]"
             />
           </div>
@@ -180,7 +178,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
         <UCard :ui="card">
           <template #header>
             <h2 class="text-[13px] font-semibold">{{ t.byTask }}</h2>
-            <span class="text-[11.5px] text-dimmed">{{ t.largestFirst }} · {{ t[kind] }}</span>
+            <span class="text-[11.5px] text-dimmed">{{ t.largestTasks }} · {{ t[kind] }}</span>
           </template>
           <p v-if="usage.error.value" class="px-3.5 py-3 text-warning"><code>{{ usage.error.value.code }}</code> {{ usage.error.value.message }}</p>
           <USkeleton v-else-if="usage.data.value === null" class="m-3.5 h-32" />
@@ -192,11 +190,9 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
               <p v-if="usage.data.value.tasks.items.length === 0" class="px-3.5 pt-3 text-muted">{{ t.noTaskRuns }}</p>
               <BarList
                 class="py-1"
-                :rows="[
-                  ...usage.data.value.tasks.items.map((item) => tokenRow(item.id, item.id, item.totals, { to: taskLink(item.id), note: item.title ?? undefined })),
-                  ...(isUnavailable(usage.data.value.unassigned) ? [] : [tokenRow('unassigned', t.unassigned, usage.data.value.unassigned, { muted: true })]),
-                ]"
+                :rows="usage.data.value.tasks.items.map((item) => tokenRow(item.id, item.id, item.totals, { to: taskLink(item.id), title: item.title }))"
                 :remainder="usage.data.value.tasks.remainder"
+                :last="isUnavailable(usage.data.value.unassigned) ? undefined : tokenRow('unassigned', t.unassigned, usage.data.value.unassigned, { muted: true })"
               />
             </template>
             <p v-if="isUnavailable(usage.data.value.unassigned)" class="px-3.5 pb-2 text-xs">
@@ -279,7 +275,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
                     </span>
                     <span class="text-[11px] text-dimmed">{{ plural(perCompleted.count, t.meanOverDone) }}</span>
                   </template>
-                  <p v-else class="text-muted">{{ perCompleted.withoutRuns === 0 ? t.noDoneTask : t.noDoneWithRuns }}</p>
+                  <p v-else class="text-muted">{{ perCompleted.withoutRuns === 0 ? t.noDoneTask : t.noDoneWithRuns(number(perCompleted.withoutRuns)) }}</p>
                   <span v-if="perCompleted.mean && perCompleted.withoutRuns > 0" class="text-[11px] text-dimmed">{{ plural(perCompleted.withoutRuns, t.doneWithoutRuns) }}</span>
                 </template>
               </div>
@@ -318,7 +314,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
                 />
                 <div v-else class="h-24" />
                 <span class="max-w-full truncate font-mono text-[10.5px]">{{ week.short }}</span>
-                <span v-if="week.partial" class="text-[10px] text-dimmed">{{ t.partial }}</span>
+                <span v-for="mark in week.marks" :key="mark" class="text-[10px] text-dimmed">{{ mark }}</span>
                 <span class="max-w-full truncate text-[10.5px] text-dimmed">{{ week.week.slice(5) }}</span>
               </li>
             </ol>

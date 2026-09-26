@@ -17,7 +17,7 @@ const meta = computed(() =>
       <span v-if="live" class="size-1.5 flex-none rounded-full bg-success motion-safe:animate-pulse" />
       <span v-else class="size-1.5 flex-none rounded-full border border-(--ui-text-dimmed)" />
       <template v-if="run.taskId !== null">
-        <ULink :to="{ path: '/task', query: { project: view.project.path, id: run.taskId } }" class="flex-none font-mono text-[11.5px] text-muted">{{ run.taskId }}</ULink>
+        <ULink :to="{ path: '/task', query: { project: view.project.path, id: run.taskId } }" class="min-w-0 truncate font-mono text-[11.5px] text-muted" :title="run.taskId">{{ run.taskId }}</ULink>
         <span v-if="run.taskTitle !== null" class="truncate" lang="en">{{ run.taskTitle }}</span>
       </template>
       <template v-else>
