@@ -86,8 +86,8 @@ export type Transition = { id: string; title: string | null; from: TaskState | n
  * `baseline` is null when no event of the `recorded` types exists; `diagnostics` are the
  * caller's findings, as for the snapshot. `checkpoint.prepare` calls this with its own
  * baseline, so its delta is the daily's code with the daily's fallback. `states` is what a
- * `daily` event recording this delta's head records beside it. `attributed` gives the ids of
- * the Tasks with AgentRuns attributed to them.
+ * `daily` event recording this delta's head records beside it. `readAttributed` reads the ids
+ * of the Tasks with AgentRuns attributed to them.
  */
 export async function daily(
   home: string,
@@ -95,7 +95,7 @@ export async function daily(
   caller: CallerCheckout,
   diagnostics: Diagnostic[],
   baseline: Baseline | null,
-  attributed: (tasks: ResolvedTask[]) => Promise<ReadonlySet<string>>,
+  readAttributed: (tasks: ResolvedTask[]) => Promise<ReadonlySet<string>>,
   recorded: readonly BaselineEvent[] = BASELINE_EVENTS,
 ): Promise<{ delta: Daily; states: TaskStates | null }> {
   const { head, dirty } = committedHead(caller);
@@ -123,7 +123,7 @@ export async function daily(
       from,
       fallback,
       commits: { count: commits.length, ...limited(commits) },
-      ...taskChanges(was, after, after.tasks ? await attributed(after.tasks) : new Set()),
+      ...taskChanges(was, after, after.tasks ? await readAttributed(after.tasks) : new Set()),
       roadmap: roadmapChanges(before, after),
       decisions: await decisionChanges(before, after, beforeTree, afterTree),
       attention: after.attention,

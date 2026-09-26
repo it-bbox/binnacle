@@ -130,7 +130,7 @@ export const operations: Record<string, Operation> = {
     const projected = reproject(context.store, await resolveEntry(path, context));
     const caller = await callerCheckout(path, projected.row.path);
     const baseline: Baseline | null = since ? { commit: since, source: 'since', states: null } : recordedBaseline(context.store, projected.row.path, BASELINE_EVENTS);
-    const { delta, states } = await daily(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git), baseline, attributedTo(context, projected));
+    const { delta, states } = await daily(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git), baseline, readAttributed(context, projected));
     if (!since) context.store.appendEvent({ type: 'daily', projectPath: projected.row.path, payload: { head: delta.head, ...(states && { states }) } });
     return delta;
   },
@@ -146,7 +146,7 @@ export const operations: Record<string, Operation> = {
     const caller = await callerCheckout(path, projected.row.path);
     const recorded = ['checkpoint'] as const;
     const baseline = recordedBaseline(context.store, projected.row.path, recorded);
-    const { delta } = await daily(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git), baseline, attributedTo(context, projected), recorded);
+    const { delta } = await daily(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git), baseline, readAttributed(context, projected), recorded);
     return { ...delta, targets: promotionTargets(projected.manifest) };
   },
 
@@ -277,7 +277,7 @@ function remoteMismatch(manifest: ProjectManifest | null, git: GitFacts): Diagno
 }
 
 /** The ids of the project's Tasks with AgentRuns attributed to them, as the board reads them. */
-const attributedTo =
+const readAttributed =
   (context: OperationContext, { row, manifest }: Projected) =>
   async (tasks: TrackerTask[]): Promise<ReadonlySet<string>> =>
     new Set((await latestRuns(context, row.path, manifest, tasks)).keys());

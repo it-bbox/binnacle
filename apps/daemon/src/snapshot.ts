@@ -258,7 +258,7 @@ export function taskSections(tasks: ResolvedTask[], attributed: ReadonlySet<stri
     const column = boardColumn(task.state, attributed.has(task.id))?.column;
     if (column === 'inProgress') listedInFlight.push(task);
     else if (column === 'ready' && task.unmetDependencies.length === 0) readyToStart.push(task);
-    // Every in-flight state is In progress on the board, so what is left is counted.
+    // ponytail: the cast trusts boardColumn to put every InFlight state In progress; derive the type from it if they ever drift.
     else counts[(task.state ?? 'unknown') as keyof TaskCounts]++;
   }
   return { inFlight: section(listedInFlight), readyToStart: section(readyToStart), counts };

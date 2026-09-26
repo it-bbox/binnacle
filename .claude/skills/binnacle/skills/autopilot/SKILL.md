@@ -30,7 +30,7 @@ Rules for the whole run. Never force-push, change settings, touch another reposi
 
 ## Loop
 
-5. **Start ready tickets.** The epic's tickets are the snapshot's Tasks whose ticket lies under the epic's spec directory. Start one background agent for every ticket of the epic in `readyToStart` (`READY`, no Unmet dependency) that has no agent yet and was not stopped. Such tickets have no blocking edge between them, so they may run side by side, but never more agents at once than the manifest's `automation.max_parallel_development_tasks` (`.binnacle/project.yaml`), or two where it writes none. An agent counts until its ticket merges or stops, and the others wait until then. One ticket never has two agents. If `readyToStart` has a remainder, read the rest from the tickets' `Status:` and `Blocked by:` lines.
+5. **Start ready tickets.** The epic's tickets are the snapshot's Tasks whose ticket lies under the epic's spec directory. Start one background agent for every ticket of the epic in `readyToStart` (`READY`, no Unmet dependency, no attributed run) that has no agent yet and was not stopped. Such tickets have no blocking edge between them, so they may run side by side, but never more agents at once than the manifest's `automation.max_parallel_development_tasks` (`.binnacle/project.yaml`), or two where it writes none. An agent counts until its ticket merges or stops, and the others wait until then. One ticket never has two agents. If `readyToStart` has a remainder, read the rest from the tickets' `Status:` and `Blocked by:` lines, leaving out any the snapshot lists in `inFlight`.
 
    Use the Agent tool with `run_in_background: true` and `isolation: "worktree"`, and give it this brief, filled in:
 
