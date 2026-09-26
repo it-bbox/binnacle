@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import UsageTable from '~/components/UsageTable.vue';
 import { call, usePolling, type Failure } from '~/composables/daemon';
+import { ago } from '~/composables/projects';
+import { fieldsLine, IMPORTING, windowLabel, type TaskUsage } from '~/composables/usage';
 
 /** `task.get`'s brief, as the Task page renders it. */
 type Brief = {
@@ -19,7 +22,18 @@ type Brief = {
 const route = useRoute();
 const project = typeof route.query.project === 'string' ? route.query.project : null;
 const id = typeof route.query.id === 'string' ? route.query.id : null;
-const { data, error } = usePolling(async () => (project === null || id === null ? null : call<Brief>('task.get', { path: project, id })));
+const { data, error } = usePolling(async () => {
+  if (project === null || id === null) return null;
+  const [brief, usage] = await Promise.all([call<Brief>('task.get', { path: project, id }), call<TaskUsage>('usage.get', { path: project, task: id })]);
+  return { ...brief, usage };
+});
+
+/** What the Task page cannot show yet, and why (`docs/04-telemetry-dashboard.md`). */
+const NOT_AVAILABLE = [
+  ['Review usage', 'review runs are not told apart from implementation runs.'],
+  ['Rework usage', 'rework runs are not told apart from implementation runs either.'],
+  ['Questions and answers', 'they are not yet explicit artifacts.'],
+] as const;
 
 const dependency = (item: Brief['dependencies'][number]): string =>
   item.dangling ? 'names no known Task' : `${item.state ?? 'no state'}, ${item.met ? 'met' : 'not met'}`;
@@ -60,6 +74,26 @@ const dependency = (item: Brief['dependencies'][number]): string =>
     <ul v-if="data.diagnostics.length > 0">
       <li v-for="(item, index) in data.diagnostics" :key="index" class="warn"><code>{{ item.code }}</code> {{ item.message }}</li>
     </ul>
+    <h2>Runs</h2>
+    <p v-if="data.usage.importing.incomplete" class="warn">{{ IMPORTING }}</p>
+    <p v-if="data.usage.runs.items.length === 0" class="muted">No run is attributed to this Task.</p>
+    <ol v-else class="runs">
+      <li v-for="run in data.usage.runs.items" :key="run.id">
+        {{ run.harness }}, {{ run.model ?? 'model not reported' }}, {{ run.role }} role
+        <span class="muted">
+          <template v-if="run.branch !== null"> · <code>{{ run.branch }}</code></template>
+          <template v-if="run.checkout !== null"> in <code>{{ run.checkout }}</code></template>
+          · started {{ new Date(run.startedAt).toLocaleString('en') }} · latest activity {{ ago(run.lastActivityAt) }}
+        </span>
+        <div class="muted">{{ fieldsLine(run.totals) }}</div>
+      </li>
+      <li v-if="data.usage.runs.remainder > 0" class="muted">and {{ data.usage.runs.remainder }} earlier runs</li>
+    </ol>
+    <h2>Implementation usage, {{ windowLabel(data.usage.importing) }}</h2>
+    <UsageTable :rows="[{ key: 'task', label: 'Every run of this Task', totals: data.usage.totals }]" />
+    <ul class="unavailable">
+      <li v-for="[element, reason] in NOT_AVAILABLE" :key="element">{{ element }}: not available, {{ reason }}</li>
+    </ul>
     <h2>Ticket</h2>
     <pre class="body">{{ data.body.text }}</pre>
     <p v-if="data.body.truncated" class="muted">The brief cut the body here; the whole ticket is at <code>{{ data.ticket }}</code>.</p>
@@ -90,6 +124,13 @@ dd {
 ul {
   margin: 0;
   padding-left: 1.25rem;
+}
+.runs li {
+  margin-bottom: 0.4rem;
+}
+.unavailable {
+  margin-top: 0.5rem;
+  color: var(--muted);
 }
 .body {
   white-space: pre-wrap;

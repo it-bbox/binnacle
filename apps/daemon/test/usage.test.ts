@@ -25,6 +25,7 @@ type Usage = {
   today: Totals;
   last7Days: Totals;
   byModel: { items: { model: string | null; totals: Totals }[]; remainder: number };
+  byProvider: { items: { provider: string | null; totals: Totals }[]; remainder: number };
   tasks: { items: { id: string; title: string | null; totals: Totals }[]; remainder: number } | Unavailable;
   unassigned: Totals | Unavailable;
   harnesses: { harness: string; level: number | null; reason: string | null }[];
@@ -1141,6 +1142,26 @@ describe('Codex usage in the Product Snapshot', () => {
 
       const body = await usage(daemon, root);
       assert.deepEqual(body.byModel.items.map((item) => [item.model, item.totals.records]), [['gpt-6-astra', 7], ['gpt-5.6-sol', 3]]);
+    });
+  });
+
+  it('lists the last seven days by provider, with the records whose artifacts state none in a row of their own', async () => {
+    await withDaemon(async (daemon, artifacts, codex) => {
+      const root = makeProject(temporary('binnacle-usage-'));
+      // Codex states its provider; Claude Code states none.
+      rollout(codex, root, 'openai', movedTo(TOOL_CALLS, daysAgo(0)));
+      session(artifacts, root, 'unstated', [...lines(GRILL, daysAgo(6), '-week'), ...lines(ABORTED, daysAgo(8), '-older')]);
+
+      const body = await usage(daemon, root);
+      assert.deepEqual(body.byProvider, {
+        items: [
+          { provider: 'openai', totals: TOOL_CALLS_TOTALS },
+          // Not the record eight days old, which is still stored.
+          { provider: null, totals: GRILL_TOTALS },
+        ],
+        remainder: 0,
+      });
+      assert.equal(stored(daemon).length, 12);
     });
   });
 

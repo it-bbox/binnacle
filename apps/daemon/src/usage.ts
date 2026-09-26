@@ -92,6 +92,8 @@ export type Usage = {
   today: Totals;
   last7Days: Totals;
   byModel: { items: { model: string | null; totals: Totals }[]; remainder: number };
+  /** The last seven days by the provider a record's artifact states; null for the records whose artifacts state none. */
+  byProvider: { items: { provider: string | null; totals: Totals }[]; remainder: number };
   /** The last seven days by Task, largest first; unavailable, with the tracker's reason, when it cannot be read. */
   tasks: { items: { id: string; title: string | null; totals: Totals }[]; remainder: number } | Unavailable;
   /** The last seven days of runs no Task's branch accounts for. */
@@ -134,10 +136,8 @@ export async function usageAndActivity(
     activity = tasks;
   }
 
-  const models = new Map<string | null, typeof week>();
-  for (const record of week) models.set(record.model, [...(models.get(record.model) ?? []), record]);
-  const byModel = [...models].map(([model, records]) => ({ model, totals: sum(records) }));
-  byModel.sort((a, b) => magnitude(b.totals) - magnitude(a.totals) || String(a.model).localeCompare(String(b.model), 'en'));
+  const byModel = grouped(week, 'model').map(([model, totals]) => ({ model, totals }));
+  const byProvider = grouped(week, 'provider').map(([provider, totals]) => ({ provider, totals }));
 
   return {
     usage: {
@@ -145,11 +145,20 @@ export async function usageAndActivity(
       today: sum(today),
       last7Days: sum(week),
       byModel: limited(byModel),
+      byProvider: limited(byProvider),
       ...attributed,
       harnesses: HARNESSES.map((entry) => level(context, projectPath, entry, failures[entry.harness], importing.incomplete)),
     },
     activity,
   };
+}
+
+/** `records` totalled by `key`, largest first, then by key. */
+function grouped(records: UsageRecord[], key: 'model' | 'provider'): [string | null, Totals][] {
+  const groups = new Map<string | null, UsageRecord[]>();
+  for (const record of records) groups.set(record[key], [...(groups.get(record[key]) ?? []), record]);
+  const totals = [...groups].map(([value, grouped]): [string | null, Totals] => [value, sum(grouped)]);
+  return totals.sort(([a, x], [b, y]) => magnitude(y) - magnitude(x) || String(a).localeCompare(String(b), 'en'));
 }
 
 /** A run as the snapshot's `activity` shows it: as `usage.get` gives it, with its Task's title, null when unassigned. */

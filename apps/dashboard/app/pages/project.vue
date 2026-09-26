@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import RoleUsage from '~/components/RoleUsage.vue';
 import { call, usePolling, type Failure } from '~/composables/daemon';
 import { ago, checkout, projectName, RUNNING_READING, type Epic, type ProjectRow, type Snapshot, type Unavailable } from '~/composables/projects';
+import { IMPORTING, windowLabel, type ProjectUsage } from '~/composables/usage';
 
 type Section<T> = { items: T[]; remainder: number };
 type ProjectSnapshot = Snapshot & {
@@ -40,6 +42,7 @@ const group = (): { spec?: string | null } => {
 const snapshot = usePolling(async () => (project === null ? null : call<ProjectSnapshot>('project.snapshot', { path: project })));
 const board = usePolling(async () => (project === null ? null : call<Board>('task.list', { path: project, ...group() })));
 watch(() => route.query, board.refresh);
+const usage = usePolling(async () => (project === null ? null : call<ProjectUsage>('usage.get', { path: project })));
 
 const count = (section: Section<unknown>): number => section.items.length + section.remainder;
 const who = (run: LatestRun): string => `${run.harness}, ${run.model ?? 'model not reported'}, ${run.role}, last active ${ago(run.lastActivityAt)}`;
@@ -116,6 +119,15 @@ const who = (run: LatestRun): string => `${run.harness}, ${run.model ?? 'model n
           <li v-if="board.data.value.unknown.remainder > 0" class="muted">and {{ board.data.value.unknown.remainder }} more</li>
         </ul>
       </template>
+    </template>
+
+    <h2>Usage by role, {{ usage.data.value === null ? 'over the import window' : windowLabel(usage.data.value.importing) }}</h2>
+    <p v-if="usage.error.value" class="warn"><code>{{ usage.error.value.code }}</code> {{ usage.error.value.message }}</p>
+    <p v-else-if="usage.data.value === null" class="muted">Loading…</p>
+    <template v-else>
+      <p v-if="usage.data.value.importing.incomplete" class="warn">{{ IMPORTING }}</p>
+      <RoleUsage :usage="usage.data.value" />
+      <p><NuxtLink :to="{ path: '/usage', query: { project } }">Usage page</NuxtLink></p>
     </template>
 
     <template v-if="snapshot.data.value">

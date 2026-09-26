@@ -2,6 +2,7 @@
 import RunList from '~/components/RunList.vue';
 import { usePolling } from '~/composables/daemon';
 import { isUnavailable, loadProjects, position, projectName, RUNNING_READING } from '~/composables/projects';
+import { fieldsLine } from '~/composables/usage';
 
 const { data, error } = usePolling(loadProjects);
 </script>
@@ -37,6 +38,10 @@ const { data, error } = usePolling(loadProjects);
       <ul v-else>
         <li v-for="(item, index) in view.snapshot.attention" :key="index"><code>{{ item.code }}</code> {{ item.message }}</li>
       </ul>
+      <p class="usage">
+        <strong>Usage</strong> today: {{ fieldsLine(view.snapshot.usage.today) }}. Last seven days: {{ fieldsLine(view.snapshot.usage.last7Days) }}.
+        <NuxtLink :to="{ path: '/usage', query: { project: view.project.path } }">Usage page</NuxtLink>
+      </p>
     </template>
   </section>
 </template>
@@ -44,5 +49,9 @@ const { data, error } = usePolling(loadProjects);
 <style scoped>
 .tasks li {
   margin-bottom: 0.4rem;
+}
+.usage {
+  font-size: 0.9rem;
+  color: var(--muted);
 }
 </style>

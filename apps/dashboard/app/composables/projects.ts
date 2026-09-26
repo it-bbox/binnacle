@@ -1,4 +1,5 @@
 import { call, DaemonError, type Failure } from './daemon';
+import type { SnapshotUsage } from './usage';
 
 /** The parts of `project.list` and `project.snapshot` the Overview and Projects pages render. */
 
@@ -33,6 +34,7 @@ export type Snapshot = {
   roadmap: { epics: Epic[] } | null;
   tasks: { readyToStart: { items: SnapshotTask[]; remainder: number } } | null;
   activity: Activity | Unavailable;
+  usage: SnapshotUsage;
   attention: Failure[];
 };
 
