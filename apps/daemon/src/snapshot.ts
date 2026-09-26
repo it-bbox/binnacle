@@ -17,7 +17,7 @@ import {
 import { resolveGitTimeout, trackerToken } from './home.ts';
 import type { Projected } from './projection.ts';
 import type { ProjectRow } from './store.ts';
-import type { Usage } from './usage.ts';
+import type { Activity, Usage } from './usage.ts';
 
 /**
  * The Product Snapshot (`project.snapshot`): a compact, fixed-shape projection for a fresh
@@ -90,6 +90,11 @@ export type Snapshot = {
   pendingDecisions: Unavailable;
   ci: Unavailable;
   usage: Usage;
+  /**
+   * The runs active now, within telemetry's recency, and the latest others; unavailable,
+   * with the tracker's reason, when it cannot be read.
+   */
+  activity: Activity | Unavailable;
   /** Deterministic checks and diagnostics only; nothing heuristic. */
   attention: Diagnostic[];
 };
@@ -97,18 +102,18 @@ export type Snapshot = {
 /**
  * `diagnostics` are the caller's own findings about the checkout, such as a tracker-remote
  * mismatch; `home` is the Binnacle home, where a remote tracker's credentials are. `usage`
- * answers the usage section from the Tasks this snapshot read, so the tracker is read once.
+ * answers the usage and activity sections from the Tasks this snapshot read, so the tracker is read once.
  */
 export async function snapshot(
   home: string,
   projected: Projected,
   caller: CallerCheckout,
   diagnostics: Diagnostic[],
-  usage: (tasks: TrackerTask[] | Unavailable) => Promise<Usage>,
+  usage: (tasks: TrackerTask[] | Unavailable) => Promise<Pick<Snapshot, 'usage' | 'activity'>>,
 ): Promise<Snapshot> {
   const tree = workingTree(caller.project);
   const { tasks, unreadable, roadmap, adrs, attention } = await readState(home, tree, projected, diagnostics);
-  const usageSection = await usage(tasks ?? trackerUnavailable(unreadable));
+  const { usage: usageSection, activity } = await usage(tasks ?? trackerUnavailable(unreadable));
   // A harness whose artifacts cannot be read is at level 1, and says why.
   for (const { level, reason } of usageSection.harnesses) if (level === 1 && reason !== null) attention.push({ code: 'telemetry.unreadable', message: reason });
 
@@ -122,6 +127,7 @@ export async function snapshot(
     pendingDecisions: UNAVAILABLE,
     ci: UNAVAILABLE,
     usage: usageSection,
+    activity,
     attention,
   };
 }

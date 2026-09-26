@@ -1,4 +1,4 @@
-import { closeSync, openSync, readdirSync, readSync, statSync, type Dirent } from 'node:fs';
+import { closeSync, existsSync, openSync, readdirSync, readSync, statSync, type Dirent } from 'node:fs';
 import { join, relative } from 'node:path';
 import { setImmediate, setTimeout } from 'node:timers/promises';
 import { branchAt, codexSession, readClaudeCode, readCodex, readDefaultBranch, readHeadHistory, readWorktrees, type HeadHistory, type Tree } from '@binnacle/adapters';
@@ -7,7 +7,7 @@ import { magnitude, observedRuns, sum, type Harness, type RunRecord, type Totals
 import { resolveGitTimeout, type ArtifactRoots } from './home.ts';
 import type { OperationContext } from './operations.ts';
 import { containingEntry, readRegistry } from './registry.ts';
-import { limited, readTracker, trackerUnavailable, type Unavailable } from './snapshot.ts';
+import { limited, readTracker, SECTION_LIMIT, trackerUnavailable, type Unavailable } from './snapshot.ts';
 import { findTask } from './task.ts';
 import type { Ingested, IngestCursor } from './store.ts';
 
@@ -101,26 +101,38 @@ export type Usage = {
 
 /**
  * Reads what is new in the Claude Code and Codex artifacts of `projectPath`, for as long as
- * the time budget allows, and answers the snapshot's `usage` section from everything stored,
- * attributed to `tasks`, the tracker's current Tasks, or unavailable with why they cannot
- * be read. What the budget does not cover goes on in the background. "Today" and "the last
- * seven days" are calendar days in the daemon's local time zone.
+ * the time budget allows, and answers the snapshot's `usage` and `activity` sections from
+ * everything stored, attributed to `tasks`, the tracker's current Tasks, or unavailable with
+ * why they cannot be read. What the budget does not cover goes on in the background. "Today"
+ * and "the last seven days" are calendar days in the daemon's local time zone.
  */
 export async function usage(
   context: OperationContext,
   projectPath: string,
   manifest: ProjectManifest | null,
   tasks: TrackerTask[] | Unavailable,
-): Promise<Usage> {
+): Promise<{ usage: Usage; activity: Activity | Unavailable }> {
   const { importing, checkouts } = await ingested(context, projectPath, manifest);
   const failures = unreadableArtifacts(context, [projectPath, ...checkouts.linked]);
 
-  const week = context.store.usage(projectPath, localMidnight(6).toISOString());
+  // Every record stored, grouped into runs at once as `usage.get` groups them, so a run has the same id in both.
+  // ponytail: every call groups the whole window; keep the runs between calls if a snapshot ever outlasts its budget.
+  const all = context.store.usage(projectPath, '');
+  const weekStart = localMidnight(6).toISOString();
+  const week = all.filter((record) => record.timestamp >= weekStart);
   const since = localMidnight(0).toISOString();
   const today = week.filter((record) => record.timestamp >= since);
-  const attributed = Array.isArray(tasks)
-    ? byTask(await runs(week, projectPath, tasks, manifest?.tracker.provider !== 'local', checkouts), tasks)
-    : { tasks, unassigned: tasks };
+  let attributed: Pick<Usage, 'tasks' | 'unassigned'>;
+  let activity: Activity | Unavailable;
+  if (Array.isArray(tasks)) {
+    const observed = await runs(all, projectPath, tasks, manifest?.tracker.provider !== 'local', checkouts);
+    const ofWeek = observed.map((run) => ({ ...run, records: run.records.filter((record) => record.timestamp >= weekStart) }));
+    attributed = byTask(ofWeek.filter((run) => run.records.length > 0), tasks);
+    activity = activityOf(observed, tasks);
+  } else {
+    attributed = { tasks, unassigned: tasks };
+    activity = tasks;
+  }
 
   const models = new Map<string | null, typeof week>();
   for (const record of week) models.set(record.model, [...(models.get(record.model) ?? []), record]);
@@ -128,14 +140,36 @@ export async function usage(
   byModel.sort((a, b) => magnitude(b.totals) - magnitude(a.totals) || String(a.model).localeCompare(String(b.model), 'en'));
 
   return {
-    importing,
-    today: sum(today),
-    last7Days: sum(week),
-    byModel: limited(byModel),
-    ...attributed,
-    harnesses: HARNESSES.map((entry) => level(context, projectPath, entry, failures[entry.harness], importing.incomplete)),
+    usage: {
+      importing,
+      today: sum(today),
+      last7Days: sum(week),
+      byModel: limited(byModel),
+      ...attributed,
+      harnesses: HARNESSES.map((entry) => level(context, projectPath, entry, failures[entry.harness], importing.incomplete)),
+    },
+    activity,
   };
 }
+
+/** A run as the snapshot's `activity` shows it: as `usage.get` gives it, with its Task's title, null when unassigned. */
+export type ActivityRun = RunUsage & { taskTitle: string | null };
+
+/** The snapshot's `activity`: the project's runs active now, and its latest other runs, latest activity first. */
+export type Activity = { running: { items: ActivityRun[]; remainder: number }; recent: ActivityRun[] };
+
+function activityOf(observed: (ObservedRun & { records: RunRecord[] })[], tasks: Pick<TrackerTask, 'id' | 'title'>[]): Activity {
+  const titles = new Map(tasks.map((task) => [task.id, task.title]));
+  const shown = (run: (typeof observed)[number]): ActivityRun => ({ ...runUsage(run), taskTitle: run.taskId === null ? null : (titles.get(run.taskId) ?? null) });
+  const latest = [...observed].sort((a, b) => (a.lastActivityAt !== b.lastActivityAt ? (a.lastActivityAt < b.lastActivityAt ? 1 : -1) : a.id < b.id ? -1 : 1));
+  const running = limited(latest.filter((run) => run.active.value));
+  return {
+    running: { items: running.items.map(shown), remainder: running.remainder },
+    recent: latest.filter((run) => !run.active.value).slice(0, SECTION_LIMIT).map(shown),
+  };
+}
+
+const runUsage = ({ records, projectPath: _project, ...run }: ObservedRun & { records: RunRecord[] }): RunUsage => ({ ...run, totals: sum(records) });
 
 /** `usage.get` without a Task: the project's totals over everything ingested, by Task and unassigned, and by role. */
 export type ProjectUsage = Pick<Usage, 'importing' | 'tasks' | 'unassigned'> & { totals: Totals; byRole: Record<RunRole, Totals> | Unavailable };
@@ -186,7 +220,7 @@ export async function usageGet(
     importing,
     task: { id: found.task.id, title: found.task.title },
     totals: sum(own.flatMap((run) => run.records)),
-    runs: limited(own.map(({ records: runRecords, projectPath: _project, ...run }) => ({ ...run, totals: sum(runRecords) }))),
+    runs: limited(own.map(runUsage)),
   };
 }
 
@@ -262,11 +296,19 @@ async function runs(
 ): Promise<(ObservedRun & { records: RunRecord[] })[]> {
   const defaultBranch = (await readDefaultBranch(projectPath, resolveGitTimeout())) ?? 'main';
   // ponytail: a record's checkout is found among the ones that exist now, so a removed
-  // worktree's records read as the registered checkout's. The branch its reflog gave them
-  // while it existed still splits them off; those first read after its removal have none
-  // (ADR-0030), and join a stretch of the same session there that has none either, all of it
-  // unassigned. Tell removed worktrees apart if a run's checkout is ever shown.
-  const withCheckout = records.map((record) => ({ ...record, checkout: containingEntry(record.cwd, checkouts.roots)?.path ?? projectPath }));
+  // worktree's records have none: its directory is gone, and the registered checkout that
+  // still contains its path is not where they ran. Store each record's checkout at ingest if
+  // past runs ever need theirs. The branch its reflog gave them while it existed still
+  // attributes them; those first read after its removal have none (ADR-0030), and are unassigned.
+  const registered = containingEntry(projectPath, checkouts.roots);
+  const exists = new Map<string, boolean>();
+  const checkout = (cwd: string): string | null => {
+    const root = containingEntry(cwd, checkouts.roots);
+    if (root === undefined || root !== registered) return root?.path ?? null;
+    if (!exists.has(cwd)) exists.set(cwd, existsSync(cwd));
+    return exists.get(cwd) ? root.path : null;
+  };
+  const withCheckout = records.map((record) => ({ ...record, checkout: checkout(record.cwd) }));
   return observedRuns(withCheckout, { projectPath, defaultBranch, tasks, remote, now: new Date() });
 }
 

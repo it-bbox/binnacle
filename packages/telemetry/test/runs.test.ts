@@ -45,14 +45,14 @@ test('a run is one stretch of one session in one checkout on one branch, with th
   // Given in any order, they are read in time order.
   const runs = observedRuns([...records].reverse(), attribution);
   assert.deepEqual(
-    runs.map((run) => [run.id, run.records.length, run.branch, run.taskId, run.role]),
+    runs.map((run) => [run.id, run.records.length, run.branch, run.taskId, run.role, run.checkout]),
     [
-      ['claude-code:msg_001', 1, 'main', null, 'product'],
-      ['claude-code:msg_002', 2, 'feat/first', 'epic/01', 'implementation'],
-      ['claude-code:msg_004', 1, 'feat/first', 'epic/01', 'implementation'],
-      ['claude-code:msg_005', 1, 'fix/other', null, 'unknown'],
-      ['claude-code:msg_006', 1, null, null, 'unknown'],
-      ['claude-code:msg_007', 1, 'main', null, 'product'],
+      ['claude-code:msg_001', 1, 'main', null, 'product', '/repo'],
+      ['claude-code:msg_002', 2, 'feat/first', 'epic/01', 'implementation', '/repo'],
+      ['claude-code:msg_004', 1, 'feat/first', 'epic/01', 'implementation', '/repo/.claude/worktrees/x'],
+      ['claude-code:msg_005', 1, 'fix/other', null, 'unknown', '/repo'],
+      ['claude-code:msg_006', 1, null, null, 'unknown', '/repo'],
+      ['claude-code:msg_007', 1, 'main', null, 'product', '/repo'],
     ],
   );
 
@@ -87,6 +87,7 @@ test('a run is active while its latest record is recent, which is a calculated r
       model: 'latest',
       branch: 'main',
       branchSource: 'reflog',
+      checkout: '/repo',
       parentRunId: null,
       startedAt: '2026-09-25T11:00:00.000Z',
       lastActivityAt: '2026-09-25T11:50:00.000Z',

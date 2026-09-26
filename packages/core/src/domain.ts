@@ -103,6 +103,11 @@ export type ObservedRun = {
   /** Its checkout's reflog's, or none: the branch a harness wrote attributes nothing (ADR-0030). */
   branch: string | null;
   branchSource: 'reflog' | null;
+  /**
+   * The root of the checkout its records' `cwd` lies in: the registered one, or a linked
+   * worktree. Null when Git cannot say, or that checkout is gone, as a worktree is once removed.
+   */
+  checkout: string | null;
   /** The run that started a subagent. */
   parentRunId: string | null;
   startedAt: string;

@@ -861,6 +861,7 @@ type Run = {
   branchSource: string | null;
   taskId: string | null;
   parentRunId: string | null;
+  checkout: string | null;
   startedAt: string;
   lastActivityAt: string;
   active: { value: boolean; provenance: string };
@@ -922,7 +923,7 @@ describe('usage.get', () => {
       assert.deepEqual(body.task, { id: 'epic/01', title: 'First' });
       assert.equal(body.totals.records, 3);
       assert.deepEqual(body.totals.output, reported(2 * 137 + 2));
-      const run = { harness: 'claude-code', provider: null, model: 'claude-opus-5-5', role: 'implementation', branch: 'feat/first', branchSource: 'reflog', taskId: 'epic/01', parentRunId: null };
+      const run = { harness: 'claude-code', provider: null, model: 'claude-opus-5-5', role: 'implementation', branch: 'feat/first', branchSource: 'reflog', taskId: 'epic/01', parentRunId: null, checkout: root };
       assert.deepEqual(body.runs, {
         items: [
           { ...run, id: 'claude-code:msg_011CfLMEGjvuTXtzfiK6XfsV-recent', startedAt: recent, lastActivityAt: recent, active: { value: true, provenance: 'calculated' }, totals: GRILL_TOTALS },
@@ -1421,9 +1422,10 @@ describe('Where a record’s branch comes from', () => {
       git(root, 'branch', '-d', 'feat/first');
 
       const body = await usageGet<TaskUsage>(daemon, root, 'epic/01');
+      // Its checkout is gone, and the registered one that still contains its path is not where it ran.
       assert.deepEqual(
-        body.runs.items.map((run) => [run.id, run.role, run.branch, run.branchSource]),
-        [[SUBAGENT_RUN, 'implementation', 'feat/first', 'reflog']],
+        body.runs.items.map((run) => [run.id, run.role, run.branch, run.branchSource, run.checkout]),
+        [[SUBAGENT_RUN, 'implementation', 'feat/first', 'reflog', null]],
       );
     });
   });
@@ -1441,6 +1443,103 @@ describe('Where a record’s branch comes from', () => {
       assert.deepEqual(taskRecords(body), []);
       assert.equal(available(body.unassigned).records, 10);
       assert.ok(stored(daemon).every((row) => row.branch === 'feat/first' && row.branch_source === 'harness'));
+    });
+  });
+});
+
+type ActivityRun = Run & { taskTitle: string | null };
+type Activity = { running: { items: ActivityRun[]; remainder: number }; recent: ActivityRun[] };
+
+async function activity(daemon: TestDaemon, root: string): Promise<Activity | Unavailable> {
+  const result = await daemon.call<{ activity: Activity | Unavailable }>('project.snapshot', { path: root });
+  assert.equal(result.status, 200, JSON.stringify(result.body));
+  return result.body.activity;
+}
+
+const minutesAgo = (minutes: number): string => new Date(Date.now() - minutes * 60_000).toISOString();
+
+describe('What is running now, in the Product Snapshot', () => {
+  it('splits the project’s runs at telemetry’s recency into running and recent, latest activity first, each as usage.get gives it with its Task’s title', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
+      ticket(root, 'epic', '01-first.md', 'First');
+      repository(root, at(2, 0), [at(1, 0), 'feat/first']);
+      const now = minutesAgo(1);
+      const nine = minutesAgo(9);
+      const eleven = minutesAgo(11);
+      session(artifacts, root, 'now', lines(GRILL, now, '-now'));
+      session(artifacts, root, 'nine', lines(GRILL, nine, '-nine'));
+      session(artifacts, root, 'eleven', lines(GRILL, eleven, '-eleven'));
+      // Started yesterday, and still at it: a run is running by its latest activity.
+      session(artifacts, root, 'long', [...lines(GRILL, at(1, 30), '-started'), ...lines(ABORTED, minutesAgo(2), '-latest')]);
+      session(artifacts, root, 'yesterday', lines(GRILL, at(1, 40), '-yesterday'));
+      await register(daemon, root);
+
+      const body = available(await activity(daemon, root));
+      const id = (suffix: string): string => `claude-code:msg_011CfLMEGjvuTXtzfiK6XfsV-${suffix}`;
+      assert.deepEqual(body.running.items.map((run) => run.id), [id('now'), id('started'), id('nine')]);
+      assert.equal(body.running.remainder, 0);
+      assert.deepEqual(body.recent.map((run) => run.id), [id('eleven'), id('yesterday')]);
+      assert.ok(body.running.items.every((run) => run.active.value));
+      assert.ok(body.recent.every((run) => !run.active.value));
+
+      const runs = new Map((await usageGet<TaskUsage>(daemon, root, 'epic/01')).runs.items.map((run) => [run.id, run]));
+      for (const run of [...body.running.items, ...body.recent]) assert.deepEqual(run, { ...runs.get(run.id), taskTitle: 'First' });
+    });
+  });
+
+  it('lists at most ten runs running now, with a remainder, and the ten latest other runs', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
+      repository(root, at(2, 0));
+      for (let minute = 0; minute < 11; minute++) {
+        session(artifacts, root, `running-${minute}`, lines(GRILL, minutesAgo(1 + minute / 2), `-running-${minute}`));
+        session(artifacts, root, `recent-${minute}`, lines(GRILL, at(1, minute), `-recent-${minute}`));
+      }
+      await register(daemon, root);
+
+      const body = available(await activity(daemon, root));
+      assert.equal(body.running.items.length, 10);
+      assert.equal(body.running.remainder, 1);
+      assert.deepEqual(
+        body.recent.map((run) => run.lastActivityAt),
+        Array.from({ length: 10 }, (_, index) => at(1, 10 - index)),
+      );
+    });
+  });
+
+  it('names each running run’s checkout, and its Task or its role: a Task’s run in a linked worktree, a Product session on the default branch, and an unassigned run', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
+      ticket(root, 'epic', '01-first.md', 'First');
+      const worktree = repositoryWithWorktree(root);
+      const spike = join(root, '.claude', 'worktrees', 'spike');
+      gitAt(at(1, 20), root, 'worktree', 'add', '--quiet', '-b', 'spike', spike);
+      session(artifacts, worktree, 'ticket', lines(GRILL, minutesAgo(1), '-ticket'));
+      session(artifacts, root, 'product', lines(GRILL, minutesAgo(2), '-product'));
+      session(artifacts, spike, 'spike', lines(GRILL, minutesAgo(3), '-spike'));
+      await register(daemon, root);
+
+      const body = available(await activity(daemon, root));
+      assert.deepEqual(
+        body.running.items.map((run) => [run.taskId, run.taskTitle, run.role, run.branch, run.checkout, run.harness, run.model]),
+        [
+          ['epic/01', 'First', 'implementation', 'feat/first', worktree, 'claude-code', 'claude-opus-5-5'],
+          [null, null, 'product', 'main', root, 'claude-code', 'claude-opus-5-5'],
+          [null, null, 'unknown', 'spike', spike, 'claude-code', 'claude-opus-5-5'],
+        ],
+      );
+    });
+  });
+
+  it('is unavailable, with the tracker’s reason, when the tracker cannot be read', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'));
+      repository(root, at(1, 0));
+      session(artifacts, root, 'product', lines(GRILL, minutesAgo(1)));
+      await register(daemon, root);
+
+      assert.deepEqual(await activity(daemon, root), { available: false, reason: 'This project declares no tracker.provider.' });
     });
   });
 });

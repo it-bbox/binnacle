@@ -71,8 +71,8 @@ export const magnitude = (totals: Totals): number =>
 /** How recent a run's latest record must be for Binnacle to read the run as active. */
 export const ACTIVE_WITHIN_MS = 10 * 60_000;
 
-/** A stored record, with the checkout its `cwd` lies in, which the daemon knows. */
-export type RunRecord = UsageRecord & { checkout: string };
+/** A stored record, with the checkout its `cwd` lies in, which the daemon knows, or null when it cannot say. */
+export type RunRecord = UsageRecord & { checkout: string | null };
 
 /** What a run is attributed with: the facts of its project and tracker, read by the daemon. */
 export type RunAttribution<T extends Pick<TrackerTask, 'id' | 'title' | 'ticket'>> = {
@@ -143,6 +143,7 @@ export function observedRuns<R extends RunRecord, T extends Pick<TrackerTask, 'i
       model: latest.model,
       branch,
       branchSource: branch === null ? null : 'reflog',
+      checkout: first.checkout,
       parentRunId: first.subagentId === null ? null : parentRun(first),
       startedAt: first.timestamp,
       lastActivityAt: latest.timestamp,
