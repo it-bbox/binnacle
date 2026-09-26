@@ -15,19 +15,20 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 3 | Tracker and Matt Pocock integration | done | [`tracker-and-matt-pocock-integration`](specs/tracker-and-matt-pocock-integration/spec.md) |
 | 4 | Telemetry | done | [`telemetry`](specs/telemetry/spec.md) |
 | 5 | Minimal dashboard | done | [`minimal-dashboard`](specs/minimal-dashboard/spec.md) |
-| 6 | Audit and adopt | not started | — |
+| 6 | Dashboard design and languages | not started | — |
+| 7 | Audit and adopt | not started | — |
 
-Epics are ordered by dependency, not by preference. Epic 1 is the foundation; epics 5 and 6 are only meaningful once 1 to 4 exist.
+Epics are ordered by dependency, not by preference. Epic 1 is the foundation; epics 5 to 7 are only meaningful once 1 to 4 exist. Audit and adopt is epic 6 in the specs of epics 1 to 3, written before epic 6 was inserted on 2026-09-26.
 
 ## Current focus
 
-Design is complete: `docs/08-open-questions.md` is resolved by ADR-0001 to ADR-0018; building the epics added ADR-0019 to ADR-0032.
+Design is complete: `docs/08-open-questions.md` is resolved by ADR-0001 to ADR-0018; building the epics added ADR-0019 to ADR-0033.
 
-Epics 1 to 5 are done. The daemon, its store and `packages/core` (epic 1). `binn mcp` serves the snapshot, the daily and the checkpoint to every session through the committed `.mcp.json`, and the `binnacle` plugin gives `/binnacle:product`, `:daily`, `:checkpoint` and `:autopilot` (epic 2, ADR-0022, ADR-0023). GitHub and GitLab issues are Tasks, `/binnacle:task` gives a Task's brief and branch, and `binn init` sets up a fresh repository (epic 3, ADR-0024 to ADR-0027). The snapshot's usage section and `usage_get` give Claude Code's and Codex's tokens by model, by Task and by role; a run's branch comes from its checkout's reflog or not at all, and autopilot lets Binnacle read a ticket's worktree before removing it (epic 4, ADR-0028 to ADR-0030). `binn dashboard` opens a read-only dashboard, served by the daemon: each project's position, its Next action beside Binnacle's Suggested step, the Task board with In progress read from runs, reviews, usage and derived metrics (epic 5, ADR-0031, ADR-0032). Binnacle writes nothing into the repository.
+Epics 1 to 5 are done: the daemon and its store (epic 1); the snapshot, daily and checkpoint over MCP, and the `binnacle` plugin with autopilot (epic 2); Tasks from GitHub, GitLab or local tickets, and `binn init` (epic 3); usage by model, Task and role (epic 4); the read-only dashboard, `binn dashboard` (epic 5). Binnacle writes nothing into the repository.
 
-The owner found the dashboard hard to follow (epic 5's ticket 09, *Comments*): English only, one long sheet, two suggestions that disagree, a list read as a queue, nothing on what can run in parallel. Its languages, English and Russian first, and its design go to `/grill-with-docs`, which also decides whether they are an epic of their own before epic 6.
+Epic 6, Dashboard design and languages, was grilled on 2026-09-26 from the owner's findings on epic 5's dashboard (ticket 09's *Comments*): a "What's next" block that leads with the Next action and offers Binnacle's alternatives beside it, English and Russian, Paperclip's shell, Nuxt UI (ADR-0033). Its decisions and the prompt for the designer are in `specs/dashboard-design-and-languages/design-brief.md`. The owner gives that prompt to an AI design tool and saves the mockup in `design/` beside the brief.
 
-Next action: in a Product session, grill the dashboard's languages and design. `/binnacle:product`
+Next action: once the mockup is saved beside the brief, specify epic 6 from both. `/mattpocock-skills:to-spec`
 
 ## Later
 

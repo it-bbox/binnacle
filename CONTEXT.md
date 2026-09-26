@@ -29,7 +29,7 @@ A compact projection of current project state for a fresh Product session: miles
 The step the roadmap's current focus ends with, and the command the owner types to take it. The Product session writes it: it is the course, and Binnacle only reads it.
 
 ### Suggested step
-Binnacle's own reading of what comes next, computed from the Tasks, their AgentRuns and the roadmap's epic statuses, and labelled as a calculation. It stands beside the Next action and never replaces it. A Next action that is missing, or names work already done, is an attention item.
+Binnacle's own reading of what comes next, computed from the Tasks, their AgentRuns and the roadmap's epic statuses, and labelled as a calculation. It stands beside the Next action and never replaces it: the Next action comes first, and the Suggested step offers the other ways to go on, each with its reason — one Task by hand, the whole epic with autopilot, a second Task beside one in progress — or none when it agrees with the Next action. A Next action that is missing, or names work already done, is an attention item.
 
 ### Harness
 The coding client a run happens inside: Claude Code, Codex, Gemini CLI and others. A harness is not a provider — the same harness can be pointed at different backends.
