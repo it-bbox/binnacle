@@ -1,11 +1,11 @@
 import { existsSync, realpathSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative } from 'node:path';
 import { readGitFacts, readGitLocation, workingTree, type GitFacts } from '@binnacle/adapters';
-import { trackerRemoteMismatch, type Diagnostic, type ProjectManifest } from '@binnacle/core';
+import { trackerRemoteMismatch, type Diagnostic, type ProjectManifest, type TrackerTask } from '@binnacle/core';
 import { OperationError, pathNotFound } from './errors.ts';
 import { resolveGitTimeout, type Runtime } from './home.ts';
 import { readManifest } from './manifest.ts';
-import { projectRegistry, reproject } from './projection.ts';
+import { projectRegistry, reproject, type Projected } from './projection.ts';
 import { containingEntry, readRegistry, writeRegistry, type RegistryEntry } from './registry.ts';
 import { promotedItems, promotionDiagnostics, promotionTargets } from './checkpoint.ts';
 import { BASELINE_EVENTS, committedHead, daily, isRemoteTracker, taskStates, type Baseline, type BaselineEvent, type TaskStates } from './daily.ts';
@@ -13,7 +13,7 @@ import { readTasks, snapshot, type CallerCheckout } from './snapshot.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type ProjectRow, type Store } from './store.ts';
 import { taskBrief } from './task.ts';
 import { taskList } from './board.ts';
-import { forgetRead, usageAndActivity, usageGet, type Importer } from './usage.ts';
+import { forgetRead, latestRuns, usageAndActivity, usageGet, type Importer } from './usage.ts';
 
 export type OperationContext = {
   home: string;
@@ -130,7 +130,7 @@ export const operations: Record<string, Operation> = {
     const projected = reproject(context.store, await resolveEntry(path, context));
     const caller = await callerCheckout(path, projected.row.path);
     const baseline: Baseline | null = since ? { commit: since, source: 'since', states: null } : recordedBaseline(context.store, projected.row.path, BASELINE_EVENTS);
-    const { delta, states } = await daily(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git), baseline);
+    const { delta, states } = await daily(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git), baseline, attributedTo(context, projected));
     if (!since) context.store.appendEvent({ type: 'daily', projectPath: projected.row.path, payload: { head: delta.head, ...(states && { states }) } });
     return delta;
   },
@@ -146,7 +146,7 @@ export const operations: Record<string, Operation> = {
     const caller = await callerCheckout(path, projected.row.path);
     const recorded = ['checkpoint'] as const;
     const baseline = recordedBaseline(context.store, projected.row.path, recorded);
-    const { delta } = await daily(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git), baseline, recorded);
+    const { delta } = await daily(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git), baseline, attributedTo(context, projected), recorded);
     return { ...delta, targets: promotionTargets(projected.manifest) };
   },
 
@@ -275,6 +275,12 @@ function remoteMismatch(manifest: ProjectManifest | null, git: GitFacts): Diagno
       : null;
   return mismatch ? [mismatch] : [];
 }
+
+/** The ids of the project's Tasks with AgentRuns attributed to them, as the board reads them. */
+const attributedTo =
+  (context: OperationContext, { row, manifest }: Projected) =>
+  async (tasks: TrackerTask[]): Promise<ReadonlySet<string>> =>
+    new Set((await latestRuns(context, row.path, manifest, tasks)).keys());
 
 /** The head of the latest event of `types` for the project, which a delta starts from, and the Task states it recorded. */
 function recordedBaseline(store: Store, projectPath: string, types: readonly BaselineEvent[]): Baseline | null {

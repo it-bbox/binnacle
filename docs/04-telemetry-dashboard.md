@@ -66,7 +66,8 @@ The main screen. It answers where each project stands and what to type next.
 
 - active projects, each with its roadmap position;
 - the Next action with its command, and Binnacle's Suggested step beside it, labelled as a calculation (ADR-0032);
-- the Tasks ready to start, each with the command that starts it;
+- the Tasks In progress, a `READY` one marked as read from its runs (ADR-0032);
+- the Tasks ready to start, each with the command that starts it; a Task In progress is not one of them;
 - current runs;
 - attention items;
 - usage today/week;

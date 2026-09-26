@@ -36,7 +36,7 @@ export type Snapshot = {
   git: GitFacts;
   roadmap: { epics: Epic[] } | null;
   next: { action: { description: string; command: string } | null; suggested: SuggestedStep | null | Unavailable };
-  tasks: { readyToStart: { items: SnapshotTask[]; remainder: number } } | null;
+  tasks: { inFlight: { items: SnapshotTask[]; remainder: number }; readyToStart: { items: SnapshotTask[]; remainder: number } } | null;
   activity: Activity | Unavailable;
   usage: SnapshotUsage;
   attention: Failure[];
@@ -80,6 +80,9 @@ export const isUnavailable = (section: object): section is Unavailable => 'avail
 
 /** How the pages label the Suggested step. */
 export const SUGGESTED_READING = "Binnacle's calculation from the Tasks, their runs and the roadmap. The Next action leads.";
+
+/** How the pages label a `READY` Task In progress from its runs (ADR-0032). */
+export const RUNS_READING = "Binnacle's reading: the ticket says READY, and AgentRuns are attributed to it (ADR-0032)";
 
 /** How the pages label a run as running: `active` is the daemon's reading, within telemetry's recency. */
 export const RUNNING_READING = "Running means active in the last ten minutes, Binnacle's reading of the latest activity, not a state the harness reports.";

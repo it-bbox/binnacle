@@ -66,6 +66,11 @@ export type Daily = {
   transitions: { items: Transition[]; remainder: number } | Unavailable | null;
   /** Tickets that did not exist at the baseline. */
   newTickets: Section | Unavailable | null;
+  /**
+   * The snapshot's Ready to start, at HEAD: like it, it leaves out a `READY` Task with an AgentRun
+   * attributed to it, which the board stands In progress (ADR-0032). The runs are the one thing
+   * here not read from Git.
+   */
   readyToStart: Section | null;
   /** Epics whose status differs, or that are new (`from` null). Null when there is no roadmap at HEAD. */
   roadmap: { number: number; title: string; from: RoadmapStatus | null; to: RoadmapStatus }[] | null;
@@ -81,7 +86,8 @@ export type Transition = { id: string; title: string | null; from: TaskState | n
  * `baseline` is null when no event of the `recorded` types exists; `diagnostics` are the
  * caller's findings, as for the snapshot. `checkpoint.prepare` calls this with its own
  * baseline, so its delta is the daily's code with the daily's fallback. `states` is what a
- * `daily` event recording this delta's head records beside it.
+ * `daily` event recording this delta's head records beside it. `attributed` gives the ids of
+ * the Tasks with AgentRuns attributed to them.
  */
 export async function daily(
   home: string,
@@ -89,6 +95,7 @@ export async function daily(
   caller: CallerCheckout,
   diagnostics: Diagnostic[],
   baseline: Baseline | null,
+  attributed: (tasks: ResolvedTask[]) => Promise<ReadonlySet<string>>,
   recorded: readonly BaselineEvent[] = BASELINE_EVENTS,
 ): Promise<{ delta: Daily; states: TaskStates | null }> {
   const { head, dirty } = committedHead(caller);
@@ -116,7 +123,7 @@ export async function daily(
       from,
       fallback,
       commits: { count: commits.length, ...limited(commits) },
-      ...taskChanges(was, after),
+      ...taskChanges(was, after, after.tasks ? await attributed(after.tasks) : new Set()),
       roadmap: roadmapChanges(before, after),
       decisions: await decisionChanges(before, after, beforeTree, afterTree),
       attention: after.attention,
@@ -195,9 +202,9 @@ function recordedStates(baseline: Baseline | null, fallback: Fallback | null, re
 // No Task state is `false`, so this cannot mistake recorded states for a reason.
 const isUnavailable = (value: TaskStates | Unavailable): value is Unavailable => value.available === false;
 
-function taskChanges(was: TaskStates | Unavailable | null, after: State): Pick<Daily, 'transitions' | 'newTickets' | 'readyToStart'> {
+function taskChanges(was: TaskStates | Unavailable | null, after: State, attributed: ReadonlySet<string>): Pick<Daily, 'transitions' | 'newTickets' | 'readyToStart'> {
   if (after.tasks === null) return { transitions: null, newTickets: null, readyToStart: null };
-  const readyToStart = taskSections(after.tasks).readyToStart;
+  const readyToStart = taskSections(after.tasks, attributed).readyToStart;
   if (was === null) return { transitions: null, newTickets: null, readyToStart };
   if (isUnavailable(was)) return { transitions: was, newTickets: was, readyToStart };
   const transitions: Transition[] = [];

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import RunList from '~/components/RunList.vue';
 import { usePolling } from '~/composables/daemon';
-import { isUnavailable, loadProjects, position, projectName, RUNNING_READING, SUGGESTED_READING } from '~/composables/projects';
+import { isUnavailable, loadProjects, position, projectName, RUNNING_READING, RUNS_READING, SUGGESTED_READING } from '~/composables/projects';
 import { fieldsLine } from '~/composables/usage';
 
 const { data, error } = usePolling(loadProjects);
@@ -43,6 +43,18 @@ const { data, error } = usePolling(loadProjects);
       <p class="muted">{{ RUNNING_READING }}</p>
       <p v-if="isUnavailable(view.snapshot.activity)" class="muted">Not available: {{ view.snapshot.activity.reason }}</p>
       <RunList v-else :runs="view.snapshot.activity.running.items" :remainder="view.snapshot.activity.running.remainder" empty="Nothing is running." />
+      <h3>In progress</h3>
+      <p v-if="view.snapshot.tasks === null" class="muted">The tracker cannot be read; attention says why.</p>
+      <p v-else-if="view.snapshot.tasks.inFlight.items.length === 0" class="muted">No Task is in progress.</p>
+      <ul v-else class="tasks">
+        <li v-for="task in view.snapshot.tasks.inFlight.items" :key="task.id">
+          <NuxtLink :to="{ path: '/task', query: { project: view.project.path, id: task.id } }">{{ task.id }}</NuxtLink>
+          {{ task.title ?? '(untitled)' }}
+          <code>{{ task.state }}</code>
+          <span v-if="task.state === 'READY'" class="label" :title="RUNS_READING">runs</span>
+        </li>
+        <li v-if="view.snapshot.tasks.inFlight.remainder > 0" class="muted">and {{ view.snapshot.tasks.inFlight.remainder }} more</li>
+      </ul>
       <h3>Ready to start</h3>
       <p v-if="view.snapshot.tasks === null" class="muted">The tracker cannot be read; attention says why.</p>
       <p v-else-if="view.snapshot.tasks.readyToStart.items.length === 0" class="muted">No Task is ready to start.</p>

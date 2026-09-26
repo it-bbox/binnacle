@@ -78,6 +78,14 @@ code {
 .warn {
   color: var(--warn);
 }
+/* Marks a reading of Binnacle's own beside the canonical state (ADR-0032). */
+.label {
+  margin-left: 0.4rem;
+  padding: 0 0.3rem;
+  font-size: 0.8em;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+}
 .signin {
   padding: 2rem 1.25rem;
 }

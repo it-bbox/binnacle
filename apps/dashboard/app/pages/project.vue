@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import RoleUsage from '~/components/RoleUsage.vue';
 import { call, usePolling, type Failure } from '~/composables/daemon';
-import { ago, checkout, projectName, RUNNING_READING, type Epic, type ProjectRow, type Snapshot, type Unavailable } from '~/composables/projects';
+import { ago, checkout, projectName, RUNNING_READING, RUNS_READING, type Epic, type ProjectRow, type Snapshot, type Unavailable } from '~/composables/projects';
 import { IMPORTING, windowLabel, type ProjectUsage } from '~/composables/usage';
 
 type Section<T> = { items: T[]; remainder: number };
@@ -94,7 +94,7 @@ const who = (run: LatestRun): string => `${run.harness}, ${run.model ?? 'model n
               {{ card.title ?? '(untitled)' }}
               <div>
                 <code>{{ card.state }}</code>
-                <span v-if="card.source === 'runs'" class="label" title="Binnacle's reading: the ticket says READY, and AgentRuns are attributed to it (ADR-0032)">runs</span>
+                <span v-if="card.source === 'runs'" class="label" :title="RUNS_READING">runs</span>
               </div>
               <div v-if="card.unmetDependencies.length > 0" class="warn">Waits on {{ card.unmetDependencies.join(', ') }}</div>
               <div v-if="card.state === 'DONE' && card.review === false" class="warn">No Review recorded</div>
@@ -192,12 +192,5 @@ ul {
   padding: 0.4rem 0;
   border-top: 1px solid var(--line);
   overflow-wrap: anywhere;
-}
-.label {
-  margin-left: 0.4rem;
-  padding: 0 0.3rem;
-  font-size: 0.8em;
-  border: 1px solid var(--line);
-  border-radius: 3px;
 }
 </style>

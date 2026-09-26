@@ -316,6 +316,35 @@ describe('the board', () => {
   });
 });
 
+describe('Ready to start beside the board', () => {
+  it('leaves out a READY Task the board stands In progress from its runs, by the same rule, in the snapshot and the daily, and lists it in flight', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject();
+      ticket(root, 'second', '01-waiting.md', 'Waiting', 'Status: READY');
+      const worked = ticket(root, 'second', '02-worked.md', 'Worked on', 'Status: READY');
+      repository(root, minutesAgo(60), [minutesAgo(3), 'feat/worked']);
+      session(artifacts, root, 'working', minutesAgo(1));
+
+      const board = await taskList(daemon, root);
+      assert.deepEqual(ids(board.columns.ready), ['second/01']);
+      assert.deepEqual(board.columns.inProgress.items.map((card) => [card.id, card.source]), [['second/02', 'runs']]);
+
+      type Tasks = { inFlight: Column; readyToStart: Column };
+      const snapshot = await daemon.call<{ tasks: Tasks }>('project.snapshot', { path: root });
+      assert.equal(snapshot.status, 200, JSON.stringify(snapshot.body));
+      assert.deepEqual(ids(snapshot.body.tasks.readyToStart), ['second/01']);
+      assert.deepEqual(snapshot.body.tasks.inFlight.items.map((task) => [task.id, task.state]), [['second/02', 'READY']]);
+
+      const daily = await daemon.call<{ readyToStart: Column }>('daily.get', { path: root });
+      assert.equal(daily.status, 200, JSON.stringify(daily.body));
+      assert.deepEqual(ids(daily.body.readyToStart), ['second/01']);
+
+      // A reading, never written back (ADR-0032).
+      assert.match(readFileSync(join(root, worked), 'utf8'), /^Status: READY$/m);
+    });
+  });
+});
+
 describe('the board on a remote tracker', () => {
   it('groups the Tasks that carry no spec on their own, which `spec: null` lists, an unknown state with its diagnostic', async () => {
     const server = createServer((request, response) => {

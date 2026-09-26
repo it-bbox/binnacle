@@ -1,6 +1,7 @@
 import { posix } from 'node:path';
 import { readGitHubTasks, readGitLabTasks, readLastCommitTimes, readLocalTasks, workingTree, type GitFacts, type Tree } from '@binnacle/adapters';
 import {
+  boardColumn,
   nextAction,
   nextActionAttention,
   parseRoadmap,
@@ -37,9 +38,7 @@ export const DECISION_LIMIT = 5;
 /** In characters: Unicode code points. */
 export const FOCUS_LIMIT = 2000;
 
-const IN_FLIGHT = ['ACTIVE', 'BLOCKED', 'READY_FOR_REVIEW', 'APPROVED', 'MERGE_READY'] as const satisfies readonly TaskState[];
-type InFlight = (typeof IN_FLIGHT)[number];
-const inFlight = (state: TaskState | null): state is InFlight => (IN_FLIGHT as readonly (TaskState | null)[]).includes(state);
+type InFlight = 'ACTIVE' | 'BLOCKED' | 'READY_FOR_REVIEW' | 'APPROVED' | 'MERGE_READY';
 
 export type SnapshotTask = Pick<ResolvedTask, 'id' | 'title' | 'state' | 'unmetDependencies' | 'ticket'>;
 export type Section = { items: SnapshotTask[]; remainder: number };
@@ -84,13 +83,16 @@ export type Snapshot = {
   next: { action: NextAction | null; suggested: SuggestedStep | null | Unavailable };
   /** Null when the project's tracker cannot be read yet; `attention` says why. */
   tasks: {
-    /** `ACTIVE`, `BLOCKED`, `READY_FOR_REVIEW`, `APPROVED`, `MERGE_READY`. */
+    /**
+     * In progress, as the board reads it (ADR-0032): `ACTIVE`, `BLOCKED`, `READY_FOR_REVIEW`,
+     * `APPROVED`, `MERGE_READY`, and a `READY` Task with an AgentRun attributed to it.
+     */
     inFlight: SectionWithStart;
-    /** `READY` with no Unmet dependencies. */
+    /** `READY` with no Unmet dependencies and no attributed AgentRun. */
     readyToStart: SectionWithStart;
     /**
      * Every Task not listed by name, by state: `READY` here is a Task waiting on an Unmet
-     * dependency, and `unknown` one whose tracker value is not a Task state.
+     * dependency, with no attributed run, and `unknown` one whose tracker value is not a Task state.
      */
     counts: TaskCounts;
   } | null;
@@ -139,7 +141,7 @@ export async function snapshot(
       action: nextAction(roadmap?.focus ?? null),
       suggested: tasks ? suggestedStep(roadmap?.epics ?? [], tasks, runs, workflow) : trackerUnavailable(unreadable),
     },
-    tasks: tasks && withStart(taskSections(tasks), workflow),
+    tasks: tasks && withStart(taskSections(tasks, new Set(runs.flatMap((run) => run.taskId ?? []))), workflow),
     decisions: adrs && (await recentDecisions(tree, caller.project, adrs)),
     pendingDecisions: UNAVAILABLE,
     ci: UNAVAILABLE,
@@ -247,14 +249,17 @@ function unavailable(tracker: ProjectManifest['tracker'] | undefined): string {
   return `tracker.provider is ${tracker.provider}, and this project declares no tracker.repository.`;
 }
 
-export function taskSections(tasks: ResolvedTask[]): { inFlight: Section; readyToStart: Section; counts: TaskCounts } {
+/** `attributed` holds the ids of the Tasks with AgentRuns attributed to them, which the board's rule reads (`boardColumn`). */
+export function taskSections(tasks: ResolvedTask[], attributed: ReadonlySet<string>): { inFlight: Section; readyToStart: Section; counts: TaskCounts } {
   const counts: TaskCounts = { BACKLOG: 0, READY: 0, MERGED: 0, DONE: 0, CANCELLED: 0, unknown: 0 };
   const listedInFlight: ResolvedTask[] = [];
   const readyToStart: ResolvedTask[] = [];
   for (const task of tasks) {
-    if (inFlight(task.state)) listedInFlight.push(task);
-    else if (task.state === 'READY' && task.unmetDependencies.length === 0) readyToStart.push(task);
-    else counts[task.state ?? 'unknown']++;
+    const column = boardColumn(task.state, attributed.has(task.id))?.column;
+    if (column === 'inProgress') listedInFlight.push(task);
+    else if (column === 'ready' && task.unmetDependencies.length === 0) readyToStart.push(task);
+    // Every in-flight state is In progress on the board, so what is left is counted.
+    else counts[(task.state ?? 'unknown') as keyof TaskCounts]++;
   }
   return { inFlight: section(listedInFlight), readyToStart: section(readyToStart), counts };
 }
