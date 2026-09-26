@@ -35,13 +35,18 @@ export type Run = {
 
 export type Activity = { running: { items: Run[]; remainder: number }; recent: Run[] };
 
-/** Binnacle's Suggested step, which it labels as its calculation (ADR-0032). */
-export type SuggestedStep = { description: string; command: string | null; task: string | null; provenance: 'calculated' };
+/** One of the Suggested step's alternatives, Binnacle's calculation (ADR-0032); the page writes its title and reason from `kind` and `tasks`. */
+export type Alternative = {
+  kind: 'wait' | 'parallel' | 'resume' | 'autopilot' | 'byHand' | 'blocked' | 'close' | 'plan' | 'finished';
+  tasks: string[];
+  command: string | null;
+  provenance: 'calculated';
+};
 
 export type Snapshot = {
   git: GitFacts;
   roadmap: { epics: Epic[] } | null;
-  next: { action: { description: string; command: string } | null; suggested: SuggestedStep | null | Unavailable };
+  next: { action: { description: string; command: string } | null; alternatives: Alternative[] | Unavailable };
   tasks: {
     inFlight: Section<SnapshotTask>;
     readyToStart: Section<SnapshotTask>;

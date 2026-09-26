@@ -8,12 +8,12 @@ import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
 
 /**
  * The snapshot's `next` through the daemon's HTTP API: the roadmap's Next action, its two
- * attention items, and Binnacle's Suggested step beside it, each of its eight rules on a
- * fixture where exactly that rule applies (ADR-0032). Runs come from Claude Code sessions,
- * cut from real ones, that a real repository's reflog puts on their Tasks' branches.
+ * attention items, and Binnacle's Suggested step beside it as alternatives, each of its eight
+ * rules on a fixture where exactly that rule applies (ADR-0032). Runs come from Claude Code
+ * sessions, cut from real ones, that a real repository's reflog puts on their Tasks' branches.
  */
-type Step = { rule: number; description: string; command: string | null; task: string | null; provenance: string };
-type Next = { action: { description: string; command: string } | null; suggested: Step | null | { available: false; reason: string } };
+type Alternative = { kind: string; tasks: string[]; command: string | null; description: string; provenance: string };
+type Next = { action: { description: string; command: string } | null; alternatives: Alternative[] | { available: false; reason: string } };
 type Snapshot = { next: Next; attention: { code: string; message: string }[] };
 type Line = Record<string, unknown> & { type: string; message?: Record<string, unknown> };
 
@@ -38,7 +38,7 @@ function write(root: string, path: string, text: string): void {
   writeFileSync(join(root, path), text);
 }
 
-const manifest = (workflow = 'matt-pocock'): string => `version: 1
+const manifest = (workflow = 'matt-pocock', limit?: number): string => `version: 1
 
 project:
   id: next-project
@@ -53,24 +53,26 @@ knowledge:
 
 workflow:
   provider: ${workflow}
-`;
+${limit === undefined ? '' : `\nautomation:\n  max_parallel_development_tasks: ${limit}\n`}`;
 
 const row = (number: number, title: string, status: string, spec: string | null): string =>
   `| ${number} | ${title} | ${status} | ${spec === null ? '—' : `[\`${spec}\`](specs/${spec}/spec.md)`} |`;
 
 const AUTOPILOT = 'Next action: run the epic. `/binnacle:autopilot`';
+/** A Next action no alternative agrees with, so that none is left out. */
+const DAILY = 'Next action: see what changed. `/binnacle:daily`';
 
-function roadmap(rows: string[], focus: string | null = AUTOPILOT): string {
+function roadmap(rows: string[], focus: string | null): string {
   const lines = ['# Roadmap', '', '| # | Epic | Status | Spec |', '| --- | --- | --- | --- |', ...rows, ''];
   if (focus !== null) lines.push('## Current focus', '', focus, '');
   lines.push('## Later', '', '- something', '');
   return lines.join('\n');
 }
 
-/** A project whose roadmap has `rows` and `focus`, under `workflow`. */
-function makeProject(rows: string[], focus: string | null = AUTOPILOT, workflow?: string): string {
+/** A project whose roadmap has `rows` and `focus`, under `workflow` and a parallel `limit`. */
+function makeProject(rows: string[], focus: string | null = DAILY, workflow?: string, limit?: number): string {
   const root = temporary('binnacle-next-');
-  write(root, '.binnacle/project.yaml', manifest(workflow));
+  write(root, '.binnacle/project.yaml', manifest(workflow, limit));
   write(root, 'docs/roadmap.md', roadmap(rows, focus));
   return root;
 }
@@ -133,11 +135,16 @@ async function snapshot(daemon: TestDaemon, root: string): Promise<Snapshot> {
 
 const nextCodes = (body: Snapshot): string[] => body.attention.map((item) => item.code).filter((code) => code.startsWith('next_action.'));
 
-function suggested(body: Snapshot): Step {
-  const step = body.next.suggested;
-  assert.ok(step !== null && !('available' in step), JSON.stringify(step));
-  return step;
+/** The alternatives, which are never more than three. */
+function alternatives(body: Snapshot): Alternative[] {
+  const list = body.next.alternatives;
+  assert.ok(Array.isArray(list), JSON.stringify(list));
+  assert.ok(list.length <= 3, JSON.stringify(list));
+  for (const alternative of list) assert.equal(alternative.provenance, 'calculated');
+  return list;
 }
+
+const kinds = (list: Alternative[]): string[] => list.map((alternative) => alternative.kind);
 
 describe('the Next action', () => {
   it("is the focus's last paragraph: the code span it ends with is the command, the text before it the description, whose own code spans stay text", async () => {
@@ -201,20 +208,54 @@ describe('the Next action', () => {
   });
 });
 
-describe('the Suggested step', () => {
-  it('1: an implementation run of a Task is active, so that Task is being worked on, with no command', async () => {
+describe("the Suggested step's alternatives", () => {
+  it('1: an implementation run of a Task is active, so wait for it, with no command, and nothing beside it when no Task is ready', async () => {
     await withDaemon(async (daemon, artifacts) => {
       const root = makeProject([row(1, 'First', 'in progress', 'first')]);
       ticket(root, 'first', '01-worked.md', 'Status: ACTIVE');
       repository(root, minutesAgo(60), [minutesAgo(3), 'feat/worked']);
       session(artifacts, root, 'working', minutesAgo(1));
 
-      const step = suggested(await snapshot(daemon, root));
-      assert.equal(step.rule, 1);
-      assert.equal(step.task, 'first/01');
-      assert.equal(step.command, null);
-      assert.equal(step.provenance, 'calculated');
-      assert.match(step.description, /first\/01/);
+      const [wait, ...rest] = alternatives(await snapshot(daemon, root));
+      assert.deepEqual(rest, []);
+      assert.equal(wait!.kind, 'wait');
+      assert.deepEqual(wait!.tasks, ['first/01']);
+      assert.equal(wait!.command, null);
+      assert.match(wait!.description, /first\/01/);
+    });
+  });
+
+  it('1 is followed by parallel when a place is free and a Task is ready: one ready Task with its start command, several named with none', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject([row(1, 'First', 'in progress', 'first')]);
+      ticket(root, 'first', '01-worked.md', 'Status: ACTIVE');
+      const ready = ticket(root, 'first', '02-ready.md', 'Status: READY');
+      repository(root, minutesAgo(60), [minutesAgo(3), 'feat/worked']);
+      session(artifacts, root, 'working', minutesAgo(1));
+
+      const list = alternatives(await snapshot(daemon, root));
+      assert.deepEqual(kinds(list), ['wait', 'parallel']);
+      assert.deepEqual(list[1]!.tasks, ['first/02']);
+      assert.equal(list[1]!.command, `/mattpocock-skills:implement ${ready}`);
+      assert.match(list[1]!.description, /first\/02/);
+
+      ticket(root, 'first', '03-also.md', 'Status: READY');
+      const several = alternatives(await snapshot(daemon, root));
+      assert.deepEqual(kinds(several), ['wait', 'parallel']);
+      assert.deepEqual(several[1]!.tasks, ['first/02', 'first/03']);
+      assert.equal(several[1]!.command, null);
+    });
+  });
+
+  it('1 is not followed by parallel when no place is free', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject([row(1, 'First', 'in progress', 'first')], DAILY, 'matt-pocock', 1);
+      ticket(root, 'first', '01-worked.md', 'Status: ACTIVE');
+      ticket(root, 'first', '02-ready.md', 'Status: READY');
+      repository(root, minutesAgo(60), [minutesAgo(3), 'feat/worked']);
+      session(artifacts, root, 'working', minutesAgo(1));
+
+      assert.deepEqual(kinds(alternatives(await snapshot(daemon, root))), ['wait']);
     });
   });
 
@@ -228,10 +269,10 @@ describe('the Suggested step', () => {
       session(artifacts, root, 'working', minutesAgo(7));
       session(artifacts, root, 'merged', minutesAgo(2));
 
-      const step = suggested(await snapshot(daemon, root));
-      assert.equal(step.rule, 1);
-      assert.equal(step.task, 'first/02');
-      assert.doesNotMatch(step.description, /first\/01/);
+      const [wait] = alternatives(await snapshot(daemon, root));
+      assert.equal(wait!.kind, 'wait');
+      assert.deepEqual(wait!.tasks, ['first/02']);
+      assert.doesNotMatch(wait!.description, /first\/01/);
     });
     await withDaemon(async (daemon, artifacts) => {
       const root = makeProject([row(1, 'First', 'in progress', 'first')]);
@@ -240,7 +281,7 @@ describe('the Suggested step', () => {
       session(artifacts, root, 'merged', minutesAgo(1));
 
       // Falls through to the next rule that applies.
-      assert.equal(suggested(await snapshot(daemon, root)).rule, 5);
+      assert.deepEqual(kinds(alternatives(await snapshot(daemon, root))), ['close']);
     });
   });
 
@@ -251,9 +292,7 @@ describe('the Suggested step', () => {
       repository(root, minutesAgo(60));
       session(artifacts, root, 'product', minutesAgo(1));
 
-      const step = suggested(await snapshot(daemon, root));
-      assert.equal(step.rule, 3);
-      assert.equal(step.command, '/binnacle:autopilot');
+      assert.deepEqual(kinds(alternatives(await snapshot(daemon, root))), ['autopilot', 'byHand']);
     });
   });
 
@@ -263,10 +302,10 @@ describe('the Suggested step', () => {
       ticket(root, 'first', '01-done.md', 'Status: DONE');
       const idle = ticket(root, 'first', '02-idle.md', 'Status: ACTIVE');
 
-      const step = suggested(await snapshot(daemon, root));
-      assert.equal(step.rule, 2);
-      assert.equal(step.task, 'first/02');
-      assert.equal(step.command, `/mattpocock-skills:implement ${idle}`);
+      const list = alternatives(await snapshot(daemon, root));
+      assert.deepEqual(kinds(list), ['resume']);
+      assert.deepEqual(list[0]!.tasks, ['first/02']);
+      assert.equal(list[0]!.command, `/mattpocock-skills:implement ${idle}`);
     });
   });
 
@@ -278,26 +317,44 @@ describe('the Suggested step', () => {
       repository(root, minutesAgo(3 * 24 * 60), [yesterday, 'feat/idle']);
       session(artifacts, root, 'abandoned', new Date(Date.parse(yesterday) + 60_000).toISOString());
 
-      const step = suggested(await snapshot(daemon, root));
-      assert.equal(step.rule, 2);
-      assert.equal(step.command, `/mattpocock-skills:implement ${idle}`);
+      const list = alternatives(await snapshot(daemon, root));
+      assert.deepEqual(kinds(list), ['resume']);
+      assert.equal(list[0]!.command, `/mattpocock-skills:implement ${idle}`);
     });
   });
 
-  it('3: the current epic is at tickets or in progress and one of its READY Tasks has no Unmet dependency, so /binnacle:autopilot', async () => {
+  it('3: the current epic is at tickets or in progress and one of its READY Tasks has no Unmet dependency, so autopilot, and beside it that Task by hand', async () => {
     await withDaemon(async (daemon) => {
       for (const status of ['tickets', 'in progress']) {
         const root = makeProject([row(1, 'Old', 'done', 'old'), row(2, 'First', status, 'first')]);
         ticket(root, 'old', '01-old.md', 'Status: READY');
-        ticket(root, 'first', '01-ready.md', 'Status: READY');
+        const ready = ticket(root, 'first', '01-ready.md', 'Status: READY');
         ticket(root, 'first', '02-waits.md', 'Status: READY', 'Blocked by: 01');
 
-        const step = suggested(await snapshot(daemon, root));
-        assert.equal(step.rule, 3, status);
-        assert.equal(step.command, '/binnacle:autopilot');
-        assert.equal(step.task, null);
-        assert.match(step.description, /Epic 2/);
+        const [autopilot, byHand, ...rest] = alternatives(await snapshot(daemon, root));
+        assert.deepEqual(rest, [], status);
+        assert.equal(autopilot!.kind, 'autopilot');
+        assert.equal(autopilot!.command, '/binnacle:autopilot');
+        assert.deepEqual(autopilot!.tasks, []);
+        assert.match(autopilot!.description, /Epic 2/);
+        assert.equal(byHand!.kind, 'byHand');
+        assert.deepEqual(byHand!.tasks, ['first/01']);
+        assert.equal(byHand!.command, `/mattpocock-skills:implement ${ready}`);
       }
+    });
+  });
+
+  it('3 names several ready Tasks by hand with no command, so that no order is implied', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject([row(1, 'First', 'in progress', 'first')]);
+      ticket(root, 'first', '01-ready.md', 'Status: READY');
+      ticket(root, 'first', '02-also.md', 'Status: READY');
+
+      const [, byHand] = alternatives(await snapshot(daemon, root));
+      assert.equal(byHand!.kind, 'byHand');
+      assert.deepEqual(byHand!.tasks, ['first/01', 'first/02']);
+      assert.equal(byHand!.command, null);
+      assert.match(byHand!.description, /first\/01.*first\/02/);
     });
   });
 
@@ -307,10 +364,11 @@ describe('the Suggested step', () => {
       ticket(root, 'first', '01-later.md', 'Status: BACKLOG');
       ticket(root, 'first', '02-waits.md', 'Status: READY', 'Blocked by: 01');
 
-      const step = suggested(await snapshot(daemon, root));
-      assert.equal(step.rule, 4);
-      assert.equal(step.command, null);
-      assert.match(step.description, /first\/02 waits on first\/01/);
+      const list = alternatives(await snapshot(daemon, root));
+      assert.deepEqual(kinds(list), ['blocked']);
+      assert.deepEqual(list[0]!.tasks, ['first/02']);
+      assert.equal(list[0]!.command, null);
+      assert.match(list[0]!.description, /first\/02 waits on first\/01/);
     });
   });
 
@@ -320,20 +378,20 @@ describe('the Suggested step', () => {
       ticket(root, 'first', '01-done.md', 'Status: DONE');
       ticket(root, 'first', '02-cancelled.md', 'Status: CANCELLED');
 
-      const step = suggested(await snapshot(daemon, root));
-      assert.equal(step.rule, 5);
-      assert.equal(step.command, '/binnacle:product');
+      const list = alternatives(await snapshot(daemon, root));
+      assert.deepEqual(kinds(list), ['close']);
+      assert.equal(list[0]!.command, '/binnacle:product');
     });
   });
 
-  it('6: the current epic is not started, so grill it', async () => {
+  it('6: the current epic is not started, so plan it by grilling', async () => {
     await withDaemon(async (daemon) => {
       const root = makeProject([row(1, 'Old', 'done', 'old'), row(2, 'Next', 'not started', null)]);
       ticket(root, 'old', '01-old.md', 'Status: DONE');
 
-      const step = suggested(await snapshot(daemon, root));
-      assert.equal(step.rule, 6);
-      assert.equal(step.command, '/mattpocock-skills:grill-with-docs');
+      const list = alternatives(await snapshot(daemon, root));
+      assert.deepEqual(kinds(list), ['plan']);
+      assert.equal(list[0]!.command, '/mattpocock-skills:grill-with-docs');
     });
   });
 
@@ -345,9 +403,9 @@ describe('the Suggested step', () => {
         ['tickets', 'first', '/mattpocock-skills:to-tickets'],
       ];
       for (const [status, spec, command] of cases) {
-        const step = suggested(await snapshot(daemon, makeProject([row(1, 'First', status, spec)])));
-        assert.equal(step.rule, 7, `${status} ${spec}`);
-        assert.equal(step.command, command);
+        const list = alternatives(await snapshot(daemon, makeProject([row(1, 'First', status, spec)])));
+        assert.deepEqual(kinds(list), ['plan'], `${status} ${spec}`);
+        assert.equal(list[0]!.command, command);
       }
     });
   });
@@ -357,10 +415,35 @@ describe('the Suggested step', () => {
       const root = makeProject([row(1, 'First', 'done', 'first')]);
       ticket(root, 'first', '01-done.md', 'Status: DONE');
 
-      const step = suggested(await snapshot(daemon, root));
-      assert.equal(step.rule, 8);
-      assert.equal(step.command, null);
-      assert.equal(step.provenance, 'calculated');
+      const list = alternatives(await snapshot(daemon, root));
+      assert.deepEqual(kinds(list), ['finished']);
+      assert.equal(list[0]!.command, null);
+    });
+  });
+
+  it('is empty when no rule applies, as without epics and with nothing in progress', async () => {
+    await withDaemon(async (daemon) => {
+      assert.deepEqual(alternatives(await snapshot(daemon, makeProject([]))), []);
+    });
+  });
+
+  it("leaves out an alternative whose command is the Next action's, and none without a Next action", async () => {
+    await withDaemon(async (daemon) => {
+      const rows = [row(1, 'First', 'in progress', 'first')];
+      const setUp = (focus: string | null): { root: string; ready: string } => {
+        const root = makeProject(rows, focus);
+        return { root, ready: ticket(root, 'first', '01-ready.md', 'Status: READY') };
+      };
+
+      assert.deepEqual(kinds(alternatives(await snapshot(daemon, setUp(AUTOPILOT).root))), ['byHand']);
+
+      const byHand = setUp(null);
+      write(byHand.root, 'docs/roadmap.md', roadmap(rows, `Next action: take it. \`/mattpocock-skills:implement ${byHand.ready}\``));
+      assert.deepEqual(kinds(alternatives(await snapshot(daemon, byHand.root))), ['autopilot']);
+
+      const none = await snapshot(daemon, setUp(null).root);
+      assert.equal(none.next.action, null);
+      assert.deepEqual(kinds(alternatives(none)), ['autopilot', 'byHand']);
     });
   });
 
@@ -370,24 +453,31 @@ describe('the Suggested step', () => {
       ticket(root, 'first', '01-ready.md', 'Status: READY');
       ticket(root, 'first', '02-idle.md', 'Status: ACTIVE');
 
-      const step = suggested(await snapshot(daemon, root));
-      assert.equal(step.rule, 2);
-      assert.equal(step.command, null);
-      assert.match(step.description, /first\/02/);
+      const list = alternatives(await snapshot(daemon, root));
+      assert.deepEqual(kinds(list), ['resume']);
+      assert.equal(list[0]!.command, null);
+      assert.match(list[0]!.description, /first\/02/);
 
-      const planning = suggested(await snapshot(daemon, makeProject([row(1, 'First', 'not started', null)], AUTOPILOT, 'none')));
-      assert.equal(planning.rule, 6);
-      assert.equal(planning.command, null);
+      // Nothing is left out for agreeing with the Next action either: no command equals it.
+      const epic = makeProject([row(1, 'First', 'in progress', 'first')], AUTOPILOT, 'none');
+      ticket(epic, 'first', '01-ready.md', 'Status: READY');
+      const both = alternatives(await snapshot(daemon, epic));
+      assert.deepEqual(kinds(both), ['autopilot', 'byHand']);
+      assert.deepEqual(both.map((alternative) => alternative.command), [null, null]);
+
+      const planning = alternatives(await snapshot(daemon, makeProject([row(1, 'First', 'not started', null)], AUTOPILOT, 'none')));
+      assert.deepEqual(kinds(planning), ['plan']);
+      assert.equal(planning[0]!.command, null);
     });
   });
 
   it('is unavailable, with the reason, when the tracker cannot be read', async () => {
     await withDaemon(async (daemon) => {
-      const root = makeProject([row(1, 'First', 'in progress', 'first')]);
+      const root = makeProject([row(1, 'First', 'in progress', 'first')], AUTOPILOT);
       write(root, '.binnacle/project.yaml', manifest().replace('    issues: docs/specs\n', ''));
 
       const body = await snapshot(daemon, root);
-      assert.deepEqual(body.next.suggested, { available: false, reason: 'tracker.provider is local, and this project declares no tracker.local.issues.' });
+      assert.deepEqual(body.next.alternatives, { available: false, reason: 'tracker.provider is local, and this project declares no tracker.local.issues.' });
       assert.deepEqual(body.next.action, { description: 'run the epic.', command: '/binnacle:autopilot' });
     });
   });

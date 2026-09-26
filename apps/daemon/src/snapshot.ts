@@ -9,6 +9,7 @@ import {
   roadmapAttention,
   startCommand,
   suggestedStep,
+  type Alternative,
   type Diagnostic,
   type Epic,
   type NextAction,
@@ -16,7 +17,6 @@ import {
   type ProjectManifest,
   type ResolvedTask,
   type Roadmap,
-  type SuggestedStep,
   type TaskReading,
   type TaskState,
   type TrackerTask,
@@ -79,10 +79,11 @@ export type Snapshot = {
   } | null;
   /**
    * What to do next (ADR-0032): the roadmap's Next action, null when its focus does not end with
-   * one, and beside it Binnacle's Suggested step, null when no rule applies, and unavailable,
-   * with the tracker's reason, when the Tasks cannot be read.
+   * one, and beside it Binnacle's Suggested step as up to three alternatives, none when no rule
+   * applies or every one agrees with the Next action, and unavailable, with the tracker's reason,
+   * when the Tasks cannot be read.
    */
-  next: { action: NextAction | null; suggested: SuggestedStep | null | Unavailable };
+  next: { action: NextAction | null; alternatives: Alternative[] | Unavailable };
   /** Null when the project's tracker cannot be read yet; `attention` says why. */
   tasks: {
     /**
@@ -138,6 +139,9 @@ export async function snapshot(
   const workflow = projected.manifest?.workflow.provider ?? null;
   // A harness whose artifacts cannot be read is at level 1, and says why.
   for (const { level, reason } of usageSection.harnesses) if (level === 1 && reason !== null) attention.push({ code: 'telemetry.unreadable', message: reason });
+  const limit = projected.manifest?.automation.maxParallelDevelopmentTasks ?? PARALLEL_LIMIT;
+  const sections = tasks && withStartAndParallel(taskSections(tasks, new Set(runs.flatMap((run) => run.taskId ?? []))), workflow, limit);
+  const action = nextAction(roadmap?.focus ?? null);
 
   return {
     project: projected.row,
@@ -145,10 +149,11 @@ export async function snapshot(
     git: caller.git,
     roadmap: roadmap && { ...roadmap, focus: roadmap.focus == null ? null : cut(roadmap.focus, FOCUS_LIMIT) },
     next: {
-      action: nextAction(roadmap?.focus ?? null),
-      suggested: tasks ? suggestedStep(roadmap?.epics ?? [], tasks, runs, workflow) : trackerUnavailable(unreadable),
+      action,
+      alternatives:
+        tasks && sections ? suggestedStep(roadmap?.epics ?? [], tasks, runs, { workflow, free: sections.parallel.free, next: action }) : trackerUnavailable(unreadable),
     },
-    tasks: tasks && withStartAndParallel(taskSections(tasks, new Set(runs.flatMap((run) => run.taskId ?? []))), workflow, projected.manifest?.automation.maxParallelDevelopmentTasks ?? PARALLEL_LIMIT),
+    tasks: sections,
     decisions: adrs && (await recentDecisions(tree, caller.project, adrs)),
     pendingDecisions: UNAVAILABLE,
     ci: UNAVAILABLE,

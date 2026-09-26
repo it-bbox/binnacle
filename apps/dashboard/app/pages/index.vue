@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { call, usePolling } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
-import { count, isUnavailable, SELECTED_VIEW, type Board } from '~/composables/projects';
+import { count, isUnavailable, SELECTED_VIEW, type Alternative, type Board } from '~/composables/projects';
 import type { Totals } from '~/composables/usage';
 
 /**
@@ -13,7 +13,7 @@ const view = inject(SELECTED_VIEW, ref(null));
 const snapshot = computed(() => view.value?.snapshot ?? null);
 const route = useRoute();
 const project = typeof route.query.project === 'string' ? route.query.project : null;
-const { t, number, secondsAgo } = useLanguage();
+const { t, number, list, secondsAgo } = useLanguage();
 
 const board = usePolling(async () => (project === null ? null : call<Board>('task.list', { path: project })));
 
@@ -25,6 +25,23 @@ const roadmapReasons = computed(() => {
   return own.length > 0 ? own : reasons('tracker.');
 });
 const trackerReasons = computed(() => reasons('tracker.'));
+/** `next_action.missing` or `next_action.stale`, shown inside What's next. */
+const nextActionWarnings = computed(() => reasons('next_action.'));
+
+/** An alternative's title and reason, written by the page in its language from `kind` and `tasks`. */
+const written = (alternative: Alternative) => t.value.alternatives[alternative.kind](list(alternative.tasks), alternative.tasks.length);
+/** Written out, so that the build bundles each icon. */
+const ICONS: Record<Alternative['kind'], string> = {
+  wait: 'i-lucide-hourglass',
+  parallel: 'i-lucide-split',
+  resume: 'i-lucide-step-forward',
+  autopilot: 'i-lucide-route',
+  byHand: 'i-lucide-terminal',
+  blocked: 'i-lucide-lock',
+  close: 'i-lucide-circle-check',
+  plan: 'i-lucide-list-todo',
+  finished: 'i-lucide-flag',
+};
 
 /** The roadmap's epics as steps: done, the current one (the first not done), and those after it. */
 const steps = computed(() => {
@@ -92,7 +109,6 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
     </p>
     <p v-else-if="view.failure" class="py-10 text-warning"><code>{{ view.failure.code }}</code> <span lang="en">{{ view.failure.message }}</span></p>
     <template v-else-if="snapshot">
-      <!-- What's next: ticket 03 rebuilds it around Binnacle's alternatives. -->
       <UCard :ui="{ root: 'rounded-[14px]', body: 'flex flex-col gap-6 px-10 pt-9 pb-8 sm:px-10 sm:pt-9 sm:pb-8' }">
         <h1 class="text-[22px] font-semibold tracking-tight text-highlighted">{{ t.whatsNext }}</h1>
         <div v-if="snapshot.roadmap === null" class="flex flex-col gap-2.5">
@@ -113,22 +129,42 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
             <p class="max-w-[70ch] text-[17px] leading-normal whitespace-pre-wrap" lang="en">{{ snapshot.next.action.description }}</p>
             <CopyCommand :command="snapshot.next.action.command" primary />
           </template>
-          <UAlert v-else color="warning" variant="soft" icon="i-lucide-triangle-alert" :title="t.noNextAction" />
+          <UAlert
+            v-for="item in nextActionWarnings"
+            :key="item.code"
+            color="warning"
+            variant="soft"
+            icon="i-lucide-triangle-alert"
+            :title="item.code === 'next_action.stale' ? t.nextActionStale : t.nextActionMissing"
+          >
+            <template #description><code class="font-mono text-[11px]">{{ item.code }}</code></template>
+          </UAlert>
         </div>
-        <div class="flex flex-col gap-2">
-          <div class="flex items-center gap-2.5">
-            <UBadge label="Suggested step" color="neutral" variant="outline" class="border-dashed" />
-            <span class="text-xs text-muted">{{ t.calculation }}</span>
+        <p v-if="isUnavailable(snapshot.next.alternatives)" class="text-muted">
+          <span class="font-medium text-default">{{ t.notAvailable }}</span> · <span lang="en">{{ snapshot.next.alternatives.reason }}</span>
+        </p>
+        <div v-else-if="snapshot.next.alternatives.length > 0" class="flex flex-col">
+          <div class="mb-1.5 flex items-center gap-2.5">
+            <span class="text-[13px] font-semibold text-muted">{{ t.or }}</span>
+            <UBadge :label="t.calculation" color="neutral" variant="outline" icon="i-lucide-calculator" class="border-dashed" />
             <div class="h-px flex-1 bg-(--ui-border)" />
           </div>
-          <p v-if="snapshot.next.suggested === null" class="text-muted">{{ t.noSuggestion }}</p>
-          <p v-else-if="isUnavailable(snapshot.next.suggested)" class="text-muted">
-            {{ t.notAvailable }} · <span lang="en">{{ snapshot.next.suggested.reason }}</span>
-          </p>
-          <template v-else>
-            <p class="leading-normal" lang="en">{{ snapshot.next.suggested.description }}</p>
-            <CopyCommand v-if="snapshot.next.suggested.command !== null" :command="snapshot.next.suggested.command" />
-          </template>
+          <div
+            v-for="alternative in snapshot.next.alternatives"
+            :key="alternative.kind"
+            class="grid grid-cols-[28px_minmax(0,1fr)] gap-x-2.5 gap-y-1 border-t border-default py-3"
+          >
+            <div class="flex size-[26px] items-center justify-center rounded-[7px] bg-elevated text-muted">
+              <UIcon :name="ICONS[alternative.kind]" class="size-3.5" />
+            </div>
+            <div class="flex min-w-0 flex-col gap-2">
+              <div class="flex flex-col gap-0.5">
+                <div class="text-sm font-medium">{{ written(alternative).title }}</div>
+                <div class="leading-snug text-muted">{{ written(alternative).reason }}</div>
+              </div>
+              <CopyCommand v-if="alternative.command !== null" :command="alternative.command" />
+            </div>
+          </div>
         </div>
       </UCard>
 

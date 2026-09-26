@@ -44,9 +44,30 @@ export const ru: Dictionary = {
   unknownProject: 'По этому адресу нет зарегистрированного проекта.',
   whatsNext: 'Что дальше',
   fromRoadmap: 'По плану',
-  noNextAction: 'В roadmap нет Next action. Причина — во «Внимании».',
+  nextActionMissing: 'В roadmap нет Next action с командой. Проверьте текущий фокус.',
+  nextActionStale: 'Next action называет Task, который уже Done. Сверьтесь с roadmap перед запуском.',
+  or: 'или',
   calculation: 'расчёт Binnacle',
-  noSuggestion: 'У Binnacle нет предложения.',
+  alternatives: {
+    wait: (ids, count) => ({
+      title: `Дождаться ${ids}`,
+      reason: count === 1 ? 'Над ним идёт run: не начинайте ничего поверх.' : 'Над ними идут runs: не начинайте ничего поверх.',
+    }),
+    parallel: (ids, count) => ({
+      title: 'Начать второй Task параллельно',
+      reason: count === 1 ? `${ids} готов и ничего не ждёт, а лимит параллельной работы это позволяет.` : `${ids} готовы и ничего не ждут: выберите один в «Можно начинать».`,
+    }),
+    resume: (ids) => ({ title: `Продолжить ${ids}`, reason: 'Он In progress, но ни один его run не активен.' }),
+    autopilot: () => ({ title: 'Запустить весь Epic', reason: 'Task этого Epic готовы к старту: autopilot пройдёт по оставшимся тикетам.' }),
+    byHand: (ids, count) =>
+      count === 1
+        ? { title: `Взять ${ids} вручную`, reason: 'Он готов к старту: по одному тикету за раз, в новой сессии.' }
+        : { title: 'Взять один Task вручную', reason: `${ids} готовы, в любом порядке: выберите один в «Можно начинать».` },
+    blocked: (ids) => ({ title: 'Пока ничего не начать', reason: `Каждый READY Task этого Epic ждёт Unmet dependency: ${ids}.` }),
+    close: () => ({ title: 'Закрыть Epic', reason: 'Все его Task — DONE или CANCELLED, но в roadmap он не отмечен как done. Закройте его в Product-сессии.' }),
+    plan: () => ({ title: 'Спланировать Epic', reason: 'Task для старта пока нет. Следующий шаг — grilling, спецификация или тикеты.' }),
+    finished: () => ({ title: 'Все Epic завершены', reason: 'В roadmap ничего не осталось. Спланируйте, что дальше.' }),
+  },
   trackerUnreadable: 'Трекер не читается',
   epicProgress: 'Прогресс по Epic',
   openBoard: 'Открыть доску',

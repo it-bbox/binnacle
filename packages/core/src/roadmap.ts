@@ -182,81 +182,111 @@ export function nextActionAttention(roadmap: Roadmap, tasks: TrackerTask[] | nul
   ];
 }
 
-/** Binnacle's Suggested step (ADR-0032): its own reading of what comes next, beside the Next action and never replacing it. */
-export type SuggestedStep = {
-  /** Which of the eight rules gave it. */
-  rule: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
-  description: string;
-  /** Null when the step has none, and under any `workflow.provider` but `matt-pocock`. */
+/** The Suggested step's alternatives, at most this many. */
+const ALTERNATIVE_LIMIT = 3;
+
+/**
+ * One of the Suggested step's alternatives (ADR-0032): Binnacle's own reading of a way to go on,
+ * beside the Next action and never replacing it. The dashboard writes its title and reason from
+ * `kind` and `tasks`; `description` is the English one, for the skills and MCP.
+ */
+export type Alternative = {
+  kind: 'wait' | 'parallel' | 'resume' | 'autopilot' | 'byHand' | 'blocked' | 'close' | 'plan' | 'finished';
+  /** The Task ids it names, if it names any. */
+  tasks: string[];
+  /** Null when it has none, and under any `workflow.provider` but `matt-pocock`. */
   command: string | null;
-  /** The Task it names, if it names one. */
-  task: string | null;
+  description: string;
   provenance: 'calculated';
 };
 
 /**
- * The Suggested step, by the first of eight rules that applies; null when none does, as without
- * a roadmap and with no Task in progress. The current epic is the first not `done`. Only an
- * implementation run makes a Task worked on, and only a Task the board places In progress: a
- * Product session's own run never does, nor a run of a Task `DONE`, `MERGED` or `CANCELLED`. Its
- * commands are the Matt Pocock chain's and the `binnacle` plugin's, so any other workflow gets
- * the description alone.
+ * The Suggested step as alternatives, by the first of eight rules that applies; none when no rule
+ * does, as without a roadmap and with no Task in progress. The current epic is the first not
+ * `done`. Only an implementation run makes a Task worked on, and only a Task the board places In
+ * progress: a Product session's own run never does, nor a run of a Task `DONE`, `MERGED` or
+ * `CANCELLED`. Its commands are the Matt Pocock chain's and the `binnacle` plugin's, so any other
+ * workflow gets the descriptions alone. An alternative whose command is the Next action's is left
+ * out, since the Next action already offers it. `free` is how many more Tasks the parallel limit
+ * allows (the snapshot's `tasks.parallel.free`).
  */
 export function suggestedStep(
   epics: Epic[],
   tasks: ResolvedTask[],
   runs: Pick<ObservedRun, 'taskId' | 'role' | 'lastActivityAt' | 'active'>[],
-  workflow: string | null,
-): SuggestedStep | null {
-  const step = (rule: SuggestedStep['rule'], description: string, command: string | null = null, task: string | null = null): SuggestedStep => ({
-    rule,
-    description,
-    command: workflow === 'matt-pocock' ? command : null,
-    task,
-    provenance: 'calculated',
-  });
+  { workflow, free, next }: { workflow: string | null; free: number; next: NextAction | null },
+): Alternative[] {
+  return byRule(epics, tasks, runs, workflow, free)
+    .filter((item) => next === null || item.command !== next.command)
+    .slice(0, ALTERNATIVE_LIMIT);
+}
+
+/** The alternatives of the first rule that applies, before any is left out. */
+function byRule(epics: Epic[], tasks: ResolvedTask[], runs: Parameters<typeof suggestedStep>[2], workflow: string | null, free: number): Alternative[] {
   const byId = new Map(tasks.map((task) => [task.id, task]));
   const name = (id: string): string => {
     const title = byId.get(id)?.title;
     return title ? `${id} (${title})` : id;
   };
+  const alternative = (kind: Alternative['kind'], description: string, command: string | null = null, named: string[] = []): Alternative => ({
+    kind,
+    tasks: named,
+    command: workflow === 'matt-pocock' ? command : null,
+    description,
+    provenance: 'calculated',
+  });
+  /** Ready Tasks as one alternative: one Task with its start command, several named with none, so that no order is implied. */
+  const take = (kind: 'parallel' | 'byHand', ready: ResolvedTask[], one: string, several: string): Alternative =>
+    ready.length === 1
+      ? alternative(kind, `${name(ready[0]!.id)} ${one}`, startCommand(ready[0]!, workflow), [ready[0]!.id])
+      : alternative(kind, `${ready.map((task) => name(task.id)).join(', ')} ${several}`, null, ready.map((task) => task.id));
 
+  const attributed = new Set(runs.map((run) => run.taskId));
   const working = runs
     .filter((run) => run.role === 'implementation' && run.active.value && run.taskId !== null)
     .sort((a, b) => (a.lastActivityAt < b.lastActivityAt ? 1 : a.lastActivityAt > b.lastActivityAt ? -1 : 0));
   // Only a Task the board places In progress is waited on: a DONE one's run may outlive its merge,
   // and a run naming no known Task is placed nowhere. Each has a run, so a READY one stands In progress.
   const hasRuns = true;
+  // The Task with the latest activity first.
   const worked = [...new Set(working.map((run) => run.taskId!))].filter((id) => boardColumn(byId.get(id)?.state ?? null, hasRuns)?.column === 'inProgress');
   if (worked.length > 0) {
     const [is, it] = worked.length === 1 ? ['is', 'it'] : ['are', 'them'];
-    const description = `${worked.map(name).join(', ')} ${is} being worked on: an implementation run is active. Wait for ${it} rather than start something on top.`;
-    // The Task with the latest activity.
-    return step(1, description, null, worked[0]!);
+    const wait = alternative('wait', `${worked.map(name).join(', ')} ${is} being worked on: an implementation run is active. Wait for ${it} rather than start something on top.`, null, worked);
+    // Ready to start, as the snapshot lists it: none waits on an Unmet dependency or has a run, so none blocks another.
+    const ready = tasks.filter((task) => boardColumn(task.state, attributed.has(task.id))?.column === 'ready' && task.unmetDependencies.length === 0);
+    if (free < 1 || ready.length === 0) return [wait];
+    return [
+      wait,
+      take('parallel', ready, `is ready to start and the parallel limit has room: start it beside ${it}.`, `are ready to start, in any order, and the parallel limit has room: start one from Ready to start beside ${it}.`),
+    ];
   }
 
-  const attributed = new Set(runs.map((run) => run.taskId));
   const idle = tasks.find((task) => boardColumn(task.state, attributed.has(task.id))?.column === 'inProgress');
-  if (idle) return step(2, `${name(idle.id)} is in progress, and no run of it is active. Resume it.`, startCommand(idle, workflow), idle.id);
+  if (idle) return [alternative('resume', `${name(idle.id)} is in progress, and no run of it is active. Resume it.`, startCommand(idle, workflow), [idle.id])];
 
   const epic = epics.find((row) => row.status !== 'done');
-  if (epic === undefined) return epics.length > 0 ? step(8, 'Every epic on the roadmap is done.') : null;
+  if (epic === undefined) return epics.length > 0 ? [alternative('finished', 'Every epic on the roadmap is done.')] : [];
   const epicName = `Epic ${epic.number} (${epic.title})`;
   const own = epic.spec === null ? [] : tasks.filter((task) => task.specSlug === epic.spec);
   const ready = own.filter((task) => task.state === 'READY');
+  const startable = ready.filter((task) => task.unmetDependencies.length === 0);
 
-  if ((epic.status === 'tickets' || epic.status === 'in progress') && ready.some((task) => task.unmetDependencies.length === 0)) {
-    return step(3, `${epicName} has Tasks ready to start. Run its remaining tickets.`, '/binnacle:autopilot');
+  if ((epic.status === 'tickets' || epic.status === 'in progress') && startable.length > 0) {
+    return [
+      alternative('autopilot', `${epicName} has Tasks ready to start. Run its remaining tickets.`, '/binnacle:autopilot'),
+      take('byHand', startable, 'is ready to start. Take it by hand, one ticket at a time.', 'are ready to start, in any order. Take one by hand from Ready to start.'),
+    ];
   }
-  if (ready.length > 0 && ready.every((task) => task.unmetDependencies.length > 0)) {
+  if (ready.length > 0 && startable.length === 0) {
     const waits = ready.map((task) => `${task.id} waits on ${task.unmetDependencies.join(', ')}`).join('; ');
-    return step(4, `No Task of ${epicName} can start: every READY one waits on an Unmet dependency. ${waits}.`);
+    return [alternative('blocked', `No Task of ${epicName} can start: every READY one waits on an Unmet dependency. ${waits}.`, null, ready.map((task) => task.id))];
   }
   if (own.length > 0 && own.every((task) => task.state === 'DONE' || task.state === 'CANCELLED')) {
-    return step(5, `Every Task of ${epicName} is DONE or CANCELLED, but the epic is not marked done. Close it in a Product session.`, '/binnacle:product');
+    return [alternative('close', `Every Task of ${epicName} is DONE or CANCELLED, but the epic is not marked done. Close it in a Product session.`, '/binnacle:product')];
   }
-  if (epic.status === 'not started') return step(6, `${epicName} is not started. Grill it.`, '/mattpocock-skills:grill-with-docs');
-  if (epic.status === 'spec' && epic.spec === null) return step(7, `${epicName} needs its spec.`, '/mattpocock-skills:to-spec');
-  if (epic.status === 'spec' || (epic.status === 'tickets' && own.length === 0)) return step(7, `${epicName} needs its tickets.`, '/mattpocock-skills:to-tickets');
-  return null;
+  if (epic.status === 'not started') return [alternative('plan', `${epicName} is not started. Grill it.`, '/mattpocock-skills:grill-with-docs')];
+  if (epic.status === 'spec' && epic.spec === null) return [alternative('plan', `${epicName} needs its spec.`, '/mattpocock-skills:to-spec')];
+  if (epic.status === 'spec' || (epic.status === 'tickets' && own.length === 0)) return [alternative('plan', `${epicName} needs its tickets.`, '/mattpocock-skills:to-tickets')];
+  return [];
 }

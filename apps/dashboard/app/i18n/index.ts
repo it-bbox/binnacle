@@ -21,6 +21,9 @@ export function startingLanguage(stored: string | null, preferred: readonly stri
 /** A number as the language writes it. */
 export const formatNumber = (language: Language, value: number): string => new Intl.NumberFormat(language).format(value);
 
+/** Items as one list, "a, b and c", as the language joins them. */
+export const formatList = (language: Language, items: string[]): string => new Intl.ListFormat(language).format(items);
+
 /** A count in the plural form the language takes for it; `#` is the count, formatted in the language. */
 export const plural = (language: Language, count: number, forms: Forms): string =>
   (forms[new Intl.PluralRules(language).select(count)] ?? forms.other).replace('#', formatNumber(language, count));

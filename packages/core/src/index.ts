@@ -34,11 +34,11 @@ export {
   parseRoadmap,
   roadmapAttention,
   suggestedStep,
+  type Alternative,
   type Epic,
   type NextAction,
   type Roadmap,
   type RoadmapStatus,
-  type SuggestedStep,
 } from './roadmap.ts';
 export { instructionSets } from './instructions.ts';
 export {
