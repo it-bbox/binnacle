@@ -22,11 +22,9 @@ type Brief = {
 const route = useRoute();
 const project = typeof route.query.project === 'string' ? route.query.project : null;
 const id = typeof route.query.id === 'string' ? route.query.id : null;
-const { data, error } = usePolling(async () => {
-  if (project === null || id === null) return null;
-  const [brief, usage] = await Promise.all([call<Brief>('task.get', { path: project, id }), call<TaskUsage>('usage.get', { path: project, task: id })]);
-  return { ...brief, usage };
-});
+const { data, error } = usePolling(async () => (project === null || id === null ? null : call<Brief>('task.get', { path: project, id })));
+// Apart from the brief, so that a failing `usage.get` leaves the brief standing.
+const { data: usage, error: usageError } = usePolling(async () => (project === null || id === null ? null : call<TaskUsage>('usage.get', { path: project, task: id })));
 
 /** What the Task page cannot show yet, and why (`docs/04-telemetry-dashboard.md`). */
 const NOT_AVAILABLE = [
@@ -75,22 +73,26 @@ const dependency = (item: Brief['dependencies'][number]): string =>
       <li v-for="(item, index) in data.diagnostics" :key="index" class="warn"><code>{{ item.code }}</code> {{ item.message }}</li>
     </ul>
     <h2>Runs</h2>
-    <p v-if="data.usage.importing.incomplete" class="warn">{{ IMPORTING }}</p>
-    <p v-if="data.usage.runs.items.length === 0" class="muted">No run is attributed to this Task.</p>
-    <ol v-else class="runs">
-      <li v-for="run in data.usage.runs.items" :key="run.id">
-        {{ run.harness }}, {{ run.model ?? 'model not reported' }}, {{ run.role }} role
-        <span class="muted">
-          <template v-if="run.branch !== null"> · <code>{{ run.branch }}</code></template>
-          <template v-if="run.checkout !== null"> in <code>{{ run.checkout }}</code></template>
-          · started {{ new Date(run.startedAt).toLocaleString('en') }} · latest activity {{ ago(run.lastActivityAt) }}
-        </span>
-        <div class="muted">{{ fieldsLine(run.totals) }}</div>
-      </li>
-      <li v-if="data.usage.runs.remainder > 0" class="muted">and {{ data.usage.runs.remainder }} earlier runs</li>
-    </ol>
-    <h2>Implementation usage, {{ windowLabel(data.usage.importing) }}</h2>
-    <UsageTable :rows="[{ key: 'task', label: 'Every run of this Task', totals: data.usage.totals }]" />
+    <p v-if="usageError" class="warn"><code>{{ usageError.code }}</code> {{ usageError.message }}</p>
+    <p v-else-if="usage === null" class="muted">Loading…</p>
+    <template v-else>
+      <p v-if="usage.importing.incomplete" class="warn">{{ IMPORTING }}</p>
+      <p v-if="usage.runs.items.length === 0" class="muted">No run is attributed to this Task.</p>
+      <ol v-else class="runs">
+        <li v-for="run in usage.runs.items" :key="run.id">
+          {{ run.harness }}, {{ run.model ?? 'model not reported' }}, {{ run.role }} role
+          <span class="muted">
+            · <code v-if="run.branch !== null">{{ run.branch }}</code><template v-else>no branch</template>
+            in <code v-if="run.checkout !== null">{{ run.checkout }}</code><template v-else>a checkout Binnacle cannot name</template>
+            · started {{ new Date(run.startedAt).toLocaleString('en') }} · latest activity {{ ago(run.lastActivityAt) }}
+          </span>
+          <div class="muted">{{ fieldsLine(run.totals) }}</div>
+        </li>
+        <li v-if="usage.runs.remainder > 0" class="muted">and {{ usage.runs.remainder }} earlier runs</li>
+      </ol>
+      <h2>Implementation usage, {{ windowLabel(usage.importing) }}</h2>
+      <UsageTable :rows="[{ key: 'task', label: 'Every run of this Task', totals: usage.totals }]" />
+    </template>
     <ul class="unavailable">
       <li v-for="[element, reason] in NOT_AVAILABLE" :key="element">{{ element }}: not available, {{ reason }}</li>
     </ul>

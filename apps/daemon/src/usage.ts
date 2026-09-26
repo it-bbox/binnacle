@@ -157,8 +157,8 @@ export async function usageAndActivity(
 function grouped(records: UsageRecord[], key: 'model' | 'provider'): [string | null, Totals][] {
   const groups = new Map<string | null, UsageRecord[]>();
   for (const record of records) groups.set(record[key], [...(groups.get(record[key]) ?? []), record]);
-  const totals = [...groups].map(([value, grouped]): [string | null, Totals] => [value, sum(grouped)]);
-  return totals.sort(([a, x], [b, y]) => magnitude(y) - magnitude(x) || String(a).localeCompare(String(b), 'en'));
+  const totals = [...groups].map(([value, members]): [string | null, Totals] => [value, sum(members)]);
+  return totals.sort(([valueA, totalsA], [valueB, totalsB]) => magnitude(totalsB) - magnitude(totalsA) || String(valueA).localeCompare(String(valueB), 'en'));
 }
 
 /** A run as the snapshot's `activity` shows it: as `usage.get` gives it, with its Task's title, null when unassigned. */

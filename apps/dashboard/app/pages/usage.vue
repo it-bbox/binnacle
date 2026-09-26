@@ -3,20 +3,24 @@ import RoleUsage from '~/components/RoleUsage.vue';
 import UsageTable from '~/components/UsageTable.vue';
 import { call, usePolling } from '~/composables/daemon';
 import { isUnavailable } from '~/composables/projects';
-import { COST_UNAVAILABLE, IMPORTING, windowLabel, type ProjectUsage, type SnapshotUsage } from '~/composables/usage';
+import { IMPORTING, windowLabel, type ProjectUsage, type SnapshotUsage } from '~/composables/usage';
 
+/** ADR-0014's names for the levels a harness reaches through its artifacts. */
 const LEVELS: Record<number, string> = { 1: 'Context', 2: 'Attribution', 3: 'Usage' };
+
+const COST_UNAVAILABLE =
+  'Cost is not available: no harness artifact Binnacle reads reports it, and a cost computed from a price table is left for later, since under a subscription such a number is conditional.';
 
 const route = useRoute();
 const project = typeof route.query.project === 'string' ? route.query.project : null;
-// The snapshot answers today and the last seven days; `usage.get` the window, by Task and by role.
+// The snapshot answers today, the last seven days and the harnesses; `usage.get` the window, by Task and by role.
 const { data, error } = usePolling(async () => {
   if (project === null) return null;
-  const [snapshot, window] = await Promise.all([
+  const [snapshot, overWindow] = await Promise.all([
     call<{ usage: SnapshotUsage }>('project.snapshot', { path: project }),
     call<ProjectUsage>('usage.get', { path: project }),
   ]);
-  return { week: snapshot.usage, window };
+  return { snapshot: snapshot.usage, overWindow };
 });
 </script>
 
@@ -26,50 +30,54 @@ const { data, error } = usePolling(async () => {
   <p v-else-if="data === null" class="muted">Loading…</p>
   <template v-else>
     <h1>Usage</h1>
-    <p class="muted"><code>{{ project }}</code> · tokens as the harnesses' artifacts report them; a field no record reports is not reported, never zero.</p>
-    <p v-if="data.week.importing.incomplete || data.window.importing.incomplete" class="warn">{{ IMPORTING }}</p>
+    <p class="muted">
+      <code>{{ project }}</code> · tokens read from the harnesses' artifacts. A field no record reports is not reported, never zero, and a total Binnacle
+      calculated from what an artifact wrote says so.
+    </p>
+    <p v-if="data.snapshot.importing.incomplete || data.overWindow.importing.incomplete" class="warn">{{ IMPORTING }}</p>
 
-    <h2>Today and the last seven days</h2>
+    <h2>Today, the last seven days and the import window</h2>
     <UsageTable
       :rows="[
-        { key: 'today', label: 'Today', totals: data.week.today },
-        { key: 'week', label: 'Last seven days', totals: data.week.last7Days },
+        { key: 'today', label: 'Today', totals: data.snapshot.today },
+        { key: 'week', label: 'Last seven days', totals: data.snapshot.last7Days },
+        { key: 'window', label: data.overWindow.importing.windowStart === null ? 'Import window' : `Since ${data.overWindow.importing.windowStart}`, totals: data.overWindow.totals },
       ]"
     />
 
     <h2>By model, last seven days</h2>
-    <p v-if="data.week.byModel.items.length === 0" class="muted">No records.</p>
+    <p v-if="data.snapshot.byModel.items.length === 0" class="muted">No records.</p>
     <UsageTable
       v-else
-      :rows="data.week.byModel.items.map((item) => ({ key: String(item.model), label: item.model ?? 'Model not reported', totals: item.totals }))"
-      :remainder="data.week.byModel.remainder"
+      :rows="data.snapshot.byModel.items.map((item) => ({ key: String(item.model), label: item.model ?? 'Model not reported', totals: item.totals }))"
+      :remainder="data.snapshot.byModel.remainder"
     />
 
     <h2>By provider, last seven days</h2>
-    <p v-if="data.week.byProvider.items.length === 0" class="muted">No records.</p>
+    <p v-if="data.snapshot.byProvider.items.length === 0" class="muted">No records.</p>
     <UsageTable
       v-else
-      :rows="data.week.byProvider.items.map((item) => ({ key: String(item.provider), label: item.provider ?? 'Provider not reported by the artifacts', totals: item.totals }))"
-      :remainder="data.week.byProvider.remainder"
+      :rows="data.snapshot.byProvider.items.map((item) => ({ key: String(item.provider), label: item.provider ?? 'Provider not reported by the artifacts', totals: item.totals }))"
+      :remainder="data.snapshot.byProvider.remainder"
     />
 
-    <h2>By Task, {{ windowLabel(data.window.importing) }}</h2>
-    <p v-if="isUnavailable(data.window.tasks)" class="muted">Not available: {{ data.window.tasks.reason }}</p>
+    <h2>By Task, {{ windowLabel(data.overWindow.importing) }}</h2>
+    <p v-if="isUnavailable(data.overWindow.tasks)" class="muted">Not available: {{ data.overWindow.tasks.reason }}</p>
     <template v-else>
-      <p v-if="data.window.tasks.items.length === 0" class="muted">No run is attributed to a Task.</p>
+      <p v-if="data.overWindow.tasks.items.length === 0" class="muted">No run is attributed to a Task.</p>
       <UsageTable
         v-else
-        :rows="data.window.tasks.items.map((item) => ({ key: item.id, label: `${item.id}${item.title === null ? '' : `: ${item.title}`}`, totals: item.totals }))"
-        :remainder="data.window.tasks.remainder"
+        :rows="data.overWindow.tasks.items.map((item) => ({ key: item.id, label: `${item.id}${item.title === null ? '' : `: ${item.title}`}`, totals: item.totals }))"
+        :remainder="data.overWindow.tasks.remainder"
       />
     </template>
 
-    <h2>By role, {{ windowLabel(data.window.importing) }}</h2>
-    <RoleUsage :usage="data.window" />
+    <h2>By role, {{ windowLabel(data.overWindow.importing) }}</h2>
+    <RoleUsage :usage="data.overWindow" />
 
     <h2>Harnesses</h2>
     <ul>
-      <li v-for="item in data.week.harnesses" :key="item.harness">
+      <li v-for="item in data.snapshot.harnesses" :key="item.harness">
         {{ item.harness }}:
         <template v-if="item.level !== null">level {{ item.level }}, {{ LEVELS[item.level] }}</template>
         <template v-else>no level</template>

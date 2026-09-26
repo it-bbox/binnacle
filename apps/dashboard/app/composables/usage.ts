@@ -1,8 +1,7 @@
-import type { Run } from './projects';
+import type { Run, Unavailable } from './projects';
 
 /** The parts of the snapshot's `usage` and of `usage.get` the pages render, and how a total is written. */
 
-type Unavailable = { available: false; reason: string };
 type FieldTotal = { tokens: number | null; partial: boolean; provenance: string | null };
 export type Totals = { records: number; input: FieldTotal; cachedInput: FieldTotal; cacheCreation: FieldTotal; output: FieldTotal; reasoning: FieldTotal };
 type Limited<T> = { items: T[]; remainder: number };
@@ -42,10 +41,14 @@ export const FIELDS = [
   ['reasoning', 'of which reasoning'],
 ] as const;
 
-/** A field's total as a person reads it: `null` is not reported, never zero. */
+/**
+ * A field's total as a person reads it: `null` is not reported, never zero, and a total that
+ * is partial, or that Binnacle calculated or estimated rather than read, says so (ADR-0007).
+ */
 export function tokens(field: FieldTotal): string {
   if (field.tokens === null) return 'not reported';
-  return `${field.tokens.toLocaleString('en')}${field.partial ? ' (partial)' : ''}`;
+  const notes = [field.partial ? 'partial' : null, field.provenance === 'calculated' || field.provenance === 'estimated' ? field.provenance : null].filter((note) => note !== null);
+  return `${field.tokens.toLocaleString('en')}${notes.length === 0 ? '' : ` (${notes.join(', ')})`}`;
 }
 
 /** Every field in one line, each on its own: fields are never added to one another. */
@@ -54,10 +57,7 @@ export const fieldsLine = (totals: Totals): string =>
 
 /** Where the window `usage.get` answers over starts. */
 export const windowLabel = (importing: Importing): string =>
-  importing.windowStart === null ? 'over everything imported' : `since ${importing.windowStart}, the import window`;
+  `over the import window, ${importing.windowStart === null ? 'which takes everything' : `since ${importing.windowStart}`}`;
 
 /** Said wherever the totals are shown while the import still runs. */
 export const IMPORTING = 'The import of this project is still running, so these totals may be low.';
-
-export const COST_UNAVAILABLE =
-  'Cost is not available: no harness artifact Binnacle reads reports it, and a cost computed from a price table is left for later, since under a subscription such a number is conditional.';
