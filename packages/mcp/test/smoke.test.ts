@@ -84,6 +84,7 @@ test('binn mcp lists its tools, explains a stopped daemon, and proxies the snaps
     dependencies: [],
     body: { text: '', truncated: false },
     branch: 'feat/first',
+    start: null,
     diagnostics: [],
   });
 

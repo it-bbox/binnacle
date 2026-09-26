@@ -10,9 +10,12 @@ type GitFacts =
   | { available: true; branch: string | null; detached: boolean; commit: string | null; dirty: boolean }
   | { available: false; reason: string };
 
+export type SnapshotTask = { id: string; title: string | null; state: string | null; start: string | null };
+
 export type Snapshot = {
   git: GitFacts;
   roadmap: { epics: Epic[] } | null;
+  tasks: { readyToStart: { items: SnapshotTask[]; remainder: number } } | null;
   attention: Failure[];
 };
 

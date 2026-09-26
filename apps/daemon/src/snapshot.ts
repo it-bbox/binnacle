@@ -4,6 +4,7 @@ import {
   parseRoadmap,
   resolveDependencies,
   roadmapAttention,
+  startCommand,
   type Diagnostic,
   type Epic,
   type ProjectManifest,
@@ -36,6 +37,8 @@ const inFlight = (state: TaskState | null): state is InFlight => (IN_FLIGHT as r
 
 export type SnapshotTask = Pick<ResolvedTask, 'id' | 'title' | 'state' | 'unmetDependencies' | 'ticket'>;
 export type Section = { items: SnapshotTask[]; remainder: number };
+/** A Task the snapshot lists by name, with the command that starts it (`startCommand`), or null when there is none. */
+export type StartableSection = { items: (SnapshotTask & { start: string | null })[]; remainder: number };
 
 export type TaskCounts = Record<Exclude<TaskState, InFlight> | 'unknown', number>;
 
@@ -70,9 +73,9 @@ export type Snapshot = {
   /** Null when the project's tracker cannot be read yet; `attention` says why. */
   tasks: {
     /** `ACTIVE`, `BLOCKED`, `READY_FOR_REVIEW`, `APPROVED`, `MERGE_READY`. */
-    inFlight: Section;
+    inFlight: StartableSection;
     /** `READY` with no Unmet dependencies. */
-    readyToStart: Section;
+    readyToStart: StartableSection;
     /**
      * Every Task not listed by name, by state: `READY` here is a Task waiting on an Unmet
      * dependency, and `unknown` one whose tracker value is not a Task state.
@@ -114,7 +117,7 @@ export async function snapshot(
     checkout: caller.checkout,
     git: caller.git,
     roadmap: roadmap && { ...roadmap, focus: roadmap.focus == null ? null : cut(roadmap.focus, FOCUS_LIMIT) },
-    tasks: tasks && taskSections(tasks),
+    tasks: tasks && withStart(taskSections(tasks), projected.manifest?.workflow.provider ?? null),
     decisions: adrs && (await recentDecisions(tree, caller.project, adrs)),
     pendingDecisions: UNAVAILABLE,
     ci: UNAVAILABLE,
@@ -212,7 +215,7 @@ function unavailable(tracker: ProjectManifest['tracker'] | undefined): string {
   return `tracker.provider is ${tracker.provider}, and this project declares no tracker.repository.`;
 }
 
-export function taskSections(tasks: ResolvedTask[]): NonNullable<Snapshot['tasks']> {
+export function taskSections(tasks: ResolvedTask[]): { inFlight: Section; readyToStart: Section; counts: TaskCounts } {
   const counts: TaskCounts = { BACKLOG: 0, READY: 0, MERGED: 0, DONE: 0, CANCELLED: 0, unknown: 0 };
   const listedInFlight: ResolvedTask[] = [];
   const readyToStart: ResolvedTask[] = [];
@@ -222,6 +225,12 @@ export function taskSections(tasks: ResolvedTask[]): NonNullable<Snapshot['tasks
     else counts[task.state ?? 'unknown']++;
   }
   return { inFlight: section(listedInFlight), readyToStart: section(readyToStart), counts };
+}
+
+/** The snapshot's sections, each Task with its start command under the project's `workflow.provider`. */
+function withStart({ inFlight, readyToStart, counts }: ReturnType<typeof taskSections>, workflow: string | null): NonNullable<Snapshot['tasks']> {
+  const startable = ({ items, remainder }: Section): StartableSection => ({ items: items.map((task) => ({ ...task, start: startCommand(task, workflow) })), remainder });
+  return { inFlight: startable(inFlight), readyToStart: startable(readyToStart), counts };
 }
 
 /** In tracker order, which the adapter makes stable. */

@@ -17,6 +17,7 @@ type Brief = {
   dependencies: { id: string; title: string | null; state: string | null; met: boolean | null; dangling: boolean }[];
   body: { text: string; truncated: boolean };
   branch: string;
+  start: string | null;
   diagnostics: { code: string; message: string }[];
 };
 type Envelope = { error: { code: string; message: string } };
@@ -91,6 +92,7 @@ describe('the task brief on the local tracker', () => {
         ],
         body: { text: '**What to build:** the thing.\n\nStatus: DONE\n\n- [ ] It works.', truncated: false },
         branch: 'feat/build-the-thing',
+        start: null,
         diagnostics: [],
       });
     });
@@ -189,6 +191,14 @@ describe('the task brief on the local tracker', () => {
     });
   });
 
+  it('gives no start command when the project declares no workflow', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject();
+      write(root, 'docs/specs/epic/issues/01-thing.md', ticketText('01: Thing', ['Status: READY'], 'Body.'));
+      assert.equal((await taskGet(daemon, root, 'epic/01')).body.start, null);
+    });
+  });
+
   it('refuses a call without an id', async () => {
     await withDaemon(async (daemon) => {
       const root = makeProject();
@@ -196,6 +206,51 @@ describe('the task brief on the local tracker', () => {
       const result = await daemon.call<Envelope>('task.get', { path: root });
       assert.equal(result.status, 400);
       assert.equal(result.body.error.code, 'request.invalid');
+    });
+  });
+});
+
+describe('the start command', () => {
+  const workflow = (provider: string): string => `${MANIFEST}\nworkflow:\n  provider: ${provider}\n`;
+  type SnapshotTask = { id: string; start: string | null };
+  type Snapshot = { tasks: { inFlight: { items: SnapshotTask[] }; readyToStart: { items: SnapshotTask[] } } };
+
+  function tickets(root: string): void {
+    write(root, 'docs/specs/epic/issues/01-ready.md', ticketText('01: Ready', ['Status: READY'], 'Body.'));
+    write(root, 'docs/specs/epic/issues/02-done.md', ticketText('02: Done', ['Status: DONE'], 'Body.'));
+    write(root, 'docs/specs/epic/issues/03-cancelled.md', ticketText('03: Cancelled', ['Status: CANCELLED'], 'Body.'));
+    write(root, 'docs/specs/epic/issues/04-in-flight.md', ticketText('04: In flight', ['Status: ACTIVE'], 'Body.'));
+  }
+
+  async function snapshotStarts(daemon: TestDaemon, root: string): Promise<Record<string, string | null>> {
+    const result = await daemon.call<Snapshot>('project.snapshot', { path: root });
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    const { inFlight, readyToStart } = result.body.tasks;
+    return Object.fromEntries([...inFlight.items, ...readyToStart.items].map((task) => [task.id, task.start]));
+  }
+
+  it('is the implement command with the ticket path under the Matt Pocock workflow, in the brief and the snapshot, and none for a DONE or CANCELLED Task', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject(workflow('matt-pocock'));
+      tickets(root);
+
+      assert.equal((await taskGet(daemon, root, 'epic/01')).body.start, '/mattpocock-skills:implement docs/specs/epic/issues/01-ready.md');
+      assert.equal((await taskGet(daemon, root, 'epic/02')).body.start, null);
+      assert.equal((await taskGet(daemon, root, 'epic/03')).body.start, null);
+      assert.deepEqual(await snapshotStarts(daemon, root), {
+        'epic/01': '/mattpocock-skills:implement docs/specs/epic/issues/01-ready.md',
+        'epic/04': '/mattpocock-skills:implement docs/specs/epic/issues/04-in-flight.md',
+      });
+    });
+  });
+
+  it('is none under another workflow, even for a READY Task', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject(workflow('another'));
+      tickets(root);
+
+      assert.equal((await taskGet(daemon, root, 'epic/01')).body.start, null);
+      assert.deepEqual(await snapshotStarts(daemon, root), { 'epic/01': null, 'epic/04': null });
     });
   });
 });

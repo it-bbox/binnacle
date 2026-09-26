@@ -16,6 +16,17 @@ const { data, error } = usePolling(loadProjects);
     <p v-else-if="view.failure" class="warn"><code>{{ view.failure.code }}</code> {{ view.failure.message }}</p>
     <template v-else-if="view.snapshot">
       <p>{{ position(view.snapshot) }}</p>
+      <h3>Ready to start</h3>
+      <p v-if="view.snapshot.tasks === null" class="muted">The tracker cannot be read; attention says why.</p>
+      <p v-else-if="view.snapshot.tasks.readyToStart.items.length === 0" class="muted">No Task is ready to start.</p>
+      <ul v-else class="tasks">
+        <li v-for="task in view.snapshot.tasks.readyToStart.items" :key="task.id">
+          <NuxtLink :to="{ path: '/task', query: { project: view.project.path, id: task.id } }">{{ task.id }}</NuxtLink>
+          {{ task.title ?? '(untitled)' }}
+          <div v-if="task.start !== null"><CopyCommand :command="task.start" /></div>
+        </li>
+        <li v-if="view.snapshot.tasks.readyToStart.remainder > 0" class="muted">and {{ view.snapshot.tasks.readyToStart.remainder }} more</li>
+      </ul>
       <h3>Attention</h3>
       <p v-if="view.snapshot.attention.length === 0" class="muted">Nothing needs attention.</p>
       <ul v-else>
@@ -44,5 +55,8 @@ h3 {
 ul {
   margin: 0;
   padding-left: 1.25rem;
+}
+.tasks li {
+  margin-bottom: 0.4rem;
 }
 </style>

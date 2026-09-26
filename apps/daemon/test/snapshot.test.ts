@@ -12,6 +12,7 @@ type SnapshotTask = {
   state: string | null;
   unmetDependencies: string[];
   ticket: string;
+  start: string | null;
 };
 type Section = { items: SnapshotTask[]; remainder: number };
 type Epic = { number: number; title: string; status: string; spec: string | null };
@@ -109,6 +110,7 @@ describe('Tasks in the Product Snapshot', () => {
             state: 'ACTIVE',
             unmetDependencies: [],
             ticket: 'docs/specs/epic/issues/03-build-the-thing.md',
+            start: null,
           },
         ],
         remainder: 0,

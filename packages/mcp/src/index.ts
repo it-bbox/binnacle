@@ -26,7 +26,7 @@ const TOOLS = {
   },
   project_snapshot: {
     operation: 'project.snapshot',
-    description: 'The compact Product Snapshot: roadmap, Tasks in flight and ready to start, recent decisions, Git and attention items.',
+    description: 'The compact Product Snapshot: roadmap, Tasks in flight and ready to start with the command that starts each, recent decisions, Git and attention items.',
   },
   daily_get: {
     operation: 'daily.get',
@@ -39,7 +39,7 @@ const TOOLS = {
   task_get: {
     operation: 'task.get',
     description:
-      'The compact brief for starting one Task: its fields, its dependencies with their titles and states, its spec path, the ticket body without comments, and the branch name, with a diagnostic when another Task has the same branch. Changes nothing.',
+      'The compact brief for starting one Task: its fields, its dependencies with their titles and states, its spec path, the ticket body without comments, the branch name, and the command that starts it in a fresh session (`start`, null for a DONE or CANCELLED Task or another workflow), with a diagnostic when another Task has the same branch. Changes nothing.',
     inputSchema: {
       id: z.string().describe('The Task id: `<spec-slug>/<NN>` on the local tracker, `#<number>` or `<number>` on GitHub or GitLab.'),
     },

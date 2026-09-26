@@ -14,6 +14,7 @@ export {
   remoteLocation,
   resolveDependencies,
   sharedBranch,
+  startCommand,
   taskBranch,
   ticketBody,
   trackerRemoteMismatch,

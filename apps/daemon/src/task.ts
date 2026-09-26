@@ -1,5 +1,5 @@
 import type { Tree } from '@binnacle/adapters';
-import { sharedBranch, taskBranch, type Diagnostic, type ProjectManifest, type TaskState, type TrackerTask } from '@binnacle/core';
+import { sharedBranch, startCommand, taskBranch, type Diagnostic, type ProjectManifest, type TaskState, type TrackerTask } from '@binnacle/core';
 import { OperationError } from './errors.ts';
 import { cut, readTracker } from './snapshot.ts';
 
@@ -20,6 +20,8 @@ export type TaskBrief = Pick<TrackerTask, 'id' | 'title' | 'state' | 'triage' | 
   /** The ticket body without its header or comments, cut at `BODY_LIMIT`; `truncated` says whether it was. */
   body: { text: string; truncated: boolean };
   branch: string;
+  /** The command that starts it in a fresh session (`startCommand`), or null when there is none. */
+  start: string | null;
   /** `task.shared_branch` when another Task has the same branch, which then credits neither. */
   diagnostics: Diagnostic[];
 };
@@ -50,6 +52,7 @@ export async function taskBrief(home: string, tree: Tree, manifest: ProjectManif
     }),
     body: cut(task.body, BODY_LIMIT),
     branch: taskBranch(task, remote),
+    start: startCommand(task, manifest?.workflow.provider ?? null),
     diagnostics: shared ? [shared] : [],
   };
 }

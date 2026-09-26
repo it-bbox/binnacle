@@ -9,7 +9,7 @@ import { after, describe, it } from 'node:test';
 import { gitlabApiRoot, readGitLabTasks } from '@binnacle/adapters';
 import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
 
-type SnapshotTask = { id: string; title: string | null; state: string | null; unmetDependencies: string[]; ticket: string };
+type SnapshotTask = { id: string; title: string | null; state: string | null; unmetDependencies: string[]; ticket: string; start: string | null };
 type Section = { items: SnapshotTask[]; remainder: number };
 type Snapshot = {
   tasks: { inFlight: Section; readyToStart: Section; counts: Record<string, number> } | null;
@@ -141,11 +141,11 @@ describe('GitLab issues as Tasks in the Product Snapshot', () => {
 
       assert.deepEqual(body.tasks, {
         inFlight: {
-          items: [{ id: '#3', title: 'Third', state: 'ACTIVE', unmetDependencies: [], ticket: `https://gitlab.com/${REPOSITORY}/-/issues/3` }],
+          items: [{ id: '#3', title: 'Third', state: 'ACTIVE', unmetDependencies: [], ticket: `https://gitlab.com/${REPOSITORY}/-/issues/3`, start: null }],
           remainder: 0,
         },
         readyToStart: {
-          items: [{ id: '#2', title: 'Second', state: 'READY', unmetDependencies: [], ticket: `https://gitlab.com/${REPOSITORY}/-/issues/2` }],
+          items: [{ id: '#2', title: 'Second', state: 'READY', unmetDependencies: [], ticket: `https://gitlab.com/${REPOSITORY}/-/issues/2`, start: null }],
           remainder: 0,
         },
         counts: { BACKLOG: 0, READY: 0, MERGED: 0, DONE: 1, CANCELLED: 0, unknown: 0 },
@@ -452,6 +452,7 @@ describe('the task brief on a GitLab tracker', () => {
     dependencies: { id: string; title: string | null; state: string | null; met: boolean | null; dangling: boolean }[];
     body: { text: string; truncated: boolean };
     branch: string;
+    start: string | null;
     diagnostics: { code: string; message: string }[];
   };
 
@@ -487,6 +488,7 @@ describe('the task brief on a GitLab tracker', () => {
         ],
         body: { text: '**What to build:** GitLab.\n\nStatus: DONE', truncated: false },
         branch: 'feat/3-read-gitlab-issues-by-iid',
+        start: null,
         diagnostics: [],
       });
       assert.equal((await taskGet(daemon, root, '3')).body.id, '#3');

@@ -172,7 +172,18 @@ export function taskBranch(task: Pick<TrackerTask, 'id' | 'title' | 'ticket'>, r
 }
 
 /**
- * The inverse of `taskBranch`: the one Task `branch` maps back to, or null when none or
+ * The one command that starts a Task in a fresh session: `/mattpocock-skills:implement` with
+ * its ticket path or URL, when the project's `workflow.provider` is `matt-pocock` and the Task
+ * is neither `DONE` nor `CANCELLED`. Otherwise none: finished work is not restarted, and
+ * another workflow is not offered commands it does not have.
+ */
+export function startCommand(task: Pick<TrackerTask, 'state' | 'ticket'>, workflow: string | null): string | null {
+  if (workflow !== 'matt-pocock' || task.state === 'DONE' || task.state === 'CANCELLED') return null;
+  return `/mattpocock-skills:implement ${task.ticket}`;
+}
+
+/**
+ * The inverse of `taskBranch`:the one Task `branch` maps back to, or null when none or
  * several do, which is unassigned and never a guess (ADR-0018).
  *
  * - Local tracker: `feat/<slug>` to the ticket whose file slug gives that branch.

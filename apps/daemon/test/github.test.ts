@@ -13,7 +13,7 @@ import { storePath } from '../src/index.ts';
 import { BODY_LIMIT } from '../src/task.ts';
 import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
 
-type SnapshotTask = { id: string; title: string | null; state: string | null; unmetDependencies: string[]; ticket: string };
+type SnapshotTask = { id: string; title: string | null; state: string | null; unmetDependencies: string[]; ticket: string; start: string | null };
 type Section = { items: SnapshotTask[]; remainder: number };
 type Snapshot = {
   roadmap: { epics: unknown[] } | null;
@@ -147,11 +147,11 @@ describe('GitHub issues as Tasks in the Product Snapshot', () => {
 
       assert.deepEqual(body.tasks, {
         inFlight: {
-          items: [{ id: '#3', title: 'Third', state: 'ACTIVE', unmetDependencies: [], ticket: `https://github.com/${REPOSITORY}/issues/3` }],
+          items: [{ id: '#3', title: 'Third', state: 'ACTIVE', unmetDependencies: [], ticket: `https://github.com/${REPOSITORY}/issues/3`, start: null }],
           remainder: 0,
         },
         readyToStart: {
-          items: [{ id: '#2', title: 'Second', state: 'READY', unmetDependencies: [], ticket: `https://github.com/${REPOSITORY}/issues/2` }],
+          items: [{ id: '#2', title: 'Second', state: 'READY', unmetDependencies: [], ticket: `https://github.com/${REPOSITORY}/issues/2`, start: null }],
           remainder: 0,
         },
         counts: { BACKLOG: 0, READY: 0, MERGED: 0, DONE: 1, CANCELLED: 0, unknown: 0 },
@@ -813,6 +813,7 @@ describe('the task brief on a GitHub tracker', () => {
     dependencies: { id: string; title: string | null; state: string | null; met: boolean | null; dangling: boolean }[];
     body: { text: string; truncated: boolean };
     branch: string;
+    start: string | null;
     diagnostics: { code: string; message: string }[];
   };
   type Envelope = { error: { code: string; message: string } };
@@ -853,6 +854,7 @@ describe('the task brief on a GitHub tracker', () => {
         ],
         body: { text: '**What to build:** a brief.\n\nStatus: DONE', truncated: false },
         branch: 'feat/5-add-a-task-brief-task-get-friends',
+        start: null,
         diagnostics: [],
       });
       assert.equal((await taskGet(daemon, root, '5')).body.id, '#5');
@@ -880,6 +882,15 @@ describe('the task brief on a GitHub tracker', () => {
       assert.ok(slug.length <= BRANCH_SLUG_LIMIT, slug);
       assert.match(slug, /^word(-word)*$/);
       assert.equal((await taskGet(daemon, root, '#2')).body.branch, 'feat/2');
+    });
+  });
+
+  it('gives a READY issue under the Matt Pocock workflow the implement command with its URL, in the brief and the snapshot', async () => {
+    await withGitHub([[issue(7, 'Ready', { body: header({ Status: 'READY' }) })]], async (daemon, fake) => {
+      const root = makeProject(manifest(fake.base, '\nworkflow:\n  provider: matt-pocock\n'));
+      const command = `/mattpocock-skills:implement https://github.com/${REPOSITORY}/issues/7`;
+      assert.equal((await taskGet(daemon, root, '#7')).body.start, command);
+      assert.deepEqual((await snapshot(daemon, root)).tasks!.readyToStart.items.map((task) => task.start), [command]);
     });
   });
 

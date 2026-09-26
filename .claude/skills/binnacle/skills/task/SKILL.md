@@ -1,6 +1,6 @@
 ---
 name: task
-description: Load the compact brief for one Task, its fields, dependencies, spec path, ticket body and branch name, before starting it. Changes nothing.
+description: Load the compact brief for one Task, its fields, dependencies, spec path, ticket body and branch name, ending with the command that starts it. Changes nothing.
 argument-hint: "<task id: spec-slug/NN, or #number>"
 disable-model-invocation: true
 ---
@@ -20,5 +20,6 @@ disable-model-invocation: true
    - **Spec**: the path, to read when the ticket needs it. Do not read it now.
    - **Body**: the text as given. If `truncated` is true, say that the brief cut it, and that the full ticket is at the ticket path or URL.
 4. State the branch name: "The branch for this Task is `<branch>`." Then quote each of the brief's `diagnostics`, if any, with its code and message.
+5. End with the brief's `start`, the same command the dashboard shows for this Task: "To start it, in a fresh session:", then the command on its own line, as code. When `start` is null, say why instead: the Task is `DONE` or `CANCELLED`, when its state is one of them, and otherwise the project's workflow is not Matt Pocock's (`workflow.provider` is not `matt-pocock`), so Binnacle offers no command for it.
 
 Change nothing: no branch, no worktree, no `Status:` edit, no tracker write, no commit, and no Binnacle calls other than the two above. Starting the work is the human's call, or the implementation process's, never this skill's.
