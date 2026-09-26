@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import RoleUsage from '~/components/RoleUsage.vue';
 import UsageTable from '~/components/UsageTable.vue';
+import WeeklyTrend from '~/components/WeeklyTrend.vue';
 import { call, usePolling } from '~/composables/daemon';
 import { isUnavailable } from '~/composables/projects';
 import { IMPORTING, windowLabel, type ProjectUsage, type SnapshotUsage } from '~/composables/usage';
@@ -10,6 +11,12 @@ const LEVELS: Record<number, string> = { 1: 'Context', 2: 'Attribution', 3: 'Usa
 
 const COST_UNAVAILABLE =
   'Cost is not available: no harness artifact Binnacle reads reports it, and a cost computed from a price table is left for later, since under a subscription such a number is conditional.';
+
+/** How the page labels a derived metric: Binnacle's arithmetic over the records, not a figure any harness reports. */
+const DERIVED_READING = "Binnacle's calculation from the same records, not a figure any harness reports.";
+
+const plural = (count: number, one: string, many: string): string => `${count.toLocaleString('en')} ${count === 1 ? one : many}`;
+const mean = (value: number): string => value.toLocaleString('en', { maximumFractionDigits: 1 });
 
 const route = useRoute();
 const project = typeof route.query.project === 'string' ? route.query.project : null;
@@ -75,6 +82,72 @@ const { data, error } = usePolling(async () => {
     <h2>By role, {{ windowLabel(data.overWindow.importing) }}</h2>
     <RoleUsage :usage="data.overWindow" />
 
+    <h2>Tokens per completed Task, {{ windowLabel(data.overWindow.importing) }}</h2>
+    <p class="muted">{{ DERIVED_READING }} Each <code>DONE</code> Task with runs, and their mean, field by field.</p>
+    <p v-if="isUnavailable(data.overWindow.derived.perCompletedTask)" class="muted">Not available: {{ data.overWindow.derived.perCompletedTask.reason }}</p>
+    <template v-else>
+      <p v-if="data.overWindow.derived.perCompletedTask.mean === null" class="muted">
+        {{
+          data.overWindow.derived.perCompletedTask.withoutRuns === 0
+            ? 'No Task is DONE.'
+            : `No DONE Task has runs (${data.overWindow.derived.perCompletedTask.withoutRuns.toLocaleString('en')} DONE).`
+        }}
+      </p>
+      <UsageTable
+        v-else
+        :rows="[
+          {
+            key: 'mean',
+            label: `Mean of ${plural(data.overWindow.derived.perCompletedTask.items.length + data.overWindow.derived.perCompletedTask.remainder, 'Task', 'Tasks')}`,
+            totals: data.overWindow.derived.perCompletedTask.mean,
+          },
+          ...data.overWindow.derived.perCompletedTask.items.map((item) => ({
+            key: item.id,
+            label: `${item.id}${item.title === null ? '' : `: ${item.title}`} · ${plural(item.runs, 'run', 'runs')}`,
+            totals: item.totals,
+          })),
+        ]"
+        :remainder="data.overWindow.derived.perCompletedTask.remainder"
+      />
+      <p v-if="data.overWindow.derived.perCompletedTask.mean !== null && data.overWindow.derived.perCompletedTask.withoutRuns > 0" class="muted">
+        {{ plural(data.overWindow.derived.perCompletedTask.withoutRuns, 'DONE Task has', 'DONE Tasks have') }} no runs, and the mean leaves them out.
+      </p>
+    </template>
+
+    <h2>Runs per Task, {{ windowLabel(data.overWindow.importing) }}</h2>
+    <p class="muted">{{ DERIVED_READING }} Each Task with runs, of any state, and how many of its runs were subagents'.</p>
+    <p v-if="isUnavailable(data.overWindow.derived.runsPerTask)" class="muted">Not available: {{ data.overWindow.derived.runsPerTask.reason }}</p>
+    <p v-else-if="data.overWindow.derived.runsPerTask.mean === null" class="muted">No run is attributed to a Task.</p>
+    <table v-else>
+      <thead>
+        <tr>
+          <th></th>
+          <th>Runs</th>
+          <th>of which subagents'</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th>Mean of {{ plural(data.overWindow.derived.runsPerTask.items.length + data.overWindow.derived.runsPerTask.remainder, 'Task', 'Tasks') }}</th>
+          <td>{{ mean(data.overWindow.derived.runsPerTask.mean.runs) }}</td>
+          <td>{{ mean(data.overWindow.derived.runsPerTask.mean.subagentRuns) }}</td>
+        </tr>
+        <tr v-for="item in data.overWindow.derived.runsPerTask.items" :key="item.id">
+          <th>{{ item.id }}{{ item.title === null ? '' : `: ${item.title}` }}</th>
+          <td>{{ item.runs.toLocaleString('en') }}</td>
+          <td>{{ item.subagentRuns.toLocaleString('en') }}</td>
+        </tr>
+        <tr v-if="data.overWindow.derived.runsPerTask.remainder">
+          <td colspan="3" class="muted">and {{ data.overWindow.derived.runsPerTask.remainder }} more</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Weekly trend, {{ windowLabel(data.overWindow.importing) }}</h2>
+    <p class="muted">{{ DERIVED_READING }} Calendar weeks from Monday, in the daemon's time zone. Each field's bars are scaled to its own largest week.</p>
+    <p v-if="data.overWindow.derived.weekly.items.length === 0" class="muted">No records.</p>
+    <WeeklyTrend v-else :weeks="data.overWindow.derived.weekly.items" />
+
     <h2>Harnesses</h2>
     <ul>
       <li v-for="item in data.snapshot.harnesses" :key="item.harness">
@@ -97,5 +170,27 @@ h2 {
 }
 ul {
   padding-left: 1.25rem;
+}
+table {
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+th,
+td {
+  padding: 0.2rem 0.75rem 0.2rem 0;
+  text-align: right;
+  border-bottom: 1px solid var(--line);
+}
+thead th {
+  font-weight: normal;
+  color: var(--muted);
+}
+tbody th {
+  max-width: 22rem;
+  text-align: left;
+  font-weight: normal;
+}
+td[colspan] {
+  text-align: left;
 }
 </style>

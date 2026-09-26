@@ -605,10 +605,10 @@ delete process.env.BINNACLE_GITHUB_TOKEN;
 const LOCAL_TRACKER = '\ntracker:\n  provider: local\n  local:\n    issues: docs/specs\n';
 
 /** Writes `docs/specs/<spec>/issues/<file>` with a title and a state, as the local tracker reads it. */
-function ticket(root: string, spec: string, file: string, title: string): void {
+function ticket(root: string, spec: string, file: string, title: string, state = 'READY'): void {
   const path = join(root, 'docs', 'specs', spec, 'issues', file);
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, `# ${file.slice(0, 2)}: ${title}\n\nStatus: READY\n`);
+  writeFileSync(path, `# ${file.slice(0, 2)}: ${title}\n\nStatus: ${state}\n`);
 }
 
 /** Local noon `days` days ago, `minute` minutes on. */
@@ -868,7 +868,20 @@ type Run = {
   active: { value: boolean; provenance: string };
   totals: Totals;
 };
-type ProjectUsage = Pick<Usage, 'importing' | 'tasks' | 'unassigned'> & { totals: Totals; byRole: Record<'product' | 'implementation' | 'unknown', Totals> | Unavailable };
+type Derived = {
+  perCompletedTask:
+    | { provenance: string; items: { id: string; title: string | null; runs: number; totals: Totals }[]; remainder: number; mean: Totals | null; withoutRuns: number }
+    | Unavailable;
+  runsPerTask:
+    | { provenance: string; items: { id: string; title: string | null; runs: number; subagentRuns: number }[]; remainder: number; mean: { runs: number; subagentRuns: number } | null }
+    | Unavailable;
+  weekly: { provenance: string; items: { week: string; totals: Totals }[] };
+};
+type ProjectUsage = Pick<Usage, 'importing' | 'tasks' | 'unassigned'> & {
+  totals: Totals;
+  byRole: Record<'product' | 'implementation' | 'unknown', Totals> | Unavailable;
+  derived: Derived;
+};
 type TaskUsage = Pick<Usage, 'importing'> & { task: { id: string; title: string | null }; totals: Totals; runs: { items: Run[]; remainder: number } };
 
 async function usageGet<T>(daemon: TestDaemon, root: string, task?: string): Promise<T> {
@@ -1031,6 +1044,13 @@ describe('usage.get', () => {
         assert.equal((body.tasks as Unavailable).available, false);
         assert.deepEqual(body.unassigned, body.tasks);
         assert.deepEqual(body.byRole, body.tasks);
+        // The derived metrics that need the tracker are unavailable as well; the weekly trend does not need it.
+        assert.deepEqual(body.derived.perCompletedTask, body.tasks);
+        assert.deepEqual(body.derived.runsPerTask, body.tasks);
+        assert.deepEqual(
+          body.derived.weekly.items.map((item) => item.totals),
+          [GRILL_TOTALS],
+        );
 
         const refused = await daemon.call<{ error: { code: string } }>('usage.get', { path: root, task: '#7' });
         assert.equal(refused.status, 503);
@@ -1561,6 +1581,136 @@ describe('What is running now, in the Product Snapshot', () => {
       await register(daemon, root);
 
       assert.deepEqual(await activity(daemon, root), { available: false, reason: 'This project declares no tracker.provider.' });
+    });
+  });
+});
+
+/** One message of Aborted: it reports no reasoning. */
+const ABORTED_TOTALS: Totals = { records: 1, input: reported(4), cachedInput: reported(167306), cacheCreation: reported(994), output: reported(2), reasoning: NONE };
+
+/** Local midnight of the Monday `weeks` weeks before this week's. */
+function monday(weeks: number): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7) - 7 * weeks);
+}
+
+describe('Derived metrics in usage.get', () => {
+  it('gives each DONE Task’s totals and runs, and their mean per field, leaving out the DONE Tasks without runs, each part calculated', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
+      ticket(root, 'epic', '01-first.md', 'First', 'DONE');
+      ticket(root, 'epic', '02-second.md', 'Second', 'DONE');
+      ticket(root, 'epic', '03-third.md', 'Third', 'DONE');
+      ticket(root, 'epic', '04-fourth.md', 'Fourth');
+      repository(root, at(3, 0), [at(2, 0), 'feat/first'], [at(2, 1), 'feat/second'], [at(2, 2), 'feat/fourth'], [at(2, 3), 'main']);
+      session(artifacts, root, 'work', [
+        ...lines(GRILL, at(2, 0), '-first'),
+        ...lines(ABORTED, at(2, 1), '-second'),
+        ...lines(GRILL, at(2, 2), '-fourth'),
+        ...lines(GRILL, at(2, 3), '-main'),
+      ]);
+      await register(daemon, root);
+
+      const { derived } = await usageGet<ProjectUsage>(daemon, root);
+      assert.deepEqual(available(derived.perCompletedTask), {
+        provenance: 'calculated',
+        // Largest totals first; the READY Task is not a completed one.
+        items: [
+          { id: 'epic/02', title: 'Second', runs: 1, totals: ABORTED_TOTALS },
+          { id: 'epic/01', title: 'First', runs: 1, totals: GRILL_TOTALS },
+        ],
+        remainder: 0,
+        // Over the two with runs: the third is counted apart, never as a zero.
+        mean: {
+          records: 1,
+          input: reported((2 + 4) / 2),
+          cachedInput: reported((39225 + 167306) / 2),
+          cacheCreation: reported((29831 + 994) / 2),
+          output: reported((137 + 2) / 2),
+          // Only the first Task reports it: its mean is over that one, and partial.
+          reasoning: { tokens: 18, partial: true, provenance: 'provider_reported' },
+        },
+        withoutRuns: 1,
+      });
+    });
+  });
+
+  it('gives no mean when no DONE Task has runs', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
+      ticket(root, 'epic', '01-first.md', 'First', 'DONE');
+      repository(root, at(1, 0));
+      session(artifacts, root, 'main', lines(GRILL, at(0, 0)));
+      await register(daemon, root);
+
+      const { derived } = await usageGet<ProjectUsage>(daemon, root);
+      assert.deepEqual(available(derived.perCompletedTask), { provenance: 'calculated', items: [], remainder: 0, mean: null, withoutRuns: 1 });
+      assert.deepEqual(available(derived.runsPerTask), { provenance: 'calculated', items: [], remainder: 0, mean: null });
+    });
+  });
+
+  it('counts each Task’s runs, the subagents’ among them apart, most runs first, and their mean', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
+      ticket(root, 'epic', '01-first.md', 'First', 'DONE');
+      ticket(root, 'epic', '02-second.md', 'Second');
+      repository(root, at(1, 0), [at(1, 10), 'feat/second'], [at(1, 20), 'feat/first']);
+      session(artifacts, root, 'second', lines(GRILL, at(1, 10), '-second'));
+      session(artifacts, root, 'parent', lines(GRILL, at(0, 0), '-parent'));
+      subagent(artifacts, root, 'parent', root, lines(SUBAGENT, at(0, 1)));
+      await register(daemon, root);
+
+      const { derived } = await usageGet<ProjectUsage>(daemon, root);
+      assert.deepEqual(available(derived.runsPerTask), {
+        provenance: 'calculated',
+        items: [
+          { id: 'epic/01', title: 'First', runs: 2, subagentRuns: 1 },
+          { id: 'epic/02', title: 'Second', runs: 1, subagentRuns: 0 },
+        ],
+        remainder: 0,
+        mean: { runs: 1.5, subagentRuns: 0.5 },
+      });
+      // The subagent's run is one of the DONE Task's two.
+      assert.deepEqual(
+        available(derived.perCompletedTask).items.map((item) => [item.id, item.runs, item.totals.records]),
+        [['epic/01', 2, 2]],
+      );
+    });
+  });
+
+  it('totals each calendar week from Monday in local time, oldest first, an empty week included, with null and partial fields as the totals give them', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
+      const minuteBefore = (date: Date): string => new Date(date.getTime() - 60_000).toISOString();
+      session(artifacts, root, 'weeks', [
+        ...lines(GRILL, new Date(monday(3).getTime() + 12 * 3_600_000).toISOString(), '-old'),
+        // The last minute of a Sunday, then the first of the Monday after it.
+        ...lines(ABORTED, minuteBefore(monday(0)), '-sunday'),
+        ...lines(GRILL, monday(0).toISOString(), '-monday-first'),
+        ...lines(ABORTED, monday(0).toISOString(), '-monday-second'),
+      ]);
+      await register(daemon, root);
+
+      const { derived } = await usageGet<ProjectUsage>(daemon, root);
+      assert.equal(derived.weekly.provenance, 'calculated');
+      assert.deepEqual(derived.weekly.items, [
+        { week: localDate(monday(3)), totals: GRILL_TOTALS },
+        { week: localDate(monday(2)), totals: NO_RECORDS },
+        // Aborted reports no reasoning: null, never zero.
+        { week: localDate(monday(1)), totals: ABORTED_TOTALS },
+        // Only one of the two reports it: partial.
+        {
+          week: localDate(monday(0)),
+          totals: {
+            records: 2,
+            input: reported(2 + 4),
+            cachedInput: reported(39225 + 167306),
+            cacheCreation: reported(29831 + 994),
+            output: reported(137 + 2),
+            reasoning: { tokens: 18, partial: true, provenance: 'provider_reported' },
+          },
+        },
+      ]);
     });
   });
 });

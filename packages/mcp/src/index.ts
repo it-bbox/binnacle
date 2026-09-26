@@ -47,7 +47,7 @@ const TOOLS = {
   usage_get: {
     operation: 'usage.get',
     description:
-      'Token usage read from the harnesses\' session artifacts: without `task`, the project\'s totals by Task and unassigned, and by role (product, implementation, unknown); with `task`, that Task\'s totals and its runs, newest first. Tokens only, never cost; a field no harness reported is null.',
+      'Token usage read from the harnesses\' session artifacts: without `task`, the project\'s totals by Task and unassigned, by role (product, implementation, unknown), and `derived`, Binnacle\'s calculations, each labelled `calculated`: tokens and runs per DONE Task with their mean, runs per Task with the subagents\' apart, and totals per calendar week from Monday; with `task`, that Task\'s totals and its runs, newest first. Tokens only, never cost; a field no harness reported is null.',
     inputSchema: {
       task: z.string().optional().describe('A Task id, in the forms task_get takes; omit it for the whole project.'),
     },

@@ -64,6 +64,25 @@ export function sum(records: Pick<UsageRecord, 'tokens' | 'provenance'>[]): Tota
   return { records: records.length, ...(Object.fromEntries(TOKEN_FIELDS.map((name) => [name, field(name)])) as Record<TokenField, FieldTotal>) };
 }
 
+/**
+ * The mean of `totals`, at least one, field by field and by `sum`'s rules: a field's mean is
+ * over the totals that report it, null when none does, and partial when only some do or one
+ * of them is partial. `records` is the mean number of records.
+ */
+export function mean(totals: Totals[]): Totals {
+  const field = (name: TokenField): FieldTotal => {
+    const reporting = totals.filter((total) => total[name].tokens !== null);
+    if (reporting.length === 0) return { tokens: null, partial: false, provenance: null };
+    return {
+      tokens: reporting.reduce((all, total) => all + total[name].tokens!, 0) / reporting.length,
+      partial: reporting.length < totals.length || reporting.some((total) => total[name].partial),
+      provenance: DIRECTNESS[Math.max(...reporting.map((total) => DIRECTNESS.indexOf(total[name].provenance!)))]!,
+    };
+  };
+  const records = totals.reduce((all, total) => all + total.records, 0) / totals.length;
+  return { records, ...(Object.fromEntries(TOKEN_FIELDS.map((name) => [name, field(name)])) as Record<TokenField, FieldTotal>) };
+}
+
 /** Every token a total counts once, which orders totals by size: a subset is never added to its superset. */
 export const magnitude = (totals: Totals): number =>
   TOKEN_FIELDS.filter((name) => SUBSET_OF[name] === undefined).reduce((total, name) => total + (totals[name].tokens ?? 0), 0);

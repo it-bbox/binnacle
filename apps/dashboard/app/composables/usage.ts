@@ -24,6 +24,18 @@ export type ProjectUsage = {
   tasks: Limited<{ id: string; title: string | null; totals: Totals }> | Unavailable;
   unassigned: Totals | Unavailable;
   byRole: Record<'product' | 'implementation' | 'unknown', Totals> | Unavailable;
+  derived: Derived;
+};
+
+/** `usage.get`'s derived metrics: Binnacle's calculations over the same records, each labelled `calculated`. */
+export type Derived = {
+  perCompletedTask:
+    | (Limited<{ id: string; title: string | null; runs: number; totals: Totals }> & { provenance: 'calculated'; mean: Totals | null; withoutRuns: number })
+    | Unavailable;
+  runsPerTask:
+    | (Limited<{ id: string; title: string | null; runs: number; subagentRuns: number }> & { provenance: 'calculated'; mean: { runs: number; subagentRuns: number } | null })
+    | Unavailable;
+  weekly: { provenance: 'calculated'; items: { week: string; totals: Totals }[] };
 };
 
 /** `usage.get` with a Task: its totals and its runs, newest first. */
@@ -48,7 +60,8 @@ export const FIELDS = [
 export function tokens(field: FieldTotal): string {
   if (field.tokens === null) return 'not reported';
   const notes = [field.partial ? 'partial' : null, field.provenance === 'calculated' || field.provenance === 'estimated' ? field.provenance : null].filter((note) => note !== null);
-  return `${field.tokens.toLocaleString('en')}${notes.length === 0 ? '' : ` (${notes.join(', ')})`}`;
+  // Whole tokens: a mean is the only total that has a fraction.
+  return `${field.tokens.toLocaleString('en', { maximumFractionDigits: 0 })}${notes.length === 0 ? '' : ` (${notes.join(', ')})`}`;
 }
 
 /** Every field in one line, each on its own: fields are never added to one another. */

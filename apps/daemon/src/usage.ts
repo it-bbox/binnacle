@@ -3,7 +3,7 @@ import { join, relative } from 'node:path';
 import { setImmediate, setTimeout } from 'node:timers/promises';
 import { branchAt, codexSession, readClaudeCode, readCodex, readDefaultBranch, readHeadHistory, readWorktrees, type HeadHistory, type Tree } from '@binnacle/adapters';
 import type { ImportWindow, ObservedRun, ProjectManifest, RunRole, TrackerTask } from '@binnacle/core';
-import { magnitude, observedRuns, sum, type Harness, type RunRecord, type Totals, type UsageRecord } from '@binnacle/telemetry';
+import { magnitude, mean, observedRuns, sum, type Harness, type RunRecord, type Totals, type UsageRecord } from '@binnacle/telemetry';
 import { resolveGitTimeout, type ArtifactRoots } from './home.ts';
 import type { OperationContext } from './operations.ts';
 import { containingEntry, readRegistry } from './registry.ts';
@@ -182,8 +182,39 @@ function activityOf(observed: (ObservedRun & { records: RunRecord[] })[], tasks:
 
 const runUsage = ({ records, projectPath: _project, ...run }: ObservedRun & { records: RunRecord[] }): RunUsage => ({ ...run, totals: sum(records) });
 
-/** `usage.get` without a Task: the project's totals over everything ingested, by Task and unassigned, and by role. */
-export type ProjectUsage = Pick<Usage, 'importing' | 'tasks' | 'unassigned'> & { totals: Totals; byRole: Record<RunRole, Totals> | Unavailable };
+/** `usage.get` without a Task: the project's totals over everything ingested, by Task and unassigned, by role, and derived. */
+export type ProjectUsage = Pick<Usage, 'importing' | 'tasks' | 'unassigned'> & { totals: Totals; byRole: Record<RunRole, Totals> | Unavailable; derived: Derived };
+
+/**
+ * Binnacle's calculations over the same records, each labelled so. The two that need the
+ * tracker are unavailable with its reason when it cannot be read, like `tasks`.
+ */
+export type Derived = {
+  /**
+   * Each `DONE` Task with attributed runs: its totals and how many runs, largest first. Their
+   * mean, null when there is none, and how many `DONE` Tasks have no runs, which it leaves out.
+   */
+  perCompletedTask:
+    | {
+        provenance: 'calculated';
+        items: { id: string; title: string | null; runs: number; totals: Totals }[];
+        remainder: number;
+        mean: Totals | null;
+        withoutRuns: number;
+      }
+    | Unavailable;
+  /** Each Task with attributed runs: how many, and how many of them were subagents', most first, and their mean. */
+  runsPerTask:
+    | {
+        provenance: 'calculated';
+        items: { id: string; title: string | null; runs: number; subagentRuns: number }[];
+        remainder: number;
+        mean: { runs: number; subagentRuns: number } | null;
+      }
+    | Unavailable;
+  /** Totals per calendar week, oldest first, from the first record's to this one, each named by its Monday's local date. */
+  weekly: { provenance: 'calculated'; items: { week: string; totals: Totals }[] };
+};
 
 /** A run as `usage.get` shows it: the observed run, less its project, with its totals. */
 export type RunUsage = Omit<ObservedRun, 'projectPath'> & { totals: Totals };
@@ -221,9 +252,13 @@ export async function usageGet(
 
   // Since the earliest timestamp there is: every record stored, whatever the window is now.
   const records = context.store.usage(projectPath, '');
-  if (!Array.isArray(tasks)) return { importing, totals: sum(records), tasks, unassigned: tasks, byRole: tasks };
+  if (!Array.isArray(tasks)) {
+    return { importing, totals: sum(records), tasks, unassigned: tasks, byRole: tasks, derived: { perCompletedTask: tasks, runsPerTask: tasks, weekly: weekly(records) } };
+  }
   const attributed = await runs(records, projectPath, tasks, manifest?.tracker.provider !== 'local', checkouts);
-  if (!found) return { importing, totals: sum(records), ...byTask(attributed, tasks), byRole: byRole(attributed) };
+  if (!found) {
+    return { importing, totals: sum(records), ...byTask(attributed, tasks), byRole: byRole(attributed), derived: { ...perTask(attributed, tasks), weekly: weekly(records) } };
+  }
 
   // Runs come oldest first.
   const own = attributed.filter((run) => run.taskId === found.task.id).reverse();
@@ -354,6 +389,76 @@ function byTask(attributed: { taskId: string | null; records: RunRecord[] }[], t
   items.sort((a, b) => magnitude(b.totals) - magnitude(a.totals) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   return { tasks: limited(items), unassigned: sum(records.get(null) ?? []) };
 }
+
+/** The derived metrics per Task: those of the `DONE` Tasks, and the runs of every Task. */
+function perTask(
+  attributed: { taskId: string | null; records: RunRecord[] }[],
+  tasks: Pick<TrackerTask, 'id' | 'title' | 'state'>[],
+): Pick<Derived, 'perCompletedTask' | 'runsPerTask'> {
+  const runsOf = new Map<string, RunRecord[][]>();
+  for (const { taskId, records } of attributed) {
+    if (taskId === null) continue;
+    if (runsOf.has(taskId)) runsOf.get(taskId)!.push(records);
+    else runsOf.set(taskId, [records]);
+  }
+  const titles = new Map(tasks.map((task) => [task.id, task.title]));
+  const byId = (a: { id: string }, b: { id: string }): number => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
+  const done = tasks.filter((task) => task.state === 'DONE');
+  const completed = done.flatMap((task) => {
+    const own = runsOf.get(task.id);
+    return own === undefined ? [] : [{ id: task.id, title: task.title, runs: own.length, totals: sum(own.flat()) }];
+  });
+  completed.sort((a, b) => magnitude(b.totals) - magnitude(a.totals) || byId(a, b));
+
+  const counted = [...runsOf].map(([id, own]) => ({
+    id,
+    title: titles.get(id) ?? null,
+    runs: own.length,
+    // A run is a subagent's when its records are: every one of them comes from the same session and subagent.
+    subagentRuns: own.filter((records) => records[0]!.subagentId !== null).length,
+  }));
+  counted.sort((a, b) => b.runs - a.runs || byId(a, b));
+  const average = (value: (item: (typeof counted)[number]) => number): number => counted.reduce((all, item) => all + value(item), 0) / counted.length;
+
+  return {
+    perCompletedTask: {
+      provenance: 'calculated',
+      ...limited(completed),
+      mean: completed.length === 0 ? null : mean(completed.map((item) => item.totals)),
+      withoutRuns: done.length - completed.length,
+    },
+    runsPerTask: {
+      provenance: 'calculated',
+      ...limited(counted),
+      mean: counted.length === 0 ? null : { runs: average((item) => item.runs), subagentRuns: average((item) => item.subagentRuns) },
+    },
+  };
+}
+
+/** `records` totalled per calendar week, weeks starting on Monday in the daemon's local time zone. */
+function weekly(records: UsageRecord[]): Derived['weekly'] {
+  if (records.length === 0) return { provenance: 'calculated', items: [] };
+  const weeks = new Map<string, UsageRecord[]>();
+  let first = Infinity;
+  let last = Date.now();
+  for (const record of records) {
+    const time = Date.parse(record.timestamp);
+    [first, last] = [Math.min(first, time), Math.max(last, time)];
+    const week = localDate(mondayOf(new Date(time)));
+    if (weeks.has(week)) weeks.get(week)!.push(record);
+    else weeks.set(week, [record]);
+  }
+  const items: Derived['weekly']['items'] = [];
+  // Every week from the first record's to this one, one with no records included: a trend shows its gaps.
+  for (let monday = mondayOf(new Date(first)); monday.getTime() <= last; monday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 7)) {
+    items.push({ week: localDate(monday), totals: sum(weeks.get(localDate(monday)) ?? []) });
+  }
+  return { provenance: 'calculated', items };
+}
+
+/** Local midnight of the Monday that starts `date`'s week. */
+const mondayOf = (date: Date): Date => new Date(date.getFullYear(), date.getMonth(), date.getDate() - ((date.getDay() + 6) % 7));
 
 /** Totals by role, with every role listed, one that no run has with no records. */
 function byRole(attributed: { role: RunRole; records: RunRecord[] }[]): Record<RunRole, Totals> {
