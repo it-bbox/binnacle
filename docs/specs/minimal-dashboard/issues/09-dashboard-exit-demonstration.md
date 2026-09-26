@@ -7,13 +7,13 @@ Spec: `docs/specs/minimal-dashboard/spec.md`
 
 **What to build:** epic 5's exit criterion, demonstrated by the owner on their running daemon: the next step is taken from the dashboard alone. Decided in the spec, under *Further Notes*.
 
-- [ ] `binn dashboard` opens the main screen, which shows this repository's position, its Next action and the Suggested step.
-- [ ] The owner starts this ticket by copying a command the dashboard shows into a fresh session, without asking an agent what to type. The command may be the Next action's, the Suggested step's, or the ticket's own.
+- [x] `binn dashboard` opens the main screen, which shows this repository's position, its Next action and the Suggested step.
+- [x] The owner starts this ticket by copying a command the dashboard shows into a fresh session, without asking an agent what to type. The command may be the Next action's, the Suggested step's, or the ticket's own.
 - [x] Within one refresh, this ticket's card is In progress, read from runs, and names that session's harness and model.
 - [x] The Usage page's figures equal `usage_get`'s for the same window.
 - [x] Every element that is not available gives its reason.
 - [ ] Once this ticket is merged, its card is Done.
-- [ ] The owner records under `## Comments` whether the dashboard answered "what do I type" at every step.
+- [x] The owner records under `## Comments` whether the dashboard answered "what do I type" at every step.
 - [ ] Defects are filed as tickets. The roadmap marks epic 5 done only when none of them is open.
 
 ## Comments
@@ -25,3 +25,8 @@ Spec: `docs/specs/minimal-dashboard/spec.md`
   - **Not available, each with its reason:** on the Task page, review usage and rework usage (their runs are not told apart from implementation runs) and questions and answers (not yet explicit artifacts); on the Project page, pending decisions and CI (not in this version of Binnacle); on the Usage page, cost (no artifact reports it, and a cost from a price table is left for later), and the Codex harness (no Codex session of this project was found).
   - **For the owner to judge as a defect:** the Overview's *Ready to start* still lists `minimal-dashboard/09` while the board, *Running now* and the Suggested step show it in progress. *Ready to start* is the snapshot's `tasks.readyToStart`, read from the ticket's state alone (`taskSections` in `apps/daemon/src/snapshot.ts`); only the board reads In progress from runs.
   - **Left to the owner:** that `binn dashboard` opens the main screen in their browser (the session opened the address `binn dashboard --print` gives), that the ticket was started from a copied command, the card reading Done once merged, the record below of whether the dashboard answered "what do I type" at every step, and any defects filed.
+- **The owner's record, 2026-09-26**, given in this session:
+  - **Started from the dashboard:** yes. The owner copied the command from the dashboard into a fresh session.
+  - **Did the dashboard answer "what do I type" at every step?** Not entirely. The dashboard is in English only, which made it hard to follow; it needs i18n, with English and Russian to begin with. And it needs a design: today it is one long sheet of text.
+  - **Ready to start listing a Task in progress** is a defect, filed as ticket 11.
+- **What follows.** Ticket 11 keeps epic 5 `in progress`, with ticket 10. The dashboard's languages and its design change what the spec decided, English with no UI kit (*Further Notes*), so they are not filed as defects of this spec: they go to `/grill-with-docs` in a Product session, recorded in the roadmap's current focus.
