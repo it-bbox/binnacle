@@ -8,7 +8,7 @@ const { data, error } = usePolling(loadProjects);
 <template>
   <h1>Projects</h1>
   <p v-if="error" class="warn"><code>{{ error.code }}</code> {{ error.message }}</p>
-  <p v-else-if="data === null" class="muted">Loading…</p>
+  <USkeleton v-else-if="data === null" class="my-4 h-24 w-full" />
   <p v-else-if="data.length === 0" class="muted">No projects are registered. Register one with <code>binn project register [path]</code>.</p>
   <table v-else>
     <thead>

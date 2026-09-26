@@ -1,111 +1,85 @@
 <script setup lang="ts">
-import { useAuthorised } from '~/composables/daemon';
+import type { RouteLocationNormalizedLoaded } from 'vue-router';
+import { useAuthorised, usePolling } from '~/composables/daemon';
+import { useLanguage } from '~/composables/language';
+import { loadProjects } from '~/composables/projects';
 
+/**
+ * The shell: the project rail, the sidebar and the page. It polls every registered project's
+ * snapshot for the rail and the sidebar, and stands in for the page while the daemon loads or
+ * does not answer, polling on until it does.
+ */
 const authorised = useAuthorised();
+const { language, t, uiLocale } = useLanguage();
+useHead({ htmlAttrs: { lang: language } });
+
+const updatedAt = ref<number | null>(null);
+const { data, error } = usePolling(async () => {
+  const views = await loadProjects();
+  updatedAt.value = Date.now();
+  return views;
+});
+const unreachable = computed(() => error.value?.code === 'daemon.unreachable');
+
+// The selected project is the address's `project`; without one, the first registered project, written into the address.
+const route = useRoute();
+const router = useRouter();
+const selected = computed(() => (typeof route.query.project === 'string' ? route.query.project : null));
+const view = computed(() => data.value?.find((item) => item.project.path === selected.value) ?? null);
+watchEffect(() => {
+  const first = data.value?.[0];
+  if (selected.value === null && first !== undefined) void router.replace({ query: { ...route.query, project: first.project.path } });
+});
+
+/** A page is rebuilt for another project or Task, and keeps itself across the Project page's own query changes. */
+const pageKey = (page: RouteLocationNormalizedLoaded): string => `${page.path}|${String(page.query.project)}|${String(page.query.id)}`;
 </script>
 
 <template>
-  <p v-if="!authorised" class="signin">Run <code>binn dashboard</code> to open the dashboard.</p>
-  <div v-else class="shell">
-    <nav>
-      <strong>Binnacle</strong>
-      <NuxtLink to="/">Overview</NuxtLink>
-      <NuxtLink to="/projects">Projects</NuxtLink>
-      <NuxtLink to="/attention">Attention</NuxtLink>
-    </nav>
-    <main>
-      <NuxtPage />
-    </main>
-  </div>
+  <UApp :locale="uiLocale">
+    <div v-if="!authorised" class="flex min-h-screen items-center justify-center p-10">
+      <div class="flex flex-col gap-3">
+        <p>{{ t.signin }}</p>
+        <CopyCommand command="binn dashboard" primary />
+      </div>
+    </div>
+    <div v-else class="flex h-screen min-w-[1024px] overflow-hidden">
+      <ShellRail :views="data ?? []" :selected="selected" />
+      <ShellSidebar :view="view" :selected="selected" :updated-at="updatedAt" :unreachable="unreachable" />
+      <main class="min-w-0 flex-1 overflow-auto">
+        <div v-if="unreachable" class="flex min-h-full items-center justify-center p-10">
+          <div class="flex w-full max-w-[520px] flex-col gap-4 rounded-xl border border-default bg-default p-8">
+            <div class="flex size-9 items-center justify-center rounded-lg bg-warning/10 text-warning">
+              <UIcon name="i-lucide-triangle-alert" class="size-4.5" />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <h1 class="text-[17px] font-semibold text-highlighted">{{ t.daemonTitle }}</h1>
+              <p class="leading-normal text-muted">{{ t.daemonBody }}</p>
+            </div>
+            <CopyCommand command="binn daemon start" primary />
+            <p class="text-[11.5px] text-dimmed">{{ t.retrying }}</p>
+          </div>
+        </div>
+        <div v-else-if="data === null && error === null" class="mx-auto flex max-w-[1120px] flex-col gap-6 px-8 pt-7" :aria-label="t.loading" aria-busy="true">
+          <div class="flex flex-col gap-4 rounded-xl border border-default p-8">
+            <USkeleton class="h-4.5 w-30" />
+            <USkeleton class="h-3.5 w-[70%]" />
+            <USkeleton class="h-10.5 w-full" />
+            <USkeleton class="h-3.5 w-[45%]" />
+          </div>
+          <USkeleton class="h-10 w-full" />
+          <div class="grid grid-cols-2 gap-5">
+            <USkeleton class="h-55" />
+            <USkeleton class="h-55" />
+          </div>
+          <p class="text-xs text-dimmed">{{ t.loading }}</p>
+        </div>
+        <div v-else class="legacy mx-auto max-w-[1120px] px-8 pt-3 pb-14">
+          <p v-if="error" class="warn">{{ t.failed }} <code>{{ error.code }}</code> {{ error.message }}</p>
+          <!-- Held back while the first project is being written into the address, so that no page opens without it. -->
+          <NuxtPage v-if="selected !== null || !data?.length" :page-key="pageKey" />
+        </div>
+      </main>
+    </div>
+  </UApp>
 </template>
-
-<style>
-:root {
-  color-scheme: light dark;
-  --fg: #1d2127;
-  --muted: #5d6673;
-  --bg: #fbfbfa;
-  --panel: #ffffff;
-  --line: #e2e4e8;
-  --warn: #9a4d00;
-  font-family: system-ui, sans-serif;
-  font-size: 15px;
-  line-height: 1.45;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --fg: #e6e8eb;
-    --muted: #9aa3ae;
-    --bg: #15181c;
-    --panel: #1c2026;
-    --line: #2d333b;
-    --warn: #f0a458;
-  }
-}
-body {
-  margin: 0;
-  color: var(--fg);
-  background: var(--bg);
-}
-nav {
-  display: flex;
-  gap: 1.25rem;
-  align-items: baseline;
-  padding: 0.75rem 1.25rem;
-  border-bottom: 1px solid var(--line);
-}
-nav a {
-  color: var(--muted);
-  text-decoration: none;
-}
-nav a.router-link-exact-active {
-  color: var(--fg);
-}
-main {
-  max-width: 64rem;
-  padding: 1rem 1.25rem 3rem;
-}
-h1 {
-  font-size: 1.25rem;
-}
-code {
-  font-family: ui-monospace, monospace;
-  font-size: 0.9em;
-}
-.muted {
-  color: var(--muted);
-}
-.warn {
-  color: var(--warn);
-}
-/* Marks a reading of Binnacle's own beside the canonical state (ADR-0032). */
-.label {
-  margin-left: 0.4rem;
-  padding: 0 0.3rem;
-  font-size: 0.8em;
-  border: 1px solid var(--line);
-  border-radius: 3px;
-}
-.signin {
-  padding: 2rem 1.25rem;
-}
-.project {
-  margin: 1rem 0;
-  padding: 0.25rem 1rem 0.75rem;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-}
-.project h2 {
-  font-size: 1.05rem;
-}
-.project h3 {
-  font-size: 0.9rem;
-  color: var(--muted);
-  margin-bottom: 0.25rem;
-}
-.project ul {
-  margin: 0;
-  padding-left: 1.25rem;
-}
-</style>

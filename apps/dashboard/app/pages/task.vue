@@ -41,7 +41,7 @@ const dependency = (item: Brief['dependencies'][number]): string =>
 <template>
   <p v-if="project === null || id === null" class="warn">This address names no Task. Open one from the Overview.</p>
   <p v-else-if="error" class="warn"><code>{{ error.code }}</code> {{ error.message }}</p>
-  <p v-else-if="data === null" class="muted">Loading…</p>
+  <USkeleton v-else-if="data === null" class="my-4 h-24 w-full" />
   <template v-else>
     <h1>{{ data.id }}: {{ data.title ?? '(untitled)' }}</h1>
     <section class="start">
@@ -84,7 +84,7 @@ const dependency = (item: Brief['dependencies'][number]): string =>
     </template>
     <h2>Runs</h2>
     <p v-if="usageError" class="warn"><code>{{ usageError.code }}</code> {{ usageError.message }}</p>
-    <p v-else-if="usage === null" class="muted">Loading…</p>
+    <USkeleton v-else-if="usage === null" class="my-4 h-24 w-full" />
     <template v-else>
       <p v-if="usage.importing.incomplete" class="warn">{{ IMPORTING }}</p>
       <p v-if="usage.runs.items.length === 0" class="muted">No run is attributed to this Task.</p>

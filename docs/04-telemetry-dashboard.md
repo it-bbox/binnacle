@@ -56,7 +56,15 @@ Do not invent unavailable fields.
 
 It shows what is happening. Decisions are made in conversation with an agent, which is the product's whole thesis. Actions can be added later to a read-only design; removing them is harder.
 
-Its only action is copying a command, which the human types. Every view element below appears. One with no source yet says so and why, as the Product Snapshot does, and is never filled in (ADR-0007). Epic 5 builds these views (`specs/minimal-dashboard/spec.md`).
+Its only action is copying a command, which the human types. Every view element below appears. One with no source yet says so and why, as the Product Snapshot does, and is never filled in (ADR-0007). Epic 5 builds these views (`specs/minimal-dashboard/spec.md`), and epic 6 rebuilds them with Nuxt UI, in English and Russian (`specs/dashboard-design-and-languages/spec.md`, ADR-0033).
+
+## The shell and its languages
+
+Every view opens in one shell. A rail holds one icon per registered project, with a dot when it has running runs or attention items, and a "+" that shows `binn project register` to copy. A sidebar holds the selected project's name and current Epic, the menu with Attention's count, the language switch and how long ago the data was read. The selected project is the address's `project` query, the first registered project without one. While the daemon does not answer, the shell says so, with `binn daemon start` to copy, and polls on until it does.
+
+The page reaches nothing but the daemon: its fonts are the system's, its Lucide icons are bundled at build time, and it writes no inline style, which the daemon's Content-Security-Policy refuses.
+
+It speaks English and Russian, starting in Russian when the browser prefers Russian and in English otherwise; the switch's choice is kept in the browser. Only the page's own text is translated, from a dictionary of the dashboard's own. Task, Epic, Next action, Suggested step, Backlog, Ready, In progress, Done, Review and Unmet dependency stay English in both languages, and commands, ids, branches, models, repository text and the daemon's messages are never translated.
 
 ## Main dashboard views for v1
 

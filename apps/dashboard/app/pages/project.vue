@@ -52,7 +52,7 @@ const who = (run: LatestRun): string => `${run.harness}, ${run.model ?? 'model n
   <p v-if="project === null" class="warn">This address names no project. Open one from the Overview.</p>
   <template v-else>
     <p v-if="snapshot.error.value" class="warn"><code>{{ snapshot.error.value.code }}</code> {{ snapshot.error.value.message }}</p>
-    <p v-else-if="snapshot.data.value === null" class="muted">Loading…</p>
+    <USkeleton v-else-if="snapshot.data.value === null" class="my-4 h-24 w-full" />
     <template v-else>
       <h1>{{ projectName(snapshot.data.value.project) }}</h1>
 
@@ -124,7 +124,7 @@ const who = (run: LatestRun): string => `${run.harness}, ${run.model ?? 'model n
 
     <h2>Usage by role, {{ usage.data.value === null ? 'over the import window' : windowLabel(usage.data.value.importing) }}</h2>
     <p v-if="usage.error.value" class="warn"><code>{{ usage.error.value.code }}</code> {{ usage.error.value.message }}</p>
-    <p v-else-if="usage.data.value === null" class="muted">Loading…</p>
+    <USkeleton v-else-if="usage.data.value === null" class="my-4 h-24 w-full" />
     <template v-else>
       <p v-if="usage.data.value.importing.incomplete" class="warn">{{ IMPORTING }}</p>
       <RoleUsage :usage="usage.data.value" />

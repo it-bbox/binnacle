@@ -10,7 +10,7 @@ const { data, error } = usePolling(loadProjects);
 <template>
   <h1>Overview</h1>
   <p v-if="error" class="warn"><code>{{ error.code }}</code> {{ error.message }}</p>
-  <p v-else-if="data === null" class="muted">Loading…</p>
+  <USkeleton v-else-if="data === null" class="my-4 h-24 w-full" />
   <p v-else-if="data.length === 0" class="muted">No projects are registered. Register one with <code>binn project register [path]</code>.</p>
   <section v-for="view in data ?? []" :key="view.project.path" class="project">
     <h2><NuxtLink :to="{ path: '/project', query: { project: view.project.path } }">{{ projectName(view.project) }}</NuxtLink></h2>

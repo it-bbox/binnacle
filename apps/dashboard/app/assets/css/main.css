@@ -1,0 +1,90 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+@import "./legacy.css";
+
+/*
+ * Nuxt UI's colours. Nuxt UI writes these into an inline <style> at runtime, which the
+ * daemon's Content-Security-Policy refuses, so `nuxt.config.ts` drops that plugin and they are
+ * declared here instead, in the same form. Fonts are Tailwind's system sans and monospace
+ * stacks: nothing is fetched (ADR-0033). The accent is the mockup's.
+ */
+@layer theme {
+  :root {
+    --ui-color-primary-50: var(--color-cyan-50);
+    --ui-color-primary-100: var(--color-cyan-100);
+    --ui-color-primary-200: var(--color-cyan-200);
+    --ui-color-primary-300: var(--color-cyan-300);
+    --ui-color-primary-400: var(--color-cyan-400);
+    --ui-color-primary-500: var(--color-cyan-500);
+    --ui-color-primary-600: var(--color-cyan-600);
+    --ui-color-primary-700: var(--color-cyan-700);
+    --ui-color-primary-800: var(--color-cyan-800);
+    --ui-color-primary-900: var(--color-cyan-900);
+    --ui-color-primary-950: var(--color-cyan-950);
+    --ui-color-success-50: var(--color-green-50);
+    --ui-color-success-100: var(--color-green-100);
+    --ui-color-success-200: var(--color-green-200);
+    --ui-color-success-300: var(--color-green-300);
+    --ui-color-success-400: var(--color-green-400);
+    --ui-color-success-500: var(--color-green-500);
+    --ui-color-success-600: var(--color-green-600);
+    --ui-color-success-700: var(--color-green-700);
+    --ui-color-success-800: var(--color-green-800);
+    --ui-color-success-900: var(--color-green-900);
+    --ui-color-success-950: var(--color-green-950);
+    --ui-color-warning-50: var(--color-amber-50);
+    --ui-color-warning-100: var(--color-amber-100);
+    --ui-color-warning-200: var(--color-amber-200);
+    --ui-color-warning-300: var(--color-amber-300);
+    --ui-color-warning-400: var(--color-amber-400);
+    --ui-color-warning-500: var(--color-amber-500);
+    --ui-color-warning-600: var(--color-amber-600);
+    --ui-color-warning-700: var(--color-amber-700);
+    --ui-color-warning-800: var(--color-amber-800);
+    --ui-color-warning-900: var(--color-amber-900);
+    --ui-color-warning-950: var(--color-amber-950);
+    --ui-color-error-50: var(--color-red-50);
+    --ui-color-error-100: var(--color-red-100);
+    --ui-color-error-200: var(--color-red-200);
+    --ui-color-error-300: var(--color-red-300);
+    --ui-color-error-400: var(--color-red-400);
+    --ui-color-error-500: var(--color-red-500);
+    --ui-color-error-600: var(--color-red-600);
+    --ui-color-error-700: var(--color-red-700);
+    --ui-color-error-800: var(--color-red-800);
+    --ui-color-error-900: var(--color-red-900);
+    --ui-color-error-950: var(--color-red-950);
+    --ui-color-neutral-50: var(--color-zinc-50);
+    --ui-color-neutral-100: var(--color-zinc-100);
+    --ui-color-neutral-200: var(--color-zinc-200);
+    --ui-color-neutral-300: var(--color-zinc-300);
+    --ui-color-neutral-400: var(--color-zinc-400);
+    --ui-color-neutral-500: var(--color-zinc-500);
+    --ui-color-neutral-600: var(--color-zinc-600);
+    --ui-color-neutral-700: var(--color-zinc-700);
+    --ui-color-neutral-800: var(--color-zinc-800);
+    --ui-color-neutral-900: var(--color-zinc-900);
+    --ui-color-neutral-950: var(--color-zinc-950);
+  }
+  :root,
+  .light {
+    --ui-primary: oklch(0.52 0.11 205);
+    --ui-success: var(--ui-color-success-600);
+    --ui-warning: var(--ui-color-warning-600);
+    --ui-error: var(--ui-color-error-600);
+  }
+  .dark {
+    --ui-primary: oklch(0.76 0.1 205);
+    --ui-success: var(--ui-color-success-400);
+    --ui-warning: var(--ui-color-warning-400);
+    --ui-error: var(--ui-color-error-400);
+    --ui-bg: var(--ui-color-neutral-950);
+  }
+}
+
+/* A dense tool: the mockup's 13 px body. */
+@layer base {
+  body {
+    font-size: 13px;
+  }
+}

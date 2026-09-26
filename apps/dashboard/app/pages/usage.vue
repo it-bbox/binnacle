@@ -34,7 +34,7 @@ const { data, error } = usePolling(async () => {
 <template>
   <p v-if="project === null" class="warn">This address names no project. Open its usage from the Overview.</p>
   <p v-else-if="error" class="warn"><code>{{ error.code }}</code> {{ error.message }}</p>
-  <p v-else-if="data === null" class="muted">Loading…</p>
+  <USkeleton v-else-if="data === null" class="my-4 h-24 w-full" />
   <template v-else>
     <h1>Usage</h1>
     <p class="muted">
