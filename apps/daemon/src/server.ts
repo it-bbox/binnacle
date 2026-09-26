@@ -202,18 +202,12 @@ async function handle(
   send(response, 200, await operation(await readJsonBody(request), context));
 }
 
-/** Content types by extension; anything else is served as `application/octet-stream`. */
+/** Content types of what `nuxt generate` writes; anything else is served as `application/octet-stream`. */
 const CONTENT_TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
-  '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
-  '.txt': 'text/plain; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.ico': 'image/x-icon',
-  '.woff2': 'font/woff2',
 };
 
 /**
@@ -221,6 +215,9 @@ const CONTENT_TYPES: Record<string, string> = {
  * token; the Host and Origin checks have already run. `/` is `index.html`, a file in the
  * directory is itself, and any other path is the client-side routing fallback, `200.html`.
  * A path whose resolution would leave the directory is not found, never the fallback.
+ *
+ * ponytail: files are read synchronously on every request, which blocks the event loop for
+ * the read; the files are small and the one client is local. Stream them if that shows.
  */
 function serveStatic(request: IncomingMessage, response: ServerResponse, dashboard: string): void {
   if (request.method !== 'GET' && request.method !== 'HEAD') return fail(response, methodNotAllowed(request.method, 'GET or HEAD'));
