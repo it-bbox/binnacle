@@ -1,6 +1,6 @@
 # 05: The Next action and the Suggested step
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 02, 04
 Spec: `docs/specs/minimal-dashboard/spec.md`
