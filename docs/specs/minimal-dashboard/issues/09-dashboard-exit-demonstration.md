@@ -1,6 +1,6 @@
 # 09: The exit demonstration
 
-Status: READY
+Status: DONE
 Triage: ready-for-human
 Blocked by: 01, 02, 03, 04, 05, 06, 07, 08
 Spec: `docs/specs/minimal-dashboard/spec.md`
@@ -12,9 +12,9 @@ Spec: `docs/specs/minimal-dashboard/spec.md`
 - [x] Within one refresh, this ticket's card is In progress, read from runs, and names that session's harness and model.
 - [x] The Usage page's figures equal `usage_get`'s for the same window.
 - [x] Every element that is not available gives its reason.
-- [ ] Once this ticket is merged, its card is Done.
+- [x] Once this ticket is merged, its card is Done.
 - [x] The owner records under `## Comments` whether the dashboard answered "what do I type" at every step.
-- [ ] Defects are filed as tickets. The roadmap marks epic 5 done only when none of them is open.
+- [x] Defects are filed as tickets. The roadmap marks epic 5 done only when none of them is open.
 
 ## Comments
 
@@ -30,3 +30,7 @@ Spec: `docs/specs/minimal-dashboard/spec.md`
   - **Did the dashboard answer "what do I type" at every step?** Not entirely. The dashboard is in English only, which made it hard to follow; it needs i18n, with English and Russian to begin with. And it needs a design: today it is one long sheet of text.
   - **Ready to start listing a Task in progress** is a defect, filed as ticket 11.
 - **What follows.** Ticket 11 keeps epic 5 `in progress`, with ticket 10. The dashboard's languages and its design change what the spec decided, English with no UI kit (*Further Notes*), so they are not filed as defects of this spec: they go to `/grill-with-docs` in a Product session, recorded in the roadmap's current focus.
+
+### Review
+
+None: this ticket changed no code, only this ticket, ticket 11 and the roadmap.
