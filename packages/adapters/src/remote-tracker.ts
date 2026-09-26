@@ -142,5 +142,6 @@ function toTask(issue: RemoteIssue, diagnostics: Diagnostic[]): TrackerTask {
     triage: issue.labels.find((name) => TRIAGE_ROLES.includes(name)) ?? null,
     ticket: issue.url,
     body: ticketBody(issue.body ?? ''),
+    review: null,
   };
 }

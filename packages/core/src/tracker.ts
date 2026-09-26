@@ -79,6 +79,11 @@ export type TrackerTask = {
    * stops at the first `## Comments` heading, and a remote tracker's comments are never read.
    */
   body: string;
+  /**
+   * The ticket's Review: on the local tracker, the text under `### Review` inside `## Comments`;
+   * null when it records none. Always null on a remote tracker, whose comments are never read.
+   */
+  review: string | null;
 };
 
 /** `tasks` is null when the tracker cannot be read at all; a diagnostic then says why. */

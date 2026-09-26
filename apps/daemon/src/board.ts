@@ -12,6 +12,8 @@ export type Card = Pick<ResolvedTask, 'id' | 'title' | 'state' | 'unmetDependenc
   source: 'state' | 'runs' | null;
   /** The command that starts it (`startCommand`), or null when there is none. */
   start: string | null;
+  /** Whether its ticket records a Review; null on a remote tracker, whose comments are never read. */
+  review: boolean | null;
   /** Who works on it: its latest attributed run, or null when it has none. */
   latestRun: Pick<ObservedRun, 'harness' | 'model' | 'role' | 'lastActivityAt' | 'active'> | null;
 };
@@ -53,6 +55,7 @@ export async function taskList(context: OperationContext, projected: Projected, 
 
   const runs = await latestRuns(context, projected.row.path, projected.manifest, tasks);
   const workflow = projected.manifest?.workflow.provider ?? null;
+  const remote = projected.manifest?.tracker.provider !== 'local';
   const columns: Record<BoardColumn, Card[]> = { backlog: [], ready: [], inProgress: [], done: [] };
   const unknown: TaskList['unknown']['items'] = [];
   let cancelled = 0;
@@ -68,6 +71,7 @@ export async function taskList(context: OperationContext, projected: Projected, 
       unmetDependencies: task.unmetDependencies,
       ticket: task.ticket,
       start: startCommand(task, workflow),
+      review: remote ? null : task.review !== null,
       latestRun: run ? { harness: run.harness, model: run.model, role: run.role, lastActivityAt: run.lastActivityAt, active: run.active } : null,
     };
     if (placed) columns[placed.column].push(card);

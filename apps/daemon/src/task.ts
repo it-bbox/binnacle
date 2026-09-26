@@ -1,10 +1,15 @@
 import type { Tree } from '@binnacle/adapters';
 import { sharedBranch, startCommand, taskBranch, type Diagnostic, type ProjectManifest, type TaskState, type TrackerTask } from '@binnacle/core';
 import { OperationError } from './errors.ts';
-import { cut, readTracker } from './snapshot.ts';
+import { cut, readTracker, type Unavailable } from './snapshot.ts';
 
 /** In characters: Unicode code points. */
 export const BODY_LIMIT = 8000;
+
+const REVIEW_UNAVAILABLE: Unavailable = {
+  available: false,
+  reason: 'Binnacle reads an issue’s body and never its comments, so no Review is read on GitHub or GitLab.',
+};
 
 /**
  * The task brief (`task.get`): what a session needs to start one Task, and nothing more. It
@@ -22,6 +27,11 @@ export type TaskBrief = Pick<TrackerTask, 'id' | 'title' | 'state' | 'triage' | 
   branch: string;
   /** The command that starts it in a fresh session (`startCommand`), or null when there is none. */
   start: string | null;
+  /**
+   * The ticket's Review, cut at `BODY_LIMIT` as the body is; null when the ticket records none.
+   * Unavailable on a remote tracker, whose comments are never read.
+   */
+  review: { text: string; truncated: boolean } | Unavailable | null;
   /** `task.shared_branch` when another Task has the same branch, which then credits neither. */
   diagnostics: Diagnostic[];
 };
@@ -53,6 +63,7 @@ export async function taskBrief(home: string, tree: Tree, manifest: ProjectManif
     body: cut(task.body, BODY_LIMIT),
     branch: taskBranch(task, remote),
     start: startCommand(task, manifest?.workflow.provider ?? null),
+    review: remote ? REVIEW_UNAVAILABLE : task.review === null ? null : cut(task.review, BODY_LIMIT),
     diagnostics: shared ? [shared] : [],
   };
 }

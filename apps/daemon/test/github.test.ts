@@ -129,8 +129,8 @@ async function snapshot(daemon: TestDaemon, root: string): Promise<Snapshot> {
 }
 
 const ids = (section: Section): string[] => section.items.map((task) => task.id);
-/** Tracker and Task attention only: these projects declare no roadmap, which is not what is tested here. */
-const codes = (body: Pick<Snapshot, 'attention'>): string[] => body.attention.map((item) => item.code).filter((code) => /^(tracker|task)\./.test(code));
+/** Tracker, Task and Review attention only: these projects declare no roadmap, which is not what is tested here. A closed issue is DONE without a Review read, and is no review.missing item. */
+const codes = (body: Pick<Snapshot, 'attention'>): string[] => body.attention.map((item) => item.code).filter((code) => /^(tracker|task|review)\./.test(code));
 
 describe('GitHub issues as Tasks in the Product Snapshot', () => {
   it('reads every issue, open and closed, through every page, and skips pull requests', async () => {
@@ -840,6 +840,7 @@ describe('the task brief on a GitHub tracker', () => {
     body: { text: string; truncated: boolean };
     branch: string;
     start: string | null;
+    review: { text: string; truncated: boolean } | { available: false; reason: string } | null;
     diagnostics: { code: string; message: string }[];
   };
   type Envelope = { error: { code: string; message: string } };
@@ -881,6 +882,7 @@ describe('the task brief on a GitHub tracker', () => {
         body: { text: '**What to build:** a brief.\n\nStatus: DONE', truncated: false },
         branch: 'feat/5-add-a-task-brief-task-get-friends',
         start: null,
+        review: { available: false, reason: 'Binnacle reads an issue’s body and never its comments, so no Review is read on GitHub or GitLab.' },
         diagnostics: [],
       });
       assert.equal((await taskGet(daemon, root, '5')).body.id, '#5');

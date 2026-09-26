@@ -194,6 +194,14 @@ export async function readState(
   const roadmap = await readRoadmap(tree, manifest, attention);
   if (roadmap && tasks) attention.push(...roadmapAttention(roadmap.epics, tasks));
   if (roadmap) attention.push(...nextActionAttention(roadmap, tasks));
+  // Only the local tracker reads a Review; a remote one never reads the comments that would hold it.
+  if (tasks && manifest?.tracker.provider === 'local') {
+    for (const task of tasks) {
+      if (task.state === 'DONE' && task.review === null) {
+        attention.push({ code: 'review.missing', message: `${task.id} (${task.ticket}) is DONE, and its ticket records no Review under ## Comments.` });
+      }
+    }
+  }
   const adrs = await readAdrs(tree, manifest, attention);
   return { tasks, unreadable: tasks === null ? tracker : [], roadmap, adrs, attention };
 }

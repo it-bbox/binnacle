@@ -13,8 +13,8 @@ MCP is the stable contract. Client-specific slash commands/skills are thin UX wr
 - `project.detect`
 - `project.status`
 - `project.snapshot` (the tool `project_snapshot`: the Product Snapshot, including `next` — the Next action and Binnacle's Suggested step beside it (ADR-0032) — and `activity`, the runs running now and recently; each Task in flight and ready to start carries `start`, the command that starts it)
-- `task.get` (the tool `task_get`: the Task brief, with the Task's Review and the command that starts it)
-- `task.list` (the daemon's only, for the dashboard's board: an epic's Tasks, the current epic's unless a spec slug is given, each with its column, In progress read from runs where the ticket still says `READY`, its Unmet dependencies, its start command and its latest run; `spec: null` gives a remote tracker's Tasks that carry no spec)
+- `task.get` (the tool `task_get`: the Task brief, with the command that starts it and the Task's Review — on the local tracker the text under `### Review` inside the ticket's `## Comments`, cut at the body limit, or `null` when the ticket records none; not available on GitHub or GitLab, whose comments Binnacle never reads)
+- `task.list` (the daemon's only, for the dashboard's board: an epic's Tasks, the current epic's unless a spec slug is given, each with its column, In progress read from runs where the ticket still says `READY`, its Unmet dependencies, whether its ticket records a Review (`null` on GitHub or GitLab), its start command and its latest run; `spec: null` gives a remote tracker's Tasks that carry no spec)
 - `task.plan`
 - `run.current`
 - `run.list`
@@ -31,7 +31,7 @@ MCP is the stable contract. Client-specific slash commands/skills are thin UX wr
 - `checkpoint.prepare`
 - `checkpoint.record` (ADR-0020: it records the checkpoint; the calling session writes the files)
 
-The snapshot's attention includes `next_action.missing`, `next_action.stale` and `review.missing`. The dashboard reads the same operations over the daemon's local API (ADR-0031), and adds no MCP tool.
+The snapshot's attention includes `next_action.missing`, `next_action.stale` and `review.missing`, which names each `DONE` Task on the local tracker whose ticket records no Review. The dashboard reads the same operations over the daemon's local API (ADR-0031), and adds no MCP tool.
 
 No tool writes to the tracker (ADR-0013). Closing an issue is done by the agent with its own tooling, or by the human in the tracker's own interface.
 

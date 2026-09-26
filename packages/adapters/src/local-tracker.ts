@@ -8,8 +8,8 @@ import type { Tree } from './tree.ts';
  * the next answer, and it only ever reads.
  *
  * The ticket header is read through the parser every tracker shares — `Status:`, `Triage:`,
- * `Blocked by:`, `Spec:` — and the body after it up to `## Comments`, which is for the
- * session to read, as are the comments themselves.
+ * `Blocked by:`, `Spec:` — and the body after it up to `## Comments`. Of the comments, which
+ * are for the session to read, only the Review is read (`ticketReview`).
  *
  * `issues` is relative to the tree, as the manifest declares it. The tree is the working
  * tree for the snapshot, and a commit for the daily delta.
@@ -71,7 +71,32 @@ function parseTicket(spec: string, file: string, ticket: string, text: string, d
     triage: triage || null,
     ticket,
     body: ticketBody(text.split(COMMENTS)[0]!),
+    review: ticketReview(text),
   };
 }
 
 const COMMENTS = /^## +Comments[ \t\r]*$/m;
+const REVIEW = /^### +Review[ \t]*$/;
+const HEADING = /^ {0,3}(#{1,6})(?:[ \t]|$)/;
+const FENCE = /^ {0,3}(?:```|~~~)/;
+
+/**
+ * The text under the first `### Review` heading inside `## Comments`, up to the next heading of
+ * the same level or above, without the blank lines around it; null when there is none, or it is
+ * empty. A line inside a code fence is never a heading.
+ */
+function ticketReview(text: string): string | null {
+  let comments = false;
+  let fenced = false;
+  let review: string[] | null = null;
+  for (const line of text.split(/\r?\n/)) {
+    if (FENCE.test(line)) fenced = !fenced;
+    const level = fenced ? 0 : (HEADING.exec(line)?.[1]!.length ?? 0);
+    if (review !== null) {
+      if (level >= 1 && level <= 3) break;
+      review.push(line);
+    } else if (level === 1 || level === 2) comments = COMMENTS.test(line);
+    else if (level === 3 && comments && REVIEW.test(line)) review = [];
+  }
+  return review?.join('\n').replace(/^(?:[ \t]*\n)+/, '').trimEnd() || null;
+}

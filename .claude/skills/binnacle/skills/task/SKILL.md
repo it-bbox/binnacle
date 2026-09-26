@@ -1,6 +1,6 @@
 ---
 name: task
-description: Load the compact brief for one Task, its fields, dependencies, spec path, ticket body and branch name, ending with the command that starts it. Changes nothing.
+description: Load the compact brief for one Task, its fields, dependencies, spec path, ticket body, Review and branch name, ending with the command that starts it. Changes nothing.
 argument-hint: "<task id: spec-slug/NN, or #number>"
 disable-model-invocation: true
 ---
@@ -19,6 +19,7 @@ disable-model-invocation: true
    - **Dependencies**: each with its id, title and state, marked met or not met. Say plainly when one is not met, and when one is dangling (`met` is null): it names no known Task, probably a typo in the ticket, and blocks nothing.
    - **Spec**: the path, to read when the ticket needs it. Do not read it now.
    - **Body**: the text as given. If `truncated` is true, say that the brief cut it, and that the full ticket is at the ticket path or URL.
+   - **Review**: the text as given, cut like the body when `truncated` is true. When `review` is null, say that the ticket records none; when it is not available, quote its reason.
 4. State the branch name: "The branch for this Task is `<branch>`." Then quote each of the brief's `diagnostics`, if any, with its code and message.
 5. End with the brief's `start`, the same command the dashboard shows for this Task: "To start it, in a fresh session:", then the command on its own line, as code. When `start` is null, say why instead: the Task is `DONE` or `CANCELLED`, when its state is one of them, and otherwise the project's workflow is not Matt Pocock's (`workflow.provider` is not `matt-pocock`), so Binnacle offers no command for it.
 

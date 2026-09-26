@@ -23,6 +23,7 @@ type Card = {
   unmetDependencies: string[];
   ticket: string;
   start: string | null;
+  review: boolean | null;
   latestRun: Run | null;
 };
 type Column = { items: Card[]; remainder: number };
@@ -191,6 +192,7 @@ describe('the board', () => {
             unmetDependencies: [],
             ticket: backlog,
             start: `/mattpocock-skills:implement ${backlog}`,
+            review: false,
             latestRun: null,
           },
         ],
@@ -205,6 +207,7 @@ describe('the board', () => {
         unmetDependencies: ['second/01'],
         ticket: ready,
         start: `/mattpocock-skills:implement ${ready}`,
+        review: false,
         latestRun: null,
       });
       assert.deepEqual(ids(board.columns.ready), ['second/02']);
@@ -220,6 +223,7 @@ describe('the board', () => {
         unmetDependencies: [],
         ticket: worked,
         start: `/mattpocock-skills:implement ${worked}`,
+        review: false,
         latestRun: { harness: 'claude-code', model: 'claude-opus-5-5', role: 'implementation', lastActivityAt: latest, active: { value: true, provenance: 'calculated' } },
       });
       assert.deepEqual(
@@ -251,6 +255,7 @@ describe('the board', () => {
             unmetDependencies: [],
             ticket: unknown,
             start: `/mattpocock-skills:implement ${unknown}`,
+            review: false,
             latestRun: null,
             diagnostic: { code: 'task.unknown_state', message: `second/09 (${unknown}) has Status: "WIP", which is not a Task state.` },
           },
@@ -348,6 +353,8 @@ describe('the board on a remote tracker', () => {
           message: '#4 (https://github.com/octo/repo/issues/4) has Status: "WIP", which is not a Task state.',
         });
         assert.deepEqual(without.columns.ready.items[0]!.start, '/mattpocock-skills:implement https://github.com/octo/repo/issues/2');
+        // Unavailable, since an issue's comments are never read.
+        assert.equal(without.columns.ready.items[0]!.review, null);
       });
     } finally {
       await new Promise((resolve) => server.close(resolve));

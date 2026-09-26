@@ -18,6 +18,7 @@ type Brief = {
   body: { text: string; truncated: boolean };
   branch: string;
   start: string | null;
+  review: { text: string; truncated: boolean } | { available: false; reason: string } | null;
   diagnostics: { code: string; message: string }[];
 };
 type Envelope = { error: { code: string; message: string } };
@@ -42,9 +43,9 @@ function write(root: string, path: string, text: string): void {
   writeFileSync(join(root, path), text);
 }
 
-/** A ticket in the shape `/to-tickets` writes, with a body, a `Status:` in that body, and comments. */
-const ticketText = (title: string, header: string[], body: string): string =>
-  [`# ${title}`, '', ...header, '', body, '', '## Comments', '', '- A comment the brief leaves out.', '', '### Review', '', 'Also left out.', ''].join('\n');
+/** A ticket in the shape `/to-tickets` writes, with a body, a `Status:` in that body, and comments ending with its Review. */
+const ticketText = (title: string, header: string[], body: string, review = 'Nothing found.'): string =>
+  [`# ${title}`, '', ...header, '', body, '', '## Comments', '', '- A comment the brief leaves out.', '', '### Review', '', review, ''].join('\n');
 
 async function withDaemon(body: (daemon: TestDaemon) => Promise<void>): Promise<void> {
   const daemon = await startTestDaemon();
@@ -93,6 +94,7 @@ describe('the task brief on the local tracker', () => {
         body: { text: '**What to build:** the thing.\n\nStatus: DONE\n\n- [ ] It works.', truncated: false },
         branch: 'feat/build-the-thing',
         start: null,
+        review: { text: 'Nothing found.', truncated: false },
         diagnostics: [],
       });
     });
@@ -251,6 +253,90 @@ describe('the start command', () => {
 
       assert.equal((await taskGet(daemon, root, 'epic/01')).body.start, null);
       assert.deepEqual(await snapshotStarts(daemon, root), { 'epic/01': null, 'epic/04': null });
+    });
+  });
+});
+
+describe('the Review', () => {
+  type Card = { id: string; review: boolean | null };
+  type Board = { columns: Record<'backlog' | 'ready' | 'inProgress' | 'done', { items: Card[] }> };
+  type Attention = { attention: { code: string; message: string }[] };
+
+  it('is the text under `### Review` inside `## Comments`, up to the next heading of the same level or above', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject();
+      const text = [
+        '# 01: Reviewed',
+        '',
+        'Status: DONE',
+        '',
+        '### Review',
+        '',
+        'In the body: not the Review.',
+        '',
+        '## Comments',
+        '',
+        '- A note.',
+        '',
+        '### Review',
+        '',
+        '  Found two things.',
+        '',
+        '#### Standards',
+        '',
+        '```sh',
+        '# a comment, not a heading',
+        '```',
+        '',
+        '### Afterwards',
+        '',
+        'Not the Review.',
+        '',
+      ].join('\n');
+      write(root, 'docs/specs/epic/issues/01-reviewed.md', text);
+      write(root, 'docs/specs/epic/issues/02-above.md', ticketText('02: Above', ['Status: DONE'], 'Body.', 'Kept.\n\n## After the comments\n\nNot the Review.'));
+
+      assert.deepEqual((await taskGet(daemon, root, 'epic/01')).body.review, {
+        text: '  Found two things.\n\n#### Standards\n\n```sh\n# a comment, not a heading\n```',
+        truncated: false,
+      });
+      assert.deepEqual((await taskGet(daemon, root, 'epic/02')).body.review, { text: 'Kept.', truncated: false });
+    });
+  });
+
+  it('is cut at the body limit in code points, and says so', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject();
+      write(root, 'docs/specs/epic/issues/01-long.md', ticketText('01: Long', ['Status: DONE'], 'Body.', '🦆'.repeat(BODY_LIMIT + 5)));
+      assert.deepEqual((await taskGet(daemon, root, 'epic/01')).body.review, { text: '🦆'.repeat(BODY_LIMIT), truncated: true });
+    });
+  });
+
+  it('is null when the ticket records none, which makes a DONE Task a review.missing item, and the board says whether each Task has one', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject();
+      write(root, 'docs/specs/epic/issues/01-reviewed.md', ticketText('01: Reviewed', ['Status: DONE'], 'Body.'));
+      write(root, 'docs/specs/epic/issues/02-unreviewed.md', '# 02: Unreviewed\n\nStatus: DONE\n\nBody.\n\n## Comments\n\n- No review.\n');
+      write(root, 'docs/specs/epic/issues/03-empty.md', '# 03: Empty\n\nStatus: DONE\n\nBody.\n\n## Comments\n\n### Review\n\n## Later\n');
+      write(root, 'docs/specs/epic/issues/04-ready.md', '# 04: Ready\n\nStatus: READY\n\nBody.\n');
+
+      assert.equal((await taskGet(daemon, root, 'epic/02')).body.review, null);
+      assert.equal((await taskGet(daemon, root, 'epic/03')).body.review, null, 'an empty Review records nothing');
+      assert.equal((await taskGet(daemon, root, 'epic/04')).body.review, null);
+
+      const snapshot = await daemon.call<Attention>('project.snapshot', { path: root });
+      assert.deepEqual(
+        snapshot.body.attention.filter((item) => item.code === 'review.missing'),
+        [
+          { code: 'review.missing', message: 'epic/02 (docs/specs/epic/issues/02-unreviewed.md) is DONE, and its ticket records no Review under ## Comments.' },
+          { code: 'review.missing', message: 'epic/03 (docs/specs/epic/issues/03-empty.md) is DONE, and its ticket records no Review under ## Comments.' },
+        ],
+      );
+
+      const board = await daemon.call<Board>('task.list', { path: root, spec: 'epic' });
+      assert.equal(board.status, 200, JSON.stringify(board.body));
+      const reviews = Object.values(board.body.columns).flatMap((column) => column.items.map((card) => [card.id, card.review]));
+      assert.deepEqual(Object.fromEntries(reviews), { 'epic/01': true, 'epic/02': false, 'epic/03': false, 'epic/04': false });
     });
   });
 });

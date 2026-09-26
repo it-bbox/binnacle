@@ -68,6 +68,7 @@ const task = (id: string, specSlug: string | null, state: TrackerTask['state']):
   triage: null,
   ticket: id,
   body: '',
+  review: null,
 });
 
 /**

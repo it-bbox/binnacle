@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import UsageTable from '~/components/UsageTable.vue';
 import { call, usePolling, type Failure } from '~/composables/daemon';
-import { ago } from '~/composables/projects';
+import { ago, isUnavailable, type Unavailable } from '~/composables/projects';
 import { fieldsLine, IMPORTING, windowLabel, type TaskUsage } from '~/composables/usage';
 
 /** `task.get`'s brief, as the Task page renders it. */
@@ -16,6 +16,7 @@ type Brief = {
   body: { text: string; truncated: boolean };
   branch: string;
   start: string | null;
+  review: { text: string; truncated: boolean } | Unavailable | null;
   diagnostics: Failure[];
 };
 
@@ -72,6 +73,15 @@ const dependency = (item: Brief['dependencies'][number]): string =>
     <ul v-if="data.diagnostics.length > 0">
       <li v-for="(item, index) in data.diagnostics" :key="index" class="warn"><code>{{ item.code }}</code> {{ item.message }}</li>
     </ul>
+    <h2>Review</h2>
+    <p v-if="data.review === null" :class="data.state === 'DONE' ? 'warn' : 'muted'">
+      None is recorded: the ticket has no <code>### Review</code> under <code>## Comments</code>.
+    </p>
+    <p v-else-if="isUnavailable(data.review)" class="muted">Not available: {{ data.review.reason }}</p>
+    <template v-else>
+      <pre class="body">{{ data.review.text }}</pre>
+      <p v-if="data.review.truncated" class="muted">The brief cut the Review here; the whole of it is in <code>{{ data.ticket }}</code>.</p>
+    </template>
     <h2>Runs</h2>
     <p v-if="usageError" class="warn"><code>{{ usageError.code }}</code> {{ usageError.message }}</p>
     <p v-else-if="usage === null" class="muted">Loading…</p>

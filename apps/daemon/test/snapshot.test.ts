@@ -72,6 +72,10 @@ function ticket(root: string, spec: string, file: string, header: { title: strin
     '',
     '## Comments',
     '',
+    '### Review',
+    '',
+    'Nothing found.',
+    '',
   ];
   writeFileSync(join(dir, file), lines.join('\n'));
 }

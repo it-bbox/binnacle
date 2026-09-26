@@ -14,6 +14,7 @@ Specs and issues for this repo live in Git under `docs/specs/`, not in `.scratch
   - `Status:` — lifecycle state from `docs/workflow/03-state-machines.md`
   - `Triage:` — role string from `triage-labels.md`
 - Comments and conversation history append to the bottom of the file under a `## Comments` heading
+- The Task's Review goes under a `### Review` heading inside `## Comments`, and runs to the next heading of that level or above, so its own sub-headings are `####`. Binnacle reads it there, and a `DONE` ticket without one is the attention item `review.missing`
 
 `.scratch/` keeps only genuinely disposable working material: intermediate output, throwaway experiments, anything nobody needs after the task closes.
 

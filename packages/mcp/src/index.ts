@@ -39,7 +39,7 @@ const TOOLS = {
   task_get: {
     operation: 'task.get',
     description:
-      'The compact brief for starting one Task: its fields, its dependencies with their titles and states, its spec path, the ticket body without comments, the branch name, and the command that starts it in a fresh session (`start`, null for a DONE or CANCELLED Task or another workflow), with a diagnostic when another Task has the same branch. Changes nothing.',
+      'The compact brief for starting one Task: its fields, its dependencies with their titles and states, its spec path, the ticket body without comments, the branch name, the command that starts it in a fresh session (`start`, null for a DONE or CANCELLED Task or another workflow), and its Review as the ticket records it (`review`: null when there is none, not available on GitHub or GitLab), with a diagnostic when another Task has the same branch. Changes nothing.',
     inputSchema: {
       id: z.string().describe('The Task id: `<spec-slug>/<NN>` on the local tracker, `#<number>` or `<number>` on GitHub or GitLab.'),
     },
