@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import RunList from '~/components/RunList.vue';
 import { usePolling } from '~/composables/daemon';
-import { isUnavailable, loadProjects, position, projectName, RUNNING_READING } from '~/composables/projects';
+import { isUnavailable, loadProjects, position, projectName, RUNNING_READING, SUGGESTED_READING } from '~/composables/projects';
 import { fieldsLine } from '~/composables/usage';
 
 const { data, error } = usePolling(loadProjects);
@@ -18,6 +18,27 @@ const { data, error } = usePolling(loadProjects);
     <p v-else-if="view.failure" class="warn"><code>{{ view.failure.code }}</code> {{ view.failure.message }}</p>
     <template v-else-if="view.snapshot">
       <p>{{ position(view.snapshot) }}</p>
+      <div class="next">
+        <div>
+          <h3>Next action</h3>
+          <p class="muted">From the roadmap's current focus.</p>
+          <template v-if="view.snapshot.next.action">
+            <p>{{ view.snapshot.next.action.description }}</p>
+            <CopyCommand :command="view.snapshot.next.action.command" />
+          </template>
+          <p v-else class="warn">The current focus does not end with a Next action; attention says why.</p>
+        </div>
+        <div>
+          <h3>Suggested step</h3>
+          <p class="muted">{{ SUGGESTED_READING }}</p>
+          <p v-if="view.snapshot.next.suggested === null" class="muted">Binnacle has no suggestion.</p>
+          <p v-else-if="isUnavailable(view.snapshot.next.suggested)" class="muted">Not available: {{ view.snapshot.next.suggested.reason }}</p>
+          <template v-else>
+            <p>{{ view.snapshot.next.suggested.description }}</p>
+            <CopyCommand v-if="view.snapshot.next.suggested.command !== null" :command="view.snapshot.next.suggested.command" />
+          </template>
+        </div>
+      </div>
       <h3>Running now</h3>
       <p class="muted">{{ RUNNING_READING }}</p>
       <p v-if="isUnavailable(view.snapshot.activity)" class="muted">Not available: {{ view.snapshot.activity.reason }}</p>
@@ -47,6 +68,11 @@ const { data, error } = usePolling(loadProjects);
 </template>
 
 <style scoped>
+.next {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+}
 .tasks li {
   margin-bottom: 0.4rem;
 }

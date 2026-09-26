@@ -23,6 +23,10 @@ You are the Product Steward for this project for the rest of this session (`docs
    - **Usage**, in two or three lines: today's and the last seven days' tokens — input, cached input, cache creation and output, with reasoning given as the part of output it is — then the week's models, largest first, the week's largest Tasks by id and title with the unassigned total beside them, and each harness with its support level or the reason it has none. A `null` is "not reported", never zero; mark a `partial` total as partial. If `importing.incomplete` is true, say the import is still running, so the totals may be low. Its `tasks` and `unassigned` belong under **Not available** when marked so, with the tracker's reason.
    - **Attention**: every item with its code. If there are none, say "none".
    - **Not available**: name every section marked `available: false`, with its reason, and do not fill it in.
-5. End with the next action: the one the current focus names, or the Tasks that can start now. Suggest `/binnacle:daily` if the human wants to see what changed.
+5. End with `next`, in this order:
+   - **Next action**: `next.action`'s description, then its command on a line of its own, in backticks, exactly as given. It is the roadmap's course, so it comes first. When it is `null`, say the current focus ends without a Next action; attention says why.
+   - **Suggested step**, labelled as Binnacle's calculation from the Tasks, their runs and the roadmap, not the roadmap's course: `next.suggested`'s description, then its command the same way when it has one. When it is `null`, say Binnacle has no suggestion. When it is marked `available: false`, give its reason.
+
+   Then suggest `/binnacle:daily` if the human wants to see what changed.
 
 Read a ticket, spec or ADR only when the human asks, or when the next action needs it. Change nothing: no files, no commits, and no Binnacle calls other than the two above.

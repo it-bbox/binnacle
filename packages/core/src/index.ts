@@ -28,7 +28,18 @@ export {
   type TicketHeader,
   type TrackerTask,
 } from './tracker.ts';
-export { parseRoadmap, roadmapAttention, type Epic, type Roadmap, type RoadmapStatus } from './roadmap.ts';
+export {
+  nextAction,
+  nextActionAttention,
+  parseRoadmap,
+  roadmapAttention,
+  suggestedStep,
+  type Epic,
+  type NextAction,
+  type Roadmap,
+  type RoadmapStatus,
+  type SuggestedStep,
+} from './roadmap.ts';
 export { instructionSets } from './instructions.ts';
 export {
   isTaskState,

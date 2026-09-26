@@ -1,15 +1,21 @@
 import { posix } from 'node:path';
 import { readGitHubTasks, readGitLabTasks, readLastCommitTimes, readLocalTasks, workingTree, type GitFacts, type Tree } from '@binnacle/adapters';
 import {
+  nextAction,
+  nextActionAttention,
   parseRoadmap,
   resolveDependencies,
   roadmapAttention,
   startCommand,
+  suggestedStep,
   type Diagnostic,
   type Epic,
+  type NextAction,
+  type ObservedRun,
   type ProjectManifest,
   type ResolvedTask,
   type Roadmap,
+  type SuggestedStep,
   type TaskReading,
   type TaskState,
   type TrackerTask,
@@ -70,6 +76,12 @@ export type Snapshot = {
     /** Every other `##` section, by heading only. */
     sections: string[];
   } | null;
+  /**
+   * What to do next (ADR-0032): the roadmap's Next action, null when its focus does not end with
+   * one, and beside it Binnacle's Suggested step, null when no rule applies, and unavailable,
+   * with the tracker's reason, when the Tasks cannot be read.
+   */
+  next: { action: NextAction | null; suggested: SuggestedStep | null | Unavailable };
   /** Null when the project's tracker cannot be read yet; `attention` says why. */
   tasks: {
     /** `ACTIVE`, `BLOCKED`, `READY_FOR_REVIEW`, `APPROVED`, `MERGE_READY`. */
@@ -109,11 +121,12 @@ export async function snapshot(
   projected: Projected,
   caller: CallerCheckout,
   diagnostics: Diagnostic[],
-  usageAndActivity: (tasks: TrackerTask[] | Unavailable) => Promise<Pick<Snapshot, 'usage' | 'activity'>>,
+  usageAndActivity: (tasks: TrackerTask[] | Unavailable) => Promise<Pick<Snapshot, 'usage' | 'activity'> & { runs: ObservedRun[] }>,
 ): Promise<Snapshot> {
   const tree = workingTree(caller.project);
   const { tasks, unreadable, roadmap, adrs, attention } = await readState(home, tree, projected, diagnostics);
-  const { usage: usageSection, activity } = await usageAndActivity(tasks ?? trackerUnavailable(unreadable));
+  const { usage: usageSection, activity, runs } = await usageAndActivity(tasks ?? trackerUnavailable(unreadable));
+  const workflow = projected.manifest?.workflow.provider ?? null;
   // A harness whose artifacts cannot be read is at level 1, and says why.
   for (const { level, reason } of usageSection.harnesses) if (level === 1 && reason !== null) attention.push({ code: 'telemetry.unreadable', message: reason });
 
@@ -122,7 +135,11 @@ export async function snapshot(
     checkout: caller.checkout,
     git: caller.git,
     roadmap: roadmap && { ...roadmap, focus: roadmap.focus == null ? null : cut(roadmap.focus, FOCUS_LIMIT) },
-    tasks: tasks && withStart(taskSections(tasks), projected.manifest?.workflow.provider ?? null),
+    next: {
+      action: nextAction(roadmap?.focus ?? null),
+      suggested: tasks ? suggestedStep(roadmap?.epics ?? [], tasks, runs, workflow) : trackerUnavailable(unreadable),
+    },
+    tasks: tasks && withStart(taskSections(tasks), workflow),
     decisions: adrs && (await recentDecisions(tree, caller.project, adrs)),
     pendingDecisions: UNAVAILABLE,
     ci: UNAVAILABLE,
@@ -176,6 +193,7 @@ export async function readState(
   attention.push(...tracker);
   const roadmap = await readRoadmap(tree, manifest, attention);
   if (roadmap && tasks) attention.push(...roadmapAttention(roadmap.epics, tasks));
+  if (roadmap) attention.push(...nextActionAttention(roadmap, tasks));
   const adrs = await readAdrs(tree, manifest, attention);
   return { tasks, unreadable: tasks === null ? tracker : [], roadmap, adrs, attention };
 }

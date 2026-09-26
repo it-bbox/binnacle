@@ -66,7 +66,7 @@ function makeRepository(manifest = MANIFEST): string {
   roots.push(root);
   write(root, '.binnacle/project.yaml', manifest);
   write(root, 'GLOSSARY.md', '# Glossary\n');
-  write(root, 'notes/roadmap.md', '# Roadmap\n\n| # | Epic | Status | Spec |\n| --- | --- | --- | --- |\n| 1 | First | tickets | [`first`](specs/first/spec.md) |\n\n## Current focus\n\nTicket 01.\n');
+  write(root, 'notes/roadmap.md', '# Roadmap\n\n| # | Epic | Status | Spec |\n| --- | --- | --- | --- |\n| 1 | First | tickets | [`first`](specs/first/spec.md) |\n\n## Current focus\n\nNext action: start ticket 01. `/binnacle:autopilot`\n');
   write(root, 'notes/decisions/ADR-0001-first.md', '# ADR-0001: First\n');
   write(root, 'work/tickets/first/issues/01-start.md', ticketText('01: Start', 'READY'));
   git(root, ['init', '--quiet', '--initial-branch=main']);

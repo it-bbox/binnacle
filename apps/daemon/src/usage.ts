@@ -113,7 +113,7 @@ export async function usageAndActivity(
   projectPath: string,
   manifest: ProjectManifest | null,
   tasks: TrackerTask[] | Unavailable,
-): Promise<{ usage: Usage; activity: Activity | Unavailable }> {
+): Promise<{ usage: Usage; activity: Activity | Unavailable; runs: ObservedRun[] }> {
   const { importing, checkouts } = await ingested(context, projectPath, manifest);
   const failures = unreadableArtifacts(context, [projectPath, ...checkouts.linked]);
 
@@ -126,8 +126,9 @@ export async function usageAndActivity(
   const today = week.filter((record) => record.timestamp >= since);
   let attributed: Pick<Usage, 'tasks' | 'unassigned'>;
   let activity: Activity | Unavailable;
+  let observed: (ObservedRun & { records: RunRecord[] })[] = [];
   if (Array.isArray(tasks)) {
-    const observed = await runs(all, projectPath, tasks, manifest?.tracker.provider !== 'local', checkouts);
+    observed = await runs(all, projectPath, tasks, manifest?.tracker.provider !== 'local', checkouts);
     const ofWeek = observed.map((run) => ({ ...run, records: run.records.filter((record) => record.timestamp >= weekStart) }));
     attributed = byTask(ofWeek.filter((run) => run.records.length > 0), tasks);
     activity = activityOf(observed, tasks);
@@ -150,6 +151,7 @@ export async function usageAndActivity(
       harnesses: HARNESSES.map((entry) => level(context, projectPath, entry, failures[entry.harness], importing.incomplete)),
     },
     activity,
+    runs: observed,
   };
 }
 

@@ -71,7 +71,7 @@ const ticketText = (title: string, status: string, blockedBy = 'None'): string =
   `# ${title}\n\nStatus: ${status}\nTriage: ready-for-agent\nBlocked by: ${blockedBy}\n\n**What to build:** something.\n`;
 
 const roadmapText = (rows: string[]): string =>
-  ['# Roadmap', '', '| # | Epic | Status | Spec |', '| --- | --- | --- | --- |', ...rows, '', '## Current focus', '', 'Ticket 01.', ''].join('\n');
+  ['# Roadmap', '', '| # | Epic | Status | Spec |', '| --- | --- | --- | --- |', ...rows, '', '## Current focus', '', 'Next action: start ticket 01. `/binnacle:autopilot`', ''].join('\n');
 
 const row = (number: number, epic: string, status: string, spec: string): string =>
   `| ${number} | ${epic} | ${status} | [\`${spec}\`](specs/${spec}/spec.md) |`;

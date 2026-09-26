@@ -1,4 +1,5 @@
-import type { Diagnostic, TrackerTask } from './tracker.ts';
+import type { ObservedRun } from './domain.ts';
+import { boardColumn, startCommand, type Diagnostic, type ResolvedTask, type TrackerTask } from './tracker.ts';
 
 /**
  * The roadmap of a project, `<knowledge.docs>/roadmap.md` whatever its tracker (ADR-0025),
@@ -130,4 +131,123 @@ export function roadmapAttention(epics: Epic[], tasks: TrackerTask[]): Diagnosti
     }
   }
   return attention;
+}
+
+/** The roadmap's Next action (ADR-0032): what the focus says to do, and the command the owner types to do it. */
+export type NextAction = { description: string; command: string };
+
+const NEXT_ACTION = /^Next action:([\s\S]*?)(?<!`)`([^`]+)`$/;
+
+/**
+ * The Next action, read from the focus's last paragraph when that paragraph starts with
+ * `Next action:` and ends with an inline code span: the span is the command, and the text
+ * between them the description, whose own code spans stay text. Null otherwise.
+ */
+export function nextAction(focus: string | null): NextAction | null {
+  const last = focus?.split(/\n[ \t]*\n/).map((paragraph) => paragraph.trim()).filter(Boolean).at(-1);
+  const match = last === undefined ? null : NEXT_ACTION.exec(last);
+  const command = match?.[2]!.trim();
+  if (!match || !command) return null;
+  return { description: match[1]!.replace(/\s*\n\s*/g, ' ').trim(), command };
+}
+
+/**
+ * `next_action.missing` when the roadmap has no focus or its focus does not end with a Next
+ * action, and `next_action.stale` when the Next action's command names a `DONE` or `CANCELLED`
+ * Task: one of its words is the Task's ticket path, issue URL or id, which is `#<number>` on a
+ * remote tracker. Only a roadmap that was read is checked; `tasks` null checks no staleness.
+ */
+export function nextActionAttention(roadmap: Roadmap, tasks: TrackerTask[] | null): Diagnostic[] {
+  const next = nextAction(roadmap.focus);
+  if (next === null) {
+    const where = roadmap.focus === null ? 'The roadmap has no current focus' : "The current focus's last paragraph";
+    return [
+      {
+        code: 'next_action.missing',
+        message: `${where} does not end with a Next action: a paragraph that starts with "Next action:" and ends with the command in backticks.`,
+      },
+    ];
+  }
+  const words = next.command.split(/\s+/);
+  const named = (tasks ?? []).filter((task) => (task.state === 'DONE' || task.state === 'CANCELLED') && words.some((word) => word === task.id || word === task.ticket));
+  if (named.length === 0) return [];
+  return [
+    {
+      code: 'next_action.stale',
+      message: `The Next action's command, ${next.command}, names finished work: ${named.map((task) => `${task.id} (${task.ticket}) is ${task.state}`).join(', ')}.`,
+    },
+  ];
+}
+
+/** Binnacle's Suggested step (ADR-0032): its own reading of what comes next, beside the Next action and never replacing it. */
+export type SuggestedStep = {
+  /** Which of the eight rules gave it. */
+  rule: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+  description: string;
+  /** Null when the step has none, and under any `workflow.provider` but `matt-pocock`. */
+  command: string | null;
+  /** The Task it names, if it names one. */
+  task: string | null;
+  provenance: 'calculated';
+};
+
+/**
+ * The Suggested step, by the first of eight rules that applies; null when none does, as without
+ * a roadmap and with no Task in progress. The current epic is the first not `done`. Only an
+ * implementation run makes a Task worked on: a Product session's own run never does. Its
+ * commands are the Matt Pocock chain's and the `binnacle` plugin's, so any other workflow gets
+ * the description alone.
+ */
+export function suggestedStep(
+  epics: Epic[],
+  tasks: ResolvedTask[],
+  runs: Pick<ObservedRun, 'taskId' | 'role' | 'lastActivityAt' | 'active'>[],
+  workflow: string | null,
+): SuggestedStep | null {
+  const step = (rule: SuggestedStep['rule'], description: string, command: string | null = null, task: string | null = null): SuggestedStep => ({
+    rule,
+    description,
+    command: workflow === 'matt-pocock' ? command : null,
+    task,
+    provenance: 'calculated',
+  });
+  const byId = new Map(tasks.map((task) => [task.id, task]));
+  const name = (id: string): string => {
+    const title = byId.get(id)?.title;
+    return title ? `${id} (${title})` : id;
+  };
+
+  const working = [...runs]
+    .filter((run) => run.role === 'implementation' && run.active.value && run.taskId !== null)
+    .sort((a, b) => (a.lastActivityAt < b.lastActivityAt ? 1 : a.lastActivityAt > b.lastActivityAt ? -1 : 0));
+  const worked = [...new Set(working.map((run) => run.taskId!))];
+  if (worked.length > 0) {
+    const others = worked.length > 1 ? ` So ${worked.length === 2 ? 'is' : 'are'} ${worked.slice(1).map(name).join(', ')}.` : '';
+    return step(1, `${name(worked[0]!)} is being worked on: an implementation run of it is active.${others} Wait for it rather than start something on top of it.`, null, worked[0]!);
+  }
+
+  const attributed = new Set(runs.map((run) => run.taskId));
+  const idle = tasks.find((task) => boardColumn(task.state, attributed.has(task.id))?.column === 'inProgress');
+  if (idle) return step(2, `${name(idle.id)} is in progress, and no run of it is active. Resume it.`, startCommand(idle, workflow), idle.id);
+
+  const epic = epics.find((row) => row.status !== 'done');
+  if (epic === undefined) return epics.length > 0 ? step(8, 'Every epic on the roadmap is done.') : null;
+  const epicName = `Epic ${epic.number} (${epic.title})`;
+  const own = epic.spec === null ? [] : tasks.filter((task) => task.specSlug === epic.spec);
+  const ready = own.filter((task) => task.state === 'READY');
+
+  if ((epic.status === 'tickets' || epic.status === 'in progress') && ready.some((task) => task.unmetDependencies.length === 0)) {
+    return step(3, `${epicName} has Tasks ready to start. Run its remaining tickets.`, '/binnacle:autopilot');
+  }
+  if (ready.length > 0 && ready.every((task) => task.unmetDependencies.length > 0)) {
+    const waits = ready.map((task) => `${task.id} waits on ${task.unmetDependencies.join(', ')}`).join('; ');
+    return step(4, `No Task of ${epicName} can start: every READY one waits on an Unmet dependency. ${waits}.`);
+  }
+  if (own.length > 0 && own.every((task) => task.state === 'DONE' || task.state === 'CANCELLED')) {
+    return step(5, `Every Task of ${epicName} is DONE or CANCELLED, but the epic is not marked done. Close it in a Product session.`, '/binnacle:product');
+  }
+  if (epic.status === 'not started') return step(6, `${epicName} is not started. Grill it.`, '/mattpocock-skills:grill-with-docs');
+  if (epic.status === 'spec' && epic.spec === null) return step(7, `${epicName} needs its spec.`, '/mattpocock-skills:to-spec');
+  if (epic.status === 'spec' || (epic.status === 'tickets' && own.length === 0)) return step(7, `${epicName} needs its tickets.`, '/mattpocock-skills:to-tickets');
+  return null;
 }

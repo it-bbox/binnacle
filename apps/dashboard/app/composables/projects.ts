@@ -29,9 +29,13 @@ export type Run = {
 
 export type Activity = { running: { items: Run[]; remainder: number }; recent: Run[] };
 
+/** Binnacle's Suggested step, which it labels as its calculation (ADR-0032). */
+export type SuggestedStep = { description: string; command: string | null; task: string | null; provenance: 'calculated' };
+
 export type Snapshot = {
   git: GitFacts;
   roadmap: { epics: Epic[] } | null;
+  next: { action: { description: string; command: string } | null; suggested: SuggestedStep | null | Unavailable };
   tasks: { readyToStart: { items: SnapshotTask[]; remainder: number } } | null;
   activity: Activity | Unavailable;
   usage: SnapshotUsage;
@@ -73,6 +77,9 @@ export function checkout(git: GitFacts): string {
 }
 
 export const isUnavailable = (section: object): section is Unavailable => 'available' in section;
+
+/** How the pages label the Suggested step. */
+export const SUGGESTED_READING = "Binnacle's calculation from the Tasks, their runs and the roadmap. The Next action leads.";
 
 /** How the pages label a run as running: `active` is the daemon's reading, within telemetry's recency. */
 export const RUNNING_READING = "Running means active in the last ten minutes, Binnacle's reading of the latest activity, not a state the harness reports.";

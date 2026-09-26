@@ -62,7 +62,7 @@ function makeRepository(): string {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-write-guarantee-')));
   roots.push(root);
   write(root, '.binnacle/project.yaml', MANIFEST);
-  write(root, 'docs/roadmap.md', '# Roadmap\n\n| # | Epic | Status | Spec |\n| --- | --- | --- | --- |\n| 1 | First | tickets | [`first`](specs/first/spec.md) |\n\n## Current focus\n\nTicket 01.\n');
+  write(root, 'docs/roadmap.md', '# Roadmap\n\n| # | Epic | Status | Spec |\n| --- | --- | --- | --- |\n| 1 | First | tickets | [`first`](specs/first/spec.md) |\n\n## Current focus\n\nNext action: start ticket 01. `/binnacle:autopilot`\n');
   write(root, 'docs/specs/first/spec.md', '# Spec\n');
   write(root, 'docs/specs/first/issues/01-start.md', '# 01: Start\n\nStatus: READY\nBlocked by: None\n');
   write(root, 'docs/adr/ADR-0001-first.md', '# ADR-0001: First\n');

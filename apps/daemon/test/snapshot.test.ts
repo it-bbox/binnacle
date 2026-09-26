@@ -271,7 +271,7 @@ function adr(root: string, file: string, title: string): void {
 }
 
 /** In the shape of this repository's own `docs/roadmap.md`. */
-function roadmapText(rows: string[], focus: string = 'Next action: implement ticket 03.'): string {
+function roadmapText(rows: string[], focus: string = 'Next action: implement ticket 03. `/binnacle:autopilot`'): string {
   return [
     '# Roadmap',
     '',
@@ -309,7 +309,7 @@ describe('the roadmap in the Product Snapshot', () => {
       const root = makeRepository({
         roadmap: roadmapText(
           [row(1, 'Core and persistence', 'done', 'core'), row(2, 'MCP and Product Snapshot', 'in progress', 'snapshot'), row(3, 'Telemetry', 'not started', null)],
-          'Tickets 01 and 02 are done.\n\nNext action: implement ticket 03.',
+          'Tickets 01 and 02 are done.\n\nNext action: implement ticket 03. `/binnacle:autopilot`',
         ),
       });
       ticket(root, 'core', '01-store.md', { title: '01: Store', status: 'DONE' });
@@ -322,7 +322,7 @@ describe('the roadmap in the Product Snapshot', () => {
           { number: 2, title: 'MCP and Product Snapshot', status: 'in progress', spec: 'snapshot' },
           { number: 3, title: 'Telemetry', status: 'not started', spec: null },
         ],
-        focus: { text: 'Tickets 01 and 02 are done.\n\nNext action: implement ticket 03.', truncated: false },
+        focus: { text: 'Tickets 01 and 02 are done.\n\nNext action: implement ticket 03. `/binnacle:autopilot`', truncated: false },
         sections: ['v1', 'Later', 'Keeping this current'],
       });
       assert.deepEqual(body.attention, []);
