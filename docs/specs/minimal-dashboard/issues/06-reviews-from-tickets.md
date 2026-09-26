@@ -1,6 +1,6 @@
 # 06: Reviews, read from the tickets
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 02, 04
 Spec: `docs/specs/minimal-dashboard/spec.md`
