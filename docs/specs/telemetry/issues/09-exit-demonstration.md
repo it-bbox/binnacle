@@ -1,18 +1,18 @@
 # 09: The exit demonstration
 
-Status: BLOCKED
+Status: DONE
 Triage: ready-for-human
 Blocked by: 03, 04, 05, 07, 08, 10, 11, 12
 Spec: `docs/specs/telemetry/spec.md`
 
 **What to build:** epic 4's exit criterion, demonstrated on this repository against its own history. Decided in the spec, under *Further Notes*.
 
-- [ ] In a fresh session, `/binnacle:product` shows the usage section: today's and the week's totals, by model, the top Tasks, unassigned, and each harness's level.
-- [ ] `usage_get` for tickets 10 and 11, built by autopilot after ticket 12, returns their runs with the `implementation` role and their subagents linked.
+- [x] In a fresh session, `/binnacle:product` shows the usage section: today's and the week's totals, by model, the top Tasks, unassigned, and each harness's level.
+- [x] `usage_get` for tickets 10 and 11, built by autopilot after ticket 12, returns their runs with the `implementation` role and their subagents linked.
 - [x] Product sessions on `main` carry the `product` role, as `usage_get`'s `byRole` shows for the project.
-- [ ] Whatever is unassigned is explained, and little of the work built after ticket 12 is unassigned.
+- [x] Whatever is unassigned is explained, and little of the work built after ticket 12 is unassigned.
 - [x] The daemon's store holds no message content.
-- [ ] Defects are filed as tickets; the roadmap marks epic 4 done only when none is open.
+- [x] Defects are filed as tickets; the roadmap marks epic 4 done only when none is open.
 
 ## Comments
 
@@ -125,6 +125,13 @@ Spec: `docs/specs/telemetry/spec.md`
   7. **Criterion 4.** Ask for `usage_get` without arguments. The new work is its total records less the total noted in step 2. Its unassigned part is that, less the two tickets' records, and should be about the autopilot session's own records on `main`. The other unassigned records are the groups of the table above, with the removed worktrees now `unknown` rather than `product`.
   8. Tick what holds. Epic 4 is marked `done` on the roadmap once none of its tickets is open.
 - **Step 2, noted on 2026-09-25 at about 17:58 UTC**, after the first run merged ticket 12: `usage_get` without arguments gives 4,367 records. That run already read ticket 12's worktree before removing it, ahead of its own skill text, and `telemetry/12` has 143 records.
+- **The demonstration**, on the owner's running daemon, after the second run had merged tickets 11 and 10 and restarted the daemon on their code. Criteria 2 and 4 were measured on 2026-09-25 at about 22:00 UTC, criterion 1 on 2026-09-26.
+  - **Criterion 1.** `/binnacle:product`, run by the owner in the Product session that prepared this, gave the usage section in three lines. It showed today's and the week's input, cached input, cache creation and output, with reasoning as part of output and the week's marked partial. It also showed both models, the largest Tasks by id and title with the unassigned total beside them, `claude-code` at level 3, and Codex's reason. The session was not fresh; the owner accepted it, since the skill is the same.
+  - **Criterion 2.** `usage_get` gives `telemetry/10` 191 records in three runs, and `telemetry/11` 138 records in four. Every run has the `implementation` role and a `reflog` branch, and every subagent run names its parent. The one run of `telemetry/11` without a parent is not a subagent's: it is the autopilot session's own record, written while it verified the ticket in the ticket's worktree.
+  - **Criterion 4.** `usage_get` without arguments gives 4,774 records, 4,155 of them unassigned (87%). Since step 2, 407 records were added. 329 of them are tickets 10's and 11's. The other 78 are the autopilot session's own records and the Product session's, on `main`.
+  - **History's unassigned part** is the table above under ADR-0030, with one group this store adds. Records stored with the harness's branch before the daemon ran ADR-0029's order, on 2026-09-25 at 15:11 UTC, attribute nothing, although their checkout still exists. That includes 646 records of Product sessions on `main` in the registered checkout, so `byRole.product` is 209 records here, every one read through the reflog. Criterion 3 holds for those.
+  - **Ticket 10's open question.** A reflog lookup that fails or times out leaves its records without a branch for good, even in a checkout that exists, because a record is read once.
+- **Decided by the owner on 2026-09-26, in a Product session.** Both findings are known limitations, recorded in ADR-0030 and under *Later* on the roadmap. No ticket is filed for them. No defect ticket is open, so epic 4 is done.
 
 ### Review
 

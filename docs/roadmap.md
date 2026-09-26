@@ -13,7 +13,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 1 | Core and persistence | done | [`core-and-persistence`](specs/core-and-persistence/spec.md) |
 | 2 | MCP and Product Snapshot | done | [`mcp-and-product-snapshot`](specs/mcp-and-product-snapshot/spec.md) |
 | 3 | Tracker and Matt Pocock integration | done | [`tracker-and-matt-pocock-integration`](specs/tracker-and-matt-pocock-integration/spec.md) |
-| 4 | Telemetry | in progress | [`telemetry`](specs/telemetry/spec.md) |
+| 4 | Telemetry | done | [`telemetry`](specs/telemetry/spec.md) |
 | 5 | Minimal dashboard | not started | — |
 | 6 | Audit and adopt | not started | — |
 
@@ -23,11 +23,9 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 Design is complete: `docs/08-open-questions.md` is resolved by ADR-0001 to ADR-0018; building the epics added ADR-0019 to ADR-0030.
 
-Epics 1 to 3 are done. The daemon, its store and `packages/core` (epic 1). `binn mcp` serves the snapshot, the daily and the checkpoint to every session through the committed `.mcp.json`, and the `binnacle` plugin gives `/binnacle:product`, `:daily`, `:checkpoint` and `:autopilot` (epic 2, ADR-0022, ADR-0023). GitHub and GitLab issues are Tasks, `/binnacle:task` gives a Task's brief and branch, and `binn init` sets up a fresh repository (epic 3, ADR-0024 to ADR-0027). Binnacle writes nothing into the repository.
+Epics 1 to 4 are done. The daemon, its store and `packages/core` (epic 1). `binn mcp` serves the snapshot, the daily and the checkpoint to every session through the committed `.mcp.json`, and the `binnacle` plugin gives `/binnacle:product`, `:daily`, `:checkpoint` and `:autopilot` (epic 2, ADR-0022, ADR-0023). GitHub and GitLab issues are Tasks, `/binnacle:task` gives a Task's brief and branch, and `binn init` sets up a fresh repository (epic 3, ADR-0024 to ADR-0027). The snapshot's usage section and `usage_get` give Claude Code's and Codex's tokens by model, by Task and by role; a run's branch comes from its checkout's reflog or not at all, and autopilot lets Binnacle read a ticket's worktree before removing it (epic 4, ADR-0028 to ADR-0030). Binnacle writes nothing into the repository.
 
-Epic 4, Telemetry, is in progress (ADR-0028 to ADR-0030). Tickets 01 to 08 and 10 to 12 are done: the snapshot's usage section shows Claude Code's and Codex's totals for today and the week, by model, by Task and unassigned, with each harness's support level; subagents count as runs of their own, linked to the run that started them; `usage_get` gives the project's usage by Task and by role, or one Task's with its runs; the import window can be `all` or widened, and `binn init` asks for it; autopilot reads a ticket's worktree before removing it, and starts no more agents at once than the manifest allows; `task_get` says when two tickets' slugs give one branch, which then credits neither; a run's branch comes from its checkout's reflog or not at all, so work in a worktree removed before Binnacle read it is unassigned (ADR-0030).
-
-Next action: the owner runs the exit demonstration, ticket 09, by its last script. Epic 4 is done once it has passed.
+Next action: plan epic 5, Minimal dashboard, whose scope is `docs/05-mvp-plan.md`, phase 5. Planning is the owner's: `/grill-with-docs`, then `/to-spec`, then `/to-tickets`.
 
 ## Later
 
@@ -45,6 +43,7 @@ Deferred deliberately, each with the decision that deferred it:
 - changing a local ticket's `Status:` from the dashboard — a separate ADR narrowing `ADR-0020`, only if working with the read-only dashboard shows it is needed;
 - forking the Matt Pocock skills into the `binnacle` plugin — only if a skill's procedure, not just its conventions in `docs/agents/`, has to change;
 - publishing `@binnacle/cli` to npm, with the build step that turns its TypeScript into JavaScript: Node does not strip types under `node_modules`, so until then `binn` runs from the linked workspace — `specs/tracker-and-matt-pocock-integration/spec.md`, *Out of Scope*;
+- reading a record's branch again when its checkout's reflog can still give one: a record stored with the harness's branch before ADR-0029's order, or whose reflog lookup failed or timed out — `ADR-0030`, only if it matters in practice;
 - deeper Graphify integration, Obsidian export automation, worktree parallelism recommendations, further harness adapters — `docs/05-mvp-plan.md`, phase 7, and only after real measurement.
 
 Items excluded from the product altogether are not listed here. See the non-goals in `docs/00-scope.md`.
