@@ -56,32 +56,53 @@ Do not invent unavailable fields.
 
 It shows what is happening. Decisions are made in conversation with an agent, which is the product's whole thesis. Actions can be added later to a read-only design; removing them is harder.
 
+Its only action is copying a command, which the human types. Every view element below appears. One with no source yet says so and why, as the Product Snapshot does, and is never filled in (ADR-0007). Epic 5 builds these views (`specs/minimal-dashboard/spec.md`).
+
 ## Main dashboard views for v1
 
 ### Overview
 
-- active projects;
+The main screen. It answers where each project stands and what to type next.
+
+- active projects, each with its roadmap position;
+- the Next action with its command, and Binnacle's Suggested step beside it, labelled as a calculation (ADR-0032);
+- the Tasks ready to start, each with the command that starts it;
 - current runs;
 - attention items;
 - usage today/week;
 - provider/model distribution.
 
+### Projects
+
+- every registered project, its position, its registered checkout's Git state and its latest activity.
+
 ### Project
 
-- tasks;
+- tasks, on a mini kanban: Backlog, Ready, In progress, Done. A `READY` Task with AgentRuns attributed to it stands In progress, marked as read from runs, and a card names who works on it;
 - runs;
-- reviews;
+- reviews: the Review each ticket records, and the `DONE` Tasks without one;
 - usage;
 - active/blocking state.
 
 ### Task
 
+- the brief, the branch and the command that starts the Task;
+- its Review, as the ticket records it;
 - AgentRun timeline;
 - implementation usage;
-- review usage;
-- correction/rework usage;
-- questions/answers;
+- review usage — not available: review runs are not told apart from implementation runs;
+- correction/rework usage — not available, for the same reason;
+- questions/answers — not available: they are not yet explicit artifacts;
 - branch/worktree.
+
+### Usage
+
+- tokens today, over the last seven days and over the window, by model, provider, Task and role, and each harness's support level;
+- the derived metrics below that have a source: tokens per completed task, runs per task, weekly burn trend.
+
+### Attention/current activity
+
+- every project's attention items, and the runs running now and recently.
 
 ## High-value derived metrics
 

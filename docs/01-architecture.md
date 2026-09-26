@@ -44,6 +44,8 @@ Primary agent-facing API. Exposes compact read operations and explicitly control
 ### Dashboard
 Nuxt local UI. Displays project/task/run/usage/attention state. It does not replace conversation with Product.
 
+The daemon serves it at its own address as static files, and `binn dashboard` opens it (ADR-0031). It is read-only: its only action is copying a command, which the human types.
+
 ### Local storage
 `node:sqlite` from the Node standard library — no native modules. One database per machine under `~/.binnacle/`, overridable with `BINNACLE_HOME`; project directories hold `.binnacle/project.yaml` in Git and a disposable `.binnacle/cache/`.
 
@@ -92,5 +94,7 @@ This is a hard architectural requirement.
 ## Security boundary
 
 Default daemon bind must be localhost only. Every API call carries a token read from a `0600` file under `~/.binnacle/`, and `Origin`/`Host` are validated — loopback alone is not an authentication boundary, because any browser tab can reach `127.0.0.1`.
+
+The daemon also serves the dashboard's generated files on every path outside `/health` and `/ops/`, without a token. Those files hold no project data, the `Host` check covers them, and no path outside their directory is ever served. The page receives the token through the URL fragment that `binn dashboard` opens, keeps it in the browser's storage, and sends it like any other client (ADR-0031).
 
 Tracker credentials are requested with read-only scope and never live in `.binnacle/project.yaml`. No secrets are committed to project manifests. Content telemetry is opt-in; metadata-only is the default target mode.

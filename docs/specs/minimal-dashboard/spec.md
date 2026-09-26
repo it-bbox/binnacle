@@ -353,7 +353,7 @@ Unchanged, and still one test. `project_snapshot` carries the new sections becau
 - **Decided while specifying, 2026-09-26:** the seams above, with the pages not automated.
 - **Day one.** `review.missing` will name `mcp-and-product-snapshot/01`, the one `DONE` ticket without a Review. The owner decides whether to record one or to accept the item.
 - **The Next action contract** is written into the roadmap's *Keeping this current*, and the current focus already follows it.
-- **The documents listed above** are updated in the Product session that slices this spec, so they agree with it before code lands, as in epic 4.
+- **The documents listed above** are updated in the Product session that slices this spec, so they agree with it before code lands, as in epic 4. The exception is `README.md` and `README.ru.md`: ticket 01 updates them with the command it ships, so that the setup guide never describes a command that does not exist yet.
 - **Exit demonstration.** The closing ticket runs on the owner's running daemon:
   1. `binn dashboard` opens the main screen.
   2. The owner copies the Next action's or the Suggested step's command and takes that step in a fresh session.

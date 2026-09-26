@@ -12,15 +12,15 @@ MCP is the stable contract. Client-specific slash commands/skills are thin UX wr
 
 - `project.detect`
 - `project.status`
-- `project.snapshot`
-- `task.get`
-- `task.list`
+- `project.snapshot` (the tool `project_snapshot`: the Product Snapshot, including `next` — the Next action and Binnacle's Suggested step beside it (ADR-0032) — and `activity`, the runs running now and recently)
+- `task.get` (the tool `task_get`: the Task brief, with the Task's Review and the command that starts it)
+- `task.list` (the daemon's only, for the dashboard's board: an epic's Tasks, each with its column, In progress read from runs where the ticket still says `READY`)
 - `task.plan`
 - `run.current`
 - `run.list`
 - `question.list`
 - `review.status`
-- `usage.get` (the tool `usage_get`: the project's token usage by Task and by role, or one Task's with its runs)
+- `usage.get` (the tool `usage_get`: the project's token usage by Task and by role, with derived metrics labelled as Binnacle's calculations; or one Task's, with its runs)
 - `audit.project`
 
 ### Controlled mutations
@@ -30,6 +30,8 @@ MCP is the stable contract. Client-specific slash commands/skills are thin UX wr
 - `question.answer`
 - `checkpoint.prepare`
 - `checkpoint.record` (ADR-0020: it records the checkpoint; the calling session writes the files)
+
+The snapshot's attention includes `next_action.missing`, `next_action.stale` and `review.missing`. The dashboard reads the same operations over the daemon's local API (ADR-0031), and adds no MCP tool.
 
 No tool writes to the tracker (ADR-0013). Closing an issue is done by the agent with its own tooling, or by the human in the tracker's own interface.
 
@@ -41,7 +43,7 @@ Initial user-facing actions:
 
 - `/product` — load Product role + compact current Product Snapshot;
 - `/daily` — show delta since previous daily/checkpoint and attention items;
-- `/task <id>` — load a compact task brief;
+- `/task <id>` — load a compact task brief, ending with the command that starts the Task;
 - `/status` — concise project/session/run status;
 - `/checkpoint` — extract durable delta and propose persistence;
 - `/audit` — read-only audit/adoption analysis;
