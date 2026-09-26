@@ -15,7 +15,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 3 | Tracker and Matt Pocock integration | done | [`tracker-and-matt-pocock-integration`](specs/tracker-and-matt-pocock-integration/spec.md) |
 | 4 | Telemetry | done | [`telemetry`](specs/telemetry/spec.md) |
 | 5 | Minimal dashboard | done | [`minimal-dashboard`](specs/minimal-dashboard/spec.md) |
-| 6 | Dashboard design and languages | not started | — |
+| 6 | Dashboard design and languages | spec | [`dashboard-design-and-languages`](specs/dashboard-design-and-languages/spec.md) |
 | 7 | Audit and adopt | not started | — |
 
 Epics are ordered by dependency, not by preference. Epic 1 is the foundation; epics 5 to 7 are only meaningful once 1 to 4 exist. Audit and adopt is epic 6 in the specs of epics 1 to 3, written before epic 6 was inserted on 2026-09-26.
@@ -26,9 +26,9 @@ Design is complete: `docs/08-open-questions.md` is resolved by ADR-0001 to ADR-0
 
 Epics 1 to 5 are done: the daemon and its store (epic 1); the snapshot, daily and checkpoint over MCP, and the `binnacle` plugin with autopilot (epic 2); Tasks from GitHub, GitLab or local tickets, and `binn init` (epic 3); usage by model, Task and role (epic 4); the read-only dashboard, `binn dashboard` (epic 5). Binnacle writes nothing into the repository.
 
-Epic 6, Dashboard design and languages, was grilled on 2026-09-26 from the owner's findings on epic 5's dashboard (ticket 09's *Comments*): a "What's next" block that leads with the Next action and offers Binnacle's alternatives beside it, English and Russian, Paperclip's shell, Nuxt UI (ADR-0033). Its decisions and the prompt for the designer are in `specs/dashboard-design-and-languages/design-brief.md`. The mockup, made in Claude Design from that prompt, is in `design/` beside it.
+Epic 6, Dashboard design and languages, was grilled on 2026-09-26 from the owner's findings on epic 5's dashboard (ticket 09's *Comments*): a "What's next" block that leads with the Next action and offers Binnacle's alternatives beside it, English and Russian, Paperclip's shell, Nuxt UI (ADR-0033). Its decisions and the prompt for the designer are in `specs/dashboard-design-and-languages/design-brief.md`. The mockup, made in Claude Design from that prompt, is in `design/` beside it. Its spec, written on 2026-09-27, turns the Suggested step into a list of alternatives (`next.alternatives`) and adds the parallel capacity (`tasks.parallel`).
 
-Next action: specify epic 6 from its design brief and mockup. `/mattpocock-skills:to-spec`
+Next action: slice epic 6's spec into tickets. `/mattpocock-skills:to-tickets`
 
 ## Later
 
