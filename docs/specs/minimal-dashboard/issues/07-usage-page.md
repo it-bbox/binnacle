@@ -1,6 +1,6 @@
 # 07: The Usage page, and a Task's runs
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 02, 03
 Spec: `docs/specs/minimal-dashboard/spec.md`
