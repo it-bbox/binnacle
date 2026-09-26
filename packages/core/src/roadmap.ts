@@ -198,7 +198,7 @@ export type SuggestedStep = {
  * The Suggested step, by the first of eight rules that applies; null when none does, as without
  * a roadmap and with no Task in progress. The current epic is the first not `done`. Only an
  * implementation run makes a Task worked on, and only a Task the board places In progress: a
- * Product session's own run never does, nor a run of a Task done or cancelled. Its
+ * Product session's own run never does, nor a run of a Task `DONE`, `MERGED` or `CANCELLED`. Its
  * commands are the Matt Pocock chain's and the `binnacle` plugin's, so any other workflow gets
  * the description alone.
  */
@@ -224,8 +224,10 @@ export function suggestedStep(
   const working = runs
     .filter((run) => run.role === 'implementation' && run.active.value && run.taskId !== null)
     .sort((a, b) => (a.lastActivityAt < b.lastActivityAt ? 1 : a.lastActivityAt > b.lastActivityAt ? -1 : 0));
-  // Only a Task the board places In progress is waited on: a DONE one's run may outlive its merge.
-  const worked = [...new Set(working.map((run) => run.taskId!))].filter((id) => boardColumn(byId.get(id)?.state ?? null, true)?.column === 'inProgress');
+  // Only a Task the board places In progress is waited on: a DONE one's run may outlive its merge,
+  // and a run naming no known Task is placed nowhere. Each has a run, so a READY one stands In progress.
+  const hasRuns = true;
+  const worked = [...new Set(working.map((run) => run.taskId!))].filter((id) => boardColumn(byId.get(id)?.state ?? null, hasRuns)?.column === 'inProgress');
   if (worked.length > 0) {
     const [is, it] = worked.length === 1 ? ['is', 'it'] : ['are', 'them'];
     const description = `${worked.map(name).join(', ')} ${is} being worked on: an implementation run is active. Wait for ${it} rather than start something on top.`;

@@ -223,9 +223,10 @@ describe('the Suggested step', () => {
       const root = makeProject([row(1, 'First', 'in progress', 'first')]);
       ticket(root, 'first', '01-merged.md', 'Status: DONE');
       ticket(root, 'first', '02-worked.md', 'Status: ACTIVE');
-      repository(root, minutesAgo(60), [minutesAgo(8), 'feat/merged'], [minutesAgo(5), 'feat/worked']);
-      session(artifacts, root, 'merged', minutesAgo(7));
-      session(artifacts, root, 'working', minutesAgo(2));
+      // The DONE Task's run is the latest, so without the rule it would be the one named.
+      repository(root, minutesAgo(60), [minutesAgo(8), 'feat/worked'], [minutesAgo(5), 'feat/merged']);
+      session(artifacts, root, 'working', minutesAgo(7));
+      session(artifacts, root, 'merged', minutesAgo(2));
 
       const step = suggested(await snapshot(daemon, root));
       assert.equal(step.rule, 1);
