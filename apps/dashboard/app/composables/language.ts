@@ -1,5 +1,5 @@
 import { en as uiEnglish, ru as uiRussian } from '@nuxt/ui/locale';
-import { DICTIONARIES, formatList, formatNumber, plural, secondsAgo, startingLanguage, type Forms, type Language } from '~/i18n';
+import { compactNumber, DICTIONARIES, formatList, formatNumber, plural, secondsAgo, startingLanguage, type Forms, type Language } from '~/i18n';
 
 const LANGUAGE_KEY = 'binnacle.language';
 
@@ -31,6 +31,7 @@ export function useLanguage() {
     plural: (count: number, forms: Forms): string => plural(language.value, count, forms),
     number: (value: number): string => formatNumber(language.value, value),
     list: (items: string[]): string => formatList(language.value, items),
+    compact: (value: number): string => compactNumber(language.value, value),
     secondsAgo: (seconds: number): string => secondsAgo(language.value, seconds),
     /** How long ago an ISO timestamp from the daemon was. */
     since: (timestamp: string): string => secondsAgo(language.value, (Date.now() - Date.parse(timestamp)) / 1000),

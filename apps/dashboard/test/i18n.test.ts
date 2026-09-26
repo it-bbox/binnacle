@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { plural, secondsAgo, startingLanguage } from '../app/i18n/index.ts';
+import { compactNumber, plural, secondsAgo, startingLanguage } from '../app/i18n/index.ts';
 
 /**
  * The dashboard's own dictionary (ADR-0033): which language the page starts in, and how a
@@ -57,5 +57,14 @@ describe('a relative time', () => {
     assert.equal(secondsAgo('en', 5 * 3600), '5 hr. ago');
     assert.equal(secondsAgo('en', 3 * 86_400 + 60), '3 days ago');
     assert.equal(secondsAgo('ru', 3 * 86_400), '3 дн. назад');
+  });
+});
+
+describe('a compact number', () => {
+  it('reads short under a bar, in the language', () => {
+    assert.equal(compactNumber('en', 5_306_279), '5.3M');
+    assert.equal(compactNumber('ru', 5_306_279), '5,3\u00a0млн');
+    assert.equal(compactNumber('en', 12_466), '12.5K');
+    assert.equal(compactNumber('en', 950), '950');
   });
 });

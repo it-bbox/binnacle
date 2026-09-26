@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
-@import "./legacy.css";
 
 /*
  * Nuxt UI's colours. Nuxt UI writes these into an inline <style> at runtime, which the

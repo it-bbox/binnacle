@@ -1,21 +1,12 @@
 <script setup lang="ts">
 import { useLanguage } from '~/composables/language';
-import { count, isUnavailable, projectName, type ProjectView } from '~/composables/projects';
+import { count, initials, isUnavailable, projectName, type ProjectView } from '~/composables/projects';
 
 /** The project rail: one icon per registered project, and "+" to show how to add one. Nothing is registered from here. */
 const props = defineProps<{ views: ProjectView[]; selected: string | null }>();
 const { t, plural } = useLanguage();
 const route = useRoute();
 const adding = ref(false);
-
-/** Up to two initials: the first letters of the name's first two words. */
-const initials = (name: string): string =>
-  name
-    .split(/[\s\-_./]+/)
-    .filter((word) => word !== '')
-    .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase())
-    .join('');
 
 const running = (view: ProjectView): number => {
   const activity = view.snapshot?.activity;
@@ -31,7 +22,7 @@ const rail = computed(() =>
     const counts = [runs > 0 ? plural(runs, t.value.runsRunning) : null, items > 0 ? plural(items, t.value.attentionItems) : null];
     return {
       view,
-      initials: initials(name.split('/').at(-1) ?? name),
+      initials: initials(view.project),
       title: [name, ...counts.filter((count) => count !== null)].join(' · '),
       selected: view.project.path === props.selected,
       dot: runs > 0 || items > 0,

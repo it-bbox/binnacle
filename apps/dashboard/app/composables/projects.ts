@@ -1,8 +1,9 @@
 import type { InjectionKey, Ref } from 'vue';
 import { call, DaemonError, type Failure } from './daemon';
+import type { Dictionary } from '~/i18n';
 import type { SnapshotUsage } from './usage';
 
-/** The parts of `project.list` and `project.snapshot` the Overview and Projects pages render. */
+/** The parts of `project.list` and `project.snapshot` the pages render. */
 
 export type ProjectRow = { id: string | null; name: string | null; path: string; unavailable: string | null };
 
@@ -62,6 +63,9 @@ export type Snapshot = {
 
 export type ProjectView = { project: ProjectRow; snapshot: Snapshot | null; failure: Failure | null };
 
+/** The shell's view of every registered project, which the Projects and Attention pages read rather than poll again. */
+export const PROJECT_VIEWS: InjectionKey<Ref<ProjectView[] | null>> = Symbol('registered projects');
+
 /** The shell's view of the selected project, which it polls for the rail and the sidebar; a page reads it rather than polling the snapshot again. */
 export const SELECTED_VIEW: InjectionKey<Ref<ProjectView | null>> = Symbol('selected project');
 
@@ -95,41 +99,33 @@ export async function loadProjects(): Promise<ProjectView[]> {
 
 export const projectName = (project: ProjectRow): string => project.name ?? project.id ?? project.path;
 
-/** The first epic not done, as the roadmap lists them. */
-export function position(snapshot: Snapshot): string {
-  if (snapshot.roadmap === null) return 'No roadmap';
-  const current = snapshot.roadmap.epics.find((epic) => epic.status !== 'done');
-  if (current === undefined) return snapshot.roadmap.epics.length === 0 ? 'No epics' : 'Every epic is done';
-  return `Epic ${current.number}, ${current.title}: ${current.status}`;
+/** Up to two initials of a project: the first letters of its name's first two words. */
+export function initials(project: ProjectRow): string {
+  const name = projectName(project);
+  return (name.split('/').at(-1) ?? name)
+    .split(/[\s\-_./]+/)
+    .filter((word) => word !== '')
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase())
+    .join('');
 }
 
-export function checkout(git: GitFacts): string {
-  if (!git.available) return `Git unavailable: ${git.reason}`;
-  const head = git.detached ? 'detached HEAD' : (git.branch ?? 'no branch');
-  return `${head} at ${git.commit?.slice(0, 12) ?? 'no commits'}, ${git.dirty ? 'dirty' : 'clean'}`;
-}
+/** The roadmap's first epic not done: the current one. */
+export const currentEpic = (snapshot: Snapshot): Epic | null => snapshot.roadmap?.epics.find((epic) => epic.status !== 'done') ?? null;
 
 export const isUnavailable = (section: object): section is Unavailable => 'available' in section;
 
-/** How the pages label a run as running: `active` is the daemon's reading, within telemetry's recency. */
-export const RUNNING_READING = "Running means active in the last ten minutes, Binnacle's reading of the latest activity, not a state the harness reports.";
-
-/** The run's Task, or its role when it has none. */
-export const runSubject = (run: Run): string =>
-  run.taskId === null ? `No Task, ${run.role} role` : `${run.taskId}${run.taskTitle === null ? '' : `: ${run.taskTitle}`}`;
-
-/** How long ago `timestamp` was, as a person says it. */
-export function ago(timestamp: string): string {
-  const minutes = Math.floor((Date.now() - Date.parse(timestamp)) / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes} min ago`;
-  if (minutes < 48 * 60) return `${Math.floor(minutes / 60)} h ago`;
-  return new Date(timestamp).toLocaleDateString('en');
+/** The registered checkout's Git state in one line: its head, commit, and whether it is clean. */
+export function gitLine(git: GitFacts, t: Dictionary): string {
+  if (!git.available) return `${t.gitUnavailable} ${git.reason}`;
+  const head = git.detached ? t.detachedHead : (git.branch ?? t.noBranch);
+  return [head, git.commit?.slice(0, 12) ?? t.noCommits, git.dirty ? t.dirty : t.clean].join(' · ');
 }
 
-/** The latest run's activity: the first running one, or the latest recent one. */
-export function latestActivity(activity: Snapshot['activity']): string {
-  if (isUnavailable(activity)) return `Not available: ${activity.reason}`;
-  const run = activity.running.items[0] ?? activity.recent[0];
-  return run === undefined ? 'No runs observed' : `${ago(run.lastActivityAt)}, ${runSubject(run)}`;
-}
+/** A roadmap status as a badge: done is quiet, in progress is the accent, the rest are outlined. */
+export const statusBadge = (status: string) =>
+  status === 'done'
+    ? { color: 'neutral' as const, variant: 'soft' as const }
+    : status === 'in progress'
+      ? { color: 'primary' as const, variant: 'soft' as const }
+      : { color: status === 'not started' ? ('neutral' as const) : ('primary' as const), variant: 'outline' as const };

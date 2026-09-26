@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { call, usePolling } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
-import { count, isUnavailable, projectName, SELECTED_VIEW, type Board, type Card, type LatestRun, type Section, type Snapshot, type Unavailable } from '~/composables/projects';
+import { count, gitLine, isUnavailable, projectName, SELECTED_VIEW, statusBadge, type Board, type Card, type LatestRun, type Section, type Snapshot, type Unavailable } from '~/composables/projects';
 import type { ProjectUsage } from '~/composables/usage';
 
 type ProjectSnapshot = Snapshot & {
@@ -58,14 +58,6 @@ function pick(value: string | number): void {
   void router.push({ query: epic.spec === null ? { project } : { project, spec: epic.spec } });
 }
 
-/** A roadmap status as a badge: done is quiet, in progress is the accent, the rest are outlined. */
-const statusBadge = (status: string) =>
-  status === 'done'
-    ? { color: 'neutral' as const, variant: 'soft' as const }
-    : status === 'in progress'
-      ? { color: 'primary' as const, variant: 'soft' as const }
-      : { color: status === 'not started' ? ('neutral' as const) : ('primary' as const), variant: 'outline' as const };
-
 const boardEmpty = computed(() => {
   const value = board.data.value;
   return value !== null && COLUMNS.every(([key]) => count(value.columns[key]) === 0) && count(value.unknown) === 0 && value.cancelled === 0;
@@ -74,11 +66,6 @@ const shown = (key: ColumnKey, cards: Card[]): Card[] => (key === 'done' && !don
 const runLabel = (latest: LatestRun): string => [latest.harness, latest.model ?? t.value.modelNotReported, latest.role].join(' · ');
 
 const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) => item.code.startsWith('roadmap.')) ?? []);
-function gitLine(git: Snapshot['git']): string {
-  if (!git.available) return `${t.value.gitUnavailable} ${git.reason}`;
-  const head = git.detached ? t.value.detachedHead : (git.branch ?? t.value.noBranch);
-  return [head, git.commit?.slice(0, 12) ?? t.value.noCommits, git.dirty ? t.value.dirty : t.value.clean].join(' · ');
-}
 </script>
 
 <template>
@@ -285,7 +272,7 @@ function gitLine(git: Snapshot['git']): string {
       <div v-if="snapshot" class="grid grid-cols-2 gap-2.5">
         <section class="flex flex-col gap-1.5 rounded-lg border border-default bg-default px-3.5 py-2.5">
           <h2 class="m-0 text-[13px] font-semibold">{{ t.registeredCheckout }}</h2>
-          <div class="font-mono text-xs">{{ gitLine(snapshot.git) }}</div>
+          <div class="font-mono text-xs">{{ gitLine(snapshot.git, t) }}</div>
         </section>
         <section class="flex flex-col gap-1.5 rounded-lg border border-default bg-default px-3.5 py-2.5">
           <h2 class="m-0 text-[13px] font-semibold">{{ t.recentDecisions }}</h2>

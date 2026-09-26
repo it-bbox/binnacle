@@ -24,7 +24,7 @@ const { t, number } = useLanguage();
         <th class="py-1.5 pr-3 text-left font-normal text-muted">{{ t.records }}</th>
         <td v-for="column in columns" :key="column.key" class="py-1.5 pl-3 text-right font-mono">{{ number(column.totals.records) }}</td>
       </tr>
-      <tr v-for="[name] in FIELDS" :key="name" class="border-t border-default">
+      <tr v-for="name in FIELDS" :key="name" class="border-t border-default">
         <th class="py-1.5 pr-3 text-left font-normal text-muted" :class="{ 'pl-3.5': name === 'reasoning' }">{{ t[name] }}</th>
         <td v-for="column in columns" :key="column.key" class="py-1.5 pl-3 text-right">
           <span class="inline-flex items-center justify-end gap-1.5">

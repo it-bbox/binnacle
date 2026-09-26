@@ -61,7 +61,7 @@ const dependency = (item: Brief['dependencies'][number]): string =>
 const tokensLine = (totals: Totals): string =>
   totals.records === 0
     ? t.value.noRecords
-    : FIELDS.map(([name]) => {
+    : FIELDS.map((name) => {
         const field = totals[name];
         const value = field.tokens === null ? t.value.notReported : number(Math.round(field.tokens));
         const noted = marks(field).map((mark) => t.value[mark]);

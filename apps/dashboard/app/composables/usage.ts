@@ -1,8 +1,8 @@
 import type { Run, Unavailable } from './projects';
 
-/** The parts of the snapshot's `usage` and of `usage.get` the pages render, and how a total is written. */
+/** The parts of the snapshot's `usage` and of `usage.get` the pages render. */
 
-type FieldTotal = { tokens: number | null; partial: boolean; provenance: string | null };
+export type FieldTotal = { tokens: number | null; partial: boolean; provenance: string | null };
 export type Totals = { records: number; input: FieldTotal; cachedInput: FieldTotal; cacheCreation: FieldTotal; output: FieldTotal; reasoning: FieldTotal };
 type Limited<T> = { items: T[]; remainder: number };
 type Importing = { incomplete: boolean; windowStart: string | null };
@@ -44,7 +44,6 @@ export type TaskUsage = { importing: Importing; totals: Totals; runs: Limited<Ta
 /** A run of a Task, as `usage.get` gives it. */
 export type TaskRun = Omit<Run, 'taskTitle'> & { startedAt: string; active: { value: boolean }; totals: Totals };
 
-/** The token fields in the order the pages show them; reasoning is a part of output, never added to it. */
 /** What marks a field's total besides its number: partial, and calculated or estimated rather than read (ADR-0007). */
 export function marks(field: FieldTotal): ('partial' | 'calculated' | 'estimated')[] {
   const found: ('partial' | 'calculated' | 'estimated')[] = field.partial ? ['partial'] : [];
@@ -52,35 +51,6 @@ export function marks(field: FieldTotal): ('partial' | 'calculated' | 'estimated
   return found;
 }
 
-export const FIELDS = [
-  ['input', 'Input'],
-  ['cachedInput', 'Cached input'],
-  ['cacheCreation', 'Cache creation'],
-  ['output', 'Output'],
-  ['reasoning', 'of which reasoning'],
-] as const;
-
-/**
- * A field's total as a person reads it: `null` is not reported, never zero, and a total that
- * is partial, or that Binnacle calculated or estimated rather than read, says so (ADR-0007).
- */
-export function tokens(field: FieldTotal): string {
-  if (field.tokens === null) return 'not reported';
-  const notes = [field.partial ? 'partial' : null, field.provenance === 'calculated' || field.provenance === 'estimated' ? field.provenance : null].filter((note) => note !== null);
-  // Whole tokens: a mean is the only total that has a fraction.
-  return `${field.tokens.toLocaleString('en', { maximumFractionDigits: 0 })}${notes.length === 0 ? '' : ` (${notes.join(', ')})`}`;
-}
-
-/** Every field in one line, each on its own: fields are never added to one another. */
-export const fieldsLine = (totals: Totals): string =>
-  totals.records === 0 ? 'no records' : FIELDS.map(([name, label]) => `${label.toLowerCase()} ${tokens(totals[name])}`).join(', ');
-
-/** A Task as a row names it: its id, and its title when it has one. */
-export const taskLabel = (task: { id: string; title: string | null }): string => `${task.id}${task.title === null ? '' : `: ${task.title}`}`;
-
-/** Where the window `usage.get` answers over starts. */
-export const windowLabel = (importing: Importing): string =>
-  `over the import window, ${importing.windowStart === null ? 'which takes everything' : `since ${importing.windowStart}`}`;
-
-/** Said wherever the totals are shown while the import still runs. */
-export const IMPORTING = 'The import of this project is still running, so these totals may be low.';
+/** The token fields in the order the pages show them; reasoning is a part of output, never added to it. */
+export const FIELDS = ['input', 'cachedInput', 'cacheCreation', 'output', 'reasoning'] as const;
+export type Field = (typeof FIELDS)[number];

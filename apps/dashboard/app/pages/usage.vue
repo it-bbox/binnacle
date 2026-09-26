@@ -1,196 +1,334 @@
 <script setup lang="ts">
-import RoleUsage from '~/components/RoleUsage.vue';
-import UsageTable from '~/components/UsageTable.vue';
-import WeeklyTrend from '~/components/WeeklyTrend.vue';
+import type { BarRow } from '~/components/BarList.vue';
 import { call, usePolling } from '~/composables/daemon';
-import { isUnavailable } from '~/composables/projects';
-import { IMPORTING, taskLabel, windowLabel, type ProjectUsage, type SnapshotUsage } from '~/composables/usage';
+import { useLanguage } from '~/composables/language';
+import { isUnavailable, projectName, SELECTED_VIEW } from '~/composables/projects';
+import { FIELDS, marks, type Field, type ProjectUsage, type Totals } from '~/composables/usage';
 
-/** ADR-0014's names for the levels a harness reaches through its artifacts. */
-const LEVELS: Record<number, string> = { 1: 'Context', 2: 'Attribution', 3: 'Usage' };
-
-const COST_UNAVAILABLE =
-  'Cost is not available: no harness artifact Binnacle reads reports it, and a cost computed from a price table is left for later, since under a subscription such a number is conditional.';
-
-/** How the page labels a derived metric: Binnacle's arithmetic over the records, not a figure any harness reports. */
-const DERIVED_READING = "Binnacle's calculation from the same records, not a figure any harness reports.";
-
-const plural = (count: number, one: string, many: string): string => `${count.toLocaleString('en')} ${count === 1 ? one : many}`;
-const oneDecimal = (value: number): string => value.toLocaleString('en', { maximumFractionDigits: 1 });
-
+/**
+ * The selected project's usage. The shell's snapshot answers today, the last seven days, by
+ * model, by provider and the harnesses; `usage.get`, polled here, the import window, by Task,
+ * by role and the derived metrics. The bars show one kind of token at a time, output unless
+ * another is picked: kinds are never added to one another.
+ */
+const view = inject(SELECTED_VIEW, ref(null));
+const snapshot = computed(() => view.value?.snapshot ?? null);
 const route = useRoute();
 const project = typeof route.query.project === 'string' ? route.query.project : null;
-// The snapshot answers today, the last seven days and the harnesses; `usage.get` the window, by Task and by role.
-const { data, error } = usePolling(async () => {
-  if (project === null) return null;
-  const [snapshot, overWindow] = await Promise.all([
-    call<{ usage: SnapshotUsage }>('project.snapshot', { path: project }),
-    call<ProjectUsage>('usage.get', { path: project }),
-  ]);
-  return { snapshot: snapshot.usage, overWindow };
+const { t, plural, number, compact } = useLanguage();
+
+const usage = usePolling(async () => (project === null ? null : call<ProjectUsage>('usage.get', { path: project })));
+
+/** CONTEXT.md's names for the harness support levels, the same in both languages. */
+const LEVELS = ['Context', 'Attribution', 'Usage', 'Live'];
+
+const kind = ref<Field>('output');
+const kinds = computed(() => FIELDS.map((name) => ({ label: t.value[name], value: name })));
+
+/** A set of totals as a bar: the picked kind, not reported rather than zero, marked partial, calculated or estimated. */
+function tokenRow(key: string, label: string, totals: Totals, extra: Partial<BarRow> = {}): BarRow {
+  const field = totals[kind.value];
+  if (totals.records === 0) return { key, label, value: null, text: t.value.noRecords, ...extra };
+  return {
+    key,
+    label,
+    value: field.tokens,
+    text: field.tokens === null ? t.value.notReported : number(Math.round(field.tokens)),
+    marks: marks(field).map((mark) => t.value[mark]),
+    ...extra,
+  };
+}
+
+/** What `usage.get` answers over, said beside what it gives. */
+const windowLabel = computed(() => {
+  const start = usage.data.value?.importing.windowStart ?? null;
+  return start === null ? t.value.importWindow : `${t.value.importWindow}, ${t.value.since(start)}`;
 });
+
+const taskLink = (id: string) => ({ path: '/task', query: { project, id } });
+
+/** The derived per-Task metrics, as the page lists them. */
+const perCompleted = computed(() => {
+  const metric = usage.data.value?.derived.perCompletedTask;
+  if (metric === undefined || isUnavailable(metric)) return null;
+  return {
+    mean: metric.mean === null ? null : tokenRow('mean', '', metric.mean),
+    rows: metric.items.map((item) =>
+      tokenRow(item.id, item.id, item.totals, { to: taskLink(item.id), note: [item.title, plural(item.runs, t.value.runsCount)].filter((part) => part !== null).join(' · ') }),
+    ),
+    remainder: metric.remainder,
+    count: metric.items.length + metric.remainder,
+    withoutRuns: metric.withoutRuns,
+  };
+});
+const runsPer = computed(() => {
+  const metric = usage.data.value?.derived.runsPerTask;
+  if (metric === undefined || isUnavailable(metric)) return null;
+  return {
+    mean: metric.mean,
+    rows: metric.items.map(
+      (item): BarRow => ({
+        key: item.id,
+        label: item.id,
+        to: taskLink(item.id),
+        note: [item.title, t.value.ofWhichSubagents(number(item.subagentRuns))].filter((part) => part !== null).join(' · '),
+        value: item.runs,
+        text: number(item.runs),
+      }),
+    ),
+    remainder: metric.remainder,
+    count: metric.items.length + metric.remainder,
+  };
+});
+const oneDecimal = (value: number): string => number(Math.round(value * 10) / 10);
+
+/** The weekly trend of the picked kind, each week scaled to the largest. */
+const weeks = computed(() => {
+  const items = usage.data.value?.derived.weekly.items ?? [];
+  const values = items.map((item) => (item.totals.records === 0 ? null : item.totals[kind.value].tokens));
+  const largest = Math.max(0, ...values.map((value) => value ?? 0));
+  return items.map((item, index) => {
+    const value = values[index] ?? null;
+    const text = item.totals.records === 0 ? t.value.noRecords : value === null ? t.value.notReported : number(Math.round(value));
+    return { week: item.week, value, largest, short: value === null ? '—' : compact(value), title: `${t.value.weekOf(item.week)}: ${text}`, partial: item.totals[kind.value].partial };
+  });
+});
+
+const card = { root: 'rounded-[10px]', header: 'flex items-center justify-between gap-2 px-3.5 py-2.5 sm:px-3.5', body: 'p-0 sm:p-0', footer: 'px-3.5 py-2 sm:px-3.5' };
 </script>
 
 <template>
-  <p v-if="project === null" class="warn">This address names no project. Open its usage from the Overview.</p>
-  <p v-else-if="error" class="warn"><code>{{ error.code }}</code> {{ error.message }}</p>
-  <USkeleton v-else-if="data === null" class="my-4 h-24 w-full" />
-  <template v-else>
-    <h1>Usage</h1>
-    <p class="muted">
-      <code>{{ project }}</code> · tokens read from the harnesses' artifacts. A field no record reports is not reported, never zero, and a total Binnacle
-      calculated from what an artifact wrote says so.
+  <div class="flex flex-col gap-5 pt-4">
+    <p v-if="project === null" class="text-warning">{{ t.noProjectAddress }}</p>
+    <p v-else-if="view === null" class="text-muted">{{ t.unknownProject }}</p>
+    <p v-else-if="view.project.unavailable !== null" class="text-muted">
+      <span class="font-medium text-default">{{ t.notAvailable }}</span> · <span lang="en">{{ view.project.unavailable }}</span>
     </p>
-    <p v-if="data.snapshot.importing.incomplete || data.overWindow.importing.incomplete" class="warn">{{ IMPORTING }}</p>
+    <p v-else-if="view.failure" class="text-warning"><code>{{ view.failure.code }}</code> <span lang="en">{{ view.failure.message }}</span></p>
+    <template v-else-if="snapshot">
+      <div class="flex flex-col gap-1">
+        <div class="flex items-baseline gap-2.5">
+          <h1 class="text-lg font-semibold text-highlighted">{{ t.usage }}</h1>
+          <span class="text-muted">{{ projectName(view.project) }}</span>
+        </div>
+        <p class="text-xs text-muted">{{ t.usageNote }}</p>
+        <p v-if="snapshot.usage.importing.incomplete || usage.data.value?.importing.incomplete" class="text-warning">{{ t.importing }}</p>
+      </div>
 
-    <h2>Today, the last seven days and the import window</h2>
-    <UsageTable
-      :rows="[
-        { key: 'today', label: 'Today', totals: data.snapshot.today },
-        { key: 'week', label: 'Last seven days', totals: data.snapshot.last7Days },
-        { key: 'window', label: data.overWindow.importing.windowStart === null ? 'Import window' : `Since ${data.overWindow.importing.windowStart}`, totals: data.overWindow.totals },
-      ]"
-    />
+      <div class="flex flex-wrap items-center gap-2.5">
+        <span class="text-xs text-muted">{{ t.barsShow }}</span>
+        <UTabs v-model="kind" :items="kinds" :content="false" variant="pill" size="xs" :aria-label="t.barsShow" />
+      </div>
 
-    <h2>By model, last seven days</h2>
-    <p v-if="data.snapshot.byModel.items.length === 0" class="muted">No records.</p>
-    <UsageTable
-      v-else
-      :rows="data.snapshot.byModel.items.map((item) => ({ key: String(item.model), label: item.model ?? 'Model not reported', totals: item.totals }))"
-      :remainder="data.snapshot.byModel.remainder"
-    />
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(400px,1fr))] items-start gap-5">
+        <UCard :ui="card">
+          <template #header>
+            <h2 class="text-[13px] font-semibold">{{ t.tokensByKind }}</h2>
+          </template>
+          <div class="px-3.5 pb-1">
+            <TokenKinds
+              :columns="[
+                { key: 'today', label: t.today, totals: snapshot.usage.today },
+                { key: 'week', label: t.last7Days, totals: snapshot.usage.last7Days },
+                ...(usage.data.value
+                  ? [
+                      {
+                        key: 'window',
+                        label: usage.data.value.importing.windowStart === null ? t.importWindow : t.since(usage.data.value.importing.windowStart),
+                        totals: usage.data.value.totals,
+                      },
+                    ]
+                  : []),
+              ]"
+            />
+          </div>
+          <template #footer>
+            <p class="text-[11.5px] leading-snug text-dimmed">{{ t.reasoningNote }}</p>
+          </template>
+        </UCard>
 
-    <h2>By provider, last seven days</h2>
-    <p v-if="data.snapshot.byProvider.items.length === 0" class="muted">No records.</p>
-    <UsageTable
-      v-else
-      :rows="data.snapshot.byProvider.items.map((item) => ({ key: String(item.provider), label: item.provider ?? 'Provider not reported by the artifacts', totals: item.totals }))"
-      :remainder="data.snapshot.byProvider.remainder"
-    />
+        <UCard :ui="card">
+          <template #header>
+            <h2 class="text-[13px] font-semibold">{{ t.byModel }}</h2>
+            <span class="text-[11.5px] text-dimmed">{{ t[kind] }} · {{ t.last7Days }}</span>
+          </template>
+          <p v-if="snapshot.usage.byModel.items.length === 0" class="px-3.5 py-3 text-muted">{{ t.noRecords }}</p>
+          <BarList
+            v-else
+            class="py-1"
+            :rows="
+              snapshot.usage.byModel.items.map((item) =>
+                tokenRow(String(item.model), item.model ?? t.modelNotReported, item.totals, { muted: item.model === null }),
+              )
+            "
+            :remainder="snapshot.usage.byModel.remainder"
+          />
+          <h3 class="border-t border-default px-3.5 pt-2.5 pb-1 text-xs font-semibold">{{ t.byProvider }}</h3>
+          <p v-if="snapshot.usage.byProvider.items.length === 0" class="px-3.5 py-3 text-muted">{{ t.noRecords }}</p>
+          <BarList
+            v-else
+            class="pb-1"
+            :rows="
+              snapshot.usage.byProvider.items.map((item) =>
+                tokenRow(String(item.provider), item.provider ?? t.notReported, item.totals, { muted: item.provider === null }),
+              )
+            "
+            :remainder="snapshot.usage.byProvider.remainder"
+          />
+        </UCard>
 
-    <h2>By Task, {{ windowLabel(data.overWindow.importing) }}</h2>
-    <p v-if="isUnavailable(data.overWindow.tasks)" class="muted">Not available: {{ data.overWindow.tasks.reason }}</p>
-    <template v-else>
-      <p v-if="data.overWindow.tasks.items.length === 0" class="muted">No run is attributed to a Task.</p>
-      <UsageTable
-        v-else
-        :rows="data.overWindow.tasks.items.map((item) => ({ key: item.id, label: taskLabel(item), totals: item.totals }))"
-        :remainder="data.overWindow.tasks.remainder"
-      />
+        <UCard :ui="card">
+          <template #header>
+            <h2 class="text-[13px] font-semibold">{{ t.byTask }}</h2>
+            <span class="text-[11.5px] text-dimmed">{{ t.largestFirst }} · {{ t[kind] }}</span>
+          </template>
+          <p v-if="usage.error.value" class="px-3.5 py-3 text-warning"><code>{{ usage.error.value.code }}</code> {{ usage.error.value.message }}</p>
+          <USkeleton v-else-if="usage.data.value === null" class="m-3.5 h-32" />
+          <template v-else>
+            <p v-if="isUnavailable(usage.data.value.tasks)" class="px-3.5 py-3">
+              <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="text-muted">· {{ usage.data.value.tasks.reason }}</span>
+            </p>
+            <template v-else>
+              <p v-if="usage.data.value.tasks.items.length === 0" class="px-3.5 pt-3 text-muted">{{ t.noTaskRuns }}</p>
+              <BarList
+                class="py-1"
+                :rows="[
+                  ...usage.data.value.tasks.items.map((item) => tokenRow(item.id, item.id, item.totals, { to: taskLink(item.id), note: item.title ?? undefined })),
+                  ...(isUnavailable(usage.data.value.unassigned) ? [] : [tokenRow('unassigned', t.unassigned, usage.data.value.unassigned, { muted: true })]),
+                ]"
+                :remainder="usage.data.value.tasks.remainder"
+              />
+            </template>
+            <p v-if="isUnavailable(usage.data.value.unassigned)" class="px-3.5 pb-2 text-xs">
+              {{ t.unassigned }}: <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="text-muted">· {{ usage.data.value.unassigned.reason }}</span>
+            </p>
+            <h3 class="border-t border-default px-3.5 pt-2.5 pb-1 text-xs font-semibold">{{ t.byRole }}</h3>
+            <p v-if="isUnavailable(usage.data.value.byRole)" class="px-3.5 py-3">
+              <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="text-muted">· {{ usage.data.value.byRole.reason }}</span>
+            </p>
+            <BarList
+              v-else
+              class="pb-1"
+              :rows="[
+                tokenRow('product', t.roleProduct, usage.data.value.byRole.product),
+                tokenRow('implementation', t.roleImplementation, usage.data.value.byRole.implementation),
+                tokenRow('unknown', t.roleUnknown, usage.data.value.byRole.unknown, { muted: true }),
+              ]"
+            />
+          </template>
+          <template #footer>
+            <p class="text-[11.5px] leading-snug text-dimmed">{{ windowLabel }}. {{ t.unassignedNote }}</p>
+          </template>
+        </UCard>
+
+        <UCard :ui="card">
+          <template #header>
+            <h2 class="text-[13px] font-semibold">{{ t.harnesses }}</h2>
+          </template>
+          <ul class="divide-y divide-default">
+            <li v-for="item in snapshot.usage.harnesses" :key="item.harness" class="flex flex-col gap-1.5 px-3.5 py-2.5">
+              <div class="flex items-center gap-2.5">
+                <span class="flex-1 font-mono text-[12.5px] font-medium">{{ item.harness }}</span>
+                <template v-if="item.level !== null">
+                  <span class="flex gap-0.5" aria-hidden="true">
+                    <span v-for="step in 4" :key="step" class="h-1.5 w-3.5 rounded-xs" :class="step <= item.level ? 'bg-primary' : 'bg-accented'" />
+                  </span>
+                  <span class="text-xs whitespace-nowrap text-muted">{{ t.levelOf(number(item.level)) }} · <span lang="en">{{ LEVELS[item.level - 1] }}</span></span>
+                </template>
+                <span v-else class="text-xs text-muted">{{ t.noLevel }}</span>
+              </div>
+              <p v-if="item.reason !== null" class="text-[11.5px] leading-snug text-dimmed" lang="en">{{ item.reason }}</p>
+            </li>
+          </ul>
+          <template #footer>
+            <p class="text-[11px] leading-normal text-dimmed">{{ t.levelsLegend }}</p>
+          </template>
+        </UCard>
+
+        <UCard :ui="card">
+          <template #header>
+            <h2 class="text-[13px] font-semibold">{{ t.cost }}</h2>
+          </template>
+          <div class="flex flex-col gap-1 px-3.5 py-3">
+            <span class="font-medium">{{ t.notAvailable }}</span>
+            <span class="leading-snug text-muted">{{ t.costReason }}</span>
+          </div>
+        </UCard>
+      </div>
+
+      <UCard :ui="card">
+        <template #header>
+          <h2 class="text-[13px] font-semibold">{{ t.derived }}</h2>
+          <UBadge :label="t.calculation" color="neutral" variant="outline" class="border-dashed" :title="t.derivedNote" />
+        </template>
+        <p v-if="usage.error.value" class="px-3.5 py-3 text-warning"><code>{{ usage.error.value.code }}</code> {{ usage.error.value.message }}</p>
+        <USkeleton v-else-if="usage.data.value === null" class="m-3.5 h-40" />
+        <template v-else>
+          <div class="grid grid-cols-2 divide-x divide-default">
+            <section class="flex min-w-0 flex-col gap-1">
+              <div class="flex flex-col gap-1 px-3.5 pt-3 pb-1.5">
+                <h3 class="text-xs leading-snug text-muted">{{ t.perCompletedTask }} · {{ t[kind] }}</h3>
+                <p v-if="isUnavailable(usage.data.value.derived.perCompletedTask)">
+                  <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="text-muted">· {{ usage.data.value.derived.perCompletedTask.reason }}</span>
+                </p>
+                <template v-else-if="perCompleted">
+                  <template v-if="perCompleted.mean">
+                    <span class="inline-flex items-center gap-1.5">
+                      <span class="font-mono text-lg font-medium">{{ perCompleted.mean.text }}</span>
+                      <UBadge v-for="mark in perCompleted.mean.marks" :key="mark" :label="mark" color="neutral" variant="outline" size="sm" />
+                    </span>
+                    <span class="text-[11px] text-dimmed">{{ plural(perCompleted.count, t.meanOverDone) }}</span>
+                  </template>
+                  <p v-else class="text-muted">{{ perCompleted.withoutRuns === 0 ? t.noDoneTask : t.noDoneWithRuns }}</p>
+                  <span v-if="perCompleted.mean && perCompleted.withoutRuns > 0" class="text-[11px] text-dimmed">{{ plural(perCompleted.withoutRuns, t.doneWithoutRuns) }}</span>
+                </template>
+              </div>
+              <BarList v-if="perCompleted && perCompleted.rows.length > 0" class="pb-1" :rows="perCompleted.rows" :remainder="perCompleted.remainder" />
+            </section>
+            <section class="flex min-w-0 flex-col gap-1">
+              <div class="flex flex-col gap-1 px-3.5 pt-3 pb-1.5">
+                <h3 class="text-xs leading-snug text-muted">{{ t.runsPerTask }}</h3>
+                <p v-if="isUnavailable(usage.data.value.derived.runsPerTask)">
+                  <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="text-muted">· {{ usage.data.value.derived.runsPerTask.reason }}</span>
+                </p>
+                <template v-else-if="runsPer">
+                  <template v-if="runsPer.mean">
+                    <span class="font-mono text-lg font-medium">{{ oneDecimal(runsPer.mean.runs) }}</span>
+                    <span class="text-[11px] text-dimmed">{{ plural(runsPer.count, t.meanOverTasks) }} · {{ t.ofWhichSubagents(oneDecimal(runsPer.mean.subagentRuns)) }}</span>
+                  </template>
+                  <p v-else class="text-muted">{{ t.noTaskRuns }}</p>
+                </template>
+              </div>
+              <BarList v-if="runsPer && runsPer.rows.length > 0" class="pb-1" :rows="runsPer.rows" :remainder="runsPer.remainder" />
+            </section>
+          </div>
+          <section class="flex flex-col gap-2.5 border-t border-default px-3.5 py-3">
+            <h3 class="text-xs text-muted">{{ t.weekly }} · {{ t[kind] }}</h3>
+            <p v-if="weeks.length === 0" class="text-muted">{{ t.noRecords }}</p>
+            <ol v-else class="grid auto-cols-[minmax(0,56px)] grid-flow-col gap-2">
+              <li v-for="week in weeks" :key="week.week" class="flex min-w-0 flex-col items-center gap-1" :title="week.title">
+                <UProgress
+                  v-if="week.value !== null && week.largest > 0"
+                  :model-value="week.value"
+                  :max="week.largest"
+                  orientation="vertical"
+                  inverted
+                  class="h-24 w-full"
+                  :ui="{ base: 'w-full rounded-t-sm rounded-b-none bg-transparent', indicator: 'rounded-t-sm rounded-b-none' }"
+                />
+                <div v-else class="h-24" />
+                <span class="max-w-full truncate font-mono text-[10.5px]">{{ week.short }}</span>
+                <span v-if="week.partial" class="text-[10px] text-dimmed">{{ t.partial }}</span>
+                <span class="max-w-full truncate text-[10.5px] text-dimmed">{{ week.week.slice(5) }}</span>
+              </li>
+            </ol>
+            <p class="text-[11px] text-dimmed">{{ t.weeklyNote }}</p>
+          </section>
+        </template>
+        <template #footer>
+          <p class="text-[11.5px] leading-snug text-dimmed">{{ t.derivedNote }} {{ windowLabel }}.</p>
+        </template>
+      </UCard>
     </template>
-
-    <h2>By role, {{ windowLabel(data.overWindow.importing) }}</h2>
-    <RoleUsage :usage="data.overWindow" />
-
-    <h2>Tokens per completed Task, {{ windowLabel(data.overWindow.importing) }}</h2>
-    <p class="muted">{{ DERIVED_READING }} Each <code>DONE</code> Task with runs, and their mean, field by field.</p>
-    <p v-if="isUnavailable(data.overWindow.derived.perCompletedTask)" class="muted">Not available: {{ data.overWindow.derived.perCompletedTask.reason }}</p>
-    <template v-else>
-      <p v-if="data.overWindow.derived.perCompletedTask.mean === null" class="muted">
-        {{
-          data.overWindow.derived.perCompletedTask.withoutRuns === 0
-            ? 'No Task is DONE.'
-            : `No DONE Task has runs (${data.overWindow.derived.perCompletedTask.withoutRuns.toLocaleString('en')} DONE).`
-        }}
-      </p>
-      <UsageTable
-        v-else
-        :rows="[
-          {
-            key: 'mean',
-            label: 'Mean per Task',
-            totals: data.overWindow.derived.perCompletedTask.mean,
-          },
-          ...data.overWindow.derived.perCompletedTask.items.map((item) => ({
-            key: item.id,
-            label: `${taskLabel(item)} · ${plural(item.runs, 'run', 'runs')}`,
-            totals: item.totals,
-          })),
-        ]"
-        :remainder="data.overWindow.derived.perCompletedTask.remainder"
-      />
-      <p v-if="data.overWindow.derived.perCompletedTask.mean !== null && data.overWindow.derived.perCompletedTask.withoutRuns > 0" class="muted">
-        {{ plural(data.overWindow.derived.perCompletedTask.withoutRuns, 'DONE Task has', 'DONE Tasks have') }} no runs, and the mean leaves them out.
-      </p>
-    </template>
-
-    <h2>Runs per Task, {{ windowLabel(data.overWindow.importing) }}</h2>
-    <p class="muted">{{ DERIVED_READING }} Each Task with runs, of any state, and how many of its runs were subagents'.</p>
-    <p v-if="isUnavailable(data.overWindow.derived.runsPerTask)" class="muted">Not available: {{ data.overWindow.derived.runsPerTask.reason }}</p>
-    <p v-else-if="data.overWindow.derived.runsPerTask.mean === null" class="muted">No run is attributed to a Task.</p>
-    <table v-else>
-      <thead>
-        <tr>
-          <th></th>
-          <th>Runs</th>
-          <th>of which subagents'</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <th>Mean per Task</th>
-          <td>{{ oneDecimal(data.overWindow.derived.runsPerTask.mean.runs) }}</td>
-          <td>{{ oneDecimal(data.overWindow.derived.runsPerTask.mean.subagentRuns) }}</td>
-        </tr>
-        <tr v-for="item in data.overWindow.derived.runsPerTask.items" :key="item.id">
-          <th>{{ taskLabel(item) }}</th>
-          <td>{{ item.runs.toLocaleString('en') }}</td>
-          <td>{{ item.subagentRuns.toLocaleString('en') }}</td>
-        </tr>
-        <tr v-if="data.overWindow.derived.runsPerTask.remainder">
-          <td colspan="3" class="muted">and {{ data.overWindow.derived.runsPerTask.remainder }} more</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <h2>Weekly trend, {{ windowLabel(data.overWindow.importing) }}</h2>
-    <p class="muted">{{ DERIVED_READING }} Calendar weeks from Monday, in the daemon's time zone. Each field's bars are scaled to its own largest week.</p>
-    <p v-if="data.overWindow.derived.weekly.items.length === 0" class="muted">No records.</p>
-    <WeeklyTrend v-else :weeks="data.overWindow.derived.weekly.items" />
-
-    <h2>Harnesses</h2>
-    <ul>
-      <li v-for="item in data.snapshot.harnesses" :key="item.harness">
-        {{ item.harness }}:
-        <template v-if="item.level !== null">level {{ item.level }}, {{ LEVELS[item.level] }}</template>
-        <template v-else>no level</template>
-        <span v-if="item.reason !== null" class="muted"> · {{ item.reason }}</span>
-      </li>
-    </ul>
-
-    <h2>Cost</h2>
-    <p class="muted">{{ COST_UNAVAILABLE }}</p>
-  </template>
+  </div>
 </template>
-
-<style scoped>
-h2 {
-  margin-top: 1.5rem;
-  font-size: 1rem;
-}
-ul {
-  padding-left: 1.25rem;
-}
-table {
-  border-collapse: collapse;
-  font-variant-numeric: tabular-nums;
-}
-th,
-td {
-  padding: 0.2rem 0.75rem 0.2rem 0;
-  text-align: right;
-  border-bottom: 1px solid var(--line);
-}
-thead th {
-  font-weight: normal;
-  color: var(--muted);
-}
-tbody th {
-  max-width: 22rem;
-  text-align: left;
-  font-weight: normal;
-}
-td[colspan] {
-  text-align: left;
-}
-</style>

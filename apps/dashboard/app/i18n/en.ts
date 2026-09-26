@@ -189,6 +189,46 @@ export const en = {
   reviewUsageReason: 'Review runs are not told apart from implementation runs.',
   reworkUsageReason: 'Rework runs are not told apart from implementation runs either.',
   questionsReason: 'Questions and answers are not yet explicit artifacts.',
+
+  // The Usage page.
+  usageNote: "Tokens read from the harnesses' artifacts. A kind no record reports is not reported, never zero.",
+  tokensByKind: 'Tokens by kind',
+  importWindow: 'Import window',
+  since: (date: string) => `since ${date}`,
+  reasoningNote: 'Reasoning is the part of output a model reports as reasoning, never added to it.',
+  barsShow: 'Bars show',
+  byModel: 'By model',
+  byProvider: 'By provider',
+  byTask: 'By Task',
+  byRole: 'By role',
+  largestFirst: 'largest first',
+  noTaskRuns: 'No run is attributed to a Task.',
+  derived: 'Derived metrics',
+  derivedNote: "Binnacle's calculation from the same records, not a figure any harness reports.",
+  perCompletedTask: 'Tokens per completed Task',
+  meanOverDone: { one: 'mean over # DONE Task with runs', other: 'mean over # DONE Tasks with runs' } as Forms,
+  noDoneTask: 'No Task is DONE.',
+  noDoneWithRuns: 'No DONE Task has runs.',
+  doneWithoutRuns: { one: '# DONE Task has no runs, and the mean leaves it out.', other: '# DONE Tasks have no runs, and the mean leaves them out.' } as Forms,
+  runsPerTask: 'Runs per Task',
+  meanOverTasks: { one: 'mean over # Task with runs', other: 'mean over # Tasks with runs' } as Forms,
+  runsCount: { one: '# run', other: '# runs' } as Forms,
+  ofWhichSubagents: (count: string) => `of which subagents' ${count}`,
+  weekly: 'Weekly trend',
+  weeklyNote: "Calendar weeks from Monday, in the daemon's time zone.",
+  weekOf: (date: string) => `week of ${date}`,
+  harnesses: 'Harnesses',
+  levelOf: (level: string) => `level ${level} of 4`,
+  noLevel: 'no support level',
+  levelsLegend: 'Support levels: 1 Context, it calls an MCP server · 2 Attribution, its sessions carry a directory and an id · 3 Usage, with token counts · 4 Live, observed while it runs.',
+  cost: 'Cost',
+  costReason:
+    'No harness artifact Binnacle reads reports cost. A cost computed from a price table is left for later: under a subscription such a number is conditional.',
+
+  // The Projects and Attention pages.
+  latest: (ago: string) => `latest ${ago}`,
+  noRunsSeen: 'no runs observed',
+  recentRuns: 'Recent runs',
 };
 
 export type Dictionary = typeof en;

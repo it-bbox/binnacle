@@ -62,7 +62,7 @@ Its only action is copying a command, which the human types. Every view element 
 
 Every view opens in one shell. A rail holds one icon per registered project, with a dot when it has running runs or attention items, and a "+" that shows `binn project register` to copy. A sidebar holds the selected project's name and current Epic, the menu with Attention's count, the language switch and how long ago the data was read. The selected project is the address's `project` query, the first registered project without one. While the daemon does not answer, the shell says so, with `binn daemon start` to copy, and polls on until it does.
 
-The page reaches nothing but the daemon: its fonts are the system's, its Lucide icons are bundled at build time, and it writes no inline style, which the daemon's Content-Security-Policy refuses.
+Every page is built from Nuxt UI's components and Tailwind's utilities, to the mockup in `specs/dashboard-design-and-languages/design/`; epic 5's plain CSS is gone. The page reaches nothing but the daemon: its fonts are the system's, its Lucide icons are bundled at build time, and it writes no inline `<style>`, which the daemon's Content-Security-Policy refuses.
 
 It speaks English and Russian, starting in Russian when the browser prefers Russian and in English otherwise; the switch's choice is kept in the browser. Only the page's own text is translated, from a dictionary of the dashboard's own. Task, Epic, Next action, Suggested step, Backlog, Ready, In progress, Done, Review and Unmet dependency stay English in both languages, and commands, ids, branches, models, repository text and the daemon's messages are never translated.
 
@@ -83,7 +83,8 @@ A roadmap that cannot be read, and a project or epic with no Tasks, each show th
 
 ### Projects
 
-- every registered project, its position, its registered checkout's Git state and its latest activity.
+- every registered project in one table: its name, path and registered checkout's Git state; its current Epic and that Epic's status; its Next action, cut to two lines; how many runs run now, and the latest activity; and how many attention items it has;
+- a project whose path is unavailable, or whose snapshot failed, says so with the daemon's reason; one whose roadmap cannot be read says that.
 
 ### Project
 
@@ -106,12 +107,15 @@ A roadmap that cannot be read, and a project or epic with no Tasks, each show th
 
 ### Usage
 
-- tokens today, over the last seven days and over the window, by model, provider, Task and role, and each harness's support level;
-- the derived metrics below that have a source: tokens per completed task, runs per task, weekly burn trend.
+- tokens by kind today, over the last seven days and over the import window: input, cached input, cache creation, output, and reasoning as the part of output it is. A kind no record reports is "not reported", never zero, and a partial, calculated or estimated total is marked;
+- by model and by provider over the last seven days, a provider no artifact states being "not reported"; by Task, the largest first, with the unassigned total; and by role, over the import window. Each is a bar of one kind of token, output unless another is picked: kinds are never added together;
+- the derived metrics below that have a source, labelled as Binnacle's calculation: tokens per completed Task, runs per Task, and the weekly trend as CSS bars;
+- each harness with its support level, named as in `CONTEXT.md` (Context, Attribution, Usage, Live), or the daemon's reason for none;
+- cost, not available, with the reason.
 
 ### Attention/current activity
 
-- every project's attention items, and the runs running now and recently.
+- every project's attention items with their codes, grouped by project, beside the runs running now and the recent runs of every project.
 
 ## High-value derived metrics
 
