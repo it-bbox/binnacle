@@ -222,8 +222,10 @@ export function suggestedStep(
     .sort((a, b) => (a.lastActivityAt < b.lastActivityAt ? 1 : a.lastActivityAt > b.lastActivityAt ? -1 : 0));
   const worked = [...new Set(working.map((run) => run.taskId!))];
   if (worked.length > 0) {
-    const others = worked.length > 1 ? ` So ${worked.length === 2 ? 'is' : 'are'} ${worked.slice(1).map(name).join(', ')}.` : '';
-    return step(1, `${name(worked[0]!)} is being worked on: an implementation run of it is active.${others} Wait for it rather than start something on top of it.`, null, worked[0]!);
+    const [is, it] = worked.length === 1 ? ['is', 'it'] : ['are', 'them'];
+    const description = `${worked.map(name).join(', ')} ${is} being worked on: an implementation run is active. Wait for ${it} rather than start something on top.`;
+    // The Task with the latest activity.
+    return step(1, description, null, worked[0]!);
   }
 
   const attributed = new Set(runs.map((run) => run.taskId));
