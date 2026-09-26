@@ -1,5 +1,8 @@
-import { timingSafeEqual } from 'node:crypto';
+import { createHash, timingSafeEqual } from 'node:crypto';
+import { readFileSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { extname, isAbsolute, join, win32 } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   DEFAULT_PORT,
   ensureHome,
@@ -23,6 +26,9 @@ import { VERSION } from './version.ts';
 export const LOOPBACK = '127.0.0.1';
 export const HEALTH_PATH = '/health';
 export const OPS_PREFIX = '/ops/';
+/** Where `pnpm dashboard:generate` writes the dashboard, found from the daemon's own place in the workspace. */
+export const DASHBOARD_DIRECTORY = fileURLToPath(new URL('../../dashboard/.output/public/', import.meta.url));
+const DASHBOARD_GENERATE = 'pnpm dashboard:generate';
 
 /** A hostile client should not be able to make the daemon buffer an arbitrary amount. */
 const MAX_BODY_BYTES = 1024 * 1024;
@@ -48,6 +54,8 @@ export type DaemonOptions = {
   ingestBudgetMs?: number;
   /** How long a Claude Code file goes unwritten before its last message counts as finished. */
   settledAfterMs?: number;
+  /** The dashboard's generated directory; `DASHBOARD_DIRECTORY` when omitted. */
+  dashboard?: string;
 };
 
 export type Daemon = {
@@ -94,7 +102,7 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
   const context: OperationContext = { home, runtime, store, importer: importer(options.ingestBudgetMs ?? INGEST_BUDGET_MS, options.settledAfterMs ?? SETTLED_AFTER_MS) };
 
   const server = createServer((request, response) => {
-    handle(request, response, context, token).catch((error: unknown) => fail(response, error));
+    handle(request, response, context, token, options.dashboard ?? DASHBOARD_DIRECTORY).catch((error: unknown) => fail(response, error));
   });
   try {
     await listen(server, host, requestedPort);
@@ -158,6 +166,7 @@ async function handle(
   response: ServerResponse,
   context: OperationContext,
   token: string,
+  dashboard: string,
 ): Promise<void> {
   // Loopback is not an authentication boundary: any browser tab can reach 127.0.0.1.
   // Host and Origin are what stop DNS rebinding turning a web page into a client.
@@ -174,9 +183,7 @@ async function handle(
     return send(response, 200, { service: 'binnacle', version: context.runtime.version });
   }
 
-  if (!path.startsWith(OPS_PREFIX)) {
-    return fail(response, new OperationError('request.not_found', `No route ${JSON.stringify(path)}.`, 404));
-  }
+  if (!path.startsWith(OPS_PREFIX)) return serveStatic(request, response, dashboard);
   if (request.method !== 'POST') {
     return fail(response, methodNotAllowed(request.method, 'POST'));
   }
@@ -193,6 +200,102 @@ async function handle(
   }
 
   send(response, 200, await operation(await readJsonBody(request), context));
+}
+
+/** Content types by extension; anything else is served as `application/octet-stream`. */
+const CONTENT_TYPES: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2',
+};
+
+/**
+ * The dashboard's generated files (ADR-0031). They hold no project data, so they need no
+ * token; the Host and Origin checks have already run. `/` is `index.html`, a file in the
+ * directory is itself, and any other path is the client-side routing fallback, `200.html`.
+ * A path whose resolution would leave the directory is not found, never the fallback.
+ */
+function serveStatic(request: IncomingMessage, response: ServerResponse, dashboard: string): void {
+  if (request.method !== 'GET' && request.method !== 'HEAD') return fail(response, methodNotAllowed(request.method, 'GET or HEAD'));
+  const path = staticPath(request.url ?? '/');
+  if (path === null) return fail(response, new OperationError('request.not_found', `No route ${JSON.stringify(request.url)}.`, 404));
+
+  let file = join(dashboard, path === '/' ? 'index.html' : path);
+  if (!isFile(join(dashboard, 'index.html'))) {
+    return sendStatic(request, response, 503, '.html', Buffer.from(NOT_GENERATED));
+  }
+  if (!isFile(file)) file = join(dashboard, '200.html');
+  sendStatic(request, response, 200, extname(file), readFileSync(file));
+}
+
+/**
+ * The request's path, decoded, when it stays inside the directory; null when it does not.
+ * The raw request line is read rather than a parsed URL, because parsing resolves `..` and
+ * its encoded forms away, and a path that tries them is refused rather than silently mapped.
+ */
+function staticPath(url: string): string | null {
+  let path;
+  try {
+    path = decodeURIComponent(url.split(/[?#]/, 1)[0] ?? '');
+  } catch {
+    return null;
+  }
+  if (!path.startsWith('/') || /[\\\0]/.test(path) || path.split('/').includes('..')) return null;
+  // `//etc/passwd` and `/C:/…` name absolute paths once the leading slash is dropped.
+  const inside = path.slice(1);
+  return isAbsolute(inside) || win32.isAbsolute(inside) ? null : path;
+}
+
+const isFile = (path: string): boolean => statSync(path, { throwIfNoEntry: false })?.isFile() ?? false;
+
+const NOT_GENERATED = `<!doctype html>
+<meta charset="utf-8">
+<title>Binnacle</title>
+<p>The Binnacle dashboard has not been generated. In the Binnacle workspace, run <code>${DASHBOARD_GENERATE}</code>, then reload this page.</p>
+`;
+
+/**
+ * Every static response limits the page to its own origin: it loads and connects nowhere
+ * else, and of inline scripts runs only those the served HTML itself carries, by hash.
+ * HTML is never cached, so a regenerated dashboard is picked up on the next load.
+ */
+function sendStatic(request: IncomingMessage, response: ServerResponse, status: number, extension: string, body: Buffer): void {
+  const html = extension === '.html';
+  const scripts = html ? inlineScriptHashes(body.toString('utf8')) : [];
+  response.writeHead(status, {
+    'content-type': CONTENT_TYPES[extension] ?? 'application/octet-stream',
+    'content-length': body.length,
+    'content-security-policy': [
+      "default-src 'self'",
+      `script-src 'self'${scripts.map((hash) => ` '${hash}'`).join('')}`,
+      "object-src 'none'",
+      "base-uri 'none'",
+      "form-action 'none'",
+      "frame-ancestors 'none'",
+    ].join('; '),
+    'x-content-type-options': 'nosniff',
+    'referrer-policy': 'no-referrer',
+    ...(html ? { 'cache-control': 'no-store' } : {}),
+  });
+  response.end(request.method === 'HEAD' ? undefined : body);
+}
+
+/**
+ * The hash of every inline `<script>` in the served HTML: Nuxt's import map and runtime
+ * configuration are inline. A data block's hash is listed too, which lets nothing run that
+ * the file does not already hold.
+ */
+function inlineScriptHashes(html: string): string[] {
+  return [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
+    .filter(([, attributes = '']) => !/\bsrc\s*=/i.test(attributes))
+    .map(([, , text = '']) => `sha256-${createHash('sha256').update(text).digest('base64')}`);
 }
 
 const boundAddress = (runtime: Runtime): string => `${runtime.host}:${runtime.port}`;

@@ -103,11 +103,11 @@ describe('daemon operations', () => {
     });
   });
 
-  it('rejects an unknown route', async () => {
+  it('rejects an operation call outside /ops/, where only the dashboard is served', async () => {
     await withDaemon(async (daemon) => {
-      const response = await fetch(daemon.url('/'), { method: 'POST' });
-      assert.equal(response.status, 404);
-      assert.equal(((await response.json()) as Envelope).error.code, 'request.not_found');
+      const response = await fetch(daemon.url('/daemon.status'), { method: 'POST' });
+      assert.equal(response.status, 405);
+      assert.equal(((await response.json()) as Envelope).error.code, 'request.method_not_allowed');
     });
   });
 });

@@ -125,10 +125,14 @@ function temporary(prefix: string): string {
   return root;
 }
 
-it('no daemon operation changes the working tree, the index or anything else in the repository, or the artifacts it reads', async () => {
+it('no daemon operation nor static file changes the working tree, the index or anything else in the repository, or the artifacts it reads', async () => {
   const root = makeRepository();
   const artifacts = makeArtifacts(root);
-  const daemon = await startTestDaemon({ artifacts });
+  const dashboard = temporary('binnacle-write-guarantee-dashboard-');
+  write(dashboard, 'index.html', '<!doctype html><title>Binnacle</title>');
+  write(dashboard, '200.html', '<!doctype html><title>Binnacle</title>');
+  write(dashboard, '_nuxt/entry.js', 'export {};');
+  const daemon = await startTestDaemon({ artifacts, dashboard });
   try {
     const before = contents(root);
     const claudeCodeBefore = contents(artifacts.claudeCode);
@@ -143,6 +147,11 @@ it('no daemon operation changes the working tree, the index or anything else in 
       assert.deepEqual(contents(root), before, `${name} changed the repository`);
       assert.deepEqual(contents(artifacts.claudeCode), claudeCodeBefore, `${name} changed the Claude Code artifacts`);
       assert.deepEqual(contents(artifacts.codex), codexBefore, `${name} changed the Codex artifacts`);
+    }
+    // The dashboard's files, and the fallback for a client-side path.
+    for (const path of ['/', '/_nuxt/entry.js', '/projects']) {
+      assert.equal((await fetch(daemon.url(path))).status, 200, path);
+      assert.deepEqual(contents(root), before, `${path} changed the repository`);
     }
     // The artifacts were read, not merely present.
     const snapshot = await daemon.call<{ usage: { today: { records: number } } }>('project.snapshot', { path: root });

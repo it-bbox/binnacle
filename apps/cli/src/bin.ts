@@ -3,6 +3,7 @@ import { resolveHome, packageVersion } from '@binnacle/daemon';
 import { start, status, stop } from './daemon-commands.ts';
 import { list, register, status as projectStatus, unregister } from './project-commands.ts';
 import { EXIT, type ExitCode } from './exit.ts';
+import { dashboard } from './dashboard.ts';
 import { init } from './init.ts';
 import { mcp } from './mcp.ts';
 
@@ -22,6 +23,9 @@ Usage:
   binn project list               List the projects this machine tracks
   binn project status [path]      Manifest facts and live Git facts for the project containing path
   binn project unregister [path]  Remove a registration, changing nothing in the repository
+
+  binn dashboard        Open the dashboard in the default browser, already authorised
+  binn dashboard --print  Print the dashboard's address, with the token, without opening it
 
   binn mcp              Serve Binnacle's MCP tools on stdio for the working directory
 
@@ -60,6 +64,10 @@ async function run(argv: string[]): Promise<ExitCode> {
     if (second === 'start') return await start(home);
     if (second === 'status') return await status(home);
     if (second === 'stop') return await stop(home);
+  }
+
+  if (first === 'dashboard' && rest.length === 0 && (second === undefined || second === '--print')) {
+    return await dashboard(resolveHome(), second === '--print');
   }
 
   if (first === 'init' && rest.length === 0) return await init(resolveHome(), second);

@@ -1,0 +1,20 @@
+{
+  "name": "@binnacle/dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Binnacle dashboard: a read-only single-page application, generated to static files that the daemon serves (ADR-0031).",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "generate": "nuxt generate",
+    "typecheck": "nuxt typecheck"
+  },
+  "engines": {
+    "node": ">=24 <27"
+  },
+  "devDependencies": {
+    "nuxt": "^4.5.2",
+    "typescript": "^5.9.0",
+    "vue-tsc": "^3.3.11"
+  }
+}
