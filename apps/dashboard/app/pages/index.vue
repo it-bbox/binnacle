@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import RunList from '~/components/RunList.vue';
 import { usePolling } from '~/composables/daemon';
-import { loadProjects, position, projectName } from '~/composables/projects';
+import { loadProjects, position, projectName, unavailable } from '~/composables/projects';
 
 const { data, error } = usePolling(loadProjects);
 </script>
@@ -16,6 +17,9 @@ const { data, error } = usePolling(loadProjects);
     <p v-else-if="view.failure" class="warn"><code>{{ view.failure.code }}</code> {{ view.failure.message }}</p>
     <template v-else-if="view.snapshot">
       <p>{{ position(view.snapshot) }}</p>
+      <h3>Running now <span class="label">active in the last ten minutes, Binnacle's reading</span></h3>
+      <p v-if="unavailable(view.snapshot.activity)" class="muted">Not available: {{ view.snapshot.activity.reason }}</p>
+      <RunList v-else :runs="view.snapshot.activity.running.items" :remainder="view.snapshot.activity.running.remainder" empty="Nothing is running." />
       <h3>Ready to start</h3>
       <p v-if="view.snapshot.tasks === null" class="muted">The tracker cannot be read; attention says why.</p>
       <p v-else-if="view.snapshot.tasks.readyToStart.items.length === 0" class="muted">No Task is ready to start.</p>
@@ -51,6 +55,9 @@ h3 {
   font-size: 0.9rem;
   color: var(--muted);
   margin-bottom: 0.25rem;
+}
+.label {
+  font-weight: normal;
 }
 ul {
   margin: 0;

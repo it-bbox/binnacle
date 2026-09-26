@@ -11,11 +11,28 @@ type GitFacts =
   | { available: false; reason: string };
 
 export type SnapshotTask = { id: string; title: string | null; state: string | null; start: string | null };
+type Unavailable = { available: false; reason: string };
+
+/** A run as the snapshot's `activity` gives it. */
+export type Run = {
+  id: string;
+  taskId: string | null;
+  taskTitle: string | null;
+  role: string;
+  harness: string;
+  model: string | null;
+  branch: string | null;
+  checkout: string | null;
+  lastActivityAt: string;
+};
+
+export type Activity = { running: { items: Run[]; remainder: number }; recent: Run[] };
 
 export type Snapshot = {
   git: GitFacts;
   roadmap: { epics: Epic[] } | null;
   tasks: { readyToStart: { items: SnapshotTask[]; remainder: number } } | null;
+  activity: Activity | Unavailable;
   attention: Failure[];
 };
 
@@ -51,4 +68,26 @@ export function checkout(git: GitFacts): string {
   if (!git.available) return `Git unavailable: ${git.reason}`;
   const head = git.detached ? 'detached HEAD' : (git.branch ?? 'no branch');
   return `${head} at ${git.commit?.slice(0, 12) ?? 'no commits'}, ${git.dirty ? 'dirty' : 'clean'}`;
+}
+
+export const unavailable = (section: object): section is Unavailable => 'available' in section;
+
+/** The run's Task, or its role when it has none. */
+export const runSubject = (run: Run): string =>
+  run.taskId === null ? `No Task, ${run.role} role` : `${run.taskId}${run.taskTitle === null ? '' : `: ${run.taskTitle}`}`;
+
+/** How long ago `timestamp` was, as a person says it. */
+export function ago(timestamp: string): string {
+  const minutes = Math.floor((Date.now() - Date.parse(timestamp)) / 60_000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 48 * 60) return `${Math.floor(minutes / 60)} h ago`;
+  return new Date(timestamp).toLocaleDateString('en');
+}
+
+/** The latest run's activity: the first running one, or the latest recent one. */
+export function latestActivity(activity: Snapshot['activity']): string {
+  if (unavailable(activity)) return `Not available: ${activity.reason}`;
+  const run = activity.running.items[0] ?? activity.recent[0];
+  return run === undefined ? 'No runs observed' : `${ago(run.lastActivityAt)}, ${runSubject(run)}`;
 }

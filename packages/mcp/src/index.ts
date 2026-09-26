@@ -26,7 +26,7 @@ const TOOLS = {
   },
   project_snapshot: {
     operation: 'project.snapshot',
-    description: 'The compact Product Snapshot: roadmap, Tasks in flight and ready to start with the command that starts each, recent decisions, Git and attention items.',
+    description: 'The compact Product Snapshot: roadmap, Tasks in flight and ready to start with the command that starts each, the runs running now and recently, recent decisions, usage, Git and attention items.',
   },
   daily_get: {
     operation: 'daily.get',

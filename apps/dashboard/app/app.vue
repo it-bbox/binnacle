@@ -11,6 +11,7 @@ const authorised = useAuthorised();
       <strong>Binnacle</strong>
       <NuxtLink to="/">Overview</NuxtLink>
       <NuxtLink to="/projects">Projects</NuxtLink>
+      <NuxtLink to="/attention">Attention</NuxtLink>
     </nav>
     <main>
       <NuxtPage />

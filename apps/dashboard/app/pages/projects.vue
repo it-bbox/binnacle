@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { usePolling } from '~/composables/daemon';
-import { checkout, loadProjects, position, projectName } from '~/composables/projects';
+import { checkout, latestActivity, loadProjects, position, projectName } from '~/composables/projects';
 
 const { data, error } = usePolling(loadProjects);
 </script>
@@ -17,17 +17,19 @@ const { data, error } = usePolling(loadProjects);
         <th>Path</th>
         <th>Position</th>
         <th>Registered checkout</th>
+        <th>Latest activity</th>
       </tr>
     </thead>
     <tbody>
       <tr v-for="view in data" :key="view.project.path">
         <td>{{ projectName(view.project) }}</td>
         <td><code>{{ view.project.path }}</code></td>
-        <td v-if="view.project.unavailable !== null" colspan="2" class="warn">Unavailable: {{ view.project.unavailable }}</td>
-        <td v-else-if="view.failure" colspan="2" class="warn"><code>{{ view.failure.code }}</code> {{ view.failure.message }}</td>
+        <td v-if="view.project.unavailable !== null" colspan="3" class="warn">Unavailable: {{ view.project.unavailable }}</td>
+        <td v-else-if="view.failure" colspan="3" class="warn"><code>{{ view.failure.code }}</code> {{ view.failure.message }}</td>
         <template v-else-if="view.snapshot">
           <td>{{ position(view.snapshot) }}</td>
           <td>{{ checkout(view.snapshot.git) }}</td>
+          <td>{{ latestActivity(view.snapshot.activity) }}</td>
         </template>
       </tr>
     </tbody>
