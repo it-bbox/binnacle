@@ -70,7 +70,7 @@ const boardEmpty = computed(() => {
   return value !== null && COLUMNS.every(([key]) => count(value.columns[key]) === 0) && count(value.unknown) === 0 && value.cancelled === 0;
 });
 const shown = (key: ColumnKey, cards: Card[]): Card[] => (key === 'done' && !doneOpen.value ? cards.slice(0, DONE_SHOWN) : cards);
-const run = (latest: LatestRun): string => [latest.harness, latest.model ?? t.value.modelNotReported, latest.role].join(' · ');
+const runLabel = (latest: LatestRun): string => [latest.harness, latest.model ?? t.value.modelNotReported, latest.role].join(' · ');
 
 const roadmapAttention = computed(() => snapshot.data.value?.attention.filter((item) => item.code.startsWith('roadmap.')) ?? []);
 function gitLine(git: Snapshot['git']): string {
@@ -212,7 +212,7 @@ function gitLine(git: Snapshot['git']): string {
                     <span v-if="card.source === 'runs'" class="font-medium text-primary" :title="t.fromRunsReading">{{ t.fromRuns }}</span>
                     <span class="text-dimmed">{{ since(card.latestRun.lastActivityAt) }}</span>
                   </div>
-                  <div class="font-mono break-words text-muted">{{ run(card.latestRun) }}</div>
+                  <div class="font-mono break-words text-muted">{{ runLabel(card.latestRun) }}</div>
                   <div v-if="card.source === 'runs'" class="text-dimmed">{{ t.ticketSays(card.state ?? t.noState) }}</div>
                 </div>
               </NuxtLink>
@@ -249,6 +249,9 @@ function gitLine(git: Snapshot['git']): string {
       <section class="flex flex-col gap-2.5">
         <div class="flex items-center gap-3">
           <h2 class="m-0 text-[13px] font-semibold">{{ t.usageByRole }}</h2>
+          <span v-if="usage.data.value" class="text-xs text-dimmed">
+            {{ usage.data.value.importing.windowStart === null ? t.wholeWindow : t.sinceWindow(usage.data.value.importing.windowStart) }}
+          </span>
           <span class="flex-1" />
           <NuxtLink :to="{ path: '/usage', query: { project } }" class="text-xs text-primary hover:underline">{{ t.usagePage }}</NuxtLink>
         </div>

@@ -122,7 +122,6 @@ export const en = {
 
   // The Task page.
   noTaskAddress: 'This address names no Task. Open one from the Project page.',
-  inProgress: 'In progress',
   triage: 'Triage',
   blockedBy: 'Blocked by',
   ticket: 'Ticket',

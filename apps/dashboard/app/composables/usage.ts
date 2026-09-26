@@ -45,6 +45,13 @@ export type TaskUsage = { importing: Importing; totals: Totals; runs: Limited<Ta
 export type TaskRun = Omit<Run, 'taskTitle'> & { startedAt: string; active: { value: boolean }; totals: Totals };
 
 /** The token fields in the order the pages show them; reasoning is a part of output, never added to it. */
+/** What marks a field's total besides its number: partial, and calculated or estimated rather than read (ADR-0007). */
+export function marks(field: FieldTotal): ('partial' | 'calculated' | 'estimated')[] {
+  const found: ('partial' | 'calculated' | 'estimated')[] = field.partial ? ['partial'] : [];
+  if (field.provenance === 'calculated' || field.provenance === 'estimated') found.push(field.provenance);
+  return found;
+}
+
 export const FIELDS = [
   ['input', 'Input'],
   ['cachedInput', 'Cached input'],

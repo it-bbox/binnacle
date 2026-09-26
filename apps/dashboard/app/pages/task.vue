@@ -2,7 +2,7 @@
 import { call, usePolling, type Failure } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
 import { isUnavailable, type Unavailable } from '~/composables/projects';
-import { FIELDS, type TaskUsage, type Totals } from '~/composables/usage';
+import { FIELDS, marks, type TaskUsage, type Totals } from '~/composables/usage';
 
 /** `task.get`'s brief, as the Task page renders it. */
 type Brief = {
@@ -57,15 +57,18 @@ function stateBadge(state: string | null) {
 const dependency = (item: Brief['dependencies'][number]): string =>
   item.dangling ? t.value.dangling : `${item.state ?? t.value.noState}, ${item.met ? t.value.met : t.value.notMet}`;
 
-/** A run's tokens, kind by kind, never added together. */
+/** A run's tokens, kind by kind, never added together, each marked as `TokenKinds` marks it. */
 const tokensLine = (totals: Totals): string =>
-  FIELDS.map(([name]) => {
-    const field = totals[name];
-    const value = field.tokens === null ? t.value.notReported : number(Math.round(field.tokens));
-    return `${t.value[name]} ${value}${field.partial ? ` (${t.value.partial})` : ''}`;
-  }).join(' · ');
+  totals.records === 0
+    ? t.value.noRecords
+    : FIELDS.map(([name]) => {
+        const field = totals[name];
+        const value = field.tokens === null ? t.value.notReported : number(Math.round(field.tokens));
+        const noted = marks(field).map((mark) => t.value[mark]);
+        return `${t.value[name]} ${value}${noted.length === 0 ? '' : ` (${noted.join(', ')})`}`;
+      }).join(' · ');
 
-const NOT_AVAILABLE = computed(() => [
+const notAvailableRows = computed(() => [
   { element: t.value.reviewUsage, reason: t.value.reviewUsageReason },
   { element: t.value.reworkUsage, reason: t.value.reworkUsageReason },
   { element: t.value.questions, reason: t.value.questionsReason },
@@ -83,7 +86,7 @@ const NOT_AVAILABLE = computed(() => [
           <span class="font-mono text-[12.5px] text-muted">{{ data.id }}</span>
           <UBadge :label="data.state ?? t.noState" v-bind="stateBadge(data.state)" class="font-mono" />
           <template v-if="fromRuns">
-            <UBadge :label="t.inProgress" color="primary" variant="soft" />
+            <UBadge label="In progress" color="primary" variant="soft" />
             <span class="text-xs text-muted" :title="t.fromRunsReading">{{ t.fromRuns }}, {{ t.ticketSays(data.state ?? t.noState) }}</span>
           </template>
         </div>
@@ -223,7 +226,7 @@ const NOT_AVAILABLE = computed(() => [
               <USkeleton v-else-if="usage === null" class="h-24" />
               <TokenKinds v-else :columns="[{ key: 'task', label: t.implementationUsage, totals: usage.totals }]" />
             </div>
-            <div v-for="row in NOT_AVAILABLE" :key="row.element" class="flex flex-col gap-0.5 border-t border-default px-3.5 py-2.5">
+            <div v-for="row in notAvailableRows" :key="row.element" class="flex flex-col gap-0.5 border-t border-default px-3.5 py-2.5">
               <div class="flex justify-between gap-2">
                 <span class="font-medium">{{ row.element }}</span>
                 <span class="text-xs text-muted">{{ t.notAvailable }}</span>

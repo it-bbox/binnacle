@@ -121,7 +121,6 @@ export const ru: Dictionary = {
 
   // Страница Task.
   noTaskAddress: 'В адресе не указан Task. Откройте его со страницы проекта.',
-  inProgress: 'In progress',
   triage: 'Триаж',
   blockedBy: 'Blocked by',
   ticket: 'Тикет',
