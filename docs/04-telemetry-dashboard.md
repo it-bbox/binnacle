@@ -70,16 +70,16 @@ It speaks English and Russian, starting in Russian when the browser prefers Russ
 
 ### Overview
 
-The main screen. It answers where each project stands and what to type next.
+The main screen, for the selected project. It answers where the project stands and what to type next.
 
-- active projects, each with its roadmap position;
-- the Next action with its command, and Binnacle's Suggested step beside it, labelled as a calculation (ADR-0032);
-- the Tasks In progress, a `READY` one marked as read from its runs (ADR-0032);
-- the Tasks ready to start, each with the command that starts it; a Task In progress is not one of them;
-- current runs;
-- attention items;
-- usage today/week;
-- provider/model distribution.
+- What's next: the Next action with its command, and Binnacle's Suggested step beside it, labelled as a calculation (ADR-0032);
+- the roadmap's epics as a compact stepper, and the current epic's Tasks done out of all of them, `CANCELLED` left out;
+- Ready to start, in any order, each Task with the command that starts it; a Task In progress is not one of them. It says how many can run in parallel, from the snapshot's `tasks.parallel`, when at least one place is free and either two Tasks are ready or one is in progress. The current epic's `READY` Tasks that wait on an Unmet dependency follow, dimmed, with what they wait on;
+- Running now: each run with its Task or role, harness, model, branch and latest activity, "running" being Binnacle's reading of recent activity;
+- attention items, each with its code;
+- output tokens today and over the last seven days, linking to Usage.
+
+A roadmap that cannot be read, and a project or epic with no Tasks, each show their state with the attention items that say why.
 
 ### Projects
 
