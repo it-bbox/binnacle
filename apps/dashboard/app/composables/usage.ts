@@ -68,6 +68,9 @@ export function tokens(field: FieldTotal): string {
 export const fieldsLine = (totals: Totals): string =>
   totals.records === 0 ? 'no records' : FIELDS.map(([name, label]) => `${label.toLowerCase()} ${tokens(totals[name])}`).join(', ');
 
+/** A Task as a row names it: its id, and its title when it has one. */
+export const taskLabel = (task: { id: string; title: string | null }): string => `${task.id}${task.title === null ? '' : `: ${task.title}`}`;
+
 /** Where the window `usage.get` answers over starts. */
 export const windowLabel = (importing: Importing): string =>
   `over the import window, ${importing.windowStart === null ? 'which takes everything' : `since ${importing.windowStart}`}`;

@@ -4,7 +4,7 @@ import UsageTable from '~/components/UsageTable.vue';
 import WeeklyTrend from '~/components/WeeklyTrend.vue';
 import { call, usePolling } from '~/composables/daemon';
 import { isUnavailable } from '~/composables/projects';
-import { IMPORTING, windowLabel, type ProjectUsage, type SnapshotUsage } from '~/composables/usage';
+import { IMPORTING, taskLabel, windowLabel, type ProjectUsage, type SnapshotUsage } from '~/composables/usage';
 
 /** ADR-0014's names for the levels a harness reaches through its artifacts. */
 const LEVELS: Record<number, string> = { 1: 'Context', 2: 'Attribution', 3: 'Usage' };
@@ -16,7 +16,7 @@ const COST_UNAVAILABLE =
 const DERIVED_READING = "Binnacle's calculation from the same records, not a figure any harness reports.";
 
 const plural = (count: number, one: string, many: string): string => `${count.toLocaleString('en')} ${count === 1 ? one : many}`;
-const mean = (value: number): string => value.toLocaleString('en', { maximumFractionDigits: 1 });
+const oneDecimal = (value: number): string => value.toLocaleString('en', { maximumFractionDigits: 1 });
 
 const route = useRoute();
 const project = typeof route.query.project === 'string' ? route.query.project : null;
@@ -74,7 +74,7 @@ const { data, error } = usePolling(async () => {
       <p v-if="data.overWindow.tasks.items.length === 0" class="muted">No run is attributed to a Task.</p>
       <UsageTable
         v-else
-        :rows="data.overWindow.tasks.items.map((item) => ({ key: item.id, label: `${item.id}${item.title === null ? '' : `: ${item.title}`}`, totals: item.totals }))"
+        :rows="data.overWindow.tasks.items.map((item) => ({ key: item.id, label: taskLabel(item), totals: item.totals }))"
         :remainder="data.overWindow.tasks.remainder"
       />
     </template>
@@ -98,12 +98,12 @@ const { data, error } = usePolling(async () => {
         :rows="[
           {
             key: 'mean',
-            label: `Mean of ${plural(data.overWindow.derived.perCompletedTask.items.length + data.overWindow.derived.perCompletedTask.remainder, 'Task', 'Tasks')}`,
+            label: 'Mean per Task',
             totals: data.overWindow.derived.perCompletedTask.mean,
           },
           ...data.overWindow.derived.perCompletedTask.items.map((item) => ({
             key: item.id,
-            label: `${item.id}${item.title === null ? '' : `: ${item.title}`} · ${plural(item.runs, 'run', 'runs')}`,
+            label: `${taskLabel(item)} · ${plural(item.runs, 'run', 'runs')}`,
             totals: item.totals,
           })),
         ]"
@@ -128,12 +128,12 @@ const { data, error } = usePolling(async () => {
       </thead>
       <tbody>
         <tr>
-          <th>Mean of {{ plural(data.overWindow.derived.runsPerTask.items.length + data.overWindow.derived.runsPerTask.remainder, 'Task', 'Tasks') }}</th>
-          <td>{{ mean(data.overWindow.derived.runsPerTask.mean.runs) }}</td>
-          <td>{{ mean(data.overWindow.derived.runsPerTask.mean.subagentRuns) }}</td>
+          <th>Mean per Task</th>
+          <td>{{ oneDecimal(data.overWindow.derived.runsPerTask.mean.runs) }}</td>
+          <td>{{ oneDecimal(data.overWindow.derived.runsPerTask.mean.subagentRuns) }}</td>
         </tr>
         <tr v-for="item in data.overWindow.derived.runsPerTask.items" :key="item.id">
-          <th>{{ item.id }}{{ item.title === null ? '' : `: ${item.title}` }}</th>
+          <th>{{ taskLabel(item) }}</th>
           <td>{{ item.runs.toLocaleString('en') }}</td>
           <td>{{ item.subagentRuns.toLocaleString('en') }}</td>
         </tr>

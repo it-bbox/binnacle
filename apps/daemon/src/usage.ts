@@ -411,15 +411,15 @@ function perTask(
   });
   completed.sort((a, b) => magnitude(b.totals) - magnitude(a.totals) || byId(a, b));
 
-  const counted = [...runsOf].map(([id, own]) => ({
+  const runCounts = [...runsOf].map(([id, own]) => ({
     id,
     title: titles.get(id) ?? null,
     runs: own.length,
     // A run is a subagent's when its records are: every one of them comes from the same session and subagent.
     subagentRuns: own.filter((records) => records[0]!.subagentId !== null).length,
   }));
-  counted.sort((a, b) => b.runs - a.runs || byId(a, b));
-  const average = (value: (item: (typeof counted)[number]) => number): number => counted.reduce((all, item) => all + value(item), 0) / counted.length;
+  runCounts.sort((a, b) => b.runs - a.runs || byId(a, b));
+  const average = (value: (item: (typeof runCounts)[number]) => number): number => runCounts.reduce((all, item) => all + value(item), 0) / runCounts.length;
 
   return {
     perCompletedTask: {
@@ -430,8 +430,8 @@ function perTask(
     },
     runsPerTask: {
       provenance: 'calculated',
-      ...limited(counted),
-      mean: counted.length === 0 ? null : { runs: average((item) => item.runs), subagentRuns: average((item) => item.subagentRuns) },
+      ...limited(runCounts),
+      mean: runCounts.length === 0 ? null : { runs: average((item) => item.runs), subagentRuns: average((item) => item.subagentRuns) },
     },
   };
 }

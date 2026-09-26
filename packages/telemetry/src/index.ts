@@ -67,7 +67,8 @@ export function sum(records: Pick<UsageRecord, 'tokens' | 'provenance'>[]): Tota
 /**
  * The mean of `totals`, at least one, field by field and by `sum`'s rules: a field's mean is
  * over the totals that report it, null when none does, and partial when only some do or one
- * of them is partial. `records` is the mean number of records.
+ * of them is partial. It is Binnacle's arithmetic, so calculated, or estimated when a value
+ * averaged is (ADR-0007). `records` is the mean number of records.
  */
 export function mean(totals: Totals[]): Totals {
   const field = (name: TokenField): FieldTotal => {
@@ -76,7 +77,7 @@ export function mean(totals: Totals[]): Totals {
     return {
       tokens: reporting.reduce((all, total) => all + total[name].tokens!, 0) / reporting.length,
       partial: reporting.length < totals.length || reporting.some((total) => total[name].partial),
-      provenance: DIRECTNESS[Math.max(...reporting.map((total) => DIRECTNESS.indexOf(total[name].provenance!)))]!,
+      provenance: DIRECTNESS[Math.max(DIRECTNESS.indexOf('calculated'), ...reporting.map((total) => DIRECTNESS.indexOf(total[name].provenance!)))]!,
     };
   };
   const records = totals.reduce((all, total) => all + total.records, 0) / totals.length;

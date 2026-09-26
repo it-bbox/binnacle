@@ -1621,14 +1621,15 @@ describe('Derived metrics in usage.get', () => {
         ],
         remainder: 0,
         // Over the two with runs: the third is counted apart, never as a zero.
+        // A mean is Binnacle's arithmetic over reported totals: calculated.
         mean: {
           records: 1,
-          input: reported((2 + 4) / 2),
-          cachedInput: reported((39225 + 167306) / 2),
-          cacheCreation: reported((29831 + 994) / 2),
-          output: reported((137 + 2) / 2),
+          input: calculated((2 + 4) / 2),
+          cachedInput: calculated((39225 + 167306) / 2),
+          cacheCreation: calculated((29831 + 994) / 2),
+          output: calculated((137 + 2) / 2),
           // Only the first Task reports it: its mean is over that one, and partial.
-          reasoning: { tokens: 18, partial: true, provenance: 'provider_reported' },
+          reasoning: { tokens: 18, partial: true, provenance: 'calculated' },
         },
         withoutRuns: 1,
       });
@@ -1690,6 +1691,10 @@ describe('Derived metrics in usage.get', () => {
         ...lines(ABORTED, monday(0).toISOString(), '-monday-second'),
       ]);
       await register(daemon, root);
+
+      // The helper's Monday is one, and this week's.
+      assert.equal(monday(0).getDay(), 1);
+      assert.ok(Date.now() - monday(0).getTime() < 7 * 24 * 3_600_000);
 
       const { derived } = await usageGet<ProjectUsage>(daemon, root);
       assert.equal(derived.weekly.provenance, 'calculated');
