@@ -25,7 +25,7 @@ Rules for the whole run. Never force-push, change settings, touch another reposi
    Without Binnacle, this session's checkout is `git rev-parse --show-toplevel`, and the registered one is the first path `git worktree list` prints. If they differ, refuse in the same way.
 
    Otherwise check that `main` is checked out and the tree is clean, and bring it up to date with `git pull --ff-only`. If not, stop and say why. Note `main`'s HEAD: the run's start.
-3. Call `project_snapshot`, with no arguments. Choose the epic: the one the human named (`$ARGUMENTS`), or else the single epic the roadmap has `in progress`. If none or several fit, stop and ask.
+3. Call `project_snapshot`, with no arguments. Choose the epic: the one the human named (`$ARGUMENTS`), or else the single epic the roadmap has `in progress`, or else, with none `in progress`, the single one it has at `tickets`, as `/to-tickets` leaves it. If none or several fit, stop and ask.
 4. Refuse to start unless the epic is planned: its spec exists, its issues directory holds tickets, and the roadmap has it at `tickets` or `in progress`. Say what is missing and that planning is the human's (`/grill-with-docs`, `/to-spec`, `/to-tickets`). Never run those, and never move on to another epic.
 
 ## Loop
@@ -60,7 +60,7 @@ Rules for the whole run. Never force-push, change settings, touch another reposi
    - `git push origin main`, never forced. If the push fails, keep going and report it.
    - Once a minute has passed since the agent's report, call `project_snapshot` again, and again while its `usage.importing.incomplete` is true. Its ingest takes the branch of the agent's work from the worktree's reflog, which `git worktree remove` deletes: read later, that work is credited to no Task (ADR-0030). It leaves out a session's last message until its file has gone unwritten for a minute, and goes on in the background with what does not fit in one call. If it fails, keep going and report it.
    - `git worktree remove <path>`. A worktree created for an agent may be locked: if `git worktree list` shows it `locked`, run `git worktree unlock <path>` first. Then delete, with `git branch -d`, the ticket's branch and the branch the Agent tool created for the worktree.
-   - If the merge changed the lockfile or added a workspace package, run the project's frozen install in the main checkout (`pnpm install --frozen-lockfile` in a pnpm workspace), so that what runs from it matches what was merged. If it changed the code of the Binnacle daemon the human runs (only when this project is Binnacle itself), restart that daemon with `binn daemon stop` then `binn daemon start`, and say so in the report. Never stop a daemon for any other reason.
+   - If the merge changed the lockfile or added a workspace package, run the project's frozen install in the main checkout (`pnpm install --frozen-lockfile` in a pnpm workspace), so that what runs from it matches what was merged. If it changed the code of the Binnacle daemon the human runs (only when this project is Binnacle itself), restart that daemon with `binn daemon stop` then `binn daemon start`, and say so in the report. Never stop a daemon for any other reason. If it changed `apps/dashboard` (only when this project is Binnacle itself), run `pnpm dashboard:generate` in the main checkout, after any frozen install, so that the daemon serves the dashboard just merged, and say so in the report.
 
    Then go back to step 5.
 8. **Stop a ticket** on a question only the owner can answer, on checks that fail twice, on a review finding left unresolved without a reason, on a conflict that is not mechanical, or on a change outside the ticket. Merge nothing of it and set nothing `DONE`. Leave its branch and worktree in place for the owner. Every ticket that depends on it stays unstarted, because its dependency never becomes `DONE`. Tickets that do not depend on it go on. For a question, send a push notification at once naming the ticket and the question. Then go back to step 5.
@@ -71,7 +71,7 @@ Rules for the whole run. Never force-push, change settings, touch another reposi
 10. Report:
     - **Merged**: each ticket with its commits.
     - **Reviews**: per ticket, what the review found and what was fixed, kept or left.
-    - **Waiting for the owner**: each stopped ticket with its reason, branch and worktree; each question; each human step prepared and not done (a hand check, a `/binnacle:checkpoint` confirmation, a demonstration); a failed push; a daemon restarted.
+    - **Waiting for the owner**: each stopped ticket with its reason, branch and worktree; each question; each human step prepared and not done (a hand check, a `/binnacle:checkpoint` confirmation, a demonstration); a failed push; a daemon restarted; the dashboard regenerated.
     - **Attention**: every item with its code, or "none".
     - **Next**: tell the owner to run `/binnacle:checkpoint` in this session before closing it, so that what the run decided reaches canonical sources and the checkpoint is recorded. You cannot run it: only a human starts it.
 11. Send a push notification: the epic, how many tickets merged, how many wait for the owner, and that `/binnacle:checkpoint` is next.
