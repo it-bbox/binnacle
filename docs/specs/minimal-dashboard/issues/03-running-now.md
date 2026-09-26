@@ -1,6 +1,6 @@
 # 03: What is running now, and who runs it
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 01
 Spec: `docs/specs/minimal-dashboard/spec.md`
