@@ -34,6 +34,8 @@ The intended multi-session build chain is:
 
 Do not advance from a grilling answer into implementation unless explicitly instructed.
 
+Grilling is a quiz, whatever the skill says about rounds: one question at a time, through the `AskUserQuestion` tool, the recommended option first and marked "(Recommended)", never options written out as chat text. Decide yourself what the docs, ADRs or Ponytail already answer, and list those defaults in the summary; only genuine product trade-offs go to the owner.
+
 How that chain runs on this repository — a branch and a fresh session per ticket, `DONE` in the same step as the merge, Product work in a disposable session through `/binnacle:product`, `/binnacle:daily` and `/binnacle:checkpoint` — is in `docs/workflow/02-development-workflow.md`, under *Standard task flow* → *On this repository*.
 
 ## Agent skills
