@@ -158,7 +158,7 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
             :key="alternative.kind"
             class="grid grid-cols-[28px_minmax(0,1fr)] gap-x-2.5 gap-y-1 border-t border-default py-3"
           >
-            <div class="flex size-[26px] items-center justify-center rounded-[7px] bg-elevated text-muted">
+            <div class="flex size-[26px] items-center justify-center rounded-[7px] bg-accented text-muted">
               <UIcon :name="ICONS[alternative.kind]" class="size-3.5" />
             </div>
             <div class="flex min-w-0 flex-col gap-2">
@@ -313,7 +313,7 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
             <p v-if="snapshot.attention.length === 0" class="px-3.5 py-4 text-muted">{{ t.nothing }}</p>
             <ul v-else class="divide-y divide-default">
               <li v-for="(item, index) in snapshot.attention" :key="index" class="flex items-start gap-2 px-3.5 py-2.5">
-                <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 flex-none text-warning" />
+                <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 flex-none text-(--warn)" />
                 <div class="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span class="leading-snug break-words" lang="en">{{ item.message }}</span>
                   <code class="font-mono text-[11px] text-dimmed">{{ item.code }}</code>

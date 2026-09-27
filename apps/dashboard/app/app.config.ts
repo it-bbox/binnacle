@@ -10,8 +10,16 @@ const warningAndError = [
 
 export default defineAppConfig({
   ui: {
-    badge: { compoundVariants: [...warningAndError] },
-    alert: { compoundVariants: warningAndError.map(({ class: root, ...variant }) => ({ ...variant, class: { root } })) },
+    badge: {
+      compoundVariants: [
+        ...warningAndError,
+        // The mockup's quiet badges sit on --chip; Nuxt UI would put them on the hover shade.
+        { color: 'neutral', variant: 'soft', class: 'bg-accented' },
+        { color: 'neutral', variant: 'subtle', class: 'bg-accented' },
+      ],
+    },
+    // A warning's icon is the mockup's --warn, beside its text in --warn-text.
+    alert: { compoundVariants: warningAndError.map(({ class: root, ...variant }) => ({ ...variant, class: { root, ...(variant.color === 'warning' ? { icon: 'text-(--warn)' } : {}) } })) },
     // A dot in the warning colour is the mockup's --warn, not the text shade.
     chip: { variants: { color: { warning: 'bg-(--warn)' } } },
   },

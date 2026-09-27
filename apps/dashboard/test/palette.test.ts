@@ -29,15 +29,15 @@ const TOKENS = [
 ].map((name) => `--${name}`);
 
 const themes = [
-  { theme: 'light', mockup: /^:root\{(--sans[^}]*)\}/m, stylesheet: /:root,\s*\.light\s*\{([^}]*)\}/ },
-  { theme: 'dark', mockup: /prefers-color-scheme:dark\)\{:root\{([^}]*)\}/, stylesheet: /\.dark\s*\{([^}]*)\}/ },
+  { theme: 'light', mockupBlock: /^:root\{(--sans[^}]*)\}/m, stylesheetBlock: /:root,\s*\.light\s*\{([^}]*)\}/ },
+  { theme: 'dark', mockupBlock: /prefers-color-scheme:dark\)\{:root\{([^}]*)\}/, stylesheetBlock: /\.dark\s*\{([^}]*)\}/ },
 ];
 
 describe("the dashboard's palette", () => {
   for (const theme of themes) {
     it(`declares the mockup's tokens with the mockup's values, in ${theme.theme}`, () => {
-      const expected = declarations(mockup, theme.mockup);
-      const actual = declarations(stylesheet, theme.stylesheet);
+      const expected = declarations(mockup, theme.mockupBlock);
+      const actual = declarations(stylesheet, theme.stylesheetBlock);
       for (const token of TOKENS) {
         assert.ok(expected.has(token), `the mockup has no ${token} in ${theme.theme}`);
         assert.equal(actual.get(token), expected.get(token), `${token} in ${theme.theme}`);

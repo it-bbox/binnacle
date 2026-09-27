@@ -46,7 +46,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
         <UCard v-for="view in views ?? []" :key="view.project.path" :ui="card">
           <template #header>
             <div class="flex min-w-0 items-center gap-2.5">
-              <span class="flex size-5.5 flex-none items-center justify-center rounded-md bg-elevated text-[10px] font-semibold">{{ initials(view.project) }}</span>
+              <span class="flex size-5.5 flex-none items-center justify-center rounded-md bg-accented text-[10px] font-semibold">{{ initials(view.project) }}</span>
               <ULink :to="overview(view)" class="truncate font-semibold text-default">{{ projectName(view.project) }}</ULink>
             </div>
             <span v-if="view.snapshot" class="font-mono text-[11.5px] text-dimmed">{{ number(view.snapshot.attention.length) }}</span>
@@ -59,7 +59,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
             <p v-if="view.snapshot.attention.length === 0" class="px-3.5 py-3 text-muted">{{ t.nothing }}</p>
             <ul v-else class="divide-y divide-default">
               <li v-for="(item, index) in view.snapshot.attention" :key="index" class="flex items-start gap-2 px-3.5 py-2.5">
-                <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 flex-none text-warning" />
+                <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 flex-none text-(--warn)" />
                 <div class="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span class="leading-snug break-words" lang="en">{{ item.message }}</span>
                   <code class="font-mono text-[11px] text-dimmed">{{ item.code }}</code>

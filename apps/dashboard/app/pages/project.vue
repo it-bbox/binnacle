@@ -166,7 +166,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
             <div class="text-muted">{{ board.data.value.epic !== null && board.data.value.spec === null ? t.noSpecYet : t.noTasksBody }}</div>
           </div>
           <div v-else class="grid grid-cols-4 items-start gap-2.5">
-            <div v-for="[key, label, plain] in COLUMNS" :key="key" class="flex min-w-0 flex-col gap-2 rounded-lg border border-default bg-muted p-2">
+            <div v-for="[key, label, plain] in COLUMNS" :key="key" class="flex min-w-0 flex-col gap-2 rounded-lg border border-default bg-(--sidebar) p-2">
               <div class="flex items-center justify-between px-1 py-0.5">
                 <span class="text-xs font-semibold">{{ label }}</span>
                 <span class="font-mono text-[11.5px] text-dimmed">{{ number(count(board.data.value.columns[key])) }}</span>
@@ -193,7 +193,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
                 <div v-if="card.unmetDependencies.length > 0" class="text-[11px] text-muted">
                   {{ t.unmetDependency }} <span class="font-mono">{{ card.unmetDependencies.join(', ') }}</span>
                 </div>
-                <div v-if="card.latestRun" class="flex flex-col gap-0.5 rounded bg-elevated px-1.5 py-1 text-[11px]">
+                <div v-if="card.latestRun" class="flex flex-col gap-0.5 rounded bg-muted px-1.5 py-1 text-[11px]">
                   <div class="flex flex-wrap items-center gap-1.5">
                     <span
                       class="size-1.5 shrink-0 rounded-full"

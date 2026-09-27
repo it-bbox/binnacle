@@ -55,7 +55,7 @@ const cell = 'border-b border-default px-3.5 py-2.5 align-top';
           <tr v-for="row in rows" :key="row.view.project.path">
             <td :class="cell">
               <div class="flex items-center gap-2.5">
-                <span class="flex size-6.5 flex-none items-center justify-center rounded-md bg-elevated text-[11px] font-semibold">{{ initials(row.view.project) }}</span>
+                <span class="flex size-6.5 flex-none items-center justify-center rounded-md bg-accented text-[11px] font-semibold">{{ initials(row.view.project) }}</span>
                 <div class="flex min-w-0 flex-col gap-0.5">
                   <ULink :to="{ path: '/', query: { project: row.view.project.path } }" class="font-medium wrap-anywhere text-default">{{ projectName(row.view.project) }}</ULink>
                   <span class="font-mono text-[11px] break-all text-dimmed">{{ row.view.project.path }}</span>

@@ -146,7 +146,7 @@ const notAvailableRows = computed(() => [
           <section class="overflow-hidden rounded-lg border border-default bg-default">
             <div class="border-b border-default px-3.5 py-2.5"><h2 class="m-0 text-[13px] font-semibold">Review</h2></div>
             <div v-if="data.review === null" class="flex items-center gap-2 px-3.5 py-3" :class="data.state === 'DONE' ? 'text-warning' : 'text-muted'">
-              <UIcon name="i-lucide-triangle-alert" class="size-3.5 shrink-0" />
+              <UIcon name="i-lucide-triangle-alert" class="size-3.5 shrink-0" :class="data.state === 'DONE' ? 'text-(--warn)' : ''" />
               <span>{{ t.noReview }}</span>
             </div>
             <div v-else-if="isUnavailable(data.review)" class="px-3.5 py-3">
