@@ -95,13 +95,14 @@ Below it sit the epic's progress, what is running, Ready to start (a set, "in an
 ### The Suggested step becomes alternatives (ADR-0032)
 
 - The pure function in `packages/core` keeps its eight rules and its order, but returns a list of alternatives, not one step. Each alternative has:
-  - `kind`: one of `wait`, `parallel`, `resume`, `autopilot`, `byHand`, `blocked`, `close`, `plan` or `finished`;
+  - `kind`: one of `wait`, `parallel`, `resume`, `autopilot`, `byHand`, `owner`, `blocked`, `close`, `plan` or `finished`;
   - `tasks`: the Task ids it names;
   - `command`: a command, or none;
   - `description`: English, for the skills and MCP;
   - `provenance`: `calculated`.
 - Rule 1, a Task being worked on, gives `wait`. It is followed by `parallel` when the free parallel capacity (below) is at least one and Ready to start is not empty. `parallel` carries the Task's start command when exactly one Task is ready. With several, it names them and carries no command, pointing to Ready to start, so that no order is implied.
 - Rule 3 gives `autopilot` and `byHand`. `byHand` follows the same rule as `parallel`: one Task means its command, several mean no command.
+- A Task triaged `ready-for-human` is the owner's to do (ticket 11): `parallel`, `autopilot` and `byHand` leave it out, and when every Task of the current epic ready to start is `ready-for-human`, rule 3 gives one `owner` alternative that names them, with no command. A Task with no triage counts as any other.
 - Rules 2 and 4 to 8 give one alternative each, as they give one step today: `resume`, `blocked`, `close`, `plan` (grilling, spec or tickets, with its command) and `finished`.
 - At most three alternatives are returned. The existing rule that commands exist only under `workflow.provider: matt-pocock` holds for every alternative.
 - **Agreement.** An alternative whose command equals the Next action's command is left out. With no Next action, none is left out. This filter is part of the same pure function, which therefore takes the Next action.

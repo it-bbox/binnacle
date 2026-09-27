@@ -279,14 +279,14 @@ function byRule(epics: Epic[], tasks: ResolvedTask[], runs: RunReading[], workfl
   const startable = ready.filter((task) => task.unmetDependencies.length === 0);
 
   if ((epic.status === 'tickets' || epic.status === 'in progress') && startable.length > 0) {
-    const agents = startable.filter(forAgent);
-    if (agents.length === 0) {
+    const agentReady = startable.filter(forAgent);
+    if (agentReady.length === 0) {
       const [is, it] = startable.length === 1 ? ['is', 'it'] : ['are', 'them'];
       return [alternative('owner', `${startable.map((task) => name(task.id)).join(', ')} ${is} ready to start and triaged ready-for-human: the owner does ${it}, not an agent.`, null, startable.map((task) => task.id))];
     }
     return [
       alternative('autopilot', `${epicName} has Tasks ready to start. Run its remaining tickets.`, '/binnacle:autopilot'),
-      take('byHand', agents, 'is ready to start. Take it by hand, one ticket at a time.', 'are ready to start, in any order. Take one by hand from Ready to start.'),
+      take('byHand', agentReady, 'is ready to start. Take it by hand, one ticket at a time.', 'are ready to start, in any order. Take one by hand from Ready to start.'),
     ];
   }
   if (ready.length > 0 && startable.length === 0) {

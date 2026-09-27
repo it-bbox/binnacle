@@ -68,10 +68,10 @@ export const en = {
       count === 1
         ? { title: `Take ${ids} by hand`, reason: 'It is ready to start: one ticket at a time, in a fresh session.' }
         : { title: 'Take one Task by hand', reason: `${ids} are ready, in any order: pick one from Ready to start.` },
-    owner: (ids: string, count: number) => ({
-      title: count === 1 ? `${ids} is yours to do` : `${ids} are yours to do`,
-      reason: count === 1 ? 'It is ready to start and triaged ready-for-human: no agent takes it.' : 'They are ready to start and triaged ready-for-human: no agent takes them.',
-    }),
+    owner: (ids: string, count: number) =>
+      count === 1
+        ? { title: `${ids} is yours to do`, reason: 'It is ready to start and triaged ready-for-human: no agent takes it.' }
+        : { title: `${ids} are yours to do`, reason: 'They are ready to start and triaged ready-for-human: no agent takes them.' },
     blocked: (ids: string) => ({ title: 'Nothing can start yet', reason: `Every READY Task of the Epic waits on an Unmet dependency: ${ids}.` }),
     close: () => ({ title: 'Close the Epic', reason: 'Every Task of it is DONE or CANCELLED, but the roadmap does not mark it done. Close it in a Product session.' }),
     plan: () => ({ title: 'Plan the Epic', reason: 'It has no Tasks to start yet. The next step is grilling it, its spec or its tickets.' }),
