@@ -41,6 +41,7 @@ const ICONS: Record<Alternative['kind'], string> = {
   resume: 'i-lucide-step-forward',
   autopilot: 'i-lucide-route',
   byHand: 'i-lucide-terminal',
+  owner: 'i-lucide-user',
   blocked: 'i-lucide-lock',
   close: 'i-lucide-circle-check',
   plan: 'i-lucide-list-todo',

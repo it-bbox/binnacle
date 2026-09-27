@@ -30,7 +30,7 @@ Rules for the whole run. Never force-push, change settings, touch another reposi
 
 ## Loop
 
-5. **Start ready tickets.** The epic's tickets are the snapshot's Tasks whose ticket lies under the epic's spec directory. Start one background agent for every ticket of the epic in `readyToStart` (`READY`, no Unmet dependency, no attributed run) that has no agent yet and was not stopped. Such tickets have no blocking edge between them, so they may run side by side, but never more agents at once than the manifest's `automation.max_parallel_development_tasks` (`.binnacle/project.yaml`), or two where it writes none. An agent counts until its ticket merges or stops, and the others wait until then. One ticket never has two agents. If `readyToStart` has a remainder, read the rest from the tickets' `Status:` and `Blocked by:` lines, leaving out any the snapshot lists in `inFlight`.
+5. **Start ready tickets.** The epic's tickets are the snapshot's Tasks whose ticket lies under the epic's spec directory. Start one background agent for every ticket of the epic in `readyToStart` (`READY`, no Unmet dependency, no attributed run) that has no agent yet and was not stopped. Such tickets have no blocking edge between them, so they may run side by side, but never more agents at once than the manifest's `automation.max_parallel_development_tasks` (`.binnacle/project.yaml`), or two where it writes none. An agent counts until its ticket merges or stops, and the others wait until then. One ticket never has two agents. If `readyToStart` has a remainder, read the rest from the tickets' `Status:` and `Blocked by:` lines, leaving out any the snapshot lists in `inFlight`. A ticket whose `Triage:` line reads `ready-for-human` is the owner's to do: start no agent for it, and list it in the report under *Waiting for the owner*. A ticket with no `Triage:` line is started as any other.
 
    Use the Agent tool with `run_in_background: true` and `isolation: "worktree"`, and give it this brief, filled in:
 
@@ -67,11 +67,11 @@ Rules for the whole run. Never force-push, change settings, touch another reposi
 
 ## End
 
-9. The run ends when no agent is running and the snapshot has no ready ticket of the epic left to start. Call `project_snapshot` once more for the epic's final counts and attention items, and `daily_get` with `since` set to the run's start, which records nothing, for what changed.
+9. The run ends when no agent is running and the snapshot has no ready ticket of the epic left to start, `ready-for-human` ones aside. Call `project_snapshot` once more for the epic's final counts and attention items, and `daily_get` with `since` set to the run's start, which records nothing, for what changed.
 10. Report:
     - **Merged**: each ticket with its commits.
     - **Reviews**: per ticket, what the review found and what was fixed, kept or left.
-    - **Waiting for the owner**: each stopped ticket with its reason, branch and worktree; each question; each human step prepared and not done (a hand check, a `/binnacle:checkpoint` confirmation, a demonstration); a failed push; a daemon restarted; the dashboard regenerated.
+    - **Waiting for the owner**: each stopped ticket with its reason, branch and worktree; each `ready-for-human` ticket ready to start, left to the owner; each question; each human step prepared and not done (a hand check, a `/binnacle:checkpoint` confirmation, a demonstration); a failed push; a daemon restarted; the dashboard regenerated.
     - **Attention**: every item with its code, or "none".
     - **Next**: tell the owner to run `/binnacle:checkpoint` in this session before closing it, so that what the run decided reaches canonical sources and the checkpoint is recorded. You cannot run it: only a human starts it.
 11. Send a push notification: the epic, how many tickets merged, how many wait for the owner, and that `/binnacle:checkpoint` is next.

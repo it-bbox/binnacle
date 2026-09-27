@@ -65,6 +65,10 @@ export const ru: Dictionary = {
       count === 1
         ? { title: `Взять ${ids} вручную`, reason: 'Он готов к старту: по одному тикету за раз, в новой сессии.' }
         : { title: 'Взять один Task вручную', reason: `${ids} готовы, в любом порядке: выберите один в «Можно начинать».` },
+    owner: (ids, count) => ({
+      title: count === 1 ? `${ids} — ваша задача` : `${ids} — ваши задачи`,
+      reason: count === 1 ? 'Он готов к старту и в триаже ready-for-human: агент его не берёт.' : 'Они готовы к старту и в триаже ready-for-human: агент их не берёт.',
+    }),
     blocked: (ids) => ({ title: 'Пока ничего не начать', reason: `Каждый READY Task этого Epic ждёт Unmet dependency: ${ids}.` }),
     close: () => ({ title: 'Закрыть Epic', reason: 'Все его Task — DONE или CANCELLED, но в roadmap он не отмечен как done. Закройте его в Product-сессии.' }),
     plan: () => ({ title: 'Спланировать Epic', reason: 'Task для старта пока нет. Следующий шаг — grilling, спецификация или тикеты.' }),

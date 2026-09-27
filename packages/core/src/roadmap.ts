@@ -191,7 +191,7 @@ const ALTERNATIVE_LIMIT = 3;
  * `kind` and `tasks`; `description` is the English one, for the skills and MCP.
  */
 export type Alternative = {
-  kind: 'wait' | 'parallel' | 'resume' | 'autopilot' | 'byHand' | 'blocked' | 'close' | 'plan' | 'finished';
+  kind: 'wait' | 'parallel' | 'resume' | 'autopilot' | 'byHand' | 'owner' | 'blocked' | 'close' | 'plan' | 'finished';
   /** The Task ids it names, if it names any. */
   tasks: string[];
   /** Null when it has none, and under any `workflow.provider` but `matt-pocock`. */
@@ -211,7 +211,9 @@ type RunReading = Pick<ObservedRun, 'taskId' | 'role' | 'lastActivityAt' | 'acti
  * `CANCELLED`. Its commands are the Matt Pocock chain's and the `binnacle` plugin's, so any other
  * workflow gets the descriptions alone. An alternative whose command is the Next action's is left
  * out, since the Next action already offers it. `free` is how many more Tasks the parallel limit
- * allows (the snapshot's `tasks.parallel.free`).
+ * allows (the snapshot's `tasks.parallel.free`). A Task triaged `ready-for-human` is the owner's to
+ * do, so no alternative hands it to an agent: `parallel`, `autopilot` and `byHand` leave it out, and
+ * when it is all the current epic has ready, `owner` names it with no command.
  */
 export function suggestedStep(
   epics: Epic[],
@@ -244,6 +246,7 @@ function byRule(epics: Epic[], tasks: ResolvedTask[], runs: RunReading[], workfl
       ? alternative(kind, `${name(ready[0]!.id)} ${one}`, startCommand(ready[0]!, workflow), [ready[0]!.id])
       : alternative(kind, `${ready.map((task) => name(task.id)).join(', ')} ${several}`, null, ready.map((task) => task.id));
 
+  const forAgent = (task: ResolvedTask): boolean => task.triage !== 'ready-for-human';
   const attributed = new Set(runs.map((run) => run.taskId));
   const working = runs
     .filter((run) => run.role === 'implementation' && run.active.value && run.taskId !== null)
@@ -257,7 +260,7 @@ function byRule(epics: Epic[], tasks: ResolvedTask[], runs: RunReading[], workfl
     const [is, it] = worked.length === 1 ? ['is', 'it'] : ['are', 'them'];
     const wait = alternative('wait', `${worked.map(name).join(', ')} ${is} being worked on: an implementation run is active. Wait for ${it} rather than start something on top.`, null, worked);
     // Ready to start, as the snapshot lists it: none waits on an Unmet dependency or has a run, so none blocks another.
-    const ready = tasks.filter((task) => boardColumn(task.state, attributed.has(task.id))?.column === 'ready' && task.unmetDependencies.length === 0);
+    const ready = tasks.filter((task) => boardColumn(task.state, attributed.has(task.id))?.column === 'ready' && task.unmetDependencies.length === 0 && forAgent(task));
     if (free < 1 || ready.length === 0) return [wait];
     return [
       wait,
@@ -276,9 +279,14 @@ function byRule(epics: Epic[], tasks: ResolvedTask[], runs: RunReading[], workfl
   const startable = ready.filter((task) => task.unmetDependencies.length === 0);
 
   if ((epic.status === 'tickets' || epic.status === 'in progress') && startable.length > 0) {
+    const agents = startable.filter(forAgent);
+    if (agents.length === 0) {
+      const [is, it] = startable.length === 1 ? ['is', 'it'] : ['are', 'them'];
+      return [alternative('owner', `${startable.map((task) => name(task.id)).join(', ')} ${is} ready to start and triaged ready-for-human: the owner does ${it}, not an agent.`, null, startable.map((task) => task.id))];
+    }
     return [
       alternative('autopilot', `${epicName} has Tasks ready to start. Run its remaining tickets.`, '/binnacle:autopilot'),
-      take('byHand', startable, 'is ready to start. Take it by hand, one ticket at a time.', 'are ready to start, in any order. Take one by hand from Ready to start.'),
+      take('byHand', agents, 'is ready to start. Take it by hand, one ticket at a time.', 'are ready to start, in any order. Take one by hand from Ready to start.'),
     ];
   }
   if (ready.length > 0 && startable.length === 0) {

@@ -358,6 +358,58 @@ describe("the Suggested step's alternatives", () => {
     });
   });
 
+  it("3 leaves a ready-for-human Task to the owner: alone, it is one alternative naming it as the owner's, with no command", async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject([row(1, 'First', 'in progress', 'first')], AUTOPILOT);
+      ticket(root, 'first', '01-demo.md', 'Status: READY', 'Triage: ready-for-human');
+      ticket(root, 'first', '02-after.md', 'Status: READY', 'Blocked by: 01');
+
+      const list = alternatives(await snapshot(daemon, root));
+      assert.deepEqual(kinds(list), ['owner']);
+      assert.deepEqual(list[0]!.tasks, ['first/01']);
+      assert.equal(list[0]!.command, null);
+      assert.match(list[0]!.description, /first\/01.*ready-for-human.*owner/);
+    });
+  });
+
+  it('3 counts only the ready Tasks not triaged ready-for-human for autopilot and byHand, and a Task with no triage as before', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject([row(1, 'First', 'in progress', 'first')]);
+      ticket(root, 'first', '01-demo.md', 'Status: READY', 'Triage: ready-for-human');
+      const agent = ticket(root, 'first', '02-agent.md', 'Status: READY', 'Triage: ready-for-agent');
+
+      const [autopilot, byHand, ...rest] = alternatives(await snapshot(daemon, root));
+      assert.deepEqual(rest, []);
+      assert.equal(autopilot!.kind, 'autopilot');
+      assert.equal(byHand!.kind, 'byHand');
+      assert.deepEqual(byHand!.tasks, ['first/02']);
+      assert.equal(byHand!.command, `/mattpocock-skills:implement ${agent}`);
+
+      ticket(root, 'first', '03-untriaged.md', 'Status: READY');
+      const [, both] = alternatives(await snapshot(daemon, root));
+      assert.deepEqual(both!.tasks, ['first/02', 'first/03']);
+      assert.equal(both!.command, null);
+    });
+  });
+
+  it('1 is not followed by parallel for a ready-for-human Task, and names only the others when there are some', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject([row(1, 'First', 'in progress', 'first')]);
+      ticket(root, 'first', '01-worked.md', 'Status: ACTIVE');
+      ticket(root, 'first', '02-demo.md', 'Status: READY', 'Triage: ready-for-human');
+      repository(root, minutesAgo(60), [minutesAgo(3), 'feat/worked']);
+      session(artifacts, root, 'working', minutesAgo(1));
+
+      assert.deepEqual(kinds(alternatives(await snapshot(daemon, root))), ['wait']);
+
+      const untriaged = ticket(root, 'first', '03-untriaged.md', 'Status: READY');
+      const list = alternatives(await snapshot(daemon, root));
+      assert.deepEqual(kinds(list), ['wait', 'parallel']);
+      assert.deepEqual(list[1]!.tasks, ['first/03']);
+      assert.equal(list[1]!.command, `/mattpocock-skills:implement ${untriaged}`);
+    });
+  });
+
   it('4: every READY Task of the current epic waits on an Unmet dependency, so nothing can start, and it says on what, with no command', async () => {
     await withDaemon(async (daemon) => {
       const root = makeProject([row(1, 'First', 'in progress', 'first')]);

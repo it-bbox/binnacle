@@ -38,7 +38,7 @@ export type Activity = { running: { items: Run[]; remainder: number }; recent: R
 
 /** One of the Suggested step's alternatives, Binnacle's calculation (ADR-0032); the page writes its title and reason from `kind` and `tasks`. */
 export type Alternative = {
-  kind: 'wait' | 'parallel' | 'resume' | 'autopilot' | 'byHand' | 'blocked' | 'close' | 'plan' | 'finished';
+  kind: 'wait' | 'parallel' | 'resume' | 'autopilot' | 'byHand' | 'owner' | 'blocked' | 'close' | 'plan' | 'finished';
   tasks: string[];
   command: string | null;
   provenance: 'calculated';
