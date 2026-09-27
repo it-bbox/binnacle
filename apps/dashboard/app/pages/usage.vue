@@ -43,12 +43,31 @@ function tokenRow(key: string, label: string, totals: Totals, extra: Partial<Bar
   };
 }
 
-/** Where the import window starts, as a column names it, and as a note says it. */
-const windowColumn = computed(() => {
+/** The import window, with where it starts when the daemon says. */
+const windowLabel = computed(() => {
   const start = usage.data.value?.importing.windowStart ?? null;
-  return start === null ? t.value.importWindow : t.value.sinceDate(start);
+  return start === null ? t.value.importWindow : `${t.value.importWindow}, ${t.value.sinceDate(start)}`;
 });
-const windowLabel = computed(() => (usage.data.value?.importing.windowStart ? `${t.value.importWindow}, ${windowColumn.value}` : t.value.importWindow));
+
+/**
+ * The line under *Tokens by kind*, which has only today and the last seven days: the import
+ * window's records and totals kind by kind, reasoning after output as the part of it it is, a
+ * kind not reported said so and a marked total marked; then each column's record count.
+ */
+const countsLine = computed(() => {
+  const usageNow = snapshot.value?.usage;
+  if (!usageNow) return '';
+  const counts = `${t.value.records}: ${t.value.today} ${number(usageNow.today.records)} · ${t.value.last7Days} ${number(usageNow.last7Days.records)}.`;
+  const window = usage.data.value?.totals;
+  if (window === undefined) return counts;
+  const kinds = FIELDS.map((name) => {
+    const field = window[name];
+    const found = marks(field).map((mark) => t.value[mark]);
+    const figure = field.tokens === null ? t.value.notReported : number(Math.round(field.tokens));
+    return `${name === 'reasoning' ? ',' : ' ·'} ${t.value[name]} ${figure}${found.length > 0 ? ` (${found.join(', ')})` : ''}`;
+  });
+  return `${windowLabel.value}: ${plural(window.records, t.value.recordsCount)}${window.records === 0 ? '' : kinds.join('')}. ${counts}`;
+});
 
 const taskLink = (id: string) => ({ path: '/task', query: { project, id } });
 
@@ -113,17 +132,16 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
     <p v-else-if="view.failure" class="text-warning"><code>{{ view.failure.code }}</code> <span lang="en">{{ view.failure.message }}</span></p>
     <template v-else-if="snapshot">
       <div class="flex flex-col gap-1">
-        <div class="flex items-baseline gap-2.5">
+        <div class="flex flex-wrap items-center gap-x-2.5 gap-y-2">
           <h1 class="text-lg font-semibold text-highlighted">{{ t.usage }}</h1>
           <span class="text-muted">{{ projectName(view.project) }}</span>
+          <span class="ml-auto flex items-center gap-2.5">
+            <span class="text-xs text-muted">{{ t.barsShow }}</span>
+            <UTabs v-model="kind" :items="kinds" :content="false" variant="pill" size="xs" :aria-label="t.barsShow" />
+          </span>
         </div>
         <p class="text-xs text-muted">{{ t.usageNote }}</p>
         <p v-if="snapshot.usage.importing.incomplete || usage.data.value?.importing.incomplete" class="text-warning">{{ t.importing }}</p>
-      </div>
-
-      <div class="flex flex-wrap items-center gap-2.5">
-        <span class="text-xs text-muted">{{ t.barsShow }}</span>
-        <UTabs v-model="kind" :items="kinds" :content="false" variant="pill" size="xs" :aria-label="t.barsShow" />
       </div>
 
       <div class="grid grid-cols-[repeat(auto-fit,minmax(400px,1fr))] items-start gap-5">
@@ -131,14 +149,15 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
           <template #header>
             <h2 class="text-[13px] font-semibold">{{ t.tokensByKind }}</h2>
           </template>
-          <div class="px-3.5 pb-1">
+          <div class="px-3.5">
             <TokenKinds
               :columns="[
                 { key: 'today', label: t.today, totals: snapshot.usage.today },
                 { key: 'week', label: t.last7Days, totals: snapshot.usage.last7Days },
-                ...(usage.data.value ? [{ key: 'window', label: windowColumn, totals: usage.data.value.totals }] : []),
               ]"
+              :records="false"
             />
+            <p class="border-t border-default py-2 text-[11.5px] leading-snug text-muted">{{ countsLine }}</p>
           </div>
           <template #footer>
             <p class="text-[11.5px] leading-snug text-dimmed">{{ t.reasoningNote }}</p>
@@ -219,6 +238,80 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
 
         <UCard :ui="card">
           <template #header>
+            <h2 class="text-[13px] font-semibold">{{ t.derived }}</h2>
+            <UBadge :label="t.calculation" color="neutral" variant="outline" class="border-dashed" :title="t.derivedNote" />
+          </template>
+          <p v-if="usage.error.value" class="px-3.5 py-3 text-warning"><code>{{ usage.error.value.code }}</code> {{ usage.error.value.message }}</p>
+          <USkeleton v-else-if="usage.data.value === null" class="m-3.5 h-40" />
+          <template v-else>
+            <div class="grid grid-cols-2 divide-x divide-default">
+              <section class="flex min-w-0 flex-col gap-1">
+                <div class="flex flex-col gap-1 px-3.5 pt-3 pb-1.5">
+                  <h3 class="text-xs leading-snug text-muted">{{ t.perCompletedTask }} · {{ t[kind] }}</h3>
+                  <p v-if="isUnavailable(usage.data.value.derived.perCompletedTask)">
+                    <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="text-muted">· {{ usage.data.value.derived.perCompletedTask.reason }}</span>
+                  </p>
+                  <template v-else-if="perCompleted">
+                    <template v-if="perCompleted.mean">
+                      <span class="inline-flex items-center gap-1.5">
+                        <span class="font-mono text-lg font-medium">{{ perCompleted.mean.text }}</span>
+                        <UBadge v-for="mark in perCompleted.mean.marks" :key="mark" :label="mark" color="neutral" variant="outline" size="sm" />
+                      </span>
+                      <span class="text-[11px] text-dimmed">{{ plural(perCompleted.count, t.meanOverDone) }}</span>
+                    </template>
+                    <p v-else class="text-muted">{{ perCompleted.withoutRuns === 0 ? t.noDoneTask : t.noDoneWithRuns(number(perCompleted.withoutRuns)) }}</p>
+                    <span v-if="perCompleted.mean && perCompleted.withoutRuns > 0" class="text-[11px] text-dimmed">{{ plural(perCompleted.withoutRuns, t.doneWithoutRuns) }}</span>
+                  </template>
+                </div>
+                <BarList v-if="perCompleted && perCompleted.rows.length > 0" class="pb-1" :rows="perCompleted.rows" :remainder="perCompleted.remainder" />
+              </section>
+              <section class="flex min-w-0 flex-col gap-1">
+                <div class="flex flex-col gap-1 px-3.5 pt-3 pb-1.5">
+                  <h3 class="text-xs leading-snug text-muted">{{ t.runsPerTask }}</h3>
+                  <p v-if="isUnavailable(usage.data.value.derived.runsPerTask)">
+                    <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="text-muted">· {{ usage.data.value.derived.runsPerTask.reason }}</span>
+                  </p>
+                  <template v-else-if="runsPer">
+                    <template v-if="runsPer.mean">
+                      <span class="font-mono text-lg font-medium">{{ oneDecimal(runsPer.mean.runs) }}</span>
+                      <span class="text-[11px] text-dimmed">{{ plural(runsPer.count, t.meanOverTasks) }} · {{ t.ofWhichSubagents(oneDecimal(runsPer.mean.subagentRuns)) }}</span>
+                    </template>
+                    <p v-else class="text-muted">{{ t.noTaskRuns }}</p>
+                  </template>
+                </div>
+                <BarList v-if="runsPer && runsPer.rows.length > 0" class="pb-1" :rows="runsPer.rows" :remainder="runsPer.remainder" />
+              </section>
+            </div>
+            <section class="flex flex-col gap-2.5 border-t border-default px-3.5 py-3">
+              <h3 class="text-xs text-muted">{{ t.weekly }} · {{ t[kind] }}</h3>
+              <p v-if="weeks.length === 0" class="text-muted">{{ t.noRecords }}</p>
+              <ol v-else class="grid auto-cols-[minmax(0,56px)] grid-flow-col gap-2">
+                <li v-for="week in weeks" :key="week.week" class="flex min-w-0 flex-col items-center gap-1" :title="week.title">
+                  <UProgress
+                    v-if="week.value !== null && week.largest > 0"
+                    :model-value="week.value"
+                    :max="week.largest"
+                    orientation="vertical"
+                    inverted
+                    class="h-24 w-full"
+                    :ui="{ base: 'w-full rounded-t-sm rounded-b-none bg-transparent', indicator: 'rounded-t-sm rounded-b-none' }"
+                  />
+                  <div v-else class="h-24" />
+                  <span class="max-w-full truncate font-mono text-[10.5px]">{{ week.short }}</span>
+                  <span v-for="mark in week.marks" :key="mark" class="text-[10px] text-dimmed">{{ mark }}</span>
+                  <span class="max-w-full truncate text-[10.5px] text-dimmed">{{ week.week.slice(5) }}</span>
+                </li>
+              </ol>
+              <p class="text-[11px] text-dimmed">{{ t.weeklyNote }}</p>
+            </section>
+          </template>
+          <template #footer>
+            <p class="text-[11.5px] leading-snug text-dimmed">{{ t.derivedNote }} {{ windowLabel }}.</p>
+          </template>
+        </UCard>
+
+        <UCard :ui="card">
+          <template #header>
             <h2 class="text-[13px] font-semibold">{{ t.harnesses }}</h2>
           </template>
           <ul class="divide-y divide-default">
@@ -252,79 +345,6 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
         </UCard>
       </div>
 
-      <UCard :ui="card">
-        <template #header>
-          <h2 class="text-[13px] font-semibold">{{ t.derived }}</h2>
-          <UBadge :label="t.calculation" color="neutral" variant="outline" class="border-dashed" :title="t.derivedNote" />
-        </template>
-        <p v-if="usage.error.value" class="px-3.5 py-3 text-warning"><code>{{ usage.error.value.code }}</code> {{ usage.error.value.message }}</p>
-        <USkeleton v-else-if="usage.data.value === null" class="m-3.5 h-40" />
-        <template v-else>
-          <div class="grid grid-cols-2 divide-x divide-default">
-            <section class="flex min-w-0 flex-col gap-1">
-              <div class="flex flex-col gap-1 px-3.5 pt-3 pb-1.5">
-                <h3 class="text-xs leading-snug text-muted">{{ t.perCompletedTask }} · {{ t[kind] }}</h3>
-                <p v-if="isUnavailable(usage.data.value.derived.perCompletedTask)">
-                  <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="text-muted">· {{ usage.data.value.derived.perCompletedTask.reason }}</span>
-                </p>
-                <template v-else-if="perCompleted">
-                  <template v-if="perCompleted.mean">
-                    <span class="inline-flex items-center gap-1.5">
-                      <span class="font-mono text-lg font-medium">{{ perCompleted.mean.text }}</span>
-                      <UBadge v-for="mark in perCompleted.mean.marks" :key="mark" :label="mark" color="neutral" variant="outline" size="sm" />
-                    </span>
-                    <span class="text-[11px] text-dimmed">{{ plural(perCompleted.count, t.meanOverDone) }}</span>
-                  </template>
-                  <p v-else class="text-muted">{{ perCompleted.withoutRuns === 0 ? t.noDoneTask : t.noDoneWithRuns(number(perCompleted.withoutRuns)) }}</p>
-                  <span v-if="perCompleted.mean && perCompleted.withoutRuns > 0" class="text-[11px] text-dimmed">{{ plural(perCompleted.withoutRuns, t.doneWithoutRuns) }}</span>
-                </template>
-              </div>
-              <BarList v-if="perCompleted && perCompleted.rows.length > 0" class="pb-1" :rows="perCompleted.rows" :remainder="perCompleted.remainder" />
-            </section>
-            <section class="flex min-w-0 flex-col gap-1">
-              <div class="flex flex-col gap-1 px-3.5 pt-3 pb-1.5">
-                <h3 class="text-xs leading-snug text-muted">{{ t.runsPerTask }}</h3>
-                <p v-if="isUnavailable(usage.data.value.derived.runsPerTask)">
-                  <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="text-muted">· {{ usage.data.value.derived.runsPerTask.reason }}</span>
-                </p>
-                <template v-else-if="runsPer">
-                  <template v-if="runsPer.mean">
-                    <span class="font-mono text-lg font-medium">{{ oneDecimal(runsPer.mean.runs) }}</span>
-                    <span class="text-[11px] text-dimmed">{{ plural(runsPer.count, t.meanOverTasks) }} · {{ t.ofWhichSubagents(oneDecimal(runsPer.mean.subagentRuns)) }}</span>
-                  </template>
-                  <p v-else class="text-muted">{{ t.noTaskRuns }}</p>
-                </template>
-              </div>
-              <BarList v-if="runsPer && runsPer.rows.length > 0" class="pb-1" :rows="runsPer.rows" :remainder="runsPer.remainder" />
-            </section>
-          </div>
-          <section class="flex flex-col gap-2.5 border-t border-default px-3.5 py-3">
-            <h3 class="text-xs text-muted">{{ t.weekly }} · {{ t[kind] }}</h3>
-            <p v-if="weeks.length === 0" class="text-muted">{{ t.noRecords }}</p>
-            <ol v-else class="grid auto-cols-[minmax(0,56px)] grid-flow-col gap-2">
-              <li v-for="week in weeks" :key="week.week" class="flex min-w-0 flex-col items-center gap-1" :title="week.title">
-                <UProgress
-                  v-if="week.value !== null && week.largest > 0"
-                  :model-value="week.value"
-                  :max="week.largest"
-                  orientation="vertical"
-                  inverted
-                  class="h-24 w-full"
-                  :ui="{ base: 'w-full rounded-t-sm rounded-b-none bg-transparent', indicator: 'rounded-t-sm rounded-b-none' }"
-                />
-                <div v-else class="h-24" />
-                <span class="max-w-full truncate font-mono text-[10.5px]">{{ week.short }}</span>
-                <span v-for="mark in week.marks" :key="mark" class="text-[10px] text-dimmed">{{ mark }}</span>
-                <span class="max-w-full truncate text-[10.5px] text-dimmed">{{ week.week.slice(5) }}</span>
-              </li>
-            </ol>
-            <p class="text-[11px] text-dimmed">{{ t.weeklyNote }}</p>
-          </section>
-        </template>
-        <template #footer>
-          <p class="text-[11.5px] leading-snug text-dimmed">{{ t.derivedNote }} {{ windowLabel }}.</p>
-        </template>
-      </UCard>
     </template>
   </div>
 </template>

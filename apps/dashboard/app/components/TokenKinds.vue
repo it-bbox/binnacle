@@ -5,9 +5,10 @@ import { FIELDS, marks, type Totals } from '~/composables/usage';
 /**
  * Totals kind by kind, a row each, beside one another when there are several: no cell adds
  * kinds together, and reasoning is shown as the part of output it is. A total not reported is
- * said so, never zero, and a partial, calculated or estimated one is marked (ADR-0007).
+ * said so, never zero, and a partial, calculated or estimated one is marked (ADR-0007). The
+ * records row can be left out, for a page that gives the counts elsewhere.
  */
-defineProps<{ columns: { key: string; label: string; totals: Totals }[] }>();
+withDefaults(defineProps<{ columns: { key: string; label: string; totals: Totals }[]; records?: boolean }>(), { records: true });
 const { t, number } = useLanguage();
 </script>
 
@@ -20,7 +21,7 @@ const { t, number } = useLanguage();
       </tr>
     </thead>
     <tbody>
-      <tr class="border-t border-default">
+      <tr v-if="records" class="border-t border-default">
         <th class="py-1.5 pr-3 text-left font-normal text-muted">{{ t.records }}</th>
         <td v-for="column in columns" :key="column.key" class="py-1.5 pl-3 text-right font-mono">{{ number(column.totals.records) }}</td>
       </tr>

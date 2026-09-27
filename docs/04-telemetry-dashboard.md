@@ -107,8 +107,8 @@ A roadmap that cannot be read, and a project or epic with no Tasks, each show th
 
 ### Usage
 
-- tokens by kind today, over the last seven days and over the import window: input, cached input, cache creation, output, and reasoning as the part of output it is. A kind no record reports is "not reported", never zero, and a partial, calculated or estimated total is marked;
-- by model and by provider over the last seven days, a provider no artifact states being "not reported"; by Task, the largest first, with the unassigned total; and by role, over the import window. Each is a bar of one kind of token, output unless another is picked: kinds are never added together;
+- tokens by kind today and over the last seven days: input, cached input, cache creation, output, and reasoning as the part of output it is. A kind no record reports is "not reported", never zero, and a partial, calculated or estimated total is marked. One line under them gives the import window's totals, marked the same way, and how many records each period counts;
+- by model and by provider over the last seven days, a provider no artifact states being "not reported"; by Task, the largest first, with the unassigned total; and by role, over the import window. Each is a bar of one kind of token, output unless another is picked: kinds are never added together. A row is one line, its name, its bar and its figure, with its record count, and a Task's title, in its tooltip;
 - the derived metrics below that have a source, labelled as Binnacle's calculation: tokens per completed Task, runs per Task, and the weekly trend as CSS bars;
 - each harness with its support level, named as in `CONTEXT.md` (Context, Attribution, Usage, Live), or the daemon's reason for none;
 - cost, not available, with the reason.

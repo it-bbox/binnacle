@@ -5,9 +5,10 @@ import { useLanguage } from '~/composables/language';
 /**
  * Rows of a label, a bar and its figure, each bar scaled to the largest row. A row with no
  * figure (`value` null) has no bar, never an empty one; its `text` says why. A muted row is one
- * no source names, such as a provider not reported or the unassigned runs. `title` is the
- * repository's text, kept English; `note` is the page's own. `last` is a row set apart after
- * the remainder, such as the unassigned total below the Tasks.
+ * no source names, such as a provider not reported or the unassigned runs. Each row is one
+ * line; its `title`, the repository's text kept English, and its `note`, the page's own, are its
+ * tooltip, and are read out to a screen reader. `last` is a row set apart after the remainder,
+ * such as the unassigned total below the Tasks.
  */
 export type BarRow = {
   key: string;
@@ -33,14 +34,16 @@ const largest = computed(() => Math.max(0, ...all.value.map((row) => row.value ?
       <!-- The remainder counts the rows, so it goes before `last`. -->
       <li v-if="remainder && index === rows.length" class="px-3.5 py-1.5 text-xs text-muted">{{ t.more(number(remainder)) }}</li>
       <li
-        class="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_max-content] items-center gap-3 px-3.5 py-1.5"
+        class="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_max-content] items-center gap-3 px-3.5 py-[7px]"
         :class="{ 'border-t border-dashed border-default': row.muted }"
+        :title="[row.title, row.note].filter(Boolean).join(' · ') || undefined"
       >
-        <div class="flex min-w-0 flex-col">
+        <!-- `relative` keeps the screen-reader text inside the scrolled page, not below the document. -->
+        <div class="relative flex min-w-0">
           <ULink v-if="row.to" :to="row.to" class="truncate font-mono text-xs">{{ row.label }}</ULink>
           <span v-else class="truncate text-xs" :class="row.muted ? 'text-muted italic' : 'font-mono'">{{ row.label }}</span>
-          <span v-if="row.title || row.note" class="truncate text-[11px] text-dimmed" :title="[row.title, row.note].filter(Boolean).join(' · ')">
-            <span v-if="row.title" lang="en">{{ row.title }}</span>
+          <span v-if="row.title || row.note" class="sr-only">
+            · <span v-if="row.title" lang="en">{{ row.title }}</span>
             <template v-if="row.title && row.note"> · </template>
             {{ row.note }}
           </span>
@@ -49,8 +52,7 @@ const largest = computed(() => Math.max(0, ...all.value.map((row) => row.value ?
           v-if="row.value !== null && largest > 0"
           :model-value="row.value"
           :max="largest"
-          size="xs"
-          :ui="row.muted ? { indicator: 'bg-(--ui-text-dimmed)' } : undefined"
+          :ui="{ base: 'h-1.5', indicator: row.muted ? 'bg-(--ui-text-dimmed)' : undefined }"
         />
         <span v-else />
         <span class="inline-flex items-center justify-end gap-1.5">
