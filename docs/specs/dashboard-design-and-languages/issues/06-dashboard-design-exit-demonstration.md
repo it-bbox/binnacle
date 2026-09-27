@@ -2,7 +2,7 @@
 
 Status: READY
 Triage: ready-for-human
-Blocked by: 01, 02, 03, 04, 05, 07, 08, 09, 10
+Blocked by: 01, 02, 03, 04, 05, 07, 08, 09, 10, 11, 12
 Spec: `docs/specs/dashboard-design-and-languages/spec.md`
 
 **What to build:** epic 6's exit criterion, demonstrated by the owner on their running daemon after `pnpm dashboard:generate`. Decided in the spec, under *Further Notes*.
