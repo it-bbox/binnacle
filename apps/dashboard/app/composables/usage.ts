@@ -1,3 +1,4 @@
+import type { Dictionary } from '~/i18n';
 import type { Run, Unavailable } from './projects';
 
 /** The parts of the snapshot's `usage` and of `usage.get` the pages render. */
@@ -54,3 +55,14 @@ export function marks(field: FieldTotal): ('partial' | 'calculated' | 'estimated
 /** The token fields in the order the pages show them; reasoning is a part of output, never added to it. */
 export const FIELDS = ['input', 'cachedInput', 'cacheCreation', 'output', 'reasoning'] as const;
 export type Field = (typeof FIELDS)[number];
+
+/** Totals kind by kind as one line of text, never added together, each marked as `TokenKinds` marks it. */
+export function tokensLine(totals: Totals, t: Dictionary, number: (value: number) => string): string {
+  if (totals.records === 0) return t.noRecords;
+  return FIELDS.map((name) => {
+    const field = totals[name];
+    const value = field.tokens === null ? t.notReported : number(Math.round(field.tokens));
+    const noted = marks(field).map((mark) => t[mark]);
+    return `${t[name]} ${value}${noted.length === 0 ? '' : ` (${noted.join(', ')})`}`;
+  }).join(' · ');
+}

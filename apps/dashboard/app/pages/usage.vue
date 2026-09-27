@@ -3,7 +3,7 @@ import type { BarRow } from '~/components/BarList.vue';
 import { call, usePolling } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
 import { isUnavailable, projectName, SELECTED_VIEW } from '~/composables/projects';
-import { FIELDS, marks, type Field, type ProjectUsage, type Totals } from '~/composables/usage';
+import { FIELDS, marks, tokensLine, type Field, type ProjectUsage, type Totals } from '~/composables/usage';
 
 /**
  * The selected project's usage. The shell's snapshot answers today, the last seven days, by
@@ -51,8 +51,7 @@ const windowLabel = computed(() => {
 
 /**
  * The line under *Tokens by kind*, which has only today and the last seven days: the import
- * window's records and totals kind by kind, reasoning after output as the part of it it is, a
- * kind not reported said so and a marked total marked; then each column's record count.
+ * window's records and totals kind by kind, then each column's record count.
  */
 const countsLine = computed(() => {
   const usageNow = snapshot.value?.usage;
@@ -60,13 +59,8 @@ const countsLine = computed(() => {
   const counts = `${t.value.records}: ${t.value.today} ${number(usageNow.today.records)} · ${t.value.last7Days} ${number(usageNow.last7Days.records)}.`;
   const window = usage.data.value?.totals;
   if (window === undefined) return counts;
-  const kinds = FIELDS.map((name) => {
-    const field = window[name];
-    const found = marks(field).map((mark) => t.value[mark]);
-    const figure = field.tokens === null ? t.value.notReported : number(Math.round(field.tokens));
-    return `${name === 'reasoning' ? ',' : ' ·'} ${t.value[name]} ${figure}${found.length > 0 ? ` (${found.join(', ')})` : ''}`;
-  });
-  return `${windowLabel.value}: ${plural(window.records, t.value.recordsCount)}${window.records === 0 ? '' : kinds.join('')}. ${counts}`;
+  const totals = window.records === 0 ? t.value.noRecords : `${plural(window.records, t.value.recordsCount)} · ${tokensLine(window, t.value, number)}`;
+  return `${windowLabel.value}: ${totals}. ${counts}`;
 });
 
 const taskLink = (id: string) => ({ path: '/task', query: { project, id } });

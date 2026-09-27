@@ -2,7 +2,7 @@
 import { call, usePolling, type Failure } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
 import { isUnavailable, type Unavailable } from '~/composables/projects';
-import { FIELDS, marks, type TaskUsage, type Totals } from '~/composables/usage';
+import { tokensLine, type TaskUsage } from '~/composables/usage';
 
 /** `task.get`'s brief, as the Task page renders it. */
 type Brief = {
@@ -56,17 +56,6 @@ function stateBadge(state: string | null) {
 
 const dependency = (item: Brief['dependencies'][number]): string =>
   item.dangling ? t.value.dangling : `${item.state ?? t.value.noState}, ${item.met ? t.value.met : t.value.notMet}`;
-
-/** A run's tokens, kind by kind, never added together, each marked as `TokenKinds` marks it. */
-const tokensLine = (totals: Totals): string =>
-  totals.records === 0
-    ? t.value.noRecords
-    : FIELDS.map((name) => {
-        const field = totals[name];
-        const value = field.tokens === null ? t.value.notReported : number(Math.round(field.tokens));
-        const noted = marks(field).map((mark) => t.value[mark]);
-        return `${t.value[name]} ${value}${noted.length === 0 ? '' : ` (${noted.join(', ')})`}`;
-      }).join(' · ');
 
 const notAvailableRows = computed(() => [
   { element: t.value.reviewUsage, reason: t.value.reviewUsageReason },
@@ -204,7 +193,7 @@ const notAvailableRows = computed(() => [
                       <dt class="text-dimmed">{{ t.latestActivity }}</dt>
                       <dd class="m-0" :title="dateTime(run.lastActivityAt)">{{ since(run.lastActivityAt) }}</dd>
                       <dt class="text-dimmed">{{ t.tokens }}</dt>
-                      <dd class="m-0 font-mono">{{ tokensLine(run.totals) }}</dd>
+                      <dd class="m-0 font-mono">{{ tokensLine(run.totals, t, number) }}</dd>
                     </dl>
                   </div>
                 </li>
