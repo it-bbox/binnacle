@@ -20,7 +20,7 @@ The order of work: the owner gives the prompt below to an AI design tool, the mo
 - **Tasks that can run in parallel** are the Tasks ready to start, none with an Unmet dependency and none blocking another — the rule autopilot starts agents by — up to the manifest's `automation.max_parallel_development_tasks`.
 - **Ready to start is a set,** shown in no implied order.
 - **"+" shows the command** `binn project register`, to run in the project's folder. The dashboard stays read-only: its only action is copying a command (`specs/minimal-dashboard/spec.md`).
-- **The language** follows the browser, can be switched in the shell, and is remembered in the browser.
+- **The language** follows the browser, can be switched in the shell, and is remembered in the browser. *Changed in the exit demonstration, 2026-09-27:* it is chosen on a Settings page, not in the sidebar (`spec.md`, *Further Notes*).
 - **Light and dark themes,** following the system.
 - **Desktop first:** the layout holds down to 1024 px; there is no phone layout.
 - **The mockup covers every page and its states:** loading, the daemon unreachable, a project without a roadmap, no Tasks, nothing running, elements not available.

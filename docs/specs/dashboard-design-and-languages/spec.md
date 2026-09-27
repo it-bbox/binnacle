@@ -28,7 +28,7 @@ The Overview leads with **What's next**. The roadmap's Next action comes first, 
 
 An alternative whose command is the Next action's is left out, so when the two agree only the Next action shows. A missing or stale Next action shows as a warning inside the block.
 
-Below it sit the epic's progress, what is running, Ready to start (a set, "in any order", with how many can run in parallel), attention and a line of usage. The six pages stay, with details on their own pages.
+Below it sit the epic's progress, what is running, Ready to start (a set, "in any order", with how many can run in parallel), attention and a line of usage. The six pages stay, with details on their own pages, and a Settings page joins them (*Further Notes*, *Found in the exit demonstration*).
 
 ## User Stories
 
@@ -59,7 +59,7 @@ Below it sit the epic's progress, what is running, Ready to start (a set, "in an
 
 18. As the owner, I want the interface in English and in Russian, so that I can read it in my own language.
 19. As the owner, I want the language to follow my browser at first, so that it starts in the right one.
-20. As the owner, I want to switch the language in the sidebar and have the browser remember it, so that my choice survives a reload.
+20. As the owner, I want to choose the language on the Settings page and have the browser remember it, so that my choice survives a reload and the main screen stays free of it as languages are added.
 21. As the owner, I want Task, Epic, Next action, Suggested step, Backlog, Ready, In progress, Done, Review and Unmet dependency kept in English in both languages, so that the dashboard speaks the same terms as the docs and the agents.
 22. As the owner, I want commands, ids, branches, models and repository text never translated, so that what I copy and read is what the repository says.
 23. As the owner, I want the What's next alternatives' titles and reasons in my language, so that the centre of the screen is readable.
@@ -118,7 +118,7 @@ Below it sit the epic's progress, what is running, Ready to start (a set, "in an
 ### Languages
 
 - The strings are our own dictionary, one object per language, with no i18n module (ADR-0033). The Russian dictionary is typed against the English one, so a missing key fails the typecheck. Plurals use `Intl.PluralRules`; numbers and times use `Intl.NumberFormat` and `Intl.RelativeTimeFormat` in the current language. Nuxt UI's own locale follows the language.
-- The starting language is Russian when the browser's preferred language is Russian, and English otherwise. The sidebar's switch stores the choice in local storage, and the `lang` attribute follows it.
+- The starting language is Russian when the browser's preferred language is Russian, and English otherwise. The Settings page's choice stores it in local storage, and the `lang` attribute follows it.
 - The page translates only its own interface text and the What's next alternatives, which it writes from `kind` and `tasks`. Attention messages, not-available reasons and every other text the daemon writes stay in English, shown with their codes, as diagnostics. Repository text, commands, ids, branches and model names are never translated.
 - The domain terms listed in the brief stay English in both dictionaries.
 
@@ -133,7 +133,7 @@ Below it sit the epic's progress, what is running, Ready to start (a set, "in an
 ### The shell and pages
 
 - **Rail:** one icon per project from `project.list`, with initials, a dot when its snapshot has running runs or attention items, and "+" opening a modal with `binn project register` to copy.
-- **Sidebar:** the menu, a count badge on Attention, the language switch and the freshness line.
+- **Sidebar:** the menu, a count badge on Attention, Settings and the freshness line.
 - The selected project stays in the URL's `project` query, as today. Without one, the first registered project is shown.
 - **Overview:** the Next action and alternatives come from the snapshot. The current epic's progress and its waiting `READY` Tasks come from `task.list` for the current epic, whose Ready column already carries Unmet dependencies. Progress is Done over all the epic's Tasks, leaving out `CANCELLED`.
 - **Task:** a Task In progress from runs shows its start command, labelled as resuming it. `DONE` and `CANCELLED` show none. The Review is the ticket's text, or "no Review yet".
@@ -204,3 +204,8 @@ Read-only, loopback only, no model invocation (ADR-0012), no writes into the rep
   7. The browser's network log shows requests to the daemon only.
 
   Defects are filed as tickets.
+- **Found in the exit demonstration, 2026-09-27** (ticket 06, *Comments*), and decided by the owner:
+  - the content area fills the window's width, with no fixed maximum (ticket 07);
+  - the neutrals are the mockup's tokens, not Tailwind's `zinc` (ticket 08);
+  - the Usage page keeps the mockup's density, one line per row, with record counts and titles in tooltips (ticket 09);
+  - a Settings page holds the language choice, which leaves the sidebar because more languages will come, and shows the project's manifest and the daemon's version and address read-only, each with where to change it (ticket 10). Editing settings from the dashboard stays under *Later*, since it needs an ADR narrowing ADR-0020.

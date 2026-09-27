@@ -28,9 +28,9 @@ Epics 1 to 5 are done: the daemon and its store (epic 1); the snapshot, daily an
 
 Epic 6, Dashboard design and languages, was grilled on 2026-09-26 from the owner's findings on epic 5's dashboard (ticket 09's *Comments*): a "What's next" block that leads with the Next action and offers Binnacle's alternatives beside it, English and Russian, Paperclip's shell, Nuxt UI (ADR-0033). Its decisions and the prompt for the designer are in `specs/dashboard-design-and-languages/design-brief.md`. The mockup, made in Claude Design from that prompt, is in `design/` beside it. Its spec, written on 2026-09-27, turns the Suggested step into a list of alternatives (`next.alternatives`) and adds the parallel capacity (`tasks.parallel`).
 
-It is sliced into six tickets under `specs/dashboard-design-and-languages/issues/`: the Nuxt UI shell in two languages first, then the Overview, the pages and the alternatives, and the owner's exit demonstration last. Tickets 01 to 05 are done: the shell, the Overview, the alternatives, the Project and Task pages, and the Usage, Projects and Attention pages. Only 06, the owner's exit demonstration, is left.
+It is sliced into six tickets under `specs/dashboard-design-and-languages/issues/`: the Nuxt UI shell in two languages first, then the Overview, the pages and the alternatives, and the owner's exit demonstration last. Tickets 01 to 05 are done: the shell, the Overview, the alternatives, the Project and Task pages, and the Usage, Projects and Attention pages. The owner's exit demonstration (ticket 06) found four things on 2026-09-27, filed as tickets 07 to 10: the content fills the window's width, the mockup's palette, a compact Usage page, and a Settings page that takes the language choice. They are ready beside each other, and ticket 06 is run again after them.
 
-Next action: the owner's exit demonstration, ticket 06 (`specs/dashboard-design-and-languages/issues/06-dashboard-design-exit-demonstration.md`): run `pnpm dashboard:generate`, open the dashboard, and take the next step from its What's next block in a fresh session. `binn dashboard`
+Next action: run the epic's remaining tickets. `/binnacle:autopilot`
 
 ## Later
 

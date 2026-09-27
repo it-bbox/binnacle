@@ -2,7 +2,7 @@
 
 Status: READY
 Triage: ready-for-human
-Blocked by: 01, 02, 03, 04, 05
+Blocked by: 01, 02, 03, 04, 05, 07, 08, 09, 10
 Spec: `docs/specs/dashboard-design-and-languages/spec.md`
 
 **What to build:** epic 6's exit criterion, demonstrated by the owner on their running daemon after `pnpm dashboard:generate`. Decided in the spec, under *Further Notes*.
@@ -14,3 +14,13 @@ Spec: `docs/specs/dashboard-design-and-languages/spec.md`
 - [ ] Every page holds at 1024 px, in light and in dark.
 - [ ] The browser's network log shows requests to the daemon only.
 - [ ] The owner records under `## Comments` whether the dashboard is now easy to follow, in both languages. Defects are filed as tickets, and the roadmap marks epic 6 done only when none is open.
+
+## Comments
+
+- **The owner's findings, 2026-09-27**, on the dashboard as tickets 01 to 05 left it, given in a Product session with a screenshot of the Usage page:
+  - **The content does not fill the window.** Every page sits in a centred column of 1,120 px. Filed as ticket 07.
+  - **The palette is darker than the mockup's.** Only the accent was taken from it; the neutrals are Tailwind's `zinc`. Filed as ticket 08.
+  - **The Usage page is less compact than the mockup's.** Its rows take two lines, and its token table adds a column and a row. Filed as ticket 09.
+  - **A Settings page is needed**, and the language choice belongs there rather than on the main screen, since more languages will come. The owner chose a page that shows the language and, read-only, the project's and the daemon's settings. Filed as ticket 10.
+- **What follows.** This demonstration is run again once tickets 07 to 10 are done, so it now waits on them.
+
