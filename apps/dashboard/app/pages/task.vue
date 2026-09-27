@@ -138,7 +138,7 @@ const notAvailableRows = computed(() => [
               <h2 class="m-0 text-[13px] font-semibold">{{ t.ticket }}</h2>
               <span class="text-[11px] text-dimmed">{{ t.plainText }}</span>
             </div>
-            <pre lang="en" class="m-0 p-3.5 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap">{{ data.body.text }}</pre>
+            <pre lang="en" class="m-0 max-w-[70ch] p-3.5 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap">{{ data.body.text }}</pre>
             <p v-if="data.body.truncated" class="m-0 border-t border-default px-3.5 py-2 text-xs text-muted">
               {{ t.bodyCut }} <code class="font-mono">{{ data.ticket }}</code>
             </p>
@@ -153,7 +153,7 @@ const notAvailableRows = computed(() => [
               <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="text-muted">· {{ data.review.reason }}</span>
             </div>
             <template v-else>
-              <pre lang="en" class="m-0 p-3.5 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap">{{ data.review.text }}</pre>
+              <pre lang="en" class="m-0 max-w-[70ch] p-3.5 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap">{{ data.review.text }}</pre>
               <p v-if="data.review.truncated" class="m-0 border-t border-default px-3.5 py-2 text-xs text-muted">
                 {{ t.reviewCut }} <code class="font-mono">{{ data.ticket }}</code>
               </p>

@@ -23,6 +23,7 @@ The order of work: the owner gives the prompt below to an AI design tool, the mo
 - **The language** follows the browser, can be switched in the shell, and is remembered in the browser. *Changed in the exit demonstration, 2026-09-27:* it is chosen on a Settings page, not in the sidebar (`spec.md`, *Further Notes*).
 - **Light and dark themes,** following the system.
 - **Desktop first:** the layout holds down to 1024 px; there is no phone layout.
+- **The content fills the width.** *Found in the exit demonstration, 2026-09-27:* the mockup's centred column of 1,120 px is dropped. The content area right of the sidebar has the same side padding at every width and no maximum; cards, tables and the board stretch, while prose (the Next action's description, a ticket's body and its Review) keeps a measure of about 70 characters (`spec.md`, *Further Notes*).
 - **The mockup covers every page and its states:** loading, the daemon unreachable, a project without a roadmap, no Tasks, nothing running, elements not available.
 
 ## The mockup

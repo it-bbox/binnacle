@@ -49,7 +49,7 @@ const pageKey = (page: RouteLocationNormalizedLoaded): string => `${page.path}|$
       <ShellRail :views="data ?? []" :selected="selected" />
       <ShellSidebar :view="view" :selected="selected" :updated-at="updatedAt" :unreachable="unreachable" />
       <main class="min-w-0 flex-1 overflow-auto">
-        <div v-if="unreachable" class="flex min-h-full items-center justify-center p-10">
+        <div v-if="unreachable" class="flex min-h-full items-center justify-center px-8 py-10">
           <div class="flex w-full max-w-[520px] flex-col gap-4 rounded-xl border border-default bg-default p-8">
             <div class="flex size-9 items-center justify-center rounded-lg bg-(--warn-soft) text-(--warn)">
               <UIcon name="i-lucide-triangle-alert" class="size-4.5" />
@@ -62,7 +62,7 @@ const pageKey = (page: RouteLocationNormalizedLoaded): string => `${page.path}|$
             <p class="text-[11.5px] text-dimmed">{{ plural(REFRESH_MS / 1000, t.retrying) }}</p>
           </div>
         </div>
-        <div v-else-if="data === null && error === null" class="mx-auto flex max-w-[1120px] flex-col gap-6 px-8 pt-7" :aria-label="t.loading" aria-busy="true">
+        <div v-else-if="data === null && error === null" class="flex flex-col gap-6 px-8 pt-7" :aria-label="t.loading" aria-busy="true">
           <div class="flex flex-col gap-4 rounded-xl border border-default p-8">
             <USkeleton class="h-4.5 w-30" />
             <USkeleton class="h-3.5 w-[70%]" />
@@ -76,7 +76,7 @@ const pageKey = (page: RouteLocationNormalizedLoaded): string => `${page.path}|$
           </div>
           <p class="text-xs text-dimmed">{{ t.loading }}</p>
         </div>
-        <div v-else class="mx-auto max-w-[1120px] px-8 pt-3 pb-14">
+        <div v-else class="px-8 pt-3 pb-14">
           <p v-if="error" class="my-3 text-warning">{{ t.failed }} <code>{{ error.code }}</code> {{ error.message }}</p>
           <!-- Held back while the first project is being written into the address, so that no page opens without it. -->
           <NuxtPage v-if="selected !== null || !data?.length" :page-key="pageKey" />
