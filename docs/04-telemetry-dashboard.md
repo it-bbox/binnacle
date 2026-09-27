@@ -60,11 +60,11 @@ Its only action is copying a command, which the human types. Every view element 
 
 ## The shell and its languages
 
-Every view opens in one shell. A rail holds one icon per registered project, with a dot when it has running runs or attention items, and a "+" that shows `binn project register` to copy. A sidebar holds the selected project's name and current Epic, the menu with Attention's count, the language switch and how long ago the data was read. The selected project is the address's `project` query, the first registered project without one. While the daemon does not answer, the shell says so, with `binn daemon start` to copy, and polls on until it does.
+Every view opens in one shell. A rail holds one icon per registered project, with a dot when it has running runs or attention items, and a "+" that shows `binn project register` to copy. A sidebar holds the selected project's name and current Epic, the menu with Attention's count and Settings, and how long ago the data was read. The selected project is the address's `project` query, the first registered project without one. While the daemon does not answer, the shell says so, with `binn daemon start` to copy, and polls on until it does.
 
 Every page is built from Nuxt UI's components and Tailwind's utilities, to the mockup in `specs/dashboard-design-and-languages/design/`; epic 5's plain CSS is gone. The page reaches nothing but the daemon: its fonts are the system's, its Lucide icons are bundled at build time, and it writes no inline `<style>`, which the daemon's Content-Security-Policy refuses.
 
-It speaks English and Russian, starting in Russian when the browser prefers Russian and in English otherwise; the switch's choice is kept in the browser. Only the page's own text is translated, from a dictionary of the dashboard's own. Task, Epic, Next action, Suggested step, Backlog, Ready, In progress, Done, Review and Unmet dependency stay English in both languages, and commands, ids, branches, models, repository text and the daemon's messages are never translated.
+It speaks English and Russian, one dictionary of the dashboard's own for each. It starts in the browser's first language when it has a dictionary for it, and in English otherwise; the Settings page's choice is kept in the browser. Adding a language is adding a dictionary, which the Settings page then lists. Only the page's own text is translated. Task, Epic, Next action, Suggested step, Backlog, Ready, In progress, Done, Review and Unmet dependency stay English in both languages, and commands, ids, branches, models, repository text and the daemon's messages are never translated.
 
 ## Main dashboard views for v1
 
@@ -116,6 +116,14 @@ A roadmap that cannot be read, and a project or epic with no Tasks, each show th
 ### Attention/current activity
 
 - every project's attention items with their codes, grouped by project, beside the runs running now and the recent runs of every project.
+
+### Settings
+
+Settings are shown, never written (ADR-0020): each says where it is changed.
+
+- the language, a choice among the dashboard's dictionaries, kept in the browser;
+- the selected project's settings from `project.status`'s manifest: tracker, workflow, capabilities, automation with `max_parallel_development_tasks` (where the manifest writes none, the limit the snapshot uses) and telemetry, under the keys `.binnacle/project.yaml` spells them with. The page names that file as the one to edit, and says the daemon reads a change on its next refresh. The status's diagnostics follow with their codes. A project whose manifest cannot be read says so with the daemon's reason, and `binn init` to copy;
+- the daemon's version and address, from `daemon.status`, with `binn daemon stop` and `binn daemon start` to copy; its port is `BINNACLE_PORT`, read when it starts.
 
 ## High-value derived metrics
 

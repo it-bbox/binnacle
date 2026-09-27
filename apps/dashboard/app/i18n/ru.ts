@@ -2,6 +2,7 @@ import type { Dictionary } from './en.ts';
 
 /** The Russian dictionary. The domain terms stay English, as in `en.ts`. */
 export const ru: Dictionary = {
+  languageName: 'Русский',
   overview: 'Обзор',
   project: 'Проект',
   usage: 'Расход',
@@ -10,6 +11,7 @@ export const ru: Dictionary = {
   menu: 'Страницы',
   projectRail: 'Зарегистрированные проекты',
   language: 'Язык',
+  settings: 'Настройки',
 
   currentEpic: 'Текущий Epic',
   everyEpicDone: 'Все Epic завершены',
@@ -227,4 +229,20 @@ export const ru: Dictionary = {
   latest: (ago) => `последний ${ago}`,
   noRunsSeen: 'runs не видно',
   recentRuns: 'Недавние runs',
+
+
+  // Страница настроек.
+  languageNote: 'Хранится в этом браузере. Пока язык не выбран, дашборд открывается на языке браузера.',
+  projectSettings: 'Настройки проекта',
+  manifestFile: 'Прочитаны из манифеста. Чтобы изменить настройку, отредактируйте этот файл в репозитории:',
+  manifestRefresh: 'Демон прочтёт изменение при следующем обновлении. С этой страницы ничего не записывается.',
+  notWritten: 'не задано',
+  limitUsed: (limit) => `не задано: используется ${limit}`,
+  diagnostics: 'Диагностика',
+  noManifest: 'Binnacle не может прочитать манифест этого проекта.',
+  initNote: 'binn init создаёт недостающий манифест, спрашивая перед каждой записью. Манифест с ошибками исправляется вручную.',
+  daemon: 'Демон',
+  version: 'Версия',
+  address: 'Адрес',
+  daemonNote: 'Чтобы перезапустить демон, остановите и снова запустите его. Порт задаёт BINNACLE_PORT, он читается при запуске.',
 };

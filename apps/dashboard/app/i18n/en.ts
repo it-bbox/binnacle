@@ -8,6 +8,8 @@
 export type Forms = { other: string } & Partial<Record<Intl.LDMLPluralRule, string>>;
 
 export const en = {
+  /** The language's own name, as the Settings page lists it. */
+  languageName: 'English',
   overview: 'Overview',
   project: 'Project',
   usage: 'Usage',
@@ -16,6 +18,7 @@ export const en = {
   menu: 'Pages',
   projectRail: 'Registered projects',
   language: 'Language',
+  settings: 'Settings',
 
   currentEpic: 'Current Epic',
   everyEpicDone: 'Every Epic is done',
@@ -230,6 +233,21 @@ export const en = {
   latest: (ago: string) => `latest ${ago}`,
   noRunsSeen: 'no runs observed',
   recentRuns: 'Recent runs',
+
+  // The Settings page.
+  languageNote: "Kept in this browser. Until one is chosen, the dashboard starts in the browser's language.",
+  projectSettings: 'Project settings',
+  manifestFile: 'Read from the manifest. To change a setting, edit this file in the repository:',
+  manifestRefresh: 'The daemon reads a change on its next refresh. Nothing is written from this page.',
+  notWritten: 'not written',
+  limitUsed: (limit: string) => `not written: ${limit} is used`,
+  diagnostics: 'Diagnostics',
+  noManifest: "Binnacle cannot read this project's manifest.",
+  initNote: 'binn init sets up a missing manifest, asking before each write. A manifest with problems is fixed by hand.',
+  daemon: 'Daemon',
+  version: 'Version',
+  address: 'Address',
+  daemonNote: 'To restart the daemon, stop it and start it again. Its port is BINNACLE_PORT, read when it starts.',
 };
 
 export type Dictionary = typeof en;

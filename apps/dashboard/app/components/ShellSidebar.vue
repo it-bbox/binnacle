@@ -2,11 +2,10 @@
 import type { NavigationMenuItem } from '@nuxt/ui';
 import { useLanguage } from '~/composables/language';
 import { projectName, type ProjectView } from '~/composables/projects';
-import type { Language } from '~/i18n';
 
-/** The selected project's name and current Epic, the menu, the language switch and the data's freshness. */
+/** The selected project's name and current Epic, the menu and the data's freshness. */
 const props = defineProps<{ view: ProjectView | null; selected: string | null; updatedAt: number | null; unreachable: boolean }>();
-const { language, choose, t, number, secondsAgo } = useLanguage();
+const { t, number, secondsAgo } = useLanguage();
 const route = useRoute();
 
 /** The roadmap's first Epic not done, or why there is none. */
@@ -39,14 +38,12 @@ const menu = computed((): NavigationMenuItem[][] => {
         ...(attention.value > 0 ? { badge: { label: number(attention.value), color: 'warning' as const, variant: 'soft' as const } } : {}),
       },
     ],
-    [{ label: t.value.projects, icon: 'i-lucide-layers', to: { path: '/projects', query }, active: route.path === '/projects' }],
+    [
+      { label: t.value.projects, icon: 'i-lucide-layers', to: { path: '/projects', query }, active: route.path === '/projects' },
+      { label: t.value.settings, icon: 'i-lucide-settings', to: { path: '/settings', query }, active: route.path === '/settings' },
+    ],
   ];
 });
-
-const languages: { label: string; value: Language }[] = [
-  { label: 'English', value: 'en' },
-  { label: 'Русский', value: 'ru' },
-];
 
 // Ticks every second, so that the freshness line counts.
 const now = ref(Date.now());
@@ -76,19 +73,9 @@ const freshness = computed((): { text: string; dot: string } => {
     </div>
     <UNavigationMenu :items="menu" orientation="vertical" :aria-label="t.menu" class="p-2" />
     <div class="flex-1" />
-    <div class="flex flex-col gap-2.5 border-t border-default px-3.5 py-3">
-      <UTabs
-        :model-value="language"
-        :items="languages"
-        :content="false"
-        size="xs"
-        :aria-label="t.language"
-        @update:model-value="(value) => choose(value === 'ru' ? 'ru' : 'en')"
-      />
-      <div class="flex items-center gap-1.5 text-[11.5px] text-dimmed">
-        <span class="size-1.5 rounded-full" :class="freshness.dot" />
-        <span :class="unreachable ? 'text-warning' : ''">{{ freshness.text }}</span>
-      </div>
+    <div class="flex items-center gap-1.5 border-t border-default px-3.5 py-3 text-[11.5px] text-dimmed">
+      <span class="size-1.5 rounded-full" :class="freshness.dot" />
+      <span :class="unreachable ? 'text-warning' : ''">{{ freshness.text }}</span>
     </div>
   </aside>
 </template>

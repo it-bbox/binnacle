@@ -1,5 +1,5 @@
 /**
- * The dashboard's two languages, as a dictionary of our own (ADR-0033): no i18n module, and
+ * The dashboard's languages, as dictionaries of our own (ADR-0033): no i18n module, and
  * `Intl` for plurals, numbers and relative times in the current language. Only the page's own
  * text is translated; commands, ids, branches, models, repository text and the daemon's
  * messages stay as they are.
@@ -7,15 +7,22 @@
 import { en, type Forms } from './en.ts';
 import { ru } from './ru.ts';
 
-export type Language = 'en' | 'ru';
 export type { Dictionary, Forms } from './en.ts';
 
+/** Every dictionary the dashboard has. Adding a language is adding a dictionary here: the Settings page lists it with no further change. */
 export const DICTIONARIES = { en, ru };
+export type Language = keyof typeof DICTIONARIES;
 
-/** The stored choice when it names a language; otherwise Russian when the browser prefers it, and English. */
+/** The Settings page's choice: every dictionary, by the name it gives its own language. */
+export const LANGUAGES = (Object.keys(DICTIONARIES) as Language[]).map((value) => ({ value, label: DICTIONARIES[value].languageName }));
+
+const isLanguage = (value: string): value is Language => Object.hasOwn(DICTIONARIES, value);
+
+/** The stored choice when it names a dictionary; otherwise the browser's first language when there is a dictionary for it, and English. */
 export function startingLanguage(stored: string | null, preferred: readonly string[]): Language {
-  if (stored === 'en' || stored === 'ru') return stored;
-  return /^ru\b/i.test(preferred[0] ?? '') ? 'ru' : 'en';
+  if (stored !== null && isLanguage(stored)) return stored;
+  const browser = (preferred[0] ?? '').split(/[-_]/)[0]?.toLowerCase() ?? '';
+  return isLanguage(browser) ? browser : 'en';
 }
 
 /** A number as the language writes it. */

@@ -60,7 +60,7 @@ A dense professional tool, like **Linear** or **Paperclip**. A restrained palett
 
 ### Languages
 
-English and Russian, switched in the shell. Show the Overview in both, to prove the layout holds Russian's longer strings.
+English and Russian, chosen on the Settings page. Show the Overview in both, to prove the layout holds Russian's longer strings.
 
 - Interface text is translated. Examples: What's next / Что дальше; From the roadmap / По плану; or, Binnacle's calculation / или — расчёт Binnacle; Copy / Скопировать; Running now / Идёт сейчас; Ready to start, in any order / Можно начинать, в любом порядке; Can run in parallel / Можно параллельно; Attention / Внимание; Usage / Расход; Not available / Недоступно; updated 5 s ago / обновлено 5 с назад.
 - These domain terms stay English in both languages: **Task, Epic, Next action, Suggested step, Backlog, Ready, In progress, Done, Review, Unmet dependency.**
@@ -76,7 +76,7 @@ English and Russian, switched in the shell. Show the Overview in both, to prove 
 ### Shell
 
 - **Project rail**, far left, about 56 px: one rounded square per registered project (initials or a letter), the selected one highlighted, a small dot when something is running or needs attention. At its foot, a **"+"** that opens a modal, "Add a project": run `binn project register` in the project's folder, with a copy button. Nothing is registered from the page.
-- **Sidebar**, about 220 px: the project's name and current Epic; the menu — Overview, Project, Usage, Attention (with a count badge); under a divider, Projects (all). The language switch and the freshness line at its foot.
+- **Sidebar**, about 220 px: the project's name and current Epic; the menu — Overview, Project, Usage, Attention (with a count badge); under a divider, Projects (all) and Settings. The freshness line at its foot. The language is chosen on the Settings page, not here (*Changed in the exit demonstration, 2026-09-27*).
 
 ### Pages
 
@@ -98,6 +98,8 @@ English and Russian, switched in the shell. Show the Overview in both, to prove 
 **5. Usage** — today and the last seven days by kind of token: input, cached input, cache creation, output, and reasoning as the part of output it is. By model; by provider (shown as "not reported" when unknown); by Task, the largest few with the unassigned total; by role. Derived metrics, each labelled as Binnacle's calculation: tokens per completed Task, runs per Task, and a weekly trend as simple bars. Each harness with its support level, 1 to 4, or the reason it has none. Cost: "Not available", no source reports it.
 
 **6. Attention** — every attention item, grouped by project, beside the runs running now and the recent runs.
+
+**7. Settings** — added in the exit demonstration, 2026-09-27: the language choice; the project's manifest settings and the daemon's version and address, read-only, each with where to change it.
 
 ### States to design
 

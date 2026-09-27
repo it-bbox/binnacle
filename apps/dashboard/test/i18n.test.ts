@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { compactNumber, plural, secondsAgo, startingLanguage } from '../app/i18n/index.ts';
+import { compactNumber, LANGUAGES, plural, secondsAgo, startingLanguage } from '../app/i18n/index.ts';
 
 /**
  * The dashboard's own dictionary (ADR-0033): which language the page starts in, and how a
@@ -21,6 +21,15 @@ describe('the starting language', () => {
     assert.equal(startingLanguage(null, ['de-DE']), 'en');
     assert.equal(startingLanguage(null, []), 'en');
     assert.equal(startingLanguage('fr', ['ru']), 'ru', 'a stored value that names no language is ignored');
+  });
+});
+
+describe('the language choice', () => {
+  it('lists every dictionary the dashboard has, each by its own name', () => {
+    assert.deepEqual(LANGUAGES, [
+      { value: 'en', label: 'English' },
+      { value: 'ru', label: 'Русский' },
+    ]);
   });
 });
 

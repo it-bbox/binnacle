@@ -3,6 +3,9 @@ import { compactNumber, DICTIONARIES, formatList, formatNumber, plural, secondsA
 
 const LANGUAGE_KEY = 'binnacle.language';
 
+/** Nuxt UI's own strings for each dictionary's language: a dictionary added without them fails the typecheck. */
+const UI_LOCALES: Record<Language, typeof uiEnglish> = { en: uiEnglish, ru: uiRussian };
+
 function storedLanguage(): string | null {
   try {
     return localStorage.getItem(LANGUAGE_KEY);
@@ -11,7 +14,7 @@ function storedLanguage(): string | null {
   }
 }
 
-/** The page's language: the stored choice, or the browser's; the sidebar's switch changes and stores it. */
+/** The page's language: the stored choice, or the browser's; the Settings page's choice changes and stores it. */
 export function useLanguage() {
   const language = useState<Language>('language', () => startingLanguage(storedLanguage(), navigator.languages ?? [navigator.language]));
   const choose = (value: Language): void => {
@@ -27,7 +30,7 @@ export function useLanguage() {
     choose,
     t: computed(() => DICTIONARIES[language.value]),
     /** Nuxt UI's own strings, in the same language. */
-    uiLocale: computed(() => (language.value === 'ru' ? uiRussian : uiEnglish)),
+    uiLocale: computed(() => UI_LOCALES[language.value]),
     plural: (count: number, forms: Forms): string => plural(language.value, count, forms),
     number: (value: number): string => formatNumber(language.value, value),
     list: (items: string[]): string => formatList(language.value, items),
