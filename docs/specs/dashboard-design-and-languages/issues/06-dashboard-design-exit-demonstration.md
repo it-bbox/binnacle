@@ -24,3 +24,7 @@ Spec: `docs/specs/dashboard-design-and-languages/spec.md`
   - **A Settings page is needed**, and the language choice belongs there rather than on the main screen, since more languages will come. The owner chose a page that shows the language and, read-only, the project's and the daemon's settings. Filed as ticket 10.
 - **What follows.** This demonstration is run again once tickets 07 to 10 are done, so it now waits on them.
 - **The owner's second demonstration, 2026-09-27**, on the dashboard as tickets 07 to 12 left it: every criterion above holds, and the owner finds the dashboard easy to follow in both languages. The owner also checked the criteria tickets 07 to 10 left to them. No defect was found, so no ticket is filed and epic 6 is done.
+
+### Review
+
+None: this ticket changed no code, only this ticket, tickets 07 to 10 and the roadmap.
