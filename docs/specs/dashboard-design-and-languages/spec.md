@@ -205,7 +205,7 @@ Read-only, loopback only, no model invocation (ADR-0012), no writes into the rep
 
   Defects are filed as tickets.
 - **Found in the exit demonstration, 2026-09-27** (ticket 06, *Comments*), and decided by the owner:
-  - the content area fills the window's width, with no fixed maximum (ticket 07);
+  - the content area fills the window's width, with no fixed maximum, while prose keeps a measure of about 70 characters (ticket 07);
   - the neutrals are the mockup's tokens, not Tailwind's `zinc` (ticket 08);
   - the Usage page keeps the mockup's density, one line per row, with record counts and titles in tooltips (ticket 09);
   - a Settings page holds the language choice, which leaves the sidebar because more languages will come, and shows the project's manifest and the daemon's version and address read-only, each with where to change it (ticket 10). Editing settings from the dashboard stays under *Later*, since it needs an ADR narrowing ADR-0020.
