@@ -15,7 +15,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 3 | Tracker and Matt Pocock integration | done | [`tracker-and-matt-pocock-integration`](specs/tracker-and-matt-pocock-integration/spec.md) |
 | 4 | Telemetry | done | [`telemetry`](specs/telemetry/spec.md) |
 | 5 | Minimal dashboard | done | [`minimal-dashboard`](specs/minimal-dashboard/spec.md) |
-| 6 | Dashboard design and languages | in progress | [`dashboard-design-and-languages`](specs/dashboard-design-and-languages/spec.md) |
+| 6 | Dashboard design and languages | done | [`dashboard-design-and-languages`](specs/dashboard-design-and-languages/spec.md) |
 | 7 | Audit and adopt | not started | — |
 
 Epics are ordered by dependency, not by preference. Epic 1 is the foundation; epics 5 to 7 are only meaningful once 1 to 4 exist. Audit and adopt is epic 6 in the specs of epics 1 to 3, written before epic 6 was inserted on 2026-09-26.
@@ -24,11 +24,11 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 Design is complete: `docs/08-open-questions.md` is resolved by ADR-0001 to ADR-0018; building the epics added ADR-0019 to ADR-0033.
 
-Epics 1 to 5 are done: the daemon and its store; the snapshot, daily and checkpoint over MCP, and the `binnacle` plugin with autopilot; Tasks from GitHub, GitLab or local tickets, and `binn init`; usage by model, Task and role; the read-only dashboard, `binn dashboard`. Binnacle writes nothing into the repository.
+Epics 1 to 6 are done: the daemon and its store; the snapshot, daily and checkpoint over MCP, and the `binnacle` plugin with autopilot; Tasks from GitHub, GitLab or local tickets, and `binn init`; usage by model, Task and role; the read-only dashboard, `binn dashboard`, rebuilt with Nuxt UI to the mockup, in English and Russian, with a Settings page and What's next leading on the Next action and Binnacle's alternatives. The owner's second exit demonstration of epic 6, on 2026-09-27, found no defect. Binnacle writes nothing into the repository.
 
-Epic 6, Dashboard design and languages (`specs/dashboard-design-and-languages/`), rebuilt the dashboard with Nuxt UI to the mockup, in English and Russian, with What's next leading on the Next action and Binnacle's alternatives. Tickets 01 to 05 and 07 to 10 are done; 07 to 10 came from the owner's first exit demonstration, and four of them leave a visual check to the owner under their *Comments*. Tickets 11 and 12, found while autopilot ran 07 to 10, are done too, so only ticket 06, the exit demonstration run again, is left.
+Epic 7, Audit and adopt, is not started. Its scope is `docs/05-mvp-plan.md`, phase 6: a read-only audit of a repository, giving migration recommendations rather than fixes. Planning it is the owner's: grilling, then `to-spec`, then `to-tickets`.
 
-Next action: the owner's exit demonstration, ticket 06 (`specs/dashboard-design-and-languages/issues/06-dashboard-design-exit-demonstration.md`): run `pnpm dashboard:generate`, open the dashboard, and take the next step from its What's next block in a fresh session. `binn dashboard`
+Next action: plan epic 7, Audit and adopt, starting with its grilling. `/mattpocock-skills:grill-with-docs`
 
 ## Later
 

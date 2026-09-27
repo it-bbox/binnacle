@@ -13,7 +13,7 @@ Spec: `docs/specs/dashboard-design-and-languages/spec.md`
 - [x] A manifest with diagnostics shows them with their codes. A project without a manifest says so, with `binn init` to copy.
 - [x] Settings shows the daemon's version and address, with `binn daemon stop` and `binn daemon start` to copy.
 - [x] Nothing on the page writes anything: the only actions are the language choice, kept in the browser, and copying commands.
-- [ ] The page reads well in English and Russian, in both themes and at 1024 px.
+- [x] The page reads well in English and Russian, in both themes and at 1024 px. Checked by the owner in ticket 06's second exit demonstration, 2026-09-27.
 - [x] `docs/04-telemetry-dashboard.md` describes the Settings page, and the design brief's shell no longer puts the language switch in the sidebar.
 
 ## Comments

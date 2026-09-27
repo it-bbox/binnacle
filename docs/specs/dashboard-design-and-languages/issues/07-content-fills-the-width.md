@@ -11,7 +11,7 @@ Spec: `docs/specs/dashboard-design-and-languages/spec.md`
 - [x] Prose stays readable: the Next action's description and ticket bodies keep a measure of about 70 characters, while cards, tables and the board stretch.
 - [x] The loading skeleton and the daemon-unreachable state follow the same layout.
 - [x] At 1024 px nothing scrolls sideways, and at 1920 px and wider the pages' cards and columns use the width instead of leaving margins.
-- [ ] Every page reads well at 1024, 1440 and 1920 px, in both themes. A human checks this; the steps are under `## Comments`.
+- [x] Every page reads well at 1024, 1440 and 1920 px, in both themes. A human checks this; the steps are under `## Comments`. Checked by the owner in ticket 06's second exit demonstration, 2026-09-27.
 
 ## Comments
 

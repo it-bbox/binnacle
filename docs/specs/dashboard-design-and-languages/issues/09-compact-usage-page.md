@@ -11,7 +11,7 @@ Spec: `docs/specs/dashboard-design-and-languages/spec.md`
 - [x] *Tokens by kind* has the mockup's two columns, today and the last seven days. The import window's totals and the record counts move to one line under the table, and are not dropped.
 - [x] The "Bars show" switch, the derived metrics, the weekly trend, the harnesses and cost keep what ticket 05 gave them, in the mockup's spacing.
 - [x] Partial, calculated and estimated marks, "not reported" and "Not available" with their reasons all stay.
-- [ ] At the same window height, the page shows at least as much as the mockup's Usage page. A human checks this beside the mockup; the steps are under `## Comments`.
+- [x] At the same window height, the page shows at least as much as the mockup's Usage page. A human checks this beside the mockup; the steps are under `## Comments`. Checked by the owner in ticket 06's second exit demonstration, 2026-09-27.
 
 ## Comments
 

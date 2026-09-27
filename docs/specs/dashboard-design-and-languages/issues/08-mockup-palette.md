@@ -11,7 +11,7 @@ Spec: `docs/specs/dashboard-design-and-languages/spec.md`
 - [x] The rail and the sidebar take the mockup's own `--rail` and `--sidebar` backgrounds, distinct from the page's.
 - [x] Warning, success and error take the mockup's `--warn`, `--ok` and `--err-text` families, with their soft backgrounds and lines where Nuxt UI's soft and outline variants use them.
 - [x] The colours stay declared in the stylesheet, as ticket 01 left them: no inline `<style>`, and the daemon's Content-Security-Policy is unchanged.
-- [ ] Every page, beside the mockup in the same theme, shows the same background, panel and border tones. A human checks this; the steps are under `## Comments`.
+- [x] Every page, beside the mockup in the same theme, shows the same background, panel and border tones. A human checks this; the steps are under `## Comments`. Checked by the owner in ticket 06's second exit demonstration, 2026-09-27.
 
 ## Comments
 
