@@ -51,7 +51,7 @@ const pageKey = (page: RouteLocationNormalizedLoaded): string => `${page.path}|$
       <main class="min-w-0 flex-1 overflow-auto">
         <div v-if="unreachable" class="flex min-h-full items-center justify-center p-10">
           <div class="flex w-full max-w-[520px] flex-col gap-4 rounded-xl border border-default bg-default p-8">
-            <div class="flex size-9 items-center justify-center rounded-lg bg-warning/10 text-warning">
+            <div class="flex size-9 items-center justify-center rounded-lg bg-(--warn-soft) text-warning">
               <UIcon name="i-lucide-triangle-alert" class="size-4.5" />
             </div>
             <div class="flex flex-col gap-1.5">

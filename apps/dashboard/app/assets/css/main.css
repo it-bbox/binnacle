@@ -4,86 +4,93 @@
 /*
  * Nuxt UI's colours. Nuxt UI writes these into an inline <style> at runtime, which the
  * daemon's Content-Security-Policy refuses, so `nuxt.config.ts` drops that plugin and they are
- * declared here instead, in the same form. Fonts are Tailwind's system sans and monospace
- * stacks: nothing is fetched (ADR-0033). The accent is the mockup's.
+ * declared here instead. Fonts are Tailwind's system sans and monospace stacks: nothing is
+ * fetched (ADR-0033).
+ *
+ * The palette is the mockup's (`docs/specs/dashboard-design-and-languages/design/Binnacle
+ * Dashboard.dc.html`, its `:root` and dark blocks), token for token; `test/palette.test.ts`
+ * holds the values to it. Nuxt UI's semantic colours are set from those tokens below, so no
+ * numbered shade of Tailwind's is declared. `app.config.ts` gives the warning and error
+ * badges and alerts the mockup's soft backgrounds and lines.
  */
 @layer theme {
-  :root {
-    --ui-color-primary-50: var(--color-cyan-50);
-    --ui-color-primary-100: var(--color-cyan-100);
-    --ui-color-primary-200: var(--color-cyan-200);
-    --ui-color-primary-300: var(--color-cyan-300);
-    --ui-color-primary-400: var(--color-cyan-400);
-    --ui-color-primary-500: var(--color-cyan-500);
-    --ui-color-primary-600: var(--color-cyan-600);
-    --ui-color-primary-700: var(--color-cyan-700);
-    --ui-color-primary-800: var(--color-cyan-800);
-    --ui-color-primary-900: var(--color-cyan-900);
-    --ui-color-primary-950: var(--color-cyan-950);
-    --ui-color-success-50: var(--color-green-50);
-    --ui-color-success-100: var(--color-green-100);
-    --ui-color-success-200: var(--color-green-200);
-    --ui-color-success-300: var(--color-green-300);
-    --ui-color-success-400: var(--color-green-400);
-    --ui-color-success-500: var(--color-green-500);
-    --ui-color-success-600: var(--color-green-600);
-    --ui-color-success-700: var(--color-green-700);
-    --ui-color-success-800: var(--color-green-800);
-    --ui-color-success-900: var(--color-green-900);
-    --ui-color-success-950: var(--color-green-950);
-    --ui-color-warning-50: var(--color-amber-50);
-    --ui-color-warning-100: var(--color-amber-100);
-    --ui-color-warning-200: var(--color-amber-200);
-    --ui-color-warning-300: var(--color-amber-300);
-    --ui-color-warning-400: var(--color-amber-400);
-    --ui-color-warning-500: var(--color-amber-500);
-    --ui-color-warning-600: var(--color-amber-600);
-    --ui-color-warning-700: var(--color-amber-700);
-    --ui-color-warning-800: var(--color-amber-800);
-    --ui-color-warning-900: var(--color-amber-900);
-    --ui-color-warning-950: var(--color-amber-950);
-    --ui-color-error-50: var(--color-red-50);
-    --ui-color-error-100: var(--color-red-100);
-    --ui-color-error-200: var(--color-red-200);
-    --ui-color-error-300: var(--color-red-300);
-    --ui-color-error-400: var(--color-red-400);
-    --ui-color-error-500: var(--color-red-500);
-    --ui-color-error-600: var(--color-red-600);
-    --ui-color-error-700: var(--color-red-700);
-    --ui-color-error-800: var(--color-red-800);
-    --ui-color-error-900: var(--color-red-900);
-    --ui-color-error-950: var(--color-red-950);
-    --ui-color-neutral-50: var(--color-zinc-50);
-    --ui-color-neutral-100: var(--color-zinc-100);
-    --ui-color-neutral-200: var(--color-zinc-200);
-    --ui-color-neutral-300: var(--color-zinc-300);
-    --ui-color-neutral-400: var(--color-zinc-400);
-    --ui-color-neutral-500: var(--color-zinc-500);
-    --ui-color-neutral-600: var(--color-zinc-600);
-    --ui-color-neutral-700: var(--color-zinc-700);
-    --ui-color-neutral-800: var(--color-zinc-800);
-    --ui-color-neutral-900: var(--color-zinc-900);
-    --ui-color-neutral-950: var(--color-zinc-950);
-  }
   :root,
   .light {
-    --ui-primary: oklch(0.52 0.11 205);
-    --ui-success: var(--ui-color-success-600);
-    --ui-warning: var(--ui-color-warning-600);
-    --ui-error: var(--ui-color-error-600);
+    --bg: #fafaf9;
+    --rail: #f1f1ef;
+    --sidebar: #f6f6f4;
+    --panel: #ffffff;
+    --code-bg: #f5f5f3;
+    --hover: #efefec;
+    --chip: #eeeeeb;
+    --border: #e5e4e0;
+    --border-strong: #d3d2cd;
+    --text: #1a1b1e;
+    --muted: #5d6068;
+    --faint: #8a8d94;
+    --accent: oklch(0.52 0.11 205);
+    --on-accent: #ffffff;
+    --warn: oklch(0.68 0.14 70);
+    --warn-soft: oklch(0.97 0.03 80);
+    --warn-line: oklch(0.86 0.07 75);
+    --warn-text: oklch(0.47 0.11 60);
+    --ok: oklch(0.62 0.14 150);
+    --err-text: oklch(0.5 0.17 25);
+    --err-soft: oklch(0.96 0.025 25);
   }
   .dark {
-    --ui-primary: oklch(0.76 0.1 205);
-    --ui-success: var(--ui-color-success-400);
-    --ui-warning: var(--ui-color-warning-400);
-    --ui-error: var(--ui-color-error-400);
-    --ui-bg: var(--ui-color-neutral-950);
+    --bg: #111215;
+    --rail: #0c0d0f;
+    --sidebar: #0f1013;
+    --panel: #17181c;
+    --code-bg: #0d0e11;
+    --hover: #1f2025;
+    --chip: #23252a;
+    --border: #26282d;
+    --border-strong: #35373d;
+    --text: #e7e8ea;
+    --muted: #9da0a7;
+    --faint: #6f727a;
+    --accent: oklch(0.76 0.1 205);
+    --on-accent: #081417;
+    --warn: oklch(0.8 0.13 78);
+    --warn-soft: oklch(0.26 0.04 70);
+    --warn-line: oklch(0.42 0.07 70);
+    --warn-text: oklch(0.85 0.11 80);
+    --ok: oklch(0.74 0.15 150);
+    --err-text: oklch(0.78 0.13 25);
+    --err-soft: oklch(0.27 0.05 25);
+  }
+  /* After Nuxt UI's own :root and .dark, so these win in both themes. */
+  :root {
+    --ui-primary: var(--accent);
+    --ui-success: var(--ok);
+    /* Text in the warning and error colours reads in the mockup's text shade; its dots use --warn. */
+    --ui-warning: var(--warn-text);
+    --ui-error: var(--err-text);
+    /* Panels, cards and menus; the page behind them is --bg. */
+    --ui-bg: var(--panel);
+    --ui-bg-muted: var(--code-bg);
+    --ui-bg-elevated: var(--hover);
+    --ui-bg-accented: var(--chip);
+    --ui-bg-inverted: var(--text);
+    --ui-border: var(--border);
+    --ui-border-muted: var(--border);
+    --ui-border-accented: var(--border-strong);
+    --ui-border-inverted: var(--text);
+    --ui-text: var(--text);
+    --ui-text-highlighted: var(--text);
+    --ui-text-toned: var(--muted);
+    --ui-text-muted: var(--muted);
+    --ui-text-dimmed: var(--faint);
+    --ui-text-inverted: var(--on-accent);
   }
 }
 
-/* A dense tool: the mockup's 13 px body. */
+/* A dense tool: the mockup's 13 px body, on the mockup's page background. */
 @layer base {
   body {
     font-size: 13px;
+    background-color: var(--bg);
   }
 }

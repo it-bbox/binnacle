@@ -36,9 +36,9 @@ const rail = computed(() =>
 </script>
 
 <template>
-  <nav :aria-label="t.projectRail" class="flex w-14 flex-none flex-col items-center gap-2 border-r border-default bg-elevated/60 py-3">
+  <nav :aria-label="t.projectRail" class="flex w-14 flex-none flex-col items-center gap-2 border-r border-default bg-(--rail) py-3">
     <UIcon name="i-lucide-compass" class="mb-1.5 size-5.5 text-primary" title="Binnacle" />
-    <UChip v-for="item in rail" :key="item.view.project.path" :show="item.dot" :color="item.color" size="lg">
+    <UChip v-for="item in rail" :key="item.view.project.path" :show="item.dot" :color="item.color" size="lg" :ui="{ base: 'ring-(--rail)' }">
       <UButton
         :to="item.to"
         :title="item.title"

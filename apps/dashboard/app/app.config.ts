@@ -1,0 +1,18 @@
+// The mockup's soft backgrounds and lines for warning and error (main.css), where Nuxt UI's soft,
+// subtle and outline variants would mix the colour with transparency. Success has none in the mockup.
+const warningAndError = [
+  { color: 'warning', variant: 'soft', class: 'bg-(--warn-soft)' },
+  { color: 'warning', variant: 'subtle', class: 'bg-(--warn-soft) ring-(--warn-line)' },
+  { color: 'warning', variant: 'outline', class: 'ring-(--warn-line)' },
+  { color: 'error', variant: 'soft', class: 'bg-(--err-soft)' },
+  { color: 'error', variant: 'subtle', class: 'bg-(--err-soft)' },
+] as const;
+
+export default defineAppConfig({
+  ui: {
+    badge: { compoundVariants: [...warningAndError] },
+    alert: { compoundVariants: warningAndError.map(({ class: root, ...variant }) => ({ ...variant, class: { root } })) },
+    // A dot in the warning colour is the mockup's --warn, not the text shade.
+    chip: { variants: { color: { warning: 'bg-(--warn)' } } },
+  },
+});

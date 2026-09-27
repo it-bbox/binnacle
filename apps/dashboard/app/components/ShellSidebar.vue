@@ -54,12 +54,12 @@ onUnmounted(() => clearInterval(ticker));
 const freshness = computed((): { text: string; dot: string } => {
   if (props.updatedAt === null) return { text: t.value.connecting, dot: 'bg-(--ui-text-dimmed)' };
   const since = secondsAgo((now.value - props.updatedAt) / 1000);
-  return props.unreachable ? { text: t.value.lastReply(since), dot: 'bg-warning' } : { text: t.value.updated(since), dot: 'bg-success' };
+  return props.unreachable ? { text: t.value.lastReply(since), dot: 'bg-(--warn)' } : { text: t.value.updated(since), dot: 'bg-success' };
 });
 </script>
 
 <template>
-  <aside class="flex w-55 flex-none flex-col border-r border-default bg-muted">
+  <aside class="flex w-55 flex-none flex-col border-r border-default bg-(--sidebar)">
     <div class="flex flex-col gap-2.5 border-b border-default px-3.5 pt-3.5 pb-3">
       <div v-if="view" class="flex min-w-0 flex-col gap-0.5">
         <div class="truncate text-sm font-semibold text-highlighted">{{ projectName(view.project) }}</div>
