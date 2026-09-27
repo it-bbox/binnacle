@@ -26,9 +26,9 @@ Design is complete: `docs/08-open-questions.md` is resolved by ADR-0001 to ADR-0
 
 Epics 1 to 5 are done: the daemon and its store; the snapshot, daily and checkpoint over MCP, and the `binnacle` plugin with autopilot; Tasks from GitHub, GitLab or local tickets, and `binn init`; usage by model, Task and role; the read-only dashboard, `binn dashboard`. Binnacle writes nothing into the repository.
 
-Epic 6, Dashboard design and languages (`specs/dashboard-design-and-languages/`), rebuilt the dashboard with Nuxt UI to the mockup, in English and Russian, with What's next leading on the Next action and Binnacle's alternatives. Tickets 01 to 05 and 07 to 10 are done; 07 to 10 came from the owner's first exit demonstration, and four of them leave a visual check to the owner under their *Comments*. Tickets 11 and 12, found while autopilot ran 07 to 10, are ready beside each other; ticket 06, the exit demonstration run again, comes last.
+Epic 6, Dashboard design and languages (`specs/dashboard-design-and-languages/`), rebuilt the dashboard with Nuxt UI to the mockup, in English and Russian, with What's next leading on the Next action and Binnacle's alternatives. Tickets 01 to 05 and 07 to 10 are done; 07 to 10 came from the owner's first exit demonstration, and four of them leave a visual check to the owner under their *Comments*. Tickets 11 and 12, found while autopilot ran 07 to 10, are done too, so only ticket 06, the exit demonstration run again, is left.
 
-Next action: run the epic's remaining tickets. `/binnacle:autopilot`
+Next action: the owner's exit demonstration, ticket 06 (`specs/dashboard-design-and-languages/issues/06-dashboard-design-exit-demonstration.md`): run `pnpm dashboard:generate`, open the dashboard, and take the next step from its What's next block in a fresh session. `binn dashboard`
 
 ## Later
 
