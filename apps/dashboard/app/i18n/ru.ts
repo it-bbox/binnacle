@@ -230,7 +230,6 @@ export const ru: Dictionary = {
   noRunsSeen: 'runs не видно',
   recentRuns: 'Недавние runs',
 
-
   // Страница настроек.
   languageNote: 'Хранится в этом браузере. Пока язык не выбран, дашборд открывается на языке браузера.',
   projectSettings: 'Настройки проекта',

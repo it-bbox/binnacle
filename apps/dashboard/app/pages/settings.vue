@@ -36,7 +36,6 @@ const sections = computed((): { name: string; settings: Setting[] }[] | null => 
   // An unwritten limit is the one Binnacle uses, as the snapshot calculates it.
   const parallel = view.value?.snapshot?.tasks?.parallel;
   const limit = parallel === undefined ? undefined : t.value.limitUsed(number(parallel.limit));
-  const capabilities = Object.entries(manifest.capabilities).map(([key, value]) => ({ key, value }));
   return [
     {
       name: 'tracker',
@@ -54,7 +53,7 @@ const sections = computed((): { name: string; settings: Setting[] }[] | null => 
         { key: 'scratch', value: manifest.workflow.scratch },
       ],
     },
-    { name: 'capabilities', settings: capabilities.length > 0 ? capabilities : [{ key: '', value: null }] },
+    { name: 'capabilities', settings: Object.entries(manifest.capabilities).map(([key, value]) => ({ key, value })) },
     {
       name: 'automation',
       settings: [
@@ -117,7 +116,8 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
         <div class="grid grid-cols-2 gap-x-6 gap-y-4">
           <section v-for="section in sections" :key="section.name" class="flex min-w-0 flex-col gap-1">
             <h3 class="font-mono text-xs font-semibold">{{ section.name }}</h3>
-            <dl class="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-0.5 font-mono text-xs">
+            <p v-if="section.settings.length === 0" class="text-xs text-dimmed">{{ t.notWritten }}</p>
+            <dl v-else class="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-0.5 font-mono text-xs">
               <template v-for="setting in section.settings" :key="setting.key">
                 <dt class="text-muted wrap-anywhere">{{ setting.key }}</dt>
                 <dd v-if="setting.value === null" class="font-sans text-dimmed">{{ setting.unwritten ?? t.notWritten }}</dd>
@@ -127,7 +127,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
           </section>
         </div>
       </div>
-      <div v-if="status.data.value?.diagnostics.length" class="mt-4 flex flex-col gap-1.5 border-t border-default pt-3">
+      <div v-if="!status.error.value && status.data.value?.diagnostics.length" class="mt-4 flex flex-col gap-1.5 border-t border-default pt-3">
         <h3 class="text-xs font-semibold">{{ t.diagnostics }}</h3>
         <p v-for="item in status.data.value.diagnostics" :key="item.code + item.message" class="font-mono text-xs leading-normal text-warning" lang="en">
           {{ item.message }} <code class="text-dimmed">{{ item.code }}</code>
