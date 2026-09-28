@@ -519,8 +519,10 @@ async function pluginStep(session: Session): Promise<void> {
     session.say('Claude Code is not detected, so the binnacle plugin is not installed.');
     return record(session, 'skipped', `${what}: Claude Code is not detected`);
   }
-  session.say('Asking Claude Code for its plugins (claude plugin list --json)...');
-  const list = spawnSync('claude', ['plugin', 'list', '--json'], { cwd: session.root, encoding: 'utf8' });
+  const shown = (args: string[]): string => `claude ${args.join(' ')}`;
+  const listing = ['plugin', 'list', '--json'];
+  session.say(`Asking Claude Code for its plugins (${shown(listing)})...`);
+  const list = spawnSync('claude', listing, { cwd: session.root, encoding: 'utf8' });
   // Detected by its user directory alone, Claude Code may have no `claude` to run.
   if ((list.error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') {
     session.say('Claude Code is detected, but `claude` is not on PATH, so the binnacle plugin is not installed.');
@@ -528,8 +530,8 @@ async function pluginStep(session: Session): Promise<void> {
   }
   const ids = list.status === 0 ? pluginIds(list.stdout) : null;
   if (!ids) {
-    session.say(`\`claude plugin list --json\` failed, so the binnacle plugin is not installed.${list.stderr ? `\n${list.stderr.trim()}` : ''}`);
-    return record(session, 'failed', 'claude plugin list --json');
+    session.say(`\`${shown(listing)}\` failed, so the binnacle plugin is not installed.${list.stderr ? `\n${list.stderr.trim()}` : ''}`);
+    return record(session, 'failed', shown(listing));
   }
   const listed = ids.find((id) => id.startsWith('binnacle@'));
   if (listed) {
@@ -541,7 +543,6 @@ async function pluginStep(session: Session): Promise<void> {
     ['plugin', 'marketplace', 'add', PACKAGE_DIR, '--scope', 'user'],
     ['plugin', 'install', 'binnacle@binnacle', '--scope', 'user'],
   ];
-  const shown = (args: string[]): string => `claude ${args.join(' ')}`;
   session.say(`Install the binnacle plugin from this Binnacle package, at user scope, by running:\n\n${commands.map((args) => `  ${shown(args)}`).join('\n')}`);
   if (!(await session.ask('Install the binnacle plugin?'))) return record(session, 'declined', what);
 
@@ -704,7 +705,7 @@ async function trackerStep(session: Session, home: string, manifest: ProjectMani
     : '';
 
   // A remote tracker is read from its host, never from the tree.
-  session.say(`Reading ${name} from ${provider}...`);
+  session.say(`Reading ${name}...`);
   const reading = await readTracker(home, workingTree(session.root), manifest);
   if (reading.tasks !== null) {
     session.say(`${name} is readable: ${reading.tasks.length} issues read.${fromShell}`);

@@ -311,17 +311,18 @@ test('init exits after its summary while stdin is still open, as in a terminal',
 
   const child = spawn(process.execPath, [BINN, 'init'], { cwd: root, env: envFor(home) });
   t.after(() => child.kill('SIGKILL'));
-  let stdout = '';
-  child.stdout.on('data', (chunk) => (stdout += chunk));
+  let output = '';
+  child.stdout.on('data', (chunk) => (output += chunk));
+  child.stderr.on('data', (chunk) => (output += chunk));
   // More noes than questions, and stdin is never ended.
   child.stdin.write('n\n'.repeat(10));
 
   const code = await Promise.race([
     new Promise((resolve) => child.on('exit', resolve)),
-    new Promise((resolve) => setTimeout(resolve, 10_000, 'still running')),
+    new Promise((resolve) => setTimeout(resolve, 10_000, 'still running').unref()),
   ]);
-  assert.equal(code, 0, stdout);
-  assert.match(stdout, /Nothing was committed/);
+  assert.equal(code, 0, output);
+  assert.match(output, /Nothing was committed/);
 });
 
 test('registration with a running daemon', async (t) => {
@@ -574,7 +575,7 @@ test('a readable remote tracker is reported readable, and its section says issue
 
   const { stdout } = await binnInit(home, root, '\ny\n');
 
-  assert.match(stdout, /Reading octo-org\/octo-repo from github\.\.\.\n.*octo-org\/octo-repo is readable/);
+  assert.match(stdout, /Reading octo-org\/octo-repo\.\.\.\n.*octo-org\/octo-repo is readable/);
   assert.match(stdout, /checked\s+tracker: readable/);
   assert.deepEqual([...new Set(github.requests.map((url) => url.split('?')[0]))], ['/repos/octo-org/octo-repo/issues']);
   const section = readFileSync(join(root, TRACKER_FILE), 'utf8');
