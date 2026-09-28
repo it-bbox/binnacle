@@ -50,7 +50,8 @@ export async function init(home: string, path?: string): Promise<ExitCode> {
     return EXIT.failed;
   }
 
-  const answers = createInterface({ input: process.stdin })[Symbol.asyncIterator]();
+  const lines = createInterface({ input: process.stdin });
+  const answers = lines[Symbol.asyncIterator]();
   const answer = async (prompt: string): Promise<string | null> => {
     process.stdout.write(prompt);
     const next = await answers.next();
@@ -86,7 +87,8 @@ export async function init(home: string, path?: string): Promise<ExitCode> {
     await trackerStep(session, home, manifest);
     session.say('');
   } finally {
-    answers.return?.();
+    // Closed, not only its iterator ended: a terminal's stdin would otherwise keep init running after its summary.
+    lines.close();
   }
 
   session.say('Summary:');
@@ -517,6 +519,7 @@ async function pluginStep(session: Session): Promise<void> {
     session.say('Claude Code is not detected, so the binnacle plugin is not installed.');
     return record(session, 'skipped', `${what}: Claude Code is not detected`);
   }
+  session.say('Asking Claude Code for its plugins (claude plugin list --json)...');
   const list = spawnSync('claude', ['plugin', 'list', '--json'], { cwd: session.root, encoding: 'utf8' });
   // Detected by its user directory alone, Claude Code may have no `claude` to run.
   if ((list.error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') {
@@ -543,6 +546,7 @@ async function pluginStep(session: Session): Promise<void> {
   if (!(await session.ask('Install the binnacle plugin?'))) return record(session, 'declined', what);
 
   for (const args of commands) {
+    session.say(`Running ${shown(args)}...`);
     // stdin stays with binn init's own questions; Claude Code's output is shown as it comes.
     const run = spawnSync('claude', args, { cwd: session.root, stdio: ['ignore', 'inherit', 'inherit'] });
     if (run.status !== 0) return record(session, 'failed', shown(args));
@@ -700,6 +704,7 @@ async function trackerStep(session: Session, home: string, manifest: ProjectMani
     : '';
 
   // A remote tracker is read from its host, never from the tree.
+  session.say(`Reading ${name} from ${provider}...`);
   const reading = await readTracker(home, workingTree(session.root), manifest);
   if (reading.tasks !== null) {
     session.say(`${name} is readable: ${reading.tasks.length} issues read.${fromShell}`);

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFile, spawnSync } from 'node:child_process';
+import { execFile, spawn, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -305,6 +305,25 @@ test('closed stdin is a no to every step, and writes nothing', (t) => {
   assert.equal(git(root, 'status', '--porcelain'), '?? .codex/\n?? CONTEXT.md\n');
 });
 
+test('init exits after its summary while stdin is still open, as in a terminal', async (t) => {
+  const home = makeHome(t);
+  const root = makeRepository(t, 'open-stdin');
+
+  const child = spawn(process.execPath, [BINN, 'init'], { cwd: root, env: envFor(home) });
+  t.after(() => child.kill('SIGKILL'));
+  let stdout = '';
+  child.stdout.on('data', (chunk) => (stdout += chunk));
+  // More noes than questions, and stdin is never ended.
+  child.stdin.write('n\n'.repeat(10));
+
+  const code = await Promise.race([
+    new Promise((resolve) => child.on('exit', resolve)),
+    new Promise((resolve) => setTimeout(resolve, 10_000, 'still running')),
+  ]);
+  assert.equal(code, 0, stdout);
+  assert.match(stdout, /Nothing was committed/);
+});
+
 test('registration with a running daemon', async (t) => {
   const home = makeHome(t);
   const binn = binnIn(home);
@@ -362,6 +381,10 @@ test('the plugin: Claude Code adds the package as a marketplace and installs bin
   }
   assert.match(result.stdout, /ran\s+claude plugin marketplace add/);
   assert.match(result.stdout, /ran\s+claude plugin install binnacle@binnacle/);
+  // Each wait on Claude Code is named before it starts.
+  const asking = result.stdout.indexOf('Asking Claude Code for its plugins (claude plugin list --json)...');
+  assert.ok(asking >= 0 && asking < question, result.stdout);
+  for (const args of [add, install]) assert.ok(result.stdout.includes(`Running claude ${args.join(' ')}...`), result.stdout);
   // Claude Code's settings files are Claude Code's to write: binn init writes none.
   assert.equal(existsSync(join(home.home, '.claude')), false);
   assert.equal(git(root, 'status', '--porcelain'), '');
@@ -551,7 +574,7 @@ test('a readable remote tracker is reported readable, and its section says issue
 
   const { stdout } = await binnInit(home, root, '\ny\n');
 
-  assert.match(stdout, /octo-org\/octo-repo is readable/);
+  assert.match(stdout, /Reading octo-org\/octo-repo from github\.\.\.\n.*octo-org\/octo-repo is readable/);
   assert.match(stdout, /checked\s+tracker: readable/);
   assert.deepEqual([...new Set(github.requests.map((url) => url.split('?')[0]))], ['/repos/octo-org/octo-repo/issues']);
   const section = readFileSync(join(root, TRACKER_FILE), 'utf8');
