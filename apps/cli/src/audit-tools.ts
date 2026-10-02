@@ -25,7 +25,8 @@ const jsonServers = (text: string, root: string): string[] => {
   return [...Object.keys(json.mcpServers ?? {}), ...Object.keys(json.projects?.[root]?.mcpServers ?? {})];
 };
 const tomlServers = (text: string): string[] => [...text.matchAll(/^\s*\[mcp_servers\.["']?([^\]."']+)/gm)].map((match) => match[1]!);
-const opencodeServers = (text: string): string[] => [...text.matchAll(/"([^"]+)"\s*:/g)].map((match) => match[1]!);
+// ponytail: opencode's file may be JSONC, so its keys are read from the text after `"mcp"` and not parsed; a parser if that misreads a real file.
+const opencodeServers = (text: string): string[] => [...text.slice(Math.max(text.indexOf('"mcp"'), 0)).matchAll(/"([^"]+)"\s*:/g)].map((match) => match[1]!);
 
 /** A path under the home directory written with `~`, as a person would say it. */
 const tilde = (path: string): string => (path.startsWith(`${homedir()}/`) ? `~${path.slice(homedir().length)}` : path);
@@ -53,7 +54,7 @@ function registeredIn(places: Source[], base: string | null, root: string, name:
   for (const { file, names } of places) {
     try {
       const text = readFileSync(base === null ? file : join(base, file), 'utf8');
-      if (names(text, root).some((registered) => registered.toLowerCase().includes(name))) return file;
+      if (names(text, root).some((registered) => registered.toLowerCase() === name)) return file;
     } catch {
       // Absent, unreadable or not what it should be: no registration there.
     }
@@ -96,19 +97,19 @@ export function capabilities(root: string): Finding[] {
 export async function telemetry(root: string): Promise<Finding[]> {
   const area = 'telemetry';
   const roots = resolveArtifactRoots();
-  const where: Record<string, { code: string; root: string }> = {
-    'Claude Code': { code: 'telemetry.claude_code', root: roots.claudeCode },
-    Codex: { code: 'telemetry.codex', root: roots.codex },
+  const where: Record<string, { code: string; root: string; env: string }> = {
+    'Claude Code': { code: 'telemetry.claude_code', root: roots.claudeCode, env: 'CLAUDE_CONFIG_DIR' },
+    Codex: { code: 'telemetry.codex', root: roots.codex, env: 'CODEX_HOME' },
   };
   return (await sessionHistory(root)).map(({ name, sessions }): Finding => {
-    const { code, root: looked } = where[name]!;
+    const { code, root: looked, env } = where[name]!;
     if (sessions > 0) return { code, area, status: 'ok', reason: `${sessions} ${name} session${sessions === 1 ? '' : 's'} for this repository under ${tilde(looked)}, so usage could be attributed.` };
     return {
       code,
       area,
       status: 'unknown',
       reason: `No sessions for this repository under ${tilde(looked)}. No work has been recorded yet, or ${name} keeps its sessions elsewhere.`,
-      recommendation: `Nothing to do for a new project. If ${name} keeps its sessions elsewhere, point ${name === 'Codex' ? 'CODEX_HOME' : 'CLAUDE_CONFIG_DIR'} at them.`,
+      recommendation: `Nothing to do for a new project. If ${name} keeps its sessions elsewhere, point ${env} at them.`,
     };
   });
 }

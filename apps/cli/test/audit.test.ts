@@ -341,9 +341,12 @@ test('a tool configured in the repository is ok, from .mcp.json, .codex/config.t
     '.mcp.json': JSON.stringify({ mcpServers: { context7: { command: 'npx' } } }),
     '.codex/config.toml': '[mcp_servers.graphify]\ncommand = "graphify"\n',
     '.serena/project.yml': 'project_name: x\n',
+    // Names that only look like a tool's are not that tool.
+    'opencode.jsonc': '{ "theme": "context7-dark", "mcp": { "my-context7-fork": {} } }',
   });
   const all = auditIn(root, scratch(t));
   for (const tool of TOOLS) assert.equal(byCode(all, `capabilities.${tool}`).status, 'ok', tool);
+  assert.doesNotMatch(byCode(all, 'capabilities.context7').reason, /opencode/);
   assert.match(byCode(all, 'capabilities.context7').reason, /\.mcp\.json/);
   assert.match(byCode(all, 'capabilities.graphify').reason, /\.codex\/config\.toml/);
 });
