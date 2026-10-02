@@ -84,6 +84,8 @@ export async function init(
 
   const planOnly = options.plan === true;
   const { apply } = options;
+  // Only the interactive form asks: the window, then the plan.
+  const asks = !planOnly && apply === undefined;
   // Opened at the first question only: a run that asks nothing never reads stdin, nor holds it open.
   let lines: ReturnType<typeof createInterface> | undefined;
   let answers: AsyncIterator<string> | undefined;
@@ -110,11 +112,11 @@ export async function init(
   };
 
   try {
-    if (!planOnly && apply === undefined) session.say(`Setting up Binnacle in ${session.root}. Nothing is written until you have seen the whole plan and confirmed it.\n`);
+    if (asks) session.say(`Setting up Binnacle in ${session.root}. Nothing is written until you have seen the whole plan and confirmed it.\n`);
     const manifest = manifestStep(session);
     session.say('');
     // `--plan` and `--apply` ask nothing: without --window, the default, as Enter at the question gives it.
-    const windowSection = await windowStep(session, manifest, options.window ?? (planOnly || apply !== undefined ? DEFAULT_WINDOW_DAYS : undefined));
+    const windowSection = await windowStep(session, manifest, options.window ?? (asks ? undefined : DEFAULT_WINDOW_DAYS));
     // Read before the manifest is proposed, which declares what is found or installed; planned after the other writes.
     const plugins = listClaudePlugins(session);
     const tools = detectTools(session.root, plugins);
@@ -150,12 +152,14 @@ export async function init(
       console.log(JSON.stringify({ root, id: planId(root, plan), plan, notes, history, window }, null, 2));
       return EXIT.ok;
     }
-    if (apply === undefined) await confirmPlan(session, process.stdin.isTTY === true);
-    else if (apply === planId(session.root, session.plan)) await applyPlan(session);
-    else {
+    // The same plan shown has the same id; a change to a file that leaves every item as shown is left to ADR-0026's guards.
+    if (apply !== undefined && apply !== planId(session.root, session.plan)) {
       console.error('binn: init.plan_changed: the plan is not the one confirmed, so nothing is written. Run binn init --plan --json to see it, and confirm it again.');
       return EXIT.failed;
     }
+    if (session.plan.length === 0) session.say('There is nothing to write.');
+    else if (apply === undefined) await confirmPlan(session, process.stdin.isTTY === true);
+    else await applyPlan(session);
     session.say('');
     // After the plan is written: the manifest it created is the one whose tracker is read.
     await trackerStep(session, home, declaredManifest(session.root));
@@ -200,7 +204,6 @@ function nextSteps(session: Session, harness: Harness): void {
 /** Shows the plan whole and asks once. Without a terminal there is no one to confirm it, so nothing is written. */
 async function confirmPlan(session: Session, terminal: boolean): Promise<void> {
   const { plan } = session;
-  if (plan.length === 0) return session.say('There is nothing to write.');
   session.say('The plan. Nothing is written until you confirm it:\n');
   plan.forEach(({ heading, body }, index) => session.say(`${index + 1}. ${heading}:\n\n${body.trimEnd()}\n`));
 
@@ -217,7 +220,6 @@ async function confirmPlan(session: Session, terminal: boolean): Promise<void> {
 
 /** Runs every item of a confirmed plan. */
 async function applyPlan(session: Session): Promise<void> {
-  if (session.plan.length === 0) return session.say('There is nothing to write.');
   for (const item of session.plan) {
     // One write that fails is reported, and the rest of the plan still runs.
     try {

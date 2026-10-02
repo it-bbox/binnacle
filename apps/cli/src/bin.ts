@@ -126,7 +126,8 @@ function initOptions(args: string[]): { path: string | undefined; plan: boolean;
     });
     const plan = values.plan === true;
     const apply = values.apply?.trim();
-    if (plan !== (values.json === true) || positionals.length > 1 || apply === '' || (plan && apply !== undefined)) return null;
+    if (plan !== (values.json === true) || positionals.length > 1) return null;
+    if (apply === '' || (plan && apply !== undefined)) return null;
     const window = values.window === undefined ? undefined : values.window.trim() === '' ? null : importWindow(values.window);
     return window === null ? null : { path: positionals[0], plan, apply, window };
   } catch {
