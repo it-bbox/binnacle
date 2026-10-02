@@ -30,7 +30,7 @@ test('the packed CLI carries the binnacle plugin, every file of its source, and 
   assert.ok(source.includes(join('.claude-plugin', 'plugin.json')));
   assert.deepEqual(
     source.filter((path) => path.endsWith('SKILL.md')),
-    ['audit', 'autopilot', 'checkpoint', 'daemon', 'daily', 'dashboard', 'product', 'register', 'status', 'task'].map((skill) => join('skills', skill, 'SKILL.md')),
+    ['audit', 'autopilot', 'checkpoint', 'daemon', 'daily', 'dashboard', 'init', 'product', 'register', 'status', 'task'].map((skill) => join('skills', skill, 'SKILL.md')),
   );
   for (const path of source) {
     assert.equal(readFileSync(join(packed, 'plugin', path), 'utf8'), readFileSync(join(PLUGIN_SOURCE, path), 'utf8'), path);
@@ -42,7 +42,9 @@ test('the packed CLI carries the binnacle plugin, every file of its source, and 
     marketplace.plugins.map((plugin: { name: string; source: string }) => [plugin.name, plugin.source]),
     [['binnacle', './plugin']],
   );
-  assert.equal(JSON.parse(readFileSync(join(packed, 'plugin', '.claude-plugin', 'plugin.json'), 'utf8')).name, 'binnacle');
+  const plugin = JSON.parse(readFileSync(join(packed, 'plugin', '.claude-plugin', 'plugin.json'), 'utf8'));
+  assert.equal(plugin.name, 'binnacle');
+  for (const description of [plugin.description, marketplace.plugins[0].description]) assert.match(description, /\binit\b/);
 });
 
 /** The baseline's rule that only low-risk Tasks run in parallel, held by the one process that starts agents in parallel (ADR-0022). */
@@ -126,4 +128,26 @@ test('/binnacle:dashboard runs binn dashboard, never --print, and never shows a 
     assert.match(line, /Never run `binn dashboard --print`|at a terminal/, line);
   }
   assert.doesNotMatch(skill, /#token=|token\.json|cat .*token/);
+});
+
+/** Epic 9, ADR-0037: binn init confirmed in the chat, by the human's yes and never by the agent. */
+test('/binnacle:init shows the plan from --plan --json, asks once, applies only after the human\'s yes with the id, shows a changed plan again, and never commits', () => {
+  const skill = skillText('init');
+  assert.match(skill, /^disable-model-invocation: true$/m);
+  assert.match(skill, /^argument-hint: "\[path\]"$/m);
+  assert.match(skill, /`command not found`, exit 127/);
+  assert.match(skill, /README's setup section/);
+  assert.match(skill, /give the exit code and quote what it printed on stderr/);
+
+  assert.match(skill, /`binn init --plan --json`/);
+  assert.match(skill, /every plan item in full, numbered/);
+  assert.match(skill, /Ask once/);
+  assert.match(skill, /Only a clear yes from the human in the chat/);
+  assert.match(skill, /Never answer the question yourself/);
+  assert.match(skill, /`--window <days\|all>` when the human named a window/);
+  assert.match(skill, /`binn init --apply <id>`/);
+  assert.match(skill, /`init\.plan_changed`/);
+  assert.match(skill, /show the new plan and ask again/);
+  assert.match(skill, /`\/binnacle:daemon start` then `\/binnacle:init` again/);
+  assert.match(skill, /Never commit/);
 });

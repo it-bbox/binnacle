@@ -50,6 +50,7 @@ Initial user-facing actions:
 - `/status` — concise project and session status from `project_status` alone: the project, the manifest's tracker, this session's checkout (the registered one, or a linked worktree, said plainly) with its branch, commit and dirty state, and the diagnostics; the roadmap, Tasks and usage stay with `/product`;
 - `/checkpoint` — extract durable delta and propose persistence;
 - `/audit [path]` — run `binn audit --json` on the current repository or a path and show its findings in the chat;
+- `/init [path]` — run `binn init --plan --json` on the current repository or a path, show the history, the window and every plan item in full, numbered, with init's notes, and ask once; another window named by the human shows the plan again with `--window`; only the human's yes in the chat runs `binn init --apply <id>` with the same window and path, a changed plan (`init.plan_changed`) is shown again and asked again, and the Summary and the tracker check are shown as printed; it never commits (ADR-0037);
 - `/daemon [start|stop|status]` — run `binn daemon <action>`, `status` by default, and show what it printed, with the log tail of a failed start;
 - `/register [path]` — run `binn project register` on a path, or else on the main checkout (the first path `git worktree list` prints), saying when that is not the session's checkout;
 - `/dashboard` — run `binn dashboard`, which opens the dashboard in the browser, already authorised, and show the address it prints without its token; it never runs `binn dashboard --print`, because a skill's shell output reaches the model's provider and the token authorises the daemon's local API (ADR-0031);
@@ -57,9 +58,9 @@ Initial user-facing actions:
 
 Actual command syntax may differ across Claude Code, Codex, Gemini and other clients. The logical action remains the same.
 
-In Claude Code the actions are served by a plugin named `binnacle` (ADR-0023), so each is namespaced: `/binnacle:product`, `/binnacle:daily`, `/binnacle:task`, `/binnacle:status`, `/binnacle:checkpoint`, `/binnacle:audit`, `/binnacle:daemon`, `/binnacle:register`, `/binnacle:dashboard` and `/binnacle:autopilot`. Other projects get the plugin from the installed npm package (ADR-0027).
+In Claude Code the actions are served by a plugin named `binnacle` (ADR-0023), so each is namespaced: `/binnacle:product`, `/binnacle:daily`, `/binnacle:task`, `/binnacle:status`, `/binnacle:checkpoint`, `/binnacle:audit`, `/binnacle:init`, `/binnacle:daemon`, `/binnacle:register`, `/binnacle:dashboard` and `/binnacle:autopilot`. Other projects get the plugin from the installed npm package (ADR-0027).
 
-`/audit`, `/daemon`, `/register` and `/dashboard` need no daemon: they run `binn` in the harness's shell, not an MCP tool, so they can be started while the daemon is stopped. `/register` and `/dashboard` then fail with `binn`'s message and name `/daemon start`. Where `/product`, `/daily`, `/task`, `/status`, `/checkpoint` and `/autopilot` meet `daemon.unreachable` or `project.not_registered`, they name `/binnacle:daemon start` or `/binnacle:register` beside the `binn` command.
+`/audit`, `/init`, `/daemon`, `/register` and `/dashboard` need no daemon: they run `binn` in the harness's shell, not an MCP tool, so they can be started while the daemon is stopped. `/register` and `/dashboard` then fail with `binn`'s message and name `/daemon start`. `/init` then leaves registration out of its plan, and says that `/daemon start` then `/init` again adds it. Where `/product`, `/daily`, `/task`, `/status`, `/checkpoint` and `/autopilot` meet `daemon.unreachable` or `project.not_registered`, they name `/binnacle:daemon start` or `/binnacle:register` beside the `binn` command.
 
 ## How the interface reaches a harness
 
