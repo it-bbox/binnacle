@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
-import { accessSync, appendFileSync, constants, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, delimiter, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { readGitFacts, workingTree, type GitRemote } from '@binnacle/adapters';
@@ -22,8 +22,9 @@ import { EXIT, type ExitCode } from './exit.ts';
 import { sessionHistory } from './history.ts';
 import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, mattPocockFiles } from './layout.ts';
 import { register } from './project-commands.ts';
+import { declaredCapabilities, onPath, TOOLS, type Tool } from './tools.ts';
 
-type Outcome = 'created' | 'extended' | 'printed' | 'ran' | 'checked' | 'failed' | 'declined' | 'skipped';
+type Outcome = 'created' | 'extended' | 'printed' | 'ran' | 'found' | 'checked' | 'failed' | 'declined' | 'skipped';
 
 /** One write the plan proposes: shown in full before the one question, applied only after a yes. */
 type PlanItem = {
@@ -74,7 +75,10 @@ export async function init(home: string, path?: string): Promise<ExitCode> {
     const manifest = manifestStep(session);
     session.say('');
     const windowSection = await windowStep(session, manifest);
-    if (manifest === 'new') planFile(session, MANIFEST_RELATIVE, proposeManifest(session.root, git.remotes) + (windowSection ? `\n${windowSection}` : ''));
+    // Read before the manifest is proposed, which declares what is found or installed; planned after the other writes.
+    const tools = detectTools(session.root);
+    const installed = tools.filter(({ state }) => state === 'found' || state === 'install').map(({ tool }) => tool.name);
+    if (manifest === 'new') planFile(session, MANIFEST_RELATIVE, proposeManifest(session.root, git.remotes, installed) + (windowSection ? `\n${windowSection}` : ''));
     session.say('');
     registrationStep(session, home, manifest !== 'invalid');
     session.say('');
@@ -86,6 +90,8 @@ export async function init(home: string, path?: string): Promise<ExitCode> {
     mattPocockStep(session, declaredManifest(session.root)?.tracker.provider ?? forgeRemote(git.remotes)?.provider ?? 'local');
     session.say('');
     instructionsStep(session);
+    session.say('');
+    toolsStep(session, tools);
     session.say('');
     await confirmPlan(session, process.stdin.isTTY === true);
     session.say('');
@@ -226,7 +232,7 @@ function manifestStep(session: Session): ManifestState {
 }
 
 /** Only what is there: a path that does not exist, or a tracker nobody has, is never declared. */
-function proposeManifest(root: string, remotes: GitRemote[]): string {
+function proposeManifest(root: string, remotes: GitRemote[], capabilities: string[]): string {
   const sections = [`version: 1`, `project:\n  id: ${scalar(basename(root))}`];
 
   const forge = forgeRemote(remotes);
@@ -243,6 +249,8 @@ function proposeManifest(root: string, remotes: GitRemote[]): string {
   if (knowledge.length > 0) sections.push(`knowledge:${knowledge.join('')}`);
 
   if (mattPocockFiles(root).length > 0) sections.push('workflow:\n  provider: matt-pocock');
+
+  if (capabilities.length > 0) sections.push(`capabilities:${capabilities.map((name) => `\n  ${name}: true`).join('')}`);
 
   return `${sections.join('\n\n')}\n`;
 }
@@ -438,24 +446,6 @@ function detect(harness: Harness): string | null {
   return null;
 }
 
-function onPath(name: string): boolean {
-  const extensions = process.platform === 'win32' ? (process.env.PATHEXT ?? '.EXE;.CMD;.BAT').split(';') : [''];
-  return (process.env.PATH ?? '')
-    .split(delimiter)
-    .filter(Boolean)
-    .some((dir) =>
-      extensions.some((extension) => {
-        const path = join(dir, name + extension);
-        try {
-          accessSync(path, constants.X_OK);
-          return statSync(path).isFile();
-        } catch {
-          return false;
-        }
-      }),
-    );
-}
-
 /**
  * ponytail: a textual check, not a parse. A `"binnacle":` key anywhere in a JSON file counts as
  * naming it, and so does, in a TOML file, a `[mcp_servers.binnacle]` table or a `binnacle` or
@@ -647,7 +637,7 @@ function instructionsStep(session: Session): void {
 }
 
 /**
- * Step 8: one read of a remote tracker through its adapter, with the credentials lookup the
+ * Step 9: one read of a remote tracker through its adapter, with the credentials lookup the
  * daemon uses. On a failure it says how to make a read-only token and where to put it; it
  * never asks for, stores or prints one. `manifest` is the readable manifest, if any.
  */
@@ -687,4 +677,56 @@ async function trackerStep(session: Session, home: string, manifest: ProjectMani
       `Generic variables such as ${provider.toUpperCase()}_TOKEN are not read: they commonly hold tokens that can write. ` +
       `Binnacle's docs/operations/05-installation-checklist.md, under Tracker credentials, has the details.${fromShell}`,
   );
+}
+
+/** A tool of the Standard setup that init installs, and what init found about it on this machine. */
+type ToolState = { tool: Tool & Required<Pick<Tool, 'executable' | 'install'>>; state: 'declared-false' | 'found' | 'no-prerequisite' | 'install' };
+
+/** Each installable tool: declared false in the manifest, found on PATH by its own executable, waiting on its prerequisite, or to install. */
+function detectTools(root: string): ToolState[] {
+  const declared = declaredCapabilities(root);
+  return TOOLS.filter((tool): tool is ToolState['tool'] => tool.executable !== undefined && tool.install !== undefined).map((tool) => ({
+    tool,
+    state: declared[tool.name] === false ? 'declared-false' : onPath(tool.executable) ? 'found' : onPath(tool.install.prerequisite.executable) ? 'install' : 'no-prerequisite',
+  }));
+}
+
+/**
+ * Step 8: the tools of the Standard setup that are executables (ADR-0035), installed through a
+ * package manager outside the repository. A prerequisite is named, never installed, and no
+ * installer script is ever run. One install that fails leaves the others to run.
+ */
+function toolsStep(session: Session, tools: ToolState[]): void {
+  const named = new Set<string>();
+  for (const { tool, state } of tools) {
+    const { title, name, executable, install } = tool;
+    if (state === 'declared-false') {
+      session.say(`${MANIFEST_RELATIVE} declares ${name}: false, so ${title} is not proposed.`);
+      record(session, 'skipped', `${title}: ${MANIFEST_RELATIVE} declares it false`);
+    } else if (state === 'found') {
+      session.say(`${title} is installed (${executable} is on PATH). It is left as it is.`);
+      record(session, 'found', `${title}: ${executable} is on PATH`);
+    } else if (state === 'no-prerequisite') {
+      const { executable: needed, how } = install.prerequisite;
+      if (!named.has(needed)) session.say(`${needed} is not on PATH, and binn init does not install it. Install it with ${how}, then run binn init again.`);
+      named.add(needed);
+      session.say(`${title} needs ${needed}, so it is not proposed.`);
+      record(session, 'skipped', `${title}: ${needed} is not on PATH`);
+    } else {
+      const shown = install.command.join(' ');
+      session.say(`${title} is not installed (no ${executable} on PATH). Its install is in the plan.`);
+      session.plan.push({
+        heading: `Install ${title}, outside the repository, by running`,
+        body: `  ${shown}`,
+        declined: `install ${title}`,
+        apply() {
+          session.say(`Running ${shown}...`);
+          // stdin stays with binn init's own questions; the installer's output is shown as it comes.
+          const [command, ...args] = install.command;
+          const run = spawnSync(command!, args, { cwd: session.root, stdio: ['ignore', 'inherit', 'inherit'] });
+          record(session, run.status === 0 ? 'ran' : 'failed', shown);
+        },
+      });
+    }
+  }
 }

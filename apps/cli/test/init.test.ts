@@ -992,7 +992,7 @@ test('a project that carries its own binnacle plugin has the agent read that ski
 
   assert.equal(result.status, 0, result.stderr);
   assert.ok(result.stdout.includes(`product skill file at ${join(root, own)} and follow it`), result.stdout);
-  assert.doesNotMatch(result.stdout, /not on PATH/);
+  assert.doesNotMatch(result.stdout, /`codex` is not on PATH/);
 });
 
 test('with only Claude Code detected the Summary has no next step for another harness', (t) => {
@@ -1004,4 +1004,148 @@ test('with only Claude Code detected the Summary has no next step for another ha
 
   assert.equal(result.status, 0, result.stderr);
   assert.doesNotMatch(result.stdout, /To work from/);
+});
+
+/** A fake executable `name` on PATH, recording each call's arguments as fakeClaude does, and exiting with `exitCode`. */
+function fakeTool(home: Home, name: string, exitCode = 0): () => string[][] {
+  const calls = join(home.home, `${name}-calls`);
+  writeFileSync(
+    join(home.bin, name),
+    `#!/bin/sh
+for arg in "$@"; do printf '%s\\t' "$arg"; done >> '${calls}'
+echo >> '${calls}'
+exit ${exitCode}
+`,
+    { mode: 0o755 },
+  );
+  return () =>
+    existsSync(calls)
+      ? readFileSync(calls, 'utf8').trimEnd().split('\n').map((line) => line.replace(/\t$/, '').split('\t'))
+      : [];
+}
+
+const SERENA = ['tool', 'install', '-p', '3.13', 'serena-agent'];
+const GRAPHIFY = ['tool', 'install', 'graphifyy'];
+const AST_GREP = ['i', '@ast-grep/cli', '-g'];
+
+test('the tools: each missing one is in the plan with its exact command, installed after a yes, and declared by the new manifest', (t) => {
+  const home = makeHome(t);
+  const uv = fakeTool(home, 'uv');
+  const npm = fakeTool(home, 'npm');
+  const root = makeRepository(t, 'tooled');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  const question = result.stdout.indexOf(PLAN_QUESTION);
+  for (const command of [`uv ${SERENA.join(' ')}`, `uv ${GRAPHIFY.join(' ')}`, `npm ${AST_GREP.join(' ')}`]) {
+    const shown = result.stdout.indexOf(command);
+    assert.ok(shown >= 0 && shown < question, `${command}\n${result.stdout}`);
+    assert.match(result.stdout, new RegExp(`ran\\s+${command.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}`));
+  }
+  assert.deepEqual(uv(), [SERENA, GRAPHIFY]);
+  assert.deepEqual(npm(), [AST_GREP]);
+  assert.deepEqual(readManifest(root).manifest.capabilities, { serena: true, graphify: true, ast_grep: true });
+  // The installs write nothing into the repository.
+  assert.equal(git(root, 'status', '--porcelain'), '?? .binnacle/\n');
+});
+
+test('the tools: one already on PATH is reported as found, nothing is installed for it, and the new manifest declares it', (t) => {
+  const home = makeHome(t);
+  const uv = fakeTool(home, 'uv');
+  const npm = fakeTool(home, 'npm');
+  for (const name of ['serena', 'graphify', 'ast-grep']) installExecutable(home, name);
+  const root = makeRepository(t, 'found');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  for (const title of ['Serena', 'Graphify', 'ast-grep']) assert.match(result.stdout, new RegExp(`found\\s+${title}: ${title === 'ast-grep' ? 'ast-grep' : title.toLowerCase()} is on PATH`));
+  assert.deepEqual(uv(), []);
+  assert.deepEqual(npm(), []);
+  assert.doesNotMatch(result.stdout, /tool install|@ast-grep\/cli/);
+  assert.deepEqual(readManifest(root).manifest.capabilities, { serena: true, graphify: true, ast_grep: true });
+});
+
+test('the tools: one the manifest declares false is not proposed', (t) => {
+  const home = makeHome(t);
+  const uv = fakeTool(home, 'uv');
+  const npm = fakeTool(home, 'npm');
+  const manifest = 'version: 1\nproject:\n  id: declared\ncapabilities:\n  serena: false\n  ast_grep: false\n';
+  const root = makeRepository(t, 'declared', { '.binnacle/project.yaml': manifest });
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(result.stdout, /serena-agent|@ast-grep\/cli/);
+  assert.match(result.stdout, /skipped\s+Serena: .*declares it false/);
+  assert.match(result.stdout, /skipped\s+ast-grep: .*declares it false/);
+  assert.deepEqual(uv(), [GRAPHIFY]);
+  assert.deepEqual(npm(), []);
+  assert.equal(manifestOf(root), manifest);
+});
+
+test('the tools: without uv, Serena and Graphify are left out and uv is named with the command that installs it', (t) => {
+  const home = makeHome(t);
+  const npm = fakeTool(home, 'npm');
+  const root = makeRepository(t, 'no-uv');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(result.stdout, /serena-agent|graphifyy/);
+  assert.match(result.stdout, /uv is not on PATH.*pipx install uv/);
+  assert.match(result.stdout, /skipped\s+Serena: uv is not on PATH/);
+  assert.match(result.stdout, /skipped\s+Graphify: uv is not on PATH/);
+  assert.deepEqual(npm(), [AST_GREP]);
+  assert.deepEqual(readManifest(root).manifest.capabilities, { ast_grep: true });
+});
+
+test('the tools: ast-grep is detected by ast-grep only, so an sg on PATH does not count', (t) => {
+  const home = makeHome(t);
+  const npm = fakeTool(home, 'npm');
+  installExecutable(home, 'sg');
+  const root = makeRepository(t, 'sg');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(npm(), [AST_GREP]);
+  assert.doesNotMatch(result.stdout, /found\s+ast-grep/);
+});
+
+test('the tools: a failed install is reported in the Summary, and the rest of the plan still runs', (t) => {
+  const home = makeHome(t);
+  const uv = fakeTool(home, 'uv', 1);
+  const npm = fakeTool(home, 'npm');
+  const root = makeRepository(t, 'failing');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /failed\s+uv tool install -p 3\.13 serena-agent/);
+  assert.match(result.stdout, /failed\s+uv tool install graphifyy/);
+  assert.match(result.stdout, /ran\s+npm i @ast-grep\/cli -g/);
+  assert.deepEqual(uv(), [SERENA, GRAPHIFY]);
+  assert.deepEqual(npm(), [AST_GREP]);
+});
+
+test('the tools: a declined plan and a stdin that is not a terminal install nothing', (t) => {
+  for (const [terminal, input] of [
+    [true, '\nn\n'],
+    [false, '\n\n'],
+  ] as const) {
+    const home = makeHome(t);
+    const uv = fakeTool(home, 'uv');
+    const npm = fakeTool(home, 'npm');
+    const root = makeRepository(t, 'untouched');
+
+    const result = binnIn(home, terminal)(root, input, 'init');
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(result.stdout.includes(`uv ${SERENA.join(' ')}`), result.stdout);
+    assert.match(result.stdout, /declined\s+install Serena/);
+    assert.deepEqual(uv(), []);
+    assert.deepEqual(npm(), []);
+  }
 });

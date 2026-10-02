@@ -2,6 +2,8 @@
 
 This checklist separates Binnacle requirements from recommended external capabilities. Exact upstream commands should be rechecked during implementation because third-party installers evolve.
 
+`binn init` installs Serena, Graphify and ast-grep when they are missing, after the plan's one yes, with the commands below; it needs `uv` for the first two and `npm` for ast-grep, and names them when they are missing rather than installing them. The table it installs from is in `docs/operations/03-external-tools.md`, *What `binn init` installs*.
+
 ## Installing Binnacle
 
 Binnacle is distributed through npm and requires Node 24 on the user's machine (`ADR-0016`):
@@ -151,7 +153,7 @@ Binnacle should record capability availability per harness, not assume one globa
 
 Serena is a specialized MCP for semantic/symbol-level code navigation and editing.
 
-Current upstream quick start uses `uv`:
+Current upstream quick start uses `uv`; `binn init` runs the install when `serena` is not on `PATH`:
 
 ```bash
 uv tool install -p 3.13 serena-agent
@@ -168,7 +170,7 @@ Binnacle should check Serena health/availability and project activation, but sho
 
 Graphify is the Standard-profile architecture/dependency graph provider.
 
-Install base CLI:
+Install base CLI; `binn init` runs this when `graphify` is not on `PATH`:
 
 ```bash
 uv tool install graphifyy
@@ -223,7 +225,7 @@ Binnacle should perform a capability check rather than owning the Context7 lifec
 
 ## Recommended: ast-grep
 
-For a Node-centric setup, current upstream supports:
+For a Node-centric setup, current upstream supports the command below, which `binn init` runs when `ast-grep` is not on `PATH` (an `sg` is not taken for it):
 
 ```bash
 npm i @ast-grep/cli -g

@@ -2,8 +2,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { type Finding } from '@binnacle/core';
-import { MANIFEST_RELATIVE, readManifest, resolveArtifactRoots } from '@binnacle/daemon';
+import { MANIFEST_RELATIVE, resolveArtifactRoots } from '@binnacle/daemon';
 import { sessionHistory } from './history.ts';
+import { declaredCapabilities, TOOLS } from './tools.ts';
 
 /**
  * The capabilities and telemetry-readiness areas of `binn audit`. They read configuration
@@ -11,11 +12,8 @@ import { sessionHistory } from './history.ts';
  * message content.
  */
 
-const TOOLS = [
-  { name: 'serena', title: 'Serena', files: ['.serena/project.yml'] },
-  { name: 'graphify', title: 'Graphify', files: [] },
-  { name: 'context7', title: 'Context7', files: [] },
-];
+/** The tools the audit checks, from the Standard setup's table; the others have no audit check yet. */
+const AUDITED = ['serena', 'graphify', 'context7'];
 
 /** Where an MCP server is registered, and how its name is found: a JSON `mcpServers` key, a TOML `[mcp_servers.<name>]` table, or the name as a key in opencode's file. */
 type Source = { file: string; names(text: string, root: string): string[] };
@@ -65,15 +63,10 @@ function registeredIn(places: Source[], base: string | null, root: string, name:
 /** Serena, Graphify and Context7: the repository's declaration first, then its configuration files, then the user-scope ones. Nothing found is `unknown`: the tool may be configured elsewhere. */
 export function capabilities(root: string): Finding[] {
   const area = 'capabilities';
-  let declared: Record<string, boolean | 'optional'> = {};
-  try {
-    declared = readManifest(root).manifest.capabilities;
-  } catch {
-    // No usable manifest: nothing is declared.
-  }
+  const declared = declaredCapabilities(root);
   const { repository, user } = sources();
 
-  return TOOLS.map(({ name, title, files }): Finding => {
+  return TOOLS.filter(({ name }) => AUDITED.includes(name)).map(({ name, title, files }): Finding => {
     const code = `capabilities.${name}`;
     const declaration = declared[name];
     if (declaration !== undefined) {

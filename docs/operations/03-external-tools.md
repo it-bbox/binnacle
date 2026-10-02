@@ -2,6 +2,18 @@
 
 This document describes **recommended integrations**, not dependencies that must be embedded into Binnacle.
 
+## What `binn init` installs
+
+`binn init` installs the tools of the Standard setup that are executables (ADR-0035), in its one plan (ADR-0034), outside the repository, through a package manager only:
+
+| Tool | Detected by | Prerequisite | Install command |
+| --- | --- | --- | --- |
+| Serena | `serena` on `PATH` | `uv` | `uv tool install -p 3.13 serena-agent` |
+| Graphify | `graphify` on `PATH` | `uv` | `uv tool install graphifyy` |
+| ast-grep | `ast-grep` on `PATH` (never `sg`) | `npm` | `npm i @ast-grep/cli -g` |
+
+A tool already on `PATH` is reported as found and left alone. A tool the manifest declares `false` under `capabilities` is not proposed. A missing prerequisite is named with the command that installs it, and the tools that need it are left out of the plan: init never installs `uv` and never runs an installer script. Each install is reported in the Summary, and one that fails does not stop the rest. A manifest init creates declares `true` under `capabilities` for each tool it installs or finds. The table is `apps/cli/src/tools.ts`, which `binn audit` reads too; MCP registration and the skill plugins come with the next tickets of epic 8.
+
 ## Node / pnpm
 
 Project runtime baseline: Node.js 24 LTS. Use pnpm for workspace management.
