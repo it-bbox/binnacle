@@ -2,11 +2,12 @@
 
 Status: READY
 Triage: ready-for-human
-Blocked by: 04, 05, 06, 07
+Blocked by: 04, 05, 06, 07, 09
 Spec: `docs/specs/audit-and-adopt/spec.md`
 
 **What to build:** epic 7's exit criterion, demonstrated by the owner. A large third-party repository stays post-v1 (`docs/00-scope.md`).
 
+- [ ] The owner runs the audit from the chat with `/binnacle:audit` (ticket 09), not from a terminal.
 - [ ] `binn audit` on this repository gives a report the owner agrees with, with no gap that is not a real one.
 - [ ] `binn audit` on a repository of the owner's own, one that has not run `binn init`, gives recommendations the owner agrees with, and the owner changes nothing because of the audit itself.
 - [ ] `binn init` on that repository shows one plan, asks once, and Enter accepts it.

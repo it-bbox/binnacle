@@ -122,10 +122,11 @@ Three tickets from the owner's feedback sit beside the audit in this epic:
 58. As a developer, I want it to say that GLM is a model reached through a harness such as Claude Code or opencode, so that I do not look for a GLM adapter.
 59. As a developer, I want `binn init`'s Summary to print the exact next step for a harness other than Claude Code, including the prompt that makes an agent read the Binnacle skill and follow it, so that I am not left to work it out.
 60. As a Russian-speaking developer, I want `README.ru.md` to carry the same section, so that the two READMEs stay one (`AGENTS.md`).
+61. As a developer, I want to run the audit from the chat with `/binnacle:audit` and read its findings there, so that I do not switch to a terminal (the owner, 2026-10-02).
 
 ## Implementation Decisions
 
-- **A new CLI command `binn audit [path]`**, with `--json`. It is a CLI command of its own, not part of `binn init`. It does not go through the daemon, so there is no new daemon operation and no new MCP tool. MCP and the dashboard do not show the audit in this epic.
+- **A new CLI command `binn audit [path]`**, with `--json`. It is a CLI command of its own, not part of `binn init`. It does not go through the daemon, so there is no new daemon operation and no new MCP tool. MCP and the dashboard do not show the audit in this epic. A skill, `/binnacle:audit`, runs the command and presents its findings in the chat, because the owner wants everything done from the chat (2026-10-02, ticket 09).
 - **Findings are a list of plain records**: a check code, an area, a status of `ok`, `gap` or `unknown`, a reason and a recommendation. The text output and `--json` are two renderings of the same list. There is no overall score and no weighting between findings.
 - **The areas are those of phase 6**: Git and tracker; docs, ADRs and context; the Matt Pocock layout; `.scratch`; Serena, Graphify and Context7; agent instructions; tests, CI and structure; telemetry readiness.
 - **The audit reads files and Git, and nothing else.** It runs no process but Git, makes no network call and writes nothing. A check that files cannot answer is `unknown`.
