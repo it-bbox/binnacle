@@ -71,7 +71,7 @@ test('autopilot refreshes the plugin only when a merge changed its skills and bi
   assert.match(skill, /`pnpm --filter @binnacle\/cli run prepare`/);
   assert.match(skill, /only if `claude plugin list --json` lists `binnacle@binnacle`, `claude plugin marketplace update binnacle` then `claude plugin update binnacle@binnacle`/);
   assert.match(skill, /A failure here never stops the run/);
-  assert.match(skill, /the plugin refreshed and that a new session loads it, or why it was skipped, or which command failed/);
+  assert.match(skill, /the plugin refreshed and that a new session loads it, or why it was skipped, or which command failed and the commands run before it/);
 });
 
 /** Epic 9: the daemon and registration from the chat, run through binn so that they need no daemon. */
