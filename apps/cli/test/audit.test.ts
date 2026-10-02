@@ -77,7 +77,7 @@ test('binn audit on a bare repository, with no daemon, registration or manifest,
   assert.ok(all.length > 0);
   for (const finding of findings(first.stdout)) {
     assert.match(finding.code, /^[a-z]+\.[a-z_]+$/);
-    assert.equal(finding.area, 'git-and-tracker');
+    assert.ok(['git-and-tracker', 'docs', 'matt-pocock-layout', 'instructions'].includes(finding.area), finding.area);
     assert.ok(['ok', 'gap', 'unknown'].includes(finding.status));
     assert.ok(finding.reason);
     assert.equal(finding.recommendation !== undefined, finding.status !== 'ok', `${finding.code}: a recommendation for a gap or an unknown only`);
@@ -186,4 +186,52 @@ test('binn audit gives the same output with the network unreachable as with a pr
     env: { ...baseEnv, HOME: home, BINNACLE_HOME: join(home, '.binnacle') },
   });
   assert.equal(plain.stdout, audit(t, ['--json'], {}, root).stdout);
+});
+
+/** Writes `files` (path to text) into the fixture, creating directories. */
+function write(root: string, files: Record<string, string>): void {
+  for (const [path, text] of Object.entries(files)) {
+    mkdirSync(join(root, path, '..'), { recursive: true });
+    writeFileSync(join(root, path), text);
+  }
+}
+
+const finding = (root: string, t: TestContext, code: string): Finding => byCode(findings(audit(t, ['--json'], {}, root).stdout), code);
+
+test('binn audit: a repository with a context file and ADRs but no ticket-header convention gets a gap that names binn init', (t) => {
+  const root = fixture(t);
+  write(root, { 'CONTEXT.md': '# c\n', 'docs/adr/ADR-0001-x.md': '# x\n' });
+  assert.equal(finding(root, t, 'docs.context').status, 'ok');
+  assert.equal(finding(root, t, 'docs.adr').status, 'ok');
+  const gap = finding(root, t, 'layout.ticket_header');
+  assert.equal(gap.status, 'gap');
+  assert.match(gap.recommendation!, /binn init/);
+  assert.equal(finding(fixture(t), t, 'docs.context').status, 'gap');
+});
+
+test('binn audit: a partial Matt Pocock layout names what is missing, and a complete one is ok', (t) => {
+  const root = fixture(t);
+  assert.match(finding(root, t, 'layout.files').reason, /No Matt Pocock layout/);
+  write(root, { 'docs/agents/issue-tracker.md': '# t\n\n## Ticket header\n\nx\n', 'docs/agents/domain.md': '# d\n' });
+  const partial = finding(root, t, 'layout.files');
+  assert.equal(partial.status, 'gap');
+  assert.match(partial.reason, /Missing: docs\/agents\/triage-labels\.md, docs\/specs\/<slug>\//);
+  assert.doesNotMatch(partial.reason, /Missing:.*issue-tracker/);
+  assert.equal(finding(root, t, 'layout.ticket_header').status, 'ok');
+  write(root, { 'docs/agents/triage-labels.md': '# l\n', 'docs/specs/one/spec.md': '# s\n' });
+  assert.equal(finding(root, t, 'layout.files').status, 'ok');
+});
+
+test('binn audit: a CLAUDE.md holding @AGENTS.md is one instruction set; two files that do not import each other get a recommendation', (t) => {
+  const root = fixture(t);
+  assert.equal(finding(root, t, 'instructions.sets').status, 'gap');
+  assert.match(finding(root, t, 'instructions.sets').reason, /No AGENTS\.md or CLAUDE\.md/);
+  write(root, { 'AGENTS.md': '# a\n', 'CLAUDE.md': '@AGENTS.md\n' });
+  const one = finding(root, t, 'instructions.sets');
+  assert.equal(one.status, 'ok');
+  assert.equal(one.recommendation, undefined);
+  write(root, { 'CLAUDE.md': '# own rules\n' });
+  const two = finding(root, t, 'instructions.sets');
+  assert.equal(two.status, 'gap');
+  assert.match(two.recommendation!, /canonical/);
 });

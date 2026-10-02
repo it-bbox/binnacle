@@ -1,8 +1,10 @@
 import { readGitFacts, type GitFacts } from '@binnacle/adapters';
-import { AUDIT_AREAS, forgeRemote, type Finding } from '@binnacle/core';
+import { AUDIT_AREAS, forgeRemote, instructionSets, type Finding } from '@binnacle/core';
 import { resolveGitTimeout, trackerToken } from '@binnacle/daemon';
-import { resolve } from 'node:path';
+import { existsSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { EXIT, type ExitCode } from './exit.ts';
+import { hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, MATT_POCOCK_FILES, mattPocockFiles, specSlugs } from './layout.ts';
 
 type Repository = Extract<GitFacts, { available: true }>;
 
@@ -19,7 +21,7 @@ export async function audit(home: string, path: string | undefined, json: boolea
   }
 
   // One list per area, so that each later area is one more entry here; the sort is stable, so checks keep their order within an area.
-  const all: Finding[] = [...gitAndTracker(git, home)].sort((a, b) => AUDIT_AREAS.indexOf(a.area) - AUDIT_AREAS.indexOf(b.area));
+  const all: Finding[] = [...gitAndTracker(git, home), ...docs(git.root), ...matt(git.root), ...instructions(git.root)].sort((a, b) => AUDIT_AREAS.indexOf(a.area) - AUDIT_AREAS.indexOf(b.area));
 
   if (json) {
     console.log(JSON.stringify({ root: git.root, findings: all }, null, 2));
@@ -84,4 +86,79 @@ function gitAndTracker(git: Repository, home: string): Finding[] {
     recommendation: 'Run binn init, which reads the tracker once and says whether it was readable.',
   });
   return found;
+}
+
+/** Whether `CONTEXT.md`, an ADR directory and `docs/` exist. */
+function docs(root: string): Finding[] {
+  const area = 'docs';
+  const check = (code: string, path: string, what: string, recommendation: string): Finding =>
+    existsSync(join(root, path))
+      ? { code, area, status: 'ok', reason: `${path} exists.` }
+      : { code, area, status: 'gap', reason: `No ${path}: ${what}`, recommendation };
+  return [
+    check('docs.context', 'CONTEXT.md', 'the glossary of the domain an agent reads first.', 'Write CONTEXT.md; /grill-with-docs builds it as terms are settled.'),
+    check('docs.adr', 'docs/adr', 'no architecture decisions are recorded.', 'Record durable trade-offs as ADRs under docs/adr.'),
+    check('docs.docs', 'docs', 'no durable documentation directory.', 'Keep durable knowledge as Markdown under docs/.'),
+  ];
+}
+
+/** The Matt Pocock layout: its convention files and a spec directory, and the ticket-header convention. */
+function matt(root: string): Finding[] {
+  const area = 'matt-pocock-layout';
+  const present = mattPocockFiles(root);
+  const slugs = specSlugs(root);
+  const missing = [...MATT_POCOCK_FILES.filter((path) => !present.includes(path)), ...(slugs.length === 0 ? ['docs/specs/<slug>/'] : [])];
+  const found: Finding[] = [];
+  if (missing.length === 0) {
+    found.push({ code: 'layout.files', area, status: 'ok', reason: `The layout is in place: ${present.join(', ')}, and ${slugs.length} spec${slugs.length === 1 ? '' : 's'} under docs/specs/.` });
+  } else if (present.length + slugs.length === 0) {
+    found.push({
+      code: 'layout.files',
+      area,
+      status: 'gap',
+      reason: `No Matt Pocock layout: ${missing.join(', ')} are all missing.`,
+      recommendation: 'Run /setup-matt-pocock-skills in your agent harness to set it up.',
+    });
+  } else {
+    found.push({
+      code: 'layout.files',
+      area,
+      status: 'gap',
+      reason: `The Matt Pocock layout is partial. Present: ${[...present, ...slugs.map((slug) => `docs/specs/${slug}/`)].join(', ')}. Missing: ${missing.join(', ')}.`,
+      recommendation: 'Add only the missing parts; /setup-matt-pocock-skills writes the convention files and /to-spec the spec directories.',
+    });
+  }
+  const tracker = present.includes(ISSUE_TRACKER);
+  found.push(
+    hasTicketHeaderSection(root)
+      ? { code: 'layout.ticket_header', area, status: 'ok', reason: `${ISSUE_TRACKER} has its ticket-header section.` }
+      : {
+          code: 'layout.ticket_header',
+          area,
+          status: 'gap',
+          reason: `${ISSUE_TRACKER} has no ticket-header convention${tracker ? '' : ' (the file is missing)'}, which Binnacle reads a ticket's state and dependencies from (ADR-0024).`,
+          recommendation: `${tracker ? 'R' : 'Once /setup-matt-pocock-skills has written the file, r'}un binn init, which offers to add the section.`,
+        },
+  );
+  return found;
+}
+
+/** AGENTS.md and CLAUDE.md as the sets an agent reads. */
+function instructions(root: string): Finding[] {
+  const area = 'instructions';
+  const sets = instructionSets(instructionFiles(root));
+  if (sets.length === 0) {
+    return [{ code: 'instructions.sets', area, status: 'gap', reason: 'No AGENTS.md or CLAUDE.md: a first agent starts without instructions.', recommendation: 'Write AGENTS.md; have CLAUDE.md hold @AGENTS.md if Claude Code needs its own file.' }];
+  }
+  const described = sets.map(([entry, ...imported]) => (imported.length === 0 ? entry : `${entry}, which imports ${imported.join(' and ')}`)).join('; ');
+  if (sets.length === 1) return [{ code: 'instructions.sets', area, status: 'ok', reason: `One instruction set: ${described}.` }];
+  return [
+    {
+      code: 'instructions.sets',
+      area,
+      status: 'gap',
+      reason: `Two instruction files that do not import each other: ${described}. An agent may read two truths.`,
+      recommendation: 'Decide which is canonical, and have the other import it (a CLAUDE.md holding @AGENTS.md).',
+    },
+  ];
 }

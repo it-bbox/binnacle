@@ -24,6 +24,7 @@ import {
   resolveGitTimeout,
 } from '@binnacle/daemon';
 import { EXIT, type ExitCode } from './exit.ts';
+import { hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, mattPocockFiles } from './layout.ts';
 import { register } from './project-commands.ts';
 
 type Outcome = 'created' | 'extended' | 'printed' | 'ran' | 'checked' | 'failed' | 'declined' | 'skipped';
@@ -595,15 +596,6 @@ function declaredManifest(root: string): ProjectManifest | null {
   }
 }
 
-const ISSUE_TRACKER = 'docs/agents/issue-tracker.md';
-
-/** The convention files `/setup-matt-pocock-skills` writes. Any of them present is the layout. */
-const mattPocockFiles = (root: string): string[] =>
-  [ISSUE_TRACKER, 'docs/agents/triage-labels.md', 'docs/agents/domain.md'].filter((path) => existsSync(join(root, path)));
-
-/** The section is recognised by its heading, at any level, so that it is never appended twice. */
-const TICKET_HEADER_HEADING = /^#{1,6}\s+Ticket header\s*$/im;
-
 /**
  * Step 6: `/to-tickets` learns the ticket header (ADR-0024) from the issue tracker file, so the
  * section is offered as an append to it. `provider` is the tracker the manifest declares, or
@@ -624,7 +616,7 @@ function mattPocockStep(session: Session, provider: TrackerProvider): void {
     session.say(`${ISSUE_TRACKER} is missing, so there is nothing to extend. /setup-matt-pocock-skills writes it.`);
     return record(session, 'skipped', `${what}: no ${ISSUE_TRACKER}`);
   }
-  if (TICKET_HEADER_HEADING.test(readFileSync(join(session.root, ISSUE_TRACKER), 'utf8'))) {
+  if (hasTicketHeaderSection(session.root)) {
     session.say(`${ISSUE_TRACKER} already has its ticket-header section.`);
     return record(session, 'skipped', `${what}: ${ISSUE_TRACKER} has it`);
   }
@@ -696,11 +688,7 @@ Spec: \`docs/specs/<slug>/spec.md\`
 
 /** Step 7: the agent instruction files, reported as the sets an agent reads. Nothing is written to either. */
 function instructionsStep(session: Session): void {
-  const files = Object.fromEntries(
-    ['AGENTS.md', 'CLAUDE.md']
-      .filter((name) => existsSync(join(session.root, name)))
-      .map((name) => [name, readFileSync(join(session.root, name), 'utf8')]),
-  );
+  const files = instructionFiles(session.root);
   const sets = instructionSets(files);
   if (sets.length === 0) return session.say('There is no AGENTS.md or CLAUDE.md, so there are no agent instructions to report.');
   const described = sets.map(([entry, ...imported]) => (imported.length === 0 ? entry : `${entry}, which imports ${imported.join(' and ')}`));
