@@ -17,7 +17,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 5 | Minimal dashboard | done | [`minimal-dashboard`](specs/minimal-dashboard/spec.md) |
 | 6 | Dashboard design and languages | done | [`dashboard-design-and-languages`](specs/dashboard-design-and-languages/spec.md) |
 | 7 | Audit and adopt | tickets | [`audit-and-adopt`](specs/audit-and-adopt/spec.md) |
-| 8 | Project Brain: tools, Graphify, Obsidian | not started | — |
+| 8 | Project Brain: tools, Graphify, Obsidian | spec | [`project-brain-tools-graphify-obsidian`](specs/project-brain-tools-graphify-obsidian/spec.md) |
 | 9 | Everything from the chat | not started | — |
 | 10 | Telemetry for any harness | not started | — |
 | 11 | The state of work | not started | — |
@@ -27,15 +27,13 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 ## Current focus
 
-Design is complete: `docs/08-open-questions.md` is resolved by ADR-0001 to ADR-0018; building the epics added ADR-0019 to ADR-0038.
+Epics 1 to 6 are done: the daemon and its store; snapshot, daily and checkpoint over MCP, and the `binnacle` plugin with autopilot; Tasks from GitHub, GitLab or local tickets, and `binn init`; usage by model, Task and role; the read-only dashboard in English and Russian. Binnacle writes nothing into the repository.
 
-Epics 1 to 6 are done: the daemon and its store; the snapshot, daily and checkpoint over MCP, and the `binnacle` plugin with autopilot; Tasks from GitHub, GitLab or local tickets, and `binn init`; usage by model, Task and role; the read-only dashboard, `binn dashboard`, rebuilt with Nuxt UI to the mockup, in English and Russian, with a Settings page and What's next leading on the Next action and Binnacle's alternatives. The owner's second exit demonstration of epic 6, on 2026-09-27, found no defect. Binnacle writes nothing into the repository.
+Epic 7, Audit and adopt (`specs/audit-and-adopt/spec.md`, phase 6), is done but for ticket 08, the owner's exit demonstration: `binn audit`, `/binnacle:audit`, and `binn init` showing one plan and asking once (ADR-0034).
 
-Epic 7, Audit and adopt, is specified and sliced into tickets 02 to 09; tickets 01 to 07 and 09 are done. Its scope is `docs/05-mvp-plan.md`, phase 6: a read-only audit of a repository, giving migration recommendations rather than fixes. The grilling is done (2026-10-02): its decisions are in `specs/audit-and-adopt/brief.md`, and `binn init`'s new way of asking is ADR-0034. Its spec is `specs/audit-and-adopt/spec.md`. Ticket 01, `binn init` finishing and saying what it waits on, is done. Ticket 02, `binn init` showing one plan and asking once, and ticket 03, `binn audit` with its Git and tracker area, are done, and so are ticket 04, `binn audit` reading docs, the Matt Pocock layout and agent instructions, ticket 05, `binn audit` reading `.scratch`, tests, CI and structure, ticket 06, `binn audit` reading Serena, Graphify and Context7 and telemetry readiness, and ticket 07, `binn init`'s Summary and working from another harness; ticket 09, `/binnacle:audit` running the audit from the chat, is done too. Ticket 08, the owner's exit demonstration, is what remains.
+On 2026-10-02 the owner found that epics 1 to 7 deliver only part of their baseline architecture, now `docs/baseline.md` and the floor for v1. The gaps are epics 8 to 12, grilled on 2026-10-02 (`docs/05-mvp-plan.md`, phases 8 to 12; ADR-0035 to ADR-0038). Epic 8's spec is `specs/project-brain-tools-graphify-obsidian/spec.md`; epics 9 to 12 still need `to-spec`. Ticket 08 of epic 7 stays open beside them.
 
-On 2026-10-02 the owner found that epics 1 to 7 deliver only part of their baseline architecture, now `docs/baseline.md` and the floor for v1: Graphify and Obsidian had been moved to "after real data", and other baseline items to *Later*. The gaps are epics 8 to 12, in that order, all grilled on 2026-10-02; their decisions are in `docs/05-mvp-plan.md`, phases 8 to 12, and in ADR-0035 to ADR-0038. Each still needs `to-spec` and `to-tickets`, starting with epic 8. Ticket 08 of epic 7, the owner's exit demonstration, stays open beside them.
-
-Next action: write the spec of epic 8, Project Brain: tools, Graphify, Obsidian, from `docs/05-mvp-plan.md`, phase 8. `/mattpocock-skills:to-spec`
+Next action: slice epic 8, Project Brain: tools, Graphify, Obsidian, into tickets. `/mattpocock-skills:to-tickets docs/specs/project-brain-tools-graphify-obsidian/spec.md`
 
 ## Later
 
