@@ -52,3 +52,10 @@ test('autopilot starts a second ticket only for a low pair, and says when the ri
   assert.match(skill, /`medium`, `high` or `unknown`/);
   assert.match(skill, /risk was not assessed/);
 });
+
+/** The Next action is the owner's, set by a Product session (docs/workflow/02-development-workflow.md, step 3). */
+test('autopilot leaves the Next action to the owner, in the brief and in its report', () => {
+  const skill = readFileSync(join(PLUGIN_SOURCE, 'skills', 'autopilot', 'SKILL.md'), 'utf8');
+  assert.match(skill, /never its `Next action:` paragraph/);
+  assert.match(skill, /stale `Next action:`/);
+});
