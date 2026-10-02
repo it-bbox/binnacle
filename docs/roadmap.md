@@ -18,7 +18,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 6 | Dashboard design and languages | done | [`dashboard-design-and-languages`](specs/dashboard-design-and-languages/spec.md) |
 | 7 | Audit and adopt | tickets | [`audit-and-adopt`](specs/audit-and-adopt/spec.md) |
 | 8 | Project Brain: tools, Graphify, Obsidian | in progress | [`project-brain-tools-graphify-obsidian`](specs/project-brain-tools-graphify-obsidian/spec.md) |
-| 9 | Everything from the chat | spec | [`everything-from-the-chat`](specs/everything-from-the-chat/spec.md) |
+| 9 | Everything from the chat | tickets | [`everything-from-the-chat`](specs/everything-from-the-chat/spec.md) |
 | 10 | Telemetry for any harness | not started | — |
 | 11 | The state of work | not started | — |
 | 12 | Audit, completed | not started | — |
@@ -31,9 +31,9 @@ Epics 1 to 6 are done: the daemon, snapshot, daily and checkpoint over MCP, the 
 
 Epic 7, Audit and adopt (`specs/audit-and-adopt/spec.md`), is done but for ticket 08, the owner's exit demonstration (ADR-0034).
 
-On 2026-10-02 the owner found that epics 1 to 7 deliver only part of `docs/baseline.md`, the floor for v1; the gaps are epics 8 to 12 (`docs/05-mvp-plan.md`; ADR-0035 to ADR-0038). Epic 8 (`specs/project-brain-tools-graphify-obsidian/spec.md`): tickets 01 to 11 are done, so init installs the tools, plugins and MCP servers and builds the first graph, the daemon keeps the graph current and projects the Project Brain into an Obsidian vault, the snapshot and the dashboard give the graph's freshness and the conflict risk between Tasks, and autopilot starts two Tasks together only when that risk is low. Ticket 12, the owner's exit demonstration, and ticket 13 remain. Epic 9's spec is written (`specs/everything-from-the-chat/spec.md`); epics 10 to 12 still need `to-spec`. Ticket 08 of epic 7 stays open beside them.
+On 2026-10-02 the owner found that epics 1 to 7 deliver only part of `docs/baseline.md`, the floor for v1; the gaps are epics 8 to 12 (`docs/05-mvp-plan.md`; ADR-0035 to ADR-0038). Epic 8 (`specs/project-brain-tools-graphify-obsidian/spec.md`): tickets 01 to 11 are done, so init installs the tools, plugins and MCP servers and builds the first graph, the daemon keeps the graph current and projects the Project Brain into an Obsidian vault, the snapshot and the dashboard give the graph's freshness and the conflict risk between Tasks, and autopilot starts two Tasks together only when that risk is low. Ticket 12, the owner's exit demonstration, and ticket 13 remain. Epic 9 (`specs/everything-from-the-chat/spec.md`) is sliced into tickets 01 to 08: 04 to 07 can start at once, 01 to 03 run as a chain, and 08 is the owner's exit demonstration. Epics 10 to 12 still need `to-spec`. Ticket 08 of epic 7 stays open beside them.
 
-Next action: slice the spec of epic 9, Everything from the chat, into tickets. `/mattpocock-skills:to-tickets`
+Next action: run epic 9, Everything from the chat, through autopilot. `/binnacle:autopilot 9`
 
 ## Later
 
