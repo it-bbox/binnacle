@@ -52,7 +52,7 @@ Recommended project behavior:
 
 - code graph is useful for cross-module architecture/impact;
 - `.scratch/**` should normally be ignored;
-- update graph incrementally after structural changes;
+- the daemon keeps the graph current (ADR-0036): once a minute it reads the commit of each registered project's default branch (`origin/HEAD`, or `main`), and when it has moved past the last run, it runs `graphify extract . --code-only` in the background in the registered checkout — local syntax trees, no model, no network (ADR-0012). It runs only while that checkout is on the default branch, `capabilities.graphify` is not `false`, `graphify` is on the daemon's PATH and Git ignores `graphify-out/`; one run per project at a time, with at most one queued, so a burst of merges costs two runs. Each outcome is recorded as an event, and the snapshot's `graph` section and its attention items read it (`docs/03-mcp-and-skills.md`). A failed run keeps the last good graph and is retried at the next move of the default branch, not every minute;
 - Obsidian export is optional;
 - Graphify remains replaceable/optional at system architecture level.
 

@@ -7,6 +7,8 @@ export {
   hasUncommittedChanges,
   isAncestor,
   isGitUnavailable,
+  isIgnored,
+  readBranchCommit,
   readCommit,
   readCommitBefore,
   readDefaultBranch,

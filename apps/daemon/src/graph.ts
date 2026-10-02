@@ -1,0 +1,215 @@
+import { spawn, type ChildProcess } from 'node:child_process';
+import { accessSync, constants, existsSync, statSync } from 'node:fs';
+import { delimiter, join } from 'node:path';
+import { isIgnored, readBranchCommit, readDefaultBranch, readGitFacts } from '@binnacle/adapters';
+import type { Diagnostic, ProjectManifest } from '@binnacle/core';
+import { resolveGitTimeout } from './home.ts';
+import { readManifest } from './manifest.ts';
+import { readRegistry } from './registry.ts';
+import type { EventRow, Store } from './store.ts';
+
+/**
+ * The daemon keeps each registered project's Graphify graph current (ADR-0036). Once a
+ * minute it reads the commit of the project's default branch, and when that has moved past
+ * the last recorded run, it runs Graphify's code-only extraction (ADR-0012) in the
+ * registered checkout: one run per project at a time, with at most one queued. Each
+ * outcome is an event, which the snapshot's `graph` section reads.
+ *
+ * The output directory is the only thing the daemon lets write into a repository, and only
+ * when Git ignores it; Graphify writes it, never the daemon.
+ */
+export const GRAPH_DIRECTORY = 'graphify-out';
+export const GRAPH_POLL_MS = 60_000;
+/** ponytail: a fixed ceiling for one run; make it a setting if a real project needs longer. */
+export const GRAPH_RUN_TIMEOUT_MS = 10 * 60_000;
+const EXTRACT = ['extract', '.', '--code-only'];
+const BUILT = 'graph.built';
+const FAILED = 'graph.failed';
+const GRAPH_FILE = `${GRAPH_DIRECTORY}/graph.json`;
+
+export type GraphSection = {
+  /** Whether there is a graph an agent can use; `reason` says why not. */
+  available: boolean;
+  reason: string | null;
+  /** The commit and time of the last successful run. */
+  builtFrom: { commit: string; at: string } | null;
+  /** Whether the default branch has moved past `builtFrom`; null when its commit cannot be read. */
+  behind: boolean | null;
+  lastRun: { commit: string; at: string; outcome: 'built' | 'failed'; reason: string | null } | null;
+};
+
+/** `searchPath` is where `graphify` is looked for, as `PATH` is read. */
+export function startGraphRunner(home: string, store: Store, searchPath: string, pollMs: number): { stop(): Promise<void> } {
+  const running = new Map<string, { commit: string; queued: boolean }>();
+  const children = new Set<ChildProcess>();
+  const settling = new Set<Promise<void>>();
+  let stopped = false;
+  let ticking = false;
+
+  const lastCommit = (path: string): unknown => store.latestEvent(path, [BUILT, FAILED])?.payload.commit;
+
+  /** The default branch's commit when a run is due for it, or null. */
+  async function due(path: string): Promise<{ commit: string; executable: string } | null> {
+    const manifest = manifestOf(path);
+    const executable = findExecutable('graphify', searchPath);
+    if (manifest?.capabilities.graphify === false || executable === null) return null;
+    const commit = await defaultCommit(path);
+    if (commit === null || commit === lastCommit(path)) return null;
+    const [facts, ignored] = await Promise.all([readGitFacts(path, resolveGitTimeout()), isIgnored(path, GRAPH_FILE, resolveGitTimeout())]);
+    if (!facts.available || facts.branch !== (await defaultBranch(path)) || ignored !== true) return null;
+    return { commit, executable };
+  }
+
+  async function consider(path: string): Promise<void> {
+    const next = await due(path);
+    // Decided synchronously from here, so two checks racing never start two runs.
+    if (next === null || stopped || next.commit === lastCommit(path)) return;
+    const current = running.get(path);
+    if (current) {
+      if (current.commit !== next.commit) current.queued = true;
+      return;
+    }
+    const run = { commit: next.commit, queued: false };
+    running.set(path, run);
+    const settled = extract(path, next.executable, next.commit).then(() => {
+      running.delete(path);
+      if (run.queued && !stopped) return consider(path);
+    });
+    settling.add(settled);
+    void settled.finally(() => settling.delete(settled));
+  }
+
+  function extract(path: string, executable: string, commit: string): Promise<void> {
+    return new Promise((resolve) => {
+      const child = spawn(executable, EXTRACT, { cwd: path, stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
+      children.add(child);
+      let stderr = '';
+      child.stderr.setEncoding('utf8').on('data', (chunk: string) => (stderr = (stderr + chunk).slice(-4096)));
+      const timer = setTimeout(() => child.kill('SIGKILL'), GRAPH_RUN_TIMEOUT_MS);
+      const finish = (reason: string | null): void => {
+        clearTimeout(timer);
+        children.delete(child);
+        // A run the daemon's stop ended is not an outcome of Graphify's.
+        if (!stopped) store.appendEvent({ type: reason === null ? BUILT : FAILED, projectPath: path, payload: { commit, reason } });
+        resolve();
+      };
+      child.on('error', (error) => finish(`graphify could not be run: ${error.message}`));
+      child.on('close', (code, signal) => {
+        if (code === 0) return finish(null);
+        const line = stderr.trim().split('\n').at(-1)?.trim();
+        finish(line || (signal ? `graphify was ended by ${signal}.` : `graphify exited with code ${code}.`));
+      });
+    });
+  }
+
+  async function tick(): Promise<void> {
+    if (ticking || stopped) return;
+    ticking = true;
+    try {
+      await Promise.all(readRegistry(home).map((entry) => consider(entry.path)));
+    } catch (error) {
+      // A poll that fails is tried again on the next one; it never stops the daemon.
+      console.error(error);
+    } finally {
+      ticking = false;
+    }
+  }
+
+  void tick();
+  const timer = setInterval(() => void tick(), pollMs);
+  timer.unref();
+
+  return {
+    async stop() {
+      stopped = true;
+      clearInterval(timer);
+      for (const child of children) child.kill();
+      await Promise.all(settling);
+    },
+  };
+}
+
+/**
+ * The snapshot's `graph` section for the registered project at `path`, read from the runs
+ * recorded and the checkout now, and the attention it calls for. A missing tool or a
+ * capability declared `false` is the section's reason, never an attention item.
+ */
+export async function graphSection(
+  store: Store,
+  searchPath: string,
+  path: string,
+  manifest: ProjectManifest | null,
+): Promise<{ graph: GraphSection; attention: Diagnostic[] }> {
+  const attention: Diagnostic[] = [];
+  const built = store.latestEvent(path, [BUILT]);
+  const last = store.latestEvent(path, [BUILT, FAILED]);
+  const commit = await defaultCommit(path);
+  const builtFrom = built && { commit: String(built.payload.commit), at: built.occurredAt };
+  const lastRun = last && runOf(last);
+  if (lastRun?.outcome === 'failed') {
+    attention.push({
+      code: 'graph.update_failed',
+      message: `The graph update for ${short(lastRun.commit)} failed: ${lastRun.reason}${builtFrom ? ` The graph built from ${short(builtFrom.commit)} is kept.` : ''}`,
+    });
+  }
+
+  let reason: string | null = null;
+  if (manifest?.capabilities.graphify === false) reason = 'This project does not use Graphify: capabilities.graphify is false in its manifest.';
+  else if (findExecutable('graphify', searchPath) === null) reason = "graphify is not on the daemon's PATH, so no graph is built or read.";
+  else {
+    if ((await isIgnored(path, GRAPH_FILE, resolveGitTimeout())) === false) {
+      attention.push({
+        code: 'graph.not_ignored',
+        message: `Git does not ignore ${GRAPH_DIRECTORY}/ in ${path}, so the daemon does not run Graphify there. Add ${GRAPH_DIRECTORY}/ to .gitignore.`,
+      });
+    }
+    if (!existsSync(join(path, GRAPH_FILE))) reason = `No graph has been built yet: there is no ${GRAPH_FILE}.`;
+  }
+
+  return {
+    graph: { available: reason === null, reason, builtFrom, behind: commit === null ? null : builtFrom?.commit !== commit, lastRun },
+    attention,
+  };
+}
+
+const runOf = (event: EventRow): NonNullable<GraphSection['lastRun']> => ({
+  commit: String(event.payload.commit),
+  at: event.occurredAt,
+  outcome: event.type === BUILT ? 'built' : 'failed',
+  reason: typeof event.payload.reason === 'string' ? event.payload.reason : null,
+});
+
+const short = (commit: string): string => commit.slice(0, 7);
+
+/** As usage attribution reads it: `origin/HEAD`, or `main` when there is none. */
+const defaultBranch = async (path: string): Promise<string> => (await readDefaultBranch(path, resolveGitTimeout())) ?? 'main';
+const defaultCommit = async (path: string): Promise<string | null> => readBranchCommit(path, await defaultBranch(path), resolveGitTimeout());
+
+function manifestOf(path: string): ProjectManifest | null {
+  try {
+    return readManifest(path).manifest;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The first executable `name` in `searchPath`, read as `PATH` is; null when there is none.
+ *
+ * ponytail: POSIX only — no `PATHEXT`, so a Windows `graphify.exe` is not found; read it if
+ * the daemon is ever run there.
+ */
+export function findExecutable(name: string, searchPath: string): string | null {
+  for (const dir of searchPath.split(delimiter)) {
+    if (dir === '') continue;
+    const candidate = join(dir, name);
+    try {
+      if (!statSync(candidate).isFile()) continue;
+      accessSync(candidate, constants.X_OK);
+      return candidate;
+    } catch {
+      // Not there, or not executable: the next directory.
+    }
+  }
+  return null;
+}

@@ -40,7 +40,7 @@ export type TestDaemon = {
  * that a file a test has just written is read to its end.
  */
 export async function startTestDaemon(
-  options: { home?: string; artifacts?: ArtifactRoots; ingestBudgetMs?: number; settledAfterMs?: number; dashboard?: string } = {},
+  options: { home?: string; artifacts?: ArtifactRoots; ingestBudgetMs?: number; settledAfterMs?: number; dashboard?: string; searchPath?: string; graphPollMs?: number } = {},
 ): Promise<TestDaemon> {
   const home = options.home ?? mkdtempSync(join(tmpdir(), 'binnacle-test-'));
   const temporary = options.home === undefined;
@@ -51,6 +51,9 @@ export async function startTestDaemon(
     ...(options.ingestBudgetMs === undefined ? {} : { ingestBudgetMs: options.ingestBudgetMs }),
     settledAfterMs: options.settledAfterMs ?? 0,
     dashboard: options.dashboard ?? join(home, 'no-dashboard'),
+    // No `graphify` from the machine the tests run on, unless a test brings its own.
+    searchPath: options.searchPath ?? join(home, 'no-tools'),
+    ...(options.graphPollMs === undefined ? {} : { graphPollMs: options.graphPollMs }),
   });
   const url = (path: string): string => `http://${daemon.runtime.host}:${daemon.runtime.port}${path}`;
 

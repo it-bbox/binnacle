@@ -9,7 +9,7 @@ import type { Tree } from './tree.ts';
  *
  * - only inspecting commands run — `rev-parse`, `symbolic-ref` without a new value,
  *   `worktree list`, `status`, `remote -v`, `log` (the reflog's too), `show`, `ls-tree`,
- *   `merge-base --is-ancestor` — and nothing that fetches, writes, or changes config or refs;
+ *   `merge-base --is-ancestor`, `check-ignore` — and nothing that fetches, writes, or changes config or refs;
  * - a revision is only ever passed as a commit hash, never as caller text that git could
  *   read as an option, and a caller's path only after `--` as a `:(literal)` pathspec;
  * - `--no-optional-locks` stops `status` refreshing the index, which it otherwise does
@@ -134,6 +134,34 @@ export async function readDefaultBranch(cwd: string, timeoutMs: number): Promise
   try {
     const run = await git(cwd, timeoutMs, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD']);
     return run.code === 0 ? run.stdout.trim().replace(/^origin\//, '') || null : null;
+  } catch (error) {
+    if (isGitUnavailable(error)) return null;
+    throw error;
+  }
+}
+
+/** The commit `refs/heads/<branch>` points at; null when there is no such branch or Git cannot say. */
+export async function readBranchCommit(cwd: string, branch: string, timeoutMs: number): Promise<string | null> {
+  if (!statSync(cwd, { throwIfNoEntry: false })?.isDirectory()) return null;
+  try {
+    // Under `refs/heads/`, the name can never be read as an option.
+    const run = await git(cwd, timeoutMs, ['rev-parse', '--verify', '--quiet', `refs/heads/${branch}^{commit}`]);
+    return run.code === 0 ? run.stdout.trim() || null : null;
+  } catch (error) {
+    if (isGitUnavailable(error)) return null;
+    throw error;
+  }
+}
+
+/**
+ * Whether Git ignores `path`, relative to `cwd`; a tracked file is never ignored. Null when
+ * Git cannot say. The path is passed after `--`, so it is never read as an option.
+ */
+export async function isIgnored(cwd: string, path: string, timeoutMs: number): Promise<boolean | null> {
+  if (!statSync(cwd, { throwIfNoEntry: false })?.isDirectory()) return null;
+  try {
+    const run = await git(cwd, timeoutMs, ['check-ignore', '--quiet', '--', path]);
+    return run.code === 0 ? true : run.code === 1 ? false : null;
   } catch (error) {
     if (isGitUnavailable(error)) return null;
     throw error;

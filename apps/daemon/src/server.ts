@@ -17,6 +17,7 @@ import {
   type Runtime,
 } from './home.ts';
 import { OperationError } from './errors.ts';
+import { GRAPH_POLL_MS, startGraphRunner } from './graph.ts';
 import { operations, type OperationContext } from './operations.ts';
 import { projectRegistry } from './projection.ts';
 import { openStore } from './store.ts';
@@ -56,6 +57,10 @@ export type DaemonOptions = {
   settledAfterMs?: number;
   /** The dashboard's generated directory; `DASHBOARD_DIRECTORY` when omitted. */
   dashboard?: string;
+  /** Where `graphify` is looked for, as `PATH` is read; the daemon's own `PATH` when omitted. */
+  searchPath?: string;
+  /** How often the default branch of each project is read for the graph (ADR-0036). */
+  graphPollMs?: number;
 };
 
 export type Daemon = {
@@ -99,7 +104,8 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
     releaseRuntime(home, runtime.pid);
     throw error;
   }
-  const context: OperationContext = { home, runtime, store, importer: importer(options.ingestBudgetMs ?? INGEST_BUDGET_MS, options.settledAfterMs ?? SETTLED_AFTER_MS) };
+  const searchPath = options.searchPath ?? process.env.PATH ?? '';
+  const context: OperationContext = { home, runtime, store, searchPath, importer: importer(options.ingestBudgetMs ?? INGEST_BUDGET_MS, options.settledAfterMs ?? SETTLED_AFTER_MS) };
 
   const server = createServer((request, response) => {
     handle(request, response, context, token, options.dashboard ?? DASHBOARD_DIRECTORY).catch((error: unknown) => fail(response, error));
@@ -115,6 +121,7 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
   writeRuntime(home, runtime);
   // Recorded once the daemon is listening, so a start that failed is not in the history.
   store.appendEvent({ type: 'daemon.started', payload: { pid: runtime.pid, port: runtime.port, version: VERSION } });
+  const graph = startGraphRunner(home, store, searchPath, options.graphPollMs ?? GRAPH_POLL_MS);
   // Every registered project's history starts importing now, in the background, rather than on its first call.
   // Its linked worktrees are asked of Git first, and a daemon stopped meanwhile starts none.
   for (const { row, manifest } of projects) {
@@ -134,6 +141,7 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
         server.close((error) => (error ? reject(error) : resolve()));
       });
       await stopImporting(context.importer);
+      await graph.stop();
       // Only a clean stop is recorded. A killed daemon leaves a start with no stop after
       // it, which is the honest record of what happened.
       store.appendEvent({ type: 'daemon.stopped', payload: { pid: runtime.pid, version: VERSION } });

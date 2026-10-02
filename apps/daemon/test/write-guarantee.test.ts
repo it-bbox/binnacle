@@ -1,17 +1,20 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { after, it } from 'node:test';
+import { GRAPH_DIRECTORY } from '../src/graph.ts';
 import { operations } from '../src/operations.ts';
 import { startTestDaemon } from '../src/testing.ts';
 
 /**
  * The write guarantee (ADR-0020): no daemon operation writes into a project's repository,
  * nor into the harnesses' artifact directories it reads usage from. `binn init` is the only
- * code in Binnacle that writes into a repository, and it is not the daemon.
+ * code in Binnacle that writes into a repository, and it is not the daemon. The one exception
+ * is Graphify's output directory, which the daemon has Graphify write while Git ignores it
+ * (ADR-0036): a fake `graphify` builds the graph here, and nothing else may change.
  *
  * The operation table is the list of what the daemon exposes, so an operation added later
  * is called here without this test naming it. Each is sent the fixture's `path`, plus its
@@ -67,6 +70,7 @@ function makeRepository(): string {
   write(root, 'docs/specs/first/issues/01-start.md', '# 01: Start\n\nStatus: READY\nBlocked by: None\n');
   write(root, 'docs/adr/ADR-0001-first.md', '# ADR-0001: First\n');
   write(root, 'CONTEXT.md', '# Context\n');
+  write(root, '.gitignore', 'graphify-out/\n');
   git(root, ['init', '--quiet', '--initial-branch=main']);
   git(root, ['add', '.']);
   git(root, ['commit', '--quiet', '-m', 'Start the project']);
@@ -80,12 +84,16 @@ function makeRepository(): string {
   return root;
 }
 
-/** A hash of every file under the repository, `.git` and its index included, by path. */
+/**
+ * A hash of every file under the repository, `.git` and its index included, by path. The one
+ * thing left out is Graphify's output directory, and only while Git ignores it (ADR-0036).
+ */
 function contents(root: string): Map<string, string> {
   const files = new Map<string, string>();
   for (const entry of readdirSync(root, { recursive: true, withFileTypes: true })) {
     if (!entry.isFile()) continue;
     const path = join(entry.parentPath, entry.name);
+    if (relative(root, path).startsWith(`${GRAPH_DIRECTORY}/`) && ignoredByGit(root, relative(root, path))) continue;
     files.set(relative(root, path), createHash('sha256').update(readFileSync(path)).digest('hex'));
   }
   return files;
@@ -119,6 +127,23 @@ function makeArtifacts(root: string): { claudeCode: string; codex: string } {
   return artifacts;
 }
 
+function ignoredByGit(root: string, path: string): boolean {
+  try {
+    execFileSync('git', ['check-ignore', '--quiet', '--', path], { cwd: root });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** A `graphify` that writes a graph into its output directory, as the real one does. */
+function fakeGraphify(): string {
+  const dir = temporary('binnacle-write-guarantee-bin-');
+  writeFileSync(join(dir, 'graphify'), `#!/bin/sh\nmkdir -p ${GRAPH_DIRECTORY} && echo '{}' > ${GRAPH_DIRECTORY}/graph.json\n`);
+  chmodSync(join(dir, 'graphify'), 0o755);
+  return dir;
+}
+
 function temporary(prefix: string): string {
   const root = realpathSync(mkdtempSync(join(tmpdir(), prefix)));
   roots.push(root);
@@ -132,7 +157,7 @@ it('no daemon operation nor static file changes the working tree, the index or a
   write(dashboard, 'index.html', '<!doctype html><title>Binnacle</title>');
   write(dashboard, '200.html', '<!doctype html><title>Binnacle</title>');
   write(dashboard, '_nuxt/entry.js', 'export {};');
-  const daemon = await startTestDaemon({ artifacts, dashboard });
+  const daemon = await startTestDaemon({ artifacts, dashboard, searchPath: fakeGraphify(), graphPollMs: 20 });
   try {
     const before = contents(root);
     const claudeCodeBefore = contents(artifacts.claudeCode);
@@ -157,6 +182,8 @@ it('no daemon operation nor static file changes the working tree, the index or a
     const snapshot = await daemon.call<{ usage: { today: { records: number } } }>('project.snapshot', { path: root });
     // One Claude Code message, one of its subagent's, and ten Codex calls.
     assert.equal(snapshot.body.usage.today.records, 12);
+    // The graph was built, so the directory allowed was written, not merely allowed.
+    assert.ok(existsSync(join(root, GRAPH_DIRECTORY, 'graph.json')));
   } finally {
     await daemon.stop();
   }

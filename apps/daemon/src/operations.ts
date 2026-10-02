@@ -9,6 +9,7 @@ import { projectRegistry, reproject, type Projected } from './projection.ts';
 import { containingEntry, readRegistry, writeRegistry, type RegistryEntry } from './registry.ts';
 import { promotedItems, promotionDiagnostics, promotionTargets } from './checkpoint.ts';
 import { BASELINE_EVENTS, committedHead, daily, isRemoteTracker, taskStates, type Baseline, type BaselineEvent, type TaskStates } from './daily.ts';
+import { graphSection } from './graph.ts';
 import { readTasks, snapshot, type CallerCheckout } from './snapshot.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type ProjectRow, type Store } from './store.ts';
 import { taskBrief } from './task.ts';
@@ -19,6 +20,8 @@ export type OperationContext = {
   home: string;
   runtime: Runtime;
   store: Store;
+  /** Where `graphify` is looked for, as `PATH` is read. */
+  searchPath: string;
   importer: Importer;
 };
 
@@ -113,7 +116,8 @@ export const operations: Record<string, Operation> = {
     const path = repositoryPath(body, { mustExist: false });
     const projected = reproject(context.store, await resolveEntry(path, context));
     const caller = await callerCheckout(path, projected.row.path);
-    return snapshot(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git), (tasks) =>
+    const graph = await graphSection(context.store, context.searchPath, projected.row.path, projected.manifest);
+    return snapshot(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git), graph, (tasks) =>
       usageAndActivity(context, projected.row.path, projected.manifest, tasks),
     );
   },

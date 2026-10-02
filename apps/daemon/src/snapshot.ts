@@ -22,6 +22,7 @@ import {
   type TrackerTask,
 } from '@binnacle/core';
 import { resolveGitTimeout, trackerToken } from './home.ts';
+import type { GraphSection } from './graph.ts';
 import type { Projected } from './projection.ts';
 import type { ProjectRow } from './store.ts';
 import type { Activity, Usage } from './usage.ts';
@@ -109,6 +110,8 @@ export type Snapshot = {
    * without Git they go by path. Null when the project declares no ADR directory.
    */
   decisions: { items: { title: string | null; path: string }[]; remainder: number } | null;
+  /** How fresh the Graphify graph is, read from the daemon's recorded runs (ADR-0036). */
+  graph: GraphSection;
   pendingDecisions: Unavailable;
   ci: Unavailable;
   usage: Usage;
@@ -131,6 +134,7 @@ export async function snapshot(
   projected: Projected,
   caller: CallerCheckout,
   diagnostics: Diagnostic[],
+  graph: { graph: GraphSection; attention: Diagnostic[] },
   usageAndActivity: (tasks: TrackerTask[] | Unavailable) => Promise<Pick<Snapshot, 'usage' | 'activity'> & { runs: ObservedRun[] }>,
 ): Promise<Snapshot> {
   const tree = workingTree(caller.project);
@@ -139,6 +143,7 @@ export async function snapshot(
   const workflow = projected.manifest?.workflow.provider ?? null;
   // A harness whose artifacts cannot be read is at level 1, and says why.
   for (const { level, reason } of usageSection.harnesses) if (level === 1 && reason !== null) attention.push({ code: 'telemetry.unreadable', message: reason });
+  attention.push(...graph.attention);
   const limit = projected.manifest?.automation.maxParallelDevelopmentTasks ?? PARALLEL_LIMIT;
   const sections = tasks && withStartAndParallel(taskSections(tasks, new Set(runs.flatMap((run) => run.taskId ?? []))), workflow, limit);
   const action = nextAction(roadmap?.focus ?? null);
@@ -155,6 +160,7 @@ export async function snapshot(
     },
     tasks: sections,
     decisions: adrs && (await recentDecisions(tree, caller.project, adrs)),
+    graph: graph.graph,
     pendingDecisions: UNAVAILABLE,
     ci: UNAVAILABLE,
     usage: usageSection,
