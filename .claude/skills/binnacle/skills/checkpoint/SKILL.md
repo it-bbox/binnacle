@@ -7,8 +7,8 @@ disable-model-invocation: true
 This session is disposable. Whatever it decided that the next session needs must reach the repository before it closes (`docs/workflow/01-product-workflow.md`). Binnacle writes no file (ADR-0020). This session writes and commits them, and only what the human confirms.
 
 1. Call the `binnacle` MCP server's `project_detect` tool. If it fails, stop. Quote the error's code and message, and give the human the fix without running it yourself:
-   - `daemon.unreachable`: `binn daemon start`.
-   - `project.not_registered`: `binn project register`, run in the main checkout.
+   - `daemon.unreachable`: `/binnacle:daemon start`, or `binn daemon start` at a terminal.
+   - `project.not_registered`: `/binnacle:register`, or `binn project register` run in the main checkout.
    - If the `binnacle` server is missing or disconnected, `binn` is not on this harness's PATH (see the README's setup section).
 
    Binnacle is optional. Until it answers, the decisions still belong in the project's context file, ADRs, tickets, specs and roadmap: offer to draft, confirm and commit them as in steps 3 to 5, and skip step 6.

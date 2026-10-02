@@ -29,7 +29,7 @@ test('the packed CLI carries the binnacle plugin, every file of its source, and 
   assert.ok(source.includes(join('.claude-plugin', 'plugin.json')));
   assert.deepEqual(
     source.filter((path) => path.endsWith('SKILL.md')),
-    ['audit', 'autopilot', 'checkpoint', 'daily', 'product', 'task'].map((skill) => join('skills', skill, 'SKILL.md')),
+    ['audit', 'autopilot', 'checkpoint', 'daemon', 'daily', 'product', 'register', 'task'].map((skill) => join('skills', skill, 'SKILL.md')),
   );
   for (const path of source) {
     assert.equal(readFileSync(join(packed, 'plugin', path), 'utf8'), readFileSync(join(PLUGIN_SOURCE, path), 'utf8'), path);
@@ -58,4 +58,39 @@ test('autopilot leaves the Next action to the owner, in the brief and in its rep
   const skill = readFileSync(join(PLUGIN_SOURCE, 'skills', 'autopilot', 'SKILL.md'), 'utf8');
   assert.match(skill, /never its `Next action:` paragraph/);
   assert.match(skill, /stale `Next action:`/);
+});
+
+const skillText = (name: string): string => readFileSync(join(PLUGIN_SOURCE, 'skills', name, 'SKILL.md'), 'utf8');
+
+/** Epic 9: the daemon and registration from the chat, run through binn so that they need no daemon. */
+test('/binnacle:daemon and /binnacle:register run binn, are started by a human only, and handle a missing binn as /binnacle:audit does', () => {
+  for (const name of ['daemon', 'register']) {
+    const skill = skillText(name);
+    assert.match(skill, /^disable-model-invocation: true$/m, name);
+    assert.match(skill, /^argument-hint: "\[.+\]"$/m, name);
+    assert.match(skill, /needs no daemon/, name);
+    assert.match(skill, /`command not found`, exit 127/, name);
+    assert.match(skill, /README's setup section/, name);
+    assert.match(skill, /give the exit code and quote what it printed on stderr/, name);
+  }
+
+  const daemon = skillText('daemon');
+  assert.match(daemon, /`binn daemon <action>`/);
+  assert.match(daemon, /`status` when no action was passed/);
+  assert.match(daemon, /log tail/);
+
+  const register = skillText('register');
+  assert.match(register, /`binn project register <path>`/);
+  assert.match(register, /first path `git worktree list` prints/);
+  assert.match(register, /differs from this session's checkout/);
+  assert.match(register, /`\/binnacle:daemon start`/);
+});
+
+/** Where the daemon is down or the project unregistered, the fix is one skill away. */
+test('every daemon-dependent skill names /binnacle:daemon start and /binnacle:register beside the binn command', () => {
+  for (const name of ['product', 'daily', 'task', 'checkpoint', 'autopilot']) {
+    const skill = skillText(name);
+    assert.match(skill, /`daemon\.unreachable`: `\/binnacle:daemon start`, or `binn daemon start`/, name);
+    assert.match(skill, /`project\.not_registered`: `\/binnacle:register`, or `binn project register`/, name);
+  }
 });

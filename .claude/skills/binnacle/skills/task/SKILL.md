@@ -6,8 +6,8 @@ disable-model-invocation: true
 ---
 
 1. Call the `binnacle` MCP server's `project_detect` tool. If it fails, stop. Quote the error's code and message, and give the human the fix without running it yourself:
-   - `daemon.unreachable`: `binn daemon start`.
-   - `project.not_registered`: `binn project register`, run in the main checkout.
+   - `daemon.unreachable`: `/binnacle:daemon start`, or `binn daemon start` at a terminal.
+   - `project.not_registered`: `/binnacle:register`, or `binn project register` run in the main checkout.
    - If the `binnacle` server is missing or disconnected, `binn` is not on this harness's PATH (see the README's setup section).
 
    Binnacle is optional. Until it answers, the Task is in its ticket file or tracker issue, read directly.

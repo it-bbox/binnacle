@@ -12,8 +12,8 @@ Rules for the whole run. Never force-push, change settings, touch another reposi
 ## Start
 
 1. Call the `binnacle` MCP server's `project_detect` tool. If it fails, stop. Quote the error's code and message, and give the human the fix without running it yourself:
-   - `daemon.unreachable`: `binn daemon start`.
-   - `project.not_registered`: `binn project register`, run in the main checkout.
+   - `daemon.unreachable`: `/binnacle:daemon start`, or `binn daemon start` at a terminal.
+   - `project.not_registered`: `/binnacle:register`, or `binn project register` run in the main checkout.
    - If the `binnacle` server is missing or disconnected, `binn` is not on this harness's PATH (see the README's setup section).
 
    Binnacle is optional. If the human then asks you to go on without it, read the same position from the roadmap and the tickets' `Status:` and `Blocked by:` lines wherever the steps below read the snapshot, and what changed from the log.
