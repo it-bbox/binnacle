@@ -34,6 +34,9 @@ The step the roadmap's current focus ends with, and the command the owner types 
 ### Suggested step
 Binnacle's own reading of what comes next, computed from the Tasks, their AgentRuns and the roadmap's epic statuses, and labelled as a calculation. It stands beside the Next action and never replaces it: the Next action comes first, and the Suggested step offers the other ways to go on as a list of up to three alternatives, each with its reason — wait for a Task being worked on, a second Task beside it, one Task by hand, the whole epic with autopilot — leaving out any whose command is the Next action's, so none when it agrees with the Next action. A Next action that is missing, or names work already done, is an attention item.
 
+### Conflict risk
+Binnacle's calculation, from the Graphify graph, of how likely two ready or in-flight Tasks are to collide if run together: high when they touch a module in common, medium when their modules are neighbours in the graph, low otherwise, and unknown when either touches no module of the graph — never guessed low. A module is a file of the graph. A Task on a branch touches what its branch changed; one without, what its ticket names. It advises: the Suggested step offers a second Task in parallel only at low risk, and nothing is blocked or reordered by it.
+
 ### Harness
 The coding client a run happens inside: Claude Code, Codex, Gemini CLI and others. A harness is not a provider — the same harness can be pointed at different backends.
 

@@ -9,7 +9,7 @@ import type { Tree } from './tree.ts';
  *
  * - only inspecting commands run — `rev-parse`, `symbolic-ref` without a new value,
  *   `worktree list`, `status`, `remote -v`, `log` (the reflog's too), `show`, `ls-tree`,
- *   `merge-base --is-ancestor`, `check-ignore` — and nothing that fetches, writes, or changes config or refs;
+ *   `merge-base --is-ancestor`, `check-ignore`, `diff --name-only` — and nothing that fetches, writes, or changes config or refs;
  * - a revision is only ever passed as a commit hash, never as caller text that git could
  *   read as an option, and a caller's path only after `--` as a `:(literal)` pathspec;
  *   the two exceptions cannot be read as options either: a branch name only under
@@ -278,6 +278,21 @@ export async function readCommitBefore(cwd: string, commit: string, date: Date, 
 export async function hasUncommittedChanges(cwd: string, path: string, timeoutMs: number): Promise<boolean> {
   const run = acceptExit(await git(cwd, timeoutMs, ['status', '--porcelain', '--untracked-files=normal', '--', `:(literal)${path}`]), 'status', [0]);
   return run.stdout.trim() !== '';
+}
+
+/**
+ * The files `head` changed since it left `base`: from their merge base, so what `base` gained
+ * since is not counted. A renamed file is both its old and its new path. Both are commit hashes.
+ * Null when Git cannot say.
+ */
+export async function readChangedFiles(cwd: string, base: string, head: string, timeoutMs: number): Promise<string[] | null> {
+  try {
+    const run = await git(cwd, timeoutMs, ['diff', '--name-only', '--no-renames', '-z', `${base}...${head}`]);
+    return run.code === 0 ? run.stdout.split('\0').filter((file) => file !== '') : null;
+  } catch (error) {
+    if (isGitUnavailable(error)) return null;
+    throw error;
+  }
 }
 
 export type Commit = { commit: string; subject: string };

@@ -12,6 +12,7 @@ import {
   type Alternative,
   type Diagnostic,
   type Epic,
+  type Impact,
   type NextAction,
   type ObservedRun,
   type ProjectManifest,
@@ -22,7 +23,7 @@ import {
   type TrackerTask,
 } from '@binnacle/core';
 import { resolveGitTimeout, trackerToken } from './home.ts';
-import type { GraphSection } from './graph.ts';
+import { impactSection, type GraphSection } from './graph.ts';
 import type { Projected } from './projection.ts';
 import type { ProjectRow } from './store.ts';
 import type { Activity, Usage } from './usage.ts';
@@ -101,9 +102,11 @@ export type Snapshot = {
     counts: TaskCounts;
     /**
      * How many Tasks may be worked on at once: the manifest's limit, the Tasks in flight, and
-     * what is left of the limit, never below zero. Binnacle's calculation.
+     * what is left of the limit, never below zero. Binnacle's calculation. `impact` is the
+     * conflict risk between the Tasks in flight and ready to start, read against the graph,
+     * and unavailable, with the graph's reason, without one.
      */
-    parallel: { limit: number; inProgress: number; free: number; provenance: 'calculated' };
+    parallel: { limit: number; inProgress: number; free: number; provenance: 'calculated'; impact: Impact | Unavailable };
   } | null;
   /**
    * The most recently committed ADRs; one never committed counts as the most recent, and
@@ -145,7 +148,9 @@ export async function snapshot(
   for (const { level, reason } of usageSection.harnesses) if (level === 1 && reason !== null) attention.push({ code: 'telemetry.unreadable', message: reason });
   attention.push(...graph.attention);
   const limit = projected.manifest?.automation.maxParallelDevelopmentTasks ?? PARALLEL_LIMIT;
-  const sections = tasks && withStartAndParallel(taskSections(tasks, new Set(runs.flatMap((run) => run.taskId ?? []))), workflow, limit);
+  const listed = tasks && taskSections(tasks, new Set(runs.flatMap((run) => run.taskId ?? [])));
+  const impact = listed && (await impactSection(projected.row.path, graph.graph, listed.considered, projected.manifest?.tracker.provider !== 'local'));
+  const sections = listed && impact && withStartAndParallel(listed, workflow, limit, impact);
   const action = nextAction(roadmap?.focus ?? null);
 
   return {
@@ -156,7 +161,7 @@ export async function snapshot(
     next: {
       action,
       alternatives:
-        tasks && sections ? suggestedStep(roadmap?.epics ?? [], tasks, runs, { workflow, free: sections.parallel.free, next: action }) : trackerUnavailable(unreadable),
+        tasks && sections ? suggestedStep(roadmap?.epics ?? [], tasks, runs, { workflow, free: sections.parallel.free, next: action, impact: impact?.available ? impact : null }) : trackerUnavailable(unreadable),
     },
     tasks: sections,
     decisions: adrs && (await recentDecisions(tree, caller.project, adrs)),
@@ -267,8 +272,14 @@ function unavailable(tracker: ProjectManifest['tracker'] | undefined): string {
   return `tracker.provider is ${tracker.provider}, and this project declares no tracker.repository.`;
 }
 
-/** `attributed` holds the ids of the Tasks with AgentRuns attributed to them, which the board's rule reads (`boardColumn`). */
-export function taskSections(tasks: ResolvedTask[], attributed: ReadonlySet<string>): { inFlight: Section; readyToStart: Section; counts: TaskCounts } {
+/**
+ * `attributed` holds the ids of the Tasks with AgentRuns attributed to them, which the board's rule
+ * reads (`boardColumn`). `considered` is every Task in flight and ready to start, none left out.
+ */
+export function taskSections(
+  tasks: ResolvedTask[],
+  attributed: ReadonlySet<string>,
+): { inFlight: Section; readyToStart: Section; counts: TaskCounts; considered: ResolvedTask[] } {
   const counts: TaskCounts = { BACKLOG: 0, READY: 0, MERGED: 0, DONE: 0, CANCELLED: 0, unknown: 0 };
   const listedInFlight: ResolvedTask[] = [];
   const readyToStart: ResolvedTask[] = [];
@@ -279,18 +290,23 @@ export function taskSections(tasks: ResolvedTask[], attributed: ReadonlySet<stri
     // ponytail: the cast trusts boardColumn to put every InFlight state In progress; derive the type from it if they ever drift.
     else counts[(task.state ?? 'unknown') as keyof TaskCounts]++;
   }
-  return { inFlight: section(listedInFlight), readyToStart: section(readyToStart), counts };
+  return { inFlight: section(listedInFlight), readyToStart: section(readyToStart), counts, considered: [...listedInFlight, ...readyToStart] };
 }
 
 /** The snapshot's sections, each Task with its start command under the project's `workflow.provider`, and the parallel capacity under `limit`. */
-function withStartAndParallel({ inFlight, readyToStart, counts }: ReturnType<typeof taskSections>, workflow: string | null, limit: number): NonNullable<Snapshot['tasks']> {
+function withStartAndParallel(
+  { inFlight, readyToStart, counts }: ReturnType<typeof taskSections>,
+  workflow: string | null,
+  limit: number,
+  impact: Impact | Unavailable,
+): NonNullable<Snapshot['tasks']> {
   const startable = ({ items, remainder }: Section): SectionWithStart => ({ items: items.map((task) => ({ ...task, start: startCommand(task, workflow) })), remainder });
   const inProgress = inFlight.items.length + inFlight.remainder;
   return {
     inFlight: startable(inFlight),
     readyToStart: startable(readyToStart),
     counts,
-    parallel: { limit, inProgress, free: Math.max(0, limit - inProgress), provenance: 'calculated' },
+    parallel: { limit, inProgress, free: Math.max(0, limit - inProgress), provenance: 'calculated', impact },
   };
 }
 

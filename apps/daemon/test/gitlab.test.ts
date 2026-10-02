@@ -149,7 +149,7 @@ describe('GitLab issues as Tasks in the Product Snapshot', () => {
           remainder: 0,
         },
         counts: { BACKLOG: 0, READY: 0, MERGED: 0, DONE: 1, CANCELLED: 0, unknown: 0 },
-        parallel: { limit: 2, inProgress: 1, free: 1, provenance: 'calculated' },
+        parallel: { limit: 2, inProgress: 1, free: 1, provenance: 'calculated', impact: { available: false, reason: "graphify is not on the daemon's PATH, so no graph is built or read." } },
       });
       assert.deepEqual(codes(body), []);
       assert.deepEqual(

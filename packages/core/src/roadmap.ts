@@ -1,4 +1,5 @@
 import type { ObservedRun } from './domain.ts';
+import { pairRisk, type Impact } from './impact.ts';
 import { boardColumn, startCommand, type Diagnostic, type ResolvedTask, type TrackerTask } from './tracker.ts';
 
 /**
@@ -213,21 +214,23 @@ type RunReading = Pick<ObservedRun, 'taskId' | 'role' | 'lastActivityAt' | 'acti
  * out, since the Next action already offers it. `free` is how many more Tasks the parallel limit
  * allows (the snapshot's `tasks.parallel.free`). A Task triaged `ready-for-human` is the owner's to
  * do, so no alternative hands it to an agent: `parallel`, `autopilot` and `byHand` leave it out, and
- * when it is all the current epic has ready, `owner` names it with no command.
+ * when it is all the current epic has ready, `owner` names it with no command. With an `impact`,
+ * `parallel` names only a Task whose conflict risk with every Task in flight is low; without one,
+ * the parallel limit alone decides, as before there was a graph.
  */
 export function suggestedStep(
   epics: Epic[],
   tasks: ResolvedTask[],
   runs: RunReading[],
-  { workflow, free, next }: { workflow: string | null; free: number; next: NextAction | null },
+  { workflow, free, next, impact = null }: { workflow: string | null; free: number; next: NextAction | null; impact?: Impact | null },
 ): Alternative[] {
-  return byRule(epics, tasks, runs, workflow, free)
+  return byRule(epics, tasks, runs, workflow, free, impact)
     .filter((item) => next === null || item.command !== next.command)
     .slice(0, ALTERNATIVE_LIMIT);
 }
 
 /** The alternatives of the first rule that applies, before any is left out. */
-function byRule(epics: Epic[], tasks: ResolvedTask[], runs: RunReading[], workflow: string | null, free: number): Alternative[] {
+function byRule(epics: Epic[], tasks: ResolvedTask[], runs: RunReading[], workflow: string | null, free: number, impact: Impact | null): Alternative[] {
   const byId = new Map(tasks.map((task) => [task.id, task]));
   const name = (id: string): string => {
     const title = byId.get(id)?.title;
@@ -260,7 +263,10 @@ function byRule(epics: Epic[], tasks: ResolvedTask[], runs: RunReading[], workfl
     const [is, it] = worked.length === 1 ? ['is', 'it'] : ['are', 'them'];
     const wait = alternative('wait', `${worked.map(name).join(', ')} ${is} being worked on: an implementation run is active. Wait for ${it} rather than start something on top.`, null, worked);
     // Ready to start, as the snapshot lists it: none waits on an Unmet dependency or has a run, so none blocks another.
-    const ready = tasks.filter((task) => boardColumn(task.state, attributed.has(task.id))?.column === 'ready' && task.unmetDependencies.length === 0 && forAgent(task));
+    // With a graph, only a Task whose risk with every Task in flight is low.
+    const inFlight = tasks.filter((task) => boardColumn(task.state, attributed.has(task.id))?.column === 'inProgress');
+    const lowRisk = (task: ResolvedTask): boolean => impact === null || inFlight.every((other) => pairRisk(impact, task.id, other.id) === 'low');
+    const ready = tasks.filter((task) => boardColumn(task.state, attributed.has(task.id))?.column === 'ready' && task.unmetDependencies.length === 0 && forAgent(task) && lowRisk(task));
     if (free < 1 || ready.length === 0) return [wait];
     return [
       wait,

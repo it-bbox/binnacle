@@ -17,6 +17,9 @@ type SnapshotTask = {
 type Section = { items: SnapshotTask[]; remainder: number };
 type Epic = { number: number; title: string; status: string; spec: string | null };
 type Unavailable = { available: false; reason: string };
+/** No `graphify` on the test daemon's search path, so no conflict risk is calculated. */
+const NO_GRAPH = { available: false, reason: "graphify is not on the daemon's PATH, so no graph is built or read." };
+
 type Snapshot = {
   checkout: { root: string; registered: boolean };
   git: { available: true; branch: string | null; commit: string | null; dirty: boolean } | { available: false };
@@ -25,7 +28,7 @@ type Snapshot = {
     inFlight: Section;
     readyToStart: Section;
     counts: Record<string, number>;
-    parallel: { limit: number; inProgress: number; free: number; provenance: string };
+    parallel: { limit: number; inProgress: number; free: number; provenance: string; impact: unknown };
   } | null;
   decisions: { items: { title: string | null; path: string }[]; remainder: number } | null;
   pendingDecisions: Unavailable;
@@ -239,7 +242,7 @@ describe('Tasks in the Product Snapshot', () => {
 
       const body = await snapshot(daemon, root);
       assert.equal(body.tasks!.inFlight.remainder, 2);
-      assert.deepEqual(body.tasks!.parallel, { limit: 14, inProgress: 12, free: 2, provenance: 'calculated' });
+      assert.deepEqual(body.tasks!.parallel, { limit: 14, inProgress: 12, free: 2, provenance: 'calculated', impact: NO_GRAPH });
     });
   });
 
@@ -247,10 +250,10 @@ describe('Tasks in the Product Snapshot', () => {
     await withDaemon(async (daemon) => {
       const root = makeProject();
       ticket(root, 'epic', '01-ready.md', { title: '01: Ready', status: 'READY' });
-      assert.deepEqual((await snapshot(daemon, root)).tasks!.parallel, { limit: 2, inProgress: 0, free: 2, provenance: 'calculated' });
+      assert.deepEqual((await snapshot(daemon, root)).tasks!.parallel, { limit: 2, inProgress: 0, free: 2, provenance: 'calculated', impact: NO_GRAPH });
 
       for (const nn of ['02', '03', '04']) ticket(root, 'epic', `${nn}-busy.md`, { title: `${nn}: Busy`, status: 'READY_FOR_REVIEW' });
-      assert.deepEqual((await snapshot(daemon, root)).tasks!.parallel, { limit: 2, inProgress: 3, free: 0, provenance: 'calculated' });
+      assert.deepEqual((await snapshot(daemon, root)).tasks!.parallel, { limit: 2, inProgress: 3, free: 0, provenance: 'calculated', impact: NO_GRAPH });
     });
   });
 

@@ -42,6 +42,7 @@ export {
   type Roadmap,
   type RoadmapStatus,
 } from './roadmap.ts';
+export { conflictRisk, moduleGraph, pairRisk, type ConflictRisk, type Impact, type ModuleGraph, type TaskTouch } from './impact.ts';
 export { instructionSets } from './instructions.ts';
 export {
   isTaskState,

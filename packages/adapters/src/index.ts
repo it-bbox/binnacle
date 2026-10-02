@@ -9,6 +9,7 @@ export {
   isGitUnavailable,
   isIgnored,
   readBranchCommit,
+  readChangedFiles,
   readCommit,
   readCommitBefore,
   readDefaultBranch,

@@ -1,8 +1,18 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { accessSync, constants, existsSync, statSync } from 'node:fs';
+import { accessSync, constants, existsSync, readFileSync, statSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
-import { isIgnored, readBranchCommit, readDefaultBranch, readGitFacts } from '@binnacle/adapters';
-import type { Diagnostic, ProjectManifest } from '@binnacle/core';
+import { isIgnored, readBranchCommit, readChangedFiles, readDefaultBranch, readGitFacts } from '@binnacle/adapters';
+import {
+  conflictRisk,
+  moduleGraph,
+  taskBranch,
+  type Diagnostic,
+  type Impact,
+  type ModuleGraph,
+  type ProjectManifest,
+  type TaskTouch,
+  type TrackerTask,
+} from '@binnacle/core';
 import { resolveGitTimeout } from './home.ts';
 import { readManifest } from './manifest.ts';
 import { readRegistry } from './registry.ts';
@@ -183,6 +193,38 @@ export async function graphSection(
     graph: { available: reason === null, reason, builtFrom, behind: commit === null ? null : builtFrom?.commit !== commit, lastRun },
     attention,
   };
+}
+
+/**
+ * The conflict risk between `tasks`, the ready and in-flight ones, read against the graph in the
+ * registered checkout at `path`; unavailable, with the graph's reason, when there is none. A Task
+ * whose branch (`taskBranch`) has changed files since it left the default branch is read from
+ * that diff, and any other from its ticket's title and body.
+ */
+export async function impactSection(
+  path: string,
+  graph: GraphSection,
+  tasks: Pick<TrackerTask, 'id' | 'title' | 'ticket' | 'body'>[],
+  remote: boolean,
+): Promise<Impact | { available: false; reason: string }> {
+  if (!graph.available) return { available: false, reason: graph.reason ?? 'There is no graph.' };
+  let modules: ModuleGraph | null = null;
+  try {
+    modules = moduleGraph(JSON.parse(readFileSync(join(path, GRAPH_FILE), 'utf8')));
+  } catch {
+    // Unreadable or not JSON: said below, as a graph of the wrong shape is.
+  }
+  if (modules === null) return { available: false, reason: `${GRAPH_FILE} cannot be read as a graph.` };
+
+  const base = await defaultCommit(path);
+  const touches = await Promise.all(
+    tasks.map(async (task): Promise<TaskTouch> => {
+      const head = base === null ? null : await readBranchCommit(path, taskBranch(task, remote), resolveGitTimeout());
+      const files = base === null || head === null || head === base ? null : await readChangedFiles(path, base, head, resolveGitTimeout());
+      return files && files.length > 0 ? { id: task.id, files } : { id: task.id, text: `${task.title ?? ''}\n${task.body}` };
+    }),
+  );
+  return conflictRisk(modules, touches);
 }
 
 const runOf = (event: EventRow): NonNullable<GraphSection['lastRun']> => ({
