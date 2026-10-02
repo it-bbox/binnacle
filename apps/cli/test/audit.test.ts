@@ -49,6 +49,9 @@ function audit(t: TestContext, args: string[], env: Record<string, string> = {},
       ...baseEnv,
       HOME: home,
       BINNACLE_HOME: join(home, '.binnacle'),
+      // Away from this machine's own harness files, so that its sessions and tool settings are never shown.
+      CLAUDE_CONFIG_DIR: join(home, 'claude-config'),
+      CODEX_HOME: join(home, 'codex-home'),
       NODE_USE_ENV_PROXY: '1',
       HTTPS_PROXY: 'http://127.0.0.1:9',
       HTTP_PROXY: 'http://127.0.0.1:9',
@@ -76,8 +79,8 @@ test('binn audit on a bare repository, with no daemon, registration or manifest,
   const all = findings(first.stdout);
   assert.ok(all.length > 0);
   for (const finding of findings(first.stdout)) {
-    assert.match(finding.code, /^[a-z]+\.[a-z_]+$/);
-    assert.ok(['git-and-tracker', 'docs', 'matt-pocock-layout', 'scratch', 'instructions', 'structure'].includes(finding.area), finding.area);
+    assert.match(finding.code, /^[a-z]+\.[a-z0-9_]+$/);
+    assert.ok(['git-and-tracker', 'docs', 'matt-pocock-layout', 'scratch', 'capabilities', 'instructions', 'structure', 'telemetry'].includes(finding.area), finding.area);
     assert.ok(['ok', 'gap', 'unknown'].includes(finding.status));
     assert.ok(finding.reason);
     assert.equal(finding.recommendation !== undefined, finding.status !== 'ok', `${finding.code}: a recommendation for a gap or an unknown only`);
@@ -183,7 +186,7 @@ test('binn audit gives the same output with the network unreachable as with a pr
   const plain = spawnSync(process.execPath, [BINN, 'audit', '--json'], {
     cwd: root,
     encoding: 'utf8',
-    env: { ...baseEnv, HOME: home, BINNACLE_HOME: join(home, '.binnacle') },
+    env: { ...baseEnv, HOME: home, BINNACLE_HOME: join(home, '.binnacle'), CLAUDE_CONFIG_DIR: join(home, 'claude-config'), CODEX_HOME: join(home, 'codex-home') },
   });
   assert.equal(plain.stdout, audit(t, ['--json'], {}, root).stdout);
 });
@@ -307,4 +310,106 @@ test('binn audit does not run what it finds: a test script and a CI file leave n
   write(root, { 'package.json': JSON.stringify({ scripts: { test: 'touch RAN' } }), '.github/workflows/ci.yml': 'x\n' });
   assert.equal(audit(t, [], {}, root).status, 0);
   assert.ok(!listing(root).some((entry) => entry.startsWith('RAN')));
+
+const TOOLS = ['serena', 'graphify', 'context7'];
+
+/** `binn audit --json` in `root` with `home` as `~`, and the harnesses' roots in `home` too, where a test may have put files. */
+function auditIn(root: string, home: string): Finding[] {
+  const result = spawnSync(process.execPath, [BINN, 'audit', '--json'], {
+    cwd: root,
+    encoding: 'utf8',
+    env: { ...baseEnv, HOME: home, BINNACLE_HOME: join(home, '.binnacle'), CLAUDE_CONFIG_DIR: join(home, 'claude-config'), CODEX_HOME: join(home, 'codex-home') },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  return findings(result.stdout);
+}
+
+test('a tool with no configuration anywhere is unknown, not a gap, and the finding names the files looked in', (t) => {
+  const all = findings(audit(t, ['--json'], {}, fixture(t)).stdout);
+  for (const tool of TOOLS) {
+    const found = byCode(all, `capabilities.${tool}`);
+    assert.equal(found.area, 'capabilities');
+    assert.equal(found.status, 'unknown');
+    for (const file of ['.binnacle/project.yaml', '.mcp.json', '.codex/config.toml', '.claude.json']) assert.ok(found.reason.includes(file), `${tool}: ${file}`);
+    assert.ok(found.recommendation);
+  }
+});
+
+test('a tool configured in the repository is ok, from .mcp.json, .codex/config.toml or .serena', (t) => {
+  const root = fixture(t);
+  write(root, {
+    '.mcp.json': JSON.stringify({ mcpServers: { context7: { command: 'npx' } } }),
+    '.codex/config.toml': '[mcp_servers.graphify]\ncommand = "graphify"\n',
+    '.serena/project.yml': 'project_name: x\n',
+  });
+  const all = auditIn(root, scratch(t));
+  for (const tool of TOOLS) assert.equal(byCode(all, `capabilities.${tool}`).status, 'ok', tool);
+  assert.match(byCode(all, 'capabilities.context7').reason, /\.mcp\.json/);
+  assert.match(byCode(all, 'capabilities.graphify').reason, /\.codex\/config\.toml/);
+});
+
+test('a tool configured in the user-scope files of Claude Code or Codex is ok', (t) => {
+  const root = fixture(t);
+  const home = scratch(t);
+  write(home, {
+    'claude-config/.claude.json': JSON.stringify({ mcpServers: { serena: {} } }),
+    'codex-home/config.toml': '[mcp_servers.context7]\ncommand = "x"\n',
+  });
+  const all = auditIn(root, home);
+  assert.equal(byCode(all, 'capabilities.serena').status, 'ok');
+  assert.equal(byCode(all, 'capabilities.context7').status, 'ok');
+  assert.equal(byCode(all, 'capabilities.graphify').status, 'unknown');
+});
+
+test('a capability declared in .binnacle/project.yaml is the declaration, whatever the other files say', (t) => {
+  const root = fixture(t);
+  write(root, {
+    '.binnacle/project.yaml': 'version: 1\nproject:\n  id: fixture\ntracker:\n  provider: local\ncapabilities:\n  serena: true\n  graphify: false\n  context7: optional\n',
+    '.mcp.json': JSON.stringify({ mcpServers: { graphify: {} } }),
+  });
+  const all = auditIn(root, scratch(t));
+  assert.equal(byCode(all, 'capabilities.serena').status, 'ok');
+  assert.match(byCode(all, 'capabilities.serena').reason, /declares/);
+  assert.equal(byCode(all, 'capabilities.graphify').status, 'ok');
+  assert.match(byCode(all, 'capabilities.graphify').reason, /not use/);
+  assert.equal(byCode(all, 'capabilities.context7').status, 'ok');
+  assert.match(byCode(all, 'capabilities.context7').reason, /optional/);
+});
+
+test('an unreadable configuration file does not fail the audit', (t) => {
+  const root = fixture(t);
+  write(root, { '.mcp.json': '{not json', '.codex/config.toml': '\u0000' });
+  assert.equal(byCode(auditIn(root, scratch(t)), 'capabilities.serena').status, 'unknown');
+});
+
+test('telemetry readiness on a machine with no session artifacts is unknown, never a gap, and names where it looked', (t) => {
+  const all = findings(audit(t, ['--json'], {}, fixture(t)).stdout);
+  for (const code of ['telemetry.claude_code', 'telemetry.codex']) {
+    const found = byCode(all, code);
+    assert.equal(found.area, 'telemetry');
+    assert.equal(found.status, 'unknown');
+    assert.match(found.reason, /No sessions/);
+    assert.match(found.reason, /claude-config|codex-home/);
+  }
+});
+
+test('telemetry readiness counts the sessions of this repository only, and shows no content', (t) => {
+  const root = fixture(t);
+  const home = scratch(t);
+  const line = (cwd: string) => JSON.stringify({ type: 'user', cwd, timestamp: '2026-09-01T10:00:00.000Z', message: { content: 'SECRET PROMPT' } });
+  const meta = (id: string, cwd: string) => JSON.stringify({ type: 'session_meta', timestamp: '2026-09-01T10:00:00.000Z', payload: { id, cwd } });
+  const encode = (path: string) => path.replace(/[^a-zA-Z0-9]/g, '-');
+  write(home, {
+    [`claude-config/projects/${encode(root)}/a.jsonl`]: `${line(root)}\n`,
+    [`claude-config/projects/${encode(root)}/b.jsonl`]: `${line(root)}\n`,
+    [`claude-config/projects/${encode('/elsewhere')}/c.jsonl`]: `${line('/elsewhere')}\n`,
+    'codex-home/sessions/2026/09/01/rollout-x.jsonl': `${meta('x', root)}\n`,
+    'codex-home/sessions/2026/09/01/rollout-y.jsonl': `${meta('y', '/elsewhere')}\n`,
+  });
+  const all = auditIn(root, home);
+  assert.equal(byCode(all, 'telemetry.claude_code').status, 'ok');
+  assert.match(byCode(all, 'telemetry.claude_code').reason, /2 Claude Code sessions/);
+  assert.equal(byCode(all, 'telemetry.codex').status, 'ok');
+  assert.match(byCode(all, 'telemetry.codex').reason, /1 Codex session\b/);
+  assert.ok(!JSON.stringify(all).includes('SECRET PROMPT'));
 });

@@ -1,29 +1,25 @@
 import { spawnSync } from 'node:child_process';
-import { accessSync, appendFileSync, constants, createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { accessSync, appendFileSync, constants, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, delimiter, dirname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
-import { codexSession, readGitFacts, workingTree, type GitRemote } from '@binnacle/adapters';
+import { readGitFacts, workingTree, type GitRemote } from '@binnacle/adapters';
 import { forgeRemote, instructionSets, TASK_STATES, type ImportWindow, type ProjectManifest, type TrackerProvider } from '@binnacle/core';
 import {
-  claudeCodeSessions,
-  codexSessions,
-  containingEntry,
   credentialsKey,
   credentialsPath,
   DEFAULT_WINDOW_DAYS,
   isAlive,
   MANIFEST_RELATIVE,
   OperationError,
-  projectCheckouts,
   readManifest,
   readTracker,
   readRuntime,
-  resolveArtifactRoots,
   resolveGitTimeout,
 } from '@binnacle/daemon';
 import { EXIT, type ExitCode } from './exit.ts';
+import { sessionHistory } from './history.ts';
 import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, mattPocockFiles } from './layout.ts';
 import { register } from './project-commands.ts';
 
@@ -310,82 +306,6 @@ function importWindow(answer: string): ImportWindow | null {
   const days = Number(text);
   return /^\d+$/.test(text) && Number.isSafeInteger(days) && days > 0 ? days : null;
 }
-
-/**
- * Where each harness keeps its session files, and where a session names its `cwd`: Claude
- * Code on any record that has one, Codex on its `session_meta` record, which comes first.
- */
-const HISTORIES: { name: string; files(directories: string[]): string[]; cwd(record: Record<string, unknown>): unknown }[] = [
-  {
-    name: 'Claude Code',
-    files: (directories) => claudeCodeSessions(resolveArtifactRoots().claudeCode, directories).files,
-    cwd: (record) => record.cwd,
-  },
-  {
-    name: 'Codex',
-    files: () => codexSessions(resolveArtifactRoots().codex).files,
-    cwd: (record) => codexSession(record)?.cwd,
-  },
-];
-
-/**
- * Per harness, the sessions whose `cwd` lies in `root` or in the same directory of one of its
- * linked worktrees, as the daemon attributes them, and the start of the oldest, in
- * milliseconds. Each file is read only up to its first record that names a `cwd`, which also
- * gives the session's start; a file with no such record among its first `START_LINES`, or
- * none that can be read, is not counted.
- */
-async function sessionHistory(root: string): Promise<{ name: string; sessions: number; oldest: number }[]> {
-  const directories = [root, ...(await projectCheckouts(root)).linked];
-  const checkouts = directories.map((path) => ({ path }));
-  const histories = [];
-  for (const { name, files, cwd } of HISTORIES) {
-    let sessions = 0;
-    let oldest = Infinity;
-    for (const path of files(directories)) {
-      const start = await sessionStart(path, cwd);
-      if (!start || !containingEntry(start.cwd, checkouts)) continue;
-      sessions += 1;
-      oldest = Math.min(oldest, start.time);
-    }
-    histories.push({ name, sessions, oldest });
-  }
-  return histories;
-}
-
-/** How far into a file its first record naming a `cwd` is looked for: the owner's sessions have it by line 30. */
-const START_LINES = 100;
-
-async function sessionStart(path: string, cwdOf: (record: Record<string, unknown>) => unknown): Promise<{ cwd: string; time: number } | null> {
-  const input = createReadStream(path);
-  const lines = createInterface({ input, crlfDelay: Infinity });
-  try {
-    let read = 0;
-    for await (const line of lines) {
-      if (++read > START_LINES) return null;
-      let record: unknown;
-      try {
-        record = JSON.parse(line);
-      } catch {
-        continue;
-      }
-      if (!isRecord(record)) continue;
-      const cwd = cwdOf(record);
-      if (typeof cwd !== 'string') continue;
-      const time = typeof record.timestamp === 'string' ? Date.parse(record.timestamp) : NaN;
-      return Number.isNaN(time) ? null : { cwd, time };
-    }
-    return null;
-  } catch {
-    // A file that vanished or cannot be opened is not counted.
-    return null;
-  } finally {
-    lines.close();
-    input.destroy();
-  }
-}
-
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 
 /** `YYYY-MM-DD` in local time. */
 const localDate = (time: number): string => new Date(time).toLocaleDateString('en-CA');
