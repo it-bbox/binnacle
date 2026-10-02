@@ -94,13 +94,14 @@ test('every daemon-dependent skill names /binnacle:daemon start and /binnacle:re
   }
 });
 
-/** Epic 9: the baseline's /status, over project_status alone, short, and never just failing. */
+/** Epic 9: the baseline's /status, over project_status alone and short; its two fixes are held with the other daemon-dependent skills below. */
 test('/binnacle:status calls project_status and nothing else, says a linked worktree plainly and shows diagnostics', () => {
   const skill = skillText('status');
   assert.match(skill, /^disable-model-invocation: true$/m);
   assert.match(skill, /Call the `binnacle` MCP server's `project_status` tool once/);
   assert.match(skill, /no Binnacle call other than `project_status`/);
   assert.match(skill, /`registered` is false/);
+  assert.match(skill, /"no commits yet" when `git\.commit` is null/);
   assert.match(skill, /a linked worktree, not the registered checkout/);
   assert.match(skill, /\*\*Diagnostics\*\*: every item with its code/);
   assert.match(skill, /leave them to `\/binnacle:product`/);
