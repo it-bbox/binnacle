@@ -1,6 +1,6 @@
 # ADR-0026: `binn init` Writes Into the Repository Only After Confirmation
 
-**Status:** Accepted
+**Status:** Accepted. Superseded in part by ADR-0034: `binn init` shows one plan and asks once, and Enter accepts it at a terminal.
 
 **Supersedes:** in part, ADR-0020's "no files" for the one command a human runs to adopt Binnacle. Everything else in ADR-0020 stands.
 

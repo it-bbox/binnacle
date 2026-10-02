@@ -22,13 +22,13 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 ## Current focus
 
-Design is complete: `docs/08-open-questions.md` is resolved by ADR-0001 to ADR-0018; building the epics added ADR-0019 to ADR-0033.
+Design is complete: `docs/08-open-questions.md` is resolved by ADR-0001 to ADR-0018; building the epics added ADR-0019 to ADR-0034.
 
 Epics 1 to 6 are done: the daemon and its store; the snapshot, daily and checkpoint over MCP, and the `binnacle` plugin with autopilot; Tasks from GitHub, GitLab or local tickets, and `binn init`; usage by model, Task and role; the read-only dashboard, `binn dashboard`, rebuilt with Nuxt UI to the mockup, in English and Russian, with a Settings page and What's next leading on the Next action and Binnacle's alternatives. The owner's second exit demonstration of epic 6, on 2026-09-27, found no defect. Binnacle writes nothing into the repository.
 
-Epic 7, Audit and adopt, is not started. Its scope is `docs/05-mvp-plan.md`, phase 6: a read-only audit of a repository, giving migration recommendations rather than fixes. Planning it is the owner's: grilling, then `to-spec`, then `to-tickets`. The grilling starts from `specs/audit-and-adopt/brief.md`, the owner's feedback of 2026-09-27 on continuing in another harness and on `binn init`'s questions. Ticket 01 there, `binn init` finishing and saying what it waits on, is done.
+Epic 7, Audit and adopt, is not started. Its scope is `docs/05-mvp-plan.md`, phase 6: a read-only audit of a repository, giving migration recommendations rather than fixes. The grilling is done (2026-10-02): its decisions are in `specs/audit-and-adopt/brief.md`, and `binn init`'s new way of asking is ADR-0034. What is left is `to-spec`, then `to-tickets`. Ticket 01 there, `binn init` finishing and saying what it waits on, is done.
 
-Next action: plan epic 7, Audit and adopt, starting with its grilling. `/mattpocock-skills:grill-with-docs`
+Next action: write the spec of epic 7, Audit and adopt, from the brief's decisions. `/mattpocock-skills:to-spec`
 
 ## Later
 
