@@ -21,7 +21,6 @@ MCP is the stable contract. Client-specific slash commands/skills are thin UX wr
 - `question.list`
 - `review.status`
 - `usage.get` (the tool `usage_get`: the project's token usage by Task and by role, with derived metrics labelled as Binnacle's calculations; or one Task's, with its runs)
-- `audit.project`
 
 ### Controlled mutations
 
@@ -32,6 +31,8 @@ MCP is the stable contract. Client-specific slash commands/skills are thin UX wr
 - `checkpoint.record` (ADR-0020: it records the checkpoint; the calling session writes the files)
 
 The snapshot's attention includes `next_action.missing`, `next_action.stale` and `review.missing`, which names each `DONE` Task on the local tracker whose ticket records no Review. The dashboard reads the same operations over the daemon's local API (ADR-0031), and adds no MCP tool.
+
+The read-only audit is not an MCP tool or a skill: it is the CLI command `binn audit [path]` (`specs/audit-and-adopt/spec.md`), which needs no daemon, so an agent runs it as a command and reads `--json`. It writes nothing; applying a recommendation is the human's, through `binn init`.
 
 No tool writes to the tracker (ADR-0013). Closing an issue is done by the agent with its own tooling, or by the human in the tracker's own interface.
 
@@ -46,7 +47,6 @@ Initial user-facing actions:
 - `/task <id>` — load a compact task brief, ending with the command that starts the Task;
 - `/status` — concise project/session/run status;
 - `/checkpoint` — extract durable delta and propose persistence;
-- `/audit` — read-only audit/adoption analysis;
 - `/autopilot` — finish one planned epic with an agent per ticket; started only by a human (ADR-0022). A ticket triaged `ready-for-human` is the owner's: autopilot starts no agent for it and lists it under *Waiting for the owner*.
 
 Actual command syntax may differ across Claude Code, Codex, Gemini and other clients. The logical action remains the same.
@@ -55,7 +55,7 @@ In Claude Code the actions are served by a plugin named `binnacle` (ADR-0023), s
 
 ## How the interface reaches a harness
 
-MCP is the universal path, and registering it is a config edit in a location each harness already defines — `~/.claude.json` or a project's `.mcp.json` for Claude Code, `[mcp_servers.*]` in `~/.codex/config.toml` or a trusted project's `.codex/config.toml` for Codex. `binn init` performs that registration as part of one plan of every write, shown whole and confirmed once (ADR-0034; Enter accepts it at a terminal, and without a terminal nothing is written), from one config template per known harness — Claude Code, Codex, opencode and VS Code to start with — and prints a generic stdio snippet for any other. Supporting another harness is adding a template. This is support level 1 from ADR-0014, and it requires no adapter code.
+MCP is the universal path, and registering it is a config edit in a location each harness already defines — `~/.claude.json` or a project's `.mcp.json` for Claude Code, `[mcp_servers.*]` in `~/.codex/config.toml` or a trusted project's `.codex/config.toml` for Codex. `binn init` performs that registration as part of one plan of every write, shown whole and confirmed once (ADR-0034; Enter accepts it at a terminal, and without a terminal nothing is written), from one config template per known harness — Claude Code, Codex, opencode and VS Code to start with — and prints a generic stdio snippet for any other. Its Summary then suggests `binn audit` and, for each detected harness other than Claude Code, prints the next step for it, ending with the prompt that makes an agent read the Binnacle product skill file and follow it: skills install into Claude Code alone, and no skill format for another harness exists. Supporting another harness is adding a template. This is support level 1 from ADR-0014, and it requires no adapter code.
 
 Command wrappers are generated from a single procedure description per action, so supporting a new harness means adding an output template, not new logic. A harness with no wrapper mechanism still works: the human asks for the tool by name.
 

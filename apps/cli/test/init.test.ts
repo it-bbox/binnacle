@@ -770,7 +770,7 @@ test('a configuration that already names binnacle is skipped and reported', (t) 
   assert.match(result.stdout, /skipped\s+\.mcp\.json: it already names binnacle/);
   assert.match(result.stdout, /skipped\s+\.codex\/config\.toml: it already names binnacle/);
   assert.doesNotMatch(result.stdout, /Append to|Create \.mcp\.json/);
-  assert.doesNotMatch(result.stdout, /trusted project/, 'the trust note goes with an entry offered, not a skip');
+  assert.doesNotMatch(result.stdout.slice(0, result.stdout.indexOf('Summary:')), /trusted project/, 'the trust note goes with an entry offered, not a skip');
 });
 
 test('a Codex configuration naming binnacle as a key under [mcp_servers] is skipped, not given a duplicate', (t) => {
@@ -947,3 +947,61 @@ test('with an existing manifest the window line is printed, not written, and a d
   assert.match(again.stdout, /skipped\s+import window: \.binnacle\/project\.yaml declares all/);
 });
 
+
+test('the Summary suggests binn audit', (t) => {
+  const home = makeHome(t);
+  const root = makeRepository(t, 'audited');
+
+  const result = binnIn(home)(root, '\nn\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout.slice(result.stdout.indexOf('Summary:')), /run `binn audit`/);
+});
+
+test('the Summary gives the next step for a detected harness other than Claude Code, with the prompt that follows the skill', (t) => {
+  const home = makeHome(t);
+  fakeClaude(home);
+  installUserDirectory(home, '.codex');
+  installExecutable(home, 'opencode');
+  const root = makeRepository(t, 'moving');
+
+  const result = binnIn(home)(root, '\nn\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  const summary = result.stdout.slice(result.stdout.indexOf('Summary:'));
+  const skill = join(PACKAGE, 'plugin', 'skills', 'product', 'SKILL.md');
+  assert.ok(existsSync(skill), 'the plugin is built into the package');
+  const codex = summary.slice(summary.indexOf('To work from Codex'), summary.indexOf('To work from opencode'));
+  assert.match(codex, /trusted project/);
+  assert.match(codex, /not on PATH.*\/usr\/lib\/chatgpt\/resources\/codex/);
+  assert.ok(codex.includes(`read the Binnacle product skill file at ${skill} and follow it`), summary);
+  const opencode = summary.slice(summary.indexOf('To work from opencode'));
+  assert.match(opencode, /Run `opencode`/);
+  assert.ok(opencode.includes(`read the Binnacle product skill file at ${skill} and follow it`), summary);
+  assert.doesNotMatch(opencode, /not on PATH/);
+  assert.doesNotMatch(summary, /To work from Claude Code/);
+});
+
+test('a project that carries its own binnacle plugin has the agent read that skill file', (t) => {
+  const home = makeHome(t);
+  installExecutable(home, 'codex');
+  const own = '.claude/skills/binnacle/skills/product/SKILL.md';
+  const root = makeRepository(t, 'carrier', { [own]: '# product\n' });
+
+  const result = binnIn(home)(root, '\nn\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(result.stdout.includes(`product skill file at ${join(root, own)} and follow it`), result.stdout);
+  assert.doesNotMatch(result.stdout, /not on PATH/);
+});
+
+test('with only Claude Code detected the Summary has no next step for another harness', (t) => {
+  const home = makeHome(t);
+  fakeClaude(home);
+  const root = makeRepository(t, 'claude-only');
+
+  const result = binnIn(home)(root, '\nn\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(result.stdout, /To work from/);
+});

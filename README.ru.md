@@ -170,16 +170,30 @@ Developer → Review → Merge
 ## Быстрый путь существующего проекта
 
 ```text
-binn adopt .
+binn audit
     ↓
-/audit
+прочитать находки и рекомендации
     ↓
-review migration plan
-    ↓
-normalize knowledge/tracker/telemetry
+binn init
     ↓
 /product
 ```
+
+`binn audit [path]` читает репозиторий и печатает находки, текстом или с `--json`. Он ничего не пишет и не требует демона. `binn init` — единственная команда, которая пишет: она показывает один план и спрашивает один раз.
+
+## Работа из другого harness
+
+`binn init` регистрирует MCP-сервер `binnacle` для каждого найденного harness и в своём Summary печатает следующий шаг для каждого, кроме Claude Code. Навыки Binnacle устанавливаются только в Claude Code; любому другому агенту говорят прочитать файл навыка и следовать ему. Попросите его:
+
+```text
+read the Binnacle product skill file at <path> and follow it
+```
+
+`<path>` — это `.claude/skills/binnacle/skills/product/SKILL.md`, если проект несёт собственный плагин, иначе `plugin/skills/product/SKILL.md` в пакете Binnacle; Summary печатает тот, что подходит.
+
+- **Codex** читает `.codex/config.toml` проекта только в доверенном проекте (trusted project). Доверьте проект в Codex, иначе запись `binnacle` не будет видна. Десктопное приложение Codex ставит свой CLI вне `PATH`; на Linux это `/usr/lib/chatgpt/resources/codex`.
+- **opencode** читает `opencode.json` в проекте. Запустите `opencode` в корне репозитория.
+- **GLM** — модель, а не harness. Подключайте её через harness, например Claude Code или opencode; адаптера GLM искать не нужно.
 
 ## Документация
 

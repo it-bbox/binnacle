@@ -1,6 +1,6 @@
 import { readGitFacts, type GitFacts } from '@binnacle/adapters';
 import { AUDIT_AREAS, forgeRemote, instructionSets, type Finding } from '@binnacle/core';
-import { resolveGitTimeout, trackerToken } from '@binnacle/daemon';
+import { MANIFEST_RELATIVE, resolveGitTimeout, trackerToken } from '@binnacle/daemon';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { EXIT, type ExitCode } from './exit.ts';
@@ -40,6 +40,18 @@ function gitAndTracker(git: Repository, home: string): Finding[] {
   const area = 'git-and-tracker';
   const branch = git.detached ? 'a detached HEAD' : `branch ${git.branch}${git.commit === null ? ' (no commit yet)' : ''}`;
   const found: Finding[] = [{ code: 'git.repository', area, status: 'ok', reason: `A Git repository, on ${branch}.` }];
+  // A Binnacle file, and the one that declares the tracker: its absence is what `binn init` answers.
+  found.push(
+    existsSync(join(git.root, MANIFEST_RELATIVE))
+      ? { code: 'binnacle.manifest', area, status: 'ok', reason: `${MANIFEST_RELATIVE} is present.` }
+      : {
+          code: 'binnacle.manifest',
+          area,
+          status: 'gap',
+          reason: `${MANIFEST_RELATIVE} is missing, so Binnacle has no declaration of this project.`,
+          recommendation: 'Run binn init, which shows the file it would create and writes it only after you confirm.',
+        },
+  );
 
   const forge = forgeRemote(git.remotes);
   if (!forge) {

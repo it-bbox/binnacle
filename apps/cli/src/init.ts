@@ -46,6 +46,8 @@ type Session = {
   say(text: string): void;
   plan: PlanItem[];
   outcomes: { outcome: Outcome; what: string }[];
+  /** The harnesses other than Claude Code that were detected: the Summary says how to continue in each. */
+  otherHarnesses: Harness[];
 };
 
 /**
@@ -69,7 +71,7 @@ export async function init(home: string, path?: string): Promise<ExitCode> {
     if (next.done) process.stdout.write('\n');
     return next.done ? null : next.value;
   };
-  const session: Session = { root: git.root, answer, say: (text) => console.log(text), plan: [], outcomes: [] };
+  const session: Session = { root: git.root, answer, say: (text) => console.log(text), plan: [], outcomes: [], otherHarnesses: [] };
 
   try {
     session.say(`Setting up Binnacle in ${session.root}. Nothing is written until you have seen the whole plan and confirmed it.\n`);
@@ -102,7 +104,27 @@ export async function init(home: string, path?: string): Promise<ExitCode> {
   session.say('Summary:');
   for (const { outcome, what } of session.outcomes) session.say(`  ${outcome.padEnd(8)}  ${what}`);
   session.say('Nothing was committed. Review what binn init wrote, and commit it yourself.');
+  session.say('To see how far this repository is from the way Binnacle works, run `binn audit`. It reads and writes nothing.');
+  for (const harness of session.otherHarnesses) nextSteps(session, harness);
   return EXIT.ok;
+}
+
+/** The skill file an agent without Binnacle's plugin is told to read: the project's own plugin, or the one in this package. */
+function productSkill(root: string): string {
+  const own = join(root, '.claude', 'skills', 'binnacle', 'skills', 'product', 'SKILL.md');
+  return existsSync(own) ? own : join(PACKAGE_DIR, 'plugin', 'skills', 'product', 'SKILL.md');
+}
+
+/** What to do next to work from a harness other than Claude Code, which has the plugin: no skill format of its own, so an agent is pointed at the file. */
+function nextSteps(session: Session, harness: Harness): void {
+  const steps = [
+    harness.note,
+    harness.open,
+    harness.offPath && !onPath(harness.executable) ? harness.offPath : undefined,
+    `Ask the agent: read the Binnacle product skill file at ${productSkill(session.root)} and follow it`,
+  ].filter((step): step is string => step !== undefined);
+  session.say(`\nTo work from ${harness.name}, once its configuration names binnacle:`);
+  steps.forEach((step, index) => session.say(`  ${index + 1}. ${step}`));
 }
 
 /** Shows the plan whole and asks once. Without a terminal there is no one to confirm it, so nothing is written. */
@@ -410,6 +432,10 @@ type Harness = {
   entry: string;
   /** Said before the entry is offered. */
   note?: string;
+  /** How to start the harness in the project, for the Summary's next step. */
+  open?: string;
+  /** Said in the next step when `executable` is not on PATH. */
+  offPath?: string;
 };
 
 const json = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
@@ -435,6 +461,8 @@ const HARNESSES: Harness[] = [
     files: ['.codex/config.toml'],
     entry: '[mcp_servers.binnacle]\ncommand = "binn"\nargs = ["mcp"]\n',
     note: 'Codex reads .codex/config.toml only in a trusted project: trust this project in Codex for the entry to take effect.',
+    open: 'Run `codex` in the repository root, or open the repository in the Codex desktop app.',
+    offPath: '`codex` is not on PATH. The Codex desktop app ships its CLI outside it; on Linux it is /usr/lib/chatgpt/resources/codex.',
   },
   {
     name: 'opencode',
@@ -442,6 +470,7 @@ const HARNESSES: Harness[] = [
     userDirectory: join(CONFIG_HOME, 'opencode'),
     files: ['opencode.json', 'opencode.jsonc'],
     entry: json({ $schema: 'https://opencode.ai/config.json', mcp: { binnacle: { type: 'local', command: ['binn', 'mcp'] } } }),
+    open: 'Run `opencode` in the repository root.',
   },
   {
     name: 'VS Code',
@@ -454,6 +483,7 @@ const HARNESSES: Harness[] = [
           : join(CONFIG_HOME, 'Code'),
     files: ['.vscode/mcp.json'],
     entry: json({ servers: { binnacle: STDIO_SERVER } }),
+    open: 'Open the repository in VS Code, start the binnacle server listed in .vscode/mcp.json and chat in agent mode.',
   },
 ];
 
@@ -464,6 +494,7 @@ function harnessStep(session: Session): void {
 
   for (const { harness, reason } of found) {
     const file = harness.files.find((candidate) => existsSync(join(session.root, candidate))) ?? harness.files[0]!;
+    if (harness.executable !== 'claude') session.otherHarnesses.push(harness);
     session.say(`${harness.name} is installed (${reason}). It reads this project's MCP servers from ${file}.`);
     const path = join(session.root, file);
     if (existsSync(path) && namesBinnacle(readFileSync(path, 'utf8'))) {

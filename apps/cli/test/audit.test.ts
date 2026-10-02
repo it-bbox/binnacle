@@ -235,3 +235,14 @@ test('binn audit: a CLAUDE.md holding @AGENTS.md is one instruction set; two fil
   assert.equal(two.status, 'gap');
   assert.match(two.recommendation!, /canonical/);
 });
+
+test('a repository without .binnacle/project.yaml gets a gap that recommends binn init, and one with it an ok', (t) => {
+  const root = fixture(t);
+  const without = byCode(findings(audit(t, ['--json'], {}, root).stdout), 'binnacle.manifest');
+  assert.equal(without.status, 'gap');
+  assert.match(without.recommendation!, /binn init/);
+
+  mkdirSync(join(root, '.binnacle'));
+  writeFileSync(join(root, '.binnacle', 'project.yaml'), 'name: fixture\n');
+  assert.equal(byCode(findings(audit(t, ['--json'], {}, root).stdout), 'binnacle.manifest').status, 'ok');
+});
