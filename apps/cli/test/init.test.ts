@@ -149,7 +149,7 @@ const PLAN_QUESTION = 'Write this plan? [Y/n]';
 test('binn --help lists binn init', () => {
   const result = spawnSync(process.execPath, [BINN, '--help'], { encoding: 'utf8' });
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /binn init \[path\]/);
+  assert.match(result.stdout, /binn init \[--window <days\|all>\] \[path\]/);
 });
 
 test('binn init refuses a directory outside any Git repository and writes nothing', (t) => {
@@ -1634,4 +1634,153 @@ test('the vault: a declined plan, and a stdin that is not a terminal, write no s
   assert.equal(piped.status, 0, piped.stderr);
   assert.ok(piped.stdout.includes(VAULT_HEADING), piped.stdout);
   assert.equal(existsSync(settingsOf(home)), false);
+});
+
+/** What `binn init --plan --json` prints. */
+type PlanJson = {
+  root: string;
+  id: string;
+  plan: { heading: string; body: string }[];
+  notes: string[];
+  history: { harness: string; sessions: number; oldest: string | null }[];
+  window: { days: number | 'all'; declared: boolean; default: boolean };
+};
+
+/** `binn init --plan --json` with `args`, stdin a terminal that is never ended: a plan that read it, or held it open, would hang. */
+async function planJson(t: TestContext, home: Home, cwd: string, ...args: string[]): Promise<PlanJson> {
+  const child = spawn(process.execPath, ['--import', TERMINAL, BINN, 'init', '--plan', '--json', ...args], { cwd, env: envFor(home) });
+  t.after(() => child.kill('SIGKILL'));
+  let stdout = '';
+  let stderr = '';
+  child.stdout.on('data', (chunk) => (stdout += chunk));
+  child.stderr.on('data', (chunk) => (stderr += chunk));
+  child.stdin.write('y\n');
+  const code = await Promise.race([
+    new Promise((resolve) => child.on('exit', resolve)),
+    new Promise((resolve) => setTimeout(resolve, 10_000, 'still running').unref()),
+  ]);
+  assert.equal(code, 0, `${stdout}\n${stderr}`);
+  return JSON.parse(stdout) as PlanJson;
+}
+
+/** The numbered headings of the plan the interactive run shows. */
+const shownHeadings = (stdout: string): string[] => {
+  const plan = stdout.slice(stdout.indexOf('The plan. Nothing is written until you confirm it:'), stdout.indexOf(PLAN_QUESTION));
+  return [...plan.matchAll(/^\d+\. [^\n]*:$/gm)].map((match) => match[0]);
+};
+
+test('--plan --json lists the interactive plan, item by item and in order, and writes, runs, reads and checks nothing', async (t) => {
+  const home = makeHome(t);
+  const claude = fakeClaude(home);
+  const uv = fakeTool(home, 'uv');
+  const npm = fakeTool(home, 'npm');
+  installUserDirectory(home, '.codex');
+  fakeObsidian(home, 'Work');
+  const root = makeRepository(t, 'planned', { 'docs/agents/issue-tracker.md': '# Issue tracker\n', '.codex/config.toml': '[other]\nkey = 1\n' });
+  git(root, 'remote', 'add', 'origin', 'git@github.com:Acme/Planned.git');
+
+  const json = await planJson(t, home, root);
+
+  assert.equal(json.root, root);
+  assert.match(json.id, /^[0-9a-f]{64}$/);
+  assert.equal(git(root, 'status', '--porcelain'), '?? .codex/\n?? docs/\n');
+  assert.equal(existsSync(home.binnacleHome), false);
+  // Claude Code is asked for its plugins, as the interactive plan does; nothing in the plan runs.
+  assert.deepEqual(claude(), [['plugin', 'list', '--json']]);
+  assert.deepEqual(uv(), []);
+  assert.deepEqual(npm(), []);
+  // The tracker check comes after the writes, so it is not run.
+  assert.ok(!json.notes.some((note) => /Reading |tracker is checked|nothing to check/.test(note)), json.notes.join('\n'));
+
+  const interactive = binnIn(home)(root, '\nn\n', 'init');
+  assert.equal(interactive.status, 0, interactive.stderr);
+  assert.ok(json.plan.length >= 8, JSON.stringify(json.plan, null, 2));
+  assert.deepEqual(shownHeadings(interactive.stdout), json.plan.map(({ heading }, index) => `${index + 1}. ${heading}:`));
+  let from = 0;
+  json.plan.forEach(({ heading, body }, index) => {
+    const at = interactive.stdout.indexOf(`${index + 1}. ${heading}:\n\n${body.trimEnd()}\n`, from);
+    assert.ok(at >= from, `${heading}\n${interactive.stdout}`);
+    from = at;
+  });
+});
+
+test('--plan --json notes carry a printed JSON entry and a registration skipped because the daemon is not running', async (t) => {
+  const home = makeHome(t);
+  fakeClaude(home, ['binnacle@binnacle', ...SKILL_PLUGINS]);
+  const root = makeRepository(t, 'noted', { '.mcp.json': '{\n  "mcpServers": {}\n}\n' });
+
+  const { plan, notes } = await planJson(t, home, root);
+
+  assert.ok(!plan.some(({ heading }) => heading.includes('.mcp.json')), JSON.stringify(plan));
+  const entry = notes.find((note) => note.includes('.mcp.json exists, and binn init never rewrites a JSON file'));
+  assert.ok(entry?.includes('"binnacle"') && entry.includes('"mcp"'), notes.join('\n---\n'));
+  assert.ok(notes.some((note) => note.includes('The Binnacle daemon is not running') && note.includes('binn daemon start')), notes.join('\n---\n'));
+});
+
+test('--plan --json takes its window from --window, or else the default, and the window changes the id', async (t) => {
+  const home = makeHome(t);
+  const root = makeRepository(t, 'windows');
+
+  const byDefault = await planJson(t, home, root);
+  const seven = await planJson(t, home, root, '--window', '7');
+  const all = await planJson(t, home, root, '--window', 'all');
+
+  const manifest = (json: PlanJson): string => json.plan.find(({ heading }) => heading === 'Create .binnacle/project.yaml')!.body;
+  assert.ok(manifest(byDefault).endsWith(windowSection('90')), manifest(byDefault));
+  assert.ok(manifest(seven).endsWith(windowSection('7')), manifest(seven));
+  assert.ok(manifest(all).endsWith(windowSection('all')), manifest(all));
+  assert.deepEqual(byDefault.window, { days: 90, declared: false, default: true });
+  assert.deepEqual(seven.window, { days: 7, declared: false, default: false });
+  assert.notEqual(seven.id, byDefault.id);
+  assert.notEqual(all.id, seven.id);
+  // The same plan, the same id.
+  assert.equal((await planJson(t, home, root, '--window', '7')).id, seven.id);
+  assert.deepEqual(byDefault.history, [
+    { harness: 'Claude Code', sessions: 0, oldest: null },
+    { harness: 'Codex', sessions: 0, oldest: null },
+  ]);
+  assert.equal(git(root, 'status', '--porcelain'), '');
+});
+
+test('--plan --json with a manifest that declares a window says so, and an empty plan still has an id', async (t) => {
+  const home = makeHome(t);
+  const root = makeRepository(t, 'settled', { '.binnacle/project.yaml': `version: 1\nproject:\n  id: settled\n${windowSection('30')}` });
+
+  const json = await planJson(t, home, root, '--window', '7');
+
+  assert.deepEqual(json.plan, []);
+  assert.match(json.id, /^[0-9a-f]{64}$/);
+  assert.deepEqual(json.window, { days: 30, declared: true, default: false });
+});
+
+test('binn init --window skips the window question, and without a terminal still writes nothing', (t) => {
+  const home = makeHome(t);
+  const root = makeRepository(t, 'given-window');
+
+  const result = binnIn(home)(root, '\n', 'init', '--window', '14');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(result.stdout, /Import window/);
+  assert.ok(manifestOf(root).endsWith(windowSection('14')), manifestOf(root));
+
+  const other = makeRepository(t, 'no-terminal');
+  const untouched = binnIn(home, false)(other, '\n', 'init', '--window', '14');
+  assert.equal(untouched.status, 0, untouched.stderr);
+  assert.equal(existsSync(join(other, '.binnacle')), false);
+});
+
+test('binn init refuses a bad --window, and --plan or --json alone, as usage errors', (t) => {
+  const home = makeHome(t);
+  const root = makeRepository(t, 'misused');
+  for (const args of [['--window', 'soon'], ['--window', '0'], ['--window'], ['--plan'], ['--json']]) {
+    const result = binnIn(home)(root, '', 'init', ...args);
+    assert.equal(result.status, 2, `${args.join(' ')}\n${result.stdout}`);
+  }
+  assert.equal(git(root, 'status', '--porcelain'), '');
+});
+
+test('binn --help names --plan, --json and --window for binn init', () => {
+  const { stdout } = spawnSync(process.execPath, [BINN, '--help'], { encoding: 'utf8' });
+  assert.match(stdout, /binn init \[--window <days\|all>\] \[path\]/);
+  assert.match(stdout, /binn init --plan --json \[--window <days\|all>\] \[path\]/);
 });

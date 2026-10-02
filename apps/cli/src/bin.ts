@@ -5,7 +5,9 @@ import { list, register, status as projectStatus, unregister } from './project-c
 import { EXIT, type ExitCode } from './exit.ts';
 import { dashboard } from './dashboard.ts';
 import { audit } from './audit.ts';
-import { init } from './init.ts';
+import { parseArgs } from 'node:util';
+import { type ImportWindow } from '@binnacle/core';
+import { importWindow, init } from './init.ts';
 import { mcp } from './mcp.ts';
 
 const VERSION = packageVersion(import.meta.url);
@@ -13,8 +15,12 @@ const VERSION = packageVersion(import.meta.url);
 const USAGE = `binn — Binnacle, a local AI engineering control plane.
 
 Usage:
-  binn init [path]      Set up the Git repository containing path (default: the working directory),
-                        asking before each write; it never overwrites a file and never commits
+  binn init [--window <days|all>] [path]
+                        Set up the Git repository containing path (default: the working directory):
+                        show the whole plan and ask once before writing; it never overwrites a file
+                        and never commits. --window sets the history import window without asking
+  binn init --plan --json [--window <days|all>] [path]
+                        Print that plan and its id as JSON, writing, running and asking nothing
 
   binn audit [path] [--json]
                         Read-only findings on the Git repository containing path: what is in place,
@@ -75,7 +81,10 @@ async function run(argv: string[]): Promise<ExitCode> {
     return await dashboard(resolveHome(), second === '--print');
   }
 
-  if (first === 'init' && rest.length === 0) return await init(resolveHome(), second);
+  if (first === 'init') {
+    const options = initOptions(argv.slice(1));
+    if (options) return await init(resolveHome(), options.path, options);
+  }
 
   if (first === 'audit') {
     const args = argv.slice(1).filter((arg) => arg !== '--json');
@@ -99,6 +108,20 @@ async function run(argv: string[]): Promise<ExitCode> {
   }
 
   return usage(argv.join(' '));
+}
+
+/** `binn init`'s arguments, or null when they are not its usage: `--plan` and `--json` only together, and a window as the window question takes it, though not empty. */
+function initOptions(args: string[]): { path: string | undefined; plan: boolean; window: ImportWindow | undefined } | null {
+  try {
+    const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { plan: { type: 'boolean' }, json: { type: 'boolean' }, window: { type: 'string' } } });
+    const plan = values.plan === true;
+    if (plan !== (values.json === true) || positionals.length > 1) return null;
+    const window = values.window === undefined ? undefined : values.window.trim() === '' ? null : importWindow(values.window);
+    return window === null ? null : { path: positionals[0], plan, window };
+  } catch {
+    // An unknown option, or --window without its value.
+    return null;
+  }
 }
 
 function usage(command: string): ExitCode {

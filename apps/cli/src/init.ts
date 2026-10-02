@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
@@ -52,6 +53,11 @@ type Session = {
   outcomes: { outcome: Outcome; what: string }[];
   /** The harnesses other than Claude Code that were detected: the Summary says how to continue in each. */
   otherHarnesses: Harness[];
+  /** Only the plan is worked out, for `--plan --json`: nothing is asked, and what is said is kept as notes. */
+  planOnly: boolean;
+  history: { harness: string; sessions: number; oldest: string | null }[];
+  /** The import window the plan uses, whether the manifest already declares it, and whether it is the default. */
+  window: { days: ImportWindow; declared: boolean; default: boolean };
 };
 
 /**
@@ -59,29 +65,47 @@ type Session = {
  * It works out every write first, asking only the questions that are not about a write, shows
  * them together as one plan and asks once (ADR-0034): Enter or `y` accepts it at a terminal,
  * anything else declines it, and with stdin not a terminal nothing is written. It never commits.
+ * `window` answers the window question unasked. With `plan`, the plan is printed as JSON with
+ * its id (ADR-0037), and nothing is asked, written or run after it, the tracker check included.
  */
-export async function init(home: string, path?: string): Promise<ExitCode> {
+export async function init(home: string, path?: string, options: { plan?: boolean; window?: ImportWindow | undefined } = {}): Promise<ExitCode> {
   const git = await readGitFacts(resolve(path ?? process.cwd()), resolveGitTimeout());
   if (!git.available) {
     console.error(`binn: ${git.reason} binn init works at the root of a Git repository.`);
     return EXIT.failed;
   }
 
-  const lines = createInterface({ input: process.stdin });
-  const answers = lines[Symbol.asyncIterator]();
+  const planOnly = options.plan === true;
+  // Opened at the first question only: a run that asks nothing never reads stdin, nor holds it open.
+  let lines: ReturnType<typeof createInterface> | undefined;
+  let answers: AsyncIterator<string> | undefined;
   const answer = async (prompt: string): Promise<string | null> => {
+    lines ??= createInterface({ input: process.stdin });
+    answers ??= lines[Symbol.asyncIterator]();
     process.stdout.write(prompt);
     const next = await answers.next();
     if (next.done) process.stdout.write('\n');
     return next.done ? null : next.value;
   };
-  const session: Session = { root: git.root, answer, say: (text) => console.log(text), plan: [], outcomes: [], otherHarnesses: [] };
+  const notes: string[] = [];
+  const session: Session = {
+    root: git.root,
+    answer,
+    say: planOnly ? (text) => void (text.trim() && notes.push(text.trim())) : (text) => console.log(text),
+    plan: [],
+    outcomes: [],
+    otherHarnesses: [],
+    planOnly,
+    history: [],
+    window: { days: DEFAULT_WINDOW_DAYS, declared: false, default: true },
+  };
 
   try {
-    session.say(`Setting up Binnacle in ${session.root}. Nothing is written until you have seen the whole plan and confirmed it.\n`);
+    if (!planOnly) session.say(`Setting up Binnacle in ${session.root}. Nothing is written until you have seen the whole plan and confirmed it.\n`);
     const manifest = manifestStep(session);
     session.say('');
-    const windowSection = await windowStep(session, manifest);
+    // `--plan` asks nothing: without --window, the default, as Enter at the question gives it.
+    const windowSection = await windowStep(session, manifest, options.window ?? (planOnly ? DEFAULT_WINDOW_DAYS : undefined));
     // Read before the manifest is proposed, which declares what is found or installed; planned after the other writes.
     const plugins = listClaudePlugins(session);
     const tools = detectTools(session.root, plugins);
@@ -111,6 +135,12 @@ export async function init(home: string, path?: string): Promise<ExitCode> {
       graphBuildStep(session);
       session.say('');
     }
+    if (planOnly) {
+      const { root, history, window } = session;
+      const plan = session.plan.map(({ heading, body }) => ({ heading, body }));
+      console.log(JSON.stringify({ root, id: planId(root, plan), plan, notes, history, window }, null, 2));
+      return EXIT.ok;
+    }
     await confirmPlan(session, process.stdin.isTTY === true);
     session.say('');
     // After the plan is written: the manifest it created is the one whose tracker is read.
@@ -118,7 +148,7 @@ export async function init(home: string, path?: string): Promise<ExitCode> {
     session.say('');
   } finally {
     // Closed, not only its iterator ended: a terminal's stdin would otherwise keep init running after its summary.
-    lines.close();
+    lines?.close();
   }
 
   session.say('Summary:');
@@ -128,6 +158,12 @@ export async function init(home: string, path?: string): Promise<ExitCode> {
   for (const harness of session.otherHarnesses) nextSteps(session, harness);
   return EXIT.ok;
 }
+
+/** A plan's id (ADR-0037): a hash of the repository root and every item's heading and body, in order, so that no state is kept between showing a plan and confirming it. */
+export const planId = (root: string, plan: { heading: string; body: string }[]): string =>
+  createHash('sha256')
+    .update(JSON.stringify([root, ...plan.map(({ heading, body }) => [heading, body])]))
+    .digest('hex');
 
 /** The skill file an agent without Binnacle's plugin is told to read: the project's own plugin, or the one in this package. */
 function productSkill(root: string): string {
@@ -282,40 +318,48 @@ const scalar = (value: string): string =>
  * before the plan, after showing each harness's sessions in this repository. The answer is
  * returned as a section for a manifest the plan creates, so that the plan shows it; for an
  * existing one the line is printed, never written (ADR-0026). The end of input takes the
- * default and declares nothing.
+ * default and declares nothing. A `given` window is taken as the answer, and nothing is asked.
  */
-async function windowStep(session: Session, manifest: ManifestState): Promise<string | null> {
+async function windowStep(session: Session, manifest: ManifestState, given: ImportWindow | undefined): Promise<string | null> {
   const what = 'import window';
-  session.say('Session history in this repository, which Binnacle imports for its usage figures:');
-  for (const { name, sessions, oldest } of await sessionHistory(session.root)) {
-    const shown = sessions === 0 ? 'no sessions' : `${sessions} session${sessions === 1 ? '' : 's'}, the oldest from ${localDate(oldest)}`;
-    session.say(`  ${name}: ${shown}`);
+  const history = await sessionHistory(session.root);
+  session.history = history.map(({ name, sessions, oldest }) => ({ harness: name, sessions, oldest: sessions === 0 ? null : localDate(oldest) }));
+  // `--plan --json` carries the history as its own field, not as notes.
+  if (!session.planOnly) {
+    session.say('Session history in this repository, which Binnacle imports for its usage figures:');
+    for (const { harness, sessions, oldest } of session.history) {
+      session.say(`  ${harness}: ${sessions === 0 ? 'no sessions' : `${sessions} session${sessions === 1 ? '' : 's'}, the oldest from ${oldest}`}`);
+    }
   }
 
   const declared = manifest === 'valid' ? (declaredManifest(session.root)?.telemetry.import.windowDays ?? null) : null;
   if (declared !== null) {
+    session.window = { days: declared, declared: true, default: declared === DEFAULT_WINDOW_DAYS };
     session.say(`${MANIFEST_RELATIVE} declares telemetry.import.window_days: ${declared}. It is left as it is.`);
     record(session, 'skipped', `${what}: ${MANIFEST_RELATIVE} declares ${declared}`);
     return null;
   }
 
-  session.say(
-    `How much of it should Binnacle import? ${DEFAULT_WINDOW_DAYS} days (the default), another number of days, or all. ` +
-      (manifest === 'new'
-        ? `The answer goes into the new ${MANIFEST_RELATIVE} in the plan, as telemetry.import.window_days.`
-        : `${MANIFEST_RELATIVE} exists, so the line to add is printed and nothing is written.`),
-  );
-  let window: ImportWindow | null;
-  do {
-    const answer = await session.answer(`Import window [${DEFAULT_WINDOW_DAYS}]: `);
-    if (answer === null) {
-      session.say(`No answer: Binnacle imports the default of ${DEFAULT_WINDOW_DAYS} days, and the manifest declares none.`);
-      record(session, 'skipped', `${what}: no answer, so the default of ${DEFAULT_WINDOW_DAYS} days applies`);
-      return null;
-    }
-    window = importWindow(answer);
-    if (window === null) session.say(`Answer ${DEFAULT_WINDOW_DAYS}, a number of days, or all.`);
-  } while (window === null);
+  let window = given ?? null;
+  if (window === null) {
+    session.say(
+      `How much of it should Binnacle import? ${DEFAULT_WINDOW_DAYS} days (the default), another number of days, or all. ` +
+        (manifest === 'new'
+          ? `The answer goes into the new ${MANIFEST_RELATIVE} in the plan, as telemetry.import.window_days.`
+          : `${MANIFEST_RELATIVE} exists, so the line to add is printed and nothing is written.`),
+    );
+    do {
+      const answer = await session.answer(`Import window [${DEFAULT_WINDOW_DAYS}]: `);
+      if (answer === null) {
+        session.say(`No answer: Binnacle imports the default of ${DEFAULT_WINDOW_DAYS} days, and the manifest declares none.`);
+        record(session, 'skipped', `${what}: no answer, so the default of ${DEFAULT_WINDOW_DAYS} days applies`);
+        return null;
+      }
+      window = importWindow(answer);
+      if (window === null) session.say(`Answer ${DEFAULT_WINDOW_DAYS}, a number of days, or all.`);
+    } while (window === null);
+  }
+  session.window = { days: window, declared: false, default: window === DEFAULT_WINDOW_DAYS };
 
   const section = `telemetry:\n  import:\n    window_days: ${window}\n`;
   if (manifest === 'new') return section;
@@ -325,7 +369,7 @@ async function windowStep(session: Session, manifest: ManifestState): Promise<st
 }
 
 /** An answer to the window question: empty for the default, `all`, or a positive number of days; null for anything else. */
-function importWindow(answer: string): ImportWindow | null {
+export function importWindow(answer: string): ImportWindow | null {
   const text = answer.trim().toLowerCase();
   if (text === '') return DEFAULT_WINDOW_DAYS;
   if (text === 'all') return 'all';
