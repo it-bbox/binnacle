@@ -36,8 +36,18 @@ export const hasTicketHeaderSection = (root: string): boolean => {
   }
 };
 
-/** The agent instruction files present at the root, by name, with their text; input to `instructionSets`. */
+/** The agent instruction files present at the root, by name, with their text; input to `instructionSets`. One that cannot be read is left out. */
 export const instructionFiles = (root: string): Record<string, string> =>
   Object.fromEntries(
-    ['AGENTS.md', 'CLAUDE.md'].filter((name) => existsSync(join(root, name))).map((name) => [name, readFileSync(join(root, name), 'utf8')]),
+    ['AGENTS.md', 'CLAUDE.md'].flatMap((name) => {
+      try {
+        return [[name, readFileSync(join(root, name), 'utf8')]];
+      } catch {
+        return [];
+      }
+    }),
   );
+
+/** The sets as one sentence part: `CLAUDE.md, which imports AGENTS.md; ...`. */
+export const describeSets = (sets: string[][]): string =>
+  sets.map(([entry, ...imported]) => (imported.length === 0 ? entry : `${entry}, which imports ${imported.join(' and ')}`)).join('; ');

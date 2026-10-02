@@ -4,7 +4,7 @@ import { resolveGitTimeout, trackerToken } from '@binnacle/daemon';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { EXIT, type ExitCode } from './exit.ts';
-import { hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, MATT_POCOCK_FILES, mattPocockFiles, specSlugs } from './layout.ts';
+import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, MATT_POCOCK_FILES, mattPocockFiles, specSlugs } from './layout.ts';
 
 type Repository = Extract<GitFacts, { available: true }>;
 
@@ -21,7 +21,7 @@ export async function audit(home: string, path: string | undefined, json: boolea
   }
 
   // One list per area, so that each later area is one more entry here; the sort is stable, so checks keep their order within an area.
-  const all: Finding[] = [...gitAndTracker(git, home), ...docs(git.root), ...matt(git.root), ...instructions(git.root)].sort((a, b) => AUDIT_AREAS.indexOf(a.area) - AUDIT_AREAS.indexOf(b.area));
+  const all: Finding[] = [...gitAndTracker(git, home), ...docs(git.root), ...mattPocockLayout(git.root), ...instructions(git.root)].sort((a, b) => AUDIT_AREAS.indexOf(a.area) - AUDIT_AREAS.indexOf(b.area));
 
   if (json) {
     console.log(JSON.stringify({ root: git.root, findings: all }, null, 2));
@@ -103,7 +103,7 @@ function docs(root: string): Finding[] {
 }
 
 /** The Matt Pocock layout: its convention files and a spec directory, and the ticket-header convention. */
-function matt(root: string): Finding[] {
+function mattPocockLayout(root: string): Finding[] {
   const area = 'matt-pocock-layout';
   const present = mattPocockFiles(root);
   const slugs = specSlugs(root);
@@ -150,7 +150,7 @@ function instructions(root: string): Finding[] {
   if (sets.length === 0) {
     return [{ code: 'instructions.sets', area, status: 'gap', reason: 'No AGENTS.md or CLAUDE.md: a first agent starts without instructions.', recommendation: 'Write AGENTS.md; have CLAUDE.md hold @AGENTS.md if Claude Code needs its own file.' }];
   }
-  const described = sets.map(([entry, ...imported]) => (imported.length === 0 ? entry : `${entry}, which imports ${imported.join(' and ')}`)).join('; ');
+  const described = describeSets(sets);
   if (sets.length === 1) return [{ code: 'instructions.sets', area, status: 'ok', reason: `One instruction set: ${described}.` }];
   return [
     {

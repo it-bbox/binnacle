@@ -24,7 +24,7 @@ import {
   resolveGitTimeout,
 } from '@binnacle/daemon';
 import { EXIT, type ExitCode } from './exit.ts';
-import { hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, mattPocockFiles } from './layout.ts';
+import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, mattPocockFiles } from './layout.ts';
 import { register } from './project-commands.ts';
 
 type Outcome = 'created' | 'extended' | 'printed' | 'ran' | 'checked' | 'failed' | 'declined' | 'skipped';
@@ -691,9 +691,8 @@ function instructionsStep(session: Session): void {
   const files = instructionFiles(session.root);
   const sets = instructionSets(files);
   if (sets.length === 0) return session.say('There is no AGENTS.md or CLAUDE.md, so there are no agent instructions to report.');
-  const described = sets.map(([entry, ...imported]) => (imported.length === 0 ? entry : `${entry}, which imports ${imported.join(' and ')}`));
   const count = sets.length === 1 ? 'one instruction set' : 'two instruction sets';
-  session.say(`Agent instructions: ${count}: ${described.join('; ')}. binn init writes nothing to them.`);
+  session.say(`Agent instructions: ${count}: ${describeSets(sets)}. binn init writes nothing to them.`);
 }
 
 /**
