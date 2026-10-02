@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -26,12 +26,12 @@ import {
   settingsPath,
 } from '@binnacle/daemon';
 import { EXIT, type ExitCode } from './exit.ts';
-import { sessionHistory } from './history.ts';
+import { isRecord, sessionHistory } from './history.ts';
 import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, mattPocockFiles } from './layout.ts';
 import { register } from './project-commands.ts';
 import { CONFIG_HOME, declaredCapabilities, onPath, registeredWith, TOOLS, VSCODE_USER_DIRECTORY, type Tool } from './tools.ts';
 
-type Outcome = 'created' | 'extended' | 'printed' | 'ran' | 'found' | 'checked' | 'failed' | 'declined' | 'skipped';
+type Outcome = 'created' | 'extended' | 'updated' | 'printed' | 'ran' | 'found' | 'checked' | 'failed' | 'declined' | 'skipped';
 
 /** One write the plan proposes: shown in full before the one question, applied only after a yes. */
 type PlanItem = {
@@ -896,7 +896,7 @@ const OBSIDIAN_LISTS =
   process.platform === 'darwin'
     ? [join(homedir(), 'Library', 'Application Support', 'obsidian', 'obsidian.json')]
     : process.platform === 'win32'
-      ? [join(homedir(), 'AppData', 'Roaming', 'obsidian', 'obsidian.json')]
+      ? [join(process.env.APPDATA || join(homedir(), 'AppData', 'Roaming'), 'obsidian', 'obsidian.json')]
       : [
           join(CONFIG_HOME, 'obsidian', 'obsidian.json'),
           join(homedir(), '.var', 'app', 'md.obsidian.Obsidian', 'config', 'obsidian', 'obsidian.json'),
@@ -909,7 +909,7 @@ function obsidianVaults(): string[] {
   for (const file of OBSIDIAN_LISTS) {
     try {
       const { vaults } = JSON.parse(readFileSync(file, 'utf8')) as { vaults?: Record<string, { path?: unknown }> };
-      for (const { path } of Object.values(vaults ?? {})) if (typeof path === 'string' && isAbsolute(path) && existsSync(path)) found.add(path);
+      for (const { path } of Object.values(vaults ?? {})) if (typeof path === 'string' && isAbsolute(path) && statSync(path, { throwIfNoEntry: false })?.isDirectory()) found.add(path);
     } catch {
       // Absent, unreadable or not what it should be: no vault listed there.
     }
@@ -944,14 +944,18 @@ function vaultStep(session: Session, home: string): void {
   } catch {
     return unreadable();
   }
-  const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
-  if (!isObject(settings)) return unreadable();
+  if (!isRecord(settings)) return unreadable();
   const obsidian = settings.obsidian ?? {};
-  if (!isObject(obsidian)) return unreadable();
+  if (!isRecord(obsidian)) return unreadable();
 
   const set = obsidian.vaultPath;
   if (set !== undefined && set !== null) {
-    session.say(`${file} already names the Obsidian vault ${typeof set === 'string' ? set : JSON.stringify(set)}. It is left as it is.`);
+    // Left alone even when the daemon cannot use it, which it reports as `vault.unwritable`.
+    const usable = typeof set === 'string' && isAbsolute(set);
+    session.say(
+      `${file} already names the Obsidian vault ${typeof set === 'string' ? set : JSON.stringify(set)}. It is left as it is` +
+        (usable ? '.' : `, though it is not an absolute path, so the daemon projects nothing; fix it by hand.`),
+    );
     return record(session, 'skipped', `${what}: ${file} names one`);
   }
 
@@ -978,7 +982,7 @@ function vaultStep(session: Session, home: string): void {
       writeFileSync(file, next, { mode: OWNER_ONLY_FILE, flag: text === null ? 'wx' : 'w' });
       // An existing file keeps its mode through a write.
       chmodSync(file, OWNER_ONLY_FILE);
-      record(session, text === null ? 'created' : 'extended', file);
+      record(session, text === null ? 'created' : 'updated', file);
     },
   });
 }
@@ -997,7 +1001,7 @@ function graphBuildStep(session: Session): void {
     body: `  ${shown}`,
     declined: 'build the first graph',
     async apply() {
-      // The append above failed: Graphify would leave untracked files in the repository (ADR-0036).
+      // The `.gitignore` append of step 10 failed: Graphify would leave untracked files in the repository (ADR-0036).
       if ((await isGraphIgnored(session.root)) === false) return record(session, 'skipped', `the first graph: Git does not ignore ${GRAPH_DIRECTORY}/`);
       // Its install in this plan failed, or put it in a directory that is not on PATH.
       if (!onPath('graphify')) return record(session, 'skipped', 'the first graph: graphify is not on PATH. The Binnacle daemon builds the graph once it is.');

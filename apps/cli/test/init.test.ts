@@ -1559,6 +1559,22 @@ test('the vault: other settings in the file are kept beside the path', (t) => {
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(readFileSync(settingsOf(home), 'utf8')), { other: 1, obsidian: { theme: 'dark', vaultPath: vault } });
   assert.equal(statSync(settingsOf(home)).mode & 0o777, 0o600);
+  assert.match(result.stdout, new RegExp(`updated\\s+${settingsOf(home)}`));
+});
+
+test('the vault: it comes after the .gitignore append and before the first graph in the plan', (t) => {
+  const home = makeHome(t);
+  fakeGraphify(home, { installed: true });
+  fakeObsidian(home, 'Notes');
+  const root = makeRepository(t, 'vault-ordered');
+
+  const result = binnIn(home)(root, '\nn\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  const append = result.stdout.indexOf('Create .gitignore');
+  const vault = result.stdout.indexOf(VAULT_HEADING);
+  const build = result.stdout.indexOf(`graphify ${EXTRACT}`, vault);
+  assert.ok(append >= 0 && vault > append && build > vault && build < result.stdout.indexOf(PLAN_QUESTION), result.stdout);
 });
 
 test('the vault: with no vault, or several, nothing is proposed, and init says how to set it and names those found', (t) => {
@@ -1595,6 +1611,13 @@ test('the vault: a path already set is reported and not changed', (t) => {
   assert.doesNotMatch(result.stdout, new RegExp(VAULT_HEADING));
   assert.match(result.stdout, /already names the Obsidian vault \/elsewhere\/Vault\. It is left as it is\./);
   assert.equal(readFileSync(settingsOf(home), 'utf8'), set);
+
+  // One the daemon cannot use is left alone too, and said to be unusable.
+  const relative = JSON.stringify({ obsidian: { vaultPath: 'Notes' } });
+  writeFileSync(settingsOf(home), relative);
+  const unusable = binnIn(home)(root, '\n\n', 'init');
+  assert.match(unusable.stdout, /already names the Obsidian vault Notes\. It is left as it is, though it is not an absolute path/);
+  assert.equal(readFileSync(settingsOf(home), 'utf8'), relative);
 });
 
 test('the vault: a declined plan, and a stdin that is not a terminal, write no settings file', (t) => {

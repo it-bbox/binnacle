@@ -109,7 +109,7 @@ Purpose: syntax-aware structural search/codemods, especially large mechanical ch
 
 Purpose: human-facing Project Brain view, links, notes and Graphify canvas/export.
 
-Obsidian is optional and must not be canonical required storage.
+Obsidian is optional and must not be canonical required storage. `binn init` installs neither Obsidian nor a vault. The vault is named by `obsidian.vaultPath` in this machine's settings file, `~/.binnacle/settings.json`, outside every repository; `binn init` proposes it in its plan when Obsidian's own list on this machine holds exactly one vault, and otherwise says how to set it (`05-installation-checklist.md`, *Optional: Obsidian*).
 
 The daemon's vault projection writes this layout (`05-installation-checklist.md`, *The vault projection*):
 
