@@ -3,7 +3,8 @@ import { AUDIT_AREAS, forgeRemote, instructionSets, type Finding } from '@binnac
 import { MANIFEST_RELATIVE, resolveGitTimeout, trackerToken } from '@binnacle/daemon';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { EXIT, type ExitCode } from './exit.ts';
+import { scratch, structure } from './audit-files.ts';
+import { EXIT,type ExitCode } from './exit.ts';
 import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, MATT_POCOCK_FILES, mattPocockFiles, specSlugs } from './layout.ts';
 
 type Repository = Extract<GitFacts, { available: true }>;
@@ -21,7 +22,7 @@ export async function audit(home: string, path: string | undefined, json: boolea
   }
 
   // One list per area, so that each later area is one more entry here; the sort is stable, so checks keep their order within an area.
-  const all: Finding[] = [...gitAndTracker(git, home), ...docs(git.root), ...mattPocockLayout(git.root), ...instructions(git.root)].sort((a, b) => AUDIT_AREAS.indexOf(a.area) - AUDIT_AREAS.indexOf(b.area));
+  const all: Finding[] = [...gitAndTracker(git, home), ...docs(git.root), ...mattPocockLayout(git.root), ...scratch(git.root), ...instructions(git.root), ...structure(git.root)].sort((a, b) => AUDIT_AREAS.indexOf(a.area) - AUDIT_AREAS.indexOf(b.area));
 
   if (json) {
     console.log(JSON.stringify({ root: git.root, findings: all }, null, 2));

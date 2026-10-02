@@ -77,7 +77,7 @@ test('binn audit on a bare repository, with no daemon, registration or manifest,
   assert.ok(all.length > 0);
   for (const finding of findings(first.stdout)) {
     assert.match(finding.code, /^[a-z]+\.[a-z_]+$/);
-    assert.ok(['git-and-tracker', 'docs', 'matt-pocock-layout', 'instructions'].includes(finding.area), finding.area);
+    assert.ok(['git-and-tracker', 'docs', 'matt-pocock-layout', 'scratch', 'instructions', 'structure'].includes(finding.area), finding.area);
     assert.ok(['ok', 'gap', 'unknown'].includes(finding.status));
     assert.ok(finding.reason);
     assert.equal(finding.recommendation !== undefined, finding.status !== 'ok', `${finding.code}: a recommendation for a gap or an unknown only`);
@@ -245,4 +245,63 @@ test('a repository without .binnacle/project.yaml gets a gap that recommends bin
   mkdirSync(join(root, '.binnacle'));
   writeFileSync(join(root, '.binnacle', 'project.yaml'), 'name: fixture\n');
   assert.equal(byCode(findings(audit(t, ['--json'], {}, root).stdout), 'binnacle.manifest').status, 'ok');
+});
+
+test('binn audit: a repository with no .scratch gets an ok and nothing more', (t) => {
+  const scratchFindings = findings(audit(t, ['--json'], {}, fixture(t)).stdout).filter((f) => f.area === 'scratch');
+  assert.deepEqual(scratchFindings.map((f) => [f.code, f.status]), [['scratch.exists', 'ok']]);
+});
+
+test('binn audit: a .scratch that Git does not ignore is a gap, and an ignored one is not', (t) => {
+  const root = fixture(t);
+  write(root, { '.scratch/notes.txt': 'x\n' });
+  const open = finding(root, t, 'scratch.ignored');
+  assert.equal(open.status, 'gap');
+  assert.match(open.recommendation!, /\.gitignore/);
+  write(root, { '.gitignore': '.scratch/\n' });
+  assert.equal(finding(root, t, 'scratch.ignored').status, 'ok');
+  assert.equal(finding(root, t, 'scratch.durable').status, 'ok');
+});
+
+test('binn audit: a .scratch holding the only copy of a spec or a ticket is a gap that says what to move into Git', (t) => {
+  const root = fixture(t);
+  write(root, { '.gitignore': '.scratch/\n', '.scratch/audit/spec.md': '# s\n', '.scratch/audit/issues/01-first.md': '# t\n', '.scratch/audit/run.log': 'x\n' });
+  write(root, { 'docs/specs/audit/issues/01-first.md': '# t\n' });
+  const gap = finding(root, t, 'scratch.durable');
+  assert.equal(gap.status, 'gap');
+  assert.match(gap.reason, /\.scratch\/audit\/spec\.md/);
+  assert.doesNotMatch(gap.reason, /01-first|run\.log/);
+  assert.match(gap.recommendation!, /docs\/specs\/<slug>\//);
+});
+
+test('binn audit: tests, CI and the shape of the project are read from files, and a bare repository has gaps', (t) => {
+  const bare = fixture(t);
+  assert.equal(finding(bare, t, 'structure.tests').status, 'gap');
+  assert.equal(finding(bare, t, 'structure.ci').status, 'gap');
+  assert.equal(finding(bare, t, 'structure.shape').status, 'unknown');
+
+  const root = fixture(t);
+  write(root, {
+    'package.json': JSON.stringify({ scripts: { test: 'node --test' } }),
+    'pnpm-workspace.yaml': 'packages:\n  - apps/*\n',
+    '.github/workflows/ci.yml': 'name: ci\n',
+  });
+  assert.equal(finding(root, t, 'structure.tests').status, 'ok');
+  assert.match(finding(root, t, 'structure.tests').reason, /package\.json/);
+  assert.equal(finding(root, t, 'structure.ci').status, 'ok');
+  assert.match(finding(root, t, 'structure.ci').reason, /\.github\/workflows\/ci\.yml/);
+  assert.match(finding(root, t, 'structure.shape').reason, /workspace/);
+
+  const single = fixture(t);
+  write(single, { 'package.json': JSON.stringify({ scripts: { test: 'echo "Error: no test specified" && exit 1' } }), '.gitlab-ci.yml': 'x: 1\n', 'tests/a.test.ts': '' });
+  assert.match(finding(single, t, 'structure.tests').reason, /tests\//);
+  assert.match(finding(single, t, 'structure.ci').reason, /\.gitlab-ci\.yml/);
+  assert.match(finding(single, t, 'structure.shape').reason, /single package/);
+});
+
+test('binn audit does not run what it finds: a test script and a CI file leave nothing behind', (t) => {
+  const root = fixture(t);
+  write(root, { 'package.json': JSON.stringify({ scripts: { test: 'touch RAN' } }), '.github/workflows/ci.yml': 'x\n' });
+  assert.equal(audit(t, [], {}, root).status, 0);
+  assert.ok(!listing(root).some((entry) => entry.startsWith('RAN')));
 });
