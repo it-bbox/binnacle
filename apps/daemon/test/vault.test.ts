@@ -314,6 +314,13 @@ describe('the vault projection', () => {
       }, 'the failed run and the projection of the move');
       await settle();
       assert.equal(read(vault, '90-Graphify/GRAPH_REPORT.md'), report);
+
+      // A vault set after the failed run never gets the report the failed run left behind.
+      const later = temporary('binnacle-vault-later-');
+      setVault(daemon, later);
+      await until(() => existsSync(join(later, PROJECT, 'Research/guide.md')), 'the projection into the later vault');
+      await settle();
+      assert.equal(existsSync(join(later, PROJECT, '90-Graphify')), false);
     } finally {
       await daemon.stop();
     }

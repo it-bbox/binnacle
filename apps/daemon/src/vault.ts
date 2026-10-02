@@ -3,17 +3,18 @@ import { basename, dirname, isAbsolute, join, posix, relative, sep } from 'node:
 import { commitTree, type Tree } from '@binnacle/adapters';
 import type { Diagnostic, ProjectManifest } from '@binnacle/core';
 import type { Daily } from './daily.ts';
-import { BUILT, defaultCommit, GRAPH_DIRECTORY, manifestOf } from './graph.ts';
+import { defaultCommit, GRAPH_DIRECTORY, lastBuild, manifestOf } from './graph.ts';
 import { resolveGitTimeout, settingsPath } from './home.ts';
 import { readRegistry } from './registry.ts';
 import type { Snapshot, Unavailable } from './snapshot.ts';
-import type { EventRow, Store } from './store.ts';
+import type { Store } from './store.ts';
 
 /**
  * The vault projection (ADR-0036): a one-way rendering of each registered project's Project
  * Brain into the Obsidian vault named by `obsidian.vaultPath` in this machine's settings file
  * (decision 13), under `Projects/<Project>/`. Its source is the default branch as committed,
- * read through the Git adapter, so the working tree never reaches the vault. Once a poll, a
+ * read through the Git adapter, so the working tree never reaches the vault; the one exception
+ * is Graphify's report, read from the git-ignored graph directory after a successful run. Once a poll, a
  * project whose default branch moved, whose vault changed, or whose graph was built again, is
  * rendered again. Product's snapshot and daily notes are written when one is served, from what
  * was served (`writeServed`).
@@ -80,7 +81,7 @@ export function startVaultProjector(home: string, store: Store, pollMs: number):
     const manifest = manifestOf(path);
     const commit = await defaultCommit(path);
     if (manifest === null || commit === null || stopped) return;
-    const built = store.latestEvent(path, [BUILT]);
+    const built = lastBuild(store, path);
     const key = `${vault}\0${commit}\0${built?.id ?? ''}`;
     if (projected.get(path) === key) return;
     await project(vault, path, manifest, commit, built);
@@ -114,7 +115,7 @@ export function startVaultProjector(home: string, store: Store, pollMs: number):
   };
 }
 
-async function project(vault: string, path: string, manifest: ProjectManifest, commit: string, built: EventRow | null): Promise<void> {
+async function project(vault: string, path: string, manifest: ProjectManifest, commit: string, built: ReturnType<typeof lastBuild>): Promise<void> {
   const tree = commitTree(path, commit, resolveGitTimeout());
   const folder = join(vault, 'Projects', folderName(manifest));
   const notes = await sources(tree, dirsOf(manifest.knowledge));
@@ -126,17 +127,17 @@ async function project(vault: string, path: string, manifest: ProjectManifest, c
     if (text !== null) writeNote(root, join(folder, note), render(text, source, commit, targets));
   }
 
-  // The report of the last successful run, written again only when that run is a newer one, so a
-  // failed run that left its own report behind changes nothing; without a run, there is no note.
+  // The report of the last successful run, written only while no failed run came after it, since a
+  // failed one may have left its own report behind, and only when the note is not already that
+  // run's (a commit is built once). Without a successful run, there is no note.
   const report = join(folder, REPORT_NOTE);
-  const graph = built && manifest.capabilities.graphify !== false ? readIfPresent(join(path, GRAPH_REPORT)) : null;
-  const builtCommit = String(built?.payload.commit);
-  if (graph !== null && !readIfPresent(report)?.startsWith(header(GRAPH_REPORT, builtCommit))) {
-    writeNote(root, report, render(graph, GRAPH_REPORT, builtCommit, targets));
+  const reportText = built && manifest.capabilities.graphify !== false ? readIfPresent(join(path, GRAPH_REPORT)) : null;
+  if (built && reportText !== null && !built.failedSince && !readIfPresent(report)?.startsWith(header(GRAPH_REPORT, built.commit))) {
+    writeNote(root, report, render(reportText, GRAPH_REPORT, built.commit, targets));
   }
 
   const kept = new Set([...notes.values()].map((note) => join(folder, note)));
-  if (graph !== null) kept.add(report);
+  if (reportText !== null) kept.add(report);
   const owned = [...FOLDERS.flatMap((name) => markdownUnder(join(folder, name))), join(folder, ROADMAP_NOTE), report];
   for (const file of owned) {
     if (kept.has(file) || !generated(file)) continue;
@@ -342,10 +343,11 @@ function list<T>(items: T[], line: (item: T) => string, remainder = 0): string {
 }
 
 type TaskLine = { id: string; title: string | null; ticket: string; state: string | null };
+const ticket = (link: Link, item: Pick<TaskLine, 'id' | 'title' | 'ticket'>): string => link(item.ticket, `${item.id}: ${item.title ?? 'untitled'}`);
 const task =
   (link: Link) =>
   (item: TaskLine): string =>
-    `${link(item.ticket, `${item.id}: ${item.title ?? 'untitled'}`)} — ${item.state ?? 'unknown'}`;
+    `${ticket(link, item)} — ${item.state ?? 'unknown'}`;
 const attention = (items: { code: string; message: string }[]): string => list(items, (item) => `\`${item.code}\`: ${item.message}`);
 
 /**
@@ -408,7 +410,7 @@ function dailyNote(name: string, daily: Daily, link: Link): string {
     `## Commits (${daily.commits.count})`,
     list(daily.commits.items, (item) => `\`${short(item.commit)}\` ${item.subject}`, daily.commits.remainder),
     '## Status changes',
-    tasks(daily.transitions, (item) => `${link(item.ticket, `${item.id}: ${item.title ?? 'untitled'}`)}: ${item.from ?? 'none'} → ${item.to ?? 'none'}`),
+    tasks(daily.transitions, (item) => `${ticket(link, item)}: ${item.from ?? 'none'} → ${item.to ?? 'none'}`),
     '## New tickets',
     tasks(daily.newTickets, task(link)),
     '## Ready to start',

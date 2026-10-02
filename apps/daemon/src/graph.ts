@@ -35,7 +35,7 @@ export const GRAPH_POLL_MS = 60_000;
 export const GRAPH_RUN_TIMEOUT_MS = 10 * 60_000;
 /** Graphify's code-only extraction (ADR-0012), run in the repository root: local syntax trees, no API key, no model. */
 export const GRAPH_EXTRACT = ['extract', '.', '--code-only'];
-export const BUILT = 'graph.built';
+const BUILT = 'graph.built';
 const FAILED = 'graph.failed';
 export const GRAPH_FILE = `${GRAPH_DIRECTORY}/graph.json`;
 
@@ -230,6 +230,13 @@ export async function impactSection(
     }),
   );
   return conflictRisk(modules, touches);
+}
+
+/** The last successful run of the project at `path`, and whether a failed one came after it; null when none succeeded. */
+export function lastBuild(store: Store, path: string): { id: number; commit: string; failedSince: boolean } | null {
+  const built = store.latestEvent(path, [BUILT]);
+  if (built === null) return null;
+  return { id: built.id, commit: String(built.payload.commit), failedSince: store.latestEvent(path, [BUILT, FAILED])?.type === FAILED };
 }
 
 const runOf = (event: EventRow): NonNullable<GraphSection['lastRun']> => ({

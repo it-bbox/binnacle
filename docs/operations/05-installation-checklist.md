@@ -283,7 +283,7 @@ Once a minute it reads each project's default branch, and when the branch has mo
 
 The snapshot and daily notes are written each time a snapshot or a daily is served, from what was served, with no further call to the tracker: their `source` is `project.snapshot` or `daily.get`, their `commit` the caller's HEAD, and a `served:` line gives the time. Their tickets and ADRs link to the projected notes. With no vault set, serving one writes nothing.
 
-`90-Graphify/GRAPH_REPORT.md` is `graphify-out/GRAPH_REPORT.md` in the registered checkout, with the commit of the last successful run. It is rewritten only after a newer successful run, so a failed run leaves it as it was. Without a successful run recorded, without the report, or with `capabilities.graphify: false`, there is no note, and no attention item for it.
+`90-Graphify/GRAPH_REPORT.md` is `graphify-out/GRAPH_REPORT.md` in the registered checkout, with the commit of the last successful run. It is rewritten only after a newer successful run, so a failed run leaves it as it was, and a vault set after a failed run gets no report until the next successful one. Without a successful run recorded, without the report, or with `capabilities.graphify: false`, there is no note, and no attention item for it.
 
 Every note it writes starts with frontmatter naming it generated, with its source and commit:
 
