@@ -1,6 +1,6 @@
 # ADR-0011: Session Artifacts Are the Primary Telemetry Source
 
-**Status:** Accepted
+**Status:** Accepted. Extended by ADR-0038: OpenTelemetry is the path for any harness, beside session artifacts.
 
 **Supersedes:** the statement in `README.md` that OpenTelemetry is the primary telemetry transport, and the OTel-first ordering of Phase 4 in `docs/05-mvp-plan.md`.
 

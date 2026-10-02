@@ -1,6 +1,6 @@
 # ADR-0020: Binnacle Does Not Write to a Project's Repository
 
-**Status:** Accepted. ADR-0026 makes one exception: `binn init`, after confirmation.
+**Status:** Accepted. ADR-0026 makes one exception: `binn init`, after confirmation. ADR-0036 makes another: the daemon keeps a git-ignored Graphify graph directory current.
 
 ## Context
 

@@ -17,7 +17,7 @@ These were the implementation details deliberately left open for `grill-with-doc
 | 11 | Dashboard authentication on loopback | The token is required on every API call, including the dashboard, with `Origin`/`Host` validation. No accounts. The dashboard is read-only in v1. | ADR-0016, `docs/04-telemetry-dashboard.md` |
 | 12 | Cross-platform daemon installation | Linux, macOS and Windows all run natively; `binn daemon start` runs a user process. Installing it as an auto-starting service is out of v1. | ADR-0016 |
 | 13 | Obsidian path mapping | A per-machine user setting. An absolute vault path is never committed to shared project configuration. | `docs/operations/05-installation-checklist.md` |
-| 14 | Graphify automation in v1 | Detection and a staleness signal only. Binnacle never runs `graphify` itself. | ADR-0006, `docs/operations/03-external-tools.md` |
+| 14 | Graphify automation in v1 | Superseded by ADR-0035 and ADR-0036 (2026-10-02): Graphify is part of the Standard setup, and the daemon updates the graph itself. Originally: detection and a staleness signal only. | ADR-0035, ADR-0036, ADR-0006, `docs/operations/03-external-tools.md` |
 | 15 | Context and compaction warnings across providers | One normalised `context pressure` signal derived from whatever each harness exposes, carrying provenance. Thresholds are configuration. | ADR-0007, ADR-0014, `docs/04-telemetry-dashboard.md` |
 
 ## Decisions taken in the same session that were not on this list

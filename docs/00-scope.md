@@ -21,6 +21,10 @@ The user should always know what is running, what is waiting, what requires atte
 ### Existing-project adoption
 A project should be auditable and adoptable without destructive migration.
 
+## The baseline
+
+`docs/baseline.md` is the owner's baseline architecture and the floor for v1. Where this file or `docs/05-mvp-plan.md` says less, the baseline wins (the owner, 2026-10-02).
+
 ## Explicit non-goals for v1
 
 - autonomous project management;
@@ -33,7 +37,7 @@ A project should be auditable and adoptable without destructive migration.
 - multi-user/team SaaS;
 - central cloud service;
 - universal equal-cost normalization across providers;
-- mandatory Obsidian/Graphify dependency;
+- Obsidian or Graphify as a dependency of Binnacle's core: both are part of the Standard setup and installed by `binn init`, but the core works without them (ADR-0035);
 - building our own vector DB/RAG stack.
 
 ## Success criteria

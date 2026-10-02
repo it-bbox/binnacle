@@ -1,6 +1,6 @@
 # ADR-0034: `binn init` Shows One Plan and Asks Once, and Enter Means Yes at a Terminal
 
-**Status:** Accepted
+**Status:** Accepted. Extended by ADR-0037: the plan can be shown and confirmed in the chat.
 
 **Supersedes:** in part, ADR-0026: how `binn init` asks, and what a bare Enter means. Everything else in ADR-0026 stands.
 

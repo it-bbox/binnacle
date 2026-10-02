@@ -104,15 +104,40 @@ Implement read-only audit covering:
 
 Output migration recommendations, not automatic fixes.
 
-## Phase 7 — Optional capabilities after measurement
+## The baseline phases (epics 8 to 12)
 
-Only after real data:
+On 2026-10-02 the owner found that epics 1 to 7 delivered only part of `docs/baseline.md`: this plan had moved Graphify and Obsidian to "after real data", and other baseline items to the roadmap's *Later* list. The baseline is the floor for v1 (`docs/00-scope.md`), and the gaps are five epics, in this order. Their decisions were made in one grilling, on 2026-10-02; each epic's `to-spec` starts from its list below.
 
-- Graphify deeper integration;
-- Obsidian export automation;
-- worktree parallelism recommendations;
-- advanced optimization rules;
-- additional providers/harness adapters.
+### Phase 8 — Project Brain: tools, Graphify, Obsidian
+
+- `binn init` installs what is missing of Matt Pocock Skills, Ponytail, Serena, Graphify, Context7 and ast-grep, with their MCP registration for every detected harness, in its one plan (ADR-0034), and runs the installs after the one confirmation, reporting each. A prerequisite it cannot install, such as `uv` for Graphify, is named with its command.
+- Graphify and Obsidian are part of the Standard setup and replaceable (ADR-0035). `binn init` builds the first graph and adds its directory to `.gitignore`.
+- The daemon updates the graph when `main` moves (ADR-0036). The snapshot shows whether there is a graph and how fresh it is; a failed update is an attention item.
+- Parallel worktrees get an impact and conflict analysis from the graph: the modules each ready Task touches, and the risk of running two together, beside the parallel limit.
+- The daemon keeps a one-way projection of the Project Brain in an Obsidian vault, at a per-machine path (decision 13): `Projects/<Project>/` with Product (roadmap, snapshot, daily), Specs and tickets, Decisions, Research and `90-Graphify`, linked to each other. The human's own notes there are never touched (ADR-0036).
+
+### Phase 9 — Everything from the chat
+
+- Skills for `binn init`, starting and stopping the daemon, registering a project and opening the dashboard, and `/binnacle:status` over the existing `project_status` tool. They run `binn` through the harness's shell, so they work with the daemon stopped.
+- `/binnacle:init` shows init's plan in the chat and runs exactly that plan after the human's yes in the chat (ADR-0037).
+- Autopilot refreshes the plugin copy that Claude Code loads when a merge changes the skills, as it regenerates the dashboard: today a changed skill does not reach the owner until someone runs `pnpm install`.
+
+### Phase 10 — Telemetry for any harness
+
+- The daemon receives OpenTelemetry, and `binn init` configures the export in every detected harness that supports it (ADR-0038). Session artifacts stay for history and for harnesses without it; a call seen through both counts once. The spec lists which of the owner's harnesses — Claude Code desktop, Codex CLI and desktop, a GLM client, Antigravity, Gemini CLI, opencode — export it, and adds artifact readers for the others.
+- Review and rework usage, today "not available": a rework run is implementation work on a Task's branch after its first Review or after changes were requested; a review run is one in the reviewer's role. Context growth per run, and the context-pressure signal and attention item of decision 15. All labelled as calculated.
+- Ponytail's effect: tokens per completed Task before and after Ponytail was enabled in a project, labelled as calculated.
+
+### Phase 11 — The state of work
+
+- Questions and answers live in the ticket, as the Review does: `### Question` and `### Answer` under `## Comments`, or the issue's comments on a remote tracker. A human approval is a status change the human makes. Binnacle shows what is unanswered or waiting for approval in the snapshot, daily, the dashboard and the Obsidian projection; a skill lets the owner answer from the chat, writing the answer into the ticket.
+- Roles: a `Roles:` line in the ticket header, written by `/to-tickets` or the human, with Developer and Reviewer required when it is missing; Binnacle adds its own suggestions beside it, labelled as calculated (Architect when the graph shows many modules touched, Security when secrets or authentication are). Shown in `/task`, the snapshot and the dashboard. Binnacle starts no one.
+- CI state and open PRs or MRs, read from GitHub or GitLab with the read-only token, in the snapshot, daily, the dashboard and on the Task. This repository gains a GitHub Actions workflow running the typecheck and the tests.
+
+### Phase 12 — Audit, completed
+
+- Three more areas: Docker (a Dockerfile or compose file, and `.dockerignore`); secrets (a committed `.env`, keys and tokens matched by known patterns in tracked files, given by path and line and never by value); security basics (a lockfile, dependency updates by Dependabot or Renovate, `SECURITY.md`). Read-only and offline, as the rest of the audit.
+- A migration plan: the recommendations ordered into steps — `binn init` first, secrets next, then the rest.
 
 ## Explicit stop conditions
 

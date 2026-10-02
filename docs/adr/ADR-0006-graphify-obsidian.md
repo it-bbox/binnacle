@@ -1,6 +1,6 @@
 # ADR-0006: Graphify and Obsidian Are Recommended Capabilities, Not Kernel Dependencies
 
-**Status:** Accepted
+**Status:** Superseded by ADR-0035: Graphify and Obsidian are part of the Standard setup.
 
 ## Decision
 

@@ -17,18 +17,25 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 5 | Minimal dashboard | done | [`minimal-dashboard`](specs/minimal-dashboard/spec.md) |
 | 6 | Dashboard design and languages | done | [`dashboard-design-and-languages`](specs/dashboard-design-and-languages/spec.md) |
 | 7 | Audit and adopt | tickets | [`audit-and-adopt`](specs/audit-and-adopt/spec.md) |
+| 8 | Project Brain: tools, Graphify, Obsidian | not started | — |
+| 9 | Everything from the chat | not started | — |
+| 10 | Telemetry for any harness | not started | — |
+| 11 | The state of work | not started | — |
+| 12 | Audit, completed | not started | — |
 
 Epics are ordered by dependency, not by preference. Epic 1 is the foundation; epics 5 to 7 are only meaningful once 1 to 4 exist. Audit and adopt is epic 6 in the specs of epics 1 to 3, written before epic 6 was inserted on 2026-09-26.
 
 ## Current focus
 
-Design is complete: `docs/08-open-questions.md` is resolved by ADR-0001 to ADR-0018; building the epics added ADR-0019 to ADR-0034.
+Design is complete: `docs/08-open-questions.md` is resolved by ADR-0001 to ADR-0018; building the epics added ADR-0019 to ADR-0038.
 
 Epics 1 to 6 are done: the daemon and its store; the snapshot, daily and checkpoint over MCP, and the `binnacle` plugin with autopilot; Tasks from GitHub, GitLab or local tickets, and `binn init`; usage by model, Task and role; the read-only dashboard, `binn dashboard`, rebuilt with Nuxt UI to the mockup, in English and Russian, with a Settings page and What's next leading on the Next action and Binnacle's alternatives. The owner's second exit demonstration of epic 6, on 2026-09-27, found no defect. Binnacle writes nothing into the repository.
 
 Epic 7, Audit and adopt, is specified and sliced into tickets 02 to 09; tickets 01 to 07 and 09 are done. Its scope is `docs/05-mvp-plan.md`, phase 6: a read-only audit of a repository, giving migration recommendations rather than fixes. The grilling is done (2026-10-02): its decisions are in `specs/audit-and-adopt/brief.md`, and `binn init`'s new way of asking is ADR-0034. Its spec is `specs/audit-and-adopt/spec.md`. Ticket 01, `binn init` finishing and saying what it waits on, is done. Ticket 02, `binn init` showing one plan and asking once, and ticket 03, `binn audit` with its Git and tracker area, are done, and so are ticket 04, `binn audit` reading docs, the Matt Pocock layout and agent instructions, ticket 05, `binn audit` reading `.scratch`, tests, CI and structure, ticket 06, `binn audit` reading Serena, Graphify and Context7 and telemetry readiness, and ticket 07, `binn init`'s Summary and working from another harness; ticket 09, `/binnacle:audit` running the audit from the chat, is done too. Ticket 08, the owner's exit demonstration, is what remains.
 
-Next action: the owner's exit demonstration of epic 7, ticket 08 (`specs/audit-and-adopt/issues/08-audit-exit-demonstration.md`), starting with the audit run from the chat. `/binnacle:audit`
+On 2026-10-02 the owner found that epics 1 to 7 deliver only part of their baseline architecture, now `docs/baseline.md` and the floor for v1: Graphify and Obsidian had been moved to "after real data", and other baseline items to *Later*. The gaps are epics 8 to 12, in that order, all grilled on 2026-10-02; their decisions are in `docs/05-mvp-plan.md`, phases 8 to 12, and in ADR-0035 to ADR-0038. Each still needs `to-spec` and `to-tickets`, starting with epic 8. Ticket 08 of epic 7, the owner's exit demonstration, stays open beside them.
+
+Next action: write the spec of epic 8, Project Brain: tools, Graphify, Obsidian, from `docs/05-mvp-plan.md`, phase 8. `/mattpocock-skills:to-spec`
 
 ## Later
 
@@ -38,10 +45,7 @@ Deferred deliberately, each with the decision that deferred it:
 - standalone binaries for users without Node — `ADR-0016`;
 - adopting a large third-party repository as a baseline case — `docs/00-scope.md`;
 - autopilot notifications through a Telegram bot, beside the push notification it sends today — `ADR-0022`;
-- CI state in the Product Snapshot, which stays marked unavailable — this repository has no CI to build it against;
-- OpenTelemetry as a live telemetry path, and support level 4 — `ADR-0011`, `specs/telemetry/spec.md`;
 - cost computed from a price table — `specs/telemetry/spec.md`: a subscription makes such a number conditional;
-- context pressure and its attention item — `docs/04-telemetry-dashboard.md`, deferred by `specs/telemetry/spec.md`;
 - CLI commands mirroring the MCP tools, for harnesses that have a shell but no MCP — `ADR-0014`, when such a user appears;
 - changing a local ticket's `Status:` from the dashboard — a separate ADR narrowing `ADR-0020`, only if working with the read-only dashboard shows it is needed;
 - forking the Matt Pocock skills into the `binnacle` plugin — only if a skill's procedure, not just its conventions in `docs/agents/`, has to change;
@@ -49,8 +53,7 @@ Deferred deliberately, each with the decision that deferred it:
 - reading a record's branch again when its checkout's reflog can still give one: a record stored with the harness's branch before ADR-0029's order, or whose reflog lookup failed or timed out — `ADR-0030`, only if it matters in practice;
 - autopilot resuming by itself once a usage limit resets: on 2026-09-25 a Product session did it by hand, with a script that waited for the reset and a message to the autopilot session — `ADR-0022`, when limits interrupt runs often;
 - fewer rebases in a parallel autopilot run: every ticket's last commit rewrites the same current-focus paragraph, so the second of two parallel branches always rebased (five of eight merges on 2026-09-26) — `ADR-0022`, if rebasing slows runs;
-- everything from the chat: `binn init`, `binn daemon start`, `binn project register` and `binn dashboard` reachable from a chat session as the audit is through `/binnacle:audit`, so that the owner never has to switch to a terminal — the owner, 2026-10-02; the next epic after epic 7, planned with its own grilling, since init writes only after a human's confirmation (`ADR-0026`, `ADR-0034`) and the daemon cannot start itself over MCP;
-- deeper Graphify integration, Obsidian export automation, worktree parallelism recommendations, further harness adapters — `docs/05-mvp-plan.md`, phase 7, and only after real measurement.
+- advanced optimisation rules — only after real measurement. Graphify, Obsidian, worktree conflict analysis, further harnesses, OpenTelemetry, CI state, context pressure and everything from the chat left this list on 2026-10-02: they are baseline items, epics 8 to 12 (`docs/baseline.md`).
 
 Items excluded from the product altogether are not listed here. See the non-goals in `docs/00-scope.md`.
 
