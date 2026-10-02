@@ -65,6 +65,12 @@ const boardEmpty = computed(() => {
 const shown = (key: ColumnKey, cards: Card[]): Card[] => (key === 'done' && !doneOpen.value ? cards.slice(0, DONE_SHOWN) : cards);
 const runLabel = (latest: LatestRun): string => [latest.harness, latest.model ?? t.value.modelNotReported, latest.role].join(' · ');
 
+/** Whether the default branch has moved past the graph's commit, or that its commit cannot be read. */
+const graphFreshness = computed(() => {
+  const behind = snapshot.value?.graph.behind;
+  return behind === true ? t.value.behind : behind === false ? t.value.current : t.value.behindUnknown;
+});
+
 const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) => item.code.startsWith('roadmap.')) ?? []);
 </script>
 
@@ -273,6 +279,30 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
         <section class="flex flex-col gap-1.5 rounded-lg border border-default bg-default px-3.5 py-2.5">
           <h2 class="m-0 text-[13px] font-semibold">{{ t.registeredCheckout }}</h2>
           <div class="font-mono text-xs">{{ gitLine(snapshot.git, t) }}</div>
+        </section>
+        <section class="flex flex-col gap-1.5 rounded-lg border border-default bg-default px-3.5 py-2.5">
+          <div class="flex justify-between gap-2">
+            <h2 class="m-0 text-[13px] font-semibold">{{ t.graph }}</h2>
+            <span v-if="!snapshot.graph.available" class="text-xs text-muted">{{ t.notAvailable }}</span>
+          </div>
+          <div v-if="snapshot.graph.reason !== null" lang="en" class="text-[11.5px] leading-snug text-dimmed">{{ snapshot.graph.reason }}</div>
+          <div class="text-xs">
+            <span class="me-1.5 text-muted">{{ t.builtFrom }}</span>
+            <template v-if="snapshot.graph.builtFrom">
+              <code class="font-mono">{{ snapshot.graph.builtFrom.commit.slice(0, 12) }}</code> · {{ since(snapshot.graph.builtFrom.at) }} ·
+              <span :class="{ 'text-warning': snapshot.graph.behind }">{{ graphFreshness }}</span>
+            </template>
+            <span v-else class="text-dimmed">{{ t.notBuilt }}</span>
+          </div>
+          <div class="text-xs">
+            <span class="me-1.5 text-muted">{{ t.lastRun }}</span>
+            <template v-if="snapshot.graph.lastRun">
+              <span :class="{ 'text-warning': snapshot.graph.lastRun.outcome === 'failed' }">{{ snapshot.graph.lastRun.outcome === 'built' ? t.runBuilt : t.runFailed }}</span>
+              · <code class="font-mono">{{ snapshot.graph.lastRun.commit.slice(0, 12) }}</code> · {{ since(snapshot.graph.lastRun.at) }}
+              <div v-if="snapshot.graph.lastRun.reason !== null" lang="en" class="text-[11.5px] leading-snug text-dimmed">{{ snapshot.graph.lastRun.reason }}</div>
+            </template>
+            <span v-else class="text-dimmed">{{ t.noRunYet }}</span>
+          </div>
         </section>
         <section class="flex flex-col gap-1.5 rounded-lg border border-default bg-default px-3.5 py-2.5">
           <h2 class="m-0 text-[13px] font-semibold">{{ t.recentDecisions }}</h2>

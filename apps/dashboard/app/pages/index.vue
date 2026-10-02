@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { call, usePolling } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
-import { count, isUnavailable, SELECTED_VIEW, type Alternative, type Board } from '~/composables/projects';
+import { count, isUnavailable, SELECTED_VIEW, type Alternative, type Board, type ConflictRisk } from '~/composables/projects';
 import type { Totals } from '~/composables/usage';
 
 /**
- * The selected project's Overview: what's next, the epic's progress, Ready to start, what is
- * running, attention and a line of usage. The snapshot is the shell's; the current epic's board
+ * The selected project's Overview: what's next, the epic's progress, Ready to start with the
+ * conflict risk beside the parallel limit, what is running, attention and a line of usage. The snapshot is the shell's; the current epic's board
  * is polled here for its progress and its Tasks waiting on an Unmet dependency.
  */
 const view = inject(SELECTED_VIEW, ref(null));
@@ -90,7 +90,10 @@ const parallel = computed((): string | null => {
   return free >= 1 && (ready >= 2 || inProgress >= 1) ? t.value.inParallel(number(free)) : null;
 });
 
-const lastActivity = (timestamp: string): string => secondsAgo((Date.now() - Date.parse(timestamp)) / 1000);
+/** A pair's risk badge: the higher the risk, the louder; unknown is never shown as low. */
+const RISK_COLORS = { high: 'error', medium: 'warning', low: 'success', unknown: 'neutral' } as const satisfies Record<ConflictRisk, string>;
+
+const lastActivity =(timestamp: string): string => secondsAgo((Date.now() - Date.parse(timestamp)) / 1000);
 
 /** Output tokens as the line shows them: none recorded, not reported, or the total, marked when partial. */
 function outputTokens(totals: Totals): string {
@@ -232,6 +235,30 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
             <div v-if="parallel" class="flex items-center gap-1.5 border-b border-default px-3.5 py-2 text-xs text-primary" :title="t.calculation">
               <UIcon name="i-lucide-split" class="size-3.5" />
               {{ parallel }}
+            </div>
+            <div class="flex flex-col gap-1.5 border-b border-default px-3.5 py-2.5 text-xs">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-semibold">{{ t.conflictRisk }}</span>
+                <UBadge :label="t.calculation" color="neutral" variant="outline" icon="i-lucide-calculator" size="sm" class="border-dashed" />
+              </div>
+              <p v-if="!snapshot.tasks.parallel.impact.available" class="text-muted">
+                <span class="font-medium text-default">{{ t.notAvailable }}</span> · <span lang="en">{{ snapshot.tasks.parallel.impact.reason }}</span>
+              </p>
+              <template v-else>
+                <div v-for="task in snapshot.tasks.parallel.impact.tasks" :key="task.id" class="flex min-w-0 flex-wrap gap-x-1.5">
+                  <span class="font-mono text-muted">{{ task.id }}</span>
+                  <span class="text-dimmed">{{ task.from === 'branch' ? t.fromBranch : t.fromTicket }}</span>
+                  <span v-if="task.modules.length > 0" class="font-mono break-all">{{ task.modules.join(', ') }}</span>
+                  <span v-else class="text-dimmed">{{ t.noModules }}</span>
+                </div>
+                <div v-for="pair in snapshot.tasks.parallel.impact.pairs" :key="pair.tasks.join(' ')" class="flex flex-col gap-0.5 border-t border-default pt-1.5">
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <span class="font-mono text-muted">{{ pair.tasks.join(' · ') }}</span>
+                    <UBadge :label="t.risks[pair.risk]" :color="RISK_COLORS[pair.risk]" variant="soft" size="sm" />
+                  </div>
+                  <span lang="en" class="leading-snug break-words text-muted">{{ pair.reason }}</span>
+                </div>
+              </template>
             </div>
             <template v-if="count(snapshot.tasks.readyToStart) === 0 && waiting.length === 0">
               <div v-if="noTasks" class="flex flex-col gap-1 px-3.5 py-4">

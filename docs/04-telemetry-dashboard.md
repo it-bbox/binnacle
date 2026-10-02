@@ -74,7 +74,7 @@ The main screen, for the selected project. It answers where the project stands a
 
 - What's next: the Next action, labelled as the roadmap's, with its command to copy, and a warning inside the block when `next_action.missing` or `next_action.stale` is raised; under "or", labelled as Binnacle's calculation (ADR-0032), the snapshot's `next.alternatives`, each with a title and a reason the page writes in its language from the alternative's `kind` and `tasks`, and its command to copy when it has one. An alternative that agrees with the Next action is already left out, so when they agree only the Next action shows;
 - the roadmap's epics as a compact stepper, and the current epic's Tasks done out of all of them, `CANCELLED` left out;
-- Ready to start, in any order, each Task with the command that starts it; a Task In progress is not one of them. It says how many can run in parallel, from the snapshot's `tasks.parallel`, when at least one place is free and either two Tasks are ready or one is in progress. The current epic's `READY` Tasks that wait on an Unmet dependency follow, dimmed, with what they wait on;
+- Ready to start, in any order, each Task with the command that starts it; a Task In progress is not one of them. It says how many can run in parallel, from the snapshot's `tasks.parallel`, when at least one place is free and either two Tasks are ready or one is in progress. Beside it, labelled as Binnacle's calculation, the conflict risk from `tasks.parallel.impact`: each Task in flight and ready to start with the modules it touches, read from its branch or its ticket, and each pair's risk, translated, with the daemon's reason; without a graph, not available, with the reason. The current epic's `READY` Tasks that wait on an Unmet dependency follow, dimmed, with what they wait on;
 - Running now: each run with its Task or role, harness, model, branch and latest activity, "running" being Binnacle's reading of recent activity;
 - attention items, each with its code;
 - output tokens today and over the last seven days, linking to Usage.
@@ -92,7 +92,7 @@ A roadmap that cannot be read, and a project or epic with no Tasks, each show th
 - tasks, on a mini kanban for one epic, the current one unless another is picked: Backlog, Ready, In progress, Done. A card shows its Unmet dependencies and `BLOCKED`. A `READY` Task with AgentRuns attributed to it stands In progress, marked as read from runs, and a card names who works on it, with a live dot while its run is active. Done shows its count and its latest cards until opened;
 - reviews: whether a `DONE` Task's ticket records a Review, and never a review state the ticket does not;
 - usage by role;
-- the registered checkout, recent decisions, and pending decisions and CI, not available.
+- the registered checkout; the graph, from the snapshot's `graph` section: the commit it was built from and when, whether the default branch has moved past it, and the last run's outcome, commit, time and Graphify's reason when it failed, or why there is no graph; recent decisions; and pending decisions and CI, not available.
 
 ### Task
 

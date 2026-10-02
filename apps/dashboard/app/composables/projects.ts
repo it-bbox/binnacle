@@ -44,6 +44,24 @@ export type Alternative = {
   provenance: 'calculated';
 };
 
+/** The conflict risk between the Tasks in flight and ready to start, Binnacle's calculation against the graph. */
+export type ConflictRisk = 'high' | 'medium' | 'low' | 'unknown';
+export type Impact = {
+  available: true;
+  tasks: { id: string; modules: string[]; from: 'branch' | 'ticket'; provenance: 'calculated' }[];
+  pairs: { tasks: [string, string]; risk: ConflictRisk; modules: string[]; reason: string; provenance: 'calculated' }[];
+  provenance: 'calculated';
+};
+
+/** How fresh the Graphify graph the daemon keeps is. */
+export type GraphSection = {
+  available: boolean;
+  reason: string | null;
+  builtFrom: { commit: string; at: string } | null;
+  behind: boolean | null;
+  lastRun: { commit: string; at: string; outcome: 'built' | 'failed'; reason: string | null } | null;
+};
+
 export type Snapshot = {
   git: GitFacts;
   roadmap: { epics: Epic[] } | null;
@@ -54,8 +72,9 @@ export type Snapshot = {
     /** Every Task not listed by name, by state. */
     counts: Record<string, number>;
     /** How many Tasks may be worked on at once, Binnacle's calculation. */
-    parallel: { limit: number; inProgress: number; free: number; provenance: 'calculated' };
+    parallel: { limit: number; inProgress: number; free: number; provenance: 'calculated'; impact: Impact | Unavailable };
   } | null;
+  graph: GraphSection;
   activity: Activity | Unavailable;
   usage: SnapshotUsage;
   attention: Failure[];
@@ -113,7 +132,8 @@ export function initials(project: ProjectRow): string {
 /** The roadmap's first epic not done: the current one. */
 export const currentEpic = (snapshot: Snapshot): Epic | null => snapshot.roadmap?.epics.find((epic) => epic.status !== 'done') ?? null;
 
-export const isUnavailable = (section: object): section is Unavailable => 'available' in section;
+/** For a section that carries `available` only when it is not; `impact` and `graph` carry it always, and are read by its value. */
+export const isUnavailable =(section: object): section is Unavailable => 'available' in section;
 
 /** The registered checkout's Git state in one line: its head, commit, and whether it is clean. */
 export function gitLine(git: GitFacts, t: Dictionary): string {
