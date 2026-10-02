@@ -77,8 +77,8 @@ export async function init(home: string, path?: string): Promise<ExitCode> {
     const windowSection = await windowStep(session, manifest);
     // Read before the manifest is proposed, which declares what is found or installed; planned after the other writes.
     const tools = detectTools(session.root);
-    const installed = tools.filter(({ state }) => state === 'found' || state === 'install').map(({ tool }) => tool.name);
-    if (manifest === 'new') planFile(session, MANIFEST_RELATIVE, proposeManifest(session.root, git.remotes, installed) + (windowSection ? `\n${windowSection}` : ''));
+    const toDeclare = tools.filter(({ state }) => state === 'found' || state === 'install').map(({ tool }) => tool.name);
+    if (manifest === 'new') planFile(session, MANIFEST_RELATIVE, proposeManifest(session.root, git.remotes, toDeclare) + (windowSection ? `\n${windowSection}` : ''));
     session.say('');
     registrationStep(session, home, manifest !== 'invalid');
     session.say('');
@@ -682,7 +682,10 @@ async function trackerStep(session: Session, home: string, manifest: ProjectMani
 /** A tool of the Standard setup that init installs, and what init found about it on this machine. */
 type ToolState = { tool: Tool & Required<Pick<Tool, 'executable' | 'install'>>; state: 'declared-false' | 'found' | 'no-prerequisite' | 'install' };
 
-/** Each installable tool: declared false in the manifest, found on PATH by its own executable, waiting on its prerequisite, or to install. */
+/**
+ * Each installable tool: declared false in the manifest, found on PATH by its own executable, waiting on its prerequisite, or to install.
+ * ponytail: PATH only, so a tool installed off PATH is proposed again; a per-tool probe if that bites.
+ */
 function detectTools(root: string): ToolState[] {
   const declared = declaredCapabilities(root);
   return TOOLS.filter((tool): tool is ToolState['tool'] => tool.executable !== undefined && tool.install !== undefined).map((tool) => ({
@@ -722,8 +725,8 @@ function toolsStep(session: Session, tools: ToolState[]): void {
         apply() {
           session.say(`Running ${shown}...`);
           // stdin stays with binn init's own questions; the installer's output is shown as it comes.
-          const [command, ...args] = install.command;
-          const run = spawnSync(command!, args, { cwd: session.root, stdio: ['ignore', 'inherit', 'inherit'] });
+          // Through the shell, so that Windows runs `npm.cmd`; the command is the table's own, never input.
+          const run = spawnSync(shown, { cwd: session.root, shell: true, stdio: ['ignore', 'inherit', 'inherit'] });
           record(session, run.status === 0 ? 'ran' : 'failed', shown);
         },
       });
