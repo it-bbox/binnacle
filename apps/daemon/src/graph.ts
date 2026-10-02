@@ -33,7 +33,8 @@ export const GRAPH_DIRECTORY = 'graphify-out';
 export const GRAPH_POLL_MS = 60_000;
 /** ponytail: a fixed ceiling for one run; make it a setting if a real project needs longer. */
 export const GRAPH_RUN_TIMEOUT_MS = 10 * 60_000;
-const EXTRACT = ['extract', '.', '--code-only'];
+/** Graphify's code-only extraction (ADR-0012), run in the repository root: local syntax trees, no API key, no model. */
+export const GRAPH_EXTRACT = ['extract', '.', '--code-only'];
 const BUILT = 'graph.built';
 const FAILED = 'graph.failed';
 const GRAPH_FILE = `${GRAPH_DIRECTORY}/graph.json`;
@@ -104,7 +105,7 @@ export function startGraphRunner(home: string, store: Store, searchPath: string,
   function extract(path: string, executable: string, commit: string): Promise<void> {
     return new Promise((resolve) => {
       // In its own process group, so that ending it ends whatever it started too.
-      const child = spawn(executable, EXTRACT, { cwd: path, stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true, detached: true });
+      const child = spawn(executable, GRAPH_EXTRACT, { cwd: path, stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true, detached: true });
       children.add(child);
       let stderr = '';
       child.stderr.setEncoding('utf8').on('data', (chunk: string) => (stderr = (stderr + chunk).slice(-4096)));

@@ -1050,8 +1050,8 @@ test('the tools: each missing one is in the plan with its exact command, install
   assert.deepEqual(uv(), [SERENA, GRAPHIFY]);
   assert.deepEqual(npm(), [AST_GREP]);
   assert.deepEqual(readManifest(root).manifest.capabilities, { serena: true, graphify: true, ast_grep: true });
-  // The installs write nothing into the repository.
-  assert.equal(git(root, 'status', '--porcelain'), '?? .binnacle/\n');
+  // The installs write nothing into the repository; the .gitignore is the first graph's.
+  assert.equal(git(root, 'status', '--porcelain'), '?? .binnacle/\n?? .gitignore\n');
 });
 
 test('the tools: one already on PATH is reported as found, nothing is installed for it, and the new manifest declares it', (t) => {
@@ -1286,6 +1286,8 @@ test('the servers: registering them creates or changes no file in the repository
   const root = makeRepository(t, 'untouched-servers', {
     '.binnacle/project.yaml': 'version: 1\nproject:\n  id: untouched\ntelemetry:\n  import:\n    window_days: 90\n',
     '.mcp.json': JSON.stringify({ mcpServers: { binnacle: {} } }),
+    // Already ignored, so that the first graph's step writes nothing either.
+    '.gitignore': 'graphify-out/\n',
   });
   const before = git(root, 'status', '--porcelain', '--untracked-files=all');
 
@@ -1398,4 +1400,99 @@ test('the skill plugins: without Claude Code detected nothing is installed, and 
   assert.match(summary, /skipped\s+Ponytail: a Claude Code plugin, and Claude Code is not detected/);
   assert.match(summary, /printed\s+Matt Pocock Skills for Codex: [^\n]*github\.com\/mattpocock\/skills/);
   assert.equal(readManifest(root).manifest.capabilities.ponytail, undefined);
+});
+
+/**
+ * A fake `uv` and a fake `graphify` that log each call to one shared file, in order, as
+ * `<name> <working directory> <arguments>`. `graphify` is on PATH from the start when
+ * `installed`, and otherwise only once `uv tool install graphifyy` has run. It exits with
+ * `exitCode`, saying `reason` on stderr.
+ */
+function fakeGraphify(home: Home, { installed = false, exitCode = 0, reason = '' } = {}): () => string[] {
+  const log = join(home.home, 'graph-calls');
+  const graphify = join(home.home, 'graphify');
+  const logged = (name: string): string => `#!/bin/sh\necho "${name} $PWD $*" >> '${log}'\n`;
+  writeFileSync(graphify, `${logged('graphify')}${reason ? `echo '${reason}' >&2\n` : ''}exit ${exitCode}\n`, { mode: 0o755 });
+  // An absolute cp: the PATH the fakes run with holds nothing but git and themselves.
+  writeFileSync(join(home.bin, 'uv'), `${logged('uv')}if [ "$*" = "tool install graphifyy" ]; then /bin/cp '${graphify}' '${home.bin}/'; fi\n`, { mode: 0o755 });
+  if (installed) writeFileSync(join(home.bin, 'graphify'), readFileSync(graphify), { mode: 0o755 });
+  return () => (existsSync(log) ? readFileSync(log, 'utf8').trimEnd().split('\n') : []);
+}
+
+const EXTRACT = 'extract . --code-only';
+const graphCalls = (calls: string[]): string[] => calls.filter((call) => /graphif/.test(call));
+
+test('the first graph: Graphify is built code-only in the repository root after its install, and its output directory is appended to .gitignore', (t) => {
+  const home = makeHome(t);
+  const calls = fakeGraphify(home);
+  const root = makeRepository(t, 'graphed');
+  writeFileSync(join(root, '.gitignore'), 'node_modules/\n');
+  git(root, 'add', '.gitignore');
+  git(root, 'commit', '--quiet', '-m', 'ignore');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  const question = result.stdout.indexOf(PLAN_QUESTION);
+  const append = result.stdout.indexOf('Append to the end of .gitignore');
+  const build = result.stdout.indexOf(`graphify ${EXTRACT}`);
+  assert.ok(append > result.stdout.indexOf('uv tool install graphifyy') && build > append && build < question, result.stdout);
+  assert.equal(read(root, '.gitignore'), 'node_modules/\ngraphify-out/\n');
+  assert.match(result.stdout, /extended\s+\.gitignore/);
+  // Installed by the plan, then built; never called before the plan's yes.
+  assert.deepEqual(graphCalls(calls()), [`uv ${root} tool install graphifyy`, `graphify ${root} ${EXTRACT}`]);
+  assert.match(result.stdout, new RegExp(`ran\\s+graphify ${EXTRACT}`));
+});
+
+test('the first graph: an output directory Git already ignores leaves .gitignore untouched, and a missing .gitignore is created', (t) => {
+  const home = makeHome(t);
+  const calls = fakeGraphify(home, { installed: true });
+  const ignored = makeRepository(t, 'ignored', { '.gitignore': '/graphify-out\n' });
+
+  const result = binnIn(home)(ignored, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(read(ignored, '.gitignore'), '/graphify-out\n');
+  assert.doesNotMatch(result.stdout, /\s\.gitignore\n/);
+  assert.match(result.stdout, /Git already ignores graphify-out\//);
+  assert.deepEqual(graphCalls(calls()), [`graphify ${ignored} ${EXTRACT}`]);
+
+  const bare = makeRepository(t, 'unignored');
+  assert.equal(binnIn(home)(bare, '\n\n', 'init').status, 0);
+  assert.equal(read(bare, '.gitignore'), 'graphify-out/\n');
+});
+
+test('the first graph: a failing build is reported in the Summary with its reason, and the rest of the plan has run', (t) => {
+  const home = makeHome(t);
+  const calls = fakeGraphify(home, { installed: true, exitCode: 2, reason: 'no supported source files found' });
+  const npm = fakeTool(home, 'npm');
+  const root = makeRepository(t, 'graph-fails');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  const summary = result.stdout.slice(result.stdout.indexOf('Summary:'));
+  assert.match(summary, new RegExp(`failed\\s+graphify ${EXTRACT}: no supported source files found`));
+  assert.match(summary, /created\s+\.gitignore/);
+  assert.match(summary, /ran\s+npm i @ast-grep\/cli -g/);
+  assert.deepEqual(npm(), [AST_GREP]);
+  assert.deepEqual(graphCalls(calls()), [`graphify ${root} ${EXTRACT}`]);
+});
+
+test('the first graph: Graphify declared false, or left out for a missing uv, means no .gitignore line and no build', (t) => {
+  const home = makeHome(t);
+  const calls = fakeGraphify(home, { installed: true });
+  const declared = makeRepository(t, 'graph-false', { '.binnacle/project.yaml': 'version: 1\nproject:\n  id: graph-false\ncapabilities:\n  graphify: false\n' });
+
+  assert.equal(binnIn(home)(declared, '\n\n', 'init').status, 0);
+  assert.equal(existsSync(join(declared, '.gitignore')), false);
+  assert.deepEqual(graphCalls(calls()), []);
+
+  for (const name of ['uv', 'graphify']) rmSync(join(home.bin, name));
+  const noUv = makeRepository(t, 'graph-no-uv');
+  const result = binnIn(home)(noUv, '\n\n', 'init');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /skipped\s+Graphify: uv is not on PATH/);
+  assert.equal(existsSync(join(noUv, '.gitignore')), false);
+  assert.doesNotMatch(result.stdout, /extract \. --code-only/);
 });

@@ -4,12 +4,14 @@ import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
-import { readGitFacts, workingTree, type GitRemote } from '@binnacle/adapters';
+import { isIgnored, readGitFacts, workingTree, type GitRemote } from '@binnacle/adapters';
 import { forgeRemote, instructionSets, TASK_STATES, type ImportWindow, type ProjectManifest, type TrackerProvider } from '@binnacle/core';
 import {
   credentialsKey,
   credentialsPath,
   DEFAULT_WINDOW_DAYS,
+  GRAPH_DIRECTORY,
+  GRAPH_EXTRACT,
   isAlive,
   MANIFEST_RELATIVE,
   OperationError,
@@ -95,6 +97,8 @@ export async function init(home: string, path?: string): Promise<ExitCode> {
     toolsStep(session, tools);
     session.say('');
     serversStep(session, tools, harnesses);
+    session.say('');
+    await graphStep(session, tools);
     session.say('');
     await confirmPlan(session, process.stdin.isTTY === true);
     session.say('');
@@ -665,7 +669,7 @@ function instructionsStep(session: Session): void {
 }
 
 /**
- * Step 10: one read of a remote tracker through its adapter, with the credentials lookup the
+ * Step 11: one read of a remote tracker through its adapter, with the credentials lookup the
  * daemon uses. On a failure it says how to make a read-only token and where to put it; it
  * never asks for, stores or prints one. `manifest` is the readable manifest, if any.
  */
@@ -858,4 +862,38 @@ function serversStep(session: Session, tools: ToolState[], harnesses: Harness[])
       },
     });
   }
+}
+
+/**
+ * Step 10: Graphify's first graph, for Graphify found on PATH or installed by this plan, last
+ * in the plan. Its output directory is appended to `.gitignore` (ADR-0026) unless Git already
+ * ignores it, checked as the daemon checks it (ADR-0036); then Graphify's code-only extraction
+ * runs in the repository root, which needs no API key and calls no model (ADR-0012). A failed
+ * build is reported with Graphify's reason, and the daemon builds the graph at a later poll.
+ */
+async function graphStep(session: Session, tools: ToolState[]): Promise<void> {
+  const { state } = tools.find(({ tool }) => tool.name === 'graphify')!;
+  if (state !== 'found' && state !== 'install') return;
+  const ignored = (): Promise<boolean | null> => isIgnored(session.root, `${GRAPH_DIRECTORY}/graph.json`, resolveGitTimeout());
+  if (await ignored()) session.say(`Git already ignores ${GRAPH_DIRECTORY}/, Graphify's output directory, so .gitignore is left as it is.`);
+  else planFile(session, '.gitignore', `${GRAPH_DIRECTORY}/\n`);
+
+  const shown = `graphify ${GRAPH_EXTRACT.join(' ')}`;
+  session.say('Graphify builds the first graph in the plan, code-only: no API key, no model.');
+  session.plan.push({
+    heading: `Build the first graph into ${GRAPH_DIRECTORY}/, code-only, with no API key and no model, by running in the repository root`,
+    body: `  ${shown}`,
+    declined: 'build the first graph',
+    async apply() {
+      // The append above failed: Graphify would leave untracked files in the repository (ADR-0036).
+      if ((await ignored()) === false) return record(session, 'skipped', `the first graph: Git does not ignore ${GRAPH_DIRECTORY}/`);
+      session.say(`Running ${shown}...`);
+      // Its progress is shown as it comes; stderr is kept for a failure's reason, and shown after.
+      const run = spawnSync('graphify', GRAPH_EXTRACT, { cwd: session.root, encoding: 'utf8', stdio: ['ignore', 'inherit', 'pipe'] });
+      if (run.stderr) process.stderr.write(run.stderr);
+      if (run.status === 0) return record(session, 'ran', shown);
+      const reason = run.error?.message || run.stderr?.trim().split('\n').at(-1)?.trim() || `graphify exited with code ${run.status}`;
+      record(session, 'failed', `${shown}: ${reason}. The Binnacle daemon builds the graph once graphify runs.`);
+    },
+  });
 }

@@ -190,7 +190,13 @@ Register assistant integrations according to current upstream tooling, for examp
 graphify install --project
 ```
 
-Build/update a project graph from the project root through the installed skill/CLI. Generated output includes a machine-readable graph and architecture report.
+`binn init` builds the first graph last in its plan, with `graphify-out/` added to `.gitignore` unless Git already ignores it, by running Graphify's code-only extraction from the project root, which needs no API key and calls no model; after that the daemon keeps it current (`03-external-tools.md`, *The first graph it builds*):
+
+```bash
+graphify extract . --code-only
+```
+
+Generated output includes a machine-readable graph and architecture report.
 
 For Obsidian projection, Graphify supports an explicit Obsidian export to an existing vault. Do not make this export canonical storage.
 

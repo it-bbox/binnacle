@@ -44,6 +44,15 @@ After the installs, in the same plan, init registers each tool's MCP server with
 
 A server already registered with a harness, in any file the audit reads for it (the repository's, and the user-scope ones of Claude Code, Codex and VS Code's default profile), is reported and left as it is. A harness whose CLI is not on `PATH` gets the entry printed, and the Summary says so. A tool declared `false`, or left out for a missing prerequisite, gets no registration, nor does Graphify's server without `uv`, even with `graphify` found. Init writes no MCP entry for these tools into the repository. Graphify's server runs in its own environment with the `mcp` extra, so its install stays `graphifyy`.
 
+### The first graph it builds
+
+Last in the same plan, init builds the project's first graph, so that a project leaves `binn init` with one:
+
+1. `graphify-out/`, Graphify's output directory, is appended to `.gitignore` (or `.gitignore` is created with it), under ADR-0026's append rule, unless Git already ignores `graphify-out/graph.json`; then `.gitignore` is not touched.
+2. `graphify extract . --code-only` runs in the repository root: Graphify's code-only extraction, local syntax trees, which needs no API key and calls no model (ADR-0012). It is the same command the daemon runs.
+
+Both are in the plan only when Graphify is on `PATH` or installed by the same plan, and `capabilities.graphify` is not `false`; Graphify left out for a missing `uv` gets neither. The build does not run if Git still does not ignore `graphify-out/` at that point. A failed build is reported in the Summary with the last line Graphify wrote to stderr, and the rest of the plan has run; the daemon builds the graph at a later poll once the project is registered and `graphify` runs (*Graphify*, below).
+
 ## Node / pnpm
 
 Project runtime baseline: Node.js 24 LTS. Use pnpm for workspace management.
