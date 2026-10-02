@@ -18,6 +18,24 @@ Specs and issues for this repo live in Git under `docs/specs/`, not in `.scratch
 
 `.scratch/` keeps only genuinely disposable working material: intermediate output, throwaway experiments, anything nobody needs after the task closes.
 
+## Ticket header
+
+Binnacle reads a ticket's state, dependencies and spec from its header: these lines, one per line, at the top of every ticket, before anything else. Write them in every ticket, and keep `Status:` current.
+
+- `Status:` — the ticket's state, one of `BACKLOG`, `READY`, `ACTIVE`, `BLOCKED`, `READY_FOR_REVIEW`, `APPROVED`, `MERGE_READY`, `MERGED`, `DONE`, `CANCELLED`.
+- `Blocked by:` — the numbers of the tickets in the same spec it waits for, such as `01, 03`, or `None`.
+- `Spec:` — the spec it implements, as its path, such as `docs/specs/<slug>/spec.md`.
+
+A ticket's slug, its file name without the number, is unique across every spec's tickets: it names the ticket's branch, `feat/<slug>`, and Binnacle credits the work on a branch two tickets share to neither.
+
+For example:
+
+```text
+Status: READY
+Blocked by: 01, 03
+Spec: `docs/specs/<slug>/spec.md`
+```
+
 ## When a skill says "publish to the issue tracker"
 
 Create a new file under `docs/specs/<slug>/` (creating the directory if needed).

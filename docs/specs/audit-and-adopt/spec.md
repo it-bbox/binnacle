@@ -111,7 +111,7 @@ Three tickets from the owner's feedback sit beside the audit in this epic:
 50. As a developer, I want Enter to accept the plan when stdin is a terminal, so that the common answer needs no typing.
 51. As a developer, I want `n` to decline the plan and leave nothing written, so that I can look first.
 52. As a developer, I want `binn init` run without a terminal to write nothing, so that a script or a pipe never changes a repository (ADR-0034).
-53. As a developer, I want the questions that are not about a write, the history import window and the tracker choice, asked before the plan, so that the plan reflects my answers.
+53. As a developer, I want the one question that is not about a write, the history import window, asked before the plan, and the tracker proposed from the remote and shown in the plan rather than asked, so that the plan reflects my answers without one more question (the owner, 2026-10-02).
 54. As a developer, I want init to still never overwrite a file, never commit and extend a file only by a section I have seen, so that ADR-0026's guarantees hold.
 
 ### Working from another harness

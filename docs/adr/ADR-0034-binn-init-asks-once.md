@@ -16,7 +16,7 @@ The owner ran `binn init` in another project and found two things (`specs/audit-
 - It asks **once** for the plan as a whole. It does not ask again for each write.
 - When stdin is a terminal, **Enter accepts the plan**. Typing `n` declines it, and nothing is written.
 - When stdin is not a terminal, **nothing is written**. Without a human to read the plan there is no confirmation to give.
-- Questions that are not about a write stay questions of their own: the history import window (`specs/telemetry/spec.md`) and the choice of tracker. They are asked before the plan, because the plan depends on them.
+- The one question that is not about a write, the history import window (`specs/telemetry/spec.md`), stays a question of its own, asked before the plan, because the plan depends on it. The tracker is not asked: it is proposed from the remote, or `local`, and shown in the plan, and a human who wants another declines the plan and edits `.binnacle/project.yaml` (the owner, 2026-10-02).
 
 ADR-0026's other terms are unchanged: `binn init` never overwrites an existing file, extends one only by a section the human has seen, and never commits. It is still the only path that writes into a project's repository, and a write outside the repository is still shown and confirmed.
 
