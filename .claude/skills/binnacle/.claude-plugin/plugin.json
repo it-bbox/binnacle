@@ -1,4 +1,4 @@
 {
   "name": "binnacle",
-  "description": "Binnacle's actions: product, daily, task, checkpoint and autopilot, driven through the binnacle MCP server, and audit, which runs binn audit."
+  "description": "Binnacle's actions: product, daily, task, checkpoint and autopilot, driven through the binnacle MCP server, and audit, which runs the binn audit command."
 }
