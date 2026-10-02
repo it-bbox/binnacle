@@ -20,7 +20,7 @@ Five environment variables configure it, all read by the daemon from its own env
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `BINNACLE_HOME` | `~/.binnacle` | Where Binnacle keeps the daemon's runtime file, the API token, the store and the tracker credentials file. Point it elsewhere to run a throwaway instance beside the real one. |
+| `BINNACLE_HOME` | `~/.binnacle` | Where Binnacle keeps the daemon's runtime file, the API token, the store, the tracker credentials file and this machine's settings file. Point it elsewhere to run a throwaway instance beside the real one. |
 | `BINNACLE_PORT` | `7717` | The loopback port the daemon binds. `0` takes an ephemeral port. |
 | `BINNACLE_GIT_TIMEOUT_MS` | `5000` | How long one read-only `git` call may take before `project.status` reports Git facts unavailable. Raise it for a repository on a slow filesystem. |
 | `BINNACLE_GITHUB_TOKEN` | none | A read-only token for every project whose `tracker.provider` is `github`. |
@@ -249,17 +249,43 @@ Install the desktop Obsidian application manually for the human-facing knowledge
 
 Configuration is machine/user-specific. **Never commit an absolute personal vault path** into shared project configuration.
 
-Recommended Binnacle user setting:
+### The settings file
 
-```text
-obsidian.vaultPath = <local machine path>
+The vault is named in `settings.json` in the Binnacle home (`~/.binnacle/settings.json`), this machine's own settings, outside every repository. Make it owner-only, as the credentials file (`chmod 600`):
+
+```json
+{
+  "obsidian": { "vaultPath": "/home/me/Notes" }
+}
 ```
 
-Recommended per-project projection:
+The path is absolute, and is the vault's own directory. The daemon reads the file on every poll and every snapshot, so a change takes effect without a restart. No file, or no `obsidian.vaultPath`, means no projection and no attention item.
 
-```text
-<Vault>/Projects/<Project>/
+### The vault projection
+
+With a vault set, the daemon keeps a one-way projection of each registered project under `<Vault>/Projects/<Project>/`, `<Project>` being the manifest's `project.name`, or its id (ADR-0036):
+
+| Folder | Holds |
+| --- | --- |
+| `Specs/<slug>/` | `spec.md` and the spec's tickets, from `knowledge.specs` |
+| `Decisions/` | the ADRs, from `knowledge.adr` |
+| `Research/` | the other Markdown under `knowledge.docs`, as it is laid out there, without the roadmap |
+
+Once a minute it reads each project's default branch, and when the branch has moved, or the vault setting changed, it renders the project again from that commit, read through Git: an uncommitted change in the checkout never reaches the vault. Relative Markdown links between projected files become Obsidian links.
+
+Every note it writes starts with frontmatter naming it generated, with its source and commit:
+
+```yaml
+---
+generated-by: binnacle
+source: docs/adr/ADR-0036-the-daemon-maintains-derived-graph-and-vault.md
+commit: <hash>
+---
 ```
+
+The daemon writes, rewrites and deletes only files with that marker, so a note of yours beside them, or a file of yours at a generated note's path, is left byte for byte. A generated note whose source is gone from the default branch is removed. Each write is a whole file, through a temporary name and a rename. An edit to a generated note is overwritten at the next refresh, never synced back. The projection is derived: deleting the project's folder loses nothing, and it comes back at the next move of the branch, or at the daemon's next start.
+
+A vault path that does not exist, is not a directory or cannot be written, and a settings file that cannot be read, is the snapshot's attention item `vault.unwritable`.
 
 Graphify-generated material should live under a clearly generated namespace such as `90-Graphify/`.
 

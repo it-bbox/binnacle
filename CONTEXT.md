@@ -37,6 +37,9 @@ Binnacle's own reading of what comes next, computed from the Tasks, their AgentR
 ### Conflict risk
 Binnacle's calculation, from the Graphify graph, of how likely two ready or in-flight Tasks are to collide if run together: high when they touch a module in common, medium when their modules are neighbours in the graph, low otherwise, and unknown when either touches no module of the graph — never guessed low. A module is a file of the graph. A Task on a branch touches what its branch changed; one without, what its ticket names. It advises: the Suggested step offers a second Task in parallel only at low risk, and nothing is blocked or reordered by it.
 
+### Vault projection
+The daemon's one-way rendering of a project's Project Brain into the owner's Obsidian vault, under `Projects/<Project>/`, from the default branch as committed (ADR-0036). The vault is a per-machine setting, never committed. Every note it writes is marked as generated, with its source file and commit, and it writes, rewrites and deletes only notes so marked; a note the human wrote is never touched, and an edit to a generated note is overwritten, never synced back. It is derived: deleting it loses nothing.
+
 ### Harness
 The coding client a run happens inside: Claude Code, Codex, Gemini CLI and others. A harness is not a provider — the same harness can be pointed at different backends.
 

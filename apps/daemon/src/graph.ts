@@ -255,9 +255,10 @@ const short = (commit: string): string => commit.slice(0, 7);
 
 /** As usage attribution reads it: `origin/HEAD`, or `main` when there is none. */
 const defaultBranch = async (path: string): Promise<string> => (await readDefaultBranch(path, resolveGitTimeout())) ?? 'main';
-const defaultCommit = async (path: string): Promise<string | null> => readBranchCommit(path, await defaultBranch(path), resolveGitTimeout());
+export const defaultCommit = async (path: string): Promise<string | null> => readBranchCommit(path, await defaultBranch(path), resolveGitTimeout());
 
-function manifestOf(path: string): ProjectManifest | null {
+/** The manifest at `path`, or null when it cannot be read. */
+export function manifestOf(path: string): ProjectManifest | null {
   try {
     return readManifest(path).manifest;
   } catch {

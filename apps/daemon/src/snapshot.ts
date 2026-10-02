@@ -24,6 +24,7 @@ import {
 } from '@binnacle/core';
 import { resolveGitTimeout, trackerToken } from './home.ts';
 import { impactSection, type GraphSection } from './graph.ts';
+import { vaultAttention } from './vault.ts';
 import type { Projected } from './projection.ts';
 import type { ProjectRow } from './store.ts';
 import type { Activity, Usage } from './usage.ts';
@@ -146,7 +147,7 @@ export async function snapshot(
   const workflow = projected.manifest?.workflow.provider ?? null;
   // A harness whose artifacts cannot be read is at level 1, and says why.
   for (const { level, reason } of usageSection.harnesses) if (level === 1 && reason !== null) attention.push({ code: 'telemetry.unreadable', message: reason });
-  attention.push(...graph.attention);
+  attention.push(...graph.attention, ...vaultAttention(home));
   const limit = projected.manifest?.automation.maxParallelDevelopmentTasks ?? PARALLEL_LIMIT;
   const listed = tasks && taskSections(tasks, new Set(runs.flatMap((run) => run.taskId ?? [])));
   const impact = listed && (await impactSection(projected.row.path, graph.graph, listed.inFlightAndReady, projected.manifest?.tracker.provider !== 'local'));

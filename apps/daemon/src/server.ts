@@ -18,6 +18,7 @@ import {
 } from './home.ts';
 import { OperationError } from './errors.ts';
 import { GRAPH_POLL_MS, startGraphRunner } from './graph.ts';
+import { startVaultProjector, VAULT_POLL_MS } from './vault.ts';
 import { operations, type OperationContext } from './operations.ts';
 import { projectRegistry } from './projection.ts';
 import { openStore } from './store.ts';
@@ -61,6 +62,8 @@ export type DaemonOptions = {
   searchPath?: string;
   /** How often the default branch of each project is read for the graph (ADR-0036). */
   graphPollMs?: number;
+  /** How often each project's default branch and the vault setting are read for the vault projection (ADR-0036). */
+  vaultPollMs?: number;
 };
 
 export type Daemon = {
@@ -122,6 +125,7 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
   // Recorded once the daemon is listening, so a start that failed is not in the history.
   store.appendEvent({ type: 'daemon.started', payload: { pid: runtime.pid, port: runtime.port, version: VERSION } });
   const graph = startGraphRunner(home, store, searchPath, options.graphPollMs ?? GRAPH_POLL_MS);
+  const vault = startVaultProjector(home, options.vaultPollMs ?? VAULT_POLL_MS);
   // Every registered project's history starts importing now, in the background, rather than on its first call.
   // Its linked worktrees are asked of Git first, and a daemon stopped meanwhile starts none.
   for (const { row, manifest } of projects) {
@@ -142,6 +146,7 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
       });
       await stopImporting(context.importer);
       await graph.stop();
+      await vault.stop();
       // Only a clean stop is recorded. A killed daemon leaves a start with no stop after
       // it, which is the honest record of what happened.
       store.appendEvent({ type: 'daemon.stopped', payload: { pid: runtime.pid, version: VERSION } });
