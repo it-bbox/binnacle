@@ -74,8 +74,8 @@ export async function init(home: string, path?: string): Promise<ExitCode> {
     session.say(`Setting up Binnacle in ${session.root}. Nothing is written until you have seen the whole plan and confirmed it.\n`);
     const manifest = manifestStep(session);
     session.say('');
-    const window = await windowStep(session, manifest);
-    if (manifest === 'new') planFile(session, MANIFEST_RELATIVE, proposeManifest(session.root, git.remotes) + (window ? `\n${window}` : ''));
+    const windowSection = await windowStep(session, manifest);
+    if (manifest === 'new') planFile(session, MANIFEST_RELATIVE, proposeManifest(session.root, git.remotes) + (windowSection ? `\n${windowSection}` : ''));
     session.say('');
     registrationStep(session, home, manifest !== 'invalid');
     session.say('');
@@ -119,7 +119,14 @@ async function confirmPlan(session: Session, terminal: boolean): Promise<void> {
   const reply = await session.answer('Write this plan? [Y/n] ');
   // Enter or yes accepts; anything else, and the end of input, declines.
   if (reply === null || !/^\s*(y(es)?)?\s*$/i.test(reply)) return declineAll('The plan was declined.');
-  for (const item of plan) await item.apply();
+  for (const item of plan) {
+    // One write that fails is reported, and the rest of the plan still runs.
+    try {
+      await item.apply();
+    } catch (error) {
+      record(session, 'failed', `${item.declined}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
 }
 
 /**
@@ -159,6 +166,8 @@ function planFile(session: Session, relative: string, text: string): void {
     body: addition,
     declined: `append to ${relative}`,
     apply() {
+      // Only the section the human saw: a file that changed since it was read is not extended.
+      if (readFileSync(path, 'utf8') !== existing) throw new Error('the file changed since the plan was shown');
       appendFileSync(path, addition);
       record(session, 'extended', relative);
     },

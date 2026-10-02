@@ -19,7 +19,7 @@ It should:
 - inspect `.scratch` usage;
 - detect Serena/Graphify/Context7 where possible;
 - configure telemetry adapters when supported;
-- create only minimal Binnacle manifest/config after confirmation.
+- create only minimal Binnacle manifest/config after one confirmation of the plan `binn init` shows (ADR-0034).
 
 ## Audit
 
