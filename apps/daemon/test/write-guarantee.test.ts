@@ -182,8 +182,12 @@ it('no daemon operation nor static file changes the working tree, the index or a
     const snapshot = await daemon.call<{ usage: { today: { records: number } } }>('project.snapshot', { path: root });
     // One Claude Code message, one of its subagent's, and ten Codex calls.
     assert.equal(snapshot.body.usage.today.records, 12);
-    // The graph was built, so the directory allowed was written, not merely allowed.
-    assert.ok(existsSync(join(root, GRAPH_DIRECTORY, 'graph.json')));
+    // The graph is built, so the directory allowed is written, not merely allowed, and still nothing else is.
+    for (const deadline = Date.now() + 10_000; !existsSync(join(root, GRAPH_DIRECTORY, 'graph.json')); ) {
+      assert.ok(Date.now() < deadline, 'the daemon built no graph');
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    assert.deepEqual(contents(root), before, 'the graph build changed the repository');
   } finally {
     await daemon.stop();
   }

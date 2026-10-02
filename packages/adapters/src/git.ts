@@ -12,6 +12,8 @@ import type { Tree } from './tree.ts';
  *   `merge-base --is-ancestor`, `check-ignore` — and nothing that fetches, writes, or changes config or refs;
  * - a revision is only ever passed as a commit hash, never as caller text that git could
  *   read as an option, and a caller's path only after `--` as a `:(literal)` pathspec;
+ *   the two exceptions cannot be read as options either: a branch name only under
+ *   `refs/heads/`, and `check-ignore`'s path, which takes no pathspec magic, after `--`;
  * - `--no-optional-locks` stops `status` refreshing the index, which it otherwise does
  *   as a side effect, and `core.fsmonitor=false` stops it running the hook a
  *   repository's config may name;

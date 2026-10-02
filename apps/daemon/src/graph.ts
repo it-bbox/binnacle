@@ -44,19 +44,27 @@ export function startGraphRunner(home: string, store: Store, searchPath: string,
   const children = new Set<ChildProcess>();
   const settling = new Set<Promise<void>>();
   let stopped = false;
-  let ticking = false;
+  let ticking: Promise<void> | null = null;
 
   const lastCommit = (path: string): unknown => store.latestEvent(path, [BUILT, FAILED])?.payload.commit;
 
-  /** The default branch's commit when a run is due for it, or null. */
+  /**
+   * The default branch's commit when a run is due for it, or null. A manifest that cannot be
+   * read runs nothing, since whether Graphify is declared `false` is then unknown.
+   *
+   * ponytail: the run reads the working tree, so uncommitted changes in the registered
+   * checkout are in a graph recorded as built from the branch's commit; build from the
+   * committed tree, as the vault does, if that ever misleads.
+   */
   async function due(path: string): Promise<{ commit: string; executable: string } | null> {
     const manifest = manifestOf(path);
     const executable = findExecutable('graphify', searchPath);
-    if (manifest?.capabilities.graphify === false || executable === null) return null;
-    const commit = await defaultCommit(path);
+    if (manifest === null || manifest.capabilities.graphify === false || executable === null) return null;
+    const branch = await defaultBranch(path);
+    const commit = await readBranchCommit(path, branch, resolveGitTimeout());
     if (commit === null || commit === lastCommit(path)) return null;
     const [facts, ignored] = await Promise.all([readGitFacts(path, resolveGitTimeout()), isIgnored(path, GRAPH_FILE, resolveGitTimeout())]);
-    if (!facts.available || facts.branch !== (await defaultBranch(path)) || ignored !== true) return null;
+    if (!facts.available || facts.branch !== branch || ignored !== true) return null;
     return { commit, executable };
   }
 
@@ -71,22 +79,30 @@ export function startGraphRunner(home: string, store: Store, searchPath: string,
     }
     const run = { commit: next.commit, queued: false };
     running.set(path, run);
-    const settled = extract(path, next.executable, next.commit).then(() => {
-      running.delete(path);
-      if (run.queued && !stopped) return consider(path);
-    });
+    const settled = extract(path, next.executable, next.commit)
+      .then(() => {
+        running.delete(path);
+        if (run.queued && !stopped) return consider(path);
+      })
+      // As a poll's: tried again on the next one, never a stopped daemon.
+      .catch((error: unknown) => console.error(error));
     settling.add(settled);
     void settled.finally(() => settling.delete(settled));
   }
 
   function extract(path: string, executable: string, commit: string): Promise<void> {
     return new Promise((resolve) => {
-      const child = spawn(executable, EXTRACT, { cwd: path, stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
+      // In its own process group, so that ending it ends whatever it started too.
+      const child = spawn(executable, EXTRACT, { cwd: path, stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true, detached: true });
       children.add(child);
       let stderr = '';
       child.stderr.setEncoding('utf8').on('data', (chunk: string) => (stderr = (stderr + chunk).slice(-4096)));
-      const timer = setTimeout(() => child.kill('SIGKILL'), GRAPH_RUN_TIMEOUT_MS);
+      const timer = setTimeout(() => end(child), GRAPH_RUN_TIMEOUT_MS);
+      let finished = false;
+      // A spawn that fails emits `error` and then `close`; the first is the outcome.
       const finish = (reason: string | null): void => {
+        if (finished) return;
+        finished = true;
         clearTimeout(timer);
         children.delete(child);
         // A run the daemon's stop ended is not an outcome of Graphify's.
@@ -102,28 +118,25 @@ export function startGraphRunner(home: string, store: Store, searchPath: string,
     });
   }
 
-  async function tick(): Promise<void> {
+  function tick(): void {
     if (ticking || stopped) return;
-    ticking = true;
-    try {
-      await Promise.all(readRegistry(home).map((entry) => consider(entry.path)));
-    } catch (error) {
+    ticking = Promise.all(readRegistry(home).map((entry) => consider(entry.path)))
+      .then(() => undefined)
       // A poll that fails is tried again on the next one; it never stops the daemon.
-      console.error(error);
-    } finally {
-      ticking = false;
-    }
+      .catch((error: unknown) => console.error(error))
+      .finally(() => (ticking = null));
   }
 
-  void tick();
-  const timer = setInterval(() => void tick(), pollMs);
+  tick();
+  const timer = setInterval(tick, pollMs);
   timer.unref();
 
   return {
     async stop() {
       stopped = true;
       clearInterval(timer);
-      for (const child of children) child.kill();
+      await ticking;
+      for (const child of children) end(child);
       await Promise.all(settling);
     },
   };
@@ -178,6 +191,19 @@ const runOf = (event: EventRow): NonNullable<GraphSection['lastRun']> => ({
   outcome: event.type === BUILT ? 'built' : 'failed',
   reason: typeof event.payload.reason === 'string' ? event.payload.reason : null,
 });
+
+/** Kills a run and everything it started, its process group on POSIX. */
+function end(child: ChildProcess): void {
+  try {
+    if (process.platform !== 'win32' && child.pid !== undefined) {
+      process.kill(-child.pid, 'SIGKILL');
+      return;
+    }
+  } catch {
+    // The group is already gone, or was never made: the child itself, below.
+  }
+  child.kill('SIGKILL');
+}
 
 const short = (commit: string): string => commit.slice(0, 7);
 
