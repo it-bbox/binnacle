@@ -13,6 +13,9 @@ This term replaced the earlier "AI Development Control Plane". Both named the sa
 ### Project Brain
 The sum of a project's long-lived knowledge and current state: docs, ADRs, specs, tracker, Git/CI state and code intelligence. It is not one file and not one database.
 
+### Standard setup
+The Project Brain Binnacle sets up and uses by default (`docs/baseline.md`, ADR-0035): docs, ADRs and `CONTEXT.md`, a GitHub or GitLab tracker, Matt Pocock Skills, Ponytail, Serena, Graphify, Context7 and ast-grep, with Obsidian as the human view. `binn init` installs what is missing. Each part stays replaceable: Binnacle's core works without any of them, and a project lacking one is an incomplete Standard setup, not a broken one.
+
 ### Project registry
 The list of repository paths registered with Binnacle on one machine. It is canonical — no source outside Binnacle records that this machine tracks a given path — so it is a file, not a table, and the `Project` table is a projection of it (`docs/adr/ADR-0019-registry-is-a-file.md`).
 
