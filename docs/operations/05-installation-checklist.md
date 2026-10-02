@@ -113,7 +113,7 @@ Then use the agreed project-design chain when appropriate:
 /to-tickets
 ```
 
-`binn init` should detect existing installation/configuration and must not blindly reinstall or silently run the interactive workflow.
+`binn init` installs the Claude Code plugin in its plan when Claude Code is detected and does not list it, and leaves a listed one alone; it never runs `/setup-matt-pocock-skills`, which it names when the project has no Matt Pocock layout (`03-external-tools.md`, *The skill plugins it installs*).
 
 ---
 
@@ -147,7 +147,7 @@ Current upstream installation:
 gemini extensions install https://github.com/DietrichGebert/ponytail
 ```
 
-Binnacle should record capability availability per harness, not assume one global installation covers every client.
+Binnacle should record capability availability per harness, not assume one global installation covers every client. `binn init` runs the Claude Code commands above in its plan when Claude Code is detected and does not list the plugin; for any other harness it detects, its Summary points at Ponytail's own install section, which has the commands above.
 
 ---
 

@@ -438,9 +438,12 @@ test('registration with a running daemon', async (t) => {
   });
 });
 
+/** The skill plugins as Claude Code lists them, so that a binnacle plugin test sees only its own calls. */
+const SKILL_PLUGINS = ['mattpocock-skills@claude-plugins-official', 'ponytail@ponytail'];
+
 test('the plugin: Claude Code adds the package as a marketplace and installs binnacle from it, at user scope, in that order', (t) => {
   const home = makeHome(t);
-  const calls = fakeClaude(home);
+  const calls = fakeClaude(home, SKILL_PLUGINS);
   const root = makeRepository(t, 'plugged');
 
   // The window, then Enter for the plan, which holds the manifest, `.mcp.json` and the plugin.
@@ -469,7 +472,7 @@ test('the plugin: Claude Code adds the package as a marketplace and installs bin
 
 test('the plugin: a failed marketplace add is reported, and the install is not attempted', (t) => {
   const home = makeHome(t);
-  const calls = fakeClaude(home, [], 1);
+  const calls = fakeClaude(home, SKILL_PLUGINS, 1);
   const root = makeRepository(t, 'unplugged');
 
   const result = binnIn(home)(root, '\n\n', 'init');
@@ -487,7 +490,7 @@ test('the plugin: a failed marketplace add is reported, and the install is not a
 
 test('the plugin: skipped and reported when Claude Code already lists it', (t) => {
   const home = makeHome(t);
-  const calls = fakeClaude(home, ['other@somewhere', 'binnacle@binnacle']);
+  const calls = fakeClaude(home, ['other@somewhere', 'binnacle@binnacle', ...SKILL_PLUGINS]);
   const root = makeRepository(t, 'listed');
 
   const result = binnIn(home)(root, '\n\n', 'init');
@@ -499,7 +502,7 @@ test('the plugin: skipped and reported when Claude Code already lists it', (t) =
 
 test('the plugin: skipped and reported for a project that provides its own binnacle plugin', (t) => {
   const home = makeHome(t);
-  const calls = fakeClaude(home);
+  const calls = fakeClaude(home, SKILL_PLUGINS);
   const root = makeRepository(t, 'binnacle-itself', {
     '.claude/skills/binnacle/.claude-plugin/plugin.json': '{ "name": "binnacle" }\n',
   });
@@ -507,7 +510,8 @@ test('the plugin: skipped and reported for a project that provides its own binna
   const result = binnIn(home)(root, '\n\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(calls(), []);
+  // Claude Code is still asked for its plugins, for the skill plugins; nothing is installed.
+  assert.deepEqual(calls(), [['plugin', 'list', '--json']]);
   assert.match(result.stdout, /skipped\s+the binnacle plugin: the project provides its own, at \.claude\/skills\/binnacle/);
 });
 
@@ -1295,4 +1299,89 @@ test('the servers: registering them creates or changes no file in the repository
   assert.equal(result.status, 0, result.stderr);
   assert.equal(mcpAdds(claude()).length, 3);
   assert.equal(git(root, 'status', '--porcelain', '--untracked-files=all'), before);
+});
+
+const PONYTAIL_MARKETPLACE = ['plugin', 'marketplace', 'add', 'DietrichGebert/ponytail', '--scope', 'user'];
+const PONYTAIL_INSTALL = ['plugin', 'install', 'ponytail@ponytail', '--scope', 'user'];
+const MATT_POCOCK_INSTALL = ['plugin', 'install', 'mattpocock-skills@claude-plugins-official', '--scope', 'user'];
+/** The calls a fake `claude` recorded for the skill plugins, without the listing, the binnacle plugin's and the servers'. */
+const skillPluginCalls = (calls: string[][]): string[][] =>
+  calls.filter((call) => call[0] === 'plugin' && call[1] !== 'list' && !call.includes(PACKAGE) && !call.includes('binnacle@binnacle'));
+
+test('the skill plugins: with Claude Code detected and neither listed, the plan shows their commands and installs them at user scope after a yes', (t) => {
+  const home = makeHome(t);
+  const claude = fakeClaude(home);
+  const root = makeRepository(t, 'skilled');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  const question = result.stdout.indexOf(PLAN_QUESTION);
+  for (const args of [MATT_POCOCK_INSTALL, PONYTAIL_MARKETPLACE, PONYTAIL_INSTALL]) {
+    const shown = result.stdout.indexOf(`claude ${args.join(' ')}`);
+    assert.ok(shown >= 0 && shown < question, `${args.join(' ')}\n${result.stdout}`);
+    assert.ok(result.stdout.slice(question).includes(`ran${' '.repeat(7)}claude ${args.join(' ')}`), `${args.join(' ')}\n${result.stdout}`);
+  }
+  assert.deepEqual(skillPluginCalls(claude()), [MATT_POCOCK_INSTALL, PONYTAIL_MARKETPLACE, PONYTAIL_INSTALL]);
+  // Claude Code is asked for its plugins once, for the binnacle plugin and the skill plugins alike.
+  assert.equal(claude().filter((call) => call[1] === 'list').length, 1);
+  assert.deepEqual(readManifest(root).manifest.capabilities, { matt_pocock_skills: true, ponytail: true });
+  assert.equal(git(root, 'status', '--porcelain'), '?? .binnacle/\n?? .mcp.json\n');
+});
+
+test('the skill plugins: one Claude Code already lists is reported, and nothing is installed for it', (t) => {
+  const home = makeHome(t);
+  const claude = fakeClaude(home, ['ponytail@ponytail', 'mattpocock-skills@somewhere-else']);
+  const root = makeRepository(t, 'skills-listed');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(skillPluginCalls(claude()), []);
+  assert.match(result.stdout, /found\s+Ponytail: Claude Code lists ponytail@ponytail/);
+  assert.match(result.stdout, /found\s+Matt Pocock Skills: Claude Code lists mattpocock-skills@somewhere-else/);
+  assert.deepEqual(readManifest(root).manifest.capabilities, { matt_pocock_skills: true, ponytail: true });
+});
+
+test('the skill plugins: one the manifest declares false is not proposed', (t) => {
+  const home = makeHome(t);
+  const claude = fakeClaude(home);
+  const root = makeRepository(t, 'skills-false', { '.binnacle/project.yaml': 'version: 1\nproject:\n  id: skills-false\ncapabilities:\n  ponytail: false\n' });
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(skillPluginCalls(claude()), [MATT_POCOCK_INSTALL]);
+  assert.doesNotMatch(result.stdout, /ponytail@ponytail/);
+  assert.match(result.stdout, /skipped\s+Ponytail: \.binnacle\/project\.yaml declares it false/);
+});
+
+test('the skill plugins: for Codex, opencode or VS Code detected, the Summary names where each skill set is had', (t) => {
+  const home = makeHome(t);
+  for (const name of ['codex', 'opencode', 'code']) installExecutable(home, name);
+  const root = makeRepository(t, 'skills-elsewhere', { '.binnacle/project.yaml': 'version: 1\nproject:\n  id: skills-elsewhere\ncapabilities:\n  matt_pocock_skills: false\n' });
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  const summary = result.stdout.slice(result.stdout.indexOf('Summary:'));
+  assert.match(summary, /printed\s+Ponytail for Codex, opencode and VS Code: [^\n]*github\.com\/DietrichGebert\/ponytail/);
+  // Declared false, it is not pointed at either.
+  assert.doesNotMatch(summary, /Matt Pocock Skills for/);
+});
+
+test('the skill plugins: without Claude Code detected nothing is installed, and the Summary says why', (t) => {
+  const home = makeHome(t);
+  installExecutable(home, 'codex');
+  const root = makeRepository(t, 'skills-no-claude');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(result.stdout, /plugin install/);
+  const summary = result.stdout.slice(result.stdout.indexOf('Summary:'));
+  assert.match(summary, /skipped\s+Matt Pocock Skills: a Claude Code plugin, and Claude Code is not detected/);
+  assert.match(summary, /skipped\s+Ponytail: a Claude Code plugin, and Claude Code is not detected/);
+  assert.match(summary, /printed\s+Matt Pocock Skills for Codex: [^\n]*github\.com\/mattpocock\/skills/);
+  assert.equal(readManifest(root).manifest.capabilities.ponytail, undefined);
 });

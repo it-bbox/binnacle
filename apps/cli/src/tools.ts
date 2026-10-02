@@ -26,6 +26,12 @@ export type Tool = {
    * `prerequisite`: an executable the server runs through, needed even when the tool itself is found.
    */
   server?: { command(harness: string, root: string): string[]; project?: boolean; prerequisite?: Prerequisite };
+  /**
+   * Its Claude Code plugin, installed through Claude Code's plugin CLI at user scope: `id` as
+   * `claude plugin list` names it, the `marketplace` to add first where it is not in Claude
+   * Code's official one, and `elsewhere`, where a harness without that channel gets it.
+   */
+  plugin?: { id: string; marketplace?: string; elsewhere: string };
 };
 
 type Prerequisite = { executable: string; how: string };
@@ -70,6 +76,19 @@ export const TOOLS: Tool[] = [
   },
   { name: 'context7', title: 'Context7', files: [], prerequisite: NPM, server: { command: () => ['npx', '-y', '@upstash/context7-mcp'] } },
   { name: 'ast_grep', title: 'ast-grep', files: [], executable: 'ast-grep', prerequisite: NPM, install: ['npm', 'i', '@ast-grep/cli', '-g'] },
+  // From each plugin's README, read on 2026-10-02: Matt Pocock Skills is in Claude Code's official marketplace, Ponytail is its own.
+  {
+    name: 'matt_pocock_skills',
+    title: 'Matt Pocock Skills',
+    files: [],
+    plugin: { id: 'mattpocock-skills@claude-plugins-official', elsewhere: '`npx skills@latest add mattpocock/skills` (https://github.com/mattpocock/skills)' },
+  },
+  {
+    name: 'ponytail',
+    title: 'Ponytail',
+    files: [],
+    plugin: { id: 'ponytail@ponytail', marketplace: 'DietrichGebert/ponytail', elsewhere: 'the install for each harness at https://github.com/DietrichGebert/ponytail#install' },
+  },
 ];
 
 /** What the manifest declares under `capabilities`; nothing when there is no usable manifest. */

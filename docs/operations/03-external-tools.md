@@ -12,7 +12,18 @@ This document describes **recommended integrations**, not dependencies that must
 | Graphify | `graphify` on `PATH` | `uv` | `uv tool install graphifyy` |
 | ast-grep | `ast-grep` on `PATH` (never `sg`) | `npm` | `npm i @ast-grep/cli -g` |
 
-A tool already on `PATH` is reported as found and left alone. A tool the manifest declares `false` under `capabilities` is not proposed. A missing prerequisite is named with the command that installs it, and the tools that need it are left out of the plan: init never installs `uv` and never runs an installer script. Each install is reported in the Summary, and one that fails does not stop the rest. A manifest init creates declares `true` under `capabilities` for each tool it installs or finds. The table is `apps/cli/src/tools.ts`, which `binn audit` reads too; the skill plugins come with the next tickets of epic 8.
+A tool already on `PATH` is reported as found and left alone. A tool the manifest declares `false` under `capabilities` is not proposed. A missing prerequisite is named with the command that installs it, and the tools that need it are left out of the plan: init never installs `uv` and never runs an installer script. Each install is reported in the Summary, and one that fails does not stop the rest. A manifest init creates declares `true` under `capabilities` for each tool it installs or finds. The table is `apps/cli/src/tools.ts`, which `binn audit` reads too.
+
+### The skill plugins it installs
+
+Matt Pocock Skills and Ponytail ship as Claude Code plugins. Init installs them through Claude Code's plugin CLI, at user scope, outside the repository, as it installs the `binnacle` plugin, in the same plan:
+
+| Skill set | Capability | Detected by | Install commands | Elsewhere |
+| --- | --- | --- | --- | --- |
+| Matt Pocock Skills | `matt_pocock_skills` | `claude plugin list --json` lists `mattpocock-skills@…` | `claude plugin install mattpocock-skills@claude-plugins-official --scope user` (Claude Code's official marketplace, nothing to add first) | `npx skills@latest add mattpocock/skills` |
+| Ponytail | `ponytail` | `claude plugin list --json` lists `ponytail@…` | `claude plugin marketplace add DietrichGebert/ponytail --scope user`, then `claude plugin install ponytail@ponytail --scope user` | the install for each harness in https://github.com/DietrichGebert/ponytail#install |
+
+Claude Code is asked for its plugins once, for these and the `binnacle` plugin. A plugin it already lists, from any marketplace, is reported as found and left alone. A skill set declared `false` under `capabilities` is not proposed. Without Claude Code detected, or without `claude` on `PATH`, nothing is installed and the Summary says why. For each other harness detected — Codex, opencode, VS Code — the Summary names where each skill set is had: init installs them into Claude Code only. A manifest init creates declares `true` for a skill set it installs or finds. This does not replace `/setup-matt-pocock-skills`, which init still names when the project has no Matt Pocock layout.
 
 ### The MCP servers it registers
 
