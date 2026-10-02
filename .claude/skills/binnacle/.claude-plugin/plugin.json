@@ -1,4 +1,4 @@
 {
   "name": "binnacle",
-  "description": "Binnacle's actions: product, daily, task, checkpoint and autopilot, driven through the binnacle MCP server, and audit, daemon and register, which run the binn audit, binn daemon and binn project register commands and need no daemon to be started; registering needs a running daemon, and register says so."
+  "description": "Binnacle's actions: product, daily, task, status, checkpoint and autopilot, driven through the binnacle MCP server, and audit, daemon and register, which run the binn audit, binn daemon and binn project register commands and need no daemon to be started; registering needs a running daemon, and register says so."
 }

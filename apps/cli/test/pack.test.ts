@@ -30,7 +30,7 @@ test('the packed CLI carries the binnacle plugin, every file of its source, and 
   assert.ok(source.includes(join('.claude-plugin', 'plugin.json')));
   assert.deepEqual(
     source.filter((path) => path.endsWith('SKILL.md')),
-    ['audit', 'autopilot', 'checkpoint', 'daemon', 'daily', 'product', 'register', 'task'].map((skill) => join('skills', skill, 'SKILL.md')),
+    ['audit', 'autopilot', 'checkpoint', 'daemon', 'daily', 'product', 'register', 'status', 'task'].map((skill) => join('skills', skill, 'SKILL.md')),
   );
   for (const path of source) {
     assert.equal(readFileSync(join(packed, 'plugin', path), 'utf8'), readFileSync(join(PLUGIN_SOURCE, path), 'utf8'), path);
@@ -87,9 +87,21 @@ test('/binnacle:daemon and /binnacle:register run binn, are started by a human o
 
 /** Where the daemon is down or the project unregistered, the fix is one skill away. */
 test('every daemon-dependent skill names /binnacle:daemon start and /binnacle:register beside the binn command', () => {
-  for (const name of ['product', 'daily', 'task', 'checkpoint', 'autopilot']) {
+  for (const name of ['product', 'daily', 'task', 'status', 'checkpoint', 'autopilot']) {
     const skill = skillText(name);
     assert.match(skill, /`daemon\.unreachable`: `\/binnacle:daemon start`, or `binn daemon start`/, name);
     assert.match(skill, /`project\.not_registered`: `\/binnacle:register`, or `binn project register`/, name);
   }
+});
+
+/** Epic 9: the baseline's /status, over project_status alone, short, and never just failing. */
+test('/binnacle:status calls project_status and nothing else, says a linked worktree plainly and shows diagnostics', () => {
+  const skill = skillText('status');
+  assert.match(skill, /^disable-model-invocation: true$/m);
+  assert.match(skill, /Call the `binnacle` MCP server's `project_status` tool once/);
+  assert.match(skill, /no Binnacle call other than `project_status`/);
+  assert.match(skill, /`registered` is false/);
+  assert.match(skill, /a linked worktree, not the registered checkout/);
+  assert.match(skill, /\*\*Diagnostics\*\*: every item with its code/);
+  assert.match(skill, /leave them to `\/binnacle:product`/);
 });
