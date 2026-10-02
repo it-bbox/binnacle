@@ -2,7 +2,7 @@ import { accessSync, constants, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { type ProjectManifest } from '@binnacle/core';
-import { readManifest } from '@binnacle/daemon';
+import { GRAPH_DIRECTORY, readManifest } from '@binnacle/daemon';
 
 /**
  * The Standard setup's tools (ADR-0035), as `binn init` and `binn audit` both read them.
@@ -43,9 +43,6 @@ const SERENA_CONTEXT: Record<string, string[]> = {
   code: ['--context=vscode'],
 };
 
-/** Graphify's output directory, relative to the project root. */
-export const GRAPHIFY_OUT = 'graphify-out';
-
 export const TOOLS: Tool[] = [
   {
     name: 'serena',
@@ -66,7 +63,7 @@ export const TOOLS: Tool[] = [
     // Its server needs the `mcp` extra, which the installed tool lacks; `uv run` provides it, outside any project's Python environment.
     server: {
       project: true,
-      command: (_harness, root) => ['uv', 'run', '--no-project', '--with', 'graphifyy[mcp]', 'python', '-m', 'graphify.serve', join(root, GRAPHIFY_OUT, 'graph.json')],
+      command: (_harness, root) => ['uv', 'run', '--no-project', '--with', 'graphifyy[mcp]', 'python', '-m', 'graphify.serve', join(root, GRAPH_DIRECTORY, 'graph.json')],
     },
   },
   { name: 'context7', title: 'Context7', files: [], prerequisite: NPM, server: { command: () => ['npx', '-y', '@upstash/context7-mcp'] } },

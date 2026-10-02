@@ -29,3 +29,4 @@ export { readTracker } from './snapshot.ts';
 export { containingEntry } from './registry.ts';
 export { claudeCodeSessions, codexSessions, DEFAULT_WINDOW_DAYS, projectCheckouts } from './usage.ts';
 export { packageVersion } from './version.ts';
+export { GRAPH_DIRECTORY } from './graph.ts';
