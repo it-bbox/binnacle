@@ -4,7 +4,7 @@ import { MANIFEST_RELATIVE, resolveGitTimeout, trackerToken } from '@binnacle/da
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { scratch, structure } from './audit-files.ts';
-import { EXIT,type ExitCode } from './exit.ts';
+import { EXIT, type ExitCode } from './exit.ts';
 import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, MATT_POCOCK_FILES, mattPocockFiles, specSlugs } from './layout.ts';
 
 type Repository = Extract<GitFacts, { available: true }>;

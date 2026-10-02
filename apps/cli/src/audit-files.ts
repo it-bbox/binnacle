@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import type { Finding } from '@binnacle/core';
+import { resolveGitTimeout } from '@binnacle/daemon';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 
@@ -22,7 +23,7 @@ function files(dir: string, prefix = '', depth = 6): string[] {
  * has no namesake under `docs/specs/`: it is then the only copy of something that belongs in Git (ADR-0005, ADR-0017).
  * ponytail: a namesake counts as the copy, its content is not compared.
  */
-const DURABLE = /(spec|ticket|issue|prd)/i;
+const DURABLE = /(^|[/\-_.])(specs?|tickets?|issues?|prd)([/\-_.]|$)/i;
 
 export function scratch(root: string): Finding[] {
   const area = 'scratch';
@@ -30,7 +31,7 @@ export function scratch(root: string): Finding[] {
   const found: Finding[] = [{ code: 'scratch.exists', area, status: 'ok', reason: '.scratch exists.' }];
 
   // A path inside it, so that the answer holds whether the rule names the directory or its contents.
-  const ignored = spawnSync('git', ['check-ignore', '-q', '--', '.scratch/probe'], { cwd: root }).status === 0;
+  const ignored = spawnSync('git', ['check-ignore', '-q', '--', '.scratch/probe'], { cwd: root, timeout: resolveGitTimeout() }).status === 0;
   found.push(
     ignored
       ? { code: 'scratch.ignored', area, status: 'ok', reason: 'Git ignores .scratch.' }

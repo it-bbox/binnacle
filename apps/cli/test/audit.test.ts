@@ -272,6 +272,9 @@ test('binn audit: a .scratch holding the only copy of a spec or a ticket is a ga
   assert.match(gap.reason, /\.scratch\/audit\/spec\.md/);
   assert.doesNotMatch(gap.reason, /01-first|run\.log/);
   assert.match(gap.recommendation!, /docs\/specs\/<slug>\//);
+  const words = fixture(t);
+  write(words, { '.gitignore': '.scratch/\n', '.scratch/inspect-notes.md': 'x\n', '.scratch/respect.md': 'x\n' });
+  assert.equal(finding(words, t, 'scratch.durable').status, 'ok');
 });
 
 test('binn audit: tests, CI and the shape of the project are read from files, and a bare repository has gaps', (t) => {
