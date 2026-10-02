@@ -43,3 +43,12 @@ test('the packed CLI carries the binnacle plugin, every file of its source, and 
   );
   assert.equal(JSON.parse(readFileSync(join(packed, 'plugin', '.claude-plugin', 'plugin.json'), 'utf8')).name, 'binnacle');
 });
+
+/** The baseline's rule, held by the one process that starts agents in parallel (ticket 07 of epic 8). */
+test('autopilot starts a second ticket only for a low pair, and says when the risk was not assessed', () => {
+  const skill = readFileSync(join(PLUGIN_SOURCE, 'skills', 'autopilot', 'SKILL.md'), 'utf8');
+  assert.match(skill, /`tasks\.parallel\.impact`/);
+  assert.match(skill, /only when the pair's `risk` is `low`/);
+  assert.match(skill, /`medium`, `high` or `unknown`/);
+  assert.match(skill, /risk was not assessed/);
+});

@@ -50,7 +50,7 @@ Initial user-facing actions:
 - `/status` — concise project/session/run status;
 - `/checkpoint` — extract durable delta and propose persistence;
 - `/audit [path]` — run `binn audit --json` on the current repository or a path and show its findings in the chat;
-- `/autopilot` — finish one planned epic with an agent per ticket; started only by a human (ADR-0022). A ticket triaged `ready-for-human` is the owner's: autopilot starts no agent for it and lists it under *Waiting for the owner*.
+- `/autopilot` — finish one planned epic with an agent per ticket; started only by a human (ADR-0022). A ticket triaged `ready-for-human` is the owner's: autopilot starts no agent for it and lists it under *Waiting for the owner*. Only tickets at low conflict risk run side by side: before starting a ticket beside one in flight, it reads `tasks.parallel.impact` from the snapshot and starts it only when the pair is `low`; a `medium`, `high` or `unknown` pair runs one after the other, and it says which pair and why; with `impact` not available, the parallel limit alone decides, and it says the risk was not assessed.
 
 Actual command syntax may differ across Claude Code, Codex, Gemini and other clients. The logical action remains the same.
 
