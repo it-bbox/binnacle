@@ -12,6 +12,8 @@ import {
   DEFAULT_WINDOW_DAYS,
   GRAPH_DIRECTORY,
   GRAPH_EXTRACT,
+  GRAPH_FILE,
+  GRAPH_RUN_TIMEOUT_MS,
   isAlive,
   MANIFEST_RELATIVE,
   OperationError,
@@ -874,8 +876,9 @@ function serversStep(session: Session, tools: ToolState[], harnesses: Harness[])
 async function graphStep(session: Session, tools: ToolState[]): Promise<void> {
   const { state } = tools.find(({ tool }) => tool.name === 'graphify')!;
   if (state !== 'found' && state !== 'install') return;
-  const ignored = (): Promise<boolean | null> => isIgnored(session.root, `${GRAPH_DIRECTORY}/graph.json`, resolveGitTimeout());
-  if (await ignored()) session.say(`Git already ignores ${GRAPH_DIRECTORY}/, Graphify's output directory, so .gitignore is left as it is.`);
+  // Asked again before the build, so a fresh answer each time.
+  const isGraphIgnored = (): Promise<boolean | null> => isIgnored(session.root, GRAPH_FILE, resolveGitTimeout());
+  if (await isGraphIgnored()) session.say(`Git already ignores ${GRAPH_DIRECTORY}/, Graphify's output directory, so .gitignore is left as it is.`);
   else planFile(session, '.gitignore', `${GRAPH_DIRECTORY}/\n`);
 
   const shown = `graphify ${GRAPH_EXTRACT.join(' ')}`;
@@ -886,10 +889,12 @@ async function graphStep(session: Session, tools: ToolState[]): Promise<void> {
     declined: 'build the first graph',
     async apply() {
       // The append above failed: Graphify would leave untracked files in the repository (ADR-0036).
-      if ((await ignored()) === false) return record(session, 'skipped', `the first graph: Git does not ignore ${GRAPH_DIRECTORY}/`);
+      if ((await isGraphIgnored()) === false) return record(session, 'skipped', `the first graph: Git does not ignore ${GRAPH_DIRECTORY}/`);
+      // Its install in this plan failed, or put it in a directory that is not on PATH.
+      if (!onPath('graphify')) return record(session, 'skipped', 'the first graph: graphify is not on PATH. The Binnacle daemon builds the graph once it is.');
       session.say(`Running ${shown}...`);
-      // Its progress is shown as it comes; stderr is kept for a failure's reason, and shown after.
-      const run = spawnSync('graphify', GRAPH_EXTRACT, { cwd: session.root, encoding: 'utf8', stdio: ['ignore', 'inherit', 'pipe'] });
+      // Its progress is shown as it comes; stderr is kept for a failure's reason, and shown after. The daemon's ceiling for one run.
+      const run = spawnSync('graphify', GRAPH_EXTRACT, { cwd: session.root, encoding: 'utf8', stdio: ['ignore', 'inherit', 'pipe'], timeout: GRAPH_RUN_TIMEOUT_MS });
       if (run.stderr) process.stderr.write(run.stderr);
       if (run.status === 0) return record(session, 'ran', shown);
       const reason = run.error?.message || run.stderr?.trim().split('\n').at(-1)?.trim() || `graphify exited with code ${run.status}`;

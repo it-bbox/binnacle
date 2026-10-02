@@ -51,7 +51,7 @@ Last in the same plan, init builds the project's first graph, so that a project 
 1. `graphify-out/`, Graphify's output directory, is appended to `.gitignore` (or `.gitignore` is created with it), under ADR-0026's append rule, unless Git already ignores `graphify-out/graph.json`; then `.gitignore` is not touched.
 2. `graphify extract . --code-only` runs in the repository root: Graphify's code-only extraction, local syntax trees, which needs no API key and calls no model (ADR-0012). It is the same command the daemon runs.
 
-Both are in the plan only when Graphify is on `PATH` or installed by the same plan, and `capabilities.graphify` is not `false`; Graphify left out for a missing `uv` gets neither. The build does not run if Git still does not ignore `graphify-out/` at that point. A failed build is reported in the Summary with the last line Graphify wrote to stderr, and the rest of the plan has run; the daemon builds the graph at a later poll once the project is registered and `graphify` runs (*Graphify*, below).
+Both are in the plan only when Graphify is on `PATH` or installed by the same plan, and `capabilities.graphify` is not `false`; Graphify left out for a missing `uv` gets neither. The build is skipped, and the Summary says why, if Git still does not ignore `graphify-out/` at that point, or if `graphify` is not on `PATH`, because its install failed or put it in a directory that is not. It is stopped after the daemon's ten-minute ceiling for one run. A failed build is reported in the Summary with the last line Graphify wrote to stderr, and the rest of the plan has run; the daemon builds the graph at a later poll once the project is registered and `graphify` runs (*Graphify*, below).
 
 ## Node / pnpm
 

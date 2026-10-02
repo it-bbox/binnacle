@@ -1408,13 +1408,14 @@ test('the skill plugins: without Claude Code detected nothing is installed, and 
  * `installed`, and otherwise only once `uv tool install graphifyy` has run. It exits with
  * `exitCode`, saying `reason` on stderr.
  */
-function fakeGraphify(home: Home, { installed = false, exitCode = 0, reason = '' } = {}): () => string[] {
+function fakeGraphify(home: Home, { installed = false, exitCode = 0, reason = '', installFails = false } = {}): () => string[] {
   const log = join(home.home, 'graph-calls');
   const graphify = join(home.home, 'graphify');
   const logged = (name: string): string => `#!/bin/sh\necho "${name} $PWD $*" >> '${log}'\n`;
   writeFileSync(graphify, `${logged('graphify')}${reason ? `echo '${reason}' >&2\n` : ''}exit ${exitCode}\n`, { mode: 0o755 });
   // An absolute cp: the PATH the fakes run with holds nothing but git and themselves.
-  writeFileSync(join(home.bin, 'uv'), `${logged('uv')}if [ "$*" = "tool install graphifyy" ]; then /bin/cp '${graphify}' '${home.bin}/'; fi\n`, { mode: 0o755 });
+  const install = installFails ? 'exit 1\n' : `if [ "$*" = "tool install graphifyy" ]; then /bin/cp '${graphify}' '${home.bin}/'; fi\n`;
+  writeFileSync(join(home.bin, 'uv'), `${logged('uv')}${install}`, { mode: 0o755 });
   if (installed) writeFileSync(join(home.bin, 'graphify'), readFileSync(graphify), { mode: 0o755 });
   return () => (existsSync(log) ? readFileSync(log, 'utf8').trimEnd().split('\n') : []);
 }
@@ -1477,6 +1478,20 @@ test('the first graph: a failing build is reported in the Summary with its reaso
   assert.match(summary, /ran\s+npm i @ast-grep\/cli -g/);
   assert.deepEqual(npm(), [AST_GREP]);
   assert.deepEqual(graphCalls(calls()), [`graphify ${root} ${EXTRACT}`]);
+});
+
+test('the first graph: a failed install of Graphify skips the build, and says why', (t) => {
+  const home = makeHome(t);
+  const calls = fakeGraphify(home, { installFails: true });
+  const root = makeRepository(t, 'graph-not-installed');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  const summary = result.stdout.slice(result.stdout.indexOf('Summary:'));
+  assert.match(summary, /failed\s+uv tool install graphifyy/);
+  assert.match(summary, /skipped\s+the first graph: graphify is not on PATH/);
+  assert.deepEqual(graphCalls(calls()), [`uv ${root} tool install graphifyy`]);
 });
 
 test('the first graph: Graphify declared false, or left out for a missing uv, means no .gitignore line and no build', (t) => {

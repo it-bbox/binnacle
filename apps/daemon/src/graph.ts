@@ -37,7 +37,7 @@ export const GRAPH_RUN_TIMEOUT_MS = 10 * 60_000;
 export const GRAPH_EXTRACT = ['extract', '.', '--code-only'];
 const BUILT = 'graph.built';
 const FAILED = 'graph.failed';
-const GRAPH_FILE = `${GRAPH_DIRECTORY}/graph.json`;
+export const GRAPH_FILE = `${GRAPH_DIRECTORY}/graph.json`;
 
 export type GraphSection = {
   /** Whether there is a graph an agent can use; `reason` says why not. */
