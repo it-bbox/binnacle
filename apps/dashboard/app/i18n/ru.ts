@@ -158,8 +158,7 @@ export const ru: Dictionary = {
   behindUnknown: 'коммит основной ветки не прочитать',
   lastRun: 'Последний запуск',
   noRunYet: 'ещё не было',
-  runBuilt: 'построен',
-  runFailed: 'не удался',
+  runOutcomes: { built: 'построен', failed: 'не удался' },
 
   // Страница Task.
   noTaskAddress: 'В адресе не указан Task. Откройте его со страницы проекта.',

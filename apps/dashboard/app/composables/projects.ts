@@ -132,8 +132,7 @@ export function initials(project: ProjectRow): string {
 /** The roadmap's first epic not done: the current one. */
 export const currentEpic = (snapshot: Snapshot): Epic | null => snapshot.roadmap?.epics.find((epic) => epic.status !== 'done') ?? null;
 
-/** For a section that carries `available` only when it is not; `impact` and `graph` carry it always, and are read by its value. */
-export const isUnavailable =(section: object): section is Unavailable => 'available' in section;
+export const isUnavailable = (section: object): section is Unavailable => 'available' in section && section.available === false;
 
 /** The registered checkout's Git state in one line: its head, commit, and whether it is clean. */
 export function gitLine(git: GitFacts, t: Dictionary): string {

@@ -93,7 +93,7 @@ const parallel = computed((): string | null => {
 /** A pair's risk badge: the higher the risk, the louder; unknown is never shown as low. */
 const RISK_COLORS = { high: 'error', medium: 'warning', low: 'success', unknown: 'neutral' } as const satisfies Record<ConflictRisk, string>;
 
-const lastActivity =(timestamp: string): string => secondsAgo((Date.now() - Date.parse(timestamp)) / 1000);
+const lastActivity = (timestamp: string): string => secondsAgo((Date.now() - Date.parse(timestamp)) / 1000);
 
 /** Output tokens as the line shows them: none recorded, not reported, or the total, marked when partial. */
 function outputTokens(totals: Totals): string {
@@ -236,12 +236,12 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
               <UIcon name="i-lucide-split" class="size-3.5" />
               {{ parallel }}
             </div>
-            <div class="flex flex-col gap-1.5 border-b border-default px-3.5 py-2.5 text-xs">
+            <div v-if="!snapshot.tasks.parallel.impact.available || snapshot.tasks.parallel.impact.tasks.length > 0" class="flex flex-col gap-1.5 border-b border-default px-3.5 py-2.5 text-xs">
               <div class="flex flex-wrap items-center gap-2">
                 <span class="font-semibold">{{ t.conflictRisk }}</span>
                 <UBadge :label="t.calculation" color="neutral" variant="outline" icon="i-lucide-calculator" size="sm" class="border-dashed" />
               </div>
-              <p v-if="!snapshot.tasks.parallel.impact.available" class="text-muted">
+              <p v-if="isUnavailable(snapshot.tasks.parallel.impact)" class="text-muted">
                 <span class="font-medium text-default">{{ t.notAvailable }}</span> · <span lang="en">{{ snapshot.tasks.parallel.impact.reason }}</span>
               </p>
               <template v-else>

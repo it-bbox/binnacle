@@ -297,7 +297,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
           <div class="text-xs">
             <span class="me-1.5 text-muted">{{ t.lastRun }}</span>
             <template v-if="snapshot.graph.lastRun">
-              <span :class="{ 'text-warning': snapshot.graph.lastRun.outcome === 'failed' }">{{ snapshot.graph.lastRun.outcome === 'built' ? t.runBuilt : t.runFailed }}</span>
+              <span :class="{ 'text-warning': snapshot.graph.lastRun.outcome === 'failed' }">{{ t.runOutcomes[snapshot.graph.lastRun.outcome] }}</span>
               · <code class="font-mono">{{ snapshot.graph.lastRun.commit.slice(0, 12) }}</code> · {{ since(snapshot.graph.lastRun.at) }}
               <div v-if="snapshot.graph.lastRun.reason !== null" lang="en" class="text-[11.5px] leading-snug text-dimmed">{{ snapshot.graph.lastRun.reason }}</div>
             </template>

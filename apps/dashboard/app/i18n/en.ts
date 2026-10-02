@@ -162,8 +162,7 @@ export const en = {
   behindUnknown: "the default branch's commit cannot be read",
   lastRun: 'Last run',
   noRunYet: 'none yet',
-  runBuilt: 'built',
-  runFailed: 'failed',
+  runOutcomes: { built: 'built', failed: 'failed' },
 
   // The Task page.
   noTaskAddress: 'This address names no Task. Open one from the Project page.',
