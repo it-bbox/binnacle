@@ -16,7 +16,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 4 | Telemetry | done | [`telemetry`](specs/telemetry/spec.md) |
 | 5 | Minimal dashboard | done | [`minimal-dashboard`](specs/minimal-dashboard/spec.md) |
 | 6 | Dashboard design and languages | done | [`dashboard-design-and-languages`](specs/dashboard-design-and-languages/spec.md) |
-| 7 | Audit and adopt | not started | — |
+| 7 | Audit and adopt | tickets | [`audit-and-adopt`](specs/audit-and-adopt/spec.md) |
 
 Epics are ordered by dependency, not by preference. Epic 1 is the foundation; epics 5 to 7 are only meaningful once 1 to 4 exist. Audit and adopt is epic 6 in the specs of epics 1 to 3, written before epic 6 was inserted on 2026-09-26.
 
@@ -26,9 +26,9 @@ Design is complete: `docs/08-open-questions.md` is resolved by ADR-0001 to ADR-0
 
 Epics 1 to 6 are done: the daemon and its store; the snapshot, daily and checkpoint over MCP, and the `binnacle` plugin with autopilot; Tasks from GitHub, GitLab or local tickets, and `binn init`; usage by model, Task and role; the read-only dashboard, `binn dashboard`, rebuilt with Nuxt UI to the mockup, in English and Russian, with a Settings page and What's next leading on the Next action and Binnacle's alternatives. The owner's second exit demonstration of epic 6, on 2026-09-27, found no defect. Binnacle writes nothing into the repository.
 
-Epic 7, Audit and adopt, is not started. Its scope is `docs/05-mvp-plan.md`, phase 6: a read-only audit of a repository, giving migration recommendations rather than fixes. The grilling is done (2026-10-02): its decisions are in `specs/audit-and-adopt/brief.md`, and `binn init`'s new way of asking is ADR-0034. What is left is `to-spec`, then `to-tickets`. Ticket 01 there, `binn init` finishing and saying what it waits on, is done.
+Epic 7, Audit and adopt, is specified and sliced into tickets 02 to 08, and ticket 01 is done. Its scope is `docs/05-mvp-plan.md`, phase 6: a read-only audit of a repository, giving migration recommendations rather than fixes. The grilling is done (2026-10-02): its decisions are in `specs/audit-and-adopt/brief.md`, and `binn init`'s new way of asking is ADR-0034. Its spec is `specs/audit-and-adopt/spec.md`. Ticket 01, `binn init` finishing and saying what it waits on, is done. Ticket 02, `binn init` showing one plan and asking once, is ready and blocks 03 and 07; tickets 04 to 06 wait on 03, and ticket 08 is the owner's exit demonstration.
 
-Next action: write the spec of epic 7, Audit and adopt, from the brief's decisions. `/mattpocock-skills:to-spec`
+Next action: implement ticket 02 of epic 7, `binn init` shows one plan and asks once. `/mattpocock-skills:implement docs/specs/audit-and-adopt/issues/02-init-shows-one-plan-and-asks-once.md`
 
 ## Later
 
