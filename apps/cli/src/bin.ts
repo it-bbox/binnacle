@@ -38,7 +38,8 @@ Usage:
   binn project status [path]      Manifest facts and live Git facts for the project containing path
   binn project unregister [path]  Remove a registration, changing nothing in the repository
 
-  binn dashboard        Open the dashboard in the default browser, already authorised
+  binn dashboard        Open the dashboard in the default browser, already authorised, and print
+                        its address without the token
   binn dashboard --print  Print the dashboard's address, with the token, without opening it
 
   binn mcp              Serve Binnacle's MCP tools on stdio for the working directory

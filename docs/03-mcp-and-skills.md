@@ -52,13 +52,14 @@ Initial user-facing actions:
 - `/audit [path]` — run `binn audit --json` on the current repository or a path and show its findings in the chat;
 - `/daemon [start|stop|status]` — run `binn daemon <action>`, `status` by default, and show what it printed, with the log tail of a failed start;
 - `/register [path]` — run `binn project register` on a path, or else on the main checkout (the first path `git worktree list` prints), saying when that is not the session's checkout;
+- `/dashboard` — run `binn dashboard`, which opens the dashboard in the browser, already authorised, and show the address it prints without its token; it never runs `binn dashboard --print`, because a skill's shell output reaches the model's provider and the token authorises the daemon's local API (ADR-0031);
 - `/autopilot` — finish one planned epic with an agent per ticket; started only by a human (ADR-0022). A ticket triaged `ready-for-human` is the owner's: autopilot starts no agent for it and lists it under *Waiting for the owner*. Only tickets at low conflict risk run side by side: before starting a ticket beside one in flight, it reads `tasks.parallel.impact` from the snapshot and starts it only when the pair is `low`; a `medium`, `high` or `unknown` pair runs one after the other, and it says which pair and why; with `impact` not available, the parallel limit alone decides, and it says the risk was not assessed.
 
 Actual command syntax may differ across Claude Code, Codex, Gemini and other clients. The logical action remains the same.
 
-In Claude Code the actions are served by a plugin named `binnacle` (ADR-0023), so each is namespaced: `/binnacle:product`, `/binnacle:daily`, `/binnacle:task`, `/binnacle:status`, `/binnacle:checkpoint`, `/binnacle:audit`, `/binnacle:daemon`, `/binnacle:register` and `/binnacle:autopilot`. Other projects get the plugin from the installed npm package (ADR-0027).
+In Claude Code the actions are served by a plugin named `binnacle` (ADR-0023), so each is namespaced: `/binnacle:product`, `/binnacle:daily`, `/binnacle:task`, `/binnacle:status`, `/binnacle:checkpoint`, `/binnacle:audit`, `/binnacle:daemon`, `/binnacle:register`, `/binnacle:dashboard` and `/binnacle:autopilot`. Other projects get the plugin from the installed npm package (ADR-0027).
 
-`/audit`, `/daemon` and `/register` need no daemon: they run `binn` in the harness's shell, not an MCP tool, so they can be started while the daemon is stopped. `/register` then fails with `binn`'s message and names `/daemon start`. Where `/product`, `/daily`, `/task`, `/status`, `/checkpoint` and `/autopilot` meet `daemon.unreachable` or `project.not_registered`, they name `/binnacle:daemon start` or `/binnacle:register` beside the `binn` command.
+`/audit`, `/daemon`, `/register` and `/dashboard` need no daemon: they run `binn` in the harness's shell, not an MCP tool, so they can be started while the daemon is stopped. `/register` and `/dashboard` then fail with `binn`'s message and name `/daemon start`. Where `/product`, `/daily`, `/task`, `/status`, `/checkpoint` and `/autopilot` meet `daemon.unreachable` or `project.not_registered`, they name `/binnacle:daemon start` or `/binnacle:register` beside the `binn` command.
 
 ## How the interface reaches a harness
 

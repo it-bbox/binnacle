@@ -58,6 +58,10 @@ It shows what is happening. Decisions are made in conversation with an agent, wh
 
 Its only action is copying a command, which the human types. Every view element below appears. One with no source yet says so and why, as the Product Snapshot does, and is never filled in (ADR-0007). Epic 5 builds these views (`specs/minimal-dashboard/spec.md`), and epic 6 rebuilds them with Nuxt UI, in English and Russian (`specs/dashboard-design-and-languages/spec.md`, ADR-0033).
 
+## Opening it
+
+`binn dashboard` opens the daemon's address in the default browser with the token in its fragment, which the page moves into the browser's storage (ADR-0031), and prints the address without the token. A skill's shell output reaches the model's provider, and the token authorises the daemon's local API, so `/binnacle:dashboard` runs `binn dashboard` and shows only that token-free address. When no browser can be opened, `binn dashboard` says to run `binn dashboard --print` at a terminal: `--print` prints the address with its token and opens nothing, for a human to open by hand or in another browser. With the daemon stopped, both give `daemon.unreachable`, and the skill names `/binnacle:daemon start`.
+
 ## The shell and its languages
 
 Every view opens in one shell. A rail holds one icon per registered project, with a dot when it has running runs or attention items, and a "+" that shows `binn project register` to copy. A sidebar holds the selected project's name and current Epic, the menu with Attention's count and Settings, and how long ago the data was read. The selected project is the address's `project` query, the first registered project without one. While the daemon does not answer, the shell says so, with `binn daemon start` to copy, and polls on until it does.

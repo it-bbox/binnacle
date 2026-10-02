@@ -30,7 +30,7 @@ test('the packed CLI carries the binnacle plugin, every file of its source, and 
   assert.ok(source.includes(join('.claude-plugin', 'plugin.json')));
   assert.deepEqual(
     source.filter((path) => path.endsWith('SKILL.md')),
-    ['audit', 'autopilot', 'checkpoint', 'daemon', 'daily', 'product', 'register', 'status', 'task'].map((skill) => join('skills', skill, 'SKILL.md')),
+    ['audit', 'autopilot', 'checkpoint', 'daemon', 'daily', 'dashboard', 'product', 'register', 'status', 'task'].map((skill) => join('skills', skill, 'SKILL.md')),
   );
   for (const path of source) {
     assert.equal(readFileSync(join(packed, 'plugin', path), 'utf8'), readFileSync(join(PLUGIN_SOURCE, path), 'utf8'), path);
@@ -105,4 +105,25 @@ test('/binnacle:status calls project_status and nothing else, says a linked work
   assert.match(skill, /a linked worktree, not the registered checkout/);
   assert.match(skill, /\*\*Diagnostics\*\*: every item with its code/);
   assert.match(skill, /leave them to `\/binnacle:product`/);
+});
+
+/** Epic 9: the dashboard from the chat, with its token kept out of the chat; a skill's shell output reaches the model's provider (ADR-0031). */
+test('/binnacle:dashboard runs binn dashboard, never --print, and never shows a token', () => {
+  const skill = skillText('dashboard');
+  assert.match(skill, /^disable-model-invocation: true$/m);
+  assert.match(skill, /needs no daemon/);
+  assert.match(skill, /Run `binn dashboard` once/);
+  assert.match(skill, /`command not found`, exit 127/);
+  assert.match(skill, /README's setup section/);
+  assert.match(skill, /give the exit code and quote what it printed on stderr/);
+  assert.match(skill, /Exit 4 means the daemon is not running/);
+  assert.match(skill, /`\/binnacle:daemon start`/);
+  assert.match(skill, /the address without its token/);
+  assert.match(skill, /Never run `binn dashboard --print`/);
+  assert.match(skill, /never show, read or ask for the token/);
+  // The skill names --print only where it forbids running it or tells the human to run it at a terminal.
+  for (const line of skill.split('\n').filter((line) => line.includes('--print'))) {
+    assert.match(line, /Never run `binn dashboard --print`|at a terminal/, line);
+  }
+  assert.doesNotMatch(skill, /#token=|token\.json|cat .*token/);
 });

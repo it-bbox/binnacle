@@ -7,7 +7,9 @@ import { reportFailure, requireToken } from './report.ts';
 /**
  * `binn dashboard`: the daemon's own address, with the token in the fragment, which never
  * reaches a server; the page moves it into the browser's storage (ADR-0031). The daemon
- * serves the page, so one that does not answer leaves nothing to open.
+ * serves the page, so one that does not answer leaves nothing to open. Opening prints the
+ * address without the token, since a skill's shell output reaches the model's provider;
+ * only `--print`, for a human at a terminal, prints it with the token.
  */
 export async function dashboard(home: string, print: boolean): Promise<ExitCode> {
   const runtime = readRuntime(home);
@@ -22,14 +24,15 @@ export async function dashboard(home: string, print: boolean): Promise<ExitCode>
     return reportFailure(error);
   }
 
-  const address = `http://${runtime.host}:${runtime.port}/#token=${token}`;
-  console.log(address);
+  const plain = `http://${runtime.host}:${runtime.port}/`;
+  const address = `${plain}#token=${token}`;
+  console.log(print ? address : plain);
   if (!print) open(address);
   return EXIT.ok;
 }
 
 /**
- * The platform's opener, detached; the address is already printed if it cannot run. On
+ * The platform's opener, detached; if it cannot run, `--print` gives the address with its token. On
  * Windows `start` takes a window title first, and the address holds nothing cmd would read.
  */
 function open(address: string): void {
@@ -38,6 +41,6 @@ function open(address: string): void {
     ? ['cmd', ['/c', 'start', '""', `"${address}"`]]
     : [process.platform === 'darwin' ? 'open' : 'xdg-open', [address]];
   const child = spawn(command, args, { detached: true, stdio: 'ignore', windowsVerbatimArguments: windows });
-  child.on('error', (error) => console.error(`binn: could not open a browser (${error.message}); open the address above.`));
+  child.on('error', (error) => console.error(`binn: could not open a browser (${error.message}); run \`binn dashboard --print\` at a terminal for the address with its token.`));
   child.unref();
 }

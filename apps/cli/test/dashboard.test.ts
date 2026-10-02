@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,8 +12,12 @@ const BINN = fileURLToPath(new URL('../src/bin.ts', import.meta.url));
 
 /** Asynchronous, so that the test daemon in this process can answer while `binn` runs. */
 function binn(home: string, ...args: string[]): Promise<{ status: number | null; stdout: string; stderr: string }> {
+  return binnWith(home, {}, ...args);
+}
+
+function binnWith(home: string, env: NodeJS.ProcessEnv, ...args: string[]): Promise<{ status: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [BINN, ...args], { env: { ...process.env, HOME: home, BINNACLE_HOME: join(home, '.binnacle') } });
+    const child = spawn(process.execPath, [BINN, ...args], { env: { ...process.env, HOME: home, BINNACLE_HOME: join(home, '.binnacle'), ...env } });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString()));
@@ -38,6 +42,51 @@ test('binn dashboard --print prints the running daemon\'s address with its token
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout, `http://127.0.0.1:${daemon.runtime.port}/#token=${daemon.token}\n`);
   assert.equal(result.stderr, '');
+});
+
+/** A PATH holding only a fake opener, under the platform's name, which writes the address it was given. */
+function fakeOpener(home: string): { path: string; opened: string } {
+  const bin = join(home, 'bin');
+  const opened = join(home, 'opened');
+  mkdirSync(bin);
+  for (const name of ['xdg-open', 'open']) {
+    writeFileSync(join(bin, name), `#!/bin/sh\nprintf '%s' "$1" > '${opened}'\n`);
+    chmodSync(join(bin, name), 0o755);
+  }
+  return { path: bin, opened };
+}
+
+async function waitForFile(path: string): Promise<string> {
+  for (let i = 0; i < 100 && !existsSync(path); i++) await new Promise((resolve) => setTimeout(resolve, 50));
+  return readFileSync(path, 'utf8');
+}
+
+/** A skill's shell output reaches the model's provider, and the token authorises the daemon's local API (ADR-0031). */
+test('binn dashboard passes the opener the address with its token, and prints it without the token', { skip: process.platform === 'win32' }, async (t) => {
+  const home = temporaryHome(t);
+  const daemon = await startTestDaemon({ home: join(home, '.binnacle') });
+  t.after(() => daemon.stop());
+  const opener = fakeOpener(home);
+
+  const result = await binnWith(home, { PATH: opener.path }, 'dashboard');
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, `http://127.0.0.1:${daemon.runtime.port}/\n`);
+  assert.doesNotMatch(result.stdout + result.stderr, /token/);
+  assert.equal(await waitForFile(opener.opened), `http://127.0.0.1:${daemon.runtime.port}/#token=${daemon.token}`);
+});
+
+test('binn dashboard with no browser to open says to run binn dashboard --print at a terminal, and shows no token', { skip: process.platform === 'win32' }, async (t) => {
+  const home = temporaryHome(t);
+  const daemon = await startTestDaemon({ home: join(home, '.binnacle') });
+  t.after(() => daemon.stop());
+  mkdirSync(join(home, 'empty'));
+
+  const result = await binnWith(home, { PATH: join(home, 'empty') }, 'dashboard');
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, `http://127.0.0.1:${daemon.runtime.port}/\n`);
+  assert.match(result.stderr, /could not open a browser/);
+  assert.match(result.stderr, /`binn dashboard --print` at a terminal/);
+  assert.ok(!(result.stdout + result.stderr).includes(daemon.token));
 });
 
 test('binn dashboard with no daemon gives daemon.unreachable and the command that starts one', async (t) => {
