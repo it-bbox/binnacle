@@ -11,6 +11,8 @@ import { test, type TestContext } from 'node:test';
 import { isAlive, readManifest, readRuntime } from '@binnacle/daemon';
 
 const BINN = fileURLToPath(new URL('../src/bin.ts', import.meta.url));
+/** Preloaded, it makes stdin read as a terminal: `binn init` writes nothing without one (ADR-0034). */
+const TERMINAL = fileURLToPath(new URL('./terminal-shim.ts', import.meta.url));
 /** The CLI package's directory: the marketplace `binn init` adds (ADR-0027). */
 const PACKAGE = dirname(dirname(BINN));
 const GIT = (process.env.PATH ?? '').split(delimiter).map((dir) => join(dir, 'git')).find(existsSync);
@@ -126,9 +128,10 @@ const envFor = (home: Home): NodeJS.ProcessEnv => ({
   XDG_CONFIG_HOME: join(home.home, '.config'),
 });
 
-function binnIn(home: Home) {
+/** `binn` run with piped input, which reads as a terminal unless `terminal` is false. */
+function binnIn(home: Home, terminal = true) {
   return (cwd: string, input: string, ...args: string[]) =>
-    spawnSync(process.execPath, [BINN, ...args], {
+    spawnSync(process.execPath, [...(terminal ? ['--import', TERMINAL] : []), BINN, ...args], {
       cwd,
       input,
       encoding: 'utf8',
@@ -139,6 +142,9 @@ function binnIn(home: Home) {
 const commits = (root: string): string => git(root, 'rev-list', '--all');
 const read = (root: string, relative: string): string => readFileSync(join(root, relative), 'utf8');
 const manifestOf = (root: string): string => read(root, '.binnacle/project.yaml');
+const windowSection = (window: string): string => `\ntelemetry:\n  import:\n    window_days: ${window}\n`;
+/** The one question about the plan, and what each of its answers writes. */
+const PLAN_QUESTION = 'Write this plan? [Y/n]';
 
 test('binn --help lists binn init', () => {
   const result = spawnSync(process.execPath, [BINN, '--help'], { encoding: 'utf8' });
@@ -163,7 +169,7 @@ test('a GitHub remote proposes the github tracker with its repository, from a su
   git(root, 'remote', 'add', 'origin', 'git@github.com:Acme/Shop-Front.git');
   const before = commits(root);
 
-  const result = binnIn(home)(join(root, 'src'), 'y\n', 'init');
+  const result = binnIn(home)(join(root, 'src'), '\n\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(
@@ -179,10 +185,11 @@ tracker:
 
 knowledge:
   context: CONTEXT.md
-`,
+${windowSection('90')}`,
   );
-  // The whole file is shown before the question.
-  assert.ok(result.stdout.includes('repository: Acme/Shop-Front'), result.stdout);
+  // The whole file is shown before the one question.
+  const shown = result.stdout.indexOf('repository: Acme/Shop-Front');
+  assert.ok(shown >= 0 && shown < result.stdout.indexOf(PLAN_QUESTION), result.stdout);
   assert.equal(existsSync(join(root, 'src', '.binnacle')), false);
 
   // No daemon: the two commands are printed, and init carries on to its summary.
@@ -200,7 +207,7 @@ test('a GitLab remote on its own host proposes gitlab with the full project path
   const root = makeRepository(t, 'billing', { 'docs/adr/ADR-0001.md': '# ADR\n' });
   git(root, 'remote', 'add', 'upstream', 'https://gitlab.example.com/platform/payments/billing.git');
 
-  const result = binnIn(home)(root, 'y\n', 'init', root);
+  const result = binnIn(home)(root, '\n\n', 'init', root);
 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(
@@ -218,7 +225,7 @@ tracker:
 knowledge:
   docs: docs
   adr: docs/adr
-`,
+${windowSection('90')}`,
   );
 });
 
@@ -231,7 +238,7 @@ test('no forge remote proposes the local tracker, only the knowledge that exists
   });
   git(root, 'remote', 'add', 'origin', 'https://git.example.org/me/notes.git');
 
-  const result = binnIn(home)(root, 'yes\n', 'init');
+  const result = binnIn(home)(root, '\nyes\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(
@@ -253,7 +260,7 @@ knowledge:
 
 workflow:
   provider: matt-pocock
-`,
+${windowSection('90')}`,
   );
 });
 
@@ -262,7 +269,7 @@ test('an existing manifest with problems is reported, left alone, and not offere
   const existing = 'version: 1\n\nproject:\n  id: kept\n\ntracker:\n  provider: jira\n';
   const root = makeRepository(t, 'kept', { '.binnacle/project.yaml': existing });
 
-  const result = binnIn(home)(root, 'y\ny\n', 'init');
+  const result = binnIn(home)(root, '\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(manifestOf(root), existing);
@@ -276,7 +283,7 @@ test('a valid existing manifest is reported with its warnings and left alone', (
   const existing = 'version: 1\nproject:\n  id: kept\nfuture_section: {}\n';
   const root = makeRepository(t, 'kept', { '.binnacle/project.yaml': existing });
 
-  const result = binnIn(home)(root, 'y\ny\n', 'init');
+  const result = binnIn(home)(root, '\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(manifestOf(root), existing);
@@ -284,7 +291,7 @@ test('a valid existing manifest is reported with its warnings and left alone', (
   assert.match(result.stdout, /future_section: unknown key/);
 });
 
-test('closed stdin is a no to every step, and writes nothing', (t) => {
+test('the end of input at the plan is a no to all of it, and writes nothing', (t) => {
   const home = makeHome(t);
   const calls = fakeClaude(home);
   installUserDirectory(home, '.codex');
@@ -314,8 +321,8 @@ test('init exits after its summary while stdin is still open, as in a terminal',
   let output = '';
   child.stdout.on('data', (chunk) => (output += chunk));
   child.stderr.on('data', (chunk) => (output += chunk));
-  // More noes than questions, and stdin is never ended.
-  child.stdin.write('n\n'.repeat(10));
+  // The default window, then a no to the plan; stdin is never ended.
+  child.stdin.write('\nn\n');
 
   const code = await Promise.race([
     new Promise((resolve) => child.on('exit', resolve)),
@@ -325,6 +332,80 @@ test('init exits after its summary while stdin is still open, as in a terminal',
   assert.match(output, /Nothing was committed/);
 });
 
+test('one question covers the whole plan: Enter writes exactly the planned files, and nothing else is asked', (t) => {
+  const home = makeHome(t);
+  fakeClaude(home);
+  installUserDirectory(home, '.codex');
+  const root = makeRepository(t, 'planned', {
+    'docs/agents/issue-tracker.md': '# Issue tracker\n',
+    '.codex/config.toml': 'model = "o3"\n',
+  });
+  const before = commits(root);
+
+  // The window answer, then Enter for the plan.
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  // Every file, and every addition, is in the plan before the question, which is asked once.
+  const question = result.stdout.indexOf(PLAN_QUESTION);
+  assert.equal(result.stdout.split(PLAN_QUESTION).length, 2, result.stdout);
+  assert.doesNotMatch(result.stdout, /\[y\/N\]/);
+  for (const heading of [
+    'Create .binnacle/project.yaml',
+    'Create .mcp.json',
+    'Append to the end of .codex/config.toml',
+    'Append to the end of docs/agents/issue-tracker.md',
+    'claude plugin install binnacle@binnacle',
+  ]) {
+    const shown = result.stdout.indexOf(heading);
+    assert.ok(shown >= 0 && shown < question, `${heading}\n${result.stdout}`);
+  }
+  assert.match(manifestOf(root), /window_days: 90/);
+  assert.ok(existsSync(join(root, '.mcp.json')));
+  assert.match(read(root, '.codex/config.toml'), /^model = "o3"\n\[mcp_servers\.binnacle\]/);
+  assert.match(read(root, 'docs/agents/issue-tracker.md'), /## Ticket header/);
+  // The fixtures are untracked, so what shows is what the plan added to them and beside them.
+  assert.equal(git(root, 'status', '--porcelain'), '?? .binnacle/\n?? .codex/\n?? .mcp.json\n?? docs/\n');
+  assert.equal(commits(root), before);
+});
+
+test('n declines the whole plan: nothing is written and nothing runs', (t) => {
+  const home = makeHome(t);
+  const calls = fakeClaude(home);
+  const root = makeRepository(t, 'declined-plan', { 'docs/agents/issue-tracker.md': '# Issue tracker\n' });
+
+  const result = binnIn(home)(root, '\nn\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /The plan was declined\. Nothing is written\./);
+  assert.match(result.stdout, /declined\s+create \.binnacle\/project\.yaml/);
+  assert.match(result.stdout, /declined\s+the binnacle plugin/);
+  assert.deepEqual(calls(), [['plugin', 'list', '--json']]);
+  // Only the untracked fixture.
+  assert.equal(git(root, 'status', '--porcelain'), '?? docs/\n');
+  assert.equal(read(root, 'docs/agents/issue-tracker.md'), '# Issue tracker\n');
+});
+
+test('with stdin not a terminal the plan is shown and nothing is written', (t) => {
+  const home = makeHome(t);
+  const calls = fakeClaude(home);
+  const root = makeRepository(t, 'piped', { 'docs/agents/issue-tracker.md': '# Issue tracker\n' });
+
+  // Answers that would accept the plan at a terminal.
+  const result = binnIn(home, false)(root, '\n\ny\ny\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(result.stdout.includes('Create .binnacle/project.yaml'), result.stdout);
+  assert.ok(result.stdout.includes('Create .mcp.json'), result.stdout);
+  assert.ok(result.stdout.includes('claude plugin install binnacle@binnacle'), result.stdout);
+  assert.doesNotMatch(result.stdout, /Write this plan/);
+  assert.match(result.stdout, /stdin is not a terminal.* Nothing is written\./);
+  assert.match(result.stdout, /declined\s+create \.binnacle\/project\.yaml/);
+  assert.deepEqual(calls(), [['plugin', 'list', '--json']]);
+  assert.equal(git(root, 'status', '--porcelain'), '?? docs/\n');
+  assert.equal(read(root, 'docs/agents/issue-tracker.md'), '# Issue tracker\n');
+});
+
 test('registration with a running daemon', async (t) => {
   const home = makeHome(t);
   const binn = binnIn(home);
@@ -332,28 +413,23 @@ test('registration with a running daemon', async (t) => {
   assert.equal(binn(root, '', 'daemon', 'start').status, 0);
   t.after(() => binn(root, '', 'daemon', 'stop'));
 
-  // A declined manifest leaves nothing to register, so registration is not asked here; the
-  // next subtest declines it on its own.
-  await t.test('declining every step writes nothing and registers nothing', () => {
-    const result = binn(root, 'n\nn\n', 'init');
+  // Registration is in the plan, outside the repository, and covered by its one confirmation.
+  await t.test('declining the plan writes nothing and registers nothing', () => {
+    const result = binn(root, '\nn\n', 'init');
     assert.equal(result.status, 0, result.stderr);
+    assert.ok(result.stdout.includes('Register the project with the running Binnacle daemon'), result.stdout);
+    assert.match(result.stdout, /declined\s+project registration/);
     assert.equal(existsSync(join(root, '.binnacle')), false);
     assert.equal(git(root, 'status', '--porcelain'), '');
     assert.match(binn(root, '', 'project', 'list').stdout, /No projects/);
   });
 
-  await t.test('declining registration skips only registration', () => {
-    const result = binn(root, 'y\n\ny\nn\n', 'init');
+  await t.test('confirming writes the manifest, then registers the project through project.register', () => {
+    const before = commits(root);
+    const result = binn(root, '\n\n', 'init');
     assert.equal(result.status, 0, result.stderr);
     assert.match(manifestOf(root), /id: tracked/);
-    assert.match(result.stdout, /declined\s+project registration/);
-    assert.match(binn(root, '', 'project', 'list').stdout, /No projects/);
-  });
-
-  await t.test('confirming registers the project through project.register', () => {
-    const before = commits(root);
-    const result = binn(root, 'y\n', 'init');
-    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /created\s+\.binnacle\/project\.yaml/);
     assert.match(result.stdout, /ran\s+project\.register/);
     const list = binn(root, '', 'project', 'list');
     assert.match(list.stdout, /tracked/);
@@ -367,15 +443,15 @@ test('the plugin: Claude Code adds the package as a marketplace and installs bin
   const calls = fakeClaude(home);
   const root = makeRepository(t, 'plugged');
 
-  // No manifest, so no registration question: the second answer declines `.mcp.json`, and the third is the plugin's.
-  const result = binnIn(home)(root, 'n\nn\ny\n', 'init');
+  // The window, then Enter for the plan, which holds the manifest, `.mcp.json` and the plugin.
+  const result = binnIn(home)(root, '\n\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
   const add = ['plugin', 'marketplace', 'add', PACKAGE, '--scope', 'user'];
   const install = ['plugin', 'install', 'binnacle@binnacle', '--scope', 'user'];
   assert.deepEqual(calls(), [['plugin', 'list', '--json'], add, install]);
   // Both commands are shown before the question, and summarised after.
-  const question = result.stdout.indexOf('Install the binnacle plugin?');
+  const question = result.stdout.indexOf(PLAN_QUESTION);
   for (const args of [add, install]) {
     const shown = result.stdout.indexOf(`claude ${args.join(' ')}`);
     assert.ok(shown >= 0 && shown < question, result.stdout);
@@ -388,7 +464,7 @@ test('the plugin: Claude Code adds the package as a marketplace and installs bin
   for (const args of [add, install]) assert.ok(result.stdout.includes(`Running claude ${args.join(' ')}...`), result.stdout);
   // Claude Code's settings files are Claude Code's to write: binn init writes none.
   assert.equal(existsSync(join(home.home, '.claude')), false);
-  assert.equal(git(root, 'status', '--porcelain'), '');
+  assert.equal(git(root, 'status', '--porcelain'), '?? .binnacle/\n?? .mcp.json\n');
 });
 
 test('the plugin: a failed marketplace add is reported, and the install is not attempted', (t) => {
@@ -396,7 +472,7 @@ test('the plugin: a failed marketplace add is reported, and the install is not a
   const calls = fakeClaude(home, [], 1);
   const root = makeRepository(t, 'unplugged');
 
-  const result = binnIn(home)(root, 'n\nn\ny\n', 'init');
+  const result = binnIn(home)(root, '\n\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(
@@ -414,7 +490,7 @@ test('the plugin: skipped and reported when Claude Code already lists it', (t) =
   const calls = fakeClaude(home, ['other@somewhere', 'binnacle@binnacle']);
   const root = makeRepository(t, 'listed');
 
-  const result = binnIn(home)(root, 'n\ny\ny\n', 'init');
+  const result = binnIn(home)(root, '\n\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(calls(), [['plugin', 'list', '--json']]);
@@ -428,19 +504,19 @@ test('the plugin: skipped and reported for a project that provides its own binna
     '.claude/skills/binnacle/.claude-plugin/plugin.json': '{ "name": "binnacle" }\n',
   });
 
-  const result = binnIn(home)(root, 'n\ny\ny\n', 'init');
+  const result = binnIn(home)(root, '\n\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(calls(), []);
   assert.match(result.stdout, /skipped\s+the binnacle plugin: the project provides its own, at \.claude\/skills\/binnacle/);
 });
 
-test('the plugin: declined runs nothing but the listing', (t) => {
+test('the plugin: a declined plan runs nothing but the listing', (t) => {
   const home = makeHome(t);
   const calls = fakeClaude(home);
   const root = makeRepository(t, 'declined');
 
-  const result = binnIn(home)(root, 'n\nn\nn\n', 'init');
+  const result = binnIn(home)(root, '\nn\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(calls(), [['plugin', 'list', '--json']]);
@@ -451,7 +527,7 @@ test('the plugin: without Claude Code detected nothing is offered and nothing ru
   const home = makeHome(t);
   const root = makeRepository(t, 'no-claude');
 
-  const result = binnIn(home)(root, 'n\ny\ny\n', 'init');
+  const result = binnIn(home)(root, '\n\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
   assert.doesNotMatch(result.stdout, /Install the binnacle plugin/);
@@ -463,8 +539,8 @@ test('the plugin: Claude Code detected by ~/.claude alone, with no claude to run
   installUserDirectory(home, '.claude');
   const root = makeRepository(t, 'no-cli');
 
-  // The second answer declines `.mcp.json`; the plugin is never asked about.
-  const result = binnIn(home)(root, 'n\nn\ny\n', 'init');
+  // The plugin is never in the plan.
+  const result = binnIn(home)(root, '\n\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
   assert.doesNotMatch(result.stdout, /Install the binnacle plugin/);
@@ -473,7 +549,7 @@ test('the plugin: Claude Code detected by ~/.claude alone, with no claude to run
 
 /** `binn init` as a subprocess that leaves this process free, so that a loopback stand-in here can answer it. */
 async function binnInit(home: Home, cwd: string, input: string, env: Record<string, string> = {}) {
-  const run = promisify(execFile)(process.execPath, [BINN, 'init'], {
+  const run = promisify(execFile)(process.execPath, ['--import', TERMINAL, BINN, 'init'], {
     cwd,
     encoding: 'utf8',
     env: { ...envFor(home), ...env },
@@ -506,8 +582,8 @@ test('the ticket-header section is appended to the issue tracker file once, and 
   const root = makeRepository(t, 'layout', { [TRACKER_FILE]: conventions, 'docs/agents/triage-labels.md': '# Triage\n' });
   const before = commits(root);
 
-  // The manifest, the default window and its addition, then the section; with no daemon, registration asks nothing.
-  const first = binnIn(home)(root, 'y\n\ny\ny\n', 'init');
+  // The default window, then Enter for the plan: the manifest and the section.
+  const first = binnIn(home)(root, '\n\n', 'init');
   assert.equal(first.status, 0, first.stderr);
   const extended = readFileSync(join(root, TRACKER_FILE), 'utf8');
   assert.ok(extended.startsWith(`${conventions}\n\n## Ticket header\n`), extended);
@@ -523,10 +599,11 @@ test('the ticket-header section is appended to the issue tracker file once, and 
   assert.ok(first.stdout.includes(section.trim()), first.stdout);
   assert.match(first.stdout, /extended\s+docs\/agents\/issue-tracker\.md/);
 
-  const second = binnIn(home)(root, 'y\ny\n', 'init');
+  // The manifest now declares its window, and the section is there: there is nothing to ask or write.
+  const second = binnIn(home)(root, '', 'init');
   assert.equal(second.status, 0, second.stderr);
   assert.equal(readFileSync(join(root, TRACKER_FILE), 'utf8'), extended);
-  assert.doesNotMatch(second.stdout, /Append to/);
+  assert.doesNotMatch(second.stdout, /Append to|Write this plan/);
   assert.match(second.stdout, /skipped\s+ticket-header section: docs\/agents\/issue-tracker\.md has it/);
   assert.equal(commits(root), before);
 });
@@ -535,7 +612,7 @@ test('without the Matt Pocock layout, init points at /setup-matt-pocock-skills a
   const home = makeHome(t);
   const root = makeRepository(t, 'plain');
 
-  const result = binnIn(home)(root, 'n\n', 'init');
+  const result = binnIn(home)(root, '\nn\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /\/setup-matt-pocock-skills/);
@@ -633,8 +710,7 @@ test('Claude Code on PATH gets a new .mcp.json, and only the detected harness is
   const root = makeRepository(t, 'harnessed');
   const before = commits(root);
 
-  // The manifest is declined; the harness step still runs.
-  const result = binnIn(home)(root, 'n\ny\n', 'init');
+  const result = binnIn(home)(root, '\n\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(read(root, '.mcp.json')), {
@@ -655,13 +731,13 @@ test('an existing .mcp.json is left untouched and the entry is printed', (t) => 
   const existing = '{\n  "mcpServers": {\n    "other": { "command": "other" }\n  }\n}\n';
   const root = makeRepository(t, 'configured', { '.mcp.json': existing });
 
-  const result = binnIn(home)(root, 'n\ny\ny\n', 'init');
+  const result = binnIn(home)(root, '\n\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(read(root, '.mcp.json'), existing);
   assert.match(result.stdout, /"binnacle": \{/);
   assert.match(result.stdout, /"command": "binn",\s+"args": \[\s+"mcp"\s+\]/);
-  assert.doesNotMatch(result.stdout, /\.mcp\.json\? \[y\/N\]/, 'an existing JSON file is never asked about');
+  assert.doesNotMatch(result.stdout, /Create \.mcp\.json|Append to the end of \.mcp\.json/, 'an existing JSON file is never in the plan');
   assert.match(result.stdout, /printed\s+the entry for \.mcp\.json/);
 });
 
@@ -670,7 +746,7 @@ test('an existing Codex configuration gets the binnacle table appended, with the
   installUserDirectory(home, '.codex');
   const root = makeRepository(t, 'codexed', { '.codex/config.toml': 'model = "o3"' });
 
-  const result = binnIn(home)(root, 'n\ny\n', 'init');
+  const result = binnIn(home)(root, '\n\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(read(root, '.codex/config.toml'), 'model = "o3"\n[mcp_servers.binnacle]\ncommand = "binn"\nargs = ["mcp"]\n');
@@ -686,7 +762,7 @@ test('a configuration that already names binnacle is skipped and reported', (t) 
   const codexToml = '[mcp_servers.binnacle]\ncommand = "binn"\n';
   const root = makeRepository(t, 'twice', { '.mcp.json': mcpJson, '.codex/config.toml': codexToml });
 
-  const result = binnIn(home)(root, 'n\ny\ny\ny\n', 'init');
+  const result = binnIn(home)(root, '\n\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(read(root, '.mcp.json'), mcpJson);
@@ -703,7 +779,7 @@ test('a Codex configuration naming binnacle as a key under [mcp_servers] is skip
   const codexToml = '[mcp_servers]\nbinnacle = { command = "binn", args = ["mcp"] }\n';
   const root = makeRepository(t, 'inline', { '.codex/config.toml': codexToml });
 
-  const result = binnIn(home)(root, 'n\ny\n', 'init');
+  const result = binnIn(home)(root, '\n\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(read(root, '.codex/config.toml'), codexToml);
@@ -718,7 +794,7 @@ test('every known harness gets its own template, and the generic snippet follows
   installExecutable(home, 'code');
   const root = makeRepository(t, 'everywhere');
 
-  const result = binnIn(home)(root, 'n\ny\ny\ny\ny\n', 'init');
+  const result = binnIn(home)(root, '\n\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
   assert.ok(existsSync(join(root, '.mcp.json')));
@@ -730,16 +806,16 @@ test('every known harness gets its own template, and the generic snippet follows
   assert.deepEqual(JSON.parse(read(root, '.vscode/mcp.json')), {
     servers: { binnacle: { type: 'stdio', command: 'binn', args: ['mcp'] } },
   });
+  assert.ok(result.stdout.includes('Create .vscode/mcp.json'), result.stdout);
   const generic = result.stdout.indexOf('any other harness');
-  assert.ok(generic > result.stdout.indexOf('Create .vscode/mcp.json'), result.stdout);
-  assert.ok(generic < result.stdout.indexOf('Summary:'), result.stdout);
+  assert.ok(generic >= 0 && generic < result.stdout.indexOf('Summary:'), result.stdout);
 });
 
 test('with no known harness, none is offered and the generic snippet is still printed', (t) => {
   const home = makeHome(t);
   const root = makeRepository(t, 'bare');
 
-  const result = binnIn(home)(root, 'n\ny\ny\n', 'init');
+  const result = binnIn(home)(root, '\nn\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /No known harness/);
@@ -780,8 +856,6 @@ const codexRollout = (cwd: string, timestamp: string): unknown[] => [
   { timestamp: '2020-01-01T12:00:00.000Z', type: 'turn_context', payload: { cwd: '/elsewhere' } },
 ];
 
-const windowSection = (window: string): string => `\ntelemetry:\n  import:\n    window_days: ${window}\n`;
-
 test("the import window step shows each harness's sessions in this repository and the date of the oldest", async (t) => {
   const home = makeHome(t);
   const roots = artifactRoots(home);
@@ -808,17 +882,16 @@ test("the import window step shows each harness's sessions in this repository an
 
   assert.match(stdout, /Claude Code: 4 sessions, the oldest from 2026-03-02/);
   assert.match(stdout, /Codex: 2 sessions, the oldest from 2026-02-01/);
-  // With no manifest there is nothing to take the answer, so nothing is asked.
-  assert.doesNotMatch(stdout, /Import window/);
-  assert.match(stdout, /skipped\s+import window: no manifest/);
+  // No answer at the end of input: the default applies, and the plan is not confirmed either.
+  assert.match(stdout, /skipped\s+import window: no answer/);
   assert.equal(git(root, 'status', '--porcelain'), '');
 });
 
 test('a new manifest is offered the window answered: 90 by default, all, or a number of days', async (t) => {
   for (const [input, window] of [
-    ['y\n\ny\n', '90'],
-    ['y\nall\ny\n', 'all'],
-    ['y\nsoon\n30\ny\n', '30'],
+    ['\n\n', '90'],
+    ['all\n\n', 'all'],
+    ['soon\n30\n\n', '30'],
   ] as const) {
     const home = makeHome(t);
     const root = makeRepository(t, 'windowed');
@@ -829,28 +902,29 @@ test('a new manifest is offered the window answered: 90 by default, all, or a nu
     assert.match(stdout, /Codex: no sessions/);
     assert.ok(manifestOf(root).endsWith(`issues: docs/specs\n${windowSection(window)}`), manifestOf(root));
     assert.equal(readManifest(root).manifest.telemetry.import.windowDays, window === 'all' ? 'all' : Number(window));
-    // The exact addition is shown before its question (ADR-0026).
+    // The window is in the manifest the plan shows, before the one question, and is not asked after it.
     const shown = stdout.indexOf(windowSection(window));
-    assert.ok(shown >= 0 && shown < stdout.indexOf('Append to .binnacle/project.yaml?'), stdout);
-    assert.match(stdout, /extended\s+\.binnacle\/project\.yaml/);
+    assert.ok(shown >= 0 && shown < stdout.indexOf(PLAN_QUESTION), stdout);
+    assert.ok(stdout.indexOf('Import window') < shown, stdout);
+    assert.match(stdout, /created\s+\.binnacle\/project\.yaml/);
     if (input.includes('soon')) assert.match(stdout, /Answer 90, a number of days, or all/);
   }
 });
 
-test('with a new manifest, end of input at the window question, or a no to its addition, writes no window', async (t) => {
+test('with a new manifest, end of input at the window question writes no window, and a no to the plan writes no manifest', async (t) => {
   const home = makeHome(t);
-  const root = makeRepository(t, 'unanswered');
+  const unanswered = makeRepository(t, 'unanswered');
 
-  const { stdout } = await binnInit(home, root, 'y\n', artifactRoots(home).env);
+  const { stdout } = await binnInit(home, unanswered, '', artifactRoots(home).env);
 
-  assert.doesNotMatch(manifestOf(root), /telemetry/);
+  assert.equal(existsSync(join(unanswered, '.binnacle')), false);
   assert.match(stdout, /skipped\s+import window: no answer, so the default of 90 days applies/);
 
   const declining = makeRepository(t, 'declining');
-  const declined = await binnInit(home, declining, 'y\nall\nn\n', artifactRoots(home).env);
+  const declined = await binnInit(home, declining, 'all\nn\n', artifactRoots(home).env);
 
-  assert.doesNotMatch(manifestOf(declining), /telemetry/);
-  assert.match(declined.stdout, /declined\s+append to \.binnacle\/project\.yaml/);
+  assert.equal(existsSync(join(declining, '.binnacle')), false);
+  assert.match(declined.stdout, /declined\s+create \.binnacle\/project\.yaml/);
 });
 
 test('with an existing manifest the window line is printed, not written, and a declared window is left alone', async (t) => {

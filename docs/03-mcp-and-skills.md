@@ -55,7 +55,7 @@ In Claude Code the actions are served by a plugin named `binnacle` (ADR-0023), s
 
 ## How the interface reaches a harness
 
-MCP is the universal path, and registering it is a config edit in a location each harness already defines — `~/.claude.json` or a project's `.mcp.json` for Claude Code, `[mcp_servers.*]` in `~/.codex/config.toml` or a trusted project's `.codex/config.toml` for Codex. `binn init` performs that registration, after confirmation (ADR-0026), from one config template per known harness — Claude Code, Codex, opencode and VS Code to start with — and prints a generic stdio snippet for any other. Supporting another harness is adding a template. This is support level 1 from ADR-0014, and it requires no adapter code.
+MCP is the universal path, and registering it is a config edit in a location each harness already defines — `~/.claude.json` or a project's `.mcp.json` for Claude Code, `[mcp_servers.*]` in `~/.codex/config.toml` or a trusted project's `.codex/config.toml` for Codex. `binn init` performs that registration as part of one plan of every write, shown whole and confirmed once (ADR-0034; Enter accepts it at a terminal, and without a terminal nothing is written), from one config template per known harness — Claude Code, Codex, opencode and VS Code to start with — and prints a generic stdio snippet for any other. Supporting another harness is adding a template. This is support level 1 from ADR-0014, and it requires no adapter code.
 
 Command wrappers are generated from a single procedure description per action, so supporting a new harness means adding an output template, not new logic. A harness with no wrapper mechanism still works: the human asks for the tool by name.
 

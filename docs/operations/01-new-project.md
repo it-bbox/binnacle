@@ -29,7 +29,7 @@ Expected responsibilities:
 - configure telemetry where supported;
 - report how much harness session history was found and how far back it goes, then ask how much to import: a number of days, 90 by default, or everything;
 - create minimal project documentation hooks/templates;
-- never overwrite existing docs without confirmation.
+- never overwrite an existing file, and extend one only by a section shown in the plan it asks to confirm once (ADR-0034).
 
 ### 4. Install/verify workflow tools
 

@@ -28,20 +28,30 @@ import { register } from './project-commands.ts';
 
 type Outcome = 'created' | 'extended' | 'printed' | 'ran' | 'checked' | 'failed' | 'declined' | 'skipped';
 
-/** What one run of `binn init` knows and has done: where it works, how it asks, and what it will summarise. */
+/** One write the plan proposes: shown in full before the one question, applied only after a yes. */
+type PlanItem = {
+  heading: string;
+  body: string;
+  /** What the Summary says when the plan is not confirmed. */
+  declined: string;
+  apply(): Promise<void> | void;
+};
+
+/** What one run of `binn init` knows and has done: where it works, how it asks, the plan it has built, and what it will summarise. */
 type Session = {
   root: string;
   /** The next line of input after `prompt`, or null at the end of input. */
   answer(prompt: string): Promise<string | null>;
-  ask(question: string): Promise<boolean>;
   say(text: string): void;
+  plan: PlanItem[];
   outcomes: { outcome: Outcome; what: string }[];
 };
 
 /**
  * `binn init [path]`: the one command that writes into a project's repository (ADR-0026).
- * Each step shows what it will do and asks, default no; the end of input is a no, or a
- * default that writes nothing, so a run without a terminal writes nothing. It never commits.
+ * It works out every write first, asking only the questions that are not about a write, shows
+ * them together as one plan and asks once (ADR-0034): Enter or `y` accepts it at a terminal,
+ * anything else declines it, and with stdin not a terminal nothing is written. It never commits.
  */
 export async function init(home: string, path?: string): Promise<ExitCode> {
   const git = await readGitFacts(resolve(path ?? process.cwd()), resolveGitTimeout());
@@ -58,33 +68,30 @@ export async function init(home: string, path?: string): Promise<ExitCode> {
     if (next.done) process.stdout.write('\n');
     return next.done ? null : next.value;
   };
-  const session: Session = {
-    root: git.root,
-    answer,
-    ask: async (question) => /^\s*y(es)?\s*$/i.test((await answer(`${question} [y/N] `)) ?? ''),
-    say: (text) => console.log(text),
-    outcomes: [],
-  };
+  const session: Session = { root: git.root, answer, say: (text) => console.log(text), plan: [], outcomes: [] };
 
   try {
-    session.say(`Setting up Binnacle in ${session.root}. Nothing is written without a yes.\n`);
-    const manifestState = await manifestStep(session, git.remotes);
+    session.say(`Setting up Binnacle in ${session.root}. Nothing is written until you have seen the whole plan and confirmed it.\n`);
+    const manifest = manifestStep(session);
     session.say('');
-    await windowStep(session, manifestState);
+    const window = await windowStep(session, manifest);
+    if (manifest === 'new') planFile(session, MANIFEST_RELATIVE, proposeManifest(session.root, git.remotes) + (window ? `\n${window}` : ''));
     session.say('');
-    await registrationStep(session, home, manifestState === 'created' || manifestState === 'valid');
+    registrationStep(session, home, manifest !== 'invalid');
     session.say('');
-    await harnessStep(session);
+    harnessStep(session);
     session.say('');
-    await pluginStep(session);
+    pluginStep(session);
     session.say('');
-    // The manifest as the steps above left it: the tracker it declares, or the one it would propose.
-    const manifest = declaredManifest(session.root);
-    await mattPocockStep(session, manifest?.tracker.provider ?? forgeRemote(git.remotes)?.provider ?? 'local');
+    // The manifest as it is now, or the tracker it would propose: the plan is not yet written.
+    mattPocockStep(session, declaredManifest(session.root)?.tracker.provider ?? forgeRemote(git.remotes)?.provider ?? 'local');
     session.say('');
     instructionsStep(session);
     session.say('');
-    await trackerStep(session, home, manifest);
+    await confirmPlan(session, process.stdin.isTTY === true);
+    session.say('');
+    // After the plan is written: the manifest it created is the one whose tracker is read.
+    await trackerStep(session, home, declaredManifest(session.root));
     session.say('');
   } finally {
     // Closed, not only its iterator ended: a terminal's stdin would otherwise keep init running after its summary.
@@ -97,60 +104,79 @@ export async function init(home: string, path?: string): Promise<ExitCode> {
   return EXIT.ok;
 }
 
+/** Shows the plan whole and asks once. Without a terminal there is no one to confirm it, so nothing is written. */
+async function confirmPlan(session: Session, terminal: boolean): Promise<void> {
+  const { plan } = session;
+  if (plan.length === 0) return session.say('There is nothing to write.');
+  session.say('The plan. Nothing is written until you confirm it:\n');
+  plan.forEach(({ heading, body }, index) => session.say(`${index + 1}. ${heading}:\n\n${body.trimEnd()}\n`));
+
+  const declineAll = (why: string): void => {
+    session.say(`${why} Nothing is written.`);
+    for (const { declined } of plan) record(session, 'declined', declined);
+  };
+  if (!terminal) return declineAll('stdin is not a terminal, so there is no one to confirm the plan.');
+  const reply = await session.answer('Write this plan? [Y/n] ');
+  // Enter or yes accepts; anything else, and the end of input, declines.
+  if (reply === null || !/^\s*(y(es)?)?\s*$/i.test(reply)) return declineAll('The plan was declined.');
+  for (const item of plan) await item.apply();
+}
+
 /**
- * The one place `binn init` writes into the repository, and the rules it writes by
+ * Where `binn init` plans its writes into the repository, and the rules it writes by
  * (ADR-0026): a missing file is created; an existing file is only ever extended by a
  * pure append at its end; an existing JSON file is never rewritten, and the entry is
  * printed instead; nothing is overwritten. `text` is the whole new file, or the addition.
- * Answers whether it wrote.
+ * The write itself waits for the plan's confirmation.
  */
-async function offerFile(session: Session, relative: string, text: string): Promise<boolean> {
+function planFile(session: Session, relative: string, text: string): void {
   const path = join(session.root, relative);
   const existing = existsSync(path) ? readFileSync(path, 'utf8') : null;
 
   if (existing === null) {
-    session.say(`Create ${relative}:\n\n${text}`);
-    if (!(await session.ask(`Create ${relative}?`))) {
-      record(session, 'declined', `create ${relative}`);
-      return false;
-    }
-    mkdirSync(dirname(path), { recursive: true });
-    // `wx`: a file that appeared since it was read is still never overwritten.
-    writeFileSync(path, text, { flag: 'wx' });
-    record(session, 'created', relative);
-    return true;
+    session.plan.push({
+      heading: `Create ${relative}`,
+      body: text,
+      declined: `create ${relative}`,
+      apply() {
+        mkdirSync(dirname(path), { recursive: true });
+        // `wx`: a file that appeared since it was read is still never overwritten.
+        writeFileSync(path, text, { flag: 'wx' });
+        record(session, 'created', relative);
+      },
+    });
+    return;
   }
 
   if (/\.jsonc?$/.test(relative)) {
     session.say(`${relative} exists, and binn init never rewrites a JSON file. Add this yourself:\n\n${text}`);
-    record(session, 'printed', `the entry for ${relative}`);
-    return false;
+    return record(session, 'printed', `the entry for ${relative}`);
   }
 
   const addition = existing === '' || existing.endsWith('\n') ? text : `\n${text}`;
-  session.say(`Append to the end of ${relative}:\n\n${addition}`);
-  if (!(await session.ask(`Append to ${relative}?`))) {
-    record(session, 'declined', `append to ${relative}`);
-    return false;
-  }
-  appendFileSync(path, addition);
-  record(session, 'extended', relative);
-  return true;
+  session.plan.push({
+    heading: `Append to the end of ${relative}`,
+    body: addition,
+    declined: `append to ${relative}`,
+    apply() {
+      appendFileSync(path, addition);
+      record(session, 'extended', relative);
+    },
+  });
 }
 
 function record(session: Session, outcome: Outcome, what: string): void {
   session.outcomes.push({ outcome, what });
 }
 
-/** The manifest after its step: created by this run, there and valid, there with problems, or not there. */
-type ManifestState = 'created' | 'valid' | 'invalid' | 'missing';
+/** The manifest: there and valid, there with problems, or not there, so that the plan creates it. */
+type ManifestState = 'new' | 'valid' | 'invalid';
 
 /**
- * Step 1: an existing manifest is validated and left alone; otherwise one is proposed from
- * facts. Registration needs a usable manifest, and the window step writes only into one
- * this run created.
+ * Step 1: an existing manifest is validated and left alone; without one, init proposes one
+ * from facts, which the plan shows. Registration needs a usable manifest.
  */
-async function manifestStep(session: Session, remotes: GitRemote[]): Promise<ManifestState> {
+function manifestStep(session: Session): ManifestState {
   try {
     const { warnings } = readManifest(session.root);
     session.say(`${MANIFEST_RELATIVE} exists and is valid. It is left as it is.`);
@@ -160,7 +186,8 @@ async function manifestStep(session: Session, remotes: GitRemote[]): Promise<Man
   } catch (error) {
     if (!(error instanceof OperationError)) throw error;
     if (error.code === 'manifest.missing') {
-      return (await offerFile(session, MANIFEST_RELATIVE, proposeManifest(session.root, remotes))) ? 'created' : 'missing';
+      session.say(`There is no ${MANIFEST_RELATIVE}. A new one is proposed in the plan.`);
+      return 'new';
     }
     session.say(`${MANIFEST_RELATIVE} exists and has problems. It is left as it is; fix it by hand.`);
     session.say(`  ${error.code}: ${error.message}`);
@@ -216,11 +243,12 @@ const scalar = (value: string): string =>
 
 /**
  * Step 2: how much session history the daemon imports, `telemetry.import.window_days`, asked
- * after showing each harness's sessions in this repository. A manifest this run created is
- * offered the answer as an addition; for an existing one the line is printed, never written
- * (ADR-0026). The end of input takes the default and writes nothing.
+ * before the plan, after showing each harness's sessions in this repository. The answer is
+ * returned as a section for a manifest the plan creates, so that the plan shows it; for an
+ * existing one the line is printed, never written (ADR-0026). The end of input takes the
+ * default and declares nothing.
  */
-async function windowStep(session: Session, manifest: ManifestState): Promise<void> {
+async function windowStep(session: Session, manifest: ManifestState): Promise<string | null> {
   const what = 'import window';
   session.say('Session history in this repository, which Binnacle imports for its usage figures:');
   for (const { name, sessions, oldest } of await sessionHistory(session.root)) {
@@ -228,44 +256,36 @@ async function windowStep(session: Session, manifest: ManifestState): Promise<vo
     session.say(`  ${name}: ${shown}`);
   }
 
-  if (manifest === 'missing') {
-    session.say(
-      `There is no ${MANIFEST_RELATIVE} to take an import window, so Binnacle imports the default of ${DEFAULT_WINDOW_DAYS} days. ` +
-        'Set telemetry.import.window_days in it to change that.',
-    );
-    return record(session, 'skipped', `${what}: no manifest`);
-  }
   const declared = manifest === 'valid' ? (declaredManifest(session.root)?.telemetry.import.windowDays ?? null) : null;
   if (declared !== null) {
     session.say(`${MANIFEST_RELATIVE} declares telemetry.import.window_days: ${declared}. It is left as it is.`);
-    return record(session, 'skipped', `${what}: ${MANIFEST_RELATIVE} declares ${declared}`);
+    record(session, 'skipped', `${what}: ${MANIFEST_RELATIVE} declares ${declared}`);
+    return null;
   }
 
   session.say(
     `How much of it should Binnacle import? ${DEFAULT_WINDOW_DAYS} days (the default), another number of days, or all. ` +
-      (manifest === 'created'
-        ? `The answer is offered as an addition to ${MANIFEST_RELATIVE}, as telemetry.import.window_days.`
+      (manifest === 'new'
+        ? `The answer goes into the new ${MANIFEST_RELATIVE} in the plan, as telemetry.import.window_days.`
         : `${MANIFEST_RELATIVE} exists, so the line to add is printed and nothing is written.`),
   );
   let window: ImportWindow | null;
   do {
     const answer = await session.answer(`Import window [${DEFAULT_WINDOW_DAYS}]: `);
     if (answer === null) {
-      session.say(`No answer: Binnacle imports the default of ${DEFAULT_WINDOW_DAYS} days, and nothing is written.`);
-      return record(session, 'skipped', `${what}: no answer, so the default of ${DEFAULT_WINDOW_DAYS} days applies`);
+      session.say(`No answer: Binnacle imports the default of ${DEFAULT_WINDOW_DAYS} days, and the manifest declares none.`);
+      record(session, 'skipped', `${what}: no answer, so the default of ${DEFAULT_WINDOW_DAYS} days applies`);
+      return null;
     }
     window = importWindow(answer);
     if (window === null) session.say(`Answer ${DEFAULT_WINDOW_DAYS}, a number of days, or all.`);
   } while (window === null);
 
   const section = `telemetry:\n  import:\n    window_days: ${window}\n`;
-  if (manifest === 'created') {
-    // Shown and confirmed like any other addition. The proposal declares no telemetry, so this is a new last section.
-    await offerFile(session, MANIFEST_RELATIVE, `\n${section}`);
-    return;
-  }
+  if (manifest === 'new') return section;
   session.say(`Add this to ${MANIFEST_RELATIVE} yourself:\n\n${section}`);
   record(session, 'printed', `the telemetry.import.window_days line for ${MANIFEST_RELATIVE}`);
+  return null;
 }
 
 /** An answer to the window question: empty for the default, `all`, or a positive number of days; null for anything else. */
@@ -356,8 +376,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 /** `YYYY-MM-DD` in local time. */
 const localDate = (time: number): string => new Date(time).toLocaleDateString('en-CA');
 
-/** Step 3: registration through `project.register`, which is a write outside the repository and asked for too. */
-async function registrationStep(session: Session, home: string, manifestUsable: boolean): Promise<void> {
+/** Step 3: registration through `project.register`, a write outside the repository, so it is in the plan too. */
+function registrationStep(session: Session, home: string, manifestUsable: boolean): void {
   const what = 'project registration';
   if (!manifestUsable) {
     session.say(`There is no usable ${MANIFEST_RELATIVE}, so the project is not registered. Once there is, run \`binn project register\` from ${session.root}.`);
@@ -370,10 +390,15 @@ async function registrationStep(session: Session, home: string, manifestUsable: 
     return record(session, 'skipped', `${what}: the daemon is not running`);
   }
 
-  session.say(`Register ${session.root} with the running Binnacle daemon, as \`binn project register\` does (project.register).`);
-  if (!(await session.ask('Register the project?'))) return record(session, 'declined', what);
-  const code = await register(home, session.root);
-  record(session, code === EXIT.ok ? 'ran' : 'failed', 'project.register');
+  session.plan.push({
+    heading: 'Register the project with the running Binnacle daemon, outside the repository',
+    body: `  binn project register   (project.register, for ${session.root})`,
+    declined: what,
+    async apply() {
+      const code = await register(home, session.root);
+      record(session, code === EXIT.ok ? 'ran' : 'failed', 'project.register');
+    },
+  });
 }
 
 /**
@@ -441,7 +466,7 @@ const HARNESSES: Harness[] = [
 ];
 
 /** Step 4: the MCP registration for each detected harness, then a generic snippet for any other. */
-async function harnessStep(session: Session): Promise<void> {
+function harnessStep(session: Session): void {
   const found = HARNESSES.map((harness) => ({ harness, reason: detect(harness) })).filter(({ reason }) => reason !== null);
   if (found.length === 0) session.say(`No known harness is installed (${HARNESSES.map(({ name }) => name).join(', ')}).\n`);
 
@@ -454,7 +479,7 @@ async function harnessStep(session: Session): Promise<void> {
       record(session, 'skipped', `${file}: it already names binnacle`);
     } else {
       if (harness.note) session.say(harness.note);
-      await offerFile(session, file, harness.entry);
+      planFile(session, file, harness.entry);
     }
     session.say('');
   }
@@ -506,7 +531,7 @@ const PACKAGE_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
  * that serves their tools (ADR-0027). Only through Claude Code's own CLI, at user scope:
  * binn init never edits Claude Code's settings files.
  */
-async function pluginStep(session: Session): Promise<void> {
+function pluginStep(session: Session): void {
   const what = 'the binnacle plugin';
   // A skills-directory plugin loads as `<directory>@skills-dir` (ADR-0023): a user-scope copy would show every skill twice.
   const own = join('.claude', 'skills', 'binnacle');
@@ -543,16 +568,20 @@ async function pluginStep(session: Session): Promise<void> {
     ['plugin', 'marketplace', 'add', PACKAGE_DIR, '--scope', 'user'],
     ['plugin', 'install', 'binnacle@binnacle', '--scope', 'user'],
   ];
-  session.say(`Install the binnacle plugin from this Binnacle package, at user scope, by running:\n\n${commands.map((args) => `  ${shown(args)}`).join('\n')}`);
-  if (!(await session.ask('Install the binnacle plugin?'))) return record(session, 'declined', what);
-
-  for (const args of commands) {
-    session.say(`Running ${shown(args)}...`);
-    // stdin stays with binn init's own questions; Claude Code's output is shown as it comes.
-    const run = spawnSync('claude', args, { cwd: session.root, stdio: ['ignore', 'inherit', 'inherit'] });
-    if (run.status !== 0) return record(session, 'failed', shown(args));
-    record(session, 'ran', shown(args));
-  }
+  session.plan.push({
+    heading: 'Install the binnacle plugin from this Binnacle package, at user scope, outside the repository, by running',
+    body: commands.map((args) => `  ${shown(args)}`).join('\n'),
+    declined: what,
+    apply() {
+      for (const args of commands) {
+        session.say(`Running ${shown(args)}...`);
+        // stdin stays with binn init's own questions; Claude Code's output is shown as it comes.
+        const run = spawnSync('claude', args, { cwd: session.root, stdio: ['ignore', 'inherit', 'inherit'] });
+        if (run.status !== 0) return record(session, 'failed', shown(args));
+        record(session, 'ran', shown(args));
+      }
+    },
+  });
 }
 
 /** The plugin ids in `claude plugin list --json` output, or null when it is not that. */
@@ -589,7 +618,7 @@ const TICKET_HEADER_HEADING = /^#{1,6}\s+Ticket header\s*$/im;
  * section is offered as an append to it. `provider` is the tracker the manifest declares, or
  * the one it would propose.
  */
-async function mattPocockStep(session: Session, provider: TrackerProvider): Promise<void> {
+function mattPocockStep(session: Session, provider: TrackerProvider): void {
   const what = 'ticket-header section';
   const found = mattPocockFiles(session.root);
   if (found.length === 0) {
@@ -608,7 +637,7 @@ async function mattPocockStep(session: Session, provider: TrackerProvider): Prom
     session.say(`${ISSUE_TRACKER} already has its ticket-header section.`);
     return record(session, 'skipped', `${what}: ${ISSUE_TRACKER} has it`);
   }
-  await offerFile(session, ISSUE_TRACKER, ticketHeaderSection(provider));
+  planFile(session, ISSUE_TRACKER, ticketHeaderSection(provider));
 }
 
 const ISSUE_NUMBERS = 'the issue numbers of the issues it waits for, such as `#12, #15`';

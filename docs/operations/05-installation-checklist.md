@@ -300,4 +300,4 @@ Tracker                           GitHub Issues
 Automation mode                   MANUAL
 ```
 
-The setup command should explain actions and require confirmation for mutations outside the repository.
+The setup command explains its actions by showing them as one plan, writes inside the repository and mutations outside it alike, and asks for one confirmation of the whole plan (ADR-0034): Enter accepts it at a terminal, `n` declines it, and without a terminal nothing is written. The questions that are not about a write, such as the history import window, are asked before the plan.
