@@ -179,7 +179,7 @@ binn init
 /product
 ```
 
-`binn audit [path]` reads the repository and prints findings, as text or with `--json`. It writes nothing and needs no daemon. `binn init` is the command that writes into the repository: it shows one plan and asks once.
+`binn audit [path]` reads the repository and prints findings, as text or with `--json`. It writes nothing and needs no daemon. In Claude Code, `/binnacle:audit [path]` runs it from the chat and shows the findings there, gaps first. `binn init` is the command that writes into the repository: it shows one plan and asks once.
 
 ## Working from another harness
 

@@ -32,7 +32,7 @@ MCP is the stable contract. Client-specific slash commands/skills are thin UX wr
 
 The snapshot's attention includes `next_action.missing`, `next_action.stale` and `review.missing`, which names each `DONE` Task on the local tracker whose ticket records no Review. The dashboard reads the same operations over the daemon's local API (ADR-0031), and adds no MCP tool.
 
-The read-only audit is not an MCP tool or a skill: it is the CLI command `binn audit [path]` (`specs/audit-and-adopt/spec.md`), which needs no daemon, so an agent runs it as a command and reads `--json`. It writes nothing; applying a recommendation is the human's, through `binn init`.
+The read-only audit is not an MCP tool: it is the CLI command `binn audit [path]` (`specs/audit-and-adopt/spec.md`), which needs no daemon, so an agent runs it as a command and reads `--json`. The skill `/audit` does exactly that and adds no tool and no daemon operation. It writes nothing; applying a recommendation is the human's, through `binn init`.
 
 No tool writes to the tracker (ADR-0013). Closing an issue is done by the agent with its own tooling, or by the human in the tracker's own interface.
 
@@ -47,11 +47,12 @@ Initial user-facing actions:
 - `/task <id>` — load a compact task brief, ending with the command that starts the Task;
 - `/status` — concise project/session/run status;
 - `/checkpoint` — extract durable delta and propose persistence;
+- `/audit [path]` — run `binn audit --json` on the current repository or a path and show its findings by area, gaps first with their recommendations, then what is `unknown` and why, then the count of `ok`; it writes nothing and needs no daemon;
 - `/autopilot` — finish one planned epic with an agent per ticket; started only by a human (ADR-0022). A ticket triaged `ready-for-human` is the owner's: autopilot starts no agent for it and lists it under *Waiting for the owner*.
 
 Actual command syntax may differ across Claude Code, Codex, Gemini and other clients. The logical action remains the same.
 
-In Claude Code the actions are served by a plugin named `binnacle` (ADR-0023), so each is namespaced: `/binnacle:product`, `/binnacle:daily`, `/binnacle:task`, `/binnacle:checkpoint` and `/binnacle:autopilot`. Other projects get the plugin from the installed npm package (ADR-0027).
+In Claude Code the actions are served by a plugin named `binnacle` (ADR-0023), so each is namespaced: `/binnacle:product`, `/binnacle:daily`, `/binnacle:task`, `/binnacle:checkpoint`, `/binnacle:audit` and `/binnacle:autopilot`. Other projects get the plugin from the installed npm package (ADR-0027).
 
 ## How the interface reaches a harness
 

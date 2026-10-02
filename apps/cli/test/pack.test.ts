@@ -27,7 +27,10 @@ test('the packed CLI carries the binnacle plugin, every file of its source, and 
     .map((entry) => join(entry.parentPath, entry.name).slice(PLUGIN_SOURCE.length + 1))
     .sort();
   assert.ok(source.includes(join('.claude-plugin', 'plugin.json')));
-  assert.ok(source.some((path) => path.startsWith('skills') && path.endsWith('SKILL.md')));
+  assert.deepEqual(
+    source.filter((path) => path.endsWith('SKILL.md')),
+    ['audit', 'autopilot', 'checkpoint', 'daily', 'product', 'task'].map((skill) => join('skills', skill, 'SKILL.md')),
+  );
   for (const path of source) {
     assert.equal(readFileSync(join(packed, 'plugin', path), 'utf8'), readFileSync(join(PLUGIN_SOURCE, path), 'utf8'), path);
   }
