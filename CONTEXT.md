@@ -86,6 +86,12 @@ A Task in flight by its state (`ACTIVE`, `BLOCKED`, `READY_FOR_REVIEW`, `APPROVE
 ### Review
 One review of a Task's work: its findings, and what was fixed or kept. It is recorded in the ticket, under a `### Review` heading.
 
+### Audit
+A read-only reading of a Git repository, run by `binn audit`, that says what is in place, what is missing and what cannot be told, and recommends the next step for each. It needs no registration, no daemon and no manifest; it writes nothing, uses no network and gives no overall score. Applying a recommendation is the human's, and `binn init` stays the only writer.
+
+### Finding
+One result of an audit: a check code, the area it belongs to, a status, the reason and, unless the status is `ok`, a recommendation. The status is `ok`; `gap`, a file or setting looked for and found absent or wrong; or `unknown`, an answer the files cannot give. The two are never mixed.
+
 ### Checkpoint
 An operation that persists only the new durable delta from the current session into canonical project sources. It is not a retelling of the whole chat. The calling session writes the delta after the human confirms it; Binnacle computes what to consider and records that the checkpoint happened, and writes nothing into the repository itself.
 

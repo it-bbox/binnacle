@@ -5,7 +5,7 @@ import { basename, delimiter, dirname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { codexSession, readGitFacts, workingTree, type GitRemote } from '@binnacle/adapters';
-import { instructionSets, remoteLocation, TASK_STATES, type ImportWindow, type ProjectManifest, type TrackerProvider } from '@binnacle/core';
+import { forgeRemote, instructionSets, TASK_STATES, type ImportWindow, type ProjectManifest, type TrackerProvider } from '@binnacle/core';
 import {
   claudeCodeSessions,
   codexSessions,
@@ -226,24 +226,6 @@ function proposeManifest(root: string, remotes: GitRemote[]): string {
   if (mattPocockFiles(root).length > 0) sections.push('workflow:\n  provider: matt-pocock');
 
   return `${sections.join('\n\n')}\n`;
-}
-
-/**
- * The first GitHub or GitLab remote, `origin` first.
- * ponytail: a forge is recognised by a `github` or `gitlab` label in the remote's host, so a
- * GitHub Enterprise or GitLab host named otherwise is proposed as `local`; the human sees the
- * proposal and can edit it. A probe of the host's API would recognise it, at a network call.
- */
-function forgeRemote(remotes: GitRemote[]): { provider: 'github' | 'gitlab'; host: string; repository: string } | null {
-  const ordered = [...remotes.filter((remote) => remote.name === 'origin'), ...remotes.filter((remote) => remote.name !== 'origin')];
-  for (const remote of ordered) {
-    const location = remoteLocation(remote.url);
-    if (!location || location.path === '') continue;
-    const labels = location.host.split('.');
-    const provider = labels.includes('github') ? 'github' : labels.includes('gitlab') ? 'gitlab' : null;
-    if (provider) return { provider, host: location.host, repository: location.path };
-  }
-  return null;
 }
 
 /** A YAML scalar: plain when that reads back as the same string, double-quoted (JSON is valid YAML) otherwise. */

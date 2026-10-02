@@ -1,3 +1,4 @@
+export { AUDIT_AREAS, type AuditArea, type Finding } from './audit.ts';
 export {
   MANIFEST_VERSION,
   validateManifest,
@@ -9,6 +10,7 @@ export {
 export {
   blockedByNumbers,
   boardColumn,
+  forgeRemote,
   branchTask,
   BRANCH_SLUG_LIMIT,
   parseTicketHeader,

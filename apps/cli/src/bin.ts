@@ -4,6 +4,7 @@ import { start, status, stop } from './daemon-commands.ts';
 import { list, register, status as projectStatus, unregister } from './project-commands.ts';
 import { EXIT, type ExitCode } from './exit.ts';
 import { dashboard } from './dashboard.ts';
+import { audit } from './audit.ts';
 import { init } from './init.ts';
 import { mcp } from './mcp.ts';
 
@@ -14,6 +15,10 @@ const USAGE = `binn — Binnacle, a local AI engineering control plane.
 Usage:
   binn init [path]      Set up the Git repository containing path (default: the working directory),
                         asking before each write; it never overwrites a file and never commits
+
+  binn audit [path] [--json]
+                        Read-only findings on the Git repository containing path: what is in place,
+                        what is missing and what cannot be told, each with a recommendation
 
   binn daemon start     Start the Binnacle daemon on loopback
   binn daemon status    Report whether a daemon is running, and where
@@ -71,6 +76,11 @@ async function run(argv: string[]): Promise<ExitCode> {
   }
 
   if (first === 'init' && rest.length === 0) return await init(resolveHome(), second);
+
+  if (first === 'audit') {
+    const args = argv.slice(1).filter((arg) => arg !== '--json');
+    if (args.length <= 1) return await audit(resolveHome(), args[0], args.length < argv.length - 1);
+  }
 
   if (first === 'mcp' && second === undefined) {
     await mcp(resolveHome(), VERSION);

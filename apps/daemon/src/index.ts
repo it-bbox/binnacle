@@ -17,6 +17,7 @@ export {
   runtimePath,
   storePath,
   tokenPath,
+  trackerToken,
   type Runtime,
 } from './home.ts';
 export { isErrorEnvelope, OperationError, type ErrorDetail, type ErrorEnvelope } from './errors.ts';

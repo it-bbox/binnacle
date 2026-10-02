@@ -47,6 +47,24 @@ export function remoteLocation(url: string): { host: string; path: string } | nu
   return match ? { host: match[1]!.toLowerCase(), path: trimSlashes(match[2]!).replace(/\.git$/, '') } : null;
 }
 
+/**
+ * The first GitHub or GitLab remote, `origin` first.
+ * ponytail: a forge is recognised by a `github` or `gitlab` label in the remote's host, so a
+ * GitHub Enterprise or GitLab host named otherwise is proposed as `local`; the human sees the
+ * proposal and can edit it. A probe of the host's API would recognise it, at a network call.
+ */
+export function forgeRemote(remotes: { name: string; url: string }[]): { provider: 'github' | 'gitlab'; host: string; repository: string } | null {
+  const ordered = [...remotes.filter((remote) => remote.name === 'origin'), ...remotes.filter((remote) => remote.name !== 'origin')];
+  for (const remote of ordered) {
+    const location = remoteLocation(remote.url);
+    if (!location || location.path === '') continue;
+    const labels = location.host.split('.');
+    const provider = labels.includes('github') ? 'github' : labels.includes('gitlab') ? 'gitlab' : null;
+    if (provider) return { provider, host: location.host, repository: location.path };
+  }
+  return null;
+}
+
 const trimSlashes = (path: string): string => path.replace(/^\/+|\/+$/g, '');
 const trimPath = (path: string): string => trimSlashes(path).toLowerCase();
 
