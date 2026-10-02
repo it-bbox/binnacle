@@ -15,6 +15,7 @@ export {
   resolveGitTimeout,
   resolvePort,
   runtimePath,
+  settingsPath,
   storePath,
   tokenPath,
   trackerToken,

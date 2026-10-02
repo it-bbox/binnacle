@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { isIgnored, readGitFacts, workingTree, type GitRemote } from '@binnacle/adapters';
@@ -10,6 +10,7 @@ import {
   credentialsKey,
   credentialsPath,
   DEFAULT_WINDOW_DAYS,
+  ensureHome,
   GRAPH_DIRECTORY,
   GRAPH_EXTRACT,
   GRAPH_FILE,
@@ -17,10 +18,12 @@ import {
   isAlive,
   MANIFEST_RELATIVE,
   OperationError,
+  OWNER_ONLY_FILE,
   readManifest,
   readTracker,
   readRuntime,
   resolveGitTimeout,
+  settingsPath,
 } from '@binnacle/daemon';
 import { EXIT, type ExitCode } from './exit.ts';
 import { sessionHistory } from './history.ts';
@@ -100,8 +103,14 @@ export async function init(home: string, path?: string): Promise<ExitCode> {
     session.say('');
     serversStep(session, tools, harnesses);
     session.say('');
-    await graphStep(session, tools);
+    const builds = await graphIgnoreStep(session, tools);
     session.say('');
+    vaultStep(session, home);
+    session.say('');
+    if (builds) {
+      graphBuildStep(session);
+      session.say('');
+    }
     await confirmPlan(session, process.stdin.isTTY === true);
     session.say('');
     // After the plan is written: the manifest it created is the one whose tracker is read.
@@ -671,7 +680,7 @@ function instructionsStep(session: Session): void {
 }
 
 /**
- * Step 11: one read of a remote tracker through its adapter, with the credentials lookup the
+ * Step 13: one read of a remote tracker through its adapter, with the credentials lookup the
  * daemon uses. On a failure it says how to make a read-only token and where to put it; it
  * never asks for, stores or prints one. `manifest` is the readable manifest, if any.
  */
@@ -866,21 +875,121 @@ function serversStep(session: Session, tools: ToolState[], harnesses: Harness[])
   }
 }
 
-/**
- * Step 10: Graphify's first graph, for Graphify found on PATH or installed by this plan, last
- * in the plan. Its output directory is appended to `.gitignore` (ADR-0026) unless Git already
- * ignores it, checked as the daemon checks it (ADR-0036); then Graphify's code-only extraction
- * runs in the repository root, which needs no API key and calls no model (ADR-0012). A failed
- * build is reported with Graphify's reason, and the daemon builds the graph at a later poll.
- */
-async function graphStep(session: Session, tools: ToolState[]): Promise<void> {
-  const { state } = tools.find(({ tool }) => tool.name === 'graphify')!;
-  if (state !== 'found' && state !== 'install') return;
-  // Asked again before the build, so a fresh answer each time.
-  const isGraphIgnored = (): Promise<boolean | null> => isIgnored(session.root, GRAPH_FILE, resolveGitTimeout());
-  if (await isGraphIgnored()) session.say(`Git already ignores ${GRAPH_DIRECTORY}/, Graphify's output directory, so .gitignore is left as it is.`);
-  else planFile(session, '.gitignore', `${GRAPH_DIRECTORY}/\n`);
+/** Whether Git ignores Graphify's output directory, asked as the daemon asks it (ADR-0036); asked again before the build, so a fresh answer each time. */
+const isGraphIgnored = (root: string): Promise<boolean | null> => isIgnored(root, GRAPH_FILE, resolveGitTimeout());
 
+/**
+ * Step 10: for Graphify found on PATH or installed by this plan, its output directory appended
+ * to `.gitignore` (ADR-0026) unless Git already ignores it. Returns whether the first graph is
+ * built, last in the plan.
+ */
+async function graphIgnoreStep(session: Session, tools: ToolState[]): Promise<boolean> {
+  const { state } = tools.find(({ tool }) => tool.name === 'graphify')!;
+  if (state !== 'found' && state !== 'install') return false;
+  if (await isGraphIgnored(session.root)) session.say(`Git already ignores ${GRAPH_DIRECTORY}/, Graphify's output directory, so .gitignore is left as it is.`);
+  else planFile(session, '.gitignore', `${GRAPH_DIRECTORY}/\n`);
+  return true;
+}
+
+/** Where Obsidian keeps its own list of vaults on this platform: on Linux, in its own configuration directory, its Flatpak's or its Snap's. */
+const OBSIDIAN_LISTS =
+  process.platform === 'darwin'
+    ? [join(homedir(), 'Library', 'Application Support', 'obsidian', 'obsidian.json')]
+    : process.platform === 'win32'
+      ? [join(homedir(), 'AppData', 'Roaming', 'obsidian', 'obsidian.json')]
+      : [
+          join(CONFIG_HOME, 'obsidian', 'obsidian.json'),
+          join(homedir(), '.var', 'app', 'md.obsidian.Obsidian', 'config', 'obsidian', 'obsidian.json'),
+          join(homedir(), 'snap', 'obsidian', 'current', '.config', 'obsidian', 'obsidian.json'),
+        ];
+
+/** The vaults Obsidian lists on this machine whose directory is there. A list that cannot be read lists none. */
+function obsidianVaults(): string[] {
+  const found = new Set<string>();
+  for (const file of OBSIDIAN_LISTS) {
+    try {
+      const { vaults } = JSON.parse(readFileSync(file, 'utf8')) as { vaults?: Record<string, { path?: unknown }> };
+      for (const { path } of Object.values(vaults ?? {})) if (typeof path === 'string' && isAbsolute(path) && existsSync(path)) found.add(path);
+    } catch {
+      // Absent, unreadable or not what it should be: no vault listed there.
+    }
+  }
+  return [...found];
+}
+
+/**
+ * Step 11: the Obsidian vault the daemon projects the Project Brain into (ADR-0036), a write to
+ * this machine's settings file in the Binnacle home, outside the repository (decision 13). A
+ * path already set is left alone. Otherwise, with exactly one vault in Obsidian's own list, the
+ * plan sets it; with none or several, init says how to set it and names those found. Another
+ * vault is had by declining the plan and editing the file, as with the tracker (ADR-0034).
+ */
+function vaultStep(session: Session, home: string): void {
+  const what = 'the Obsidian vault';
+  const file = settingsPath(home);
+  const unreadable = (): void => {
+    session.say(`${file} cannot be read as a JSON object of settings, so no vault path is proposed. Fix it by hand.`);
+    record(session, 'skipped', `${what}: ${file} cannot be read`);
+  };
+  let text: string | null;
+  try {
+    text = readFileSync(file, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') return unreadable();
+    text = null;
+  }
+  let settings: unknown;
+  try {
+    settings = text === null ? {} : JSON.parse(text);
+  } catch {
+    return unreadable();
+  }
+  const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
+  if (!isObject(settings)) return unreadable();
+  const obsidian = settings.obsidian ?? {};
+  if (!isObject(obsidian)) return unreadable();
+
+  const set = obsidian.vaultPath;
+  if (set !== undefined && set !== null) {
+    session.say(`${file} already names the Obsidian vault ${typeof set === 'string' ? set : JSON.stringify(set)}. It is left as it is.`);
+    return record(session, 'skipped', `${what}: ${file} names one`);
+  }
+
+  const vaults = obsidianVaults();
+  if (vaults.length !== 1) {
+    const found = vaults.length === 0 ? 'Obsidian lists no vault on this machine' : `Obsidian lists ${vaults.length} vaults on this machine: ${inSentence(vaults)}`;
+    session.say(
+      `${found}, so no vault path is proposed. For the Binnacle daemon to project the Project Brain into a vault, ` +
+        `put its absolute path in ${file}, owner-only (chmod 600):\n\n${json({ obsidian: { vaultPath: '/absolute/path/to/vault' } }).trimEnd()}`,
+    );
+    return record(session, 'skipped', `${what}: ${vaults.length === 0 ? 'Obsidian lists none' : 'Obsidian lists several'}; set obsidian.vaultPath in ${file}`);
+  }
+
+  const next = json({ ...settings, obsidian: { ...obsidian, vaultPath: vaults[0] } });
+  session.say(`Obsidian lists one vault on this machine, ${vaults[0]}. Setting it is in the plan; for another, decline the plan and edit ${file}.`);
+  session.plan.push({
+    heading: `Set the Obsidian vault in ${file}, owner-only, outside the repository, to`,
+    body: next,
+    declined: 'set the Obsidian vault',
+    apply() {
+      ensureHome(home);
+      // Only the settings the human saw: a file that changed since it was read is not rewritten.
+      if ((existsSync(file) ? readFileSync(file, 'utf8') : null) !== text) throw new Error('the file changed since the plan was shown');
+      writeFileSync(file, next, { mode: OWNER_ONLY_FILE, flag: text === null ? 'wx' : 'w' });
+      // An existing file keeps its mode through a write.
+      chmodSync(file, OWNER_ONLY_FILE);
+      record(session, text === null ? 'created' : 'extended', file);
+    },
+  });
+}
+
+/**
+ * Step 12: Graphify's first graph, last in the plan, after its output directory is ignored:
+ * Graphify's code-only extraction runs in the repository root, which needs no API key and calls
+ * no model (ADR-0012). A failed build is reported with Graphify's reason, and the daemon builds
+ * the graph at a later poll.
+ */
+function graphBuildStep(session: Session): void {
   const shown = `graphify ${GRAPH_EXTRACT.join(' ')}`;
   session.say('Graphify builds the first graph in the plan, code-only: no API key, no model.');
   session.plan.push({
@@ -889,7 +998,7 @@ async function graphStep(session: Session, tools: ToolState[]): Promise<void> {
     declined: 'build the first graph',
     async apply() {
       // The append above failed: Graphify would leave untracked files in the repository (ADR-0036).
-      if ((await isGraphIgnored()) === false) return record(session, 'skipped', `the first graph: Git does not ignore ${GRAPH_DIRECTORY}/`);
+      if ((await isGraphIgnored(session.root)) === false) return record(session, 'skipped', `the first graph: Git does not ignore ${GRAPH_DIRECTORY}/`);
       // Its install in this plan failed, or put it in a directory that is not on PATH.
       if (!onPath('graphify')) return record(session, 'skipped', 'the first graph: graphify is not on PATH. The Binnacle daemon builds the graph once it is.');
       session.say(`Running ${shown}...`);

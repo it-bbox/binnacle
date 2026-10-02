@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile, spawn, spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -1510,4 +1510,105 @@ test('the first graph: Graphify declared false, or left out for a missing uv, me
   assert.match(result.stdout, /skipped\s+Graphify: uv is not on PATH/);
   assert.equal(existsSync(join(noUv, '.gitignore')), false);
   assert.doesNotMatch(result.stdout, /extract \. --code-only/);
+});
+
+/**
+ * Obsidian's own list of vaults, as Obsidian keeps it on Linux, holding a directory for each of
+ * `names` under the temporary home. Returns the vaults' paths.
+ */
+function fakeObsidian(home: Home, ...names: string[]): string[] {
+  const vaults = names.map((name) => join(home.home, 'vaults', name));
+  for (const vault of vaults) mkdirSync(vault, { recursive: true });
+  const config = join(home.home, '.config', 'obsidian');
+  mkdirSync(config, { recursive: true });
+  const listed = Object.fromEntries(vaults.map((path, index) => [`id${index}`, { path, ts: 1, open: index === 0 }]));
+  writeFileSync(join(config, 'obsidian.json'), JSON.stringify({ vaults: listed }));
+  return vaults;
+}
+
+const settingsOf = (home: Home): string => join(home.binnacleHome, 'settings.json');
+const VAULT_HEADING = 'Set the Obsidian vault in';
+
+test('the vault: the one vault Obsidian lists is proposed in the plan, and after a yes the settings file holds it, owner-only, with nothing written in the repository', (t) => {
+  const home = makeHome(t);
+  const [vault] = fakeObsidian(home, 'Notes');
+  const root = makeRepository(t, 'vaulted', { '.binnacle/project.yaml': 'version: 1\nproject:\n  id: vaulted\ntelemetry:\n  import:\n    window_days: 90\n' });
+  const before = git(root, 'status', '--porcelain');
+
+  const result = binnIn(home)(root, '\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  const heading = result.stdout.indexOf(VAULT_HEADING);
+  assert.ok(heading >= 0 && heading < result.stdout.indexOf(PLAN_QUESTION), result.stdout);
+  assert.ok(result.stdout.slice(heading).includes(vault!), result.stdout);
+  assert.deepEqual(JSON.parse(readFileSync(settingsOf(home), 'utf8')), { obsidian: { vaultPath: vault } });
+  assert.equal(statSync(settingsOf(home)).mode & 0o777, 0o600);
+  assert.match(result.stdout, new RegExp(`created\\s+${settingsOf(home)}`));
+  assert.equal(git(root, 'status', '--porcelain'), before);
+});
+
+test('the vault: other settings in the file are kept beside the path', (t) => {
+  const home = makeHome(t);
+  const [vault] = fakeObsidian(home, 'Notes');
+  mkdirSync(home.binnacleHome, { recursive: true });
+  writeFileSync(settingsOf(home), JSON.stringify({ other: 1, obsidian: { theme: 'dark' } }), { mode: 0o644 });
+  const root = makeRepository(t, 'vault-merged');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(readFileSync(settingsOf(home), 'utf8')), { other: 1, obsidian: { theme: 'dark', vaultPath: vault } });
+  assert.equal(statSync(settingsOf(home)).mode & 0o777, 0o600);
+});
+
+test('the vault: with no vault, or several, nothing is proposed, and init says how to set it and names those found', (t) => {
+  const home = makeHome(t);
+  const root = makeRepository(t, 'no-vault');
+
+  const none = binnIn(home)(root, '\n\n', 'init');
+  assert.equal(none.status, 0, none.stderr);
+  assert.doesNotMatch(none.stdout, new RegExp(VAULT_HEADING));
+  assert.match(none.stdout, /Obsidian lists no vault on this machine/);
+  assert.ok(none.stdout.includes(settingsOf(home)) && none.stdout.includes('"vaultPath"'), none.stdout);
+  assert.equal(existsSync(settingsOf(home)), false);
+
+  const vaults = fakeObsidian(home, 'Work', 'Home');
+  const several = binnIn(home)(makeRepository(t, 'two-vaults'), '\n\n', 'init');
+  assert.equal(several.status, 0, several.stderr);
+  assert.doesNotMatch(several.stdout, new RegExp(VAULT_HEADING));
+  assert.ok(several.stdout.includes(`Obsidian lists 2 vaults on this machine: ${vaults[0]} and ${vaults[1]}`), several.stdout);
+  assert.ok(several.stdout.includes('"vaultPath"'), several.stdout);
+  assert.equal(existsSync(settingsOf(home)), false);
+});
+
+test('the vault: a path already set is reported and not changed', (t) => {
+  const home = makeHome(t);
+  fakeObsidian(home, 'Notes');
+  mkdirSync(home.binnacleHome, { recursive: true });
+  const set = `${JSON.stringify({ obsidian: { vaultPath: '/elsewhere/Vault' } })}\n`;
+  writeFileSync(settingsOf(home), set);
+  const root = makeRepository(t, 'vault-set');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(result.stdout, new RegExp(VAULT_HEADING));
+  assert.match(result.stdout, /already names the Obsidian vault \/elsewhere\/Vault\. It is left as it is\./);
+  assert.equal(readFileSync(settingsOf(home), 'utf8'), set);
+});
+
+test('the vault: a declined plan, and a stdin that is not a terminal, write no settings file', (t) => {
+  const home = makeHome(t);
+  fakeObsidian(home, 'Notes');
+  const root = makeRepository(t, 'vault-declined');
+
+  const declined = binnIn(home)(root, '\nn\n', 'init');
+  assert.equal(declined.status, 0, declined.stderr);
+  assert.match(declined.stdout, /declined\s+set the Obsidian vault/);
+  assert.equal(existsSync(settingsOf(home)), false);
+
+  const piped = binnIn(home, false)(root, '\n\ny\n', 'init');
+  assert.equal(piped.status, 0, piped.stderr);
+  assert.ok(piped.stdout.includes(VAULT_HEADING), piped.stdout);
+  assert.equal(existsSync(settingsOf(home)), false);
 });

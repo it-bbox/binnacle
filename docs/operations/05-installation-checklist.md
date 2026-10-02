@@ -265,6 +265,8 @@ The vault is named in `settings.json` in the Binnacle home (`~/.binnacle/setting
 }
 ```
 
+`binn init` proposes the path in its plan, after the `.gitignore` append and before the first graph, when the file names no vault: it reads Obsidian's own list of vaults on this machine (`obsidian.json` in Obsidian's configuration directory: `~/.config/obsidian` on Linux, or its Flatpak's or Snap's; `~/Library/Application Support/obsidian` on macOS; `%APPDATA%\obsidian` on Windows), and with exactly one vault there, the plan writes it to the settings file, owner-only, keeping any other setting the file holds. With none or several it proposes nothing, names those it found and says how to set the path. For another vault than the one proposed, decline the plan and edit the file. A path already set is reported and left alone, and nothing in the repository is written by this step.
+
 The path is absolute, and is the vault's own directory. The daemon reads the file on every poll and every snapshot, so a change takes effect without a restart. No file, or no `obsidian.vaultPath`, means no projection and no attention item.
 
 ### The vault projection
