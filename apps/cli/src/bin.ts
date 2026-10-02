@@ -79,7 +79,7 @@ async function run(argv: string[]): Promise<ExitCode> {
 
   if (first === 'audit') {
     const args = argv.slice(1).filter((arg) => arg !== '--json');
-    if (args.length <= 1) return await audit(resolveHome(), args[0], args.length < argv.length - 1);
+    if (args.length <= 1) return await audit(resolveHome(), args[0], argv.includes('--json'));
   }
 
   if (first === 'mcp' && second === undefined) {

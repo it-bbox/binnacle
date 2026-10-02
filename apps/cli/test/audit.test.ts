@@ -167,6 +167,16 @@ test('binn audit writes nothing, in the repository or in the home it is pointed 
   assert.equal(readFileSync(join(root, 'README.md'), 'utf8'), '# fixture\n');
 });
 
+test('binn audit names a detached HEAD, and audits the repository containing a subdirectory path, with --json before the path', (t) => {
+  const root = fixture(t);
+  git(root, 'checkout', '--quiet', '--detach');
+  mkdirSync(join(root, 'sub'));
+  const result = audit(t, ['--json', join(root, 'sub')]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(JSON.parse(result.stdout).root, root);
+  assert.match(byCode(findings(result.stdout), 'git.repository').reason, /detached HEAD/);
+});
+
 test('binn audit gives the same output with the network unreachable as with a proxy-free environment', (t) => {
   const root = fixture(t, 'https://github.com/owner/name.git');
   const home = scratch(t);

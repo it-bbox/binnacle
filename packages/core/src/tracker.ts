@@ -50,8 +50,8 @@ export function remoteLocation(url: string): { host: string; path: string } | nu
 /**
  * The first GitHub or GitLab remote, `origin` first.
  * ponytail: a forge is recognised by a `github` or `gitlab` label in the remote's host, so a
- * GitHub Enterprise or GitLab host named otherwise is proposed as `local`; the human sees the
- * proposal and can edit it. A probe of the host's API would recognise it, at a network call.
+ * GitHub Enterprise or GitLab host named otherwise is not recognised: `binn init` proposes
+ * `local` and `binn audit` says `unknown`, and the human can declare the tracker. A probe of the host's API would recognise it, at a network call.
  */
 export function forgeRemote(remotes: { name: string; url: string }[]): { provider: 'github' | 'gitlab'; host: string; repository: string } | null {
   const ordered = [...remotes.filter((remote) => remote.name === 'origin'), ...remotes.filter((remote) => remote.name !== 'origin')];
