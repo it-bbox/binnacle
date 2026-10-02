@@ -31,7 +31,7 @@ Epics 1 to 6 are done: the daemon and its store; snapshot, daily and checkpoint 
 
 Epic 7, Audit and adopt (`specs/audit-and-adopt/spec.md`, phase 6), is done but for ticket 08, the owner's exit demonstration: `binn audit`, `/binnacle:audit`, and `binn init` showing one plan and asking once (ADR-0034).
 
-On 2026-10-02 the owner found that epics 1 to 7 deliver only part of their baseline architecture, now `docs/baseline.md` and the floor for v1. The gaps are epics 8 to 12, grilled on 2026-10-02 (`docs/05-mvp-plan.md`, phases 8 to 12; ADR-0035 to ADR-0038). Epic 8's spec is `specs/project-brain-tools-graphify-obsidian/spec.md`, sliced into tickets 01 to 12; 01 is done, so 02 to 04 can start beside 05 and 09, and 12 is the owner's exit demonstration. Epics 9 to 12 still need `to-spec`. Ticket 08 of epic 7 stays open beside them.
+On 2026-10-02 the owner found that epics 1 to 7 deliver only part of their baseline architecture, now `docs/baseline.md` and the floor for v1. The gaps are epics 8 to 12, grilled on 2026-10-02 (`docs/05-mvp-plan.md`, phases 8 to 12; ADR-0035 to ADR-0038). Epic 8's spec is `specs/project-brain-tools-graphify-obsidian/spec.md`, sliced into tickets 01 to 12; 01 and 05 are done, so init installs the CLI tools and the daemon keeps the graph current, and 02, 03, 04, 06 and 09 can start at once, and 12 is the owner's exit demonstration. Epics 9 to 12 still need `to-spec`. Ticket 08 of epic 7 stays open beside them.
 
 Next action: build epic 8's tickets with autopilot. `/binnacle:autopilot`
 
