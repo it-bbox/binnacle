@@ -8,6 +8,7 @@ import { test } from 'node:test';
 
 const PACKAGE = fileURLToPath(new URL('..', import.meta.url));
 const PLUGIN_SOURCE = fileURLToPath(new URL('../../../.claude/skills/binnacle', import.meta.url));
+const skillText = (name: string): string => readFileSync(join(PLUGIN_SOURCE, 'skills', name, 'SKILL.md'), 'utf8');
 
 /** ADR-0027's promise, checked on the packed tarball rather than assumed. */
 test('the packed CLI carries the binnacle plugin, every file of its source, and a marketplace listing it', (t) => {
@@ -46,7 +47,7 @@ test('the packed CLI carries the binnacle plugin, every file of its source, and 
 
 /** The baseline's rule that only low-risk Tasks run in parallel, held by the one process that starts agents in parallel (ADR-0022). */
 test('autopilot starts a second ticket only for a low pair, and says when the risk was not assessed', () => {
-  const skill = readFileSync(join(PLUGIN_SOURCE, 'skills', 'autopilot', 'SKILL.md'), 'utf8');
+  const skill = skillText('autopilot');
   assert.match(skill, /`tasks\.parallel\.impact`/);
   assert.match(skill, /only when the pair's `risk` is `low`/);
   assert.match(skill, /`medium`, `high` or `unknown`/);
@@ -55,12 +56,10 @@ test('autopilot starts a second ticket only for a low pair, and says when the ri
 
 /** The Next action is the owner's, set by a Product session (docs/workflow/02-development-workflow.md, step 3). */
 test('autopilot leaves the Next action to the owner, in the brief and in its report', () => {
-  const skill = readFileSync(join(PLUGIN_SOURCE, 'skills', 'autopilot', 'SKILL.md'), 'utf8');
+  const skill = skillText('autopilot');
   assert.match(skill, /never its `Next action:` paragraph/);
   assert.match(skill, /stale `Next action:`/);
 });
-
-const skillText = (name: string): string => readFileSync(join(PLUGIN_SOURCE, 'skills', name, 'SKILL.md'), 'utf8');
 
 /** Epic 9: the daemon and registration from the chat, run through binn so that they need no daemon. */
 test('/binnacle:daemon and /binnacle:register run binn, are started by a human only, and handle a missing binn as /binnacle:audit does', () => {

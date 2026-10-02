@@ -6,7 +6,7 @@
     {
       "name": "binnacle",
       "source": "./plugin",
-      "description": "Binnacle's Product actions, driven through the binnacle MCP server, and audit, daemon and register, which run binn and need no daemon."
+      "description": "Binnacle's Product actions, driven through the binnacle MCP server, and audit, daemon and register, which run binn and need no daemon to be started."
     }
   ]
 }

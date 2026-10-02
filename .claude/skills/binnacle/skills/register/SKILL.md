@@ -1,6 +1,6 @@
 ---
 name: register
-description: Register a repository with the running Binnacle daemon from the chat, the main checkout of this session's repository by default, by running `binn project register`. Needs no daemon to start, and names /binnacle:daemon start when none is running.
+description: Register a repository with the running Binnacle daemon from the chat, the main checkout of this session's repository by default, by running `binn project register`. Needs no daemon to be started; registering needs a running daemon, and it names /binnacle:daemon start when none is running.
 argument-hint: "[path]"
 disable-model-invocation: true
 ---
