@@ -1,4 +1,4 @@
-import { accessSync, constants, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { accessSync, constants, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, posix, relative, sep } from 'node:path';
 import { commitTree, type Tree } from '@binnacle/adapters';
 import type { Diagnostic, ProjectManifest } from '@binnacle/core';
@@ -22,7 +22,7 @@ const MARKER = '---\ngenerated-by: binnacle\n';
 const FOLDERS = ['Specs', 'Decisions', 'Research'];
 
 /** The vault this machine names, `null` when it names none, or why it cannot be written. */
-export function readVault(home: string): { path: string } | { reason: string } | null {
+function readVault(home: string): { path: string } | { reason: string } | null {
   const file = settingsPath(home);
   let settings: unknown;
   try {
@@ -56,6 +56,11 @@ export function vaultAttention(home: string): Diagnostic[] {
   return vault !== null && 'reason' in vault ? [{ code: 'vault.unwritable', message: vault.reason }] : [];
 }
 
+/**
+ * ponytail: a project is rendered again only when its branch or the vault moves, so a generated
+ * note the human deletes or edits comes back at the next move or the daemon's next start;
+ * compare the vault's files on every poll if that ever surprises.
+ */
 export function startVaultProjector(home: string, pollMs: number): { stop(): Promise<void> } {
   /** Per project, the vault and commit last projected in full. */
   const projected = new Map<string, string>();
@@ -81,7 +86,10 @@ export function startVaultProjector(home: string, pollMs: number): { stop(): Pro
         // One project failing is logged and tried again on the next poll; the rest go on.
         await consider(vault.path, entry.path).catch((error: unknown) => console.error(error));
       }
-    })().finally(() => (ticking = null));
+    })()
+      // As the graph's poll: a registry that cannot be read is logged and read again on the next one.
+      .catch((error: unknown) => console.error(error))
+      .finally(() => (ticking = null));
   }
 
   tick();
@@ -100,11 +108,12 @@ async function project(vault: string, path: string, manifest: ProjectManifest, c
   const tree = commitTree(path, commit, resolveGitTimeout());
   const folder = join(vault, 'Projects', folderName(manifest));
   const notes = await sources(tree, manifest.knowledge);
+  const root = realpathSync(vault);
   const targets = new Map([...notes].map(([source, note]) => [source, `Projects/${folderName(manifest)}/${note.replace(/\.md$/, '')}`]));
 
   for (const [source, note] of notes) {
     const text = await tree.read(source);
-    if (text !== null) writeNote(join(folder, note), render(text, source, commit, targets));
+    if (text !== null) writeNote(root, join(folder, note), render(text, source, commit, targets));
   }
 
   const kept = new Set([...notes.values()].map((note) => join(folder, note)));
@@ -160,7 +169,9 @@ const LINK = /(!?)\[([^\]\n]*)\]\(([^)\s]+)\)/g;
  * fenced code are left as written.
  *
  * ponytail: an anchor is kept as the Markdown slug it is; Obsidian matches a heading's text, so
- * a multi-word anchor lands on the note, not the heading. Map slugs to headings if that matters.
+ * a multi-word anchor lands on the note, not the heading. Fences are not told apart by their
+ * marker, and a source's frontmatter is merged only with `\n` line endings. Parse the Markdown if
+ * any of these matters.
  */
 function render(text: string, source: string, commit: string, targets: Map<string, string>): string {
   let fenced = false;
@@ -189,10 +200,18 @@ function render(text: string, source: string, commit: string, targets: Map<strin
   return body.startsWith('---\n') ? header + body.slice('---\n'.length) : `${header}---\n${body}`;
 }
 
-/** Writes a whole note through a temporary name, unless a file the projection did not generate is there, or it is unchanged. */
-function writeNote(file: string, content: string): void {
+/**
+ * Writes a whole note through a temporary name, unless a file the projection did not generate is
+ * there, it is unchanged, or its folder is a symbolic link out of the vault at `root`.
+ */
+function writeNote(root: string, file: string, content: string): void {
   const existing = readIfPresent(file);
   if (existing === content || (existing !== null && !existing.startsWith(MARKER))) return;
+  // Checked before the folder is made, since making it would follow the link too.
+  let nearest = dirname(file);
+  while (!existsSync(nearest)) nearest = dirname(nearest);
+  const resolved = realpathSync(nearest);
+  if (resolved !== root && !within(root, resolved)) return;
   mkdirSync(dirname(file), { recursive: true });
   // A dotfile, which Obsidian does not index, renamed over the note in one step.
   const temporary = join(dirname(file), `.${basename(file)}.binnacle-tmp`);
@@ -228,7 +247,7 @@ function markdownUnder(dir: string): string[] {
 
 /** Removes `dir` and its parents while they are empty, up to and not including `root`. */
 function prune(dir: string, root: string): void {
-  while (relative(root, dir) !== '' && !relative(root, dir).startsWith(`..${sep}`)) {
+  while (within(root, dir)) {
     try {
       rmdirSync(dir);
     } catch {
@@ -236,6 +255,12 @@ function prune(dir: string, root: string): void {
     }
     dir = dirname(dir);
   }
+}
+
+/** Whether `path` is below `root`, and not `root` itself. */
+function within(root: string, path: string): boolean {
+  const rest = relative(root, path);
+  return rest !== '' && rest !== '..' && !rest.startsWith(`..${sep}`) && !isAbsolute(rest);
 }
 
 /** The project's folder name: its name, or its id, without what a path or an Obsidian link cannot hold. */

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, symlinkSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, it } from 'node:test';
@@ -190,6 +190,25 @@ describe('the vault projection', () => {
 
       setVault(daemon, vault);
       await until(() => existsSync(note(vault, 'Research/guide.md')), 'the projection after the setting');
+
+      const other = temporary('binnacle-vault-other-');
+      setVault(daemon, other);
+      await until(() => existsSync(note(other, 'Research/guide.md')), 'the projection into the other vault');
+    });
+  });
+
+  it('writes nothing through a folder that links out of the vault', async () => {
+    const { root } = makeRepository();
+    const vault = temporary('binnacle-vault-');
+    const outside = temporary('binnacle-vault-outside-');
+    mkdirSync(join(vault, PROJECT), { recursive: true });
+    symlinkSync(outside, join(vault, PROJECT, 'Research'));
+    await withDaemon(async (daemon) => {
+      setVault(daemon, vault);
+      await register(daemon, root);
+      await until(() => existsSync(note(vault, 'Decisions/ADR-0001-first.md')), 'the projection');
+      await settle();
+      assert.deepEqual(readdirSync(outside), []);
     });
   });
 
@@ -204,8 +223,19 @@ describe('the vault projection', () => {
       assert.deepEqual(await vaultCodes(daemon, root), ['vault.unwritable']);
       setVault(daemon, file);
       assert.deepEqual(await vaultCodes(daemon, root), ['vault.unwritable']);
+      // Root writes anywhere, so a read-only directory is only unwritable for anyone else.
+      if (process.getuid?.() !== 0) {
+        const readOnly = join(parent, 'read-only');
+        mkdirSync(readOnly, { mode: 0o555 });
+        chmodSync(readOnly, 0o555);
+        setVault(daemon, readOnly);
+        assert.deepEqual(await vaultCodes(daemon, root), ['vault.unwritable']);
+        await settle();
+        assert.deepEqual(readdirSync(readOnly), []);
+        chmodSync(readOnly, 0o755);
+      }
       await settle();
-      assert.deepEqual(readdirSync(parent), ['a-file']);
+      assert.deepEqual(readdirSync(parent).sort(), process.getuid?.() === 0 ? ['a-file'] : ['a-file', 'read-only']);
     });
   });
 });
