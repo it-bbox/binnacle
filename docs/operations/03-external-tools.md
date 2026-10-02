@@ -12,7 +12,26 @@ This document describes **recommended integrations**, not dependencies that must
 | Graphify | `graphify` on `PATH` | `uv` | `uv tool install graphifyy` |
 | ast-grep | `ast-grep` on `PATH` (never `sg`) | `npm` | `npm i @ast-grep/cli -g` |
 
-A tool already on `PATH` is reported as found and left alone. A tool the manifest declares `false` under `capabilities` is not proposed. A missing prerequisite is named with the command that installs it, and the tools that need it are left out of the plan: init never installs `uv` and never runs an installer script. Each install is reported in the Summary, and one that fails does not stop the rest. A manifest init creates declares `true` under `capabilities` for each tool it installs or finds. The table is `apps/cli/src/tools.ts`, which `binn audit` reads too; MCP registration and the skill plugins come with the next tickets of epic 8.
+A tool already on `PATH` is reported as found and left alone. A tool the manifest declares `false` under `capabilities` is not proposed. A missing prerequisite is named with the command that installs it, and the tools that need it are left out of the plan: init never installs `uv` and never runs an installer script. Each install is reported in the Summary, and one that fails does not stop the rest. A manifest init creates declares `true` under `capabilities` for each tool it installs or finds. The table is `apps/cli/src/tools.ts`, which `binn audit` reads too; the skill plugins come with the next tickets of epic 8.
+
+### The MCP servers it registers
+
+After the installs, in the same plan, init registers each tool's MCP server with every harness it detected, through the harness's own CLI, outside the repository:
+
+| Server | Starts with | Scope |
+| --- | --- | --- |
+| Serena | `serena start-mcp-server`, with the harness's context and `--project-from-cwd` | user |
+| Context7 | `npx -y @upstash/context7-mcp` (needs `npm`) | user |
+| Graphify | `uv run --no-project --with 'graphifyy[mcp]' python -m graphify.serve <project>/graphify-out/graph.json` | this project only |
+
+| Harness | Registers with | Graphify's server |
+| --- | --- | --- |
+| Claude Code | `claude mcp add --scope user <name> -- <command>` | `claude mcp add --scope local …`, kept in `~/.claude.json` for this project |
+| Codex | `codex mcp add <name> -- <command>`, into `~/.codex/config.toml` | printed: Codex keeps no per-project server outside the repository |
+| VS Code | `code --add-mcp '{"name":…,"command":…,"args":[…]}'`, into the user profile | printed, for the same reason |
+| opencode | printed: its `opencode mcp add` is an interactive wizard | printed |
+
+A server already registered with a harness, in any file the audit reads for it (the repository's, and the user-scope ones of Claude Code, Codex and VS Code's default profile), is reported and left as it is. A harness whose CLI is not on `PATH` gets the entry printed, and the Summary says so. A tool declared `false`, or left out for a missing prerequisite, gets no registration. Init writes no MCP entry for these tools into the repository. Graphify's server runs in its own environment with the `mcp` extra, so its install stays `graphifyy`.
 
 ## Node / pnpm
 
@@ -46,7 +65,7 @@ Binnacle should verify that Serena is available for supported clients/projects, 
 
 Purpose: build/query a code/docs architecture knowledge graph; support impact/path queries and optional Obsidian export.
 
-Current upstream package name is `graphifyy` (CLI `graphify`). Recommended installation uses `uv tool install graphifyy`; install `graphifyy[mcp]` if a separate Graphify MCP server is desired.
+Current upstream package name is `graphifyy` (CLI `graphify`). Recommended installation uses `uv tool install graphifyy`; its MCP server needs the `mcp` extra, which init's registration gets through `uv run --with 'graphifyy[mcp]'`.
 
 Recommended project behavior:
 
@@ -60,7 +79,7 @@ Recommended project behavior:
 
 Purpose: retrieve current/version-specific external library/framework/API documentation. It should not be used for internal business logic.
 
-The user may already have Context7 globally configured; init should detect before proposing installation.
+The user may already have Context7 globally configured; init reads the harnesses' files first and registers it only with a harness that lacks it.
 
 ## ast-grep
 

@@ -22,7 +22,7 @@ import { EXIT, type ExitCode } from './exit.ts';
 import { sessionHistory } from './history.ts';
 import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, mattPocockFiles } from './layout.ts';
 import { register } from './project-commands.ts';
-import { declaredCapabilities, onPath, TOOLS, type Tool } from './tools.ts';
+import { declaredCapabilities, onPath, registeredWith, TOOLS, VSCODE_USER_DIRECTORY, type Tool } from './tools.ts';
 
 type Outcome = 'created' | 'extended' | 'printed' | 'ran' | 'found' | 'checked' | 'failed' | 'declined' | 'skipped';
 
@@ -82,7 +82,7 @@ export async function init(home: string, path?: string): Promise<ExitCode> {
     session.say('');
     registrationStep(session, home, manifest !== 'invalid');
     session.say('');
-    harnessStep(session);
+    const harnesses = harnessStep(session);
     session.say('');
     pluginStep(session);
     session.say('');
@@ -92,6 +92,8 @@ export async function init(home: string, path?: string): Promise<ExitCode> {
     instructionsStep(session);
     session.say('');
     toolsStep(session, tools);
+    session.say('');
+    serversStep(session, tools, harnesses);
     session.say('');
     await confirmPlan(session, process.stdin.isTTY === true);
     session.say('');
@@ -356,8 +358,15 @@ type Harness = {
   userDirectory: string;
   /** The project's configuration file: the first of these that exists, or else the first. */
   files: string[];
-  /** The whole new file, which is also the addition for a format that allows a pure append. */
-  entry: string;
+  /** The whole new file declaring the stdio server `name` running `command`, which is also the addition for a format that allows a pure append. */
+  entry(name: string, command: string[]): string;
+  /**
+   * The harness's own CLI call that registers the stdio server `name` outside the repository,
+   * at user scope or for this project only, as the harness's docs give it (read through
+   * Context7 on 2026-10-02), run in the project root; null where it has no such scope.
+   * Absent where it has no CLI for adding a server.
+   */
+  add?(name: string, command: string[], scope: 'user' | 'project'): string[] | null;
   /** Said before the entry is offered. */
   note?: string;
   /** How to start the harness in the project, for the Summary's next step. */
@@ -368,10 +377,13 @@ type Harness = {
 
 const json = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
 
-/** The server every template declares: stdio, named `binnacle`, running `binn mcp`. */
-const STDIO_SERVER = { type: 'stdio', command: 'binn', args: ['mcp'] };
+/** A stdio server running `command`, as Claude Code's and VS Code's files declare it. */
+const stdio = ([command, ...args]: string[]) => ({ type: 'stdio', command, args });
 
-/** Where opencode, and VS Code on Linux, keep their user configuration. */
+/** The server every template declares: stdio, named `binnacle`, running `binn mcp`. */
+const BINNACLE = ['binn', 'mcp'];
+
+/** Where opencode keeps its user configuration. */
 const CONFIG_HOME = process.env.XDG_CONFIG_HOME || join(homedir(), '.config');
 
 const HARNESSES: Harness[] = [
@@ -380,14 +392,18 @@ const HARNESSES: Harness[] = [
     executable: 'claude',
     userDirectory: join(homedir(), '.claude'),
     files: ['.mcp.json'],
-    entry: json({ mcpServers: { binnacle: STDIO_SERVER } }),
+    entry: (name, command) => json({ mcpServers: { [name]: stdio(command) } }),
+    add: (name, command, scope) => ['claude', 'mcp', 'add', '--scope', scope === 'user' ? 'user' : 'local', name, '--', ...command],
   },
   {
     name: 'Codex',
     executable: 'codex',
     userDirectory: join(homedir(), '.codex'),
     files: ['.codex/config.toml'],
-    entry: '[mcp_servers.binnacle]\ncommand = "binn"\nargs = ["mcp"]\n',
+    // JSON strings and arrays of them are TOML too.
+    entry: (name, [command, ...args]) => `[mcp_servers.${name}]\ncommand = ${JSON.stringify(command)}\nargs = ${JSON.stringify(args)}\n`,
+    // Its only scope outside the repository is the user's config.toml.
+    add: (name, command, scope) => (scope === 'user' ? ['codex', 'mcp', 'add', name, '--', ...command] : null),
     note: 'Codex reads .codex/config.toml only in a trusted project: trust this project in Codex for the entry to take effect.',
     open: 'Run `codex` in the repository root, or open the repository in the Codex desktop app.',
     offPath: '`codex` is not on PATH. The Codex desktop app ships its CLI outside it; on Linux it is /usr/lib/chatgpt/resources/codex.',
@@ -397,26 +413,24 @@ const HARNESSES: Harness[] = [
     executable: 'opencode',
     userDirectory: join(CONFIG_HOME, 'opencode'),
     files: ['opencode.json', 'opencode.jsonc'],
-    entry: json({ $schema: 'https://opencode.ai/config.json', mcp: { binnacle: { type: 'local', command: ['binn', 'mcp'] } } }),
+    entry: (name, command) => json({ $schema: 'https://opencode.ai/config.json', mcp: { [name]: { type: 'local', command } } }),
+    // No `add`: its documented `opencode mcp add` is an interactive wizard.
     open: 'Run `opencode` in the repository root.',
   },
   {
     name: 'VS Code',
     executable: 'code',
-    userDirectory:
-      process.platform === 'darwin'
-        ? join(homedir(), 'Library', 'Application Support', 'Code')
-        : process.platform === 'win32'
-          ? join(homedir(), 'AppData', 'Roaming', 'Code')
-          : join(CONFIG_HOME, 'Code'),
+    userDirectory: VSCODE_USER_DIRECTORY,
     files: ['.vscode/mcp.json'],
-    entry: json({ servers: { binnacle: STDIO_SERVER } }),
+    entry: (name, command) => json({ servers: { [name]: stdio(command) } }),
+    // `--add-mcp` adds to the user profile; its only per-project place is .vscode/mcp.json, in the repository.
+    add: (name, [command, ...args], scope) => (scope === 'user' ? ['code', '--add-mcp', JSON.stringify({ name, command, args })] : null),
     open: 'Open the repository in VS Code, start the binnacle server listed in .vscode/mcp.json and chat in agent mode.',
   },
 ];
 
-/** Step 4: the MCP registration for each detected harness, then a generic snippet for any other. */
-function harnessStep(session: Session): void {
+/** Step 4: the MCP registration for each detected harness, then a generic snippet for any other. Returns the detected harnesses. */
+function harnessStep(session: Session): Harness[] {
   const found = HARNESSES.map((harness) => ({ harness, reason: detect(harness) })).filter(({ reason }) => reason !== null);
   if (found.length === 0) session.say(`No known harness is installed (${HARNESSES.map(({ name }) => name).join(', ')}).\n`);
 
@@ -430,14 +444,15 @@ function harnessStep(session: Session): void {
       record(session, 'skipped', `${file}: it already names binnacle`);
     } else {
       if (harness.note) session.say(harness.note);
-      planFile(session, file, harness.entry);
+      planFile(session, file, harness.entry('binnacle', BINNACLE));
     }
     session.say('');
   }
 
   session.say(
-    `For any other harness that speaks MCP, register a stdio server named binnacle that runs \`binn mcp\`, for example:\n\n${json({ mcpServers: { binnacle: STDIO_SERVER } }).trimEnd()}`,
+    `For any other harness that speaks MCP, register a stdio server named binnacle that runs \`binn mcp\`, for example:\n\n${json({ mcpServers: { binnacle: stdio(BINNACLE) } }).trimEnd()}`,
   );
+  return found.map(({ harness }) => harness);
 }
 
 function detect(harness: Harness): string | null {
@@ -637,7 +652,7 @@ function instructionsStep(session: Session): void {
 }
 
 /**
- * Step 9: one read of a remote tracker through its adapter, with the credentials lookup the
+ * Step 10: one read of a remote tracker through its adapter, with the credentials lookup the
  * daemon uses. On a failure it says how to make a read-only token and where to put it; it
  * never asks for, stores or prints one. `manifest` is the readable manifest, if any.
  */
@@ -679,30 +694,41 @@ async function trackerStep(session: Session, home: string, manifest: ProjectMani
   );
 }
 
-/** A tool of the Standard setup that init installs, and what init found about it on this machine. */
-type ToolState = { tool: Tool & Required<Pick<Tool, 'executable' | 'install'>>; state: 'declared-false' | 'found' | 'no-prerequisite' | 'install' };
-
 /**
- * Each installable tool: declared false in the manifest, found on PATH by its own executable, waiting on its prerequisite, or to install.
- * ponytail: PATH only, so a tool installed off PATH is proposed again; a per-tool probe if that bites.
+ * A tool of the Standard setup, and what init found about it on this machine: declared false in
+ * the manifest, found on PATH by its own executable, waiting on its prerequisite, to install, or
+ * with nothing to install, only a server to register.
  */
+type ToolState = { tool: Tool; state: 'declared-false' | 'found' | 'no-prerequisite' | 'install' | 'server-only' };
+
+/** ponytail: PATH only, so a tool installed off PATH is proposed again; a per-tool probe if that bites. */
 function detectTools(root: string): ToolState[] {
   const declared = declaredCapabilities(root);
-  return TOOLS.filter((tool): tool is ToolState['tool'] => tool.executable !== undefined && tool.install !== undefined).map((tool) => ({
+  return TOOLS.map((tool) => ({
     tool,
-    state: declared[tool.name] === false ? 'declared-false' : onPath(tool.executable) ? 'found' : onPath(tool.install.prerequisite.executable) ? 'install' : 'no-prerequisite',
+    state:
+      declared[tool.name] === false
+        ? 'declared-false'
+        : tool.executable && onPath(tool.executable)
+          ? 'found'
+          : tool.prerequisite && !onPath(tool.prerequisite.executable)
+            ? 'no-prerequisite'
+            : tool.install
+              ? 'install'
+              : 'server-only',
   }));
 }
 
 /**
  * Step 8: the tools of the Standard setup that are executables (ADR-0035), installed through a
  * package manager outside the repository. A prerequisite is named, never installed, and no
- * installer script is ever run. One install that fails leaves the others to run.
+ * installer script is ever run; a tool that needs it is left out, its server included. One
+ * install that fails leaves the others to run.
  */
 function toolsStep(session: Session, tools: ToolState[]): void {
   const named = new Set<string>();
   for (const { tool, state } of tools) {
-    const { title, name, executable, install } = tool;
+    const { title, name, executable, install, prerequisite } = tool;
     if (state === 'declared-false') {
       session.say(`${MANIFEST_RELATIVE} declares ${name}: false, so ${title} is not proposed.`);
       record(session, 'skipped', `${title}: ${MANIFEST_RELATIVE} declares it false`);
@@ -710,13 +736,13 @@ function toolsStep(session: Session, tools: ToolState[]): void {
       session.say(`${title} is installed (${executable} is on PATH). It is left as it is.`);
       record(session, 'found', `${title}: ${executable} is on PATH`);
     } else if (state === 'no-prerequisite') {
-      const { executable: needed, how } = install.prerequisite;
+      const { executable: needed, how } = prerequisite!;
       if (!named.has(needed)) session.say(`${needed} is not on PATH, and binn init does not install it. Install it with ${how}, then run binn init again.`);
       named.add(needed);
       session.say(`${title} needs ${needed}, so it is not proposed.`);
       record(session, 'skipped', `${title}: ${needed} is not on PATH`);
-    } else {
-      const shown = install.command.join(' ');
+    } else if (state === 'install') {
+      const shown = install!.join(' ');
       session.say(`${title} is not installed (no ${executable} on PATH). Its install is in the plan.`);
       session.plan.push({
         heading: `Install ${title}, outside the repository, by running`,
@@ -731,5 +757,63 @@ function toolsStep(session: Session, tools: ToolState[]): void {
         },
       });
     }
+  }
+}
+
+/** An argument as a POSIX shell reads it back: bare when safe, single-quoted otherwise. Only for showing a command. */
+const quoted = (arg: string): string => (/^[\w@%+=:,./-]+$/.test(arg) ? arg : `'${arg.replace(/'/g, `'\\''`)}'`);
+
+/**
+ * Step 9: each tool's MCP server registered with every detected harness, through the
+ * harness's own CLI, outside the repository: at user scope, or for a server that serves this
+ * project only, at the harness's per-project scope outside the repository (Claude Code's local
+ * scope). Where the harness has no such CLI or scope, or its CLI is not on PATH, the entry is
+ * printed. A server already registered with the harness, in any scope the audit reads, is
+ * left as it is. Nothing is written into the repository.
+ */
+function serversStep(session: Session, tools: ToolState[], harnesses: Harness[]): void {
+  const served = tools.filter(({ tool, state }) => tool.server && state !== 'declared-false' && state !== 'no-prerequisite').map(({ tool }) => tool);
+  if (served.length === 0) return;
+  for (const harness of harnesses) {
+    const commands: string[][] = [];
+    for (const { name, title, server } of served) {
+      const what = `${title}'s MCP server`;
+      const registered = registeredWith(harness.executable, session.root, name);
+      if (registered) {
+        session.say(`${what} is already registered with ${harness.name}, in ${registered}. It is left as it is.`);
+        record(session, 'found', `${what}: registered with ${harness.name} in ${registered}`);
+        continue;
+      }
+      const command = server!.command(harness.executable, session.root);
+      const scope = server!.project ? 'project' : 'user';
+      const add = harness.add?.(name, command, scope);
+      if (add && onPath(harness.executable)) {
+        commands.push(add);
+        continue;
+      }
+      const why = !harness.add
+        ? `${harness.name} has no command for adding an MCP server`
+        : !add
+          ? `${title} serves this project only, and ${harness.name} keeps no per-project servers outside the repository`
+          : `\`${harness.executable}\` is not on PATH`;
+      const where = scope === 'project' ? `this project's ${harness.name} configuration` : `${harness.name}'s user configuration`;
+      session.say(`${why}, so binn init does not register ${what} with it. Add this to ${where} yourself:\n\n${harness.entry(name, command).trimEnd()}\n`);
+      record(session, 'printed', `${what} for ${harness.name}`);
+    }
+    if (commands.length === 0) continue;
+    const shown = commands.map((argv) => argv.map(quoted).join(' '));
+    session.plan.push({
+      heading: `Register MCP servers with ${harness.name}, outside the repository, by running`,
+      body: shown.map((line) => `  ${line}`).join('\n'),
+      declined: `register MCP servers with ${harness.name}`,
+      apply() {
+        commands.forEach(([executable, ...args], index) => {
+          session.say(`Running ${shown[index]}...`);
+          // ponytail: no shell, so the JSON and paths pass as they are; Windows' `code.cmd` would need one, as for `claude` in the plugin step.
+          const run = spawnSync(executable!, args, { cwd: session.root, stdio: ['ignore', 'inherit', 'inherit'] });
+          record(session, run.status === 0 ? 'ran' : 'failed', shown[index]!);
+        });
+      },
+    });
   }
 }

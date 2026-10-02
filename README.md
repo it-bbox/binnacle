@@ -179,7 +179,7 @@ binn init
 /product
 ```
 
-`binn audit [path]` reads the repository and prints findings, as text or with `--json`. It writes nothing and needs no daemon. In Claude Code, `/binnacle:audit [path]` runs it from the chat and shows the findings there, gaps first. `binn init` is the command that writes into the repository: it shows one plan and asks once. The plan also installs what is missing of Serena and Graphify (through `uv tool install`) and ast-grep (through npm), outside the repository; a tool already on `PATH`, or declared `false` under `capabilities`, is left alone, and without `uv` init names the command that installs it and leaves Serena and Graphify out.
+`binn audit [path]` reads the repository and prints findings, as text or with `--json`. It writes nothing and needs no daemon. In Claude Code, `/binnacle:audit [path]` runs it from the chat and shows the findings there, gaps first. `binn init` is the command that writes into the repository: it shows one plan and asks once. The plan also installs what is missing of Serena and Graphify (through `uv tool install`) and ast-grep (through npm), outside the repository; a tool already on `PATH`, or declared `false` under `capabilities`, is left alone, and without `uv` init names the command that installs it and leaves Serena and Graphify out. It then registers the MCP servers of Serena, Context7 and Graphify with each harness it detects, through the harness's own CLI and never in the repository, leaving one already registered as it is and printing the entry where a harness has no such command.
 
 ## Working from another harness
 

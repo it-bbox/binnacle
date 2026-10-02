@@ -4,6 +4,8 @@ This checklist separates Binnacle requirements from recommended external capabil
 
 `binn init` installs Serena, Graphify and ast-grep when they are missing, after the plan's one yes, with the commands below; it needs `uv` for the first two and `npm` for ast-grep, and names them when they are missing rather than installing them. The table it installs from is in `docs/operations/03-external-tools.md`, *What `binn init` installs*.
 
+In the same plan, after the installs, `binn init` registers the MCP servers of Serena, Context7 and Graphify with every harness it detects, through the harness's own CLI and never in the repository: at user scope with `claude mcp add --scope user`, `codex mcp add` (`~/.codex/config.toml`) and `code --add-mcp` (VS Code's user profile). Graphify's server serves one project's graph, so it is registered at Claude Code's local scope (`~/.claude.json`, for this project only) and printed for the others. opencode, which has no non-interactive command for it, gets each entry printed. A server already registered is left as it is. The commands are in `03-external-tools.md`, *The MCP servers it registers*.
+
 ## Installing Binnacle
 
 Binnacle is distributed through npm and requires Node 24 on the user's machine (`ADR-0016`):
@@ -176,10 +178,10 @@ Install base CLI; `binn init` runs this when `graphify` is not on `PATH`:
 uv tool install graphifyy
 ```
 
-If separate Graphify MCP serving is wanted:
+Its MCP server needs the `mcp` extra. `binn init` registers it for this project at Claude Code's local scope, running in an environment of its own:
 
 ```bash
-uv tool install "graphifyy[mcp]"
+claude mcp add --scope local graphify -- uv run --no-project --with 'graphifyy[mcp]' python -m graphify.serve <project>/graphify-out/graph.json
 ```
 
 Register assistant integrations according to current upstream tooling, for example project-scoped installation where appropriate:
@@ -219,7 +221,7 @@ Current local MCP package is:
 @upstash/context7-mcp
 ```
 
-Binnacle should perform a capability check rather than owning the Context7 lifecycle.
+Binnacle should perform a capability check rather than owning the Context7 lifecycle. `binn init` registers it, where a detected harness lacks it, as `npx -y @upstash/context7-mcp` at user scope; an API key, if you have one, is added to that entry by hand.
 
 ---
 

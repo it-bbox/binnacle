@@ -1149,3 +1149,136 @@ test('the tools: a declined plan and a stdin that is not a terminal install noth
     assert.deepEqual(npm(), []);
   }
 });
+
+const SERENA_SERVER = {
+  claude: ['serena', 'start-mcp-server', '--context', 'claude-code', '--project-from-cwd'],
+  codex: ['serena', 'start-mcp-server', '--context=codex', '--project-from-cwd'],
+};
+const CONTEXT7_SERVER = ['npx', '-y', '@upstash/context7-mcp'];
+const graphifyServer = (root: string): string[] => ['uv', 'run', '--no-project', '--with', 'graphifyy[mcp]', 'python', '-m', 'graphify.serve', join(root, 'graphify-out', 'graph.json')];
+/** The `mcp add` calls a fake harness CLI recorded, without the plugin step's calls. */
+const mcpAdds = (calls: string[][]): string[][] => calls.filter((call) => call[0] === 'mcp' || call[0] === '--add-mcp');
+
+test('the servers: each detected harness with an mcp add CLI registers every missing server at user scope, and Graphify at Claude Code local scope, after the installs', (t) => {
+  const home = makeHome(t);
+  fakeTool(home, 'uv');
+  fakeTool(home, 'npm');
+  const claude = fakeClaude(home);
+  const codex = fakeTool(home, 'codex');
+  const code = fakeTool(home, 'code');
+  const root = makeRepository(t, 'served');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  const question = result.stdout.indexOf(PLAN_QUESTION);
+  const graph = join(root, 'graphify-out', 'graph.json');
+  const commands = [
+    `claude mcp add --scope user serena -- ${SERENA_SERVER.claude.join(' ')}`,
+    `claude mcp add --scope user context7 -- ${CONTEXT7_SERVER.join(' ')}`,
+    `claude mcp add --scope local graphify -- uv run --no-project --with 'graphifyy[mcp]' python -m graphify.serve ${graph}`,
+    `codex mcp add serena -- ${SERENA_SERVER.codex.join(' ')}`,
+    `codex mcp add context7 -- ${CONTEXT7_SERVER.join(' ')}`,
+    `code --add-mcp '{"name":"context7","command":"npx","args":["-y","@upstash/context7-mcp"]}'`,
+  ];
+  for (const command of commands) {
+    const shown = result.stdout.indexOf(command);
+    assert.ok(shown >= 0 && shown < question, `${command}\n${result.stdout}`);
+    // The registrations follow the installs in the plan.
+    assert.ok(shown > result.stdout.indexOf('uv tool install graphifyy'), command);
+    assert.ok(result.stdout.slice(question).includes(`ran${' '.repeat(7)}${command}`), `${command}\n${result.stdout}`);
+  }
+
+  assert.deepEqual(mcpAdds(claude()), [
+    ['mcp', 'add', '--scope', 'user', 'serena', '--', ...SERENA_SERVER.claude],
+    ['mcp', 'add', '--scope', 'local', 'graphify', '--', ...graphifyServer(root)],
+    ['mcp', 'add', '--scope', 'user', 'context7', '--', ...CONTEXT7_SERVER],
+  ]);
+  assert.deepEqual(mcpAdds(codex()), [
+    ['mcp', 'add', 'serena', '--', ...SERENA_SERVER.codex],
+    ['mcp', 'add', 'context7', '--', ...CONTEXT7_SERVER],
+  ]);
+  assert.deepEqual(mcpAdds(code()), [
+    ['--add-mcp', JSON.stringify({ name: 'serena', command: 'serena', args: ['start-mcp-server', '--context=vscode'] })],
+    ['--add-mcp', JSON.stringify({ name: 'context7', command: 'npx', args: ['-y', '@upstash/context7-mcp'] })],
+  ]);
+  // Codex and VS Code have no per-project scope outside the repository: Graphify's entry is printed for them.
+  assert.match(result.stdout, /printed\s+Graphify's MCP server for Codex/);
+  assert.match(result.stdout, /printed\s+Graphify's MCP server for VS Code/);
+  assert.ok(result.stdout.includes('[mcp_servers.graphify]\ncommand = "uv"'), result.stdout);
+});
+
+test('the servers: one already registered, in user or local scope, is reported and not registered again', (t) => {
+  const home = makeHome(t);
+  fakeTool(home, 'uv');
+  fakeTool(home, 'npm');
+  const claude = fakeClaude(home);
+  const codex = fakeTool(home, 'codex');
+  const root = makeRepository(t, 'registered');
+  writeFileSync(join(home.home, '.claude.json'), JSON.stringify({ mcpServers: { serena: {} }, projects: { [root]: { mcpServers: { graphify: {} } } } }));
+  mkdirSync(join(home.home, '.codex'));
+  writeFileSync(join(home.home, '.codex', 'config.toml'), '[mcp_servers.context7]\ncommand = "npx"\n');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(mcpAdds(claude()), [['mcp', 'add', '--scope', 'user', 'context7', '--', ...CONTEXT7_SERVER]]);
+  assert.deepEqual(mcpAdds(codex()), [['mcp', 'add', 'serena', '--', ...SERENA_SERVER.codex]]);
+  assert.match(result.stdout, /found\s+Serena's MCP server: registered with Claude Code in .*\.claude\.json/);
+  assert.match(result.stdout, /found\s+Graphify's MCP server: registered with Claude Code in .*\.claude\.json/);
+  assert.match(result.stdout, /found\s+Context7's MCP server: registered with Codex in .*config\.toml/);
+});
+
+test('the servers: a harness without an mcp add CLI gets each entry printed, and the Summary says so', (t) => {
+  const home = makeHome(t);
+  fakeTool(home, 'uv');
+  fakeTool(home, 'npm');
+  const opencode = fakeTool(home, 'opencode');
+  const root = makeRepository(t, 'printed');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(opencode(), []);
+  for (const title of ['Serena', 'Context7', 'Graphify']) assert.match(result.stdout, new RegExp(`printed\\s+${title}'s MCP server for opencode`));
+  assert.ok(result.stdout.includes('"context7": {\n      "type": "local",\n      "command": [\n        "npx"'), result.stdout);
+});
+
+test('the servers: a tool declared false, or left out for a missing prerequisite, gets no registration', (t) => {
+  const home = makeHome(t);
+  fakeTool(home, 'uv');
+  const claude = fakeClaude(home);
+  const root = makeRepository(t, 'unregistered', { '.binnacle/project.yaml': 'version: 1\nproject:\n  id: unregistered\ncapabilities:\n  serena: false\n' });
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  // No npm, so Context7's server, which runs through npx, is left out; Serena is declared false.
+  assert.deepEqual(mcpAdds(claude()), [['mcp', 'add', '--scope', 'local', 'graphify', '--', ...graphifyServer(root)]]);
+  assert.match(result.stdout, /skipped\s+Context7: npm is not on PATH/);
+  assert.doesNotMatch(result.stdout, /mcp add[^\n]*(serena|context7)/);
+});
+
+test('the servers: registering them creates or changes no file in the repository, and a declined plan registers nothing', (t) => {
+  const home = makeHome(t);
+  fakeTool(home, 'uv');
+  fakeTool(home, 'npm');
+  for (const name of ['serena', 'graphify', 'ast-grep']) installExecutable(home, name);
+  const claude = fakeClaude(home, ['binnacle@binnacle']);
+  const root = makeRepository(t, 'untouched-servers', {
+    '.binnacle/project.yaml': 'version: 1\nproject:\n  id: untouched\ntelemetry:\n  import:\n    window_days: 90\n',
+    '.mcp.json': JSON.stringify({ mcpServers: { binnacle: {} } }),
+  });
+  const before = git(root, 'status', '--porcelain', '--untracked-files=all');
+
+  // The window is declared, so the plan is the only question.
+  const declined = binnIn(home)(root, 'n\n', 'init');
+  assert.equal(declined.status, 0, declined.stderr);
+  assert.deepEqual(mcpAdds(claude()), []);
+  assert.match(declined.stdout, /declined\s+register MCP servers with Claude Code/);
+
+  const result = binnIn(home)(root, '\n', 'init');
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(mcpAdds(claude()).length, 3);
+  assert.equal(git(root, 'status', '--porcelain', '--untracked-files=all'), before);
+});
