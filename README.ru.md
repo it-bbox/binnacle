@@ -112,6 +112,16 @@ Daemon также раздаёт dashboard только для чтения по
 
 Ссылка запускает CLI из основного checkout, с его `node_modules`. Поэтому после pull или merge изменения, которое затрагивает workspace — новый пакет, изменённая зависимость, `pnpm-lock.yaml`, — снова выполните `pnpm install` в основном checkout. До этого пакета, который CLI теперь импортирует, там нет, `binn` падает с `ERR_MODULE_NOT_FOUND`, а с ним пропадают MCP-инструменты у каждой сессии. Установка в worktree не помогает: у каждого checkout свой `node_modules`.
 
+Когда `binn init` установил plugin `binnacle`, Claude Code загружает здесь этот установленный `binnacle@binnacle`, а не skills из `.claude/skills/binnacle/`, поэтому влитое изменение этих skills само до новой сессии не доходит. После pull или merge такого изменения выполните в основном checkout:
+
+```bash
+pnpm --filter @binnacle/cli run prepare
+claude plugin marketplace update binnacle
+claude plugin update binnacle@binnacle
+```
+
+Первая команда копирует skills в CLI-пакет; две другие, нужные, только если `claude plugin list --json` показывает `binnacle@binnacle`, заставляют Claude Code обновить свою копию. Новая сессия затем загружает изменённые skills. `/binnacle:autopilot` делает это сам после каждого своего merge.
+
 `pnpm setup` добавляет свой глобальный каталог для исполняемых файлов в PATH в файле запуска shell, например `~/.bashrc`, а desktop-приложение Claude Code этот файл не читает, поэтому в нём `.mcp.json` не находит `binn`. Сделайте `binn` видимым там скриптом-обёрткой с именем `binn`, исполняемым, в каталоге, который уже есть в PATH приложения, — в Linux это `~/.local/bin`:
 
 ```sh

@@ -63,6 +63,17 @@ test('autopilot leaves the Next action to the owner, in the brief and in its rep
   assert.match(skill, /stale `Next action:`/);
 });
 
+/** Epic 9: the installed binnacle@binnacle shadows the skills-directory plugin here, so a merged skill reaches the owner only once refreshed. */
+test('autopilot refreshes the plugin only when a merge changed its skills and binnacle@binnacle is installed, and a failure does not stop the run', () => {
+  const skill = skillText('autopilot');
+  assert.match(skill, /changed `\.claude\/skills\/binnacle\/` \(only when this project is Binnacle itself\)/);
+  assert.match(skill, /after any frozen install and before regenerating the dashboard/);
+  assert.match(skill, /`pnpm --filter @binnacle\/cli run prepare`/);
+  assert.match(skill, /only if `claude plugin list --json` lists `binnacle@binnacle`, `claude plugin marketplace update binnacle` then `claude plugin update binnacle@binnacle`/);
+  assert.match(skill, /A failure here never stops the run/);
+  assert.match(skill, /the plugin refreshed and that a new session loads it, or why it was skipped, or which command failed/);
+});
+
 /** Epic 9: the daemon and registration from the chat, run through binn so that they need no daemon. */
 test('/binnacle:daemon, /binnacle:register and /binnacle:init run binn, are started by a human only, and handle a missing binn as /binnacle:audit does', () => {
   for (const name of ['daemon', 'register', 'init']) {

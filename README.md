@@ -112,6 +112,16 @@ The daemon also serves a read-only dashboard at its own address, `http://127.0.0
 
 The link runs the CLI out of the main checkout, with that checkout's `node_modules`. So after pulling or merging a change that touches the workspace — a new package, a changed dependency, `pnpm-lock.yaml` — run `pnpm install` in the main checkout again. Until then a package the CLI now imports is missing there, `binn` fails with `ERR_MODULE_NOT_FOUND`, and every session's MCP tools go with it. Installing in a worktree does not help: each checkout has its own `node_modules`.
 
+Once `binn init` has installed the `binnacle` plugin, Claude Code loads that installed `binnacle@binnacle` here, not the skills in `.claude/skills/binnacle/`, so a merged change to those skills does not reach a new session by itself. After pulling or merging one, run in the main checkout:
+
+```bash
+pnpm --filter @binnacle/cli run prepare
+claude plugin marketplace update binnacle
+claude plugin update binnacle@binnacle
+```
+
+The first copies the skills into the CLI package; the other two, needed only when `claude plugin list --json` lists `binnacle@binnacle`, have Claude Code update its copy. A new session then loads the changed skills. `/binnacle:autopilot` does this itself after each merge it makes.
+
 `pnpm setup` puts its global bin directory on PATH in your shell's startup file, such as `~/.bashrc`, which the Claude Code desktop app does not read, so in the desktop app `.mcp.json` cannot find `binn`. Make `binn` visible there with a wrapper script named `binn`, made executable, in a directory already on the app's PATH — `~/.local/bin` on Linux:
 
 ```sh
