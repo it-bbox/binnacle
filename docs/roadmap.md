@@ -28,7 +28,7 @@ Epics 1 to 6 are done: the daemon and its store; the snapshot, daily and checkpo
 
 Epic 7, Audit and adopt, is specified and sliced into tickets 02 to 08, and ticket 01 is done. Its scope is `docs/05-mvp-plan.md`, phase 6: a read-only audit of a repository, giving migration recommendations rather than fixes. The grilling is done (2026-10-02): its decisions are in `specs/audit-and-adopt/brief.md`, and `binn init`'s new way of asking is ADR-0034. Its spec is `specs/audit-and-adopt/spec.md`. Ticket 01, `binn init` finishing and saying what it waits on, is done. Ticket 02, `binn init` showing one plan and asking once, is ready and blocks 03 and 07; tickets 04 to 06 wait on 03, and ticket 08 is the owner's exit demonstration.
 
-Next action: implement ticket 02 of epic 7, `binn init` shows one plan and asks once. `/mattpocock-skills:implement docs/specs/audit-and-adopt/issues/02-init-shows-one-plan-and-asks-once.md`
+Next action: finish epic 7, Audit and adopt, with autopilot: tickets 02 to 07 are run one agent each, and ticket 08, the owner's exit demonstration, is left for the owner. `/binnacle:autopilot 7`
 
 ## Later
 
