@@ -27,13 +27,13 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 ## Current focus
 
-Epics 1 to 6 are done: the daemon and its store; snapshot, daily and checkpoint over MCP, and the `binnacle` plugin with autopilot; Tasks from GitHub, GitLab or local tickets, and `binn init`; usage by model, Task and role; the read-only dashboard in English and Russian. Binnacle writes nothing into the repository.
+Epics 1 to 6 are done: the daemon, snapshot, daily and checkpoint over MCP, the `binnacle` plugin with autopilot, Tasks from GitHub, GitLab or local tickets, `binn init`, usage, and the read-only dashboard in English and Russian. Binnacle writes nothing into the repository.
 
-Epic 7, Audit and adopt (`specs/audit-and-adopt/spec.md`, phase 6), is done but for ticket 08, the owner's exit demonstration: `binn audit`, `/binnacle:audit`, and `binn init` showing one plan and asking once (ADR-0034).
+Epic 7, Audit and adopt (`specs/audit-and-adopt/spec.md`), is done but for ticket 08, the owner's exit demonstration (ADR-0034).
 
-On 2026-10-02 the owner found that epics 1 to 7 deliver only part of `docs/baseline.md`, the floor for v1; the gaps are epics 8 to 12 (`docs/05-mvp-plan.md`, phases 8 to 12; ADR-0035 to ADR-0038). Epic 8 (`specs/project-brain-tools-graphify-obsidian/spec.md`) has tickets 01 to 12: 01 to 07 and 09 to 11 are done, so init installs the CLI tools and the skill plugins, registers the MCP servers, proposes the vault path and builds the first graph, the daemon keeps the graph current and projects the Project Brain, the last snapshot and daily, and the graph's report into an Obsidian vault, the snapshot gives the conflict risk between Tasks, and autopilot starts two together only when it is low; 08 can start now, and 12 is the owner's exit demonstration. Epics 9 to 12 still need `to-spec`. Ticket 08 of epic 7 stays open beside them.
+On 2026-10-02 the owner found that epics 1 to 7 deliver only part of `docs/baseline.md`, the floor for v1; the gaps are epics 8 to 12 (`docs/05-mvp-plan.md`; ADR-0035 to ADR-0038). Epic 8 (`specs/project-brain-tools-graphify-obsidian/spec.md`): tickets 01 to 11 are done, so init installs the tools, plugins and MCP servers and builds the first graph, the daemon keeps the graph current and projects the Project Brain into an Obsidian vault, the snapshot and the dashboard give the graph's freshness and the conflict risk between Tasks, and autopilot starts two Tasks together only when that risk is low. Only ticket 12, the owner's exit demonstration, remains. Epics 9 to 12 still need `to-spec`. Ticket 08 of epic 7 stays open beside them.
 
-Next action: build epic 8's tickets with autopilot. `/binnacle:autopilot`
+Next action: finish epic 8 with the owner's exit demonstration, ticket 12, by running init in a repository of the owner's own. `binn init`
 
 ## Later
 
