@@ -1,6 +1,6 @@
 # ADR-0023: Binnacle's Skills Ship as a Claude Code Plugin Named `binnacle`
 
-**Status:** Accepted
+**Status:** Accepted. Amended on 2026-10-02: once `binn init` has installed `binnacle@binnacle` from the npm package (ADR-0027), that copy takes the name `binnacle`, and Claude Code does not load the skills-directory plugin at `.claude/skills/binnacle/`. An edited `SKILL.md` then reaches a session only after the plugin is refreshed: `pnpm --filter @binnacle/cli run prepare`, `claude plugin marketplace update binnacle`, `claude plugin update binnacle@binnacle`, and a new session (`specs/everything-from-the-chat/spec.md`, ticket 07).
 
 ## Context
 
