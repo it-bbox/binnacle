@@ -20,7 +20,7 @@ There is no `binn adopt`: adopting is the audit, which reads, followed by `binn 
 - inspect `.scratch` usage;
 - detect Serena/Graphify/Context7 where possible;
 - configure telemetry adapters when supported;
-- create only minimal Binnacle manifest/config after one confirmation of the plan `binn init` shows (ADR-0034).
+- create only minimal Binnacle manifest/config after one confirmation of the plan `binn init` shows (ADR-0034), at a terminal or, through `binn init --apply <id>`, as the human's yes in the chat (ADR-0037).
 
 ## Audit
 

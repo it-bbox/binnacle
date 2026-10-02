@@ -68,8 +68,14 @@ type Session = {
  * anything else declines it, and with stdin not a terminal nothing is written. It never commits.
  * `window` answers the window question unasked. With `plan`, the plan is printed as JSON with
  * its id (ADR-0037), and nothing is asked, written or run after it, the tracker check included.
+ * With `apply`, the plan is worked out again and written unasked only if its id is `apply`: the
+ * human confirmed that plan in the chat (ADR-0037). Any other plan is refused, and nothing is written.
  */
-export async function init(home: string, path?: string, options: { plan?: boolean; window?: ImportWindow | undefined } = {}): Promise<ExitCode> {
+export async function init(
+  home: string,
+  path?: string,
+  options: { plan?: boolean; apply?: string | undefined; window?: ImportWindow | undefined } = {},
+): Promise<ExitCode> {
   const git = await readGitFacts(resolve(path ?? process.cwd()), resolveGitTimeout());
   if (!git.available) {
     console.error(`binn: ${git.reason} binn init works at the root of a Git repository.`);
@@ -77,6 +83,7 @@ export async function init(home: string, path?: string, options: { plan?: boolea
   }
 
   const planOnly = options.plan === true;
+  const { apply } = options;
   // Opened at the first question only: a run that asks nothing never reads stdin, nor holds it open.
   let lines: ReturnType<typeof createInterface> | undefined;
   let answers: AsyncIterator<string> | undefined;
@@ -103,11 +110,11 @@ export async function init(home: string, path?: string, options: { plan?: boolea
   };
 
   try {
-    if (!planOnly) session.say(`Setting up Binnacle in ${session.root}. Nothing is written until you have seen the whole plan and confirmed it.\n`);
+    if (!planOnly && apply === undefined) session.say(`Setting up Binnacle in ${session.root}. Nothing is written until you have seen the whole plan and confirmed it.\n`);
     const manifest = manifestStep(session);
     session.say('');
-    // `--plan` asks nothing: without --window, the default, as Enter at the question gives it.
-    const windowSection = await windowStep(session, manifest, options.window ?? (planOnly ? DEFAULT_WINDOW_DAYS : undefined));
+    // `--plan` and `--apply` ask nothing: without --window, the default, as Enter at the question gives it.
+    const windowSection = await windowStep(session, manifest, options.window ?? (planOnly || apply !== undefined ? DEFAULT_WINDOW_DAYS : undefined));
     // Read before the manifest is proposed, which declares what is found or installed; planned after the other writes.
     const plugins = listClaudePlugins(session);
     const tools = detectTools(session.root, plugins);
@@ -143,7 +150,12 @@ export async function init(home: string, path?: string, options: { plan?: boolea
       console.log(JSON.stringify({ root, id: planId(root, plan), plan, notes, history, window }, null, 2));
       return EXIT.ok;
     }
-    await confirmPlan(session, process.stdin.isTTY === true);
+    if (apply === undefined) await confirmPlan(session, process.stdin.isTTY === true);
+    else if (apply === planId(session.root, session.plan)) await applyPlan(session);
+    else {
+      console.error('binn: init.plan_changed: the plan is not the one confirmed, so nothing is written. Run binn init --plan --json to see it, and confirm it again.');
+      return EXIT.failed;
+    }
     session.say('');
     // After the plan is written: the manifest it created is the one whose tracker is read.
     await trackerStep(session, home, declaredManifest(session.root));
@@ -200,7 +212,13 @@ async function confirmPlan(session: Session, terminal: boolean): Promise<void> {
   const reply = await session.answer('Write this plan? [Y/n] ');
   // Enter or yes accepts; anything else, and the end of input, declines.
   if (reply === null || !/^\s*(y(es)?)?\s*$/i.test(reply)) return declineAll('The plan was declined.');
-  for (const item of plan) {
+  await applyPlan(session);
+}
+
+/** Runs every item of a confirmed plan. */
+async function applyPlan(session: Session): Promise<void> {
+  if (session.plan.length === 0) return session.say('There is nothing to write.');
+  for (const item of session.plan) {
     // One write that fails is reported, and the rest of the plan still runs.
     try {
       await item.apply();

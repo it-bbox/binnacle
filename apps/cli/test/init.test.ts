@@ -1784,3 +1784,86 @@ test('binn --help names --plan, --json and --window for binn init', () => {
   assert.match(stdout, /binn init \[--window <days\|all>\] \[path\]/);
   assert.match(stdout, /binn init --plan --json \[--window <days\|all>\] \[path\]/);
 });
+
+test('--apply with the id from --plan --json writes that plan with stdin not a terminal, runs the tracker check and prints the Summary', async (t) => {
+  const home = makeHome(t);
+  const claude = fakeClaude(home);
+  const root = makeRepository(t, 'applied', { 'docs/agents/issue-tracker.md': '# Issue tracker\n' });
+  const before = commits(root);
+  const { id, plan } = await planJson(t, home, root, '--window', '7');
+
+  const result = binnIn(home, false)(root, '', 'init', '--apply', id, '--window', '7');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(manifestOf(root), plan.find(({ heading }) => heading === 'Create .binnacle/project.yaml')!.body);
+  assert.ok(manifestOf(root).endsWith(windowSection('7')), manifestOf(root));
+  assert.ok(existsSync(join(root, '.mcp.json')));
+  assert.match(read(root, 'docs/agents/issue-tracker.md'), /## Ticket header/);
+  assert.ok(claude().some((call) => call.join(' ') === 'plugin install binnacle@binnacle --scope user'), JSON.stringify(claude()));
+  // Nothing is asked, neither the window nor the plan, and the plan is not shown again.
+  assert.doesNotMatch(result.stdout, /Import window|Write this plan|stdin is not a terminal|The plan\. /);
+  assert.match(result.stdout, /The tracker is not a remote one/);
+  assert.match(result.stdout, /Summary:\n(.*\n)*\s+created\s+\.binnacle\/project\.yaml/);
+  assert.match(result.stdout, /extended\s+docs\/agents\/issue-tracker\.md/);
+  assert.match(result.stdout, /Nothing was committed/);
+  assert.equal(commits(root), before);
+});
+
+test('--apply after a file in the plan was created or changed exits 3 with init.plan_changed and writes nothing', async (t) => {
+  const changes = {
+    // A file the plan would create appears.
+    created: (root: string) => writeFileSync(join(root, '.mcp.json'), '{}\n'),
+    // A file the plan would extend changes what the plan shows: here, it already has the section.
+    changed: (root: string) => writeFileSync(join(root, 'docs/agents/issue-tracker.md'), '# Issue tracker\n\n## Ticket header\n\nBy hand.\n'),
+  };
+  for (const [name, change] of Object.entries(changes)) {
+    const home = makeHome(t);
+    const claude = fakeClaude(home);
+    const root = makeRepository(t, name, { 'docs/agents/issue-tracker.md': '# Issue tracker\n' });
+    const { id } = await planJson(t, home, root);
+    change(root);
+    const status = git(root, 'status', '--porcelain');
+    const tracker = read(root, 'docs/agents/issue-tracker.md');
+
+    const result = binnIn(home, false)(root, '', 'init', '--apply', id);
+
+    assert.equal(result.status, 3, `${name}\n${result.stdout}\n${result.stderr}`);
+    assert.match(result.stderr, /init\.plan_changed/);
+    assert.doesNotMatch(result.stdout, /Summary:/);
+    assert.equal(git(root, 'status', '--porcelain'), status);
+    assert.equal(read(root, 'docs/agents/issue-tracker.md'), tracker);
+    assert.equal(existsSync(join(root, '.binnacle')), false);
+    assert.equal(existsSync(home.binnacleHome), false);
+    assert.ok(claude().every((call) => call.join(' ') === 'plugin list --json'), JSON.stringify(claude()));
+  }
+});
+
+test('--apply with a made-up id, or with another --window than the plan had, writes nothing', async (t) => {
+  const home = makeHome(t);
+  const claude = fakeClaude(home);
+  const root = makeRepository(t, 'refused');
+  const { id } = await planJson(t, home, root, '--window', '7');
+
+  for (const args of [['--apply', '0'.repeat(64), '--window', '7'], ['--apply', id], ['--apply', id, '--window', 'all']]) {
+    const result = binnIn(home, false)(root, '', 'init', ...args);
+    assert.equal(result.status, 3, `${args.join(' ')}\n${result.stdout}\n${result.stderr}`);
+    assert.match(result.stderr, /init\.plan_changed/);
+  }
+  assert.equal(git(root, 'status', '--porcelain'), '');
+  assert.ok(claude().every((call) => call.join(' ') === 'plugin list --json'), JSON.stringify(claude()));
+});
+
+test('binn init refuses --apply with --plan, or without an id, as usage errors', (t) => {
+  const home = makeHome(t);
+  const root = makeRepository(t, 'misapplied');
+  for (const args of [['--apply'], ['--apply', ' '], ['--apply', 'x', '--plan', '--json']]) {
+    const result = binnIn(home)(root, '', 'init', ...args);
+    assert.equal(result.status, 2, `${args.join(' ')}\n${result.stdout}`);
+  }
+  assert.equal(git(root, 'status', '--porcelain'), '');
+});
+
+test('binn --help names --apply for binn init', () => {
+  const { stdout } = spawnSync(process.execPath, [BINN, '--help'], { encoding: 'utf8' });
+  assert.match(stdout, /binn init --apply <id> \[--window <days\|all>\] \[path\]/);
+});

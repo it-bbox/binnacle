@@ -21,6 +21,9 @@ Usage:
                         and never commits. --window sets the history import window without asking
   binn init --plan --json [--window <days|all>] [path]
                         Print that plan and its id as JSON, writing, running and asking nothing
+  binn init --apply <id> [--window <days|all>] [path]
+                        Write the plan whose id is <id>, as a confirmed run does, without asking;
+                        if the plan is no longer that one, write nothing and exit 3 (init.plan_changed)
 
   binn audit [path] [--json]
                         Read-only findings on the Git repository containing path: what is in place,
@@ -83,7 +86,7 @@ async function run(argv: string[]): Promise<ExitCode> {
 
   if (first === 'init') {
     const options = initOptions(argv.slice(1));
-    if (options) return await init(resolveHome(), options.path, { plan: options.plan, window: options.window });
+    if (options) return await init(resolveHome(), options.path, { plan: options.plan, apply: options.apply, window: options.window });
   }
 
   if (first === 'audit') {
@@ -110,14 +113,22 @@ async function run(argv: string[]): Promise<ExitCode> {
   return usage(argv.join(' '));
 }
 
-/** `binn init`'s arguments, or null when they are not its usage: `--plan` and `--json` only together, and a window as the window question takes it, though not empty. */
-function initOptions(args: string[]): { path: string | undefined; plan: boolean; window: ImportWindow | undefined } | null {
+/**
+ * `binn init`'s arguments, or null when they are not its usage: `--plan` and `--json` only together,
+ * `--apply` with an id and without them, and a window as the window question takes it, though not empty.
+ */
+function initOptions(args: string[]): { path: string | undefined; plan: boolean; apply: string | undefined; window: ImportWindow | undefined } | null {
   try {
-    const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { plan: { type: 'boolean' }, json: { type: 'boolean' }, window: { type: 'string' } } });
+    const { values, positionals } = parseArgs({
+      args,
+      allowPositionals: true,
+      options: { plan: { type: 'boolean' }, json: { type: 'boolean' }, apply: { type: 'string' }, window: { type: 'string' } },
+    });
     const plan = values.plan === true;
-    if (plan !== (values.json === true) || positionals.length > 1) return null;
+    const apply = values.apply?.trim();
+    if (plan !== (values.json === true) || positionals.length > 1 || apply === '' || (plan && apply !== undefined)) return null;
     const window = values.window === undefined ? undefined : values.window.trim() === '' ? null : importWindow(values.window);
-    return window === null ? null : { path: positionals[0], plan, window };
+    return window === null ? null : { path: positionals[0], plan, apply, window };
   } catch {
     // An unknown option, or --window without its value.
     return null;
