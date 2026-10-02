@@ -489,7 +489,7 @@ function pluginStep(session: Session, plugins: ClaudePlugins): void {
     session.say(`${plugins.reason}, so the binnacle plugin is not installed.`);
     return record(session, 'skipped', `${what}: ${plugins.reason}`);
   }
-  const listed = plugins.ids.find((id) => id.startsWith('binnacle@'));
+  const listed = listedAs(plugins.ids, 'binnacle@binnacle');
   if (listed) {
     session.say(`Claude Code already lists ${listed}. It is left as it is.`);
     return record(session, 'skipped', `${what}: Claude Code already lists ${listed}`);
@@ -506,6 +506,13 @@ type ClaudePlugins = { ids: string[] } | { reason: string };
 
 const shownClaude = (args: string[]): string => `claude ${args.join(' ')}`;
 
+/** The plugin listed under `id`'s name, from any marketplace: `name@marketplace`. */
+const listedAs = (ids: string[], id: string): string | undefined => ids.find((listed) => listed.split('@')[0] === id.split('@')[0]);
+
+/**
+ * Asks Claude Code for its plugins, once, through `claude plugin list --json`: before the
+ * manifest is proposed, which declares what is found. A failed listing is reported here.
+ */
 function listClaudePlugins(session: Session): ClaudePlugins {
   if (!detect(HARNESSES.find(({ executable }) => executable === 'claude')!)) return { reason: 'Claude Code is not detected' };
   const listing = ['plugin', 'list', '--json'];
@@ -716,9 +723,7 @@ function detectTools(root: string, plugins: ClaudePlugins): ToolState[] {
     if (tool.executable && onPath(tool.executable)) return { tool, state: 'found', why: `${tool.executable} is on PATH` };
     if (tool.plugin) {
       if ('reason' in plugins) return { tool, state: 'no-channel', why: `a Claude Code plugin, and ${plugins.reason}` };
-      // Its name from any marketplace counts, as for the binnacle plugin.
-      const name = tool.plugin.id.split('@')[0];
-      const listed = plugins.ids.find((id) => id.split('@')[0] === name);
+      const listed = listedAs(plugins.ids, tool.plugin.id);
       return listed ? { tool, state: 'found', why: `Claude Code lists ${listed}` } : { tool, state: 'install' };
     }
     if (tool.prerequisite && !onPath(tool.prerequisite.executable)) return { tool, state: 'no-prerequisite' };
@@ -727,13 +732,15 @@ function detectTools(root: string, plugins: ClaudePlugins): ToolState[] {
 }
 
 /** Names as a sentence lists them: `A`, `A and B`, `A, B and C`. */
-const listed = (names: string[]): string => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`);
+const inSentence = (names: string[]): string => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`);
 
 /**
- * Step 8: the tools of the Standard setup that are executables (ADR-0035), installed through a
- * package manager outside the repository. A prerequisite is named, never installed, and no
- * installer script is ever run; a tool that needs it is left out, its server included. One
- * install that fails leaves the others to run.
+ * Step 8: the tools of the Standard setup (ADR-0035), installed outside the repository: the
+ * executables through a package manager, the skill sets that ship as Claude Code plugins through
+ * Claude Code's plugin CLI at user scope, as the binnacle plugin is (ADR-0027). A prerequisite is
+ * named, never installed, and no installer script is ever run; a tool that needs it is left out,
+ * its server included. A detected harness other than Claude Code is told where each skill set is
+ * had. One install that fails leaves the others to run.
  */
 function toolsStep(session: Session, tools: ToolState[]): void {
   const named = new Set<string>();
@@ -741,7 +748,7 @@ function toolsStep(session: Session, tools: ToolState[]): void {
     const { title, name, executable, install, prerequisite, plugin } = tool;
     // A harness with no channel for a plugin is pointed at where the skill set is had.
     if (plugin && state !== 'declared-false' && session.otherHarnesses.length > 0) {
-      const harnesses = listed(session.otherHarnesses.map(({ name: harness }) => harness));
+      const harnesses = inSentence(session.otherHarnesses.map(({ name: harness }) => harness));
       session.say(`binn init installs ${title} only into Claude Code. For ${harnesses}, get it with ${plugin.elsewhere}.`);
       record(session, 'printed', `${title} for ${harnesses}: ${plugin.elsewhere}`);
     }
@@ -752,7 +759,7 @@ function toolsStep(session: Session, tools: ToolState[]): void {
       session.say(`${title} is installed (${why}). It is left as it is.`);
       record(session, 'found', `${title}: ${why}`);
     } else if (state === 'no-channel') {
-      session.say(`${title} is ${why}, so it is not installed.`);
+      session.say(`${title} is ${why}, so it is not installed. Get it with ${plugin!.elsewhere}, or from inside Claude Code.`);
       record(session, 'skipped', `${title}: ${why}`);
     } else if (state === 'install' && plugin) {
       session.say(`Claude Code does not list ${title}. Its install is in the plan.`);

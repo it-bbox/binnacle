@@ -1370,6 +1370,20 @@ test('the skill plugins: for Codex, opencode or VS Code detected, the Summary na
   assert.doesNotMatch(summary, /Matt Pocock Skills for/);
 });
 
+test('the skill plugins: a failed plugin listing is reported once, and no plugin is installed', (t) => {
+  const home = makeHome(t);
+  const claude = fakeTool(home, 'claude', 1);
+  const root = makeRepository(t, 'skills-unlisted');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(claude().filter((call) => call[0] === 'plugin'), [['plugin', 'list', '--json']]);
+  const summary = result.stdout.slice(result.stdout.indexOf('Summary:'));
+  assert.equal(summary.match(/failed\s+claude plugin list --json/g)?.length, 1, summary);
+  assert.match(summary, /skipped\s+Ponytail: a Claude Code plugin, and `claude plugin list --json` failed/);
+});
+
 test('the skill plugins: without Claude Code detected nothing is installed, and the Summary says why', (t) => {
   const home = makeHome(t);
   installExecutable(home, 'codex');

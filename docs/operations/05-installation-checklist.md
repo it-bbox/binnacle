@@ -113,7 +113,7 @@ Then use the agreed project-design chain when appropriate:
 /to-tickets
 ```
 
-`binn init` installs the Claude Code plugin in its plan when Claude Code is detected and does not list it, and leaves a listed one alone; it never runs `/setup-matt-pocock-skills`, which it names when the project has no Matt Pocock layout (`03-external-tools.md`, *The skill plugins it installs*).
+`binn init` detects an existing installation and never blindly reinstalls: it installs the Matt Pocock Skills Claude Code plugin in its plan when Claude Code is detected and does not list it, and leaves a listed one alone; it never runs `/setup-matt-pocock-skills`, which it names when the project has no Matt Pocock layout (`03-external-tools.md`, *The skill plugins it installs*).
 
 ---
 
