@@ -55,6 +55,7 @@ type Session = {
   otherHarnesses: Harness[];
   /** Only the plan is worked out, for `--plan --json`: nothing is asked, and what is said is kept as notes. */
   planOnly: boolean;
+  /** Each harness's sessions in this repository, and the local date of the oldest. */
   history: { harness: string; sessions: number; oldest: string | null }[];
   /** The import window the plan uses, whether the manifest already declares it, and whether it is the default. */
   window: { days: ImportWindow; declared: boolean; default: boolean };
@@ -91,7 +92,8 @@ export async function init(home: string, path?: string, options: { plan?: boolea
   const session: Session = {
     root: git.root,
     answer,
-    say: planOnly ? (text) => void (text.trim() && notes.push(text.trim())) : (text) => console.log(text),
+    // A note keeps its first line's indentation, as in a printed entry; only blank lines around it go.
+    say: planOnly ? (text) => void (text.trim() && notes.push(text.replace(/^\s*\n|\s+$/g, ''))) : (text) => console.log(text),
     plan: [],
     outcomes: [],
     otherHarnesses: [],
@@ -160,7 +162,7 @@ export async function init(home: string, path?: string, options: { plan?: boolea
 }
 
 /** A plan's id (ADR-0037): a hash of the repository root and every item's heading and body, in order, so that no state is kept between showing a plan and confirming it. */
-export const planId = (root: string, plan: { heading: string; body: string }[]): string =>
+const planId =(root: string, plan: { heading: string; body: string }[]): string =>
   createHash('sha256')
     .update(JSON.stringify([root, ...plan.map(({ heading, body }) => [heading, body])]))
     .digest('hex');

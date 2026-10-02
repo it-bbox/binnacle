@@ -1,12 +1,12 @@
 #!/usr/bin/env node
+import { parseArgs } from 'node:util';
+import { type ImportWindow } from '@binnacle/core';
 import { resolveHome, packageVersion } from '@binnacle/daemon';
 import { start, status, stop } from './daemon-commands.ts';
 import { list, register, status as projectStatus, unregister } from './project-commands.ts';
 import { EXIT, type ExitCode } from './exit.ts';
 import { dashboard } from './dashboard.ts';
 import { audit } from './audit.ts';
-import { parseArgs } from 'node:util';
-import { type ImportWindow } from '@binnacle/core';
 import { importWindow, init } from './init.ts';
 import { mcp } from './mcp.ts';
 
@@ -83,7 +83,7 @@ async function run(argv: string[]): Promise<ExitCode> {
 
   if (first === 'init') {
     const options = initOptions(argv.slice(1));
-    if (options) return await init(resolveHome(), options.path, options);
+    if (options) return await init(resolveHome(), options.path, { plan: options.plan, window: options.window });
   }
 
   if (first === 'audit') {
