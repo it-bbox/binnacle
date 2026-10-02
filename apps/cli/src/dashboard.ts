@@ -24,9 +24,9 @@ export async function dashboard(home: string, print: boolean): Promise<ExitCode>
     return reportFailure(error);
   }
 
-  const plain = `http://${runtime.host}:${runtime.port}/`;
-  const address = `${plain}#token=${token}`;
-  console.log(print ? address : plain);
+  const bareAddress = `http://${runtime.host}:${runtime.port}/`;
+  const address = `${bareAddress}#token=${token}`;
+  console.log(print ? address : bareAddress);
   if (!print) open(address);
   return EXIT.ok;
 }

@@ -71,7 +71,7 @@ test('binn dashboard passes the opener the address with its token, and prints it
   const result = await binnWith(home, { PATH: opener.path }, 'dashboard');
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout, `http://127.0.0.1:${daemon.runtime.port}/\n`);
-  assert.doesNotMatch(result.stdout + result.stderr, /token/);
+  assert.ok(!(result.stdout + result.stderr).includes(daemon.token));
   assert.equal(await waitForFile(opener.opened), `http://127.0.0.1:${daemon.runtime.port}/#token=${daemon.token}`);
 });
 
