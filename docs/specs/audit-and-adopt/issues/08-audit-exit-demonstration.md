@@ -21,3 +21,18 @@ Spec: `docs/specs/audit-and-adopt/spec.md`
 - **The roadmap's Next action is `binn audit`**, set by ticket 06's agent when the last of tickets 02 to 07 merged. It is not a slash command; change it if another form of the step is wanted.
 - **Decided by the owner, 2026-10-02.** The ticket-header gap: the section is added to `docs/agents/issue-tracker.md`, in the words `binn init` writes for a local tracker, and `binn audit` on this repository now reports `layout.ticket_header` as `ok`. The tracker question: none is added; the tracker stays proposed from the remote and shown in the plan, and ADR-0034 and the spec's story 53 now say so. The Next action keeps `binn audit`.
 - **What the audit still reports here, 2026-10-02.** One gap, `structure.ci`: this repository has no CI configuration. It is a real one; whether it matters is the owner's call during the demonstration. `tracker.token_works` is `unknown`, as it always is offline.
+
+### Steps for the demonstration, 2026-10-03
+
+Before you start, once for all three demonstrations (epics 7, 8 and 9):
+
+1. In a terminal in the main checkout, refresh the `binnacle` plugin so the new skills exist: `pnpm --filter @binnacle/cli run prepare`, then `claude plugin marketplace update binnacle`, then `claude plugin update binnacle@binnacle`. Close every Claude Code session and open a new one.
+2. Pick **repository A**: a project of your own that has never run `binn init`. Epics 7 and 8 use it.
+
+Then:
+
+1. **Audit this repository from the chat.** In a Claude Code session in this repository, type `/binnacle:audit`. Expect one gap, `structure.ci` (no CI here). Decide whether it matters; there should be no other gap.
+2. **Audit repository A.** Open a session in repository A and type `/binnacle:audit`. Read the recommendations and decide whether you agree. Change nothing by hand.
+3. **Init repository A.** In a terminal in repository A, run `binn init`. It shows one plan and asks once; press Enter. This step also counts for epic 8's first criterion.
+4. **A Product session in another harness.** Using only the README section *Working from another harness*, start a Product session in Codex without asking anyone what to type.
+5. Under `## Comments`, write whether the audit is useful. Tick each criterion that held; for one that did not, write one line on what went wrong, to become a ticket.
