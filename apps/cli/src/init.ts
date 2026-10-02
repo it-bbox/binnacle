@@ -22,7 +22,7 @@ import { EXIT, type ExitCode } from './exit.ts';
 import { sessionHistory } from './history.ts';
 import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, mattPocockFiles } from './layout.ts';
 import { register } from './project-commands.ts';
-import { declaredCapabilities, onPath, registeredWith, TOOLS, VSCODE_USER_DIRECTORY, type Tool } from './tools.ts';
+import { CONFIG_HOME, declaredCapabilities, onPath, registeredWith, TOOLS, VSCODE_USER_DIRECTORY, type Tool } from './tools.ts';
 
 type Outcome = 'created' | 'extended' | 'printed' | 'ran' | 'found' | 'checked' | 'failed' | 'declined' | 'skipped';
 
@@ -382,9 +382,6 @@ const stdio = ([command, ...args]: string[]) => ({ type: 'stdio', command, args 
 
 /** The server every template declares: stdio, named `binnacle`, running `binn mcp`. */
 const BINNACLE = ['binn', 'mcp'];
-
-/** Where opencode keeps its user configuration. */
-const CONFIG_HOME = process.env.XDG_CONFIG_HOME || join(homedir(), '.config');
 
 const HARNESSES: Harness[] = [
   {
@@ -772,8 +769,18 @@ const quoted = (arg: string): string => (/^[\w@%+=:,./-]+$/.test(arg) ? arg : `'
  * left as it is. Nothing is written into the repository.
  */
 function serversStep(session: Session, tools: ToolState[], harnesses: Harness[]): void {
-  const served = tools.filter(({ tool, state }) => tool.server && state !== 'declared-false' && state !== 'no-prerequisite').map(({ tool }) => tool);
-  if (served.length === 0) return;
+  if (harnesses.length === 0) return;
+  const served = tools
+    .filter(({ tool, state }) => tool.server && state !== 'declared-false' && state !== 'no-prerequisite')
+    .map(({ tool }) => tool)
+    .filter(({ title, server }) => {
+      // A tool found on PATH may still lack what its server runs through, such as Graphify installed without uv.
+      const needed = server!.prerequisite?.executable;
+      if (!needed || onPath(needed)) return true;
+      session.say(`${title}'s MCP server runs through ${needed}, which is not on PATH, so it is not registered. Install it with ${server!.prerequisite!.how}.`);
+      record(session, 'skipped', `${title}'s MCP server: ${needed} is not on PATH`);
+      return false;
+    });
   for (const harness of harnesses) {
     const commands: string[][] = [];
     for (const { name, title, server } of served) {
@@ -794,10 +801,10 @@ function serversStep(session: Session, tools: ToolState[], harnesses: Harness[])
       const why = !harness.add
         ? `${harness.name} has no command for adding an MCP server`
         : !add
-          ? `${title} serves this project only, and ${harness.name} keeps no per-project servers outside the repository`
+          ? `${title} serves this project only, and ${harness.name} keeps per-project servers only in the repository, which binn init does not write for it`
           : `\`${harness.executable}\` is not on PATH`;
-      const where = scope === 'project' ? `this project's ${harness.name} configuration` : `${harness.name}'s user configuration`;
-      session.say(`${why}, so binn init does not register ${what} with it. Add this to ${where} yourself:\n\n${harness.entry(name, command).trimEnd()}\n`);
+      const where = scope === 'project' ? `this project's ${harness.name} configuration yourself, if you want it in the repository` : `${harness.name}'s user configuration yourself`;
+      session.say(`${why}, so binn init does not register ${what} with it. Add this to ${where}:\n\n${harness.entry(name, command).trimEnd()}\n`);
       record(session, 'printed', `${what} for ${harness.name}`);
     }
     if (commands.length === 0) continue;

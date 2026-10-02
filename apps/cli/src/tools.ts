@@ -23,8 +23,9 @@ export type Tool = {
   /**
    * Its MCP server: the command that starts it, for the harness whose executable is given
    * (ADR-0035). `project`: it serves this project only, so it is registered per project.
+   * `prerequisite`: an executable the server runs through, needed even when the tool itself is found.
    */
-  server?: { command(harness: string, root: string): string[]; project?: boolean };
+  server?: { command(harness: string, root: string): string[]; project?: boolean; prerequisite?: Prerequisite };
 };
 
 type Prerequisite = { executable: string; how: string };
@@ -63,6 +64,7 @@ export const TOOLS: Tool[] = [
     // Its server needs the `mcp` extra, which the installed tool lacks; `uv run` provides it, outside any project's Python environment.
     server: {
       project: true,
+      prerequisite: UV,
       command: (_harness, root) => ['uv', 'run', '--no-project', '--with', 'graphifyy[mcp]', 'python', '-m', 'graphify.serve', join(root, GRAPH_DIRECTORY, 'graph.json')],
     },
   },
@@ -114,13 +116,16 @@ const tomlServers = (text: string): string[] => [...text.matchAll(/^\s*\[mcp_ser
 // ponytail: opencode's file may be JSONC, so its keys are read from the text after `"mcp"` and not parsed; a parser if that misreads a real file.
 const opencodeServers = (text: string): string[] => [...text.slice(Math.max(text.indexOf('"mcp"'), 0)).matchAll(/"([^"]+)"\s*:/g)].map((match) => match[1]!);
 
+/** Where opencode, and VS Code on Linux, keep their user configuration. */
+export const CONFIG_HOME = process.env.XDG_CONFIG_HOME || join(homedir(), '.config');
+
 /** Where VS Code keeps its user configuration on this platform. */
 export const VSCODE_USER_DIRECTORY =
   process.platform === 'darwin'
     ? join(homedir(), 'Library', 'Application Support', 'Code')
     : process.platform === 'win32'
       ? join(homedir(), 'AppData', 'Roaming', 'Code')
-      : join(process.env.XDG_CONFIG_HOME || join(homedir(), '.config'), 'Code');
+      : join(CONFIG_HOME, 'Code');
 
 /**
  * The files the harnesses register MCP servers in: the repository's, relative to it, and the

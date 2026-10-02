@@ -20,7 +20,7 @@ After the installs, in the same plan, init registers each tool's MCP server with
 
 | Server | Starts with | Scope |
 | --- | --- | --- |
-| Serena | `serena start-mcp-server`, with the harness's context and `--project-from-cwd` | user |
+| Serena | `serena start-mcp-server`, with the context Serena documents for the harness (`claude-code`, `codex`, `vscode`) and `--project-from-cwd` for the CLI harnesses | user |
 | Context7 | `npx -y @upstash/context7-mcp` (needs `npm`) | user |
 | Graphify | `uv run --no-project --with 'graphifyy[mcp]' python -m graphify.serve <project>/graphify-out/graph.json` | this project only |
 
@@ -31,7 +31,7 @@ After the installs, in the same plan, init registers each tool's MCP server with
 | VS Code | `code --add-mcp '{"name":…,"command":…,"args":[…]}'`, into the user profile | printed, for the same reason |
 | opencode | printed: its `opencode mcp add` is an interactive wizard | printed |
 
-A server already registered with a harness, in any file the audit reads for it (the repository's, and the user-scope ones of Claude Code, Codex and VS Code's default profile), is reported and left as it is. A harness whose CLI is not on `PATH` gets the entry printed, and the Summary says so. A tool declared `false`, or left out for a missing prerequisite, gets no registration. Init writes no MCP entry for these tools into the repository. Graphify's server runs in its own environment with the `mcp` extra, so its install stays `graphifyy`.
+A server already registered with a harness, in any file the audit reads for it (the repository's, and the user-scope ones of Claude Code, Codex and VS Code's default profile), is reported and left as it is. A harness whose CLI is not on `PATH` gets the entry printed, and the Summary says so. A tool declared `false`, or left out for a missing prerequisite, gets no registration, nor does Graphify's server without `uv`, even with `graphify` found. Init writes no MCP entry for these tools into the repository. Graphify's server runs in its own environment with the `mcp` extra, so its install stays `graphifyy`.
 
 ## Node / pnpm
 

@@ -352,6 +352,12 @@ test('a tool configured in the repository is ok, from .mcp.json, .codex/config.t
   assert.match(byCode(all, 'capabilities.graphify').reason, /\.codex\/config\.toml/);
 });
 
+test("a tool registered in VS Code's .vscode/mcp.json is ok", (t) => {
+  const root = fixture(t);
+  write(root, { '.vscode/mcp.json': JSON.stringify({ servers: { serena: { command: 'serena' } } }) });
+  assert.match(byCode(auditIn(root, scratch(t)), 'capabilities.serena').reason, /found in \.vscode\/mcp\.json/);
+});
+
 test('a tool configured in the user-scope files of Claude Code or Codex is ok', (t) => {
   const root = fixture(t);
   const home = scratch(t);

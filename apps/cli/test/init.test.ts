@@ -1259,6 +1259,20 @@ test('the servers: a tool declared false, or left out for a missing prerequisite
   assert.doesNotMatch(result.stdout, /mcp add[^\n]*(serena|context7)/);
 });
 
+test('the servers: Graphify found on PATH but without uv, which its server runs through, gets no registration', (t) => {
+  const home = makeHome(t);
+  installExecutable(home, 'graphify');
+  const claude = fakeClaude(home);
+  const root = makeRepository(t, 'no-uv-server');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /found\s+Graphify: graphify is on PATH/);
+  assert.match(result.stdout, /skipped\s+Graphify's MCP server: uv is not on PATH/);
+  assert.deepEqual(mcpAdds(claude()), []);
+});
+
 test('the servers: registering them creates or changes no file in the repository, and a declined plan registers nothing', (t) => {
   const home = makeHome(t);
   fakeTool(home, 'uv');
