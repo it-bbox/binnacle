@@ -12,21 +12,21 @@ export type ModuleGraph = { modules: string[]; edges: [string, string][] };
 
 /**
  * The graph `graph.json` holds, in NetworkX's node-link form as Graphify writes it (`nodes`, and
- * `links` or `edges`), as modules and the edges between them; null when it is not that form.
+ * `links` or `edges`, as NetworkX has named them), with paths relative to the repository, as modules and the edges between them; null when it is not that form.
  */
 export function moduleGraph(json: unknown): ModuleGraph | null {
   if (typeof json !== 'object' || json === null) return null;
   const { nodes, links, edges } = json as { nodes?: unknown; links?: unknown; edges?: unknown };
-  const lines = links ?? edges;
-  if (!Array.isArray(nodes) || !Array.isArray(lines)) return null;
+  const joins = links ?? edges;
+  if (!Array.isArray(nodes) || !Array.isArray(joins)) return null;
   const fileOf = new Map<string, string>();
   for (const node of nodes) {
     const { id, source_file: file } = (node ?? {}) as { id?: unknown; source_file?: unknown };
-    if ((typeof id === 'string' || typeof id === 'number') && typeof file === 'string' && file !== '') fileOf.set(String(id), file);
+    if ((typeof id === 'string' || typeof id === 'number') && typeof file === 'string' && file !== '') fileOf.set(String(id), file.replace(/^\.\//, ''));
   }
   const between: [string, string][] = [];
-  for (const line of lines) {
-    const { source, target } = (line ?? {}) as { source?: unknown; target?: unknown };
+  for (const join of joins) {
+    const { source, target } = (join ?? {}) as { source?: unknown; target?: unknown };
     const from = fileOf.get(String(source));
     const to = fileOf.get(String(target));
     if (from !== undefined && to !== undefined && from !== to) between.push([from, to]);
@@ -77,8 +77,8 @@ export function conflictRisk(graph: ModuleGraph, touches: TaskTouch[]): Impact {
   const pairs: Impact['pairs'] = [];
   for (const [index, a] of tasks.entries()) {
     for (const b of tasks.slice(index + 1)) {
-      const pair = (risk: ConflictRisk, reason: string, named: string[] = []): void =>
-        void pairs.push({ tasks: [a.id, b.id], risk, modules: named, reason, provenance: 'calculated' });
+      const pair = (risk: ConflictRisk, reason: string, involved: string[] = []): void =>
+        void pairs.push({ tasks: [a.id, b.id], risk, modules: involved, reason, provenance: 'calculated' });
       const empty = [a, b].filter((task) => task.modules.length === 0);
       if (empty.length > 0) {
         pair('unknown', `${empty.map((task) => (task.from === 'branch' ? `The branch of ${task.id} changes` : `The ticket of ${task.id} names`) + ' no module of the graph').join('; ')}.`);

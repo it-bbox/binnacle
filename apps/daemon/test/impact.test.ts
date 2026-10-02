@@ -26,7 +26,7 @@ const GRILL = readFileSync(join(import.meta.dirname, 'fixtures', 'claude-code', 
   .split('\n')
   .map((line) => JSON.parse(line) as Line);
 
-/** `src/a.ts` calls into `src/b.ts`; `src/c.ts` and `src/d.ts` stand alone. NetworkX's node-link form, as Graphify writes it. */
+/** `src/a.ts` calls into `src/b.ts`; `src/c.ts` and `src/d.ts` stand alone, the second written from `./`. NetworkX's node-link form, as Graphify writes it. */
 const GRAPH = {
   directed: true,
   nodes: [
@@ -35,7 +35,7 @@ const GRAPH = {
     { id: 'b', label: 'b.ts', file_type: 'code', source_file: 'src/b.ts' },
     { id: 'b_help', label: 'help()', file_type: 'code', source_file: 'src/b.ts' },
     { id: 'c', label: 'c.ts', file_type: 'code', source_file: 'src/c.ts' },
-    { id: 'd', label: 'd.ts', file_type: 'code', source_file: 'src/d.ts' },
+    { id: 'd', label: 'd.ts', file_type: 'code', source_file: './src/d.ts' },
   ],
   links: [
     { source: 'a', target: 'a_run', relation: 'contains' },

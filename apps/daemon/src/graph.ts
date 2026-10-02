@@ -16,6 +16,7 @@ import {
 import { resolveGitTimeout } from './home.ts';
 import { readManifest } from './manifest.ts';
 import { readRegistry } from './registry.ts';
+import type { Unavailable } from './snapshot.ts';
 import type { EventRow, Store } from './store.ts';
 
 /**
@@ -200,13 +201,16 @@ export async function graphSection(
  * registered checkout at `path`; unavailable, with the graph's reason, when there is none. A Task
  * whose branch (`taskBranch`) has changed files since it left the default branch is read from
  * that diff, and any other from its ticket's title and body.
+ *
+ * ponytail: read on every snapshot, the graph and two git calls per Task; cache by the graph's
+ * and the branches' commits if a large graph or backlog makes the snapshot slow.
  */
 export async function impactSection(
   path: string,
   graph: GraphSection,
   tasks: Pick<TrackerTask, 'id' | 'title' | 'ticket' | 'body'>[],
   remote: boolean,
-): Promise<Impact | { available: false; reason: string }> {
+): Promise<Impact | Unavailable> {
   if (!graph.available) return { available: false, reason: graph.reason ?? 'There is no graph.' };
   let modules: ModuleGraph | null = null;
   try {
