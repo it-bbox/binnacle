@@ -179,11 +179,11 @@ binn init
 /product
 ```
 
-`binn audit [path]` reads the repository and prints findings, as text or with `--json`. It writes nothing and needs no daemon. `binn init` is the only command that writes: it shows one plan and asks once.
+`binn audit [path]` reads the repository and prints findings, as text or with `--json`. It writes nothing and needs no daemon. `binn init` is the command that writes into the repository: it shows one plan and asks once.
 
 ## Working from another harness
 
-`binn init` registers the `binnacle` MCP server for each harness it detects and prints the next step for each one other than Claude Code in its Summary. Binnacle's skills install into Claude Code alone; any other agent is told to read the skill file and follow it. Ask it:
+`binn init` offers to register the `binnacle` MCP server for each harness it detects and prints the next step for each one other than Claude Code in its Summary. Binnacle's skills install into Claude Code alone; any other agent is told to read the skill file and follow it. Ask it:
 
 ```text
 read the Binnacle product skill file at <path> and follow it
@@ -192,7 +192,7 @@ read the Binnacle product skill file at <path> and follow it
 `<path>` is `.claude/skills/binnacle/skills/product/SKILL.md` when the project carries its own plugin, and otherwise the `plugin/skills/product/SKILL.md` in Binnacle's package; the Summary prints the one that applies.
 
 - **Codex** reads a project's `.codex/config.toml` only in a trusted project. Trust the project in Codex, or the `binnacle` entry is not seen. The Codex desktop app ships its CLI outside `PATH`; on Linux it is `/usr/lib/chatgpt/resources/codex`.
-- **opencode** reads `opencode.json` in the project. Run `opencode` in the repository root.
+- **opencode** reads `opencode.json` or `opencode.jsonc` in the project. Run `opencode` in the repository root.
 - **GLM** is a model, not a harness. Reach it through a harness such as Claude Code or opencode; there is no GLM adapter to look for.
 
 ## Documentation

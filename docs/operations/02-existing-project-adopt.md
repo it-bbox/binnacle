@@ -4,13 +4,14 @@
 
 Adopt without destructive restructuring. Existing conventions/docs/tracker should be discovered first.
 
-## Target command
+## Commands
 
 ```bash
-binn adopt .
+binn audit
+binn init
 ```
 
-It should:
+There is no `binn adopt`: adopting is the audit, which reads, followed by `binn init`, which writes. `binn init` should:
 
 - register repository;
 - detect remote and tracker;
@@ -23,7 +24,7 @@ It should:
 
 ## Audit
 
-Then run logical `/audit`.
+`binn audit [path]` (`specs/audit-and-adopt/spec.md`) needs no registration or daemon, and recommends `binn init` for each Binnacle file that is missing.
 
 Audit is read-only by default and reports findings grouped by severity/type rather than an arbitrary single health score.
 
