@@ -111,17 +111,17 @@ Purpose: human-facing Project Brain view, links, notes and Graphify canvas/expor
 
 Obsidian is optional and must not be canonical required storage.
 
-Suggested layout:
+The daemon's vault projection writes this layout (`05-installation-checklist.md`, *The vault projection*):
 
 ```text
 Vault/
 └── Projects/
     └── <Project>/
-        ├── Product/
-        ├── Architecture/
+        ├── Product/       roadmap, last snapshot, last daily
+        ├── Specs/
         ├── Decisions/
         ├── Research/
-        └── 90-Graphify/
+        └── 90-Graphify/   Graphify's report
 ```
 
 ## OpenTelemetry

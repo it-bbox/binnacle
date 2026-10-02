@@ -35,7 +35,7 @@ export const GRAPH_POLL_MS = 60_000;
 export const GRAPH_RUN_TIMEOUT_MS = 10 * 60_000;
 /** Graphify's code-only extraction (ADR-0012), run in the repository root: local syntax trees, no API key, no model. */
 export const GRAPH_EXTRACT = ['extract', '.', '--code-only'];
-const BUILT = 'graph.built';
+export const BUILT = 'graph.built';
 const FAILED = 'graph.failed';
 export const GRAPH_FILE = `${GRAPH_DIRECTORY}/graph.json`;
 

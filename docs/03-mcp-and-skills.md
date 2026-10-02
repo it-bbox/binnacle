@@ -30,6 +30,8 @@ MCP is the stable contract. Client-specific slash commands/skills are thin UX wr
 - `checkpoint.prepare`
 - `checkpoint.record` (ADR-0020: it records the checkpoint; the calling session writes the files)
 
+With an Obsidian vault set on this machine, serving `project.snapshot` or `daily.get` also writes its note into the vault's Product folder, outside every repository (`operations/05-installation-checklist.md`, *The vault projection*).
+
 The snapshot's attention includes `next_action.missing`, `next_action.stale` and `review.missing`, which names each `DONE` Task on the local tracker whose ticket records no Review, `graph.update_failed`, whose message names the failed commit and Graphify's reason while the last good graph is kept, and `graph.not_ignored`, when Git does not ignore `graphify-out/` and the daemon therefore runs nothing; a missing `graphify` is the `graph` section's reason, never an attention item. `vault.unwritable` names an Obsidian vault set in the Binnacle home's `settings.json` that does not exist or cannot be written; with no vault set there is none (`docs/operations/05-installation-checklist.md`, *The vault projection*). The dashboard reads the same operations over the daemon's local API (ADR-0031), and adds no MCP tool.
 
 The read-only audit is not an MCP tool: it is the CLI command `binn audit [path]` (`specs/audit-and-adopt/spec.md`), which needs no daemon, so an agent runs it as a command and reads `--json`. The skill `/audit` does exactly that and adds no tool and no daemon operation. It writes nothing; applying a recommendation is the human's, through `binn init`.

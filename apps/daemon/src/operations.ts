@@ -14,6 +14,7 @@ import { readTasks, snapshot, type CallerCheckout } from './snapshot.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type ProjectRow, type Store } from './store.ts';
 import { taskBrief } from './task.ts';
 import { taskList } from './board.ts';
+import { writeServed } from './vault.ts';
 import { forgetRead, latestRuns, usageAndActivity, usageGet, type Importer } from './usage.ts';
 
 export type OperationContext = {
@@ -117,9 +118,11 @@ export const operations: Record<string, Operation> = {
     const projected = reproject(context.store, await resolveEntry(path, context));
     const caller = await callerCheckout(path, projected.row.path);
     const graph = await graphSection(context.store, context.searchPath, projected.row.path, projected.manifest);
-    return snapshot(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git), graph, (tasks) =>
+    const served = await snapshot(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git), graph, (tasks) =>
       usageAndActivity(context, projected.row.path, projected.manifest, tasks),
     );
+    writeServed(context.home, projected.manifest, { snapshot: served });
+    return served;
   },
 
   /**
@@ -136,6 +139,7 @@ export const operations: Record<string, Operation> = {
     const baseline: Baseline | null = since ? { commit: since, source: 'since', states: null } : recordedBaseline(context.store, projected.row.path, BASELINE_EVENTS);
     const { delta, states } = await daily(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git), baseline, readAttributed(context, projected));
     if (!since) context.store.appendEvent({ type: 'daily', projectPath: projected.row.path, payload: { head: delta.head, ...(states && { states }) } });
+    writeServed(context.home, projected.manifest, { daily: delta });
     return delta;
   },
 

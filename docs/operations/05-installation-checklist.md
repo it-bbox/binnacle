@@ -273,11 +273,17 @@ With a vault set, the daemon keeps a one-way projection of each registered proje
 
 | Folder | Holds |
 | --- | --- |
+| `Product/` | `roadmap.md`, from `<knowledge.docs>/roadmap.md`; `snapshot.md` and `daily.md`, the last snapshot and daily served |
 | `Specs/<slug>/` | `spec.md` and the spec's tickets, from `knowledge.specs` |
 | `Decisions/` | the ADRs, from `knowledge.adr` |
 | `Research/` | the other Markdown under `knowledge.docs`, as it is laid out there, without the roadmap |
+| `90-Graphify/` | `GRAPH_REPORT.md`, Graphify's report of the last successful graph run |
 
-Once a minute it reads each project's default branch, and when the branch has moved, or the vault setting changed, it renders the project again from that commit, read through Git: an uncommitted change in the checkout never reaches the vault. Relative Markdown links between projected files become Obsidian links.
+Once a minute it reads each project's default branch, and when the branch has moved, the vault setting changed or the graph was built again, it renders the project again from that commit, read through Git: an uncommitted change in the checkout never reaches the vault. Relative Markdown links between projected files become Obsidian links.
+
+The snapshot and daily notes are written each time a snapshot or a daily is served, from what was served, with no further call to the tracker: their `source` is `project.snapshot` or `daily.get`, their `commit` the caller's HEAD, and a `served:` line gives the time. Their tickets and ADRs link to the projected notes. With no vault set, serving one writes nothing.
+
+`90-Graphify/GRAPH_REPORT.md` is `graphify-out/GRAPH_REPORT.md` in the registered checkout, with the commit of the last successful run. It is rewritten only after a newer successful run, so a failed run leaves it as it was. Without a successful run recorded, without the report, or with `capabilities.graphify: false`, there is no note, and no attention item for it.
 
 Every note it writes starts with frontmatter naming it generated, with its source and commit:
 
@@ -292,8 +298,6 @@ commit: <hash>
 The daemon writes, rewrites and deletes only files with that marker, so a note of yours beside them, or a file of yours at a generated note's path, is left byte for byte. A generated note whose source is gone from the default branch is removed. Each write is a whole file, through a temporary name and a rename. An edit to a generated note is overwritten at the next refresh, never synced back. The projection is derived: deleting the project's folder loses nothing, and it comes back at the next move of the branch, or at the daemon's next start.
 
 A vault path that does not exist, is not a directory or cannot be written, and a settings file that cannot be read, is the snapshot's attention item `vault.unwritable`.
-
-Graphify-generated material should live under a clearly generated namespace such as `90-Graphify/`.
 
 ---
 

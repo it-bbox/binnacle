@@ -125,7 +125,7 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
   // Recorded once the daemon is listening, so a start that failed is not in the history.
   store.appendEvent({ type: 'daemon.started', payload: { pid: runtime.pid, port: runtime.port, version: VERSION } });
   const graph = startGraphRunner(home, store, searchPath, options.graphPollMs ?? GRAPH_POLL_MS);
-  const vault = startVaultProjector(home, options.vaultPollMs ?? VAULT_POLL_MS);
+  const vault = startVaultProjector(home, store, options.vaultPollMs ?? VAULT_POLL_MS);
   // Every registered project's history starts importing now, in the background, rather than on its first call.
   // Its linked worktrees are asked of Git first, and a daemon stopped meanwhile starts none.
   for (const { row, manifest } of projects) {

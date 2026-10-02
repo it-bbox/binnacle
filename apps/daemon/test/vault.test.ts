@@ -49,7 +49,8 @@ function makeRepository(): { root: string; commit: string } {
     '.binnacle/project.yaml',
     'version: 1\n\nproject:\n  id: vault\n  name: Vault Test\n\ntracker:\n  provider: local\n  local:\n    issues: docs/specs\n\nknowledge:\n  docs: docs\n  adr: docs/adr\n  specs: docs/specs\n',
   );
-  write(root, 'docs/roadmap.md', '# Roadmap\n');
+  write(root, '.gitignore', 'graphify-out/\n');
+  write(root, 'docs/roadmap.md', '# Roadmap\n\n| # | Epic | Status | Spec |\n| --- | --- | --- | --- |\n| 1 | Alpha | in progress | [`alpha`](specs/alpha/spec.md) |\n\n## Current focus\n\nAlpha.\n');
   write(root, 'docs/guide.md', '# Guide\n\nSee [the decision](adr/ADR-0001-first.md#context), [the web](https://example.com/a.md) and ![a picture](picture.png).\n');
   write(root, 'docs/operations/run.md', '# Run\n\n| Step | See |\n| --- | --- |\n| one | [guide](../guide.md) |\n');
   write(root, 'docs/adr/ADR-0001-first.md', '# ADR-0001: First\n\n## Context\n');
@@ -106,7 +107,9 @@ describe('the vault projection', () => {
       await until(() => existsSync(note(vault, 'Research/guide.md')), 'the projection');
       await settle();
 
-      assert.deepEqual(readdirSync(join(vault, PROJECT)).sort(), ['Decisions', 'Research', 'Specs']);
+      // Product holds the roadmap; the snapshot and the daily come when one is served, and 90-Graphify with a graph.
+      assert.deepEqual(readdirSync(join(vault, PROJECT)).sort(), ['Decisions', 'Product', 'Research', 'Specs']);
+      assert.deepEqual(readdirSync(note(vault, 'Product')), ['roadmap.md']);
       assert.deepEqual(readdirSync(note(vault, 'Specs')).sort(), ['alpha', 'beta']);
       assert.deepEqual(readdirSync(note(vault, 'Specs/alpha')).sort(), ['01-one.md', 'spec.md']);
       assert.deepEqual(readdirSync(note(vault, 'Decisions')), ['ADR-0001-first.md']);
@@ -121,6 +124,8 @@ describe('the vault projection', () => {
       assert.match(read(vault, 'Research/operations/run.md'), /\| one \| \[\[Projects\/Vault Test\/Research\/guide\\\|guide\]\] \|/);
       assert.match(read(vault, 'Specs/alpha/spec.md'), /Tickets: \[\[Projects\/Vault Test\/Specs\/alpha\/01-one\|one\]\]\./);
       assert.match(read(vault, 'Specs/alpha/01-one.md'), /Spec: \[\[Projects\/Vault Test\/Specs\/alpha\/spec\|alpha\]\]/);
+      assert.match(read(vault, 'Product/roadmap.md'), new RegExp(`^---\ngenerated-by: binnacle\nsource: docs/roadmap.md\ncommit: ${commit}\n`));
+      assert.match(read(vault, 'Product/roadmap.md'), /\| 1 \| Alpha \| in progress \| \[\[Projects\/Vault Test\/Specs\/alpha\/spec\\\|`alpha`\]\] \|/);
       assert.deepEqual(await vaultCodes(daemon, root), []);
     });
   });
@@ -185,8 +190,10 @@ describe('the vault projection', () => {
     await withDaemon(async (daemon) => {
       await register(daemon, root);
       await settle();
-      assert.deepEqual(readdirSync(vault), []);
+      // Serving a snapshot and a daily with no vault set writes nothing either.
       assert.deepEqual(await vaultCodes(daemon, root), []);
+      assert.equal((await daemon.call('daily.get', { path: root })).status, 200);
+      assert.deepEqual(readdirSync(vault), []);
 
       setVault(daemon, vault);
       await until(() => existsSync(note(vault, 'Research/guide.md')), 'the projection after the setting');
@@ -236,6 +243,92 @@ describe('the vault projection', () => {
       }
       await settle();
       assert.deepEqual(readdirSync(parent).sort(), process.getuid?.() === 0 ? ['a-file'] : ['a-file', 'read-only']);
+    });
+  });
+
+  it('writes the Product snapshot and daily notes from what was served, linked to the tickets and ADRs they name', async () => {
+    const { root, commit } = makeRepository();
+    const vault = temporary('binnacle-vault-');
+    await withDaemon(async (daemon) => {
+      setVault(daemon, vault);
+      await register(daemon, root);
+      await until(() => existsSync(note(vault, 'Product/roadmap.md')), 'the projection');
+      assert.equal(existsSync(note(vault, 'Product/snapshot.md')), false);
+
+      assert.equal((await daemon.call('project.snapshot', { path: root })).status, 200);
+      const snapshot = read(vault, 'Product/snapshot.md');
+      assert.match(snapshot, new RegExp(`^---\ngenerated-by: binnacle\nsource: project.snapshot\ncommit: ${commit}\nserved: \\d{4}-`));
+      assert.match(snapshot, /\[\[Projects\/Vault Test\/Specs\/alpha\/01-one\|[^\]]*One\]\]/);
+      assert.match(snapshot, /\[\[Projects\/Vault Test\/Decisions\/ADR-0001-first\|ADR-0001: First\]\]/);
+
+      assert.equal((await daemon.call('daily.get', { path: root })).status, 200);
+      const daily = read(vault, 'Product/daily.md');
+      assert.match(daily, new RegExp(`^---\ngenerated-by: binnacle\nsource: daily.get\ncommit: ${commit}\nserved: \\d{4}-`));
+      assert.match(daily, /Start/);
+      assert.match(daily, /\[\[Projects\/Vault Test\/Specs\/alpha\/01-one\|[^\]]*One\]\]/);
+      assert.match(daily, /\[\[Projects\/Vault Test\/Decisions\/ADR-0001-first\|ADR-0001: First\]\]/);
+    });
+  });
+
+  it('refreshes the roadmap note when main moves, and removes it with the roadmap', async () => {
+    const { root } = makeRepository();
+    const vault = temporary('binnacle-vault-');
+    await withDaemon(async (daemon) => {
+      setVault(daemon, vault);
+      await register(daemon, root);
+      await until(() => existsSync(note(vault, 'Product/roadmap.md')), 'the projection');
+      write(root, 'docs/roadmap.md', '# Roadmap\n\nBeta next: [beta](specs/beta/spec.md).\n');
+      const moved = commitAll(root, 'Move the roadmap');
+      await until(() => read(vault, 'Product/roadmap.md').includes(moved), 'the roadmap refreshed');
+      assert.match(read(vault, 'Product/roadmap.md'), /Beta next: \[\[Projects\/Vault Test\/Specs\/beta\/spec\|beta\]\]\./);
+
+      git(root, ['rm', '--quiet', 'docs/roadmap.md']);
+      commitAll(root, 'Drop the roadmap');
+      await until(() => !existsSync(note(vault, 'Product/roadmap.md')), 'the roadmap note removed');
+    });
+  });
+
+  it('projects the graph report after a successful run, keeps it after a failed one, and has none without a graph', async () => {
+    const { root, commit } = makeRepository();
+    const vault = temporary('binnacle-vault-');
+    const bin = temporary('binnacle-vault-bin-');
+    const graphify = (body: string): void => {
+      writeFileSync(join(bin, 'graphify'), `#!/bin/sh\nmkdir -p graphify-out\n${body}\n`);
+      chmodSync(join(bin, 'graphify'), 0o755);
+    };
+    graphify(`echo '{"nodes": [], "links": []}' > graphify-out/graph.json\necho "# Report of $(git rev-parse HEAD)" > graphify-out/GRAPH_REPORT.md`);
+    const daemon = await startTestDaemon({ vaultPollMs: POLL_MS, graphPollMs: POLL_MS, searchPath: bin });
+    try {
+      setVault(daemon, vault);
+      await register(daemon, root);
+      await until(() => existsSync(note(vault, '90-Graphify/GRAPH_REPORT.md')), 'the report projected');
+      const report = read(vault, '90-Graphify/GRAPH_REPORT.md');
+      assert.equal(report, `---\ngenerated-by: binnacle\nsource: graphify-out/GRAPH_REPORT.md\ncommit: ${commit}\n---\n# Report of ${commit}\n`);
+
+      graphify('echo "# A broken report" > graphify-out/GRAPH_REPORT.md\necho "it broke" >&2\nexit 1');
+      write(root, 'docs/guide.md', '# Guide\n\nMoved.\n');
+      const moved = commitAll(root, 'Move');
+      await until(async () => {
+        const result = await daemon.call<{ graph: { lastRun: { commit: string } | null } }>('project.snapshot', { path: root });
+        return result.body.graph.lastRun?.commit === moved && read(vault, 'Research/guide.md').includes(moved);
+      }, 'the failed run and the projection of the move');
+      await settle();
+      assert.equal(read(vault, '90-Graphify/GRAPH_REPORT.md'), report);
+    } finally {
+      await daemon.stop();
+    }
+
+    // Without graphify no run is recorded: no report note, and no attention item for it.
+    const other = makeRepository();
+    const second = temporary('binnacle-vault-');
+    await withDaemon(async (daemon) => {
+      setVault(daemon, second);
+      await register(daemon, other.root);
+      await until(() => existsSync(join(second, PROJECT, 'Product/roadmap.md')), 'the projection');
+      await settle();
+      assert.equal(existsSync(join(second, PROJECT, '90-Graphify')), false);
+      const result = await daemon.call<Snapshot>('project.snapshot', { path: other.root });
+      assert.deepEqual(result.body.attention.filter((item) => /^(vault|graph)\./.test(item.code)), []);
     });
   });
 });
