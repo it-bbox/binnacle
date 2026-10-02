@@ -1,4 +1,4 @@
 {
   "name": "binnacle",
-  "description": "Binnacle's actions: product, daily, task, status, checkpoint and autopilot, driven through the binnacle MCP server, and audit, init, daemon, register and dashboard, which run the binn audit, binn init, binn daemon, binn project register and binn dashboard commands and need no daemon to be started; init writes only after the human's yes in the chat, and registering and the dashboard need a running daemon, and register and dashboard say so. dashboard shows the dashboard's address without its token."
+  "description": "Binnacle's actions: product, daily, task, status, checkpoint and autopilot, driven through the binnacle MCP server, and audit, init, daemon, register and dashboard, which run the binn audit, binn init, binn daemon, binn project register and binn dashboard commands and need no daemon to be started. Init writes only after the human's yes in the chat; registering and the dashboard need a running daemon, which register and dashboard say. dashboard shows the dashboard's address without its token."
 }

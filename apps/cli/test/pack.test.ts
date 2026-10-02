@@ -64,8 +64,8 @@ test('autopilot leaves the Next action to the owner, in the brief and in its rep
 });
 
 /** Epic 9: the daemon and registration from the chat, run through binn so that they need no daemon. */
-test('/binnacle:daemon and /binnacle:register run binn, are started by a human only, and handle a missing binn as /binnacle:audit does', () => {
-  for (const name of ['daemon', 'register']) {
+test('/binnacle:daemon, /binnacle:register and /binnacle:init run binn, are started by a human only, and handle a missing binn as /binnacle:audit does', () => {
+  for (const name of ['daemon', 'register', 'init']) {
     const skill = skillText(name);
     assert.match(skill, /^disable-model-invocation: true$/m, name);
     assert.match(skill, /^argument-hint: "\[.+\]"$/m, name);
@@ -130,15 +130,9 @@ test('/binnacle:dashboard runs binn dashboard, never --print, and never shows a 
   assert.doesNotMatch(skill, /#token=|token\.json|cat .*token/);
 });
 
-/** Epic 9, ADR-0037: binn init confirmed in the chat, by the human's yes and never by the agent. */
+/** Epic 9, ADR-0037: binn init confirmed in the chat, by the human's yes and never by the agent; its frontmatter and failures are held with /binnacle:daemon's above. */
 test('/binnacle:init shows the plan from --plan --json, asks once, applies only after the human\'s yes with the id, shows a changed plan again, and never commits', () => {
   const skill = skillText('init');
-  assert.match(skill, /^disable-model-invocation: true$/m);
-  assert.match(skill, /^argument-hint: "\[path\]"$/m);
-  assert.match(skill, /`command not found`, exit 127/);
-  assert.match(skill, /README's setup section/);
-  assert.match(skill, /give the exit code and quote what it printed on stderr/);
-
   assert.match(skill, /`binn init --plan --json`/);
   assert.match(skill, /every plan item in full, numbered/);
   assert.match(skill, /Ask once/);
