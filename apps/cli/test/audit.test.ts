@@ -310,6 +310,7 @@ test('binn audit does not run what it finds: a test script and a CI file leave n
   write(root, { 'package.json': JSON.stringify({ scripts: { test: 'touch RAN' } }), '.github/workflows/ci.yml': 'x\n' });
   assert.equal(audit(t, [], {}, root).status, 0);
   assert.ok(!listing(root).some((entry) => entry.startsWith('RAN')));
+});
 
 const TOOLS = ['serena', 'graphify', 'context7'];
 
