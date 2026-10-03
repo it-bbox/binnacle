@@ -99,6 +99,12 @@ On this repository a second gap hides the work Binnacle does on itself. Claude C
 49. As a reader of `docs/03-mcp-and-skills.md`, I want the new skills listed with what each runs, so that the interface is documented where the others are.
 50. As a reader of the README, in English and in Russian, I want setup described from the chat as well as from a terminal, so that I can choose either.
 
+### Help from the chat
+
+51. As a user new to Binnacle, I want `/binnacle:help` to explain in plain words how to work with Binnacle — what it is, which skill to use when, and the usual order of a day's work — so that I can start without reading the docs.
+52. As a user, I want `/binnacle:help` to answer in the language I write in, so that the guide is in my language and not only in English.
+53. As the owner, I want `/binnacle:help` to name every skill the plugin ships, so that the guide never misses one that exists or names one that does not.
+
 ## Implementation Decisions
 
 - **The skills.** Five new skills in the `binnacle` plugin, each with `disable-model-invocation: true`, an `argument-hint`, and the `/binnacle:audit` skill's handling of a missing `binn` (exit 127: stop, point to the README's setup section) and of any other non-zero exit (stop, give the code and quote stderr):
@@ -121,6 +127,7 @@ On this repository a second gap hides the work Binnacle does on itself. Claude C
   It reports under *Waiting for the owner* that the plugin was refreshed and that a new session loads it, or why it was skipped, or which command failed. A failure never stops the run.
 - **The development workflow** (`docs/workflow/02-development-workflow.md`, *On this repository*) and the README's line about `pnpm install` name the same refresh for a branch merged by hand.
 - **The plugin's description** in its manifest and in the marketplace listing names the new skills. `docs/03-mcp-and-skills.md` adds `/status`, `/init`, `/daemon`, `/register` and `/dashboard` to the logical actions, with their Claude Code names, and says that the four that run `binn` need no daemon.
+- **`/binnacle:help`** (the owner, 2026-10-03). A skill in the `binnacle` plugin with `disable-model-invocation: true` and no argument. Its text is the guide itself: what Binnacle is in two sentences, then each skill of the plugin with one plain line on when to use it, grouped as setting up, a day's work and planning (`/grill-with-docs → /to-spec → /to-tickets`, then `/binnacle:autopilot`), then the usual order of a day: `/binnacle:product`, the work, `/binnacle:checkpoint`. It answers in the language the user writes in. It calls no tool, runs no command and needs no daemon. A test in `apps/cli/test/pack.test.ts` checks that it names every skill directory of the plugin.
 - **No new ADR.** ADR-0037 records the chat confirmation and the non-interactive form. The token-free address follows from ADR-0031's token in the fragment. The refresh extends what ADR-0022's autopilot already does for the dashboard.
 
 ## Testing Decisions
