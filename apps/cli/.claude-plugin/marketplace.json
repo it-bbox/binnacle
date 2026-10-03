@@ -6,7 +6,7 @@
     {
       "name": "binnacle",
       "source": "./plugin",
-      "description": "Binnacle's Product actions and status, driven through the binnacle MCP server, and audit, init, daemon, register and dashboard, which run binn and need no daemon to be started; dashboard keeps its token out of the chat."
+      "description": "Binnacle's Product actions and status, driven through the binnacle MCP server, and audit, init, daemon, register and dashboard, which run binn and need no daemon to be started; dashboard keeps its token out of the chat; help is a plain guide to all of them in the user's language."
     }
   ]
 }

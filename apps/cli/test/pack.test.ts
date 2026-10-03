@@ -30,7 +30,7 @@ test('the packed CLI carries the binnacle plugin, every file of its source, and 
   assert.ok(source.includes(join('.claude-plugin', 'plugin.json')));
   assert.deepEqual(
     source.filter((path) => path.endsWith('SKILL.md')),
-    ['audit', 'autopilot', 'checkpoint', 'daemon', 'daily', 'dashboard', 'init', 'product', 'register', 'status', 'task'].map((skill) => join('skills', skill, 'SKILL.md')),
+    ['audit', 'autopilot', 'checkpoint', 'daemon', 'daily', 'dashboard', 'help', 'init', 'product', 'register', 'status', 'task'].map((skill) => join('skills', skill, 'SKILL.md')),
   );
   for (const path of source) {
     assert.equal(readFileSync(join(packed, 'plugin', path), 'utf8'), readFileSync(join(PLUGIN_SOURCE, path), 'utf8'), path);
@@ -44,7 +44,10 @@ test('the packed CLI carries the binnacle plugin, every file of its source, and 
   );
   const plugin = JSON.parse(readFileSync(join(packed, 'plugin', '.claude-plugin', 'plugin.json'), 'utf8'));
   assert.equal(plugin.name, 'binnacle');
-  for (const description of [plugin.description, marketplace.plugins[0].description]) assert.match(description, /\binit\b/);
+  for (const description of [plugin.description, marketplace.plugins[0].description]) {
+    assert.match(description, /\binit\b/);
+    assert.match(description, /\bhelp\b/);
+  }
 });
 
 /** The baseline's rule that only low-risk Tasks run in parallel, held by the one process that starts agents in parallel (ADR-0022). */
@@ -155,4 +158,18 @@ test('/binnacle:init shows the plan from --plan --json, asks once, applies only 
   assert.match(skill, /show the new plan and ask again/);
   assert.match(skill, /`\/binnacle:daemon start` then `\/binnacle:init` again/);
   assert.match(skill, /Never commit/);
+});
+
+/** Epic 9: /binnacle:help, a guide in the user's language that names every skill the plugin ships, so a skill added later fails here until it does. */
+test('/binnacle:help names every skill of the plugin, answers in the user\'s language, and calls no tool and runs no command', () => {
+  const skill = skillText('help');
+  assert.match(skill, /^disable-model-invocation: true$/m);
+  assert.doesNotMatch(skill, /^argument-hint:/m);
+  assert.match(skill, /in the language the user writes in/);
+  assert.match(skill, /Call no tool and run no command/);
+  for (const name of readdirSync(join(PLUGIN_SOURCE, 'skills'))) {
+    assert.match(skill, new RegExp(`\`/binnacle:${name}\``), name);
+  }
+  assert.match(skill, /`\/grill-with-docs` → `\/to-spec` → `\/to-tickets`/);
+  assert.match(skill, /`\/binnacle:product`, the work, `\/binnacle:checkpoint`/);
 });
