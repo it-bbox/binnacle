@@ -161,15 +161,14 @@ test('/binnacle:init shows the plan from --plan --json, asks once, applies only 
 });
 
 /** Epic 9: /binnacle:help, a guide in the user's language that names every skill the plugin ships, so a skill added later fails here until it does. */
-test('/binnacle:help names every skill of the plugin, answers in the user\'s language, and calls no tool and runs no command', () => {
+test('/binnacle:help names every skill of the plugin and no other, answers in the user\'s language, and calls no tool and runs no command', () => {
   const skill = skillText('help');
   assert.match(skill, /^disable-model-invocation: true$/m);
   assert.doesNotMatch(skill, /^argument-hint:/m);
   assert.match(skill, /in the language the user writes in/);
   assert.match(skill, /Call no tool and run no command/);
-  for (const name of readdirSync(join(PLUGIN_SOURCE, 'skills'))) {
-    assert.match(skill, new RegExp(`\`/binnacle:${name}\``), name);
-  }
+  const named = new Set([...skill.matchAll(/`\/binnacle:([a-z-]+)`/g)].map(([, name]) => name));
+  assert.deepEqual([...named].sort(), readdirSync(join(PLUGIN_SOURCE, 'skills')).sort());
   assert.match(skill, /`\/grill-with-docs` → `\/to-spec` → `\/to-tickets`/);
   assert.match(skill, /`\/binnacle:product`, the work, `\/binnacle:checkpoint`/);
 });
