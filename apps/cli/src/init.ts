@@ -31,7 +31,7 @@ import { EXIT, type ExitCode } from './exit.ts';
 import { isRecord, sessionHistory } from './history.ts';
 import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, mattPocockFiles } from './layout.ts';
 import { register } from './project-commands.ts';
-import { CONFIG_HOME, declaredCapabilities, onPath, registeredWith, TOOLS, VSCODE_USER_DIRECTORY, type Tool } from './tools.ts';
+import { CONFIG_HOME, declaredCapabilities, mcpSources, onPath, registeredWith, TOOLS, VSCODE_USER_DIRECTORY, type Tool } from './tools.ts';
 
 type Outcome = 'created' | 'extended' | 'updated' | 'printed' | 'ran' | 'found' | 'checked' | 'failed' | 'declined' | 'skipped';
 
@@ -877,7 +877,7 @@ function toolsStep(session: Session, tools: ToolState[]): void {
 /**
  * Whether a Codex TOML file's `[mcp_servers.serena]` table starts Serena with Claude Code's
  * context, as `--context=claude-code` or `"--context", "claude-code"`.
- * ponytail: a textual check of that table only; an inline `serena = { ... }` entry is not read.
+ * ponytail: a textual check of that table only; an inline `serena = { ... }` entry is not read. A TOML parser if that misses a real entry.
  */
 const hasClaudeContext = (toml: string): boolean =>
   /--context(=|["']\s*,\s*["'])claude-code\b/.test(toml.match(/^\s*\[\s*mcp_servers\s*\.\s*["']?serena["']?\s*\]([\s\S]*?)(?=^\s*\[|(?![\s\S]))/m)?.[1] ?? '');
@@ -913,18 +913,21 @@ function serversStep(session: Session, tools: ToolState[], harnesses: Harness[])
       const what = `${title}'s MCP server`;
       const registered = registeredWith(harness.executable, session.root, name);
       // Serena with Claude Code's context in Codex: corrected where `codex mcp add` writes, the user's file; the repository's is the owner's.
-      const claudeContext = registered !== null && harness.executable === 'codex' && name === 'serena' && hasClaudeContext(readFileSync(isAbsolute(registered) ? registered : join(session.root, registered), 'utf8'));
-      if (registered && !(claudeContext && isAbsolute(registered))) {
+      const userFile = registered !== null && mcpSources().user.some(({ file }) => file === registered);
+      const claudeContext = registered !== null && harness.executable === 'codex' && name === 'serena' && hasClaudeContext(readFileSync(userFile ? registered : join(session.root, registered), 'utf8'));
+      const replace = claudeContext && userFile;
+      if (registered && !replace) {
         const context = claudeContext ? `, with Claude Code's context` : '';
         session.say(`${what} is already registered with ${harness.name}, in ${registered}${context}. It is left as it is.`);
         record(session, 'found', `${what}: registered with ${harness.name} in ${registered}${context}`);
         continue;
       }
-      if (registered) session.say(`${what} is registered with ${harness.name} in ${registered} with Claude Code's context. The plan registers it again with ${harness.name}'s, which replaces it.`);
+      if (replace) session.say(`${what} is registered with ${harness.name} in ${registered} with Claude Code's context.`);
       const command = server!.command(harness.executable, session.root);
       const scope = server!.project ? 'project' : 'user';
       const add = harness.add?.(name, command, scope);
       if (add && onPath(harness.executable)) {
+        if (replace) session.say(`The plan registers it again with ${harness.name}'s, which replaces it.`);
         commands.push(add);
         continue;
       }
