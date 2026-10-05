@@ -1233,6 +1233,47 @@ test('the servers: one already registered, in user or local scope, is reported a
   assert.match(result.stdout, /found\s+Context7's MCP server: registered with Codex in .*config\.toml/);
 });
 
+test("the servers: Serena registered with Codex in Codex's user file with Claude Code's context is registered again with Codex's, only after a yes", (t) => {
+  for (const [args, input, corrected] of [
+    ['"start-mcp-server", "--context=claude-code", "--project-from-cwd"', '\n\n', true],
+    ['"start-mcp-server", "--context", "claude-code"', '\n\n', true],
+    ['"start-mcp-server", "--context=claude-code", "--project-from-cwd"', '\nn\n', false],
+  ] as const) {
+    const home = makeHome(t);
+    fakeTool(home, 'uv');
+    fakeTool(home, 'npm');
+    const codex = fakeTool(home, 'codex');
+    const root = makeRepository(t, 'claude-context');
+    mkdirSync(join(home.home, '.codex'));
+    writeFileSync(join(home.home, '.codex', 'config.toml'), `[mcp_servers.serena]\ncommand = "serena"\nargs = [${args}]\n\n[mcp_servers.context7]\ncommand = "npx"\n`);
+
+    const result = binnIn(home)(root, input, 'init');
+
+    assert.equal(result.status, 0, result.stderr);
+    const command = `codex mcp add serena -- ${SERENA_SERVER.codex.join(' ')}`;
+    assert.ok(result.stdout.indexOf(command) >= 0 && result.stdout.indexOf(command) < result.stdout.indexOf(PLAN_QUESTION), result.stdout);
+    assert.match(result.stdout, /Serena's MCP server is registered with Codex in .*config\.toml with Claude Code's context/);
+    assert.deepEqual(mcpAdds(codex()), corrected ? [['mcp', 'add', 'serena', '--', ...SERENA_SERVER.codex]] : []);
+    assert.match(result.stdout, corrected ? /ran\s+codex mcp add serena/ : /declined\s+register MCP servers with Codex/);
+  }
+});
+
+test("the servers: Serena registered in the repository's Codex file with Claude Code's context is left alone and named in the Summary", (t) => {
+  const home = makeHome(t);
+  fakeTool(home, 'uv');
+  fakeTool(home, 'npm');
+  const codex = fakeTool(home, 'codex');
+  const toml = '[mcp_servers.serena]\ncommand = "serena"\nargs = ["start-mcp-server", "--context=claude-code"]\n';
+  const root = makeRepository(t, 'own-entry', { '.codex/config.toml': toml });
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(mcpAdds(codex()), [['mcp', 'add', 'context7', '--', ...CONTEXT7_SERVER]]);
+  assert.equal(read(root, '.codex/config.toml').startsWith(toml), true);
+  assert.match(result.stdout, /found\s+Serena's MCP server: registered with Codex in \.codex\/config\.toml, with Claude Code's context/);
+});
+
 test('the servers: a harness without an mcp add CLI gets each entry printed, and the Summary says so', (t) => {
   const home = makeHome(t);
   fakeTool(home, 'uv');

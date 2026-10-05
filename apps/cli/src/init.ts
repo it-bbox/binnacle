@@ -874,6 +874,14 @@ function toolsStep(session: Session, tools: ToolState[]): void {
   }
 }
 
+/**
+ * Whether a Codex TOML file's `[mcp_servers.serena]` table starts Serena with Claude Code's
+ * context, as `--context=claude-code` or `"--context", "claude-code"`.
+ * ponytail: a textual check of that table only; an inline `serena = { ... }` entry is not read.
+ */
+const hasClaudeContext = (toml: string): boolean =>
+  /--context(=|["']\s*,\s*["'])claude-code\b/.test(toml.match(/^\s*\[\s*mcp_servers\s*\.\s*["']?serena["']?\s*\]([\s\S]*?)(?=^\s*\[|(?![\s\S]))/m)?.[1] ?? '');
+
 /** An argument as a POSIX shell reads it back: bare when safe, single-quoted otherwise. Only for showing a command. */
 const quoted = (arg: string): string => (/^[\w@%+=:,./-]+$/.test(arg) ? arg : `'${arg.replace(/'/g, `'\\''`)}'`);
 
@@ -883,7 +891,8 @@ const quoted = (arg: string): string => (/^[\w@%+=:,./-]+$/.test(arg) ? arg : `'
  * project only, at the harness's per-project scope outside the repository (Claude Code's local
  * scope). Where the harness has no such CLI or scope, or its CLI is not on PATH, the entry is
  * printed. A server already registered with the harness, in any scope the audit reads, is
- * left as it is. Nothing is written into the repository.
+ * left as it is, except Serena in Codex's user file with Claude Code's context, which the plan
+ * registers again with Codex's. Nothing is written into the repository.
  */
 function serversStep(session: Session, tools: ToolState[], harnesses: Harness[]): void {
   if (harnesses.length === 0) return;
@@ -903,11 +912,15 @@ function serversStep(session: Session, tools: ToolState[], harnesses: Harness[])
     for (const { name, title, server } of served) {
       const what = `${title}'s MCP server`;
       const registered = registeredWith(harness.executable, session.root, name);
-      if (registered) {
-        session.say(`${what} is already registered with ${harness.name}, in ${registered}. It is left as it is.`);
-        record(session, 'found', `${what}: registered with ${harness.name} in ${registered}`);
+      // Serena with Claude Code's context in Codex: corrected where `codex mcp add` writes, the user's file; the repository's is the owner's.
+      const claudeContext = registered !== null && harness.executable === 'codex' && name === 'serena' && hasClaudeContext(readFileSync(isAbsolute(registered) ? registered : join(session.root, registered), 'utf8'));
+      if (registered && !(claudeContext && isAbsolute(registered))) {
+        const context = claudeContext ? `, with Claude Code's context` : '';
+        session.say(`${what} is already registered with ${harness.name}, in ${registered}${context}. It is left as it is.`);
+        record(session, 'found', `${what}: registered with ${harness.name} in ${registered}${context}`);
         continue;
       }
+      if (registered) session.say(`${what} is registered with ${harness.name} in ${registered} with Claude Code's context. The plan registers it again with ${harness.name}'s, which replaces it.`);
       const command = server!.command(harness.executable, session.root);
       const scope = server!.project ? 'project' : 'user';
       const add = harness.add?.(name, command, scope);
