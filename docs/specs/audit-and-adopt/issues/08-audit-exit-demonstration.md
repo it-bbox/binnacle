@@ -7,10 +7,10 @@ Spec: `docs/specs/audit-and-adopt/spec.md`
 
 **What to build:** epic 7's exit criterion, demonstrated by the owner. A large third-party repository stays post-v1 (`docs/00-scope.md`).
 
-- [ ] The owner runs the audit from the chat with `/binnacle:audit` (ticket 09), not from a terminal.
-- [ ] `binn audit` on this repository gives a report the owner agrees with, with no gap that is not a real one.
-- [ ] `binn audit` on a repository of the owner's own, one that has not run `binn init`, gives recommendations the owner agrees with, and the owner changes nothing because of the audit itself.
-- [ ] `binn init` on that repository shows one plan, asks once, and Enter accepts it.
+- [x] The owner runs the audit from the chat with `/binnacle:audit` (ticket 09), not from a terminal.
+- [x] `binn audit` on this repository gives a report the owner agrees with, with no gap that is not a real one.
+- [x] `binn audit` on a repository of the owner's own, one that has not run `binn init`, gives recommendations the owner agrees with, and the owner changes nothing because of the audit itself.
+- [x] `binn init` on that repository shows one plan, asks once, and Enter accepts it.
 - [ ] The owner moves a Product session to another harness from the README section alone, without asking an agent what to type.
 - [ ] The owner records under `## Comments` whether the audit is useful. Defects are filed as tickets, and the roadmap marks epic 7 done only when none is open.
 
@@ -36,3 +36,11 @@ Then:
 3. **Init repository A.** In a terminal in repository A, run `binn init`. It shows one plan and asks once; press Enter. This step also counts for epic 8's first criterion.
 4. **A Product session in another harness.** Using only the README section *Working from another harness*, start a Product session in Codex without asking anyone what to type.
 5. Under `## Comments`, write whether the audit is useful. Tick each criterion that held; for one that did not, write one line on what went wrong, to become a ticket.
+
+### The demonstration, 2026-10-05
+
+Run by the owner, with this repository and `it-bbox-site` as repository A. The owner found the audit and init "roughly fine" ("вроде норм"), so the first four criteria are ticked on that word.
+
+- Not done: a Product session in Codex from the README alone. The step was not clear as written; it is: open the Codex app in the repository, trust the project, and ask it the one sentence the README's *Working from another harness* gives.
+- Defect, filed as ticket 10: on `it-bbox-site`, whose `docs/roadmap.md` is not in Binnacle's format, init proposed nothing, and the dashboard showed `roadmap.focus_missing`, `roadmap.table_missing` and `next_action.missing`. On an empty repository (epic 9's demonstration) init declared a `docs/specs` it did not create and no roadmap.
+- Still open: whether the audit is useful, in the owner's words.
