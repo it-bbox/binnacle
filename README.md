@@ -120,7 +120,7 @@ claude plugin marketplace update binnacle
 claude plugin update binnacle@binnacle
 ```
 
-The first copies the skills into the CLI package and gives the plugin a version drawn from their text, so it changes whenever a skill does; the other two have Claude Code update its copy to that version. A new session then loads the changed skills. `/binnacle:autopilot` does this itself after each merge of its own that changed them.
+The first copies the skills into the CLI package and gives the plugin a version drawn from the plugin's files, so it changes whenever a skill does; the other two have Claude Code update its copy to that version. A new session then loads the changed skills. `/binnacle:autopilot` does this itself after each merge of its own that changed them.
 
 `pnpm setup` puts its global bin directory on PATH in your shell's startup file, such as `~/.bashrc`, which the Claude Code desktop app does not read, so in the desktop app `.mcp.json` cannot find `binn`. Make `binn` visible there with a wrapper script named `binn`, made executable, in a directory already on the app's PATH — `~/.local/bin` on Linux:
 

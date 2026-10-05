@@ -61,16 +61,17 @@ test('the packaged plugin\'s version changes when a skill\'s text changes, and s
   const source = join(dir, 'source');
   const target = join(dir, 'plugin');
   cpSync(PLUGIN_SOURCE, source, { recursive: true });
+  const written = (): unknown => JSON.parse(readFileSync(join(target, '.claude-plugin', 'plugin.json'), 'utf8')).version;
 
   const version = preparePlugin(source, target);
   assert.match(version, /^[0-9a-f]{12}$/);
-  assert.equal(JSON.parse(readFileSync(join(target, '.claude-plugin', 'plugin.json'), 'utf8')).version, version);
+  assert.equal(written(), version);
   assert.equal(preparePlugin(source, target), version);
 
   appendFileSync(join(source, 'skills', 'status', 'SKILL.md'), 'One more line.\n');
   const changed = preparePlugin(source, target);
   assert.notEqual(changed, version);
-  assert.equal(JSON.parse(readFileSync(join(target, '.claude-plugin', 'plugin.json'), 'utf8')).version, changed);
+  assert.equal(written(), changed);
   assert.match(readFileSync(join(target, 'skills', 'status', 'SKILL.md'), 'utf8'), /One more line\.\n$/);
 });
 
