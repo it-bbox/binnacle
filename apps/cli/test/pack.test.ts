@@ -84,6 +84,16 @@ test('autopilot starts a second ticket only for a low pair, and says when the ri
   assert.match(skill, /risk was not assessed/);
 });
 
+/** Epic 8's exit demonstration: the snapshot carried the graph and the conflict risk, and the Product session never said either. */
+test('/binnacle:product presents the graph\'s freshness in one line and each pair\'s conflict risk beside the Tasks ready to start', () => {
+  const skill = skillText('product');
+  assert.match(skill, /\*\*Graph\*\*, in one line: current or behind from `graph\.behind`, built from `graph\.builtFrom`'s commit and time, and `graph\.lastRun`'s outcome and time, with its reason when it failed/);
+  assert.match(skill, /When `graph` is marked `available: false`, give its reason instead/);
+  assert.match(skill, /\*\*Conflict risk\*\*, beside the Tasks ready to start: each pair in `tasks\.parallel\.impact\.pairs`, by Task id, with its `risk` and its `reason`/);
+  assert.match(skill, /Binnacle's calculation from the graph, not a fact; say so once/);
+  assert.match(skill, /When `impact` is marked `available: false`, say the risk was not assessed, with its reason/);
+});
+
 /** The Next action is the owner's, set by a Product session (docs/workflow/02-development-workflow.md, step 3). */
 test('autopilot leaves the Next action to the owner, in the brief and in its report', () => {
   const skill = skillText('autopilot');
