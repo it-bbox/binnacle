@@ -24,7 +24,7 @@ Rules for the whole run. Never force-push, change settings, touch another reposi
 
    Without Binnacle, this session's checkout is `git rev-parse --show-toplevel`, and the registered one is the first path `git worktree list` prints. If they differ, refuse in the same way.
 
-   Otherwise check that `main` is checked out and the tree is clean, and bring it up to date with `git pull --ff-only`. If not, stop and say why. Note `main`'s HEAD: the run's start.
+   Otherwise check that `main` is checked out and the tree is clean, and bring it up to date with `GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND='ssh -o BatchMode=yes' git pull --ff-only`, which fails rather than waits on a prompt, as step 7's push does. If not, stop and say why. Note `main`'s HEAD: the run's start.
 3. Call `project_snapshot`, with no arguments. Choose the epic: the one the human named (`$ARGUMENTS`), or else the single epic the roadmap has `in progress`, or else, with none `in progress`, the single one it has at `tickets`, as `/to-tickets` leaves it. If none or several fit, stop and ask.
 4. Refuse to start unless the epic is planned: its spec exists, its issues directory holds tickets, and the roadmap has it at `tickets` or `in progress`. Say what is missing and that planning is the human's (`/grill-with-docs`, `/to-spec`, `/to-tickets`). Never run those, and never move on to another epic.
 
@@ -59,7 +59,7 @@ Rules for the whole run. Never force-push, change settings, touch another reposi
 
    A failed check goes back to the agent once, with the exact failure. If it fails again, the ticket stops. Otherwise, in the main checkout, with `main` checked out there:
    - `git merge --ff-only <branch>`. Fetching into a checked-out branch is refused, so merge, do not fetch.
-   - `git push origin main`, never forced. If the push fails, keep going and report it.
+   - `GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND='ssh -o BatchMode=yes' git push origin main`, never forced. This session has no terminal, so a push that would ask for a password, a passphrase or a host key must fail at once rather than wait. If the push fails, keep going and report it under *Waiting for the owner*.
    - Once a minute has passed since the agent's report, call `project_snapshot` again, and again while its `usage.importing.incomplete` is true. Its ingest takes the branch of the agent's work from the worktree's reflog, which `git worktree remove` deletes: read later, that work is credited to no Task (ADR-0030). It leaves out a session's last message until its file has gone unwritten for a minute, and goes on in the background with what does not fit in one call. If it fails, keep going and report it.
    - Check that no daemon runs from the worktree. A `runtime.json` under it, outside `node_modules`, whose `pid` is a running process is one; `BINNACLE_HOME=<its directory> binn daemon status` tells. When this project is Binnacle itself, so is a process whose command line holds `<path>/apps/daemon` (`ps -eo pid,args`; on Windows, `Get-CimInstance Win32_Process`). Stop none of them. Name each in the report under *Waiting for the owner*, with its pid and its home, and leave that worktree and its branches in place: removing the worktree would take away the runtime file `binn daemon stop` reads.
    - Unless that check found a daemon, `git worktree remove <path>`. A worktree created for an agent may be locked: if `git worktree list` shows it `locked`, run `git worktree unlock <path>` first. Then delete, with `git branch -d`, the ticket's branch and the branch the Agent tool created for the worktree.

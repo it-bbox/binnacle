@@ -102,6 +102,14 @@ test('autopilot refreshes the plugin only when a merge changed its skills and bi
   assert.match(skill, /the plugin refreshed and that a new session loads it, or why it was skipped, or which command failed and the commands run before it/);
 });
 
+/** Epic 9's ticket 13: with no terminal, a push that waits on a prompt hangs the run instead of failing. */
+test('autopilot pulls and pushes main so that no prompt can hold it, and reports a failed push to the owner', () => {
+  const skill = skillText('autopilot');
+  assert.match(skill, /`GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND='ssh -o BatchMode=yes' git pull --ff-only`/);
+  assert.match(skill, /`GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND='ssh -o BatchMode=yes' git push origin main`, never forced/);
+  assert.match(skill, /If the push fails, keep going and report it under \*Waiting for the owner\*/);
+});
+
 /** Epic 9: the daemon and registration from the chat, run through binn so that they need no daemon. */
 test('/binnacle:daemon, /binnacle:register and /binnacle:init run binn, are started by a human only, and handle a missing binn as /binnacle:audit does', () => {
   for (const name of ['daemon', 'register', 'init']) {
