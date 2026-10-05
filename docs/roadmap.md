@@ -22,6 +22,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 10 | Telemetry for any harness | not started | — |
 | 11 | The state of work | not started | — |
 | 12 | Audit, completed | not started | — |
+| 13 | Human output | not started | — |
 
 Epics are ordered by dependency, not by preference. Epic 1 is the foundation; epics 5 to 7 are only meaningful once 1 to 4 exist. Audit and adopt is epic 6 in the specs of epics 1 to 3, written before epic 6 was inserted on 2026-09-26.
 
@@ -33,7 +34,7 @@ Epic 7, Audit and adopt (`specs/audit-and-adopt/spec.md`), is done but for its e
 
 On 2026-10-02 the owner found that epics 1 to 7 deliver only part of `docs/baseline.md`, the floor for v1; the gaps are epics 8 to 12 (`docs/05-mvp-plan.md`; ADR-0035 to ADR-0038). Epic 8 (`specs/project-brain-tools-graphify-obsidian/spec.md`): init installs the tools and builds the first graph, the daemon keeps it current and projects the Project Brain into an Obsidian vault, and the snapshot, the dashboard and autopilot use the conflict risk between Tasks. Epic 9 (`specs/everything-from-the-chat/spec.md`): `/binnacle:init`, `/binnacle:daemon`, `/binnacle:register`, `/binnacle:status`, `/binnacle:dashboard` and `/binnacle:help` run from the chat, and autopilot refreshes the installed plugin after a merge that changed its skills.
 
-The demonstrations of 2026-10-05 passed most criteria and filed defects, all ready: epic 9's 10 (a plugin refresh that takes effect), then 11 (blocked by 10, and the live check of 08's third criterion) and 12; epic 8's 14 to 17; epic 7's 10. Each epic's demonstration ticket finishes once its defects are merged. Epics 10 to 12 still need `to-spec`.
+The demonstrations of 2026-10-05 passed most criteria and filed defects, all ready: epic 9's 10 (a plugin refresh that takes effect), then 11 (blocked by 10, and the live check of 08's third criterion) and 12; epic 8's 14 to 17; epic 7's 10. Each epic's demonstration ticket finishes once its defects are merged. Epics 10 to 12 still need `to-spec`; epic 13, Human output, every command's and skill's output made readable for a person (the owner, 2026-10-05), needs `/grill-with-docs` first.
 
 Next action: run epic 9's defect tickets through autopilot, starting with 10. `/binnacle:autopilot 9`
 
