@@ -196,12 +196,13 @@ test('/binnacle:init shows the plan from --plan --json, asks once, applies only 
 });
 
 /** Epic 9's exit demonstration: after init wrote .mcp.json the same session had no binnacle server, and a missing registration was sent back to init. */
-test('/binnacle:init says to open a new session only when it created or extended .mcp.json, and /binnacle:init and /binnacle:daemon start name /binnacle:register for a missing registration', () => {
+test('/binnacle:init says to open a new session only when it created .mcp.json, and /binnacle:init and /binnacle:daemon start name /binnacle:register for a missing registration', () => {
   const init = skillText('init');
-  assert.match(init, /When the Summary shows `\.mcp\.json` at the root created or extended/);
-  assert.match(init, /open a new session in this repository, and approve the project's `binnacle` server when Claude Code asks/);
+  // init never rewrites an existing JSON file (ADR-0026): created is the only Summary line in which it changed .mcp.json.
+  assert.match(init, /When the Summary shows `\.mcp\.json` created/);
+  assert.match(init, /open a new session in the repository at the `root`, and approve the project's `binnacle` server when Claude Code asks/);
   assert.match(init, /Otherwise, say nothing of a new session/);
-  assert.match(init, /`\/binnacle:daemon start` then `\/binnacle:register` adds the registration/);
+  assert.match(init, /`\/binnacle:daemon start` then `\/binnacle:register` adds the registration, with the same path when one was passed/);
   const daemon = skillText('daemon');
   assert.match(daemon, /a project not registered yet is registered by `\/binnacle:register`/);
   for (const skill of [init, daemon]) assert.doesNotMatch(skill, /`\/binnacle:init` again/);
