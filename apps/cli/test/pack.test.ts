@@ -134,7 +134,6 @@ test('/binnacle:dashboard runs binn dashboard, never --print, and never shows a 
   assert.match(skill, /give the exit code and quote what it printed on stderr/);
   assert.match(skill, /Exit 4 means the daemon is not running/);
   assert.match(skill, /`\/binnacle:daemon start`/);
-  assert.match(skill, /the address without its token/);
   assert.match(skill, /Never run `binn dashboard --print`/);
   assert.match(skill, /never show, read or ask for the token/);
   // The skill names --print only where it forbids running it or tells the human to run it at a terminal.
@@ -142,6 +141,17 @@ test('/binnacle:dashboard runs binn dashboard, never --print, and never shows a 
     assert.match(line, /Never run `binn dashboard --print`|at a terminal/, line);
   }
   assert.doesNotMatch(skill, /#token=|token\.json|cat .*token/);
+});
+
+/** Epic 9's exit demonstration: the answer spoke of a masked token and asked for an address with its token copied from a terminal. */
+test('/binnacle:dashboard answers plainly: the dashboard opened at the printed address, or --print at a terminal, never pasted into the chat', () => {
+  const skill = skillText('dashboard');
+  assert.match(skill, /prints the address alone, which carries no token: nothing in it was masked, cut or hidden/);
+  assert.match(skill, /the dashboard opened in the browser at that address/);
+  assert.match(skill, /run `binn dashboard --print` at a terminal and open what it prints there, without pasting it into the chat/);
+  assert.match(skill, /Never say that a token was masked or hidden, and never ask the human to copy an address from `binn dashboard`'s output/);
+  // Wording that once led the answer to a stripped token: an address "without its token", or "with its token" to fetch.
+  assert.doesNotMatch(skill, /without (its|the) token|with its token|token-free/);
 });
 
 /** Epic 9, ADR-0037: binn init confirmed in the chat, by the human's yes and never by the agent; its frontmatter and failures are held with /binnacle:daemon's above. */
