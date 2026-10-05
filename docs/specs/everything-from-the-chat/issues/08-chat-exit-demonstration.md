@@ -10,7 +10,7 @@ Spec: `docs/specs/everything-from-the-chat/spec.md`
 - [x] In a Claude Code chat, with the daemon stopped and no terminal opened, the owner runs `/binnacle:init` on a fresh repository, reads the whole plan in the chat, and confirms it with one yes.
 - [x] The owner runs `/binnacle:daemon start`, `/binnacle:register`, `/binnacle:status` and `/binnacle:dashboard`. The dashboard opens, and no token appears in the chat.
 - [ ] An autopilot run merges a ticket that changes a skill, and the next session runs the changed skill without anyone running `pnpm install`.
-- [ ] The owner records under `## Comments` whether setup from the chat is good enough to replace the terminal. Defects are filed as tickets, and the roadmap marks epic 9 done only when none is open.
+- [x] The owner records under `## Comments` whether setup from the chat is good enough to replace the terminal. Defects are filed as tickets, and the roadmap marks epic 9 done only when none is open.
 
 ## Comments
 
@@ -34,4 +34,4 @@ Run by the owner in `~/Projects/demo-chat`, a new repository with one empty comm
 - Defects: the session that ran `/binnacle:init` had no `binnacle` MCP server, because Claude Code reads `.mcp.json` only at start, and the skills said to rerun `/binnacle:init` for the registration rather than `/binnacle:register`: ticket 11. `/binnacle:dashboard`'s answer spoke of a masked token to copy from a terminal: ticket 12. The harness labels `binn daemon status`'s exit 4 as "Failed", though "not running" is its answer; kept, as `/binnacle:daemon` says it plainly.
 - Ticket 04's hand check, the MCP tools answering in the session where the daemon was started, was not reached: that session had no server at all. It runs in a session opened after init.
 - Not yet: the third criterion. It needs ticket 10 merged first; ticket 11, merged by autopilot after it, is the skill change to check.
-- Still open: whether setup from the chat can replace the terminal, in the owner's words.
+- The owner, 2026-10-05: setup from the chat replaces the terminal; no step needed one ("не приходится, все норм").

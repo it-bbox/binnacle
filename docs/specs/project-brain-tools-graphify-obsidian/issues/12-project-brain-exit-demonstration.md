@@ -12,7 +12,7 @@ Spec: `docs/specs/project-brain-tools-graphify-obsidian/spec.md`
 - [x] A change merged to `main` updates the graph, and the snapshot says it is current.
 - [x] Two ready Tasks show a conflict risk the owner finds plausible, in the snapshot and on the dashboard.
 - [ ] The vault opens in Obsidian with the project's Product, Specs, Decisions, Research and `90-Graphify`, linked, and the owner's own notes untouched.
-- [ ] The owner records under `## Comments` whether the Standard setup is worth having as set up. Defects are filed as tickets, and the roadmap marks epic 8 done only when none is open.
+- [x] The owner records under `## Comments` whether the Standard setup is worth having as set up. Defects are filed as tickets, and the roadmap marks epic 8 done only when none is open.
 
 ## Comments
 
@@ -35,4 +35,4 @@ Run by the owner on `it-bbox-site` (GitLab tracker), with a Product session alon
 - Not ticked, the tools reachable from Codex: Claude Code had Serena, Context7 and Graphify connected; Codex had only Serena and Binnacle, because `codex` is not on `PATH` and init printed the other entries instead of running them, as designed. Serena's Codex entry uses Claude Code's context: ticket 16.
 - Not ticked, the vault: with `obsidian.vaultPath` set in `~/.binnacle/settings.json` (it was unset: the owner had opened the repository itself as a vault, which showed Obsidian's own graph of every Markdown file, `node_modules` included), the daemon projected every registered project, with Product, Specs, Decisions and Research, generated notes marked as such. No `90-Graphify`: the code-only graph has no `GRAPH_REPORT.md`, ticket 14.
 - Defects also filed: `/binnacle:product` does not show the graph's freshness or the risk, ticket 15; the dashboard shows the daemon's reasons in English on the Russian interface, ticket 17.
-- Still open: whether the Standard setup is worth having, in the owner's words.
+- The owner, 2026-10-05: all of the Standard setup is needed ("все нужно").

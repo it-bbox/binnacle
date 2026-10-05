@@ -12,7 +12,7 @@ Spec: `docs/specs/audit-and-adopt/spec.md`
 - [x] `binn audit` on a repository of the owner's own, one that has not run `binn init`, gives recommendations the owner agrees with, and the owner changes nothing because of the audit itself.
 - [x] `binn init` on that repository shows one plan, asks once, and Enter accepts it.
 - [ ] The owner moves a Product session to another harness from the README section alone, without asking an agent what to type.
-- [ ] The owner records under `## Comments` whether the audit is useful. Defects are filed as tickets, and the roadmap marks epic 7 done only when none is open.
+- [x] The owner records under `## Comments` whether the audit is useful. Defects are filed as tickets, and the roadmap marks epic 7 done only when none is open.
 
 ## Comments
 
@@ -43,4 +43,4 @@ Run by the owner, with this repository and `it-bbox-site` as repository A. The o
 
 - Not done: a Product session in Codex from the README alone. The step was not clear as written; it is: open the Codex app in the repository, trust the project, and ask it the one sentence the README's *Working from another harness* gives.
 - Defect, filed as ticket 10: on `it-bbox-site`, whose `docs/roadmap.md` is not in Binnacle's format, init proposed nothing, and the dashboard showed `roadmap.focus_missing`, `roadmap.table_missing` and `next_action.missing`. On an empty repository (epic 9's demonstration) init declared a `docs/specs` it did not create and no roadmap.
-- Still open: whether the audit is useful, in the owner's words.
+- The owner, 2026-10-05: the audit is useful ("Аудит полезен"). The owner, 2026-10-05: the output of every command and skill reads as machine output and should be made more human. This is a remark on all of Binnacle, not a defect of this epic, and is left to a Product session to place.
