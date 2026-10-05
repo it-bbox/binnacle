@@ -9,7 +9,7 @@
     "binn": "./src/bin.ts"
   },
   "scripts": {
-    "prepare": "node -e \"const fs = require('node:fs'); fs.rmSync('plugin', { recursive: true, force: true }); fs.cpSync('../../.claude/skills/binnacle', 'plugin', { recursive: true })\""
+    "prepare": "node src/prepare.ts"
   },
   "dependencies": {
     "@binnacle/adapters": "workspace:*",

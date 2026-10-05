@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { appendFileSync, cpSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
+import { preparePlugin } from '../src/prepare.ts';
 
 const PACKAGE = fileURLToPath(new URL('..', import.meta.url));
 const PLUGIN_SOURCE = fileURLToPath(new URL('../../../.claude/skills/binnacle', import.meta.url));
@@ -32,7 +33,8 @@ test('the packed CLI carries the binnacle plugin, every file of its source, and 
     source.filter((path) => path.endsWith('SKILL.md')),
     ['audit', 'autopilot', 'checkpoint', 'daemon', 'daily', 'dashboard', 'help', 'init', 'product', 'register', 'status', 'task'].map((skill) => join('skills', skill, 'SKILL.md')),
   );
-  for (const path of source) {
+  const manifest = join('.claude-plugin', 'plugin.json');
+  for (const path of source.filter((path) => path !== manifest)) {
     assert.equal(readFileSync(join(packed, 'plugin', path), 'utf8'), readFileSync(join(PLUGIN_SOURCE, path), 'utf8'), path);
   }
 
@@ -42,12 +44,34 @@ test('the packed CLI carries the binnacle plugin, every file of its source, and 
     marketplace.plugins.map((plugin: { name: string; source: string }) => [plugin.name, plugin.source]),
     [['binnacle', './plugin']],
   );
-  const plugin = JSON.parse(readFileSync(join(packed, 'plugin', '.claude-plugin', 'plugin.json'), 'utf8'));
+  const { version, ...plugin } = JSON.parse(readFileSync(join(packed, 'plugin', manifest), 'utf8'));
+  assert.deepEqual(plugin, JSON.parse(readFileSync(join(PLUGIN_SOURCE, manifest), 'utf8')));
+  assert.equal(version, preparePlugin(PLUGIN_SOURCE, join(out, 'prepared')));
   assert.equal(plugin.name, 'binnacle');
   for (const description of [plugin.description, marketplace.plugins[0].description]) {
     assert.match(description, /\binit\b/);
     assert.match(description, /\bhelp\b/);
   }
+});
+
+/** Epic 9: Claude Code's `plugin update` refreshes its copy only when the version changes, and a manifest with none installs as `unknown` for good. */
+test('the packaged plugin\'s version changes when a skill\'s text changes, and stays the same when nothing does', (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'binnacle-version-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const source = join(dir, 'source');
+  const target = join(dir, 'plugin');
+  cpSync(PLUGIN_SOURCE, source, { recursive: true });
+
+  const version = preparePlugin(source, target);
+  assert.match(version, /^[0-9a-f]{12}$/);
+  assert.equal(JSON.parse(readFileSync(join(target, '.claude-plugin', 'plugin.json'), 'utf8')).version, version);
+  assert.equal(preparePlugin(source, target), version);
+
+  appendFileSync(join(source, 'skills', 'status', 'SKILL.md'), 'One more line.\n');
+  const changed = preparePlugin(source, target);
+  assert.notEqual(changed, version);
+  assert.equal(JSON.parse(readFileSync(join(target, '.claude-plugin', 'plugin.json'), 'utf8')).version, changed);
+  assert.match(readFileSync(join(target, 'skills', 'status', 'SKILL.md'), 'utf8'), /One more line\.\n$/);
 });
 
 /** The baseline's rule that only low-risk Tasks run in parallel, held by the one process that starts agents in parallel (ADR-0022). */

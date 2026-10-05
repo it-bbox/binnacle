@@ -25,5 +25,6 @@ This repository keeps its skills-directory plugin at `.claude/skills/binnacle/` 
 
 - The package's build includes the plugin directory.
 - The package's build includes the marketplace manifest.
+- The package's build gives the plugin's manifest a version drawn from every file of the plugin (`apps/cli/src/prepare.ts`). Claude Code's `plugin update` refreshes its installed copy only when the version changes, and installs a manifest with none as `unknown`, which no later update replaces.
 - `binn init` relies on Claude Code accepting a local path as a marketplace source. Its CLI does: `claude plugin marketplace add` takes a URL, a path or a GitHub repository.
 - Command wrappers for other harnesses still wait for a second harness with skills (`docs/03-mcp-and-skills.md`).
