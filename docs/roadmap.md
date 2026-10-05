@@ -36,7 +36,7 @@ On 2026-10-02 the owner found that epics 1 to 7 deliver only part of `docs/basel
 
 The demonstrations of 2026-10-05 passed most criteria and filed defects. Epic 9 is done: its exit demonstration, 08, held every criterion, and its defects 10 to 13 are merged; epic 8's 14 to 17 and epic 7's 10 are ready. Each epic's demonstration ticket finishes once its defects are merged. Epics 10 to 12 still need `to-spec`; epic 13, Human output, every command's and skill's output made readable for a person (the owner, 2026-10-05), needs `/grill-with-docs` first.
 
-Next action: the owner runs epic 9's exit demonstration, 08, with the hand checks of 10 and 11 in a new session, so the refreshed plugin is the one loaded. `/mattpocock-skills:implement docs/specs/everything-from-the-chat/issues/08-chat-exit-demonstration.md`
+Next action: run epic 8's defect tickets, 14 to 17, through autopilot; its exit demonstration, 12, finishes once they are merged. `/binnacle:autopilot 8`
 
 ## Later
 
