@@ -147,9 +147,10 @@ test('/binnacle:dashboard runs binn dashboard, never --print, and never shows a 
 test('/binnacle:dashboard answers plainly: the dashboard opened at the printed address, or --print at a terminal, never pasted into the chat', () => {
   const skill = skillText('dashboard');
   assert.match(skill, /prints the address alone, which carries no token: nothing in it was masked, cut or hidden/);
+  assert.match(skill, /Show the address it printed on stdout, whether or not a browser opened/);
   assert.match(skill, /the dashboard opened in the browser at that address/);
   assert.match(skill, /run `binn dashboard --print` at a terminal and open what it prints there, without pasting it into the chat/);
-  assert.match(skill, /Never say that a token was masked or hidden, and never ask the human to copy an address from `binn dashboard`'s output/);
+  assert.match(skill, /Never say that a token was masked or hidden, and never ask the human to copy an address from `binn dashboard`'s output in step 1/);
   // Wording that once led the answer to a stripped token: an address "without its token", or "with its token" to fetch.
   assert.doesNotMatch(skill, /without (its|the) token|with its token|token-free/);
 });

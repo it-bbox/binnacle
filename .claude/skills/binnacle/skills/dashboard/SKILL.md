@@ -12,7 +12,7 @@ The dashboard's token authorises the daemon's local API, and this shell's output
    - If the shell cannot find `binn` (`command not found`, exit 127), stop. Say that `binn` is not on this harness's PATH, and point to the README's setup section (*Install*, and *From this repository* until the npm package is published).
    - Exit 4 means the daemon is not running. Stop, quote what it printed, and name `/binnacle:daemon start`, or `binn daemon start` at a terminal, then `/binnacle:dashboard` again.
    - Any other non-zero exit means the dashboard could not be opened. Stop, give the exit code and quote what it printed on stderr.
-2. If it printed on stderr that it could not open a browser, quote that line and say that no browser opened. Otherwise answer that the dashboard opened in the browser at that address, the one it printed on stdout.
-3. Then, in either case, say: if no browser appeared, run `binn dashboard --print` at a terminal and open what it prints there, without pasting it into the chat.
+2. Show the address it printed on stdout, whether or not a browser opened.
+3. If it printed on stderr that it could not open a browser, quote that line, say that no browser opened, and say: run `binn dashboard --print` at a terminal and open what it prints there, without pasting it into the chat. Otherwise answer that the dashboard opened in the browser at that address, and that if no browser appeared, run `binn dashboard --print` at a terminal and open what it prints there, without pasting it into the chat.
 
-Never say that a token was masked or hidden, and never ask the human to copy an address from `binn dashboard`'s output: the browser already has what it needs. Run no other command, and change nothing.
+Never say that a token was masked or hidden, and never ask the human to copy an address from `binn dashboard`'s output in step 1: the browser already has what it needs. Run no other command, and change nothing.
