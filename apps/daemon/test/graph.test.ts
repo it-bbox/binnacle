@@ -57,7 +57,7 @@ function makeRepository({ ignored = true, capability = '' } = {}): string {
 const WRITE_GRAPH = 'mkdir -p graphify-out && echo "{\\"nodes\\": []}" > graphify-out/graph.json';
 
 /** A directory holding a fake `graphify` that logs its directory and arguments, then runs `body`. */
-function fakeGraphify(body = `${WRITE_GRAPH}\n[ "$1" = cluster-only ] && echo "# Report" > graphify-out/GRAPH_REPORT.md; true`):{ dir: string; log: string; replace(body: string): void } {
+function fakeGraphify(body = `${WRITE_GRAPH}\n[ "$1" = cluster-only ] && echo "# Report" > graphify-out/GRAPH_REPORT.md; true`): { dir: string; log: string; replace(body: string): void } {
   const dir = temporary('binnacle-graph-bin-');
   const log = join(dir, 'calls.log');
   const replace = (text: string): void => {

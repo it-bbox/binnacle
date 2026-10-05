@@ -12,8 +12,8 @@ import {
   credentialsPath,
   DEFAULT_WINDOW_DAYS,
   ensureHome,
-  GRAPH_DIRECTORY,
   GRAPH_CLUSTER,
+  GRAPH_DIRECTORY,
   GRAPH_EXTRACT,
   GRAPH_FILE,
   GRAPH_RUN_TIMEOUT_MS,
@@ -1074,7 +1074,7 @@ function graphBuildStep(session: Session): void {
       // Its install in this plan failed, or put it in a directory that is not on PATH.
       if (!onPath('graphify')) return record(session, 'skipped', 'the first graph: graphify is not on PATH. The Binnacle daemon builds the graph once it is.');
       const built = runGraphify(session, GRAPH_EXTRACT, 'The Binnacle daemon builds the graph once graphify runs.');
-      if (built) runGraphify(session, GRAPH_CLUSTER, 'The graph is kept, and the Binnacle daemon builds the report at its next run.');
+      if (built) runGraphify(session, GRAPH_CLUSTER, 'The graph is kept, and the Binnacle daemon builds the report with its next graph run.');
     },
   });
 }
@@ -1083,7 +1083,7 @@ function graphBuildStep(session: Session): void {
 function runGraphify(session: Session, args: string[], failed: string): boolean {
   const shown = `graphify ${args.join(' ')}`;
   session.say(`Running ${shown}...`);
-  // Its progress is shown as it comes; stderr is kept for a failure's reason, and shown after. The daemon's ceiling for one run.
+  // Its progress is shown as it comes; stderr is kept for a failure's reason, and shown after. The daemon's ceiling for one step.
   const run = spawnSync('graphify', args, { cwd: session.root, encoding: 'utf8', stdio: ['ignore', 'inherit', 'pipe'], timeout: GRAPH_RUN_TIMEOUT_MS });
   if (run.stderr) process.stderr.write(run.stderr);
   if (run.status === 0) {

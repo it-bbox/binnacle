@@ -31,7 +31,7 @@ import type { EventRow, Store } from './store.ts';
  */
 export const GRAPH_DIRECTORY = 'graphify-out';
 export const GRAPH_POLL_MS = 60_000;
-/** ponytail: a fixed ceiling for one run; make it a setting if a real project needs longer. */
+/** ponytail: a fixed ceiling for one Graphify step, the extract or the report; make it a setting if a real project needs longer. */
 export const GRAPH_RUN_TIMEOUT_MS = 10 * 60_000;
 /** Graphify's code-only extraction (ADR-0012), run in the repository root: local syntax trees, no API key, no model. */
 export const GRAPH_EXTRACT = ['extract', '.', '--code-only'];
@@ -96,7 +96,7 @@ export function startGraphRunner(home: string, store: Store, searchPath: string,
     }
     const run = { commit: next.commit, queued: false };
     running.set(path, run);
-    const settled = extract(path, next.executable, next.commit)
+    const settled = build(path, next.executable, next.commit)
       .then(() => {
         running.delete(path);
         if (run.queued && !stopped) return consider(path);
@@ -108,7 +108,7 @@ export function startGraphRunner(home: string, store: Store, searchPath: string,
   }
 
   /** One run: the extract, then, if it succeeded, the report; one outcome for both. A failed report keeps the graph the extract wrote. */
-  async function extract(path: string, executable: string, commit: string): Promise<void> {
+  async function build(path: string, executable: string, commit: string): Promise<void> {
     let reason = await step(path, executable, GRAPH_EXTRACT);
     if (reason === null && !stopped) {
       reason = await step(path, executable, GRAPH_CLUSTER);
