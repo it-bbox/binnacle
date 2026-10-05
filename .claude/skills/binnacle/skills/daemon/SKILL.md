@@ -13,6 +13,6 @@ This skill needs no daemon and no `binnacle` MCP server: it runs the CLI command
    - `status` exits 4 when no daemon is running. That is its answer, not a failure: show what it printed.
    - Any other non-zero exit means the action failed. Stop, give the exit code and quote what it printed on stderr. A failed `start` prints its reason and then the log tail of the daemon: quote both as printed, and add no diagnosis of your own.
 3. Show what it printed, as printed: whether a daemon is running, and its address, pid, start time and version. `start` on a running daemon says it is already running; that is a success.
-4. After a `start` that succeeded, say that the Binnacle skills that need the daemon, such as `/binnacle:product`, can be run again. After a `stop`, say that they will report `daemon.unreachable` until `/binnacle:daemon start`.
+4. After a `start` that succeeded, say that the Binnacle skills that need the daemon, such as `/binnacle:product`, can be run again, and that a project not registered yet is registered by `/binnacle:register`. After a `stop`, say that they will report `daemon.unreachable` until `/binnacle:daemon start`.
 
 Run no other command, and never stop or start the daemon on your own initiative: only the action the human passed, once.

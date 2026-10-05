@@ -28,6 +28,7 @@ The path is `$ARGUMENTS` when the human passed one, and none otherwise. The wind
    - Exit 3 with `init.plan_changed` on stderr means the plan is no longer the one shown, and nothing was written. Say so, go back to step 1 to show the new plan and ask again.
    - Exit 127, and any other non-zero exit, as in step 1. Quote anything it printed on stdout too, since some writes may have been made.
 5. Show what it printed, as printed: what init said outside the plan, the tracker check with its fix when the tracker cannot be read, and the Summary, what was created, extended, run, failed or skipped.
-6. When the notes or the output say the daemon is not running, so the project is not registered, say that `/binnacle:daemon start` then `/binnacle:init` again adds the registration.
+6. When the notes or the output say the daemon is not running, so the project is not registered, say that `/binnacle:daemon start` then `/binnacle:register` adds the registration.
+7. When the Summary shows `.mcp.json` at the root created or extended, end by saying: open a new session in this repository, and approve the project's `binnacle` server when Claude Code asks. Claude Code reads `.mcp.json` only when a session starts, so this session has no `binnacle` server, and the skills that need it, such as `/binnacle:product`, cannot run here. Otherwise, say nothing of a new session: a `.vscode/mcp.json` or any other file is not `.mcp.json`.
 
 Never commit, and run no other command than the ones above. Reviewing and committing what init wrote is the human's.

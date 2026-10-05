@@ -192,8 +192,19 @@ test('/binnacle:init shows the plan from --plan --json, asks once, applies only 
   assert.match(skill, /`binn init --apply <id>`/);
   assert.match(skill, /`init\.plan_changed`/);
   assert.match(skill, /show the new plan and ask again/);
-  assert.match(skill, /`\/binnacle:daemon start` then `\/binnacle:init` again/);
   assert.match(skill, /Never commit/);
+});
+
+/** Epic 9's exit demonstration: after init wrote .mcp.json the same session had no binnacle server, and a missing registration was sent back to init. */
+test('/binnacle:init says to open a new session only when it created or extended .mcp.json, and /binnacle:init and /binnacle:daemon start name /binnacle:register for a missing registration', () => {
+  const init = skillText('init');
+  assert.match(init, /When the Summary shows `\.mcp\.json` at the root created or extended/);
+  assert.match(init, /open a new session in this repository, and approve the project's `binnacle` server when Claude Code asks/);
+  assert.match(init, /Otherwise, say nothing of a new session/);
+  assert.match(init, /`\/binnacle:daemon start` then `\/binnacle:register` adds the registration/);
+  const daemon = skillText('daemon');
+  assert.match(daemon, /a project not registered yet is registered by `\/binnacle:register`/);
+  for (const skill of [init, daemon]) assert.doesNotMatch(skill, /`\/binnacle:init` again/);
 });
 
 /** Epic 9: /binnacle:help, a guide in the user's language that names every skill the plugin ships, so a skill added later fails here until it does. */
