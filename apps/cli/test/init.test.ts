@@ -1406,13 +1406,15 @@ test('the skill plugins: without Claude Code detected nothing is installed, and 
  * A fake `uv` and a fake `graphify` that log each call to one shared file, in order, as
  * `<name> <working directory> <arguments>`. `graphify` is on PATH from the start when
  * `installed`, and otherwise only once `uv tool install graphifyy` has run. It exits with
- * `exitCode`, saying `reason` on stderr.
+ * `exitCode`, saying `reason` on stderr; its report step, `cluster-only`, fails with
+ * `reportReason` when one is given.
  */
-function fakeGraphify(home: Home, { installed = false, exitCode = 0, reason = '', installFails = false } = {}): () => string[] {
+function fakeGraphify(home: Home, { installed = false, exitCode = 0, reason = '', installFails = false, reportReason = '' } = {}): () => string[] {
   const log = join(home.home, 'graph-calls');
   const graphify = join(home.home, 'graphify');
   const logged = (name: string): string => `#!/bin/sh\necho "${name} $PWD $*" >> '${log}'\n`;
-  writeFileSync(graphify, `${logged('graphify')}${reason ? `echo '${reason}' >&2\n` : ''}exit ${exitCode}\n`, { mode: 0o755 });
+  const report = reportReason ? `if [ "$1" = cluster-only ]; then echo '${reportReason}' >&2; exit 4; fi\n` : '';
+  writeFileSync(graphify, `${logged('graphify')}${report}${reason ? `echo '${reason}' >&2\n` : ''}exit ${exitCode}\n`, { mode: 0o755 });
   // An absolute cp: the PATH the fakes run with holds nothing but git and themselves.
   const install = installFails ? 'exit 1\n' : `if [ "$*" = "tool install graphifyy" ]; then /bin/cp '${graphify}' '${home.bin}/'; fi\n`;
   writeFileSync(join(home.bin, 'uv'), `${logged('uv')}${install}`, { mode: 0o755 });
@@ -1421,6 +1423,7 @@ function fakeGraphify(home: Home, { installed = false, exitCode = 0, reason = ''
 }
 
 const EXTRACT = 'extract . --code-only';
+const CLUSTER = 'cluster-only . --no-label';
 const graphCalls = (calls: string[]): string[] => calls.filter((call) => /graphif/.test(call));
 
 test('the first graph: Graphify is built code-only in the repository root after its install, and its output directory is appended to .gitignore', (t) => {
@@ -1440,9 +1443,11 @@ test('the first graph: Graphify is built code-only in the repository root after 
   assert.ok(append > result.stdout.indexOf('uv tool install graphifyy') && build > append && build < question, result.stdout);
   assert.equal(read(root, '.gitignore'), 'node_modules/\ngraphify-out/\n');
   assert.match(result.stdout, /extended\s+\.gitignore/);
-  // Installed by the plan, then built; never called before the plan's yes.
-  assert.deepEqual(graphCalls(calls()), [`uv ${root} tool install graphifyy`, `graphify ${root} ${EXTRACT}`]);
+  // Installed by the plan, then built, then its report, with no model; never called before the plan's yes.
+  assert.deepEqual(graphCalls(calls()), [`uv ${root} tool install graphifyy`, `graphify ${root} ${EXTRACT}`, `graphify ${root} ${CLUSTER}`]);
+  assert.ok(result.stdout.indexOf(`graphify ${CLUSTER}`) > build && result.stdout.indexOf(`graphify ${CLUSTER}`) < question, result.stdout);
   assert.match(result.stdout, new RegExp(`ran\\s+graphify ${EXTRACT}`));
+  assert.match(result.stdout, new RegExp(`ran\\s+graphify ${CLUSTER}`));
 });
 
 test('the first graph: an output directory Git already ignores leaves .gitignore untouched, and a missing .gitignore is created', (t) => {
@@ -1456,7 +1461,7 @@ test('the first graph: an output directory Git already ignores leaves .gitignore
   assert.equal(read(ignored, '.gitignore'), '/graphify-out\n');
   assert.doesNotMatch(result.stdout, /\s\.gitignore\n/);
   assert.match(result.stdout, /Git already ignores graphify-out\//);
-  assert.deepEqual(graphCalls(calls()), [`graphify ${ignored} ${EXTRACT}`]);
+  assert.deepEqual(graphCalls(calls()), [`graphify ${ignored} ${EXTRACT}`, `graphify ${ignored} ${CLUSTER}`]);
 
   const bare = makeRepository(t, 'unignored');
   assert.equal(binnIn(home)(bare, '\n\n', 'init').status, 0);
@@ -1477,7 +1482,22 @@ test('the first graph: a failing build is reported in the Summary with its reaso
   assert.match(summary, /created\s+\.gitignore/);
   assert.match(summary, /ran\s+npm i @ast-grep\/cli -g/);
   assert.deepEqual(npm(), [AST_GREP]);
+  // A failed build makes no report.
   assert.deepEqual(graphCalls(calls()), [`graphify ${root} ${EXTRACT}`]);
+});
+
+test('the first graph: a failing report is reported in the Summary with its reason, and the graph is kept', (t) => {
+  const home = makeHome(t);
+  const calls = fakeGraphify(home, { installed: true, reportReason: 'community detection failed' });
+  const root = makeRepository(t, 'report-fails');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  const summary = result.stdout.slice(result.stdout.indexOf('Summary:'));
+  assert.match(summary, new RegExp(`ran\\s+graphify ${EXTRACT}`));
+  assert.match(summary, new RegExp(`failed\\s+graphify ${CLUSTER}: community detection failed\\. The graph is kept`));
+  assert.deepEqual(graphCalls(calls()), [`graphify ${root} ${EXTRACT}`, `graphify ${root} ${CLUSTER}`]);
 });
 
 test('the first graph: a failed install of Graphify skips the build, and says why', (t) => {

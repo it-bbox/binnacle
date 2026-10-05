@@ -190,10 +190,11 @@ Register assistant integrations according to current upstream tooling, for examp
 graphify install --project
 ```
 
-`binn init` builds the first graph last in its plan, with `graphify-out/` added to `.gitignore` unless Git already ignores it, by running Graphify's code-only extraction from the project root, which needs no API key and calls no model; after that the daemon keeps it current (`03-external-tools.md`, *The first graph it builds*):
+`binn init` builds the first graph last in its plan, with `graphify-out/` added to `.gitignore` unless Git already ignores it, by running Graphify's code-only extraction from the project root, then its report, neither of which needs an API key or calls a model; after that the daemon keeps it current (`03-external-tools.md`, *The first graph it builds*):
 
 ```bash
 graphify extract . --code-only
+graphify cluster-only . --no-label
 ```
 
 Generated output includes a machine-readable graph and architecture report.

@@ -30,4 +30,4 @@ export { readTracker } from './snapshot.ts';
 export { containingEntry } from './registry.ts';
 export { claudeCodeSessions, codexSessions, DEFAULT_WINDOW_DAYS, projectCheckouts } from './usage.ts';
 export { packageVersion } from './version.ts';
-export { GRAPH_DIRECTORY, GRAPH_EXTRACT, GRAPH_FILE, GRAPH_RUN_TIMEOUT_MS } from './graph.ts';
+export { GRAPH_CLUSTER, GRAPH_DIRECTORY, GRAPH_EXTRACT, GRAPH_FILE, GRAPH_RUN_TIMEOUT_MS } from './graph.ts';

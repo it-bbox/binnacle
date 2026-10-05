@@ -54,8 +54,10 @@ function makeRepository({ ignored = true, capability = '' } = {}): string {
   return root;
 }
 
+const WRITE_GRAPH = 'mkdir -p graphify-out && echo "{\\"nodes\\": []}" > graphify-out/graph.json';
+
 /** A directory holding a fake `graphify` that logs its directory and arguments, then runs `body`. */
-function fakeGraphify(body = 'mkdir -p graphify-out && echo "{\\"nodes\\": []}" > graphify-out/graph.json'): { dir: string; log: string; replace(body: string): void } {
+function fakeGraphify(body = `${WRITE_GRAPH}\n[ "$1" = cluster-only ] && echo "# Report" > graphify-out/GRAPH_REPORT.md; true`):{ dir: string; log: string; replace(body: string): void } {
   const dir = temporary('binnacle-graph-bin-');
   const log = join(dir, 'calls.log');
   const replace = (text: string): void => {
@@ -107,7 +109,10 @@ describe('the daemon keeps the graph current', () => {
       await until(async () => (await snapshot(daemon, root)).graph.builtFrom?.commit === second, 'the build of the new commit');
       await settle();
 
-      assert.deepEqual(calls(fake.log), [`${root} extract . --code-only`, `${root} extract . --code-only`]);
+      // Each run extracts code-only, then builds the report with no model naming communities.
+      const run = [`${root} extract . --code-only`, `${root} cluster-only . --no-label`];
+      assert.deepEqual(calls(fake.log), [...run, ...run]);
+      assert.equal(existsSync(join(root, 'graphify-out', 'GRAPH_REPORT.md')), true);
       const { graph, attention } = await snapshot(daemon, root);
       assert.equal(graph.available, true);
       assert.equal(graph.reason, null);
@@ -143,7 +148,7 @@ describe('the daemon keeps the graph current', () => {
       const last = commit(root, 'c.txt');
       await until(async () => (await snapshot(daemon, root)).graph.builtFrom?.commit === last, 'the build of the last commit');
       await settle();
-      assert.equal(calls(fake.log).length, 2);
+      assert.equal(calls(fake.log).length, 4);
     });
   });
 
@@ -170,9 +175,27 @@ describe('the daemon keeps the graph current', () => {
       assert.match(failed?.message ?? '', /tree-sitter grammar missing/);
       assert.equal(readFileSync(join(root, 'graphify-out', 'graph.json'), 'utf8'), graphBefore);
 
-      // A failed commit is not retried every minute: only a new move runs again.
+      // A failed commit is not retried every minute: only a new move runs again. A failed extract builds no report.
       await settle();
-      assert.equal(calls(fake.log).length, 2);
+      assert.equal(calls(fake.log).length, 3);
+    });
+  });
+
+  it('reports a failed report as a failed run, with its reason, and keeps the graph the extract wrote', async () => {
+    const root = makeRepository();
+    const fake = fakeGraphify(`if [ "$1" = cluster-only ]; then echo "community detection failed" >&2; exit 4; fi\n${WRITE_GRAPH}`);
+    await withDaemon(fake.dir, async (daemon) => {
+      assert.equal((await daemon.call('project.register', { path: root })).status, 200);
+      const first = git(root, ['rev-parse', 'HEAD']);
+      await until(async () => (await snapshot(daemon, root)).graph.lastRun?.commit === first, 'the failed run');
+
+      const body = await snapshot(daemon, root);
+      assert.deepEqual(calls(fake.log), [`${root} extract . --code-only`, `${root} cluster-only . --no-label`]);
+      assert.equal(body.graph.lastRun?.outcome, 'failed');
+      assert.match(body.graph.lastRun?.reason ?? '', /cluster-only.*community detection failed/);
+      assert.match(body.attention.find((item) => item.code === 'graph.update_failed')?.message ?? '', /community detection failed/);
+      assert.equal(existsSync(join(root, 'graphify-out', 'graph.json')), true);
+      assert.equal(body.graph.available, true);
     });
   });
 

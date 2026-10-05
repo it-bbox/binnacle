@@ -23,7 +23,7 @@ import type { EventRow, Store } from './store.ts';
  * The daemon keeps each registered project's Graphify graph current (ADR-0036). Once a
  * minute it reads the commit of the project's default branch, and when that has moved past
  * the last recorded run, it runs Graphify's code-only extraction (ADR-0012) in the
- * registered checkout: one run per project at a time, with at most one queued. Each
+ * registered checkout, then its report: one run per project at a time, with at most one queued. Each
  * outcome is an event, which the snapshot's `graph` section reads.
  *
  * The output directory is the only thing the daemon lets write into a repository, and only
@@ -35,6 +35,11 @@ export const GRAPH_POLL_MS = 60_000;
 export const GRAPH_RUN_TIMEOUT_MS = 10 * 60_000;
 /** Graphify's code-only extraction (ADR-0012), run in the repository root: local syntax trees, no API key, no model. */
 export const GRAPH_EXTRACT = ['extract', '.', '--code-only'];
+/**
+ * After a successful extract, the step Graphify names for its `GRAPH_REPORT.md`: clustering of
+ * the existing `graph.json`, with `--no-label` so no model names the communities (ADR-0012).
+ */
+export const GRAPH_CLUSTER = ['cluster-only', '.', '--no-label'];
 const BUILT = 'graph.built';
 const FAILED = 'graph.failed';
 export const GRAPH_FILE = `${GRAPH_DIRECTORY}/graph.json`;
@@ -102,10 +107,22 @@ export function startGraphRunner(home: string, store: Store, searchPath: string,
     void settled.finally(() => settling.delete(settled));
   }
 
-  function extract(path: string, executable: string, commit: string): Promise<void> {
+  /** One run: the extract, then, if it succeeded, the report; one outcome for both. A failed report keeps the graph the extract wrote. */
+  async function extract(path: string, executable: string, commit: string): Promise<void> {
+    let reason = await step(path, executable, GRAPH_EXTRACT);
+    if (reason === null && !stopped) {
+      reason = await step(path, executable, GRAPH_CLUSTER);
+      if (reason !== null) reason = `graphify ${GRAPH_CLUSTER.join(' ')} failed: ${reason}`;
+    }
+    // A run the daemon's stop ended is not an outcome of Graphify's.
+    if (!stopped) store.appendEvent({ type: reason === null ? BUILT : FAILED, projectPath: path, payload: { commit, reason } });
+  }
+
+  /** Runs `graphify` with `args` in `path`; null when it succeeded, or why not. */
+  function step(path: string, executable: string, args: string[]): Promise<string | null> {
     return new Promise((resolve) => {
       // In its own process group, so that ending it ends whatever it started too.
-      const child = spawn(executable, GRAPH_EXTRACT, { cwd: path, stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true, detached: true });
+      const child = spawn(executable, args, { cwd: path, stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true, detached: true });
       children.add(child);
       let stderr = '';
       child.stderr.setEncoding('utf8').on('data', (chunk: string) => (stderr = (stderr + chunk).slice(-4096)));
@@ -117,9 +134,7 @@ export function startGraphRunner(home: string, store: Store, searchPath: string,
         finished = true;
         clearTimeout(timer);
         children.delete(child);
-        // A run the daemon's stop ended is not an outcome of Graphify's.
-        if (!stopped) store.appendEvent({ type: reason === null ? BUILT : FAILED, projectPath: path, payload: { commit, reason } });
-        resolve();
+        resolve(reason);
       };
       child.on('error', (error) => finish(`graphify could not be run: ${error.message}`));
       child.on('close', (code, signal) => {

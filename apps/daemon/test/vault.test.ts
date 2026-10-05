@@ -296,7 +296,10 @@ describe('the vault projection', () => {
       writeFileSync(join(bin, 'graphify'), `#!/bin/sh\nmkdir -p graphify-out\n${body}\n`);
       chmodSync(join(bin, 'graphify'), 0o755);
     };
-    graphify(`echo '{"nodes": [], "links": []}' > graphify-out/graph.json\necho "# Report of $(git rev-parse HEAD)" > graphify-out/GRAPH_REPORT.md`);
+    // As Graphify does: the extract writes the graph, and only the report step writes the report.
+    graphify(
+      `if [ "$1" = cluster-only ]; then echo "# Report of $(git rev-parse HEAD)" > graphify-out/GRAPH_REPORT.md; else echo '{"nodes": [], "links": []}' > graphify-out/graph.json; fi`,
+    );
     const daemon = await startTestDaemon({ vaultPollMs: POLL_MS, graphPollMs: POLL_MS, searchPath: bin });
     try {
       setVault(daemon, vault);

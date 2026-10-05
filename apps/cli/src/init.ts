@@ -13,6 +13,7 @@ import {
   DEFAULT_WINDOW_DAYS,
   ensureHome,
   GRAPH_DIRECTORY,
+  GRAPH_CLUSTER,
   GRAPH_EXTRACT,
   GRAPH_FILE,
   GRAPH_RUN_TIMEOUT_MS,
@@ -1055,29 +1056,41 @@ function vaultStep(session: Session, home: string): void {
 
 /**
  * Step 12: Graphify's first graph, last in the plan, after its output directory is ignored:
- * Graphify's code-only extraction runs in the repository root, which needs no API key and calls
- * no model (ADR-0012). A failed build is reported with Graphify's reason, and the daemon builds
- * the graph at a later poll.
+ * Graphify's code-only extraction runs in the repository root, then its report, neither of which
+ * needs an API key or calls a model (ADR-0012). A failed step is reported with Graphify's reason,
+ * a failed report keeps the graph, and the daemon builds both at a later poll.
  */
 function graphBuildStep(session: Session): void {
   const shown = `graphify ${GRAPH_EXTRACT.join(' ')}`;
-  session.say('Graphify builds the first graph in the plan, code-only: no API key, no model.');
+  const report = `graphify ${GRAPH_CLUSTER.join(' ')}`;
+  session.say('Graphify builds the first graph and its report in the plan, code-only: no API key, no model.');
   session.plan.push({
-    heading: `Build the first graph into ${GRAPH_DIRECTORY}/, code-only, with no API key and no model, by running in the repository root`,
-    body: `  ${shown}`,
+    heading: `Build the first graph and its report into ${GRAPH_DIRECTORY}/, code-only, with no API key and no model, by running in the repository root`,
+    body: `  ${shown}\n  ${report}`,
     declined: 'build the first graph',
     async apply() {
       // The `.gitignore` append of step 10 failed: Graphify would leave untracked files in the repository (ADR-0036).
       if ((await isGraphIgnored(session.root)) === false) return record(session, 'skipped', `the first graph: Git does not ignore ${GRAPH_DIRECTORY}/`);
       // Its install in this plan failed, or put it in a directory that is not on PATH.
       if (!onPath('graphify')) return record(session, 'skipped', 'the first graph: graphify is not on PATH. The Binnacle daemon builds the graph once it is.');
-      session.say(`Running ${shown}...`);
-      // Its progress is shown as it comes; stderr is kept for a failure's reason, and shown after. The daemon's ceiling for one run.
-      const run = spawnSync('graphify', GRAPH_EXTRACT, { cwd: session.root, encoding: 'utf8', stdio: ['ignore', 'inherit', 'pipe'], timeout: GRAPH_RUN_TIMEOUT_MS });
-      if (run.stderr) process.stderr.write(run.stderr);
-      if (run.status === 0) return record(session, 'ran', shown);
-      const reason = run.error?.message || run.stderr?.trim().split('\n').at(-1)?.trim() || `graphify exited with code ${run.status}`;
-      record(session, 'failed', `${shown}: ${reason}. The Binnacle daemon builds the graph once graphify runs.`);
+      const built = runGraphify(session, GRAPH_EXTRACT, 'The Binnacle daemon builds the graph once graphify runs.');
+      if (built) runGraphify(session, GRAPH_CLUSTER, 'The graph is kept, and the Binnacle daemon builds the report at its next run.');
     },
   });
+}
+
+/** Runs `graphify` with `args` in the repository root and records the outcome; `failed` follows a failure's reason. */
+function runGraphify(session: Session, args: string[], failed: string): boolean {
+  const shown = `graphify ${args.join(' ')}`;
+  session.say(`Running ${shown}...`);
+  // Its progress is shown as it comes; stderr is kept for a failure's reason, and shown after. The daemon's ceiling for one run.
+  const run = spawnSync('graphify', args, { cwd: session.root, encoding: 'utf8', stdio: ['ignore', 'inherit', 'pipe'], timeout: GRAPH_RUN_TIMEOUT_MS });
+  if (run.stderr) process.stderr.write(run.stderr);
+  if (run.status === 0) {
+    record(session, 'ran', shown);
+    return true;
+  }
+  const reason = run.error?.message || run.stderr?.trim().split('\n').at(-1)?.trim() || `graphify exited with code ${run.status}`;
+  record(session, 'failed', `${shown}: ${reason}. ${failed}`);
+  return false;
 }
