@@ -7,6 +7,18 @@
 /** A count's forms by `Intl.PluralRules` category; `other` is the fallback, `#` the count. */
 export type Forms = { other: string } & Partial<Record<Intl.LDMLPluralRule, string>>;
 
+/** A pair's reason, written from its risk and its Tasks' modules; module names and ids stay as they are. */
+export type PairReasons = {
+  high: (modules: string) => string;
+  /** The modules of each Task that neighbour one of the other's: "a.ts of A", and "b.ts of B". */
+  medium: (a: string, b: string) => string;
+  low: string;
+  /** A Task of an unknown pair that touches no module of the graph; the page joins them with "; ". */
+  noModuleFromBranch: (id: string) => string;
+  noModuleFromTicket: (id: string) => string;
+  modulesOf: (modules: string, id: string) => string;
+};
+
 export const en = {
   /** The language's own name, as the Settings page lists it. */
   languageName: 'English',
@@ -92,16 +104,8 @@ export const en = {
   fromBranch: 'from its branch',
   fromTicket: 'from its ticket',
   noModules: 'no module of the graph',
-  /** A pair's reason, written from its risk and its Tasks' modules; module names and ids stay as they are. */
-  pairReasons: {
-    high: (modules: string) => `Both touch ${modules}.`,
-    medium: (a: string, b: string) => `Their modules are neighbours in the graph: ${a} and ${b}.`,
-    low: 'They share no module, and none of theirs are neighbours in the graph.',
-    /** A Task of an unknown pair that touches no module of the graph; the page joins them with "; ". */
-    noModuleFromBranch: (id: string) => `the branch of ${id} changes no module of the graph`,
-    noModuleFromTicket: (id: string) => `the ticket of ${id} names no module of the graph`,
-    modulesOf: (modules: string, id: string) => `${modules} of ${id}`,
-  },
+  /** A pair's reason in another language than the daemon's; none in English, where the daemon's own is shown. */
+  pairReasons: null as PairReasons | null,
   /**
    * The daemon's reasons that have no part of their own, keyed. The English is the daemon's text,
    * which the page matches to show the reason in its language; a reason not here stays as the daemon wrote it.

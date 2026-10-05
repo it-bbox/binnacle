@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { compactNumber, daemonReason, LANGUAGES, pairReason, plural, secondsAgo, startingLanguage } from '../app/i18n/index.ts';
+import { parseRoadmap } from '../../../packages/core/src/roadmap.ts';
+import { trackerUnavailable, UNAVAILABLE } from '../../daemon/src/snapshot.ts';
 
 /**
  * The dashboard's own dictionary (ADR-0033): which language the page starts in, and how a
@@ -96,21 +98,26 @@ describe("the daemon's reasons", () => {
   const pair = (a: string, b: string, risk: 'high' | 'medium' | 'low' | 'unknown', modules: string[] = []) => ({ tasks: [a, b] as [string, string], risk, modules, reason: 'as the daemon wrote it' });
 
   it("of a pair's risk are written from the risk and the modules, which stay as they are", () => {
-    assert.equal(pairReason('en', pair('a/01', 'a/02', 'high', ['nuxt.config.ts']), tasks), 'Both touch nuxt.config.ts.');
     assert.equal(pairReason('ru', pair('a/01', 'a/02', 'high', ['nuxt.config.ts']), tasks), 'Оба затрагивают nuxt.config.ts.');
     assert.equal(
       pairReason('ru', pair('a/01', 'a/02', 'medium', ['src/a.ts', 'src/b.ts']), tasks),
       'Их модули соседствуют в графе: src/a.ts у a/01 и src/b.ts у a/02.',
     );
-    assert.equal(pairReason('en', pair('a/01', 'a/02', 'low'), tasks), 'They share no module, and none of theirs are neighbours in the graph.');
+    assert.equal(pairReason('ru', pair('a/01', 'a/02', 'low'), tasks), 'Общих модулей нет, и их модули не соседствуют в графе.');
     assert.equal(
       pairReason('ru', pair('a/03', 'a/04', 'unknown'), tasks),
       'Тикет a/03 не называет ни одного модуля графа; ветка a/04 не меняет ни одного модуля графа.',
     );
-    assert.equal(pairReason('en', pair('a/01', 'a/03', 'unknown'), tasks), 'The ticket of a/03 names no module of the graph.');
+    assert.equal(pairReason('ru', pair('a/01', 'a/03', 'unknown'), tasks), 'Тикет a/03 не называет ни одного модуля графа.');
   });
 
-  it("of a pair the page cannot write are as the daemon wrote them", () => {
+  it("of a pair are the daemon's own in English, and when the page cannot write them", () => {
+    assert.equal(pairReason('en', pair('a/01', 'a/02', 'high', ['nuxt.config.ts']), tasks), 'as the daemon wrote it');
     assert.equal(pairReason('ru', pair('a/01', 'x/99', 'unknown'), tasks), 'as the daemon wrote it');
+  });
+
+  it('the page knows are the texts the daemon writes, so a reworded one is caught here rather than shown in English', () => {
+    const written = [UNAVAILABLE.reason, trackerUnavailable([]).reason, ...parseRoadmap('').diagnostics.map((item) => item.message)];
+    for (const reason of written) assert.notEqual(daemonReason('ru', reason), reason, reason);
   });
 });

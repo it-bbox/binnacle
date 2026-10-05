@@ -257,7 +257,7 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
                     <span class="font-mono text-muted">{{ pair.tasks.join(' · ') }}</span>
                     <UBadge :label="t.risks[pair.risk]" :color="RISK_COLORS[pair.risk]" variant="soft" size="sm" />
                   </div>
-                  <DaemonReason class="leading-snug break-words text-muted" :reason="pair.reason" :written="pairReason(language, pair, snapshot.tasks.parallel.impact.tasks)" />
+                  <DaemonReason class="leading-snug break-words text-muted" :reason="pair.reason" :translated="pairReason(language, pair, snapshot.tasks.parallel.impact.tasks)" />
                 </div>
               </template>
             </div>

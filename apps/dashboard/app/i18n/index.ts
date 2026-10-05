@@ -56,18 +56,24 @@ export function daemonReason(language: Language, reason: string): string {
   return key === undefined ? reason : DICTIONARIES[language].daemonReasons[key];
 }
 
+// The parts of `Impact` (`composables/projects.ts`) the reason is written from, spelled here so
+// that this module stays free of Nuxt for the root typecheck and the tests.
 type Touch = { id: string; modules: string[]; from: 'branch' | 'ticket' };
 type Pair = { tasks: [string, string]; risk: 'high' | 'medium' | 'low' | 'unknown'; modules: string[]; reason: string };
 
 /**
  * A pair's conflict risk reason in the language, written from its risk and modules and from its
- * Tasks' modules (`impact.tasks`), the names as they are; the daemon's own when a Task of the pair is not in `tasks`.
+ * Tasks' modules (`impact.tasks`), the names as they are. The daemon's own in English, its
+ * language, and when a Task of the pair is not in `tasks`.
+ *
+ * ponytail: a medium reason names each Task's modules that neighbour the other's, not which
+ * module neighbours which, as the daemon's does; the snapshot would have to give the pairs.
  */
 export function pairReason(language: Language, pair: Pair, tasks: Touch[]): string {
   const said = DICTIONARIES[language].pairReasons;
   const a = tasks.find((task) => task.id === pair.tasks[0]);
   const b = tasks.find((task) => task.id === pair.tasks[1]);
-  if (a === undefined || b === undefined) return pair.reason;
+  if (said === null || a === undefined || b === undefined) return pair.reason;
   if (pair.risk === 'high') return said.high(pair.modules.join(', '));
   if (pair.risk === 'low') return said.low;
   if (pair.risk === 'medium') {
