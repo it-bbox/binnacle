@@ -197,7 +197,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
           <USkeleton v-else-if="usage.data.value === null" class="m-3.5 h-32" />
           <template v-else>
             <p v-if="isUnavailable(usage.data.value.tasks)" class="px-3.5 py-3">
-              <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="text-muted">· {{ usage.data.value.tasks.reason }}</span>
+              <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.tasks.reason" /></span>
             </p>
             <template v-else>
               <p v-if="usage.data.value.tasks.items.length === 0" class="px-3.5 pt-3 text-muted">{{ t.noTaskRuns }}</p>
@@ -209,11 +209,11 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
               />
             </template>
             <p v-if="isUnavailable(usage.data.value.unassigned)" class="px-3.5 pb-2 text-xs">
-              {{ t.unassigned }}: <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="text-muted">· {{ usage.data.value.unassigned.reason }}</span>
+              {{ t.unassigned }}: <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.unassigned.reason" /></span>
             </p>
             <h3 class="border-t border-default px-3.5 pt-2.5 pb-1 text-xs font-semibold">{{ t.byRole }}</h3>
             <p v-if="isUnavailable(usage.data.value.byRole)" class="px-3.5 py-3">
-              <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="text-muted">· {{ usage.data.value.byRole.reason }}</span>
+              <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.byRole.reason" /></span>
             </p>
             <BarList
               v-else
@@ -243,7 +243,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
                 <div class="flex flex-col gap-1 px-3.5 pt-3 pb-1.5">
                   <h3 class="text-xs leading-snug text-muted">{{ t.perCompletedTask }} · {{ t[kind] }}</h3>
                   <p v-if="isUnavailable(usage.data.value.derived.perCompletedTask)">
-                    <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="text-muted">· {{ usage.data.value.derived.perCompletedTask.reason }}</span>
+                    <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.perCompletedTask.reason" /></span>
                   </p>
                   <template v-else-if="perCompleted">
                     <template v-if="perCompleted.mean">
@@ -263,7 +263,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
                 <div class="flex flex-col gap-1 px-3.5 pt-3 pb-1.5">
                   <h3 class="text-xs leading-snug text-muted">{{ t.runsPerTask }}</h3>
                   <p v-if="isUnavailable(usage.data.value.derived.runsPerTask)">
-                    <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="text-muted">· {{ usage.data.value.derived.runsPerTask.reason }}</span>
+                    <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.runsPerTask.reason" /></span>
                   </p>
                   <template v-else-if="runsPer">
                     <template v-if="runsPer.mean">
@@ -320,7 +320,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
                 </template>
                 <span v-else class="text-xs text-muted">{{ t.noLevel }}</span>
               </div>
-              <p v-if="item.reason !== null" class="text-[11.5px] leading-snug text-dimmed" lang="en">{{ item.reason }}</p>
+              <DaemonReason v-if="item.reason !== null" class="block text-[11.5px] leading-snug text-dimmed" :reason="item.reason" />
             </li>
           </ul>
           <template #footer>

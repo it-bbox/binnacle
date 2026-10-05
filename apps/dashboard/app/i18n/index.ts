@@ -1,8 +1,8 @@
 /**
  * The dashboard's languages, as dictionaries of our own (ADR-0033): no i18n module, and
- * `Intl` for plurals, numbers and relative times in the current language. Only the page's own
- * text is translated; commands, ids, branches, models, repository text and the daemon's
- * messages stay as they are.
+ * `Intl` for plurals, numbers and relative times in the current language. The page's own text
+ * is translated, and the daemon's reasons the page knows by their kind or text; commands, ids,
+ * branches, models, repository text and every other message of the daemon stay as they are.
  */
 import { en, type Forms } from './en.ts';
 import { ru } from './ru.ts';
@@ -46,4 +46,35 @@ export function secondsAgo(language: Language, seconds: number): string {
   if (seconds < 3600) return format.format(-Math.floor(seconds / 60), 'minute');
   if (seconds < 86_400) return format.format(-Math.floor(seconds / 3600), 'hour');
   return format.format(-Math.floor(seconds / 86_400), 'day');
+}
+
+type ReasonKey = keyof typeof en.daemonReasons;
+
+/** A reason the daemon wrote, in the language when the page knows it, and as the daemon wrote it otherwise. */
+export function daemonReason(language: Language, reason: string): string {
+  const key = (Object.keys(en.daemonReasons) as ReasonKey[]).find((name) => en.daemonReasons[name] === reason);
+  return key === undefined ? reason : DICTIONARIES[language].daemonReasons[key];
+}
+
+type Touch = { id: string; modules: string[]; from: 'branch' | 'ticket' };
+type Pair = { tasks: [string, string]; risk: 'high' | 'medium' | 'low' | 'unknown'; modules: string[]; reason: string };
+
+/**
+ * A pair's conflict risk reason in the language, written from its risk and modules and from its
+ * Tasks' modules (`impact.tasks`), the names as they are; the daemon's own when a Task of the pair is not in `tasks`.
+ */
+export function pairReason(language: Language, pair: Pair, tasks: Touch[]): string {
+  const said = DICTIONARIES[language].pairReasons;
+  const a = tasks.find((task) => task.id === pair.tasks[0]);
+  const b = tasks.find((task) => task.id === pair.tasks[1]);
+  if (a === undefined || b === undefined) return pair.reason;
+  if (pair.risk === 'high') return said.high(pair.modules.join(', '));
+  if (pair.risk === 'low') return said.low;
+  if (pair.risk === 'medium') {
+    const of = (task: Touch): string => said.modulesOf(task.modules.filter((module) => pair.modules.includes(module)).join(', '), task.id);
+    return said.medium(of(a), of(b));
+  }
+  const none = [a, b].filter((task) => task.modules.length === 0).map((task) => (task.from === 'branch' ? said.noModuleFromBranch : said.noModuleFromTicket)(task.id));
+  const text = `${none.join('; ')}.`;
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }

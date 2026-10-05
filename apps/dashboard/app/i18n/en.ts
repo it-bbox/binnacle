@@ -92,6 +92,34 @@ export const en = {
   fromBranch: 'from its branch',
   fromTicket: 'from its ticket',
   noModules: 'no module of the graph',
+  /** A pair's reason, written from its risk and its Tasks' modules; module names and ids stay as they are. */
+  pairReasons: {
+    high: (modules: string) => `Both touch ${modules}.`,
+    medium: (a: string, b: string) => `Their modules are neighbours in the graph: ${a} and ${b}.`,
+    low: 'They share no module, and none of theirs are neighbours in the graph.',
+    /** A Task of an unknown pair that touches no module of the graph; the page joins them with "; ". */
+    noModuleFromBranch: (id: string) => `the branch of ${id} changes no module of the graph`,
+    noModuleFromTicket: (id: string) => `the ticket of ${id} names no module of the graph`,
+    modulesOf: (modules: string, id: string) => `${modules} of ${id}`,
+  },
+  /**
+   * The daemon's reasons that have no part of their own, keyed. The English is the daemon's text,
+   * which the page matches to show the reason in its language; a reason not here stays as the daemon wrote it.
+   */
+  daemonReasons: {
+    notInThisVersion: 'Not available in this version of Binnacle.',
+    trackerUnreadable: 'The tracker cannot be read.',
+    noManifest: 'Tasks cannot be read without a readable manifest.',
+    noTrackerProvider: 'This project declares no tracker.provider.',
+    noLocalIssues: 'tracker.provider is local, and this project declares no tracker.local.issues.',
+    reviewOnRemote: 'Binnacle reads an issue’s body and never its comments, so no Review is read on GitHub or GitLab.',
+    noGraph: 'There is no graph.',
+    graphifyOff: 'This project does not use Graphify: capabilities.graphify is false in its manifest.',
+    importNotReached: 'The import of this project has not reached a record yet.',
+    roadmapNoDocs: 'The roadmap is <knowledge.docs>/roadmap.md, and this project declares no knowledge.docs.',
+    roadmapNoFocus: 'The roadmap has no "## Current focus" section.',
+    roadmapNoTable: 'The roadmap has no table headed "| # | Epic | Status | Spec |".',
+  },
   runningNow: 'Running now',
   runningNote: '“Running” is Binnacle’s reading of recent activity.',
   noTask: 'no Task',

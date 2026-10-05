@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { compactNumber, LANGUAGES, plural, secondsAgo, startingLanguage } from '../app/i18n/index.ts';
+import { compactNumber, daemonReason, LANGUAGES, pairReason, plural, secondsAgo, startingLanguage } from '../app/i18n/index.ts';
 
 /**
  * The dashboard's own dictionary (ADR-0033): which language the page starts in, and how a
@@ -75,5 +75,42 @@ describe('a compact number', () => {
     assert.equal(compactNumber('ru', 5_306_279), '5,3\u00a0млн');
     assert.equal(compactNumber('en', 12_466), '12.5K');
     assert.equal(compactNumber('en', 950), '950');
+  });
+});
+
+describe("the daemon's reasons", () => {
+  const notInThisVersion = 'Not available in this version of Binnacle.';
+
+  it('are in the language when the page knows them, and as the daemon wrote them when it does not', () => {
+    assert.equal(daemonReason('en', notInThisVersion), notInThisVersion);
+    assert.equal(daemonReason('ru', notInThisVersion), 'Недоступно в этой версии Binnacle.');
+    assert.equal(daemonReason('ru', 'There is no roadmap at docs/roadmap.md.'), 'There is no roadmap at docs/roadmap.md.');
+  });
+
+  const tasks = [
+    { id: 'a/01', modules: ['nuxt.config.ts', 'src/a.ts'], from: 'branch' as const },
+    { id: 'a/02', modules: ['nuxt.config.ts', 'src/b.ts'], from: 'ticket' as const },
+    { id: 'a/03', modules: [], from: 'ticket' as const },
+    { id: 'a/04', modules: [], from: 'branch' as const },
+  ];
+  const pair = (a: string, b: string, risk: 'high' | 'medium' | 'low' | 'unknown', modules: string[] = []) => ({ tasks: [a, b] as [string, string], risk, modules, reason: 'as the daemon wrote it' });
+
+  it("of a pair's risk are written from the risk and the modules, which stay as they are", () => {
+    assert.equal(pairReason('en', pair('a/01', 'a/02', 'high', ['nuxt.config.ts']), tasks), 'Both touch nuxt.config.ts.');
+    assert.equal(pairReason('ru', pair('a/01', 'a/02', 'high', ['nuxt.config.ts']), tasks), 'Оба затрагивают nuxt.config.ts.');
+    assert.equal(
+      pairReason('ru', pair('a/01', 'a/02', 'medium', ['src/a.ts', 'src/b.ts']), tasks),
+      'Их модули соседствуют в графе: src/a.ts у a/01 и src/b.ts у a/02.',
+    );
+    assert.equal(pairReason('en', pair('a/01', 'a/02', 'low'), tasks), 'They share no module, and none of theirs are neighbours in the graph.');
+    assert.equal(
+      pairReason('ru', pair('a/03', 'a/04', 'unknown'), tasks),
+      'Тикет a/03 не называет ни одного модуля графа; ветка a/04 не меняет ни одного модуля графа.',
+    );
+    assert.equal(pairReason('en', pair('a/01', 'a/03', 'unknown'), tasks), 'The ticket of a/03 names no module of the graph.');
+  });
+
+  it("of a pair the page cannot write are as the daemon wrote them", () => {
+    assert.equal(pairReason('ru', pair('a/01', 'x/99', 'unknown'), tasks), 'as the daemon wrote it');
   });
 });

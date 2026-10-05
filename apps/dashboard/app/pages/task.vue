@@ -139,7 +139,7 @@ const notAvailableRows = computed(() => [
               <span>{{ t.noReview }}</span>
             </div>
             <div v-else-if="isUnavailable(data.review)" class="px-3.5 py-3">
-              <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="text-muted">· {{ data.review.reason }}</span>
+              <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="data.review.reason" /></span>
             </div>
             <template v-else>
               <pre lang="en" class="m-0 max-w-[70ch] p-3.5 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap">{{ data.review.text }}</pre>

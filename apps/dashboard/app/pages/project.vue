@@ -92,8 +92,8 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
         <div v-if="snapshot.roadmap === null" class="flex flex-col gap-1.5 rounded-lg border border-dashed border-accented p-4">
           <div><span class="font-medium">{{ t.notAvailable }}</span> · {{ t.noRoadmap }}</div>
           <div v-if="roadmapAttention.length > 0" class="text-muted">{{ t.roadmapReason }}</div>
-          <div v-for="(item, index) in roadmapAttention" :key="index" lang="en" class="text-xs">
-            <code class="font-mono text-muted">{{ item.code }}</code> {{ item.message }}
+          <div v-for="(item, index) in roadmapAttention" :key="index" class="text-xs">
+            <code class="font-mono text-muted">{{ item.code }}</code> <DaemonReason :reason="item.message" />
           </div>
         </div>
         <section v-else class="flex flex-col gap-2.5">
@@ -257,7 +257,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
         <div v-else class="flex flex-col gap-2 rounded-lg border border-default bg-default px-3.5 py-2.5">
           <p v-if="usage.data.value.importing.incomplete" class="m-0 text-warning">{{ t.importing }}</p>
           <p v-if="isUnavailable(usage.data.value.byRole)" class="m-0">
-            <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="text-muted">· {{ usage.data.value.byRole.reason }}</span>
+            <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.byRole.reason" /></span>
           </p>
           <TokenKinds
             v-else
@@ -269,7 +269,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
             ]"
           />
           <p v-if="isUnavailable(usage.data.value.unassigned)" class="m-0">
-            {{ t.unassigned }}: <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="text-muted">· {{ usage.data.value.unassigned.reason }}</span>
+            {{ t.unassigned }}: <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.unassigned.reason" /></span>
           </p>
           <p v-else class="m-0 text-xs text-dimmed">{{ t.unassignedNote }}</p>
         </div>
@@ -285,7 +285,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
             <h2 class="m-0 text-[13px] font-semibold">{{ t.graph }}</h2>
             <span v-if="!snapshot.graph.available" class="text-xs text-muted">{{ t.notAvailable }}</span>
           </div>
-          <div v-if="snapshot.graph.reason !== null" lang="en" class="text-[11.5px] leading-snug text-dimmed">{{ snapshot.graph.reason }}</div>
+          <DaemonReason v-if="snapshot.graph.reason !== null" class="block text-[11.5px] leading-snug text-dimmed" :reason="snapshot.graph.reason" />
           <div class="text-xs">
             <span class="me-1.5 text-muted">{{ t.builtFrom }}</span>
             <template v-if="snapshot.graph.builtFrom">
@@ -299,7 +299,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
             <template v-if="snapshot.graph.lastRun">
               <span :class="{ 'text-warning': snapshot.graph.lastRun.outcome === 'failed' }">{{ t.runOutcomes[snapshot.graph.lastRun.outcome] }}</span>
               · <code class="font-mono">{{ snapshot.graph.lastRun.commit.slice(0, 12) }}</code> · {{ since(snapshot.graph.lastRun.at) }}
-              <div v-if="snapshot.graph.lastRun.reason !== null" lang="en" class="text-[11.5px] leading-snug text-dimmed">{{ snapshot.graph.lastRun.reason }}</div>
+              <DaemonReason v-if="snapshot.graph.lastRun.reason !== null" class="block text-[11.5px] leading-snug text-dimmed" :reason="snapshot.graph.lastRun.reason" />
             </template>
             <span v-else class="text-dimmed">{{ t.noRunYet }}</span>
           </div>
@@ -326,7 +326,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
             <h2 class="m-0 text-[13px] font-semibold">{{ title }}</h2>
             <span class="text-xs text-muted">{{ t.notAvailable }}</span>
           </div>
-          <div lang="en" class="text-[11.5px] leading-snug text-dimmed">{{ element.reason }}</div>
+          <DaemonReason class="block text-[11.5px] leading-snug text-dimmed" :reason="element.reason" />
         </section>
       </div>
     </template>

@@ -61,7 +61,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
               <li v-for="(item, index) in view.snapshot.attention" :key="index" class="flex items-start gap-2 px-3.5 py-2.5">
                 <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 flex-none text-(--warn)" />
                 <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span class="leading-snug break-words" lang="en">{{ item.message }}</span>
+                  <DaemonReason class="leading-snug break-words" :reason="item.message" />
                   <code class="font-mono text-[11px] text-dimmed">{{ item.code }}</code>
                 </div>
               </li>
@@ -82,7 +82,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
             <li v-if="runningRemainder > 0" class="px-3.5 py-2.5 text-muted">{{ t.more(number(runningRemainder)) }}</li>
             <li v-for="{ view, reason } in unread" :key="view.project.path" class="px-3.5 py-2.5">
               <span class="text-muted">{{ projectName(view.project) }}</span> · <span class="font-medium">{{ t.notAvailable }}</span>
-              <span lang="en" class="text-muted"> · {{ reason }}</span>
+              <span class="text-muted"> · <DaemonReason :reason="reason" /></span>
             </li>
           </ul>
           <template #footer>

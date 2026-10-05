@@ -90,7 +90,7 @@ const cell = 'border-b border-default px-3.5 py-2.5 align-top';
               <td :class="cell">
                 <div v-if="row.running === null" class="flex flex-col gap-0.5">
                   <span class="font-medium">{{ t.notAvailable }}</span>
-                  <span lang="en" class="text-[11px] leading-snug text-dimmed">{{ row.activityReason }}</span>
+                  <DaemonReason v-if="row.activityReason !== null" class="text-[11px] leading-snug text-dimmed" :reason="row.activityReason" />
                 </div>
                 <div v-else class="flex flex-col gap-0.5">
                   <span class="inline-flex items-center gap-1.5 font-mono text-xs">

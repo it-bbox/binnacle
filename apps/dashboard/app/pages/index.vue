@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { call, usePolling } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
+import { pairReason } from '~/i18n';
 import { count, isUnavailable, SELECTED_VIEW, type Alternative, type Board, type ConflictRisk } from '~/composables/projects';
 import type { Totals } from '~/composables/usage';
 
@@ -13,7 +14,7 @@ const view = inject(SELECTED_VIEW, ref(null));
 const snapshot = computed(() => view.value?.snapshot ?? null);
 const route = useRoute();
 const project = typeof route.query.project === 'string' ? route.query.project : null;
-const { t, number, list, secondsAgo } = useLanguage();
+const { t, language, number, list, secondsAgo } = useLanguage();
 
 const board = usePolling(async () => (project === null ? null : call<Board>('task.list', { path: project })));
 
@@ -124,8 +125,8 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
             <UBadge :label="t.notAvailable" color="neutral" variant="outline" class="border-dashed" />
             <span class="font-medium">{{ t.noRoadmap }}</span>
           </div>
-          <p v-for="item in roadmapReasons" :key="item.code + item.message" class="font-mono text-xs leading-normal text-muted" lang="en">
-            {{ item.message }} <code class="text-dimmed">{{ item.code }}</code>
+          <p v-for="item in roadmapReasons" :key="item.code + item.message" class="font-mono text-xs leading-normal text-muted">
+            <DaemonReason :reason="item.message" /> <code class="text-dimmed">{{ item.code }}</code>
           </p>
         </div>
         <div v-else class="flex flex-col gap-3.5">
@@ -149,7 +150,7 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
           </UAlert>
         </div>
         <p v-if="isUnavailable(snapshot.next.alternatives)" class="text-muted">
-          <span class="font-medium text-default">{{ t.notAvailable }}</span> · <span lang="en">{{ snapshot.next.alternatives.reason }}</span>
+          <span class="font-medium text-default">{{ t.notAvailable }}</span> · <DaemonReason :reason="snapshot.next.alternatives.reason" />
         </p>
         <div v-else-if="alternatives.length > 0" class="flex flex-col">
           <div class="mb-1.5 flex items-center gap-2.5">
@@ -227,8 +228,8 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
           </template>
           <div v-if="snapshot.tasks === null" class="flex flex-col gap-1 px-3.5 py-4">
             <div class="font-medium">{{ t.notAvailable }} · {{ t.trackerUnreadable }}</div>
-            <p v-for="item in trackerReasons" :key="item.code + item.message" class="leading-snug text-muted" lang="en">
-              {{ item.message }} <code class="font-mono text-[11px] text-dimmed">{{ item.code }}</code>
+            <p v-for="item in trackerReasons" :key="item.code + item.message" class="leading-snug text-muted">
+              <DaemonReason :reason="item.message" /> <code class="font-mono text-[11px] text-dimmed">{{ item.code }}</code>
             </p>
           </div>
           <template v-else>
@@ -242,7 +243,7 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
                 <UBadge :label="t.calculation" color="neutral" variant="outline" icon="i-lucide-calculator" size="sm" class="border-dashed" />
               </div>
               <p v-if="isUnavailable(snapshot.tasks.parallel.impact)" class="text-muted">
-                <span class="font-medium text-default">{{ t.notAvailable }}</span> · <span lang="en">{{ snapshot.tasks.parallel.impact.reason }}</span>
+                <span class="font-medium text-default">{{ t.notAvailable }}</span> · <DaemonReason :reason="snapshot.tasks.parallel.impact.reason" />
               </p>
               <template v-else>
                 <div v-for="task in snapshot.tasks.parallel.impact.tasks" :key="task.id" class="flex min-w-0 flex-wrap gap-x-1.5">
@@ -256,7 +257,7 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
                     <span class="font-mono text-muted">{{ pair.tasks.join(' · ') }}</span>
                     <UBadge :label="t.risks[pair.risk]" :color="RISK_COLORS[pair.risk]" variant="soft" size="sm" />
                   </div>
-                  <span lang="en" class="leading-snug break-words text-muted">{{ pair.reason }}</span>
+                  <DaemonReason class="leading-snug break-words text-muted" :reason="pair.reason" :written="pairReason(language, pair, snapshot.tasks.parallel.impact.tasks)" />
                 </div>
               </template>
             </div>
@@ -264,8 +265,8 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
               <div v-if="noTasks" class="flex flex-col gap-1 px-3.5 py-4">
                 <div class="font-medium">{{ t.noTasks }}</div>
                 <div class="leading-snug text-muted">{{ t.noTasksBody }}</div>
-                <p v-for="item in trackerReasons" :key="item.code + item.message" class="leading-snug text-muted" lang="en">
-                  {{ item.message }} <code class="font-mono text-[11px] text-dimmed">{{ item.code }}</code>
+                <p v-for="item in trackerReasons" :key="item.code + item.message" class="leading-snug text-muted">
+                  <DaemonReason :reason="item.message" /> <code class="font-mono text-[11px] text-dimmed">{{ item.code }}</code>
                 </p>
               </div>
               <p v-else class="px-3.5 py-4 text-muted">{{ t.nothing }}</p>
@@ -301,7 +302,7 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
               </span>
             </template>
             <p v-if="isUnavailable(snapshot.activity)" class="px-3.5 py-4 text-muted">
-              {{ t.notAvailable }} · <span lang="en">{{ snapshot.activity.reason }}</span>
+              {{ t.notAvailable }} · <DaemonReason :reason="snapshot.activity.reason" />
             </p>
             <p v-else-if="snapshot.activity.running.items.length === 0" class="px-3.5 py-4 text-muted">{{ t.nothing }}</p>
             <ul v-else class="divide-y divide-default">
@@ -343,7 +344,7 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
               <li v-for="(item, index) in snapshot.attention" :key="index" class="flex items-start gap-2 px-3.5 py-2.5">
                 <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 flex-none text-(--warn)" />
                 <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span class="leading-snug break-words" lang="en">{{ item.message }}</span>
+                  <DaemonReason class="leading-snug break-words" :reason="item.message" />
                   <code class="font-mono text-[11px] text-dimmed">{{ item.code }}</code>
                 </div>
               </li>
