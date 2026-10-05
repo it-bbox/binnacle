@@ -88,10 +88,13 @@ test('autopilot starts a second ticket only for a low pair, and says when the ri
 test('/binnacle:product presents the graph\'s freshness in one line and each pair\'s conflict risk beside the Tasks ready to start', () => {
   const skill = skillText('product');
   assert.match(skill, /\*\*Graph\*\*, in one line: current or behind from `graph\.behind`, built from `graph\.builtFrom`'s commit and time, and `graph\.lastRun`'s outcome and time, with its reason when it failed/);
-  assert.match(skill, /When `graph` is marked `available: false`, give its reason instead/);
-  assert.match(skill, /\*\*Conflict risk\*\*, beside the Tasks ready to start: each pair in `tasks\.parallel\.impact\.pairs`, by Task id, with its `risk` and its `reason`/);
+  // No invented telemetry: a graph built outside the daemon has no recorded build, and its `behind` reads true.
+  assert.match(skill, /A `null` `behind` is "not known". A `null` `builtFrom` is "no build recorded", and then do not call the graph behind; a `null` `lastRun` is "no run recorded"/);
+  assert.match(skill, /When `graph` is marked `available: false`, give its reason instead, here rather than under \*\*Not available\*\*/);
+  assert.match(skill, /\*\*Conflict risk\*\*, beside the Tasks ready to start: each pair in `tasks\.parallel\.impact\.pairs`, by Task id, with its `risk`, its `reason` and the `modules` it names/);
   assert.match(skill, /Binnacle's calculation from the graph, not a fact; say so once/);
-  assert.match(skill, /When `impact` is marked `available: false`, say the risk was not assessed, with its reason/);
+  assert.match(skill, /With no pair, say "no pair to assess"/);
+  assert.match(skill, /When `impact` is marked `available: false`, say the risk was not assessed, with its reason, here rather than under \*\*Not available\*\*/);
 });
 
 /** The Next action is the owner's, set by a Product session (docs/workflow/02-development-workflow.md, step 3). */
