@@ -9,7 +9,7 @@ Spec: `docs/specs/everything-from-the-chat/spec.md`
 
 - [x] In a Claude Code chat, with the daemon stopped and no terminal opened, the owner runs `/binnacle:init` on a fresh repository, reads the whole plan in the chat, and confirms it with one yes.
 - [x] The owner runs `/binnacle:daemon start`, `/binnacle:register`, `/binnacle:status` and `/binnacle:dashboard`. The dashboard opens, and no token appears in the chat.
-- [ ] An autopilot run merges a ticket that changes a skill, and the next session runs the changed skill without anyone running `pnpm install`.
+- [x] An autopilot run merges a ticket that changes a skill, and the next session runs the changed skill without anyone running `pnpm install`.
 - [x] The owner records under `## Comments` whether setup from the chat is good enough to replace the terminal. Defects are filed as tickets, and the roadmap marks epic 9 done only when none is open.
 
 ## Comments
@@ -35,3 +35,9 @@ Run by the owner in `~/Projects/demo-chat`, a new repository with one empty comm
 - Ticket 04's hand check, the MCP tools answering in the session where the daemon was started, was not reached: that session had no server at all. It runs in a session opened after init.
 - Not yet: the third criterion. It needs ticket 10 merged first; ticket 11, merged by autopilot after it, is the skill change to check.
 - The owner, 2026-10-05: setup from the chat replaces the terminal; no step needed one ("не приходится, все норм").
+
+### The third criterion, 2026-10-05
+
+- The autopilot run of 2026-10-05 merged ticket 11, which changes `/binnacle:init` and `/binnacle:daemon`, at 20:21:53, and its step 7 refreshed the plugin five seconds later: the installed `binnacle@binnacle` moved to version `8a90bc379176`, whose skills are those of `main` after the merge. The merge changed no lockfile, so no install ran, and nobody ran `pnpm install`.
+- In the next session, opened after the checkpoint, the owner typed `/binnacle:init` on a new scratch repository with one empty commit. The skill loaded from `~/.claude/plugins/cache/binnacle/binnacle/8a90bc379176/`, showed the whole plan, wrote it after one yes, and its Summary showed `created  .mcp.json`; the answer ended with ticket 11's new step 7, to open a new session in that repository and approve its `binnacle` server. The criterion held, and so did the new-session half of ticket 10's hand check and the first half of ticket 11's.
+- Not finished: ticket 13, autopilot's push never waits on a prompt, is a defect the same run found, and it is open. This demonstration, and epic 9, finish once it is merged.

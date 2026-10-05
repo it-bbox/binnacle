@@ -10,7 +10,7 @@ Spec: `docs/specs/everything-from-the-chat/spec.md`
 - [x] The packaged plugin's manifest carries a version that differs whenever a skill's text differs, and stays the same when none does.
 - [x] A test in `apps/cli/test/pack.test.ts` holds that: changing one skill's text changes the version.
 - [x] The README, `README.ru.md` and `docs/workflow/02-development-workflow.md` still name the same three commands, and say nothing that is no longer true.
-- [ ] By hand: after a change to a `SKILL.md`, the three refresh commands leave that change in the installed copy, and a new session runs it. The steps are recorded under `## Comments`.
+- [x] By hand: after a change to a `SKILL.md`, the three refresh commands leave that change in the installed copy, and a new session runs it. The steps are recorded under `## Comments`.
 
 ## Comments
 
@@ -50,3 +50,7 @@ Spec:
 - Fixed: the hand check's steps are recorded above; its new-session half stays unticked, for the owner.
 - Kept: the ADR-0027 consequence, which the ticket does not ask for, holds the durable reason the build writes a version.
 - Kept: `docs/workflow/02-development-workflow.md` and autopilot's step 7 are unchanged; what they say of `prepare` stays true.
+
+### The owner's half, 2026-10-05
+
+Held in epic 9's exit demonstration (ticket 08): autopilot merged ticket 11 and refreshed the plugin to `8a90bc379176`, and the next session ran ticket 11's `/binnacle:init` from that version.
