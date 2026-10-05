@@ -1,6 +1,6 @@
 # 08: The exit demonstration of epic 9
 
-Status: READY
+Status: DONE
 Triage: ready-for-human
 Blocked by: 01, 02, 03, 04, 05, 06, 07
 Spec: `docs/specs/everything-from-the-chat/spec.md`
@@ -40,4 +40,4 @@ Run by the owner in `~/Projects/demo-chat`, a new repository with one empty comm
 
 - The autopilot run of 2026-10-05 merged ticket 11, which changes `/binnacle:init` and `/binnacle:daemon`, at 20:21:53, and its step 7 refreshed the plugin five seconds later: the installed `binnacle@binnacle` moved to version `8a90bc379176`, whose skills are those of `main` after the merge. The merge changed no lockfile, so no install ran, and nobody ran `pnpm install`.
 - In the next session, opened after the checkpoint, the owner typed `/binnacle:init` on a new scratch repository with one empty commit. The skill loaded from `~/.claude/plugins/cache/binnacle/binnacle/8a90bc379176/`, showed the whole plan, wrote it after one yes, and its Summary showed `created  .mcp.json`; the answer ended with ticket 11's new step 7, to open a new session in that repository and approve its `binnacle` server. The criterion held, and so did the new-session half of ticket 10's hand check and the first half of ticket 11's.
-- Not finished: ticket 13, autopilot's push never waits on a prompt, is a defect the same run found, and it is open. This demonstration, and epic 9, finish once it is merged.
+- Ticket 13, autopilot's push never waits on a prompt, a defect the same run found, was merged the same day. No defect of epic 9 is open, so this demonstration is done, and the roadmap marks epic 9 done.
