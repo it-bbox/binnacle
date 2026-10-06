@@ -466,4 +466,8 @@ test('binn audit: a manifest that declares no knowledge.docs is a roadmap gap, s
   const gap = finding(root, t, 'docs.roadmap');
   assert.equal(gap.status, 'gap');
   assert.match(gap.reason, /knowledge\.docs/);
+
+  // A manifest with problems declares nothing to trust: where the roadmap is is not known, even with docs/roadmap.md in the format.
+  write(root, { '.binnacle/project.yaml': 'version: 1\nproject:\n  id: repo\ntracker:\n  provider: jira\n' });
+  assert.equal(finding(root, t, 'docs.roadmap').status, 'unknown');
 });

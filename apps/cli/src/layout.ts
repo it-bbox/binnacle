@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { nextAction, parseRoadmap } from '@binnacle/core';
+import { nextActionAttention, parseRoadmap } from '@binnacle/core';
 
 /**
  * What a repository's documentation layout looks like, read the same way by `binn init` and
@@ -48,10 +48,8 @@ Next action: settle the first epic against the docs, by grilling it. \`/grill-wi
 /** What keeps a roadmap's text from Binnacle's format, each as a sentence; empty when it is in the format. */
 export function roadmapGaps(text: string): string[] {
   const { roadmap, diagnostics } = parseRoadmap(text);
-  return [
-    ...diagnostics.map(({ message }) => message),
-    ...(roadmap.focus !== null && nextAction(roadmap.focus) === null ? ['Its current focus does not end with a paragraph that starts with "Next action:" and ends with the command in backticks.'] : []),
-  ];
+  // Without a focus, roadmap.focus_missing already says so; no Tasks, so only a missing Next action is reported.
+  return [...diagnostics, ...(roadmap.focus === null ? [] : nextActionAttention(roadmap, null))].map(({ message }) => message);
 }
 
 /** The section is recognised by its heading, at any level, so that it is never appended twice. */

@@ -1,6 +1,6 @@
 import { readGitFacts, type GitFacts } from '@binnacle/adapters';
 import { AUDIT_AREAS, forgeRemote, instructionSets, type Finding } from '@binnacle/core';
-import { MANIFEST_RELATIVE, readManifest, resolveGitTimeout, trackerToken } from '@binnacle/daemon';
+import { MANIFEST_RELATIVE, OperationError, readManifest, resolveGitTimeout, trackerToken } from '@binnacle/daemon';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, posix, resolve } from 'node:path';
 import { scratch, structure } from './audit-files.ts';
@@ -123,8 +123,16 @@ function roadmap(root: string): Finding {
   let docs: string | null = 'docs';
   try {
     docs = readManifest(root).manifest.knowledge.docs;
-  } catch {
-    // No usable manifest: the one binn init proposes declares docs.
+  } catch (error) {
+    // No manifest: the one binn init proposes declares docs. One with problems declares nothing that can be trusted.
+    if (!(error instanceof OperationError) || error.code !== 'manifest.missing') {
+      return {
+        ...base,
+        status: 'unknown',
+        reason: `${MANIFEST_RELATIVE} cannot be read as a manifest, so where its roadmap is, knowledge.docs, is not known.`,
+        recommendation: `Fix ${MANIFEST_RELATIVE}; binn init names its problems.`,
+      };
+    }
   }
   if (docs === null) {
     return {

@@ -134,7 +134,7 @@ export async function init(
     mattPocockStep(session, declaredManifest(session.root)?.tracker.provider ?? forgeRemote(git.remotes)?.provider ?? 'local');
     session.say('');
     if (manifest !== 'invalid') {
-      layoutStep(session, manifest === 'new' ? { issues: forgeRemote(git.remotes) ? null : 'docs/specs', docs: 'docs' } : declaredLayout(declaredManifest(session.root)!));
+      layoutStep(session, manifest === 'new' ? { ...NEW_LAYOUT, issues: forgeRemote(git.remotes) ? null : NEW_LAYOUT.issues } : declaredLayout(declaredManifest(session.root)!));
       session.say('');
     }
     instructionsStep(session);
@@ -321,11 +321,11 @@ function proposeManifest(root: string, remotes: GitRemote[], capabilities: strin
     const host = forge.host === `${forge.provider}.com` ? '' : `\n  host: ${scalar(forge.host)}`;
     sections.push(`tracker:\n  provider: ${forge.provider}\n  repository: ${scalar(forge.repository)}${host}`);
   } else {
-    sections.push('tracker:\n  provider: local\n  local:\n    issues: docs/specs');
+    sections.push(`tracker:\n  provider: local\n  local:\n    issues: ${NEW_LAYOUT.issues}`);
   }
 
   // docs/, and docs/specs/ on the local tracker, are also declared when missing: the plan creates them (layoutStep).
-  const knowledge = Object.entries({ context: 'CONTEXT.md', docs: 'docs', adr: 'docs/adr', specs: 'docs/specs' })
+  const knowledge = Object.entries({ context: 'CONTEXT.md', docs: NEW_LAYOUT.docs, adr: 'docs/adr', specs: NEW_LAYOUT.issues })
     .filter(([key, path]) => existsSync(join(root, path)) || key === 'docs' || (key === 'specs' && !forge))
     .map(([key, path]) => `\n  ${key}: ${path}`);
   if (knowledge.length > 0) sections.push(`knowledge:${knowledge.join('')}`);
@@ -654,6 +654,9 @@ function declaredManifest(root: string): ProjectManifest | null {
 
 /** Where a manifest has the local tracker read tickets, and its roadmap's directory. */
 type Layout = { issues: string | null; docs: string | null };
+
+/** What a manifest `binn init` proposes declares: the issues directory on the local tracker, and docs. */
+const NEW_LAYOUT = { issues: 'docs/specs', docs: 'docs' } as const;
 
 const declaredLayout = ({ tracker, knowledge }: ProjectManifest): Layout => ({
   issues: tracker.provider === 'local' ? tracker.local.issues : null,
