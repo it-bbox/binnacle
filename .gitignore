@@ -26,3 +26,6 @@ graphify-out/
 
 # The binnacle plugin, copied into the CLI package from .claude/skills/binnacle by its prepare script (ADR-0027)
 apps/cli/plugin/
+
+# Its skills copy, named binnacle-<action>, which the `skills` CLI installs into other harnesses (ADR-0039)
+apps/cli/skills/

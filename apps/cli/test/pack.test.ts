@@ -1,15 +1,21 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, cpSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
-import { preparePlugin } from '../src/prepare.ts';
+import { preparePlugin, prepareSkills } from '../src/prepare.ts';
 
 const PACKAGE = fileURLToPath(new URL('..', import.meta.url));
 const PLUGIN_SOURCE = fileURLToPath(new URL('../../../.claude/skills/binnacle', import.meta.url));
 const skillText = (name: string): string => readFileSync(join(PLUGIN_SOURCE, 'skills', name, 'SKILL.md'), 'utf8');
+const ACTIONS = readdirSync(join(PLUGIN_SOURCE, 'skills')).sort();
+const filesUnder = (dir: string): string[] =>
+  readdirSync(dir, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => join(entry.parentPath, entry.name).slice(dir.length + 1))
+    .sort();
 
 /** ADR-0027's promise, checked on the packed tarball rather than assumed. */
 test('the packed CLI carries the binnacle plugin, every file of its source, and a marketplace listing it', (t) => {
@@ -48,6 +54,11 @@ test('the packed CLI carries the binnacle plugin, every file of its source, and 
   assert.deepEqual(plugin, JSON.parse(readFileSync(join(PLUGIN_SOURCE, manifest), 'utf8')));
   assert.equal(version, preparePlugin(PLUGIN_SOURCE, join(out, 'prepared')));
   assert.equal(plugin.name, 'binnacle');
+  prepareSkills(PLUGIN_SOURCE, join(out, 'prepared-skills'), version);
+  assert.deepEqual(filesUnder(join(packed, 'skills')), filesUnder(join(out, 'prepared-skills')));
+  for (const path of filesUnder(join(out, 'prepared-skills'))) {
+    assert.equal(readFileSync(join(packed, 'skills', path), 'utf8'), readFileSync(join(out, 'prepared-skills', path), 'utf8'), path);
+  }
   for (const description of [plugin.description, marketplace.plugins[0].description]) {
     assert.match(description, /\binit\b/);
     assert.match(description, /\bhelp\b/);
@@ -73,6 +84,37 @@ test('the packaged plugin\'s version changes when a skill\'s text changes, and s
   assert.notEqual(changed, version);
   assert.equal(written(), changed);
   assert.match(readFileSync(join(target, 'skills', 'status', 'SKILL.md'), 'utf8'), /One more line\.\n$/);
+});
+
+/** Epic 14 (ADR-0039): the copy the `skills` CLI installs into every other harness, drawn from the plugin and named for a harness without `/binnacle:`. */
+test('the skills copy has one binnacle-<action> folder per plugin skill, renamed throughout, with the plugin\'s version and no Claude Code-only field', (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'binnacle-skills-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const target = join(dir, 'skills');
+  const version = preparePlugin(PLUGIN_SOURCE, join(dir, 'plugin'));
+  prepareSkills(PLUGIN_SOURCE, target, version);
+
+  assert.deepEqual(filesUnder(target), ACTIONS.map((action) => join(`binnacle-${action}`, 'SKILL.md')));
+  for (const action of ACTIONS) {
+    const text = readFileSync(join(target, `binnacle-${action}`, 'SKILL.md'), 'utf8');
+    const [, frontmatter = ''] = /^---\n([\s\S]*?)\n---\n/.exec(text) ?? [];
+    assert.match(frontmatter, new RegExp(`^name: binnacle-${action}$`, 'm'), action);
+    assert.match(frontmatter, new RegExp(`^metadata:\n  version: "${version}"$`, 'm'), action);
+    assert.doesNotMatch(frontmatter, /^(disable-model-invocation|argument-hint):/m, action);
+    assert.doesNotMatch(text, /\/binnacle:/, action);
+    // Nothing else changes: the body is the plugin's with each skill renamed.
+    const body = (skill: string): string => skill.slice(skill.indexOf('\n---\n', 4));
+    assert.equal(body(text), body(skillText(action)).replaceAll(/\/binnacle:([a-z-]+)/g, 'binnacle-$1'), action);
+  }
+
+  const help = readFileSync(join(target, 'binnacle-help', 'SKILL.md'), 'utf8');
+  const named = new Set([...help.matchAll(/`(binnacle-[a-z-]+)`/g)].map(([, name]) => name));
+  assert.deepEqual([...named].sort(), ACTIONS.map((action) => `binnacle-${action}`));
+
+  // A skill the plugin no longer has leaves the copy on the next build.
+  mkdirSync(join(target, 'binnacle-gone'));
+  prepareSkills(PLUGIN_SOURCE, target, version);
+  assert.equal(existsSync(join(target, 'binnacle-gone')), false);
 });
 
 /** The baseline's rule that only low-risk Tasks run in parallel, held by the one process that starts agents in parallel (ADR-0022). */
