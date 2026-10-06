@@ -23,7 +23,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 11 | The state of work | not started | — |
 | 12 | Audit, completed | not started | — |
 | 13 | Human output | not started | — |
-| 14 | Skills in any harness | not started | — |
+| 14 | Skills in any harness | spec | [`skills-in-any-harness`](specs/skills-in-any-harness/spec.md) |
 
 Epics are ordered by dependency, not by preference. Epic 1 is the foundation; epics 5 to 7 are only meaningful once 1 to 4 exist. Audit and adopt is epic 6 in the specs of epics 1 to 3, written before epic 6 was inserted on 2026-09-26. Epic 14 was added on 2026-10-06 and comes before epic 10, which reuses its list of harnesses.
 
@@ -33,9 +33,9 @@ Epics 1 to 9 are done: the daemon, snapshot, daily and checkpoint over MCP, the 
 
 On 2026-10-06 the owner found that Binnacle's skills, Matt Pocock Skills and Ponytail reach Claude Code alone, while the baseline makes Codex, GLM and Gemini equal harnesses. That is epic 14, Skills in any harness (`docs/05-mvp-plan.md`). It comes before epic 10, which reuses its list of harnesses; epics 10 to 12 then need `to-spec`. Epic 13, Human output, is grilled last, since it rewrites every skill's output; the vault's notes being all in English is a candidate for it.
 
-Epic 14 was grilled on 2026-10-06 (ADR-0039): Claude Code keeps the plugin, every other harness gets `binnacle-<action>` skills through the `skills` CLI, and `binn call` serves harnesses without MCP.
+Epic 14 was grilled and specified on 2026-10-06 (ADR-0039, `specs/skills-in-any-harness/spec.md`): Claude Code keeps the plugin, every other harness gets `binnacle-<action>` skills through the `skills` CLI, and `binn call` serves harnesses without MCP.
 
-Next action: specify epic 14 from ADR-0039 and `docs/05-mvp-plan.md`, in a new session. `/mattpocock-skills:to-spec`
+Next action: slice epic 14 into tickets, in a new session. `/mattpocock-skills:to-tickets docs/specs/skills-in-any-harness/spec.md`
 
 ## Later
 

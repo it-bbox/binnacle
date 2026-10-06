@@ -143,7 +143,7 @@ On 2026-10-02 the owner found that epics 1 to 7 delivered only part of `docs/bas
 
 Added on 2026-10-06, after the owner linked Binnacle's skills into `~/.codex/skills` by hand and Codex ran them: the baseline makes Codex, GLM and Gemini equal harnesses, and `binn init` installs the skills, Matt Pocock Skills and Ponytail into Claude Code alone. It comes before epic 10, which reuses its list of harnesses. Grilled on 2026-10-06; ADR-0039 records the decisions and how they narrow ADR-0023 and ADR-0027:
 
-- Claude Code keeps the `binnacle` plugin; every other harness `binn init` detects gets the same skills, named `binnacle-<action>`, through the `skills` CLI (`npx skills add <the package's skills> -g`), with every detected harness named in the plan and `--harness` leaving one out. Running `binn init` again adds a harness installed since.
+- Claude Code keeps the `binnacle` plugin; every other harness `binn init` detects gets the same skills, named `binnacle-<action>`, through the `skills` CLI (`npx skills add <the package's skills> -g -y`, then `npx skills remove -g -a claude-code`), with the Summary naming the harnesses from the CLI's output and `--skip-harness` leaving one out. Running `binn init` again adds a harness installed since.
 - One neutral text per skill, free of one harness's mechanisms; what depends on the harness comes from `binn`'s output.
 - `binn call <tool> [json]` calls a daemon MCP tool from the shell, so a harness without MCP, such as Pi, runs every skill.
 - Autopilot ships everywhere, and refuses at its first step where the harness cannot start a background agent in its own worktree.

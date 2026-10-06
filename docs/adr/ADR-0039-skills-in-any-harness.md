@@ -15,13 +15,13 @@ Two things kept Binnacle's skills in Claude Code: the install channel, and text 
 ## Decision
 
 - **Claude Code keeps the `binnacle` plugin** from the installed package (ADR-0023, ADR-0027), named `/binnacle:<action>`.
-- **Every other detected harness gets the same skills through the `skills` CLI**: `binn init`'s plan runs `npx skills add <the package's skills> -g` for every harness it detects except Claude Code, named in the plan one by one. Binnacle keeps no list of skill directories of its own.
+- **Every other detected harness gets the same skills through the `skills` CLI**: `binn init`'s plan runs `npx skills add <the package's skills> -g -y`, which installs into every harness the CLI detects, then `npx skills remove -g -a claude-code` for those skills, since Claude Code has the plugin. The CLI keeps its detection to itself, so the plan cannot name the harnesses beforehand: the Summary names them from the CLI's output. Binnacle keeps no list of harnesses or skill directories of its own; where `binn` detects no harness at all, the step is skipped, since the CLI would then install into every harness it knows.
 - **Outside Claude Code a skill is named `binnacle-<action>`**: `binnacle-product`, `binnacle-daily`, `binnacle-init` and so on. A skill's name is flat there, and `init`, `help` and `status` are taken by built-in commands; vendors prefix with their product's name.
 - **One neutral text per skill.** A skill says what to do, not with which harness's tool: ask the human, start a background agent in its own worktree, open a new session. What depends on the harness, such as which file it reads its MCP servers from, comes from `binn`'s own output. A skill names another skill by its action, not by one harness's syntax.
 - **Matt Pocock Skills and Ponytail reach the same harnesses** through the same CLI in the same plan, and Claude Code through its plugins, as today.
 - **`binn call <tool> [json]`** calls one of the daemon's MCP tools and prints its JSON. A skill uses the MCP tool where the harness has it, and `binn call` in the shell where it does not, so a harness with a shell and no MCP runs every skill.
 - **Autopilot ships everywhere.** Where the harness cannot start a background agent in a worktree of its own, autopilot refuses at its first step, changing nothing, and says the tickets are run by hand. It sends a push notification only where the harness can.
-- **Adding a harness is running `binn init` again**: its plan holds only what is missing. `--harness` leaves a detected harness out.
+- **Adding a harness is running `binn init` again**: the `skills` CLI installs into it, and leaves the harnesses that already have the skills as they are. `--skip-harness <id>`, an id of the `skills` CLI, adds that harness to the removal beside Claude Code.
 - **Refreshing is a human's step.** `binn audit` reports installed skills that differ from the package's, and `binn init`'s plan reinstalls them; the daemon never writes into a harness's directories (ADR-0026, ADR-0034).
 - **Without `npx` or the network**, `binn init` prints the command instead of failing.
 
