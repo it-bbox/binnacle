@@ -49,7 +49,7 @@ The backend serving the model to a harness: Anthropic, OpenAI, Z.ai, Google, a l
 ### Harness support level
 How far Binnacle can see into a given harness, graded rather than binary:
 
-1. **Context** — the harness can call an MCP server. This is the only requirement for a harness to count as supported, and it needs no adapter.
+1. **Context** — the harness can call an MCP server, or run `binn` in a shell (ADR-0039). This is the only requirement for a harness to count as supported, and it needs no adapter.
 2. **Attribution** — a session artifact carries a working directory and a session identifier.
 3. **Usage** — that artifact also carries token counts.
 4. **Live** — the harness exposes a stream that can be observed while it runs.

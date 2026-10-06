@@ -33,7 +33,9 @@ Epics 1 to 9 are done: the daemon, snapshot, daily and checkpoint over MCP, the 
 
 On 2026-10-06 the owner found that Binnacle's skills, Matt Pocock Skills and Ponytail reach Claude Code alone, while the baseline makes Codex, GLM and Gemini equal harnesses. That is epic 14, Skills in any harness (`docs/05-mvp-plan.md`). It comes before epic 10, which reuses its list of harnesses; epics 10 to 12 then need `to-spec`. Epic 13, Human output, is grilled last, since it rewrites every skill's output; the vault's notes being all in English is a candidate for it.
 
-Next action: grill epic 14, in a new session: every detected harness that reads `SKILL.md` gets Binnacle's skills, Matt Pocock Skills and Ponytail, and autopilot's place outside Claude Code is decided. `/mattpocock-skills:grill-with-docs`
+Epic 14 was grilled on 2026-10-06 (ADR-0039): Claude Code keeps the plugin, every other harness gets `binnacle-<action>` skills through the `skills` CLI, and `binn call` serves harnesses without MCP.
+
+Next action: specify epic 14 from ADR-0039 and `docs/05-mvp-plan.md`, in a new session. `/mattpocock-skills:to-spec`
 
 ## Later
 
@@ -44,7 +46,6 @@ Deferred deliberately, each with the decision that deferred it:
 - adopting a large third-party repository as a baseline case — `docs/00-scope.md`;
 - autopilot notifications through a Telegram bot, beside the push notification it sends today — `ADR-0022`;
 - cost computed from a price table — `specs/telemetry/spec.md`: a subscription makes such a number conditional;
-- CLI commands mirroring the MCP tools, for harnesses that have a shell but no MCP — `ADR-0014`, when such a user appears;
 - changing a local ticket's `Status:` from the dashboard — a separate ADR narrowing `ADR-0020`, only if working with the read-only dashboard shows it is needed;
 - forking the Matt Pocock skills into the `binnacle` plugin — only if a skill's procedure, not just its conventions in `docs/agents/`, has to change;
 - publishing `@binnacle/cli` to npm, with the build step that turns its TypeScript into JavaScript and the dashboard generated into it (`ADR-0031`): Node does not strip types under `node_modules`, so until then `binn` runs from the linked workspace — `specs/tracker-and-matt-pocock-integration/spec.md`, *Out of Scope*;

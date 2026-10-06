@@ -141,12 +141,14 @@ On 2026-10-02 the owner found that epics 1 to 7 delivered only part of `docs/bas
 
 ### Phase 14 — Skills in any harness
 
-Added on 2026-10-06, after the owner linked Binnacle's skills into `~/.codex/skills` by hand and Codex ran them: the baseline makes Codex, GLM and Gemini equal harnesses, and `binn init` installs the skills, Matt Pocock Skills and Ponytail into Claude Code alone. It comes before epic 10, which reuses its list of harnesses. `/grill-with-docs` decides, and an ADR records how it narrows ADR-0023 and ADR-0027:
+Added on 2026-10-06, after the owner linked Binnacle's skills into `~/.codex/skills` by hand and Codex ran them: the baseline makes Codex, GLM and Gemini equal harnesses, and `binn init` installs the skills, Matt Pocock Skills and Ponytail into Claude Code alone. It comes before epic 10, which reuses its list of harnesses. Grilled on 2026-10-06; ADR-0039 records the decisions and how they narrow ADR-0023 and ADR-0027:
 
-- How Binnacle's skills reach every detected harness that reads `SKILL.md`, from the installed package, and how they are refreshed after a merge that changed them, as epic 9 does for Claude Code's plugin.
-- Skill text free of one harness's mechanisms (its agent tool, its question tool, `claude plugin`): one neutral text with per-harness branches, or one template per harness.
-- Autopilot outside Claude Code: ported to each harness that can run it, or limited to Claude Code with the limit stated.
-- `binn init` installs Matt Pocock Skills and Ponytail into each detected harness, not Claude Code alone.
+- Claude Code keeps the `binnacle` plugin; every other harness `binn init` detects gets the same skills, named `binnacle-<action>`, through the `skills` CLI (`npx skills add <the package's skills> -g`), with every detected harness named in the plan and `--harness` leaving one out. Running `binn init` again adds a harness installed since.
+- One neutral text per skill, free of one harness's mechanisms; what depends on the harness comes from `binn`'s output.
+- `binn call <tool> [json]` calls a daemon MCP tool from the shell, so a harness without MCP, such as Pi, runs every skill.
+- Autopilot ships everywhere, and refuses at its first step where the harness cannot start a background agent in its own worktree.
+- `binn init` installs Matt Pocock Skills and Ponytail into each detected harness through the same CLI.
+- `binn audit` reports installed skills that differ from the package's, and `binn init`'s plan reinstalls them; without `npx` or the network, init prints the command.
 - `docs/03-mcp-and-skills.md` no longer says that no skill format exists for another harness.
 
 ## Explicit stop conditions
