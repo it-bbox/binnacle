@@ -2,7 +2,7 @@
 
 Status: READY
 Triage: ready-for-human
-Blocked by: 01, 02, 03, 04, 05, 06, 07
+Blocked by: 01, 02, 03, 04, 05, 06, 07, 09
 Spec: `docs/specs/skills-in-any-harness/spec.md`
 
 **What to build:** epic 14's exit criterion, demonstrated by the owner.

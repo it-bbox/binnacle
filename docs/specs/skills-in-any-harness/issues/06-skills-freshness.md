@@ -42,3 +42,5 @@ Spec: `docs/specs/skills-in-any-harness/spec.md`
 ### Question for the owner
 
 The spec's *Freshness* ("plans nothing for a current one", read from `~/.agents/skills` alone) and user story 8 / ADR-0039 ("running `binn init` again after installing another harness adds it") disagree once the skills are current: the `skills` CLI's canonical copy is current, so `binn init` plans no add, and the new harness gets the skills only from the printed commands. Either keep this, or have a current set still plan the add when asked (for example only with `--skip-harness` or a new flag), or read each harness's install through the `skills` CLI. A Product session decides.
+
+**Answered by the owner on 2026-10-07**: `binn init` plans the add for a current set too, so that running it again gives a harness installed since the skills (story 8, ADR-0039). The spec's *Freshness* now says so; ticket 09 carries the change.
