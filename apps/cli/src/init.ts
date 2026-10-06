@@ -54,8 +54,8 @@ type Session = {
   outcomes: { outcome: Outcome; what: string }[];
   /** The harnesses other than Claude Code that were detected: the Summary says how to continue in each. */
   otherHarnesses: Harness[];
-  /** The harnesses the `skills` CLI said it installed Binnacle's skills into, Claude Code apart, for the Summary. */
-  skillHarnesses: string[];
+  /** Once `skills add` ran: the harnesses it said it installed Binnacle's skills into, Claude Code apart, and the `--skip-harness` ids the removal named. */
+  skills: { into: string[]; skipped: string[] } | null;
   /** Only the plan is worked out, for `--plan --json`: nothing is asked, and what is said is kept as notes. */
   planOnly: boolean;
   /** Each harness's sessions in this repository, and the local date of the oldest. */
@@ -109,7 +109,7 @@ export async function init(
     plan: [],
     outcomes: [],
     otherHarnesses: [],
-    skillHarnesses: [],
+    skills: null,
     planOnly,
     history: [],
     window: { days: DEFAULT_WINDOW_DAYS, declared: false, default: true },
@@ -183,7 +183,11 @@ export async function init(
   for (const { outcome, what } of session.outcomes) session.say(`  ${outcome.padEnd(8)}  ${what}`);
   session.say('Nothing was committed. Review what binn init wrote, and commit it yourself.');
   session.say('To see how far this repository is from the way Binnacle works, run `binn audit`. It reads and writes nothing.');
-  if (session.skillHarnesses.length > 0) session.say(`Binnacle's skills are installed into ${inSentence(session.skillHarnesses)}: run \`binnacle-product\` there.`);
+  if (session.skills && session.skills.into.length > 0) {
+    // The removal names skills CLI ids, the add's output display names: the skipped are named apart rather than matched.
+    const skipped = session.skills.skipped.length > 0 ? `, then removed from ${inSentence(session.skills.skipped)}` : '';
+    session.say(`Binnacle's skills are installed into ${inSentence(session.skills.into)}${skipped}: run \`binnacle-product\` there.`);
+  }
   for (const harness of session.otherHarnesses) nextSteps(session, harness);
   return EXIT.ok;
 }
@@ -200,7 +204,9 @@ function nextSteps(session: Session, harness: Harness): void {
     harness.note,
     harness.open,
     harness.offPath && !onPath(harness.executable) ? harness.offPath : undefined,
-    `Run \`binnacle-product\` in ${harness.name}.`,
+    session.skills
+      ? `Run \`binnacle-product\` in ${harness.name}.`
+      : `Once binn init has installed Binnacle's skills, run \`binnacle-product\` in ${harness.name}.`,
   ].filter((step): step is string => step !== undefined);
   session.say(`\nTo work from ${harness.name}, once its configuration names binnacle:`);
   steps.forEach((step, index) => session.say(`  ${index + 1}. ${step}`));
@@ -614,21 +620,23 @@ function skillsStep(session: Session, harnesses: Harness[], skipHarness: string[
     return record(session, 'printed', `${what}: \`npx\` is not on PATH`);
   }
   session.plan.push({
-    heading: `Install ${what} into every harness the skills CLI detects, at user scope, outside the repository, then remove them from Claude Code, which has the binnacle plugin, by running`,
+    heading:
+      `Install ${what} into every harness the skills CLI detects, at user scope, outside the repository, then remove them from Claude Code, which has the binnacle plugin` +
+      `${skipHarness.length > 0 ? `, and from ${inSentence(skipHarness)}` : ''}, by running`,
     body,
     declined: `install ${what}`,
     apply() {
       commands.forEach((args, index) => {
         session.say(`Running ${shown[index]}...`);
-        // Through the shell, so that Windows runs `npx.cmd`; every argument is quoted as shown.
-        const run = spawnSync(shown[index]!, { cwd: session.root, shell: true, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+        // ponytail: no shell, so a --skip-harness id and the package's path pass as they are; Windows' `npx.cmd` would need one, as in the servers step.
+        const run = spawnSync('npx', args, { cwd: session.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
         const output = `${run.stdout ?? ''}${run.stderr ?? ''}`.trim();
         if (run.status !== 0) {
           session.say(`${shown[index]} failed${output ? `:\n${output}` : '.'}`);
           return record(session, 'failed', shown[index]!);
         }
         record(session, 'ran', shown[index]!);
-        if (index === 0) session.skillHarnesses = installedInto(output);
+        if (index === 0) session.skills = { into: installedInto(output), skipped: skipHarness };
       });
     },
   });

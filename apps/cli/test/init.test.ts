@@ -1047,10 +1047,10 @@ test('the Summary gives the next step for a detected harness other than Claude C
   const codex = summary.slice(summary.indexOf('To work from Codex'), summary.indexOf('To work from opencode'));
   assert.match(codex, /trusted project/);
   assert.match(codex, /not on PATH.*\/usr\/lib\/chatgpt\/resources\/codex/);
-  assert.match(codex, /Run `binnacle-product` in Codex/);
+  assert.match(codex, /Once binn init has installed Binnacle's skills, run `binnacle-product` in Codex/);
   const opencode = summary.slice(summary.indexOf('To work from opencode'));
   assert.match(opencode, /Run `opencode`/);
-  assert.match(opencode, /Run `binnacle-product` in opencode/);
+  assert.match(opencode, /run `binnacle-product` in opencode/);
   assert.doesNotMatch(opencode, /not on PATH/);
   assert.doesNotMatch(summary, /SKILL\.md/);
   assert.doesNotMatch(summary, /To work from Claude Code/);
@@ -2004,7 +2004,7 @@ function fakeNpx(home: Home, failing?: 'add' | 'remove'): () => string[][] {
     `#!/bin/sh
 for arg in "$@"; do printf '%s\\t' "$arg"; done >> '${calls}'
 echo >> '${calls}'
-if [ "$2" = "${failing}" ]; then echo "skills $2 broke: no network"; exit 1; fi
+if [ "$2" = "${failing ?? ''}" ]; then echo "skills $2 broke: no network"; exit 1; fi
 if [ "$2" = "add" ]; then printf '\\033[2m│\\033[0m\\n●  Installing to: \\033[36mCodex\\033[0m, \\033[36mAntigravity\\033[0m, \\033[36mClaude Code\\033[0m\\n'; fi
 exit 0
 `,
@@ -2052,6 +2052,8 @@ test('the skills: every --skip-harness is added to the removal, in the plan and 
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(npx(), [SKILLS_ADD, skillsRemove('cursor', 'pi')]);
   assert.ok(result.stdout.includes(`npx ${skillsRemove('cursor', 'pi').join(' ')}`), result.stdout);
+  assert.match(result.stdout, /remove them from Claude Code, which has the binnacle plugin, and from cursor and pi, by running:/);
+  assert.match(result.stdout, /Binnacle's skills are installed into Codex and Antigravity, then removed from cursor and pi: run `binnacle-product` there\./);
 });
 
 test('the skills: a declined plan, and a stdin that is not a terminal, run no npx', (t) => {
