@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -110,6 +110,12 @@ test('the skills copy has one binnacle-<action> folder per plugin skill, renamed
   const help = readFileSync(join(target, 'binnacle-help', 'SKILL.md'), 'utf8');
   const named = new Set([...help.matchAll(/`(binnacle-[a-z-]+)`/g)].map(([, name]) => name));
   assert.deepEqual([...named].sort(), ACTIONS.map((action) => `binnacle-${action}`));
+
+  // A skill without frontmatter fails the build rather than reaching a harness half-written.
+  const broken = join(dir, 'broken');
+  cpSync(PLUGIN_SOURCE, broken, { recursive: true });
+  writeFileSync(join(broken, 'skills', 'status', 'SKILL.md'), 'No frontmatter.\n');
+  assert.throws(() => prepareSkills(broken, join(dir, 'broken-skills'), version), /status\/SKILL\.md: no frontmatter/);
 
   // A skill the plugin no longer has leaves the copy on the next build.
   mkdirSync(join(target, 'binnacle-gone'));

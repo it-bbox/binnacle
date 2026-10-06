@@ -35,6 +35,7 @@ export function prepareSkills(source: string, target: string, version: string): 
   for (const action of readdirSync(join(source, 'skills'))) {
     const text = readFileSync(join(source, 'skills', action, 'SKILL.md'), 'utf8');
     const end = text.indexOf('\n---\n', 4);
+    if (!text.startsWith('---\n') || end < 0) throw new Error(`${action}/SKILL.md: no frontmatter between two --- lines`);
     const frontmatter = text
       .slice(0, end)
       .split('\n')
