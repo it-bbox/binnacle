@@ -479,6 +479,7 @@ const HARNESSES: Harness[] = [
     files: ['.mcp.json'],
     entry: (name, command) => json({ mcpServers: { [name]: stdio(command) } }),
     add: (name, command, scope) => ['claude', 'mcp', 'add', '--scope', scope === 'user' ? 'user' : 'local', name, '--', ...command],
+    note: "Claude Code reads .mcp.json only when a session starts: once it is written, open a new session in the repository and approve the project's binnacle server when Claude Code offers it.",
   },
   {
     name: 'Codex',

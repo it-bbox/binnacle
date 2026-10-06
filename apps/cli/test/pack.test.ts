@@ -152,13 +152,14 @@ test('autopilot leaves the Next action to the owner, in the brief and in its rep
   assert.match(skill, /stale `Next action:`/);
 });
 
-/** Epic 9: the installed binnacle@binnacle shadows the skills-directory plugin here, so a merged skill reaches the owner only once refreshed. */
-test('autopilot refreshes the plugin only when a merge changed its skills and binnacle@binnacle is installed, and a failure does not stop the run', () => {
+/** Epic 9: the installed binnacle@binnacle shadows the skills-directory plugin here, so a merged skill reaches the owner only once refreshed; epic 14 keeps Claude Code's commands in the development workflow, out of the skill. */
+test('autopilot refreshes the plugin only when a merge changed its skills, with the development workflow\'s commands, and a failure does not stop the run', () => {
   const skill = skillText('autopilot');
-  assert.match(skill, /changed `\.claude\/skills\/binnacle\/` \(only when this project is Binnacle itself\)/);
+  assert.match(skill, /changed the `binnacle` plugin's skills \(only when this project is Binnacle itself\)/);
+  assert.match(skill, /refresh the plugin as `docs\/workflow\/02-development-workflow\.md` says in its step 4/);
   assert.match(skill, /after any frozen install and before regenerating the dashboard/);
-  assert.match(skill, /`pnpm --filter @binnacle\/cli run prepare`/);
-  assert.match(skill, /only if `claude plugin list --json` lists `binnacle@binnacle`, `claude plugin marketplace update binnacle` then `claude plugin update binnacle@binnacle`/);
+  const workflow = readFileSync(fileURLToPath(new URL('../../../docs/workflow/02-development-workflow.md', import.meta.url)), 'utf8');
+  assert.match(workflow, /run `pnpm --filter @binnacle\/cli run prepare`; then, if `claude plugin list --json` lists `binnacle@binnacle`, `claude plugin marketplace update binnacle` then `claude plugin update binnacle@binnacle`/);
   assert.match(skill, /A failure here never stops the run/);
   assert.match(skill, /the plugin refreshed and that a new session loads it, or why it was skipped, or which command failed and the commands run before it/);
 });
@@ -264,12 +265,11 @@ test('/binnacle:init shows the plan from --plan --json, asks once, applies only 
   assert.match(skill, /Never commit/);
 });
 
-/** Epic 9's exit demonstration: after init wrote .mcp.json the same session had no binnacle server, and a missing registration was sent back to init. */
-test('/binnacle:init says to open a new session only when it created .mcp.json, and /binnacle:init and /binnacle:daemon start name /binnacle:register for a missing registration', () => {
+/** Epic 9's exit demonstration: after init wrote .mcp.json the same session had no binnacle server, and a missing registration was sent back to init; epic 14 takes the harness's rule from binn init's output. */
+test('/binnacle:init says to open a new session only when binn init\'s output says so for a file the Summary shows written, and /binnacle:init and /binnacle:daemon start name /binnacle:register for a missing registration', () => {
   const init = skillText('init');
-  // init never rewrites an existing JSON file (ADR-0026): created is the only Summary line in which it changed .mcp.json.
-  assert.match(init, /When the Summary shows `\.mcp\.json` created/);
-  assert.match(init, /open a new session in the repository at the `root`, and approve the project's `binnacle` server when Claude Code asks/);
+  assert.match(init, /When init's output says that a harness reads a file only when a session starts, and the Summary shows that file created or extended/);
+  assert.match(init, /open a new session in the repository at the `root`, as the output says/);
   assert.match(init, /Otherwise, say nothing of a new session/);
   assert.match(init, /`\/binnacle:daemon start` then `\/binnacle:register` adds the registration, with the same path when one was passed/);
   const daemon = skillText('daemon');
@@ -288,4 +288,28 @@ test('/binnacle:help names every skill of the plugin and no other, answers in th
   assert.deepEqual([...named].sort(), readdirSync(join(PLUGIN_SOURCE, 'skills')).sort());
   assert.match(skill, /`\/grill-with-docs` → `\/to-spec` → `\/to-tickets`/);
   assert.match(skill, /`\/binnacle:product`, the work, `\/binnacle:checkpoint`/);
+});
+
+/** Epic 14, ADR-0039: one text per skill runs in any harness, so none names one harness's mechanism. */
+test('no plugin skill names an agent tool, a question tool, claude plugin, a .claude/ path or "Claude Code asks"', () => {
+  const mechanisms = [/\bAgent tool\b/, /\bSendMessage\b/, /run_in_background/, /isolation: "worktree"/, /AskUserQuestion/, /claude plugin/, /\.claude\//, /Claude Code asks/];
+  for (const name of readdirSync(join(PLUGIN_SOURCE, 'skills'))) {
+    const skill = skillText(name);
+    for (const mechanism of mechanisms) assert.doesNotMatch(skill, mechanism, name);
+  }
+});
+
+/** Epic 14: autopilot ships to harnesses that cannot keep a model from invoking it, start an isolated agent, or send a push notification. */
+test('autopilot is started by a human only, refuses at its first step where the harness has no background agent in a worktree of its own, and notifies only where it can', () => {
+  const skill = skillText('autopilot');
+  assert.match(skill, /Only a human starts this skill/);
+  const first = skill.slice(skill.indexOf('\n1. '), skill.indexOf('\n2. '));
+  assert.match(first, /cannot start a background agent in a worktree of its own/);
+  assert.match(first, /start nothing and change nothing/);
+  assert.match(first, /the epic's tickets are run by hand/);
+  // A linked worktree in general, not the one Claude Code's desktop app opens.
+  assert.doesNotMatch(skill, /desktop app|--worktree/);
+  const notifications = skill.split('\n').filter((line) => /push notification/.test(line));
+  assert.ok(notifications.length >= 3, 'the description, a stopped ticket and the end');
+  for (const line of notifications) assert.match(line, /where the harness can send one/, line);
 });

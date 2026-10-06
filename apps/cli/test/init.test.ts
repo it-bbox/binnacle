@@ -728,6 +728,8 @@ test('Claude Code on PATH gets a new .mcp.json, and only the detected harness is
   assert.equal(existsSync(join(root, '.vscode')), false);
   assert.equal(existsSync(join(root, 'opencode.json')), false);
   assert.match(result.stdout, /created\s+\.mcp\.json/);
+  // /binnacle:init passes this on, so that the skill names no harness's rule of its own (epic 14).
+  assert.match(result.stdout, /Claude Code reads \.mcp\.json only when a session starts: once it is written, open a new session in the repository and approve the project's binnacle server when Claude Code offers it\./);
   assert.equal(commits(root), before);
 });
 
@@ -776,7 +778,7 @@ test('a configuration that already names binnacle is skipped and reported', (t) 
   assert.match(result.stdout, /skipped\s+\.mcp\.json: it already names binnacle/);
   assert.match(result.stdout, /skipped\s+\.codex\/config\.toml: it already names binnacle/);
   assert.doesNotMatch(result.stdout, /Append to|Create \.mcp\.json/);
-  assert.doesNotMatch(result.stdout.slice(0, result.stdout.indexOf('Summary:')), /trusted project/, 'the trust note goes with an entry offered, not a skip');
+  assert.doesNotMatch(result.stdout.slice(0, result.stdout.indexOf('Summary:')), /trusted project|only when a session starts/, 'a harness note goes with an entry offered, not a skip');
 });
 
 test('a Codex configuration naming binnacle as a key under [mcp_servers] is skipped, not given a duplicate', (t) => {
