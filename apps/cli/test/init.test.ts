@@ -2015,7 +2015,9 @@ const allSkills = (...skipped: string[]): string[][] => [
  */
 function fakeNpx(home: Home, failing?: 'add' | 'remove'): () => string[][] {
   const calls = join(home.home, 'npx-calls');
-  const installed = (...names: string[]): string => JSON.stringify(names.map((name) => ({ name, status: 'installed', agents: ['codex', 'claude-code'] })));
+  // A skill it failed to install, such as one of the human's own by that name, is never removed.
+  const installed = (...names: string[]): string =>
+    JSON.stringify([...names.map((name) => ({ name, status: 'installed', agents: ['codex', 'claude-code'] })), { name: 'wizard', status: 'failed', error: 'exists' }]);
   writeFileSync(
     join(home.bin, 'npx'),
     `#!/bin/sh

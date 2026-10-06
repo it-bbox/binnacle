@@ -602,9 +602,9 @@ function pluginStep(session: Session, plugins: ClaudePlugins): void {
  */
 function skillsStep(session: Session, harnesses: Harness[], tools: ToolState[], skipHarness: string[]): void {
   const sets: SkillSet[] = [
-    { what: "Binnacle's skills", plugin: 'the binnacle plugin', source: SKILLS_COPY, skills: readdirSync(SKILLS_COPY).sort() },
+    { what: "Binnacle's skills", claudeCodeHas: 'the binnacle plugin', source: SKILLS_COPY, skills: readdirSync(SKILLS_COPY).sort() },
     ...tools.flatMap(({ tool: { title, plugin }, state }) =>
-      plugin && state !== 'declared-false' ? [{ what: title, plugin: 'its plugin', source: plugin.source, skills: null }] : [],
+      plugin && state !== 'declared-false' ? [{ what: title, claudeCodeHas: 'its plugin', source: plugin.source, skills: null }] : [],
     ),
   ];
   if (harnesses.length === 0) {
@@ -619,16 +619,18 @@ function skillsStep(session: Session, harnesses: Harness[], tools: ToolState[], 
 
 /**
  * A skill set the `skills` CLI installs: what it is, what Claude Code has it as, where it comes
- * from, and its skills, or null for a repository's, which its add reports as JSON once it has run.
+ * from, and its skills: Binnacle's copy's own, or null for a repository's, which its add reports
+ * as JSON once it has run.
  */
-type SkillSet = { what: string; plugin: string; source: string; skills: string[] | null };
+type SkillSet = { what: string; claudeCodeHas: string; source: string; skills: string[] | null };
 
-function planSkillSet(session: Session, { what, plugin, source, skills }: SkillSet, skipHarness: string[]): void {
+function planSkillSet(session: Session, { what, claudeCodeHas, source, skills }: SkillSet, skipHarness: string[]): void {
   const binnacle = skills !== null;
   const add = ['skills', 'add', source, '-g', '-y', ...(binnacle ? [] : ['--json'])];
-  const removal = (names: string[]): string[] => ['skills', 'remove', '-g', '-a', 'claude-code', ...skipHarness, '-s', ...names, '-y'];
+  const fromClaudeCode = ['skills', 'remove', '-g', '-a', 'claude-code', ...skipHarness];
+  const removal = (names: string[]): string[] => [...fromClaudeCode, '-s', ...names, '-y'];
   const shown = (args: string[]): string => `npx ${args.map(quoted).join(' ')}`;
-  const shownRemoval = binnacle ? shown(removal(skills)) : `${shown(removal([]).slice(0, -2))} -s <each skill the add installed> -y`;
+  const shownRemoval = binnacle ? shown(removal(skills)) : `${shown(fromClaudeCode)} -s <each skill the add installed> -y`;
   const body = `  ${shown(add)}\n  ${shownRemoval}`;
   // Binnacle's set alone is versioned by Binnacle (spec, *Freshness*): a current one is not installed again.
   const installed = binnacle ? binnacleSkills() : null;
@@ -646,7 +648,7 @@ function planSkillSet(session: Session, { what, plugin, source, skills }: SkillS
   }
   session.plan.push({
     heading:
-      `Install ${what}${binnacle ? '' : ` from ${source}`} into every harness the skills CLI detects, at user scope, outside the repository, then remove them from Claude Code, which has ${plugin}` +
+      `Install ${what}${binnacle ? '' : ` from ${source}`} into every harness the skills CLI detects, at user scope, outside the repository, then remove them from Claude Code, which has ${claudeCodeHas}` +
       `${skipHarness.length > 0 ? `, and from ${inSentence(skipHarness)}` : ''}, by running`,
     body,
     declined: binnacle ? `install ${what}` : `install ${what} into every harness`,
@@ -655,8 +657,9 @@ function planSkillSet(session: Session, { what, plugin, source, skills }: SkillS
       if (binnacle && added) session.skills = { into: installedInto(`${added.stdout}${added.stderr}`), skipped: skipHarness };
       const names = skills ?? (added ? addedSkills(added.stdout) : []);
       if (names.length === 0) {
-        session.say(`${what} are not removed from Claude Code: ${added ? 'its add named no skills' : 'its add failed'}.`);
-        return record(session, 'skipped', `removing ${what} from Claude Code: ${added ? 'its add named no skills' : 'its add failed'}`);
+        const why = added ? 'its add named no skills it installed' : 'its add failed';
+        session.say(`${what} are not removed from Claude Code: ${why}.`);
+        return record(session, 'skipped', `removing ${what} from Claude Code: ${why}`);
       }
       runSkills(session, removal(names));
     },
@@ -679,10 +682,17 @@ function runSkills(session: Session, args: string[]): { stdout: string; stderr: 
   return { stdout: run.stdout ?? '', stderr: run.stderr ?? '' };
 }
 
-/** The skills `skills add --json` lists, by name; none when its output is not that list. */
+/**
+ * The skills `skills add --json` lists as installed, by name: one it did not install, such as a
+ * skill of the human's own by that name, is never removed. None when its stdout is not that list.
+ * ponytail: stdout read whole as the JSON the `skills` CLI prints; anything else there, and the removal is skipped, said in the Summary.
+ */
 function addedSkills(json: string): string[] {
   try {
-    return (JSON.parse(json) as { name?: unknown }[]).map(({ name }) => name).filter((name): name is string => typeof name === 'string');
+    return (JSON.parse(json) as { name?: unknown; status?: unknown }[])
+      .filter(({ status }) => status === 'installed')
+      .map(({ name }) => name)
+      .filter((name): name is string => typeof name === 'string');
   } catch {
     return [];
   }
