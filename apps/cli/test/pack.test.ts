@@ -10,6 +10,7 @@ import { preparePlugin, prepareSkills } from '../src/prepare.ts';
 const PACKAGE = fileURLToPath(new URL('..', import.meta.url));
 const PLUGIN_SOURCE = fileURLToPath(new URL('../../../.claude/skills/binnacle', import.meta.url));
 const skillText = (name: string): string => readFileSync(join(PLUGIN_SOURCE, 'skills', name, 'SKILL.md'), 'utf8');
+const workflowText = (): string => readFileSync(fileURLToPath(new URL('../../../docs/workflow/02-development-workflow.md', import.meta.url)), 'utf8');
 const ACTIONS = readdirSync(join(PLUGIN_SOURCE, 'skills')).sort();
 const filesUnder = (dir: string): string[] =>
   readdirSync(dir, { recursive: true, withFileTypes: true })
@@ -158,7 +159,7 @@ test('autopilot refreshes the plugin only when a merge changed its skills, with 
   assert.match(skill, /changed the `binnacle` plugin's skills \(only when this project is Binnacle itself\)/);
   assert.match(skill, /refresh the plugin as `docs\/workflow\/02-development-workflow\.md` says under \*Per ticket\* for a merge that changed the plugin's skills/);
   assert.match(skill, /after any frozen install and before regenerating the dashboard/);
-  const workflow = readFileSync(fileURLToPath(new URL('../../../docs/workflow/02-development-workflow.md', import.meta.url)), 'utf8');
+  const workflow = workflowText();
   assert.match(workflow, /run `pnpm --filter @binnacle\/cli run prepare`; then, if `claude plugin list --json` lists `binnacle@binnacle`, `claude plugin marketplace update binnacle` then `claude plugin update binnacle@binnacle`/);
   assert.match(skill, /A failure here never stops the run/);
   assert.match(skill, /the plugin refreshed and that a new session loads it, or why it was skipped, or which command failed and the commands run before it/);
@@ -168,7 +169,7 @@ test('autopilot refreshes the plugin only when a merge changed its skills, with 
 test('autopilot reinstalls the skills CLI\'s copy after the plugin refresh, with the development workflow\'s commands, and reports it', () => {
   const skill = skillText('autopilot');
   assert.match(skill, /then reinstall the package's `binnacle-<action>` copy through the `skills` CLI as the same paragraph says, right after the plugin refresh/);
-  const workflow = readFileSync(fileURLToPath(new URL('../../../docs/workflow/02-development-workflow.md', import.meta.url)), 'utf8');
+  const workflow = workflowText();
   assert.match(workflow, /Then, if `~\/\.agents\/skills` holds a `binnacle-\*` skill, `npx skills add apps\/cli\/skills -g -y` then `npx skills remove -g -a claude-code -s \$\(ls apps\/cli\/skills\) -y`/);
   assert.match(skill, /the skills CLI's copy reinstalled, or why it was skipped, or which command failed and the commands run before it/);
 });

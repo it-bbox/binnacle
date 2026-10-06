@@ -99,7 +99,7 @@ Current upstream documents:
 npx skills@latest add mattpocock/skills
 ```
 
-`binn init` runs the same install for you, at user scope, into every harness the `skills` CLI detects, then removes the skills it installed from Claude Code, which has the plugin (`03-external-tools.md`, *The skill plugins it installs*). The command above is the way without `binn init`.
+`binn init` runs the same install for you, at user scope, into every harness the `skills` CLI detects, then removes the skills it installed from Claude Code, which has the plugin (`03-external-tools.md`, *The skill plugins it installs*). It skips it when the manifest declares Matt Pocock Skills `false` or it detects no harness. The command above is the way without `binn init`.
 
 After installation, run once per repository:
 
@@ -149,7 +149,7 @@ Current upstream installation:
 gemini extensions install https://github.com/DietrichGebert/ponytail
 ```
 
-Binnacle should record capability availability per harness, not assume one global installation covers every client. `binn init` runs the Claude Code commands above in its plan when Claude Code is detected and does not list the plugin, and, with any harness detected, installs Ponytail from `DietrichGebert/ponytail` into every other harness the `skills` CLI detects, at user scope, as it installs Matt Pocock Skills, so the Codex and Gemini commands above are the way without `binn init`.
+Binnacle should record capability availability per harness, not assume one global installation covers every client. `binn init` runs the Claude Code commands above in its plan when Claude Code is detected and does not list the plugin, and, unless the manifest declares Ponytail `false`, with any harness detected, installs Ponytail's skills from `DietrichGebert/ponytail` into every other harness the `skills` CLI detects, at user scope, as it installs Matt Pocock Skills. That is `npx skills add DietrichGebert/ponytail -g -y`, not the Codex plugin or the Gemini extension above, which remain upstream's own install for those harnesses.
 
 ---
 
