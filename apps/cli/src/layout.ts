@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { nextAction, parseRoadmap } from '@binnacle/core';
 
 /**
  * What a repository's documentation layout looks like, read the same way by `binn init` and
@@ -23,6 +24,35 @@ export const specSlugs = (root: string): string[] => {
     return [];
   }
 };
+
+/**
+ * The roadmap `binn init` proposes where there is none: Binnacle's format (ADR-0025) with no
+ * epic yet, and a current focus whose Next action is the planning step (ADR-0032).
+ */
+export const ROADMAP_SKELETON = `# Roadmap
+
+Where the project stands: each epic's status and spec, and the current focus. Binnacle reads this file, so keep the table's header and the \`## Current focus\` heading as they are.
+
+**Status vocabulary:** \`not started\` → \`spec\` → \`tickets\` → \`in progress\` → \`done\`. A Spec cell is \`—\` or a link to \`specs/<slug>/spec.md\`.
+
+| # | Epic | Status | Spec |
+| --- | --- | --- | --- |
+
+## Current focus
+
+Nothing is planned yet.
+
+Next action: settle the first epic against the docs, by grilling it. \`/grill-with-docs\`
+`;
+
+/** What keeps a roadmap's text from Binnacle's format, each as a sentence; empty when it is in the format. */
+export function roadmapGaps(text: string): string[] {
+  const { roadmap, diagnostics } = parseRoadmap(text);
+  return [
+    ...diagnostics.map(({ message }) => message),
+    ...(roadmap.focus !== null && nextAction(roadmap.focus) === null ? ['Its current focus does not end with a paragraph that starts with "Next action:" and ends with the command in backticks.'] : []),
+  ];
+}
 
 /** The section is recognised by its heading, at any level, so that it is never appended twice. */
 const TICKET_HEADER_HEADING = /^#{1,6}\s+Ticket header\s*$/im;

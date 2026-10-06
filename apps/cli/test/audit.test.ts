@@ -423,3 +423,47 @@ test('telemetry readiness counts the sessions of this repository only, and shows
   assert.match(byCode(all, 'telemetry.codex').reason, /1 Codex session\b/);
   assert.ok(!JSON.stringify(all).includes('SECRET PROMPT'));
 });
+
+/** The roadmap's format, as Binnacle reads it: the epic table and a current focus ending with a Next action. */
+const ROADMAP = '# Roadmap\n\n| # | Epic | Status | Spec |\n| --- | --- | --- | --- |\n\n## Current focus\n\nNext action: plan. `/grill-with-docs`\n';
+
+test('binn audit: a missing roadmap is a gap that names binn init, and one in the format is ok', (t) => {
+  const root = fixture(t);
+  const missing = finding(root, t, 'docs.roadmap');
+  assert.equal(missing.status, 'gap');
+  assert.equal(missing.area, 'docs');
+  assert.match(missing.reason, /docs\/roadmap\.md/);
+  assert.match(missing.recommendation!, /binn init/);
+  write(root, { 'docs/roadmap.md': ROADMAP });
+  assert.equal(finding(root, t, 'docs.roadmap').status, 'ok');
+});
+
+test('binn audit: a roadmap not in the format is a gap naming what is missing, and the roadmap the manifest names is the one read', (t) => {
+  const root = fixture(t);
+  write(root, { 'docs/roadmap.md': '# Roadmap\n\n- ship it\n' });
+  const bare = finding(root, t, 'docs.roadmap');
+  assert.equal(bare.status, 'gap');
+  assert.match(bare.reason, /not in Binnacle's format/);
+  assert.match(bare.reason, /\| # \| Epic \| Status \| Spec \|/);
+  assert.match(bare.reason, /## Current focus/);
+  assert.match(bare.recommendation!, /never rewrites/);
+
+  write(root, { 'docs/roadmap.md': '# Roadmap\n\n| # | Epic | Status | Spec |\n| --- | --- | --- | --- |\n\n## Current focus\n\nShip it.\n' });
+  const noNext = finding(root, t, 'docs.roadmap');
+  assert.equal(noNext.status, 'gap');
+  assert.match(noNext.reason, /Next action:/);
+  assert.doesNotMatch(noNext.reason, /Epic \| Status/);
+
+  write(root, { '.binnacle/project.yaml': 'version: 1\nproject:\n  id: repo\nknowledge:\n  docs: handbook\n', 'handbook/roadmap.md': ROADMAP });
+  const declared = finding(root, t, 'docs.roadmap');
+  assert.equal(declared.status, 'ok');
+  assert.match(declared.reason, /handbook\/roadmap\.md/);
+});
+
+test('binn audit: a manifest that declares no knowledge.docs is a roadmap gap, since Binnacle reads no roadmap', (t) => {
+  const root = fixture(t);
+  write(root, { '.binnacle/project.yaml': 'version: 1\nproject:\n  id: repo\n', 'docs/roadmap.md': ROADMAP });
+  const gap = finding(root, t, 'docs.roadmap');
+  assert.equal(gap.status, 'gap');
+  assert.match(gap.reason, /knowledge\.docs/);
+});

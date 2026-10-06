@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, posix, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { isIgnored, readGitFacts, workingTree, type GitRemote } from '@binnacle/adapters';
@@ -29,7 +29,7 @@ import {
 } from '@binnacle/daemon';
 import { EXIT, type ExitCode } from './exit.ts';
 import { isRecord, sessionHistory } from './history.ts';
-import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, mattPocockFiles } from './layout.ts';
+import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, mattPocockFiles, ROADMAP_SKELETON, roadmapGaps } from './layout.ts';
 import { register } from './project-commands.ts';
 import { CONFIG_HOME, declaredCapabilities, mcpSources, onPath, registeredWith, TOOLS, VSCODE_USER_DIRECTORY, type Tool } from './tools.ts';
 
@@ -133,6 +133,10 @@ export async function init(
     // The manifest as it is now, or the tracker it would propose: the plan is not yet written.
     mattPocockStep(session, declaredManifest(session.root)?.tracker.provider ?? forgeRemote(git.remotes)?.provider ?? 'local');
     session.say('');
+    if (manifest !== 'invalid') {
+      layoutStep(session, manifest === 'new' ? { issues: forgeRemote(git.remotes) ? null : 'docs/specs', docs: 'docs' } : declaredLayout(declaredManifest(session.root)!));
+      session.say('');
+    }
     instructionsStep(session);
     session.say('');
     toolsStep(session, tools);
@@ -320,8 +324,9 @@ function proposeManifest(root: string, remotes: GitRemote[], capabilities: strin
     sections.push('tracker:\n  provider: local\n  local:\n    issues: docs/specs');
   }
 
+  // docs/, and docs/specs/ on the local tracker, are also declared when missing: the plan creates them (layoutStep).
   const knowledge = Object.entries({ context: 'CONTEXT.md', docs: 'docs', adr: 'docs/adr', specs: 'docs/specs' })
-    .filter(([, path]) => existsSync(join(root, path)))
+    .filter(([key, path]) => existsSync(join(root, path)) || key === 'docs' || (key === 'specs' && !forge))
     .map(([key, path]) => `\n  ${key}: ${path}`);
   if (knowledge.length > 0) sections.push(`knowledge:${knowledge.join('')}`);
 
@@ -645,6 +650,44 @@ function declaredManifest(root: string): ProjectManifest | null {
     if (error instanceof OperationError) return null;
     throw error;
   }
+}
+
+/** Where a manifest has the local tracker read tickets, and its roadmap's directory. */
+type Layout = { issues: string | null; docs: string | null };
+
+const declaredLayout = ({ tracker, knowledge }: ProjectManifest): Layout => ({
+  issues: tracker.provider === 'local' ? tracker.local.issues : null,
+  docs: knowledge.docs,
+});
+
+/**
+ * The layout Binnacle reads: the local tracker's issues directory, kept in Git by an empty
+ * `.gitkeep`, and `<knowledge.docs>/roadmap.md`, a skeleton in Binnacle's format. Each is
+ * proposed only when missing; an existing roadmap is never rewritten, and one not in the
+ * format is left to `binn audit` to explain.
+ */
+function layoutStep(session: Session, { issues, docs }: Layout): void {
+  if (issues !== null && !existsSync(join(session.root, issues))) {
+    session.say(`The tracker reads tickets from ${issues}/, which does not exist. The plan creates it.`);
+    planFile(session, posix.join(issues, '.gitkeep'), '');
+  }
+  if (docs === null) {
+    session.say(`${MANIFEST_RELATIVE} declares no knowledge.docs, so Binnacle reads no roadmap. Declare it to have one.`);
+    return record(session, 'skipped', `the roadmap: ${MANIFEST_RELATIVE} declares no knowledge.docs`);
+  }
+  const path = posix.join(docs, 'roadmap.md');
+  const existing = join(session.root, path);
+  if (!existsSync(existing)) {
+    session.say(`There is no roadmap at ${path}. The plan creates a skeleton in Binnacle's format.`);
+    return planFile(session, path, ROADMAP_SKELETON);
+  }
+  const gaps = roadmapGaps(readFileSync(existing, 'utf8'));
+  if (gaps.length === 0) {
+    session.say(`${path} is in Binnacle's format. It is left as it is.`);
+    return record(session, 'skipped', `${path}: it exists`);
+  }
+  session.say(`${path} is not in Binnacle's format, and binn init never rewrites it. ${gaps.join(' ')}`);
+  record(session, 'skipped', `${path}: it exists, and is not in Binnacle's format; binn audit names what is missing`);
 }
 
 /**

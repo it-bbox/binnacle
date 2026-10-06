@@ -8,7 +8,8 @@ import { delimiter, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { test, type TestContext } from 'node:test';
-import { isAlive, readManifest, readRuntime } from '@binnacle/daemon';
+import { isAlive, readManifest, readRuntime, readToken } from '@binnacle/daemon';
+import { callOperation } from '../src/client.ts';
 
 const BINN = fileURLToPath(new URL('../src/bin.ts', import.meta.url));
 /** Preloaded, it makes stdin read as a terminal: `binn init` writes nothing without one (ADR-0034). */
@@ -185,6 +186,7 @@ tracker:
 
 knowledge:
   context: CONTEXT.md
+  docs: docs
 ${windowSection('90')}`,
   );
   // The whole file is shown before the one question.
@@ -467,7 +469,7 @@ test('the plugin: Claude Code adds the package as a marketplace and installs bin
   for (const args of [add, install]) assert.ok(result.stdout.includes(`Running claude ${args.join(' ')}...`), result.stdout);
   // Claude Code's settings files are Claude Code's to write: binn init writes none.
   assert.equal(existsSync(join(home.home, '.claude')), false);
-  assert.equal(git(root, 'status', '--porcelain'), '?? .binnacle/\n?? .mcp.json\n');
+  assert.equal(git(root, 'status', '--porcelain'), '?? .binnacle/\n?? .mcp.json\n?? docs/\n');
 });
 
 test('the plugin: a failed marketplace add is reported, and the install is not attempted', (t) => {
@@ -904,7 +906,7 @@ test('a new manifest is offered the window answered: 90 by default, all, or a nu
 
     assert.match(stdout, /Claude Code: no sessions/);
     assert.match(stdout, /Codex: no sessions/);
-    assert.ok(manifestOf(root).endsWith(`issues: docs/specs\n${windowSection(window)}`), manifestOf(root));
+    assert.ok(manifestOf(root).endsWith(`knowledge:\n  docs: docs\n  specs: docs/specs\n${windowSection(window)}`), manifestOf(root));
     assert.equal(readManifest(root).manifest.telemetry.import.windowDays, window === 'all' ? 'all' : Number(window));
     // The window is in the manifest the plan shows, before the one question, and is not asked after it.
     const shown = stdout.indexOf(windowSection(window));
@@ -951,6 +953,73 @@ test('with an existing manifest the window line is printed, not written, and a d
   assert.match(again.stdout, /skipped\s+import window: \.binnacle\/project\.yaml declares all/);
 });
 
+
+/** The Product Snapshot's fields this ticket's checks read, as `/binnacle:product` gets them. */
+type ProductSnapshot = { attention: { code: string }[]; next: { action: { description: string; command: string } | null } };
+
+test("on an empty repository the confirmed plan leaves a layout the Product Snapshot reads, with the skeleton roadmap's Next action", async (t) => {
+  const home = makeHome(t);
+  const binn = binnIn(home);
+  const root = makeRepository(t, 'empty');
+  assert.equal(binn(root, '', 'daemon', 'start').status, 0);
+  t.after(() => binn(root, '', 'daemon', 'stop'));
+
+  const result = binn(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  const question = result.stdout.indexOf(PLAN_QUESTION);
+  for (const heading of ['Create docs/specs/.gitkeep', 'Create docs/roadmap.md']) {
+    const shown = result.stdout.indexOf(heading);
+    assert.ok(shown >= 0 && shown < question, `${heading}\n${result.stdout}`);
+  }
+  assert.match(manifestOf(root), /\nknowledge:\n  docs: docs\n  specs: docs\/specs\n/);
+  assert.match(read(root, 'docs/roadmap.md'), /^\| # \| Epic \| Status \| Spec \|$/m);
+  assert.match(result.stdout, /ran\s+project\.register/);
+
+  const snapshot = await callOperation<ProductSnapshot>(readRuntime(home.binnacleHome)!, readToken(home.binnacleHome)!, 'project.snapshot', { path: root });
+  const codes = snapshot.attention.map(({ code }) => code);
+  assert.ok(!codes.includes('tracker.issues_missing'), codes.join(', '));
+  assert.ok(!codes.includes('roadmap.missing'), codes.join(', '));
+  assert.equal(snapshot.next.action?.command, '/grill-with-docs');
+});
+
+test('an existing roadmap is left byte for byte, and one not in the format is named in the Summary with binn audit', (t) => {
+  const home = makeHome(t);
+  const roadmap = '# Roadmap\n\n- ship the first version\n';
+  const root = makeRepository(t, 'own-roadmap', { 'docs/roadmap.md': roadmap });
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /created\s+\.binnacle\/project\.yaml/);
+  assert.equal(read(root, 'docs/roadmap.md'), roadmap);
+  assert.ok(!result.stdout.includes('docs/roadmap.md:\n'), result.stdout);
+  const summary = result.stdout.slice(result.stdout.indexOf('Summary:'));
+  assert.match(summary, /skipped\s+docs\/roadmap\.md: it exists, and is not in Binnacle's format; binn audit names what is missing/);
+
+  // One in the format is only reported as there.
+  writeFileSync(join(root, 'docs/roadmap.md'), '| # | Epic | Status | Spec |\n| --- | --- | --- | --- |\n\n## Current focus\n\nNext action: plan. `/grill-with-docs`\n');
+  rmSync(join(root, '.binnacle'), { recursive: true });
+  assert.match(binnIn(home)(root, '\nn\n', 'init').stdout, /skipped\s+docs\/roadmap\.md: it exists\n/);
+});
+
+test('an existing manifest gets the issues directory it names and a roadmap under its knowledge.docs, and one without knowledge.docs gets no roadmap', (t) => {
+  const home = makeHome(t);
+  const manifest = 'version: 1\nproject:\n  id: kept\ntracker:\n  provider: local\n  local:\n    issues: work\nknowledge:\n  docs: handbook\n';
+  const root = makeRepository(t, 'kept', { '.binnacle/project.yaml': manifest });
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(manifestOf(root), manifest);
+  assert.ok(existsSync(join(root, 'work/.gitkeep')), result.stdout);
+  assert.match(read(root, 'handbook/roadmap.md'), /## Current focus/);
+
+  const bare = makeRepository(t, 'bare', { '.binnacle/project.yaml': 'version: 1\nproject:\n  id: bare\n' });
+  const without = binnIn(home)(bare, '\n\n', 'init');
+  assert.ok(!existsSync(join(bare, 'docs')), without.stdout);
+  assert.match(without.stdout, /skipped\s+the roadmap: \.binnacle\/project\.yaml declares no knowledge\.docs/);
+});
 
 test('the Summary suggests binn audit', (t) => {
   const home = makeHome(t);
@@ -1050,8 +1119,8 @@ test('the tools: each missing one is in the plan with its exact command, install
   assert.deepEqual(uv(), [SERENA, GRAPHIFY]);
   assert.deepEqual(npm(), [AST_GREP]);
   assert.deepEqual(readManifest(root).manifest.capabilities, { serena: true, graphify: true, ast_grep: true });
-  // The installs write nothing into the repository; the .gitignore is the first graph's.
-  assert.equal(git(root, 'status', '--porcelain'), '?? .binnacle/\n?? .gitignore\n');
+  // The installs write nothing into the repository; the .gitignore is the first graph's, docs/ the layout's.
+  assert.equal(git(root, 'status', '--porcelain'), '?? .binnacle/\n?? .gitignore\n?? docs/\n');
 });
 
 test('the tools: one already on PATH is reported as found, nothing is installed for it, and the new manifest declares it', (t) => {
@@ -1369,7 +1438,7 @@ test('the skill plugins: with Claude Code detected and neither listed, the plan 
   // Claude Code is asked for its plugins once, for the binnacle plugin and the skill plugins alike.
   assert.equal(claude().filter((call) => call[1] === 'list').length, 1);
   assert.deepEqual(readManifest(root).manifest.capabilities, { matt_pocock_skills: true, ponytail: true });
-  assert.equal(git(root, 'status', '--porcelain'), '?? .binnacle/\n?? .mcp.json\n');
+  assert.equal(git(root, 'status', '--porcelain'), '?? .binnacle/\n?? .mcp.json\n?? docs/\n');
 });
 
 test('the skill plugins: one Claude Code already lists is reported, and nothing is installed for it', (t) => {

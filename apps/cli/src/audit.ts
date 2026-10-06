@@ -1,12 +1,12 @@
 import { readGitFacts, type GitFacts } from '@binnacle/adapters';
 import { AUDIT_AREAS, forgeRemote, instructionSets, type Finding } from '@binnacle/core';
-import { MANIFEST_RELATIVE, resolveGitTimeout, trackerToken } from '@binnacle/daemon';
-import { existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { MANIFEST_RELATIVE, readManifest, resolveGitTimeout, trackerToken } from '@binnacle/daemon';
+import { existsSync, readFileSync } from 'node:fs';
+import { join, posix, resolve } from 'node:path';
 import { scratch, structure } from './audit-files.ts';
 import { capabilities, telemetry } from './audit-tools.ts';
 import { EXIT, type ExitCode } from './exit.ts';
-import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, MATT_POCOCK_FILES, mattPocockFiles, specSlugs } from './layout.ts';
+import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, MATT_POCOCK_FILES, mattPocockFiles, roadmapGaps, specSlugs } from './layout.ts';
 
 type Repository = Extract<GitFacts, { available: true }>;
 
@@ -113,7 +113,42 @@ function docs(root: string): Finding[] {
     check('docs.context', 'CONTEXT.md', 'the glossary of the domain an agent reads first.', 'Write CONTEXT.md; /grill-with-docs builds it as terms are settled.'),
     check('docs.adr', 'docs/adr', 'no architecture decisions are recorded.', 'Record durable trade-offs as ADRs under docs/adr.'),
     check('docs.docs', 'docs', 'no durable documentation directory.', 'Keep durable knowledge as Markdown under docs/.'),
+    roadmap(root),
   ];
+}
+
+/** The roadmap Binnacle reads, `<knowledge.docs>/roadmap.md` (ADR-0025): docs/ when there is no usable manifest, as `binn init` would declare. */
+function roadmap(root: string): Finding {
+  const base = { code: 'docs.roadmap', area: 'docs' } as const;
+  let docs: string | null = 'docs';
+  try {
+    docs = readManifest(root).manifest.knowledge.docs;
+  } catch {
+    // No usable manifest: the one binn init proposes declares docs.
+  }
+  if (docs === null) {
+    return {
+      ...base,
+      status: 'gap',
+      reason: `${MANIFEST_RELATIVE} declares no knowledge.docs, so Binnacle reads no roadmap.`,
+      recommendation: `Declare knowledge.docs in ${MANIFEST_RELATIVE}, the directory whose roadmap.md is the roadmap.`,
+    };
+  }
+  const path = posix.join(docs, 'roadmap.md');
+  let text: string;
+  try {
+    text = readFileSync(join(root, path), 'utf8');
+  } catch {
+    return { ...base, status: 'gap', reason: `No roadmap at ${path}, so Binnacle shows no position and no Next action.`, recommendation: 'Run binn init, which proposes a roadmap skeleton in Binnacle\'s format and writes it only after you confirm.' };
+  }
+  const gaps = roadmapGaps(text);
+  if (gaps.length === 0) return { ...base, status: 'ok', reason: `${path} is in Binnacle's format.` };
+  return {
+    ...base,
+    status: 'gap',
+    reason: `${path} is not in Binnacle's format. ${gaps.join(' ')}`,
+    recommendation: `Bring ${path} into the format by hand, keeping its content; binn init never rewrites an existing roadmap.`,
+  };
 }
 
 /** The Matt Pocock layout: its convention files and a spec directory, and the ticket-header convention. */
