@@ -71,6 +71,8 @@ Command wrappers are generated from a single procedure description per action, s
 
 Both MCP transports are served — stdio for harnesses that spawn processes, Streamable HTTP from the daemon for those that prefer an endpoint. The tool implementations behind them are the same.
 
+A harness with a shell and no Binnacle MCP server — one without MCP, or one whose `binnacle` server is not registered yet — reaches the same tools through `binn call <tool> [json]` (ADR-0039). It reads the same tool table and makes the same daemon call as `binn mcp`, so a tool exists in both or in neither, and it answers for the project containing the working directory. The arguments, if the tool takes any, are one JSON object, such as `binn call task_get '{"id":"<task id>"}'`. It prints what the tool returns as JSON on stdout and exits 0; the daemon's error envelope, the same the tool returns, on stdout with exit 3, or with exit 4 when it is `daemon.unreachable`; and an unknown tool or arguments that are not a JSON object as a message on stderr with exit 2. `binn call --help` lists the tools and their arguments. Each skill that calls a tool — `/product`, `/daily`, `/task`, `/status`, `/checkpoint` and `/autopilot` — says once to call the `binnacle` MCP tool and, where the session has none, to run `binn call` with the same arguments in the shell and read its JSON.
+
 ## Skill design rule
 
 Skills contain procedure, not project state.

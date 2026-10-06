@@ -14,10 +14,10 @@ Rules for the whole run. Never force-push, change settings, touch another reposi
 ## Start
 
 1. Check that this harness lets you start a background agent in a worktree of its own: an agent that runs while you wait for others, in a separate checkout of this repository that the harness creates for it. If it cannot, stop here, before any other step: start nothing and change nothing. Say that this harness cannot start a background agent in a worktree of its own, so autopilot cannot run the epic here, and that the epic's tickets are run by hand instead, one session per ticket, as the project's development workflow says, or with autopilot from a harness that can.
-2. Call the `binnacle` MCP server's `project_detect` tool. If it fails, stop. Quote the error's code and message, and give the human the fix without running it yourself:
+2. Call the `binnacle` MCP server's `project_detect` tool. If this session has no `binnacle` MCP tools, run each Binnacle tool this skill calls as `binn call <tool> '<arguments as one JSON object>'` in the shell instead, with the same arguments, and read the JSON it prints: what the tool returns, or the same error with its code. If it fails, stop. Quote the error's code and message, and give the human the fix without running it yourself:
    - `daemon.unreachable`: `/binnacle:daemon start`, or `binn daemon start` at a terminal.
    - `project.not_registered`: `/binnacle:register`, or `binn project register` run in the main checkout.
-   - If the `binnacle` server is missing or disconnected, `binn` is not on this harness's PATH (see the README's setup section).
+   - If the shell cannot find `binn` (`command not found`, exit 127), `binn` is not on this harness's PATH (see the README's setup section).
 
    Binnacle is optional. If the human then asks you to go on without it, read the same position from the roadmap and the tickets' `Status:` and `Blocked by:` lines wherever the steps below read the snapshot, and what changed from the log.
 3. Call `project_status`. If its `checkout.registered` is false, this session runs in a linked worktree: a second checkout of the repository, such as one a harness creates for a session of its own. Stop there: start nothing and change nothing. Tell the human, in this order:

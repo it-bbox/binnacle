@@ -6,10 +6,10 @@ disable-model-invocation: true
 
 This session is disposable. Whatever it decided that the next session needs must reach the repository before it closes (`docs/workflow/01-product-workflow.md`). Binnacle writes no file (ADR-0020). This session writes and commits them, and only what the human confirms.
 
-1. Call the `binnacle` MCP server's `project_detect` tool. If it fails, stop. Quote the error's code and message, and give the human the fix without running it yourself:
+1. Call the `binnacle` MCP server's `project_detect` tool. If this session has no `binnacle` MCP tools, run each Binnacle tool this skill calls as `binn call <tool> '<arguments as one JSON object>'` in the shell instead, with the same arguments, and read the JSON it prints: what the tool returns, or the same error with its code. If it fails, stop. Quote the error's code and message, and give the human the fix without running it yourself:
    - `daemon.unreachable`: `/binnacle:daemon start`, or `binn daemon start` at a terminal.
    - `project.not_registered`: `/binnacle:register`, or `binn project register` run in the main checkout.
-   - If the `binnacle` server is missing or disconnected, `binn` is not on this harness's PATH (see the README's setup section).
+   - If the shell cannot find `binn` (`command not found`, exit 127), `binn` is not on this harness's PATH (see the README's setup section).
 
    Binnacle is optional. Until it answers, the decisions still belong in the project's context file, ADRs, tickets, specs and roadmap: offer to draft, confirm and commit them as in steps 3 to 5, and skip step 6.
 2. Call `checkpoint_prepare`, with no arguments. It records nothing. It returns the delta since the last checkpoint (the same fields as `daily_get`), `targets` and `attention`.

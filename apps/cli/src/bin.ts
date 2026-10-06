@@ -8,7 +8,8 @@ import { EXIT, type ExitCode } from './exit.ts';
 import { dashboard } from './dashboard.ts';
 import { audit } from './audit.ts';
 import { importWindow, init } from './init.ts';
-import { mcp } from './mcp.ts';
+import { toolsHelp } from '@binnacle/mcp';
+import { call, mcp } from './mcp.ts';
 
 const VERSION = packageVersion(import.meta.url);
 
@@ -44,6 +45,10 @@ Usage:
   binn dashboard --print  Print the dashboard's address, with the token, without opening it
 
   binn mcp              Serve Binnacle's MCP tools on stdio for the working directory
+  binn call <tool> [json]
+                        Call one of those tools for the working directory, with its arguments as one
+                        JSON object, and print what it returns as JSON: for a harness without
+                        Binnacle's MCP server. binn call --help lists the tools and their arguments
 
 Options:
   -h, --help            Show this help
@@ -59,6 +64,20 @@ Exit codes:
   2  usage error
   3  operation failed
   4  daemon unreachable
+`;
+
+const CALL_USAGE = `Usage: binn call <tool> [json]
+
+Call one of Binnacle's MCP tools for the Binnacle project containing the working directory, as
+\`binn mcp\` serves them, and print what the tool returns as JSON on stdout. Arguments, if the tool
+takes any, are one JSON object, such as '{"id":"<task id>"}'.
+
+Exit codes: 0 with the result; 3 with the daemon's error envelope on stdout; 4 with daemon.unreachable
+on stdout when the daemon is not running; 2 with a message on stderr for an unknown tool or arguments
+that are not a JSON object.
+
+Tools:
+${toolsHelp()}
 `;
 
 process.exitCode = await run(process.argv.slice(2));
@@ -99,6 +118,14 @@ async function run(argv: string[]): Promise<ExitCode> {
   if (first === 'mcp' && second === undefined) {
     await mcp(resolveHome(), VERSION);
     return EXIT.ok;
+  }
+
+  if (first === 'call' && rest.length === 0 && (second === '-h' || second === '--help')) {
+    console.log(CALL_USAGE);
+    return EXIT.ok;
+  }
+  if (first === 'call' && second !== undefined && !second.startsWith('-') && rest.length <= 1) {
+    return await call(resolveHome(), second, rest[0]);
   }
 
   if (first === 'project') {

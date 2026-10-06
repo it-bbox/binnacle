@@ -205,12 +205,28 @@ test('every daemon-dependent skill names /binnacle:daemon start and /binnacle:re
   }
 });
 
+/** Epic 14: a harness with a shell and no Binnacle MCP server runs every skill that calls a tool, through binn call. */
+test('every skill that calls a Binnacle tool falls back to binn call, once, and names a missing binn', () => {
+  const fallback = "If this session has no `binnacle` MCP tools, run each Binnacle tool this skill calls as `binn call <tool> '<arguments as one JSON object>'` in the shell instead, with the same arguments, and read the JSON it prints: what the tool returns, or the same error with its code.";
+  for (const name of ['product', 'daily', 'task', 'status', 'checkpoint', 'autopilot']) {
+    const skill = skillText(name);
+    assert.equal(skill.split(fallback).length - 1, 1, name);
+    assert.match(skill, /If the shell cannot find `binn` \(`command not found`, exit 127\), `binn` is not on this harness's PATH \(see the README's setup section\)/, name);
+    assert.doesNotMatch(skill, /server is missing or disconnected/, name);
+  }
+  // Skills that call no tool need no fallback.
+  for (const name of ACTIONS.filter((action) => !['product', 'daily', 'task', 'status', 'checkpoint', 'autopilot'].includes(action))) {
+    assert.doesNotMatch(skillText(name), /binn call/, name);
+  }
+});
+
 /** Epic 9: the baseline's /status, over project_status alone and short; its two fixes are held with the other daemon-dependent skills below. */
 test('/binnacle:status calls project_status and nothing else, says a linked worktree plainly and shows diagnostics', () => {
   const skill = skillText('status');
   assert.match(skill, /^disable-model-invocation: true$/m);
   assert.match(skill, /Call the `binnacle` MCP server's `project_status` tool once/);
   assert.match(skill, /no Binnacle call other than `project_status`/);
+  assert.match(skill, /no shell commands other than `binn call project_status`/);
   assert.match(skill, /`registered` is false/);
   assert.match(skill, /"no commits yet" when `git\.commit` is null/);
   assert.match(skill, /a linked worktree, not the registered checkout/);

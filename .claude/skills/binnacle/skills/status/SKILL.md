@@ -4,10 +4,10 @@ description: Show this project and this session's checkout in a few lines, from 
 disable-model-invocation: true
 ---
 
-1. Call the `binnacle` MCP server's `project_status` tool once, with no arguments. If it fails, stop. Quote the error's code and message, and give the human the fix without running it yourself:
+1. Call the `binnacle` MCP server's `project_status` tool once, with no arguments. If this session has no `binnacle` MCP tools, run each Binnacle tool this skill calls as `binn call <tool> '<arguments as one JSON object>'` in the shell instead, with the same arguments, and read the JSON it prints: what the tool returns, or the same error with its code. If it fails, stop. Quote the error's code and message, and give the human the fix without running it yourself:
    - `daemon.unreachable`: `/binnacle:daemon start`, or `binn daemon start` at a terminal.
    - `project.not_registered`: `/binnacle:register`, or `binn project register` run in the main checkout.
-   - If the `binnacle` server is missing or disconnected, `binn` is not on this harness's PATH (see the README's setup section).
+   - If the shell cannot find `binn` (`command not found`, exit 127), `binn` is not on this harness's PATH (see the README's setup section).
 
    Binnacle is optional. Until it answers, `git status` and the manifest at `.binnacle/project.yaml` give the Git and tracker facts.
 2. Present the answer in a few lines:
@@ -18,4 +18,4 @@ disable-model-invocation: true
    - **Diagnostics**: every item with its code and message, such as a remote that does not match the manifest. If there are none, say "none".
 3. Stop there. The roadmap, the Tasks and usage are not part of this answer: leave them to `/binnacle:product`, and say so only if the human asks for them.
 
-Change nothing: no files, no commits, no shell commands, and no Binnacle call other than `project_status`.
+Change nothing: no files, no commits, no shell commands other than `binn call project_status`, and no Binnacle call other than `project_status`.

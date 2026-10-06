@@ -70,6 +70,21 @@ const TOOLS = {
   },
 } as const;
 
+/** The daemon operation behind a tool, or undefined for a name that is not one of them: `binn call` reads the same table. */
+export const toolOperation = (name: string): string | undefined => (Object.hasOwn(TOOLS, name) ? TOOLS[name as keyof typeof TOOLS].operation : undefined);
+
+/** Every tool with its description, then each argument with its description and whether it may be left out: `binn call --help`. */
+export function toolsHelp(): string {
+  return Object.entries(TOOLS)
+    .map(([name, tool]) => {
+      const args = Object.entries('inputSchema' in tool ? (tool.inputSchema as Record<string, z.ZodType>) : {}).map(
+        ([arg, schema]) => `      ${arg}${schema.safeParse(undefined).success ? ' (optional)' : ''}: ${schema.description ?? ''}`,
+      );
+      return [`  ${name}`, `      ${tool.description}`, ...args].join('\n');
+    })
+    .join('\n\n');
+}
+
 /**
  * Serves the tools on stdio until the client disconnects. Every call is made for `cwd`,
  * the directory the harness started the server in; a tool's own arguments, if it has any,

@@ -5,10 +5,10 @@ argument-hint: "[commit to look back from]"
 disable-model-invocation: true
 ---
 
-1. Call the `binnacle` MCP server's `project_detect` tool. If it fails, stop. Quote the error's code and message, and give the human the fix without running it yourself:
+1. Call the `binnacle` MCP server's `project_detect` tool. If this session has no `binnacle` MCP tools, run each Binnacle tool this skill calls as `binn call <tool> '<arguments as one JSON object>'` in the shell instead, with the same arguments, and read the JSON it prints: what the tool returns, or the same error with its code. If it fails, stop. Quote the error's code and message, and give the human the fix without running it yourself:
    - `daemon.unreachable`: `/binnacle:daemon start`, or `binn daemon start` at a terminal.
    - `project.not_registered`: `/binnacle:register`, or `binn project register` run in the main checkout.
-   - If the `binnacle` server is missing or disconnected, `binn` is not on this harness's PATH (see the README's setup section).
+   - If the shell cannot find `binn` (`command not found`, exit 127), `binn` is not on this harness's PATH (see the README's setup section).
 
    Binnacle is optional. Until it answers, the project's position is in its roadmap and in its tickets' `Status:` lines.
 2. Call `daily_get` once.
