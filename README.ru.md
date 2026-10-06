@@ -120,7 +120,14 @@ claude plugin marketplace update binnacle
 claude plugin update binnacle@binnacle
 ```
 
-Первая команда копирует skills в CLI-пакет и даёт plugin версию, вычисленную из файлов plugin, поэтому она меняется при каждом изменении skill; две другие заставляют Claude Code обновить свою копию до этой версии. Новая сессия затем загружает изменённые skills. `/binnacle:autopilot` делает это сам после каждого своего merge, который их изменил.
+Первая команда копирует skills в CLI-пакет и даёт plugin версию, вычисленную из файлов plugin, поэтому она меняется при каждом изменении skill; две другие заставляют Claude Code обновить свою копию до этой версии. Все остальные harness работают с копией `binnacle-<action>`, которую тоже пишет первая команда, поэтому, если в `~/.agents/skills` есть навык `binnacle-*`, установите заново и эту копию, а из Claude Code уберите её снова:
+
+```bash
+npx skills add apps/cli/skills -g -y
+npx skills remove -g -a claude-code -s $(ls apps/cli/skills) -y
+```
+
+Новая сессия затем загружает изменённые skills. `/binnacle:autopilot` делает это сам после каждого своего merge, который их изменил.
 
 `pnpm setup` добавляет свой глобальный каталог для исполняемых файлов в PATH в файле запуска shell, например `~/.bashrc`, а desktop-приложение Claude Code этот файл не читает, поэтому в нём `.mcp.json` не находит `binn`. Сделайте `binn` видимым там скриптом-обёрткой с именем `binn`, исполняемым, в каталоге, который уже есть в PATH приложения, — в Linux это `~/.local/bin`:
 
@@ -195,13 +202,9 @@ binn init
 
 ## Работа из другого harness
 
-`binn init` предлагает зарегистрировать MCP-сервер `binnacle` для каждого найденного harness и в своём Summary печатает следующий шаг для каждого, кроме Claude Code. Навыки Binnacle устанавливаются только в Claude Code; любому другому агенту говорят прочитать файл навыка и следовать ему. Попросите его:
+Один `binn init` настраивает все harness на машине. Его план устанавливает навыки Binnacle на уровне пользователя в каждый harness, который находит CLI `skills` (skills.sh), например Codex, Antigravity, ZCode или Pi, через `npx skills`, и не оставляет их в Claude Code, где есть plugin `binnacle`; `--skip-harness <id>` не пускает их и в другой harness. Вне Claude Code каждый навык называется `binnacle-<action>`: `binnacle-product`, `binnacle-daily`, `binnacle-task`, `binnacle-status`, `binnacle-checkpoint`, `binnacle-audit`, `binnacle-init`, `binnacle-daemon`, `binnacle-register`, `binnacle-dashboard`, `binnacle-autopilot` и `binnacle-help`, тогда как в Claude Code это `/binnacle:product` и остальные. Summary называет harness, в которые установлены навыки, и говорит запустить там `binnacle-product`. Harness, установленный позже, получает их от ещё одного `binn init`, а `binn audit` сообщает о навыках старше установленного `binn`, и `binn init` затем ставит их заново.
 
-```text
-read the Binnacle product skill file at <path> and follow it
-```
-
-`<path>` — это `.claude/skills/binnacle/skills/product/SKILL.md`, если проект несёт собственный плагин, иначе `plugin/skills/product/SKILL.md` в пакете Binnacle; Summary печатает тот, что подходит.
+`binn init` также предлагает зарегистрировать MCP-сервер `binnacle` в Claude Code, Codex, opencode и VS Code. В любом другом harness или пока сервер не зарегистрирован навыки вызывают те же инструменты через `binn call <tool> [json]` в shell. `binnacle-autopilot` работает только там, где harness умеет запускать фонового агента в собственном worktree; в остальных он сразу отказывается, ничего не меняет, и тикеты эпика выполняются вручную.
 
 - **Codex** читает `.codex/config.toml` проекта только в доверенном проекте (trusted project). Доверьте проект в Codex, иначе запись `binnacle` не будет видна. Десктопное приложение Codex ставит свой CLI вне `PATH`; на Linux это `/usr/lib/chatgpt/resources/codex`.
 - **opencode** читает `opencode.json` или `opencode.jsonc` в проекте. Запустите `opencode` в корне репозитория.

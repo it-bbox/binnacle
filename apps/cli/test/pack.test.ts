@@ -164,6 +164,15 @@ test('autopilot refreshes the plugin only when a merge changed its skills, with 
   assert.match(skill, /the plugin refreshed and that a new session loads it, or why it was skipped, or which command failed and the commands run before it/);
 });
 
+/** Epic 14: every other harness runs the package's `binnacle-<action>` copy, which the `skills` CLI installed, so a merged skill reaches it only once reinstalled, right after the plugin refresh and by the same rules. */
+test('autopilot reinstalls the skills CLI\'s copy after the plugin refresh, with the development workflow\'s commands, and reports it', () => {
+  const skill = skillText('autopilot');
+  assert.match(skill, /then reinstall the package's `binnacle-<action>` copy through the `skills` CLI as the same paragraph says, right after the plugin refresh/);
+  const workflow = readFileSync(fileURLToPath(new URL('../../../docs/workflow/02-development-workflow.md', import.meta.url)), 'utf8');
+  assert.match(workflow, /Then, if `~\/\.agents\/skills` holds a `binnacle-\*` skill, `npx skills add apps\/cli\/skills -g -y` then `npx skills remove -g -a claude-code -s \$\(ls apps\/cli\/skills\) -y`/);
+  assert.match(skill, /the skills CLI's copy reinstalled, or why it was skipped, or which command failed and the commands run before it/);
+});
+
 /** Epic 9's ticket 13: with no terminal, a push that waits on a prompt hangs the run instead of failing. */
 test('autopilot pulls and pushes main so that no prompt can hold it, and reports a failed push to the owner', () => {
   const skill = skillText('autopilot');
