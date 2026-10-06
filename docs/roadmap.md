@@ -23,7 +23,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 11 | The state of work | not started | — |
 | 12 | Audit, completed | not started | — |
 | 13 | Human output | not started | — |
-| 14 | Skills in any harness | tickets | [`skills-in-any-harness`](specs/skills-in-any-harness/spec.md) |
+| 14 | Skills in any harness | in progress | [`skills-in-any-harness`](specs/skills-in-any-harness/spec.md) |
 
 Epics are ordered by dependency, not by preference. Epic 1 is the foundation; epics 5 to 7 are only meaningful once 1 to 4 exist. Audit and adopt is epic 6 in the specs of epics 1 to 3, written before epic 6 was inserted on 2026-09-26. Epic 14 was added on 2026-10-06 and comes before epic 10, which reuses its list of harnesses.
 
@@ -33,7 +33,7 @@ Epics 1 to 9 are done: the daemon, snapshot, daily and checkpoint over MCP, the 
 
 On 2026-10-06 the owner found that Binnacle's skills, Matt Pocock Skills and Ponytail reach Claude Code alone, while the baseline makes Codex, GLM and Gemini equal harnesses. That is epic 14, Skills in any harness (`docs/05-mvp-plan.md`). It comes before epic 10, which reuses its list of harnesses; epics 10 to 12 then need `to-spec`. Epic 13, Human output, is grilled last, since it rewrites every skill's output; the vault's notes being all in English is a candidate for it.
 
-Epic 14 was grilled, specified and sliced on 2026-10-06 (ADR-0039, `specs/skills-in-any-harness/spec.md`): Claude Code keeps the plugin, every other harness gets `binnacle-<action>` skills through the `skills` CLI, and `binn call` serves harnesses without MCP. Ticket 03 is done: the package carries the `binnacle-<action>` copy, so 04 can start; 01 can start at once; 08, the exit demonstration on the owner's Mac, is the owner's.
+Epic 14 was grilled, specified and sliced on 2026-10-06 (ADR-0039, `specs/skills-in-any-harness/spec.md`): Claude Code keeps the plugin, every other harness gets `binnacle-<action>` skills through the `skills` CLI, and `binn call` serves harnesses without MCP. Tickets 01 and 03 are done: the skills name no harness's mechanism, and the package carries the `binnacle-<action>` copy; 02 and 04 can start; 08, the exit demonstration on the owner's Mac, is the owner's.
 
 Next action: run epic 14's tickets. `/binnacle:autopilot 14`
 
