@@ -16,7 +16,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 4 | Telemetry | done | [`telemetry`](specs/telemetry/spec.md) |
 | 5 | Minimal dashboard | done | [`minimal-dashboard`](specs/minimal-dashboard/spec.md) |
 | 6 | Dashboard design and languages | done | [`dashboard-design-and-languages`](specs/dashboard-design-and-languages/spec.md) |
-| 7 | Audit and adopt | tickets | [`audit-and-adopt`](specs/audit-and-adopt/spec.md) |
+| 7 | Audit and adopt | done | [`audit-and-adopt`](specs/audit-and-adopt/spec.md) |
 | 8 | Project Brain: tools, Graphify, Obsidian | done | [`project-brain-tools-graphify-obsidian`](specs/project-brain-tools-graphify-obsidian/spec.md) |
 | 9 | Everything from the chat | done | [`everything-from-the-chat`](specs/everything-from-the-chat/spec.md) |
 | 10 | Telemetry for any harness | not started | — |
@@ -29,13 +29,11 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 ## Current focus
 
-Epics 1 to 6, 8 and 9 are done: the daemon, snapshot, daily and checkpoint over MCP, the `binnacle` plugin with autopilot, Tasks from any tracker, `binn init` with the tools, the graph and the Obsidian vault, usage, the dashboard in two languages, and setup from the chat.
-
-Epic 7, Audit and adopt, is done but for its exit demonstration, 08, which can now finish: ticket 10, the defect, is done, so `binn init` leaves a layout Binnacle reads and `binn audit` names a roadmap not in the format.
+Epics 1 to 9 are done: the daemon, snapshot, daily and checkpoint over MCP, the `binnacle` plugin with autopilot, Tasks from any tracker, `binn init` with the tools, the graph and the Obsidian vault, usage, the dashboard in two languages, `binn audit`, and setup from the chat; on 2026-10-06 a Product session ran in Codex from the README alone.
 
 On 2026-10-06 the owner found that Binnacle's skills, Matt Pocock Skills and Ponytail reach Claude Code alone, while the baseline makes Codex, GLM and Gemini equal harnesses. That is epic 14, Skills in any harness (`docs/05-mvp-plan.md`). It comes before epic 10, which reuses its list of harnesses; epics 10 to 12 then need `to-spec`. Epic 13, Human output, is grilled last, since it rewrites every skill's output; the vault's notes being all in English is a candidate for it.
 
-Next action: grill epic 14, in a new session: every detected harness that reads `SKILL.md` gets Binnacle's skills, Matt Pocock Skills and Ponytail, and autopilot's place outside Claude Code is decided. Epic 7's demonstration, 08, is the owner's, beside it. `/mattpocock-skills:grill-with-docs`
+Next action: grill epic 14, in a new session: every detected harness that reads `SKILL.md` gets Binnacle's skills, Matt Pocock Skills and Ponytail, and autopilot's place outside Claude Code is decided. `/mattpocock-skills:grill-with-docs`
 
 ## Later
 
