@@ -2220,13 +2220,15 @@ test('the skills: a current set in ~/.agents/skills is installed again, as a sta
 
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(npx(), allSkills());
-  assert.match(result.stdout.slice(0, result.stdout.indexOf(PLAN_QUESTION)), /Binnacle's skills in ~\/\.agents\/skills are current/);
-  // The plan carries the add and removal: no commands are printed in its place.
-  assert.match(result.stdout.slice(result.stdout.indexOf('The plan.')), /Install Binnacle's skills/);
-  assert.equal(result.stdout.slice(0, result.stdout.indexOf(PLAN_QUESTION)).split(`npx ${SKILLS_ADD.join(' ')}\n`).length, 2, result.stdout);
+  const beforeQuestion = result.stdout.slice(0, result.stdout.indexOf(PLAN_QUESTION));
+  assert.match(beforeQuestion, /Binnacle's skills in ~\/\.agents\/skills are current/);
+  // The plan carries the add and removal, and its body is the only place the add is shown: no commands are printed in its place.
+  const plan = beforeQuestion.slice(beforeQuestion.indexOf('The plan.'));
+  assert.ok(plan.includes(`npx ${SKILLS_ADD.join(' ')}\n  npx ${skillsRemove().join(' ')}`), plan);
+  assert.equal(beforeQuestion.indexOf(`npx ${SKILLS_ADD.join(' ')}\n`), beforeQuestion.lastIndexOf(`npx ${SKILLS_ADD.join(' ')}\n`), beforeQuestion);
   const summary = result.stdout.slice(result.stdout.indexOf('Summary:'));
   assert.match(summary, /found\s+Binnacle's skills: current/);
-  assert.match(summary, /Binnacle's skills are installed into /);
+  assert.match(summary, /Binnacle's skills are installed into Codex/);
 });
 
 test('the skills: a stale set in ~/.agents/skills is reinstalled, and the plan says why', (t) => {

@@ -53,7 +53,7 @@ type Session = {
   outcomes: { outcome: Outcome; what: string }[];
   /** The harnesses other than Claude Code that were detected: the Summary says how to continue in each. */
   otherHarnesses: Harness[];
-  /** Once `skills add` ran, or found the skills current: the harnesses it said it installed Binnacle's skills into, Claude Code apart, and the `--skip-harness` ids the removal named. */
+  /** Once `skills add` ran: the harnesses it said it installed Binnacle's skills into, Claude Code apart, and the `--skip-harness` ids the removal named. */
   skills: { into: string[]; skipped: string[] } | null;
   /** Only the plan is worked out, for `--plan --json`: nothing is asked, and what is said is kept as notes. */
   planOnly: boolean;
@@ -638,8 +638,7 @@ function planSkillSet(session: Session, { what, claudeCodeHas, source, skills }:
   if (installed?.state === 'current') {
     session.say(`${where} are current. The plan installs them again, so that a harness installed since they were gets them.`);
     record(session, 'found', `${what}: current`);
-  }
-  if (installed?.state === 'stale') session.say(`${where} are stale: ${installed.reason}. The plan installs them again.`);
+  } else if (installed?.state === 'stale') session.say(`${where} are stale: ${installed.reason}. The plan installs them again.`);
   if (!onPath('npx')) {
     session.say(`\`npx\` is not on PATH, so binn init does not install ${what}. Once it is, run:\n\n${body}\n`);
     return record(session, 'printed', `${what}: \`npx\` is not on PATH`);
