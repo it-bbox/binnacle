@@ -132,7 +132,7 @@ export async function init(
     session.say('');
     pluginStep(session, plugins);
     session.say('');
-    skillsStep(session, harnesses, options.skipHarness ?? []);
+    skillsStep(session, harnesses, tools, options.skipHarness ?? []);
     session.say('');
     // The manifest as it is now, or the tracker it would propose: the plan is not yet written.
     mattPocockStep(session, declaredManifest(session.root)?.tracker.provider ?? forgeRemote(git.remotes)?.provider ?? 'local');
@@ -592,58 +592,100 @@ function pluginStep(session: Session, plugins: ClaudePlugins): void {
 }
 
 /**
- * Step 5b: Binnacle's skills, as this package's `binnacle-<action>` copy, into every harness the
- * `skills` CLI detects, at user scope, then out of Claude Code again, which has the plugin
- * (ADR-0039), and out of every `skipHarness` id. Only when `binn` detected a harness: with none
- * detected and `-y`, the `skills` CLI installs into every harness it knows. Without `npx` the
- * commands are printed. A failed call is reported with its output, and the next still runs.
+ * Step 5b: each skill set into every harness the `skills` CLI detects, at user scope, then out
+ * of Claude Code again, which has it as a plugin (ADR-0039), and out of every `skipHarness` id:
+ * Binnacle's, as this package's `binnacle-<action>` copy, then Matt Pocock Skills and Ponytail
+ * from their repositories, unless the manifest declares one false. Only when `binn` detected a
+ * harness: with none detected and `-y`, the `skills` CLI installs into every harness it knows.
+ * Without `npx` the commands are printed. A failed call is reported with its output, and the
+ * next still runs.
  */
-function skillsStep(session: Session, harnesses: Harness[], skipHarness: string[]): void {
-  const what = "Binnacle's skills";
-  if (harnesses.length === 0) {
-    session.say(`No harness is detected, so ${what} are not installed: the skills CLI would install into every harness it knows. Install a harness, then run binn init again.`);
-    return record(session, 'skipped', `${what}: no harness is detected`);
-  }
-  const commands = [
-    ['skills', 'add', SKILLS_COPY, '-g', '-y'],
-    ['skills', 'remove', '-g', '-a', 'claude-code', ...skipHarness, '-s', ...readdirSync(SKILLS_COPY).sort(), '-y'],
+function skillsStep(session: Session, harnesses: Harness[], tools: ToolState[], skipHarness: string[]): void {
+  const sets: SkillSet[] = [
+    { what: "Binnacle's skills", plugin: 'the binnacle plugin', source: SKILLS_COPY, skills: readdirSync(SKILLS_COPY).sort() },
+    ...tools.flatMap(({ tool: { title, plugin }, state }) =>
+      plugin && state !== 'declared-false' ? [{ what: title, plugin: 'its plugin', source: plugin.source, skills: null }] : [],
+    ),
   ];
-  const shown = commands.map((args) => `npx ${args.map(quoted).join(' ')}`);
-  const body = shown.map((line) => `  ${line}`).join('\n');
-  const installed = binnacleSkills();
+  if (harnesses.length === 0) {
+    session.say(
+      `No harness is detected, so ${inSentence(sets.map(({ what }) => what))} are not installed: the skills CLI would install into every harness it knows. Install a harness, then run binn init again.`,
+    );
+    for (const { what } of sets) record(session, 'skipped', `${what}: no harness is detected`);
+    return;
+  }
+  for (const set of sets) planSkillSet(session, set, skipHarness);
+}
+
+/**
+ * A skill set the `skills` CLI installs: what it is, what Claude Code has it as, where it comes
+ * from, and its skills, or null for a repository's, which its add reports as JSON once it has run.
+ */
+type SkillSet = { what: string; plugin: string; source: string; skills: string[] | null };
+
+function planSkillSet(session: Session, { what, plugin, source, skills }: SkillSet, skipHarness: string[]): void {
+  const binnacle = skills !== null;
+  const add = ['skills', 'add', source, '-g', '-y', ...(binnacle ? [] : ['--json'])];
+  const removal = (names: string[]): string[] => ['skills', 'remove', '-g', '-a', 'claude-code', ...skipHarness, '-s', ...names, '-y'];
+  const shown = (args: string[]): string => `npx ${args.map(quoted).join(' ')}`;
+  const shownRemoval = binnacle ? shown(removal(skills)) : `${shown(removal([]).slice(0, -2))} -s <each skill the add installed> -y`;
+  const body = `  ${shown(add)}\n  ${shownRemoval}`;
+  // Binnacle's set alone is versioned by Binnacle (spec, *Freshness*): a current one is not installed again.
+  const installed = binnacle ? binnacleSkills() : null;
   const where = `${what} in ${tilde(INSTALLED_SKILLS)}`;
-  if (installed.state === 'current') {
+  if (installed?.state === 'current') {
     // ponytail: current is read from ~/.agents/skills alone (spec, *Freshness*), not per harness; a harness installed since gets them by hand.
     session.say(`${where} are current, so they are not installed again. A harness installed since they were gets them by running:\n\n${body}\n`);
     session.skills = { into: [], skipped: [] };
     return record(session, 'found', `${what}: current`);
   }
-  if (installed.state === 'stale') session.say(`${where} are stale: ${installed.reason}. The plan installs them again.`);
+  if (installed?.state === 'stale') session.say(`${where} are stale: ${installed.reason}. The plan installs them again.`);
   if (!onPath('npx')) {
     session.say(`\`npx\` is not on PATH, so binn init does not install ${what}. Once it is, run:\n\n${body}\n`);
     return record(session, 'printed', `${what}: \`npx\` is not on PATH`);
   }
   session.plan.push({
     heading:
-      `Install ${what} into every harness the skills CLI detects, at user scope, outside the repository, then remove them from Claude Code, which has the binnacle plugin` +
+      `Install ${what}${binnacle ? '' : ` from ${source}`} into every harness the skills CLI detects, at user scope, outside the repository, then remove them from Claude Code, which has ${plugin}` +
       `${skipHarness.length > 0 ? `, and from ${inSentence(skipHarness)}` : ''}, by running`,
     body,
-    declined: `install ${what}`,
+    declined: binnacle ? `install ${what}` : `install ${what} into every harness`,
     apply() {
-      commands.forEach((args, index) => {
-        session.say(`Running ${shown[index]}...`);
-        // ponytail: no shell, so a --skip-harness id and the package's path pass as they are; Windows' `npx.cmd` would need one, as in the servers step.
-        const run = spawnSync('npx', args, { cwd: session.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-        const output = `${run.stdout ?? ''}${run.stderr ?? ''}`.trim();
-        if (run.status !== 0) {
-          session.say(`${shown[index]} failed${output ? `:\n${output}` : '.'}`);
-          return record(session, 'failed', shown[index]!);
-        }
-        record(session, 'ran', shown[index]!);
-        if (index === 0) session.skills = { into: installedInto(output), skipped: skipHarness };
-      });
+      const added = runSkills(session, add);
+      if (binnacle && added) session.skills = { into: installedInto(`${added.stdout}${added.stderr}`), skipped: skipHarness };
+      const names = skills ?? (added ? addedSkills(added.stdout) : []);
+      if (names.length === 0) {
+        session.say(`${what} are not removed from Claude Code: ${added ? 'its add named no skills' : 'its add failed'}.`);
+        return record(session, 'skipped', `removing ${what} from Claude Code: ${added ? 'its add named no skills' : 'its add failed'}`);
+      }
+      runSkills(session, removal(names));
     },
   });
+}
+
+/** Runs one `skills` CLI call through `npx`, reported and recorded; its output once it succeeded, null once it failed. */
+function runSkills(session: Session, args: string[]): { stdout: string; stderr: string } | null {
+  const shown = `npx ${args.map(quoted).join(' ')}`;
+  session.say(`Running ${shown}...`);
+  // ponytail: no shell, so a --skip-harness id and the package's path pass as they are; Windows' `npx.cmd` would need one, as in the servers step.
+  const run = spawnSync('npx', args, { cwd: session.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  if (run.status !== 0) {
+    const output = `${run.stdout ?? ''}${run.stderr ?? ''}`.trim();
+    session.say(`${shown} failed${output ? `:\n${output}` : '.'}`);
+    record(session, 'failed', shown);
+    return null;
+  }
+  record(session, 'ran', shown);
+  return { stdout: run.stdout ?? '', stderr: run.stderr ?? '' };
+}
+
+/** The skills `skills add --json` lists, by name; none when its output is not that list. */
+function addedSkills(json: string): string[] {
+  try {
+    return (JSON.parse(json) as { name?: unknown }[]).map(({ name }) => name).filter((name): name is string => typeof name === 'string');
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -935,19 +977,13 @@ const inSentence = (names: string[]): string => (names.length < 2 ? names.join('
  * executables through a package manager, the skill sets that ship as Claude Code plugins through
  * Claude Code's plugin CLI at user scope, as the binnacle plugin is (ADR-0027). A prerequisite is
  * named, never installed, and no installer script is ever run; a tool that needs it is left out,
- * its server included. A detected harness other than Claude Code is told where each skill set is
- * had. One install that fails leaves the others to run.
+ * its server included. Every other harness gets the skill sets from the skills step. One install
+ * that fails leaves the others to run.
  */
 function toolsStep(session: Session, tools: ToolState[]): void {
   const named = new Set<string>();
   for (const { tool, state, why } of tools) {
     const { title, name, executable, install, prerequisite, plugin } = tool;
-    // A harness with no channel for a plugin is pointed at where the skill set is had.
-    if (plugin && state !== 'declared-false' && session.otherHarnesses.length > 0) {
-      const harnesses = inSentence(session.otherHarnesses.map(({ name: harness }) => harness));
-      session.say(`binn init installs ${title} only into Claude Code. For ${harnesses}, get it with ${plugin.elsewhere}.`);
-      record(session, 'printed', `${title} for ${harnesses}: ${plugin.elsewhere}`);
-    }
     if (state === 'declared-false') {
       session.say(`${MANIFEST_RELATIVE} declares ${name}: false, so ${title} is not proposed.`);
       record(session, 'skipped', `${title}: ${MANIFEST_RELATIVE} declares it false`);
@@ -955,7 +991,7 @@ function toolsStep(session: Session, tools: ToolState[]): void {
       session.say(`${title} is installed (${why}). It is left as it is.`);
       record(session, 'found', `${title}: ${why}`);
     } else if (state === 'no-channel') {
-      session.say(`${title} is ${why}, so it is not installed. Get it with ${plugin!.elsewhere}, or from inside Claude Code.`);
+      session.say(`${title} is ${why}, so its Claude Code plugin is not installed.`);
       record(session, 'skipped', `${title}: ${why}`);
     } else if (state === 'install' && plugin) {
       session.say(`Claude Code does not list ${title}. Its install is in the plan.`);

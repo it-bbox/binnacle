@@ -1456,18 +1456,16 @@ test('the skill plugins: one the manifest declares false is not proposed', (t) =
   assert.match(result.stdout, /skipped\s+Ponytail: \.binnacle\/project\.yaml declares it false/);
 });
 
-test('the skill plugins: for Codex, opencode or VS Code detected, the Summary names where each skill set is had', (t) => {
+test('the skill plugins: for Codex, opencode or VS Code detected, no Summary line points them at where a skill set is had', (t) => {
   const home = makeHome(t);
   for (const name of ['codex', 'opencode', 'code']) installExecutable(home, name);
-  const root = makeRepository(t, 'skills-elsewhere', { '.binnacle/project.yaml': 'version: 1\nproject:\n  id: skills-elsewhere\ncapabilities:\n  matt_pocock_skills: false\n' });
+  const root = makeRepository(t, 'skills-elsewhere');
 
   const result = binnIn(home)(root, '\n\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
-  const summary = result.stdout.slice(result.stdout.indexOf('Summary:'));
-  assert.match(summary, /printed\s+Ponytail for Codex, opencode and VS Code: [^\n]*github\.com\/DietrichGebert\/ponytail/);
-  // Declared false, it is not pointed at either.
-  assert.doesNotMatch(summary, /Matt Pocock Skills for/);
+  // The skills step installs them there instead.
+  assert.doesNotMatch(result.stdout, /(Matt Pocock Skills|Ponytail) for Codex|only into Claude Code|skills@latest|ponytail#install/);
 });
 
 test('the skill plugins: a failed plugin listing is reported once, and no plugin is installed', (t) => {
@@ -1496,7 +1494,7 @@ test('the skill plugins: without Claude Code detected nothing is installed, and 
   const summary = result.stdout.slice(result.stdout.indexOf('Summary:'));
   assert.match(summary, /skipped\s+Matt Pocock Skills: a Claude Code plugin, and Claude Code is not detected/);
   assert.match(summary, /skipped\s+Ponytail: a Claude Code plugin, and Claude Code is not detected/);
-  assert.match(summary, /printed\s+Matt Pocock Skills for Codex: [^\n]*github\.com\/mattpocock\/skills/);
+  assert.doesNotMatch(summary, /Matt Pocock Skills for Codex/);
   assert.equal(readManifest(root).manifest.capabilities.ponytail, undefined);
 });
 
@@ -1990,22 +1988,47 @@ test('binn --help names --apply for binn init', () => {
 const COPY = join(PACKAGE, 'skills');
 const BINNACLE_SKILLS = readdirSync(COPY).sort();
 const SKILLS_ADD = ['skills', 'add', COPY, '-g', '-y'];
-const skillsRemove = (...skipped: string[]): string[] => ['skills', 'remove', '-g', '-a', 'claude-code', ...skipped, '-s', ...BINNACLE_SKILLS, '-y'];
+const removal = (skills: string[], skipped: string[]): string[] => ['skills', 'remove', '-g', '-a', 'claude-code', ...skipped, '-s', ...skills, '-y'];
+const skillsRemove = (...skipped: string[]): string[] => removal(BINNACLE_SKILLS, skipped);
+/** Matt Pocock Skills and Ponytail, from their repositories: each removal names the skills the fake `npx`'s add reports as JSON. */
+const MATT_POCOCK_ADD = ['skills', 'add', 'mattpocock/skills', '-g', '-y', '--json'];
+const PONYTAIL_ADD = ['skills', 'add', 'DietrichGebert/ponytail', '-g', '-y', '--json'];
+const mattPocockRemove = (...skipped: string[]): string[] => removal(['grill-with-docs', 'tdd'], skipped);
+const ponytailRemove = (...skipped: string[]): string[] => removal(['ponytail', 'ponytail-audit'], skipped);
+/** What the plan shows for a repository's removal: its skills are known once its add has run. */
+const shownRemoval = (...skipped: string[]): string => `npx ${['skills', 'remove', '-g', '-a', 'claude-code', ...skipped].join(' ')} -s <each skill the add installed> -y`;
+/** Every set's add and removal, in order: Binnacle's, Matt Pocock Skills, Ponytail. */
+const allSkills = (...skipped: string[]): string[][] => [
+  SKILLS_ADD,
+  skillsRemove(...skipped),
+  MATT_POCOCK_ADD,
+  mattPocockRemove(...skipped),
+  PONYTAIL_ADD,
+  ponytailRemove(...skipped),
+];
 
 /**
  * A fake `npx` first on PATH, recording each call as fakeClaude does. `skills add` prints the
- * line the `skills` CLI prints for the harnesses it detected; `failing` names the subcommand
- * that fails, with output of its own.
+ * line the `skills` CLI prints for the harnesses it detected, and with `--json` the skills it
+ * installed from Matt Pocock's or Ponytail's repository, as the `skills` CLI does; `failing`
+ * names the subcommand that fails, with output of its own.
  */
 function fakeNpx(home: Home, failing?: 'add' | 'remove'): () => string[][] {
   const calls = join(home.home, 'npx-calls');
+  const installed = (...names: string[]): string => JSON.stringify(names.map((name) => ({ name, status: 'installed', agents: ['codex', 'claude-code'] })));
   writeFileSync(
     join(home.bin, 'npx'),
     `#!/bin/sh
 for arg in "$@"; do printf '%s\\t' "$arg"; done >> '${calls}'
 echo >> '${calls}'
 if [ "$2" = "${failing ?? ''}" ]; then echo "skills $2 broke: no network"; exit 1; fi
-if [ "$2" = "add" ]; then printf '\\033[2m│\\033[0m\\n●  Installing to: \\033[36mCodex\\033[0m, \\033[36mAntigravity\\033[0m, \\033[36mClaude Code\\033[0m\\n'; fi
+if [ "$2" = "add" ]; then
+  case "$3" in
+    mattpocock/skills) echo 'npm warn exec installing skills' >&2; printf '%s\\n' '${installed('grill-with-docs', 'tdd')}' ;;
+    DietrichGebert/ponytail) printf '%s\\n' '${installed('ponytail', 'ponytail-audit')}' ;;
+    *) printf '\\033[2m│\\033[0m\\n●  Installing to: \\033[36mCodex\\033[0m, \\033[36mAntigravity\\033[0m, \\033[36mClaude Code\\033[0m\\n' ;;
+  esac
+fi
 exit 0
 `,
     { mode: 0o755 },
@@ -2016,7 +2039,7 @@ exit 0
       : [];
 }
 
-test("the skills: with a harness detected, the plan adds Binnacle's skills to every harness and then removes them from Claude Code, after a yes", (t) => {
+test('the skills: with a harness detected, the plan adds each skill set to every harness and then removes it from Claude Code, after a yes', (t) => {
   const home = makeHome(t);
   fakeClaude(home, ['binnacle@binnacle', ...SKILL_PLUGINS]);
   installExecutable(home, 'codex');
@@ -2027,21 +2050,20 @@ test("the skills: with a harness detected, the plan adds Binnacle's skills to ev
 
   assert.equal(result.status, 0, result.stderr);
   assert.ok(BINNACLE_SKILLS.length > 0 && BINNACLE_SKILLS.every((name) => name.startsWith('binnacle-')), BINNACLE_SKILLS.join(' '));
-  assert.deepEqual(npx(), [SKILLS_ADD, skillsRemove()]);
-  const question = result.stdout.indexOf(PLAN_QUESTION);
-  for (const args of [SKILLS_ADD, skillsRemove()]) {
-    const shown = result.stdout.indexOf(`npx ${args.join(' ')}`);
-    assert.ok(shown >= 0 && shown < question, `${args.join(' ')}\n${result.stdout}`);
-  }
+  assert.deepEqual(npx(), allSkills());
+  const plan = result.stdout.slice(0, result.stdout.indexOf(PLAN_QUESTION));
+  for (const args of [SKILLS_ADD, skillsRemove(), MATT_POCOCK_ADD, PONYTAIL_ADD]) assert.ok(plan.includes(`npx ${args.join(' ')}`), `${args.join(' ')}\n${result.stdout}`);
+  assert.match(plan, /Install Matt Pocock Skills from mattpocock\/skills into every harness the skills CLI detects/);
+  assert.match(plan, /Install Ponytail from DietrichGebert\/ponytail into every harness the skills CLI detects/);
+  assert.ok(plan.includes(shownRemoval()), result.stdout);
   const summary = result.stdout.slice(result.stdout.indexOf('Summary:'));
-  assert.match(summary, /ran\s+npx skills add /);
-  assert.match(summary, /ran\s+npx skills remove /);
+  for (const args of allSkills()) assert.ok(summary.includes(`ran       npx ${args.join(' ')}`), `${args.join(' ')}\n${summary}`);
   // The harnesses the skills CLI named, Claude Code apart: it keeps the plugin.
   assert.match(summary, /Binnacle's skills are installed into Codex and Antigravity: run `binnacle-product` there\./);
   assert.match(summary, /Run `binnacle-product` in Codex/);
 });
 
-test('the skills: every --skip-harness is added to the removal, in the plan and in the call', (t) => {
+test('the skills: every --skip-harness is added to each removal, in the plan and in the call', (t) => {
   const home = makeHome(t);
   installExecutable(home, 'codex');
   const npx = fakeNpx(home);
@@ -2050,10 +2072,32 @@ test('the skills: every --skip-harness is added to the removal, in the plan and 
   const result = binnIn(home)(root, '\n\n', 'init', '--skip-harness', 'cursor', '--skip-harness', 'pi');
 
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(npx(), [SKILLS_ADD, skillsRemove('cursor', 'pi')]);
+  assert.deepEqual(npx(), allSkills('cursor', 'pi'));
   assert.ok(result.stdout.includes(`npx ${skillsRemove('cursor', 'pi').join(' ')}`), result.stdout);
+  assert.ok(result.stdout.includes(shownRemoval('cursor', 'pi')), result.stdout);
   assert.match(result.stdout, /remove them from Claude Code, which has the binnacle plugin, and from cursor and pi, by running:/);
+  assert.match(result.stdout, /remove them from Claude Code, which has its plugin, and from cursor and pi, by running:/);
   assert.match(result.stdout, /Binnacle's skills are installed into Codex and Antigravity, then removed from cursor and pi: run `binnacle-product` there\./);
+});
+
+test('the skills: a skill set the manifest declares false is not planned', (t) => {
+  for (const [capability, left, kept] of [
+    ['ponytail', PONYTAIL_ADD, MATT_POCOCK_ADD],
+    ['matt_pocock_skills', MATT_POCOCK_ADD, PONYTAIL_ADD],
+  ] as const) {
+    const home = makeHome(t);
+    installExecutable(home, 'codex');
+    const npx = fakeNpx(home);
+    const root = makeRepository(t, `skills-${capability}-false`, { '.binnacle/project.yaml': `version: 1\nproject:\n  id: x\ncapabilities:\n  ${capability}: false\n` });
+
+    const result = binnIn(home)(root, '\n\n', 'init');
+
+    assert.equal(result.status, 0, result.stderr);
+    const calls = npx().map((call) => call.join(' '));
+    assert.ok(!calls.includes(left.join(' ')) && calls.includes(kept.join(' ')), calls.join('\n'));
+    assert.equal(calls.length, 4, calls.join('\n'));
+    assert.ok(!result.stdout.includes(left[2]!), result.stdout);
+  }
 });
 
 test('the skills: a declined plan, and a stdin that is not a terminal, run no npx', (t) => {
@@ -2069,10 +2113,12 @@ test('the skills: a declined plan, and a stdin that is not a terminal, run no np
     assert.ok(result.stdout.includes(`npx ${SKILLS_ADD.join(' ')}`), result.stdout);
     assert.deepEqual(npx(), []);
     assert.match(result.stdout, /declined\s+install Binnacle's skills/);
+    assert.match(result.stdout, /declined\s+install Matt Pocock Skills into every harness/);
+    assert.match(result.stdout, /declined\s+install Ponytail into every harness/);
   }
 });
 
-test('the skills: with no harness detected the step is skipped, and says why', (t) => {
+test('the skills: with no harness detected the step is skipped for every set, and says why', (t) => {
   const home = makeHome(t);
   const npx = fakeNpx(home);
   const root = makeRepository(t, 'skills-nowhere');
@@ -2082,11 +2128,11 @@ test('the skills: with no harness detected the step is skipped, and says why', (
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(npx(), []);
   assert.doesNotMatch(result.stdout, /npx skills (add|remove) /);
-  assert.match(result.stdout, /skipped\s+Binnacle's skills: no harness is detected/);
+  for (const what of ["Binnacle's skills", 'Matt Pocock Skills', 'Ponytail']) assert.match(result.stdout, new RegExp(`skipped\\s+${what}: no harness is detected`));
   assert.match(result.stdout, /would install into every harness it knows/);
 });
 
-test('the skills: without npx on PATH the commands are printed, and nothing runs', (t) => {
+test('the skills: without npx on PATH the commands are printed for every set, and nothing runs', (t) => {
   const home = makeHome(t);
   installExecutable(home, 'codex');
   const root = makeRepository(t, 'skills-printed');
@@ -2095,9 +2141,11 @@ test('the skills: without npx on PATH the commands are printed, and nothing runs
 
   assert.equal(result.status, 0, result.stderr);
   const question = result.stdout.indexOf(PLAN_QUESTION);
-  for (const args of [SKILLS_ADD, skillsRemove()]) assert.ok(result.stdout.slice(0, question).includes(`  npx ${args.join(' ')}`), result.stdout);
-  assert.doesNotMatch(result.stdout.slice(result.stdout.indexOf('The plan.'), question), /Binnacle's skills/);
-  assert.match(result.stdout, /printed\s+Binnacle's skills: `npx` is not on PATH/);
+  for (const shown of [SKILLS_ADD, skillsRemove(), MATT_POCOCK_ADD, PONYTAIL_ADD].map((args) => `npx ${args.join(' ')}`).concat(shownRemoval())) {
+    assert.ok(result.stdout.slice(0, question).includes(`  ${shown}`), `${shown}\n${result.stdout}`);
+  }
+  assert.doesNotMatch(result.stdout.slice(result.stdout.indexOf('The plan.'), question), /npx skills/);
+  for (const what of ["Binnacle's skills", 'Matt Pocock Skills', 'Ponytail']) assert.match(result.stdout, new RegExp(`printed\\s+${what}: \`npx\` is not on PATH`));
 });
 
 test('the skills: a failed call is reported with its output, and the rest of the plan goes on', (t) => {
@@ -2110,11 +2158,17 @@ test('the skills: a failed call is reported with its output, and the rest of the
     const result = binnIn(home)(root, '\n\n', 'init');
 
     assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(npx(), [SKILLS_ADD, skillsRemove()]);
+    // A repository's failed add names no skills to remove; Binnacle's removal names the copy's own.
+    assert.deepEqual(npx(), failing === 'add' ? [SKILLS_ADD, skillsRemove(), MATT_POCOCK_ADD, PONYTAIL_ADD] : allSkills());
     assert.ok(result.stdout.includes(`skills ${failing} broke: no network`), result.stdout);
     const summary = result.stdout.slice(result.stdout.indexOf('Summary:'));
-    assert.match(summary, new RegExp(`failed\\s+npx skills ${failing} `));
-    assert.match(summary, new RegExp(`ran\\s+npx skills ${failing === 'add' ? 'remove' : 'add'} `));
+    for (const args of failing === 'add' ? [SKILLS_ADD, MATT_POCOCK_ADD, PONYTAIL_ADD] : [skillsRemove(), mattPocockRemove(), ponytailRemove()]) {
+      assert.ok(summary.includes(`failed    npx ${args.join(' ')}`), `${args.join(' ')}\n${summary}`);
+    }
+    if (failing === 'add') {
+      assert.match(summary, /ran\s+npx skills remove /);
+      for (const what of ['Matt Pocock Skills', 'Ponytail']) assert.match(summary, new RegExp(`skipped\\s+removing ${what} from Claude Code: its add failed`));
+    } else assert.match(summary, /ran\s+npx skills add /);
     // The rest of the plan is written.
     assert.ok(existsSync(join(root, '.codex/config.toml')));
   }
@@ -2127,8 +2181,10 @@ test('the skills: --plan --json shows the same commands, --skip-harness changes 
   const root = makeRepository(t, 'skills-applied');
 
   const json = await planJson(t, home, root, '--skip-harness', 'cursor');
-  const item = json.plan.find(({ heading }) => heading.startsWith("Install Binnacle's skills"));
-  assert.equal(item?.body, `  npx ${SKILLS_ADD.join(' ')}\n  npx ${skillsRemove('cursor').join(' ')}`);
+  const body = (start: string): string | undefined => json.plan.find(({ heading }) => heading.startsWith(start))?.body;
+  assert.equal(body("Install Binnacle's skills"), `  npx ${SKILLS_ADD.join(' ')}\n  npx ${skillsRemove('cursor').join(' ')}`);
+  assert.equal(body('Install Matt Pocock Skills from'), `  npx ${MATT_POCOCK_ADD.join(' ')}\n  ${shownRemoval('cursor')}`);
+  assert.equal(body('Install Ponytail from'), `  npx ${PONYTAIL_ADD.join(' ')}\n  ${shownRemoval('cursor')}`);
   assert.deepEqual(npx(), []);
   assert.notEqual((await planJson(t, home, root)).id, json.id);
   assert.notEqual((await planJson(t, home, root, '--skip-harness', 'pi')).id, json.id);
@@ -2139,7 +2195,7 @@ test('the skills: --plan --json shows the same commands, --skip-harness changes 
 
   const result = binnIn(home, false)(root, '', 'init', '--apply', json.id, '--skip-harness', 'cursor');
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(npx(), [SKILLS_ADD, skillsRemove('cursor')]);
+  assert.deepEqual(npx(), allSkills('cursor'));
 });
 
 /** The package's copy installed in `home`'s `~/.agents/skills`, as the `skills` CLI keeps it, with `binnacle-product` at `productVersion` when given. */
@@ -2151,7 +2207,7 @@ function installCopy(home: Home, productVersion?: string): void {
   writeFileSync(file, readFileSync(file, 'utf8').replace(/^(\s+version: )".*"$/m, `$1"${productVersion}"`));
 }
 
-test("the skills: a current set in ~/.agents/skills plans no Binnacle add, and says it is current", (t) => {
+test("the skills: a current set in ~/.agents/skills plans no Binnacle add, and says it is current, while Matt Pocock Skills and Ponytail are still planned", (t) => {
   const home = makeHome(t);
   installExecutable(home, 'codex');
   installCopy(home);
@@ -2161,7 +2217,8 @@ test("the skills: a current set in ~/.agents/skills plans no Binnacle add, and s
   const result = binnIn(home)(root, '\n\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(npx(), []);
+  // Binnacle does not version the other two sets: they are planned whatever ~/.agents/skills holds.
+  assert.deepEqual(npx(), allSkills().slice(2));
   assert.match(result.stdout, /Binnacle's skills in ~\/\.agents\/skills are current/);
   // Current is read from ~/.agents/skills alone: a harness installed since gets them by hand.
   assert.ok(result.stdout.includes(`  npx ${SKILLS_ADD.join(' ')}\n  npx ${skillsRemove().join(' ')}`), result.stdout);
@@ -2182,7 +2239,7 @@ test('the skills: a stale set in ~/.agents/skills is reinstalled, and the plan s
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout.slice(0, result.stdout.indexOf(PLAN_QUESTION)), /Binnacle's skills in ~\/\.agents\/skills are stale: binnacle-product \(version old0000\)/);
-  assert.deepEqual(npx(), [SKILLS_ADD, skillsRemove()]);
+  assert.deepEqual(npx(), allSkills());
 });
 
 test('binn init refuses an empty --skip-harness as a usage error, and --help names it', (t) => {

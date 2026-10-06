@@ -30,9 +30,10 @@ export type Tool = {
   /**
    * Its Claude Code plugin, installed through Claude Code's plugin CLI at user scope: `id` as
    * `claude plugin list` names it, the `marketplace` to add first where it is not in Claude
-   * Code's official one, and `elsewhere`, where a harness without that channel gets it.
+   * Code's official one, and `source`, the repository the `skills` CLI installs it from into
+   * every other harness (ADR-0039).
    */
-  plugin?: { id: string; marketplace?: string; elsewhere: string };
+  plugin?: { id: string; marketplace?: string; source: string };
 };
 
 type Prerequisite = { executable: string; how: string };
@@ -82,13 +83,13 @@ export const TOOLS: Tool[] = [
     name: 'matt_pocock_skills',
     title: 'Matt Pocock Skills',
     files: [],
-    plugin: { id: 'mattpocock-skills@claude-plugins-official', elsewhere: '`npx skills@latest add mattpocock/skills` (https://github.com/mattpocock/skills)' },
+    plugin: { id: 'mattpocock-skills@claude-plugins-official', source: 'mattpocock/skills' },
   },
   {
     name: 'ponytail',
     title: 'Ponytail',
     files: [],
-    plugin: { id: 'ponytail@ponytail', marketplace: 'DietrichGebert/ponytail', elsewhere: 'the install for each harness at https://github.com/DietrichGebert/ponytail#install' },
+    plugin: { id: 'ponytail@ponytail', marketplace: 'DietrichGebert/ponytail', source: 'DietrichGebert/ponytail' },
   },
 ];
 

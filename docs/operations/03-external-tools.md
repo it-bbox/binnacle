@@ -18,12 +18,14 @@ A tool already on `PATH` is reported as found and left alone. A tool the manifes
 
 Matt Pocock Skills and Ponytail ship as Claude Code plugins. Init installs them through Claude Code's plugin CLI, at user scope, outside the repository, as it installs the `binnacle` plugin, in the same plan:
 
-| Skill set | Capability | Detected by | Install commands | Elsewhere |
+| Skill set | Capability | Detected by | Install commands | Every other harness, from |
 | --- | --- | --- | --- | --- |
-| Matt Pocock Skills | `matt_pocock_skills` | `claude plugin list --json` lists `mattpocock-skills@…` | `claude plugin install mattpocock-skills@claude-plugins-official --scope user` (Claude Code's official marketplace, nothing to add first) | `npx skills@latest add mattpocock/skills` |
-| Ponytail | `ponytail` | `claude plugin list --json` lists `ponytail@…` | `claude plugin marketplace add DietrichGebert/ponytail --scope user`, then `claude plugin install ponytail@ponytail --scope user` | the install for each harness in https://github.com/DietrichGebert/ponytail#install |
+| Matt Pocock Skills | `matt_pocock_skills` | `claude plugin list --json` lists `mattpocock-skills@…` | `claude plugin install mattpocock-skills@claude-plugins-official --scope user` (Claude Code's official marketplace, nothing to add first) | `mattpocock/skills` |
+| Ponytail | `ponytail` | `claude plugin list --json` lists `ponytail@…` | `claude plugin marketplace add DietrichGebert/ponytail --scope user`, then `claude plugin install ponytail@ponytail --scope user` | `DietrichGebert/ponytail` |
 
-Claude Code is asked for its plugins once, for these and the `binnacle` plugin. A plugin it already lists, from any marketplace, is reported as found and left alone. A skill set declared `false` under `capabilities` is not proposed. Without Claude Code detected, or without `claude` on `PATH`, nothing is installed and the Summary says why. For each other harness detected — Codex, opencode, VS Code — the Summary names where each skill set is had: init installs them into Claude Code only. A manifest init creates declares `true` for a skill set it installs or finds. This does not replace `/setup-matt-pocock-skills`, which init still names when the project has no Matt Pocock layout.
+Claude Code is asked for its plugins once, for these and the `binnacle` plugin. A plugin it already lists, from any marketplace, is reported as found and left alone. A skill set declared `false` under `capabilities` is not proposed, to Claude Code or to any other harness. Without Claude Code detected, or without `claude` on `PATH`, no plugin is installed and the Summary says why. A manifest init creates declares `true` for a skill set it installs or finds. This does not replace `/setup-matt-pocock-skills`, which init still names when the project has no Matt Pocock layout.
+
+Every other harness gets both sets as Binnacle's own skills reach it (ADR-0039): when `binn` detected a harness, the plan runs, for each set, `npx skills add <repository> -g -y --json`, then `npx skills remove -g -a claude-code [--skip-harness ids] -s <each skill the add installed> -y`, since Claude Code keeps the plugin. The removal names the skills the add's JSON lists, so the plan shows them as a placeholder; when the add fails, the removal is skipped and the Summary says so. Without `npx` on `PATH` the commands are printed instead.
 
 ### The MCP servers it registers
 
