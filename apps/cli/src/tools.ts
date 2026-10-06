@@ -192,13 +192,22 @@ export function registeredWith(harness: string, root: string, name: string): str
   return registeredIn(repository.filter(mine), root, root, name) ?? registeredIn(user.filter(mine), null, root, name);
 }
 
+/** This package's directory, which carries the plugin and the marketplace that lists it (ADR-0027). */
+export const PACKAGE_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
+
 /** This package's `binnacle-<action>` copy of the plugin's skills, which the `skills` CLI installs into other harnesses (ADR-0039). */
-export const SKILLS_COPY = join(dirname(dirname(fileURLToPath(import.meta.url))), 'skills');
+export const SKILLS_COPY = join(PACKAGE_DIR, 'skills');
+
+/** A path under the home directory written with `~`, as a person would say it. */
+export const tilde = (path: string): string => (path.startsWith(`${homedir()}/`) ? `~${path.slice(homedir().length)}` : path);
 
 /** Where the `skills` CLI keeps its canonical user-scope copies, which every harness's install points at. */
 export const INSTALLED_SKILLS = join(homedir(), '.agents', 'skills');
 
-/** The `version` under a SKILL.md's `metadata`, or null when it has none or cannot be read. */
+/**
+ * The `version` under a SKILL.md's `metadata`, or null when it has none or cannot be read.
+ * ponytail: a textual read that takes `version` as the first key under `metadata`, as the package's build writes it; a YAML parser if another writer reorders it.
+ */
 function skillVersion(file: string): string | null {
   try {
     return /^metadata:\s*\n\s+version:\s*["']?([^"'\s]+)/m.exec(readFileSync(file, 'utf8'))?.[1] ?? null;
@@ -230,6 +239,7 @@ export function binnacleSkills(): { state: 'none' | 'current' } | { state: 'stal
   }
   if (missing.length === skills.length) return { state: 'none' };
   if (differ.length === 0 && missing.length === 0) return { state: 'current' };
+  // The build gives every skill of the copy the plugin's one version.
   const version = skillVersion(join(SKILLS_COPY, skills[0]!, 'SKILL.md'));
   const parts = [differ.length > 0 ? `${differ.join(', ')} differ from this package's version ${version}` : '', missing.length > 0 ? `${missing.join(', ')} ${missing.length === 1 ? 'is' : 'are'} missing` : ''];
   return { state: 'stale', reason: parts.filter(Boolean).join(', and ') };

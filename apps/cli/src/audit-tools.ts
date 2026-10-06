@@ -1,10 +1,9 @@
 import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { type Finding } from '@binnacle/core';
 import { MANIFEST_RELATIVE, resolveArtifactRoots } from '@binnacle/daemon';
 import { sessionHistory } from './history.ts';
-import { binnacleSkills, declaredCapabilities, INSTALLED_SKILLS, mcpSources, registeredIn, TOOLS } from './tools.ts';
+import { binnacleSkills, declaredCapabilities, INSTALLED_SKILLS, mcpSources, registeredIn, tilde, TOOLS } from './tools.ts';
 
 /**
  * The capabilities and telemetry-readiness areas of `binn audit`. They read configuration
@@ -15,9 +14,6 @@ import { binnacleSkills, declaredCapabilities, INSTALLED_SKILLS, mcpSources, reg
 /** The tools the audit checks, from the Standard setup's table; the others have no audit check yet. */
 const AUDITED = ['serena', 'graphify', 'context7'];
 
-/** A path under the home directory written with `~`, as a person would say it. */
-const tilde = (path: string): string => (path.startsWith(`${homedir()}/`) ? `~${path.slice(homedir().length)}` : path);
-
 /**
  * Serena, Graphify and Context7: the repository's declaration first, then its configuration files, then the user-scope ones. Nothing found is `unknown`: the tool may be configured elsewhere.
  * Then Binnacle's skills in `~/.agents/skills`, reported only when stale: a current set, or none, is not a finding.
@@ -27,21 +23,7 @@ export function capabilities(root: string): Finding[] {
   const declared = declaredCapabilities(root);
   const { repository, user } = mcpSources();
 
-  const skills = binnacleSkills();
-  const stale: Finding[] =
-    skills.state === 'stale'
-      ? [
-          {
-            code: 'capabilities.binnacle_skills',
-            area,
-            status: 'gap',
-            reason: `Binnacle's skills in ${tilde(INSTALLED_SKILLS)} are stale: ${skills.reason}. Every harness the skills CLI installed them into runs the old ones.`,
-            recommendation: "Run binn init, and confirm its plan: it reinstalls Binnacle's skills.",
-          },
-        ]
-      : [];
-
-  return [...TOOLS.filter(({ name }) => AUDITED.includes(name)).map(({ name, title, files }): Finding => {
+  const tools = TOOLS.filter(({ name }) => AUDITED.includes(name)).map(({ name, title, files }): Finding => {
     const code = `capabilities.${name}`;
     const declaration = declared[name];
     if (declaration !== undefined) {
@@ -58,7 +40,20 @@ export function capabilities(root: string): Finding[] {
       reason: `No ${title} configuration found in ${looked} (repository), or ${user.map(({ file }) => tilde(file)).join(', ')} (user scope). It may be configured somewhere else.`,
       recommendation: `If an agent here should reach ${title}, declare it under capabilities in ${MANIFEST_RELATIVE}.`,
     };
-  }), ...stale];
+  });
+
+  const skills = binnacleSkills();
+  if (skills.state !== 'stale') return tools;
+  return [
+    ...tools,
+    {
+      code: 'capabilities.binnacle_skills',
+      area,
+      status: 'gap',
+      reason: `Binnacle's skills in ${tilde(INSTALLED_SKILLS)} are stale: ${skills.reason}. Every harness the skills CLI installed them into runs the old ones.`,
+      recommendation: "Run binn init, and confirm its plan: it reinstalls Binnacle's skills.",
+    },
+  ];
 }
 
 /** Whether the session artifacts Binnacle reads exist for this repository, by counting the sessions; no message is read for anything but where and when a session started. */

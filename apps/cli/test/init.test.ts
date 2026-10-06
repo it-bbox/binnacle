@@ -2162,8 +2162,10 @@ test("the skills: a current set in ~/.agents/skills plans no Binnacle add, and s
 
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(npx(), []);
-  assert.doesNotMatch(result.stdout, /npx skills (add|remove) /);
   assert.match(result.stdout, /Binnacle's skills in ~\/\.agents\/skills are current/);
+  // Current is read from ~/.agents/skills alone: a harness installed since gets them by hand.
+  assert.ok(result.stdout.includes(`  npx ${SKILLS_ADD.join(' ')}\n  npx ${skillsRemove().join(' ')}`), result.stdout);
+  assert.doesNotMatch(result.stdout.slice(result.stdout.indexOf('The plan.')), /Install Binnacle's skills/);
   const summary = result.stdout.slice(result.stdout.indexOf('Summary:'));
   assert.match(summary, /found\s+Binnacle's skills: current/);
   assert.match(summary, /Run `binnacle-product` in Codex/);

@@ -4,7 +4,6 @@ import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFile
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, posix, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
-import { fileURLToPath } from 'node:url';
 import { isIgnored, readGitFacts, workingTree, type GitRemote } from '@binnacle/adapters';
 import { forgeRemote, instructionSets, TASK_STATES, type ImportWindow, type ProjectManifest, type TrackerProvider } from '@binnacle/core';
 import {
@@ -31,7 +30,7 @@ import { EXIT, type ExitCode } from './exit.ts';
 import { isRecord, sessionHistory } from './history.ts';
 import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, mattPocockFiles, ROADMAP_SKELETON, roadmapGaps } from './layout.ts';
 import { register } from './project-commands.ts';
-import { binnacleSkills, CONFIG_HOME, declaredCapabilities, INSTALLED_SKILLS, mcpSources, onPath, registeredWith, SKILLS_COPY, TOOLS, VSCODE_USER_DIRECTORY, type Tool } from './tools.ts';
+import { binnacleSkills, CONFIG_HOME, declaredCapabilities, INSTALLED_SKILLS, mcpSources, onPath, PACKAGE_DIR, registeredWith, SKILLS_COPY, tilde, TOOLS, VSCODE_USER_DIRECTORY, type Tool } from './tools.ts';
 
 type Outcome = 'created' | 'extended' | 'updated' | 'printed' | 'ran' | 'found' | 'checked' | 'failed' | 'declined' | 'skipped';
 
@@ -563,9 +562,6 @@ function detect(harness: Harness): string | null {
 const namesBinnacle = (text: string): boolean =>
   /"binnacle"\s*:|^\s*\[\s*mcp_servers\s*\.\s*["']?binnacle["']?\s*[\].]|^\s*(mcp_servers\s*\.\s*)?["']?binnacle["']?\s*[=.]/m.test(text);
 
-/** This package's directory, which carries the plugin and the marketplace that lists it (ADR-0027). */
-const PACKAGE_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
-
 /**
  * Step 5: the `binnacle` plugin from this very package, so that the skills match the `binn`
  * that serves their tools (ADR-0027). Only through Claude Code's own CLI, at user scope:
@@ -608,21 +604,21 @@ function skillsStep(session: Session, harnesses: Harness[], skipHarness: string[
     session.say(`No harness is detected, so ${what} are not installed: the skills CLI would install into every harness it knows. Install a harness, then run binn init again.`);
     return record(session, 'skipped', `${what}: no harness is detected`);
   }
+  const commands = [
+    ['skills', 'add', SKILLS_COPY, '-g', '-y'],
+    ['skills', 'remove', '-g', '-a', 'claude-code', ...skipHarness, '-s', ...readdirSync(SKILLS_COPY).sort(), '-y'],
+  ];
+  const shown = commands.map((args) => `npx ${args.map(quoted).join(' ')}`);
+  const body = shown.map((line) => `  ${line}`).join('\n');
   const installed = binnacleSkills();
-  const where = `${what} in ${INSTALLED_SKILLS.replace(homedir(), '~')}`;
+  const where = `${what} in ${tilde(INSTALLED_SKILLS)}`;
   if (installed.state === 'current') {
-    session.say(`${where} are current, so they are not installed again.`);
+    // ponytail: current is read from ~/.agents/skills alone (spec, *Freshness*), not per harness; a harness installed since gets them by hand.
+    session.say(`${where} are current, so they are not installed again. A harness installed since they were gets them by running:\n\n${body}\n`);
     session.skills = { into: [], skipped: [] };
     return record(session, 'found', `${what}: current`);
   }
   if (installed.state === 'stale') session.say(`${where} are stale: ${installed.reason}. The plan installs them again.`);
-  const copy = SKILLS_COPY;
-  const commands = [
-    ['skills', 'add', copy, '-g', '-y'],
-    ['skills', 'remove', '-g', '-a', 'claude-code', ...skipHarness, '-s', ...readdirSync(copy).sort(), '-y'],
-  ];
-  const shown = commands.map((args) => `npx ${args.map(quoted).join(' ')}`);
-  const body = shown.map((line) => `  ${line}`).join('\n');
   if (!onPath('npx')) {
     session.say(`\`npx\` is not on PATH, so binn init does not install ${what}. Once it is, run:\n\n${body}\n`);
     return record(session, 'printed', `${what}: \`npx\` is not on PATH`);
