@@ -33,7 +33,7 @@ Epics 1 to 9 are done: the daemon, snapshot, daily and checkpoint over MCP, the 
 
 On 2026-10-06 the owner found that Binnacle's skills, Matt Pocock Skills and Ponytail reach Claude Code alone, while the baseline makes Codex, GLM and Gemini equal harnesses. That is epic 14, Skills in any harness (`docs/05-mvp-plan.md`). It comes before epic 10, which reuses its list of harnesses; epics 10 to 12 then need `to-spec`. Epic 13, Human output, is grilled last, since it rewrites every skill's output; the vault's notes being all in English is a candidate for it.
 
-Epic 14 was grilled, specified and sliced on 2026-10-06 (ADR-0039, `specs/skills-in-any-harness/spec.md`): Claude Code keeps the plugin, every other harness gets `binnacle-<action>` skills through the `skills` CLI, and `binn call` serves harnesses without MCP. Tickets 01 and 03 are done: the skills name no harness's mechanism, and the package carries the `binnacle-<action>` copy; 02 and 04 can start; 08, the exit demonstration on the owner's Mac, is the owner's.
+Epic 14 was grilled, specified and sliced on 2026-10-06 (ADR-0039, `specs/skills-in-any-harness/spec.md`): Claude Code keeps the plugin, every other harness gets `binnacle-<action>` skills through the `skills` CLI, and `binn call` serves harnesses without MCP. Tickets 01, 03 and 04 are done: the skills name no harness's mechanism, the package carries the `binnacle-<action>` copy, and `binn init` installs it into every harness the `skills` CLI detects; 02, 05 and 06 can start; 08, the exit demonstration on the owner's Mac, is the owner's.
 
 Next action: run epic 14's tickets. `/binnacle:autopilot 14`
 
