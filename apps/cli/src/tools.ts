@@ -1,6 +1,7 @@
-import { accessSync, constants, readFileSync, statSync } from 'node:fs';
+import { accessSync, constants, existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { delimiter, join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { type ProjectManifest } from '@binnacle/core';
 import { GRAPH_DIRECTORY, readManifest } from '@binnacle/daemon';
 
@@ -189,4 +190,47 @@ export function registeredWith(harness: string, root: string, name: string): str
   const { repository, user } = mcpSources();
   const mine = ({ harness: owner }: Source): boolean => owner === harness;
   return registeredIn(repository.filter(mine), root, root, name) ?? registeredIn(user.filter(mine), null, root, name);
+}
+
+/** This package's `binnacle-<action>` copy of the plugin's skills, which the `skills` CLI installs into other harnesses (ADR-0039). */
+export const SKILLS_COPY = join(dirname(dirname(fileURLToPath(import.meta.url))), 'skills');
+
+/** Where the `skills` CLI keeps its canonical user-scope copies, which every harness's install points at. */
+export const INSTALLED_SKILLS = join(homedir(), '.agents', 'skills');
+
+/** The `version` under a SKILL.md's `metadata`, or null when it has none or cannot be read. */
+function skillVersion(file: string): string | null {
+  try {
+    return /^metadata:\s*\n\s+version:\s*["']?([^"'\s]+)/m.exec(readFileSync(file, 'utf8'))?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Binnacle's skills as installed in `~/.agents/skills`, against this package's copy: `none` when
+ * none of the copy's skills is there, `current` when each is at the copy's version, and `stale`
+ * otherwise, with which skills differ or are missing. A `binnacle-*` skill the copy no longer has
+ * is not judged.
+ */
+export function binnacleSkills(): { state: 'none' | 'current' } | { state: 'stale'; reason: string } {
+  let skills: string[];
+  try {
+    skills = readdirSync(SKILLS_COPY).sort();
+  } catch {
+    return { state: 'none' };
+  }
+  const differ: string[] = [];
+  const missing: string[] = [];
+  for (const skill of skills) {
+    const file = join(INSTALLED_SKILLS, skill, 'SKILL.md');
+    const installed = skillVersion(file);
+    if (!existsSync(file)) missing.push(skill);
+    else if (installed !== skillVersion(join(SKILLS_COPY, skill, 'SKILL.md'))) differ.push(`${skill} (${installed === null ? 'no version' : `version ${installed}`})`);
+  }
+  if (missing.length === skills.length) return { state: 'none' };
+  if (differ.length === 0 && missing.length === 0) return { state: 'current' };
+  const version = skillVersion(join(SKILLS_COPY, skills[0]!, 'SKILL.md'));
+  const parts = [differ.length > 0 ? `${differ.join(', ')} differ from this package's version ${version}` : '', missing.length > 0 ? `${missing.join(', ')} ${missing.length === 1 ? 'is' : 'are'} missing` : ''];
+  return { state: 'stale', reason: parts.filter(Boolean).join(', and ') };
 }

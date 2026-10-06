@@ -31,7 +31,7 @@ import { EXIT, type ExitCode } from './exit.ts';
 import { isRecord, sessionHistory } from './history.ts';
 import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, mattPocockFiles, ROADMAP_SKELETON, roadmapGaps } from './layout.ts';
 import { register } from './project-commands.ts';
-import { CONFIG_HOME, declaredCapabilities, mcpSources, onPath, registeredWith, TOOLS, VSCODE_USER_DIRECTORY, type Tool } from './tools.ts';
+import { binnacleSkills, CONFIG_HOME, declaredCapabilities, INSTALLED_SKILLS, mcpSources, onPath, registeredWith, SKILLS_COPY, TOOLS, VSCODE_USER_DIRECTORY, type Tool } from './tools.ts';
 
 type Outcome = 'created' | 'extended' | 'updated' | 'printed' | 'ran' | 'found' | 'checked' | 'failed' | 'declined' | 'skipped';
 
@@ -54,7 +54,7 @@ type Session = {
   outcomes: { outcome: Outcome; what: string }[];
   /** The harnesses other than Claude Code that were detected: the Summary says how to continue in each. */
   otherHarnesses: Harness[];
-  /** Once `skills add` ran: the harnesses it said it installed Binnacle's skills into, Claude Code apart, and the `--skip-harness` ids the removal named. */
+  /** Once `skills add` ran, or found the skills current: the harnesses it said it installed Binnacle's skills into, Claude Code apart, and the `--skip-harness` ids the removal named. */
   skills: { into: string[]; skipped: string[] } | null;
   /** Only the plan is worked out, for `--plan --json`: nothing is asked, and what is said is kept as notes. */
   planOnly: boolean;
@@ -608,7 +608,15 @@ function skillsStep(session: Session, harnesses: Harness[], skipHarness: string[
     session.say(`No harness is detected, so ${what} are not installed: the skills CLI would install into every harness it knows. Install a harness, then run binn init again.`);
     return record(session, 'skipped', `${what}: no harness is detected`);
   }
-  const copy = join(PACKAGE_DIR, 'skills');
+  const installed = binnacleSkills();
+  const where = `${what} in ${INSTALLED_SKILLS.replace(homedir(), '~')}`;
+  if (installed.state === 'current') {
+    session.say(`${where} are current, so they are not installed again.`);
+    session.skills = { into: [], skipped: [] };
+    return record(session, 'found', `${what}: current`);
+  }
+  if (installed.state === 'stale') session.say(`${where} are stale: ${installed.reason}. The plan installs them again.`);
+  const copy = SKILLS_COPY;
   const commands = [
     ['skills', 'add', copy, '-g', '-y'],
     ['skills', 'remove', '-g', '-a', 'claude-code', ...skipHarness, '-s', ...readdirSync(copy).sort(), '-y'],

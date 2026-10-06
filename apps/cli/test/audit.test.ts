@@ -392,6 +392,45 @@ test('an unreadable configuration file does not fail the audit', (t) => {
   assert.equal(byCode(auditIn(root, scratch(t)), 'capabilities.serena').status, 'unknown');
 });
 
+/** The package's `binnacle-<action>` copy for the `skills` CLI, built by its prepare script, and the version each skill carries. */
+const COPY = fileURLToPath(new URL('../skills', import.meta.url));
+const COPY_SKILLS = readdirSync(COPY).sort();
+const COPY_VERSION = /^metadata:\n\s+version: "([^"]+)"/m.exec(readFileSync(join(COPY, COPY_SKILLS[0]!, 'SKILL.md'), 'utf8'))![1]!;
+
+/** `skills` installed as the `skills` CLI keeps its canonical copies, under `~/.agents/skills`, each with `version` in its metadata. */
+function installSkills(home: string, skills: string[], version: (skill: string) => string): void {
+  write(home, Object.fromEntries(skills.map((skill) => [`.agents/skills/${skill}/SKILL.md`, `---\nname: ${skill}\ndescription: x\nmetadata:\n  version: "${version(skill)}"\n---\n\nText.\n`])));
+}
+
+test("Binnacle's skills installed at another version than the package's copy are one stale finding", (t) => {
+  const home = scratch(t);
+  installSkills(home, COPY_SKILLS, (skill) => (skill === 'binnacle-product' ? 'old0000' : COPY_VERSION));
+  const stale = auditIn(fixture(t), home).filter(({ code }) => code === 'capabilities.binnacle_skills');
+  assert.equal(stale.length, 1);
+  assert.equal(stale[0]!.area, 'capabilities');
+  assert.equal(stale[0]!.status, 'gap');
+  assert.match(stale[0]!.reason, /binnacle-product/);
+  assert.match(stale[0]!.reason, /~\/\.agents\/skills/);
+  assert.match(stale[0]!.recommendation ?? '', /binn init/);
+});
+
+test("Binnacle's skills partly missing beside others are one stale finding naming the missing", (t) => {
+  const home = scratch(t);
+  installSkills(home, COPY_SKILLS.filter((skill) => skill !== 'binnacle-daily'), () => COPY_VERSION);
+  const stale = auditIn(fixture(t), home).filter(({ code }) => code === 'capabilities.binnacle_skills');
+  assert.equal(stale.length, 1);
+  assert.equal(stale[0]!.status, 'gap');
+  assert.match(stale[0]!.reason, /binnacle-daily/);
+});
+
+test("Binnacle's skills current, or not installed at all, are not reported", (t) => {
+  const current = scratch(t);
+  installSkills(current, COPY_SKILLS, () => COPY_VERSION);
+  // A skill the package no longer has is not the package's to judge.
+  installSkills(current, ['binnacle-retired'], () => 'old0000');
+  for (const home of [current, scratch(t)]) assert.equal(auditIn(fixture(t), home).filter(({ code }) => code === 'capabilities.binnacle_skills').length, 0);
+});
+
 test('telemetry readiness on a machine with no session artifacts is unknown, never a gap, and names where it looked', (t) => {
   const all = findings(audit(t, ['--json'], {}, fixture(t)).stdout);
   for (const code of ['telemetry.claude_code', 'telemetry.codex']) {

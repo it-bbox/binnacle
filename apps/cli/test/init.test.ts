@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile, spawn, spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -2140,6 +2140,47 @@ test('the skills: --plan --json shows the same commands, --skip-harness changes 
   const result = binnIn(home, false)(root, '', 'init', '--apply', json.id, '--skip-harness', 'cursor');
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(npx(), [SKILLS_ADD, skillsRemove('cursor')]);
+});
+
+/** The package's copy installed in `home`'s `~/.agents/skills`, as the `skills` CLI keeps it, with `binnacle-product` at `productVersion` when given. */
+function installCopy(home: Home, productVersion?: string): void {
+  const installed = join(home.home, '.agents', 'skills');
+  cpSync(COPY, installed, { recursive: true });
+  if (productVersion === undefined) return;
+  const file = join(installed, 'binnacle-product', 'SKILL.md');
+  writeFileSync(file, readFileSync(file, 'utf8').replace(/^(\s+version: )".*"$/m, `$1"${productVersion}"`));
+}
+
+test("the skills: a current set in ~/.agents/skills plans no Binnacle add, and says it is current", (t) => {
+  const home = makeHome(t);
+  installExecutable(home, 'codex');
+  installCopy(home);
+  const npx = fakeNpx(home);
+  const root = makeRepository(t, 'skills-current');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(npx(), []);
+  assert.doesNotMatch(result.stdout, /npx skills (add|remove) /);
+  assert.match(result.stdout, /Binnacle's skills in ~\/\.agents\/skills are current/);
+  const summary = result.stdout.slice(result.stdout.indexOf('Summary:'));
+  assert.match(summary, /found\s+Binnacle's skills: current/);
+  assert.match(summary, /Run `binnacle-product` in Codex/);
+});
+
+test('the skills: a stale set in ~/.agents/skills is reinstalled, and the plan says why', (t) => {
+  const home = makeHome(t);
+  installExecutable(home, 'codex');
+  installCopy(home, 'old0000');
+  const npx = fakeNpx(home);
+  const root = makeRepository(t, 'skills-stale');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout.slice(0, result.stdout.indexOf(PLAN_QUESTION)), /Binnacle's skills in ~\/\.agents\/skills are stale: binnacle-product \(version old0000\)/);
+  assert.deepEqual(npx(), [SKILLS_ADD, skillsRemove()]);
 });
 
 test('binn init refuses an empty --skip-harness as a usage error, and --help names it', (t) => {
