@@ -156,7 +156,7 @@ test('autopilot leaves the Next action to the owner, in the brief and in its rep
 test('autopilot refreshes the plugin only when a merge changed its skills, with the development workflow\'s commands, and a failure does not stop the run', () => {
   const skill = skillText('autopilot');
   assert.match(skill, /changed the `binnacle` plugin's skills \(only when this project is Binnacle itself\)/);
-  assert.match(skill, /refresh the plugin as `docs\/workflow\/02-development-workflow\.md` says in its step 4/);
+  assert.match(skill, /refresh the plugin as `docs\/workflow\/02-development-workflow\.md` says under \*Per ticket\* for a merge that changed the plugin's skills/);
   assert.match(skill, /after any frozen install and before regenerating the dashboard/);
   const workflow = readFileSync(fileURLToPath(new URL('../../../docs/workflow/02-development-workflow.md', import.meta.url)), 'utf8');
   assert.match(workflow, /run `pnpm --filter @binnacle\/cli run prepare`; then, if `claude plugin list --json` lists `binnacle@binnacle`, `claude plugin marketplace update binnacle` then `claude plugin update binnacle@binnacle`/);
@@ -307,6 +307,8 @@ test('autopilot is started by a human only, refuses at its first step where the 
   assert.match(first, /cannot start a background agent in a worktree of its own/);
   assert.match(first, /start nothing and change nothing/);
   assert.match(first, /the epic's tickets are run by hand/);
+  // A harness that can start such an agent but not message it: what would be sent stops the ticket instead.
+  assert.match(skill, /Where the harness cannot send a message to an agent it started, whatever this skill would send to that agent stops its ticket instead/);
   // A linked worktree in general, not the one Claude Code's desktop app opens.
   assert.doesNotMatch(skill, /desktop app|--worktree/);
   const notifications = skill.split('\n').filter((line) => /push notification/.test(line));
