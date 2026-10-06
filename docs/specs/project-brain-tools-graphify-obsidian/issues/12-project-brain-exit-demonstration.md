@@ -1,6 +1,6 @@
 # 12: The exit demonstration of epic 8
 
-Status: READY
+Status: DONE
 Triage: ready-for-human
 Blocked by: 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11
 Spec: `docs/specs/project-brain-tools-graphify-obsidian/spec.md`
@@ -8,10 +8,10 @@ Spec: `docs/specs/project-brain-tools-graphify-obsidian/spec.md`
 **What to build:** epic 8's exit criterion, demonstrated by the owner.
 
 - [x] The owner runs `binn init` in a repository of their own on a machine missing some of the tools, sees every install and registration in one plan, and confirms it once.
-- [ ] The tools are installed and reachable from Claude Code and Codex, and the first graph is built.
+- [x] The tools are installed and reachable from Claude Code and Codex, and the first graph is built.
 - [x] A change merged to `main` updates the graph, and the snapshot says it is current.
 - [x] Two ready Tasks show a conflict risk the owner finds plausible, in the snapshot and on the dashboard.
-- [ ] The vault opens in Obsidian with the project's Product, Specs, Decisions, Research and `90-Graphify`, linked, and the owner's own notes untouched.
+- [x] The vault opens in Obsidian with the project's Product, Specs, Decisions, Research and `90-Graphify`, linked, and the owner's own notes untouched.
 - [x] The owner records under `## Comments` whether the Standard setup is worth having as set up. Defects are filed as tickets, and the roadmap marks epic 8 done only when none is open.
 
 ## Comments
@@ -36,3 +36,12 @@ Run by the owner on `it-bbox-site` (GitLab tracker), with a Product session alon
 - Not ticked, the vault: with `obsidian.vaultPath` set in `~/.binnacle/settings.json` (it was unset: the owner had opened the repository itself as a vault, which showed Obsidian's own graph of every Markdown file, `node_modules` included), the daemon projected every registered project, with Product, Specs, Decisions and Research, generated notes marked as such. No `90-Graphify`: the code-only graph has no `GRAPH_REPORT.md`, ticket 14.
 - Defects also filed: `/binnacle:product` does not show the graph's freshness or the risk, ticket 15; the dashboard shows the daemon's reasons in English on the Russian interface, ticket 17.
 - The owner, 2026-10-05: all of the Standard setup is needed ("все нужно").
+
+### The demonstration, 2026-10-06
+
+The two open criteria checked again after defects 14 to 17 were merged, on `it-bbox-site`.
+
+- Ticked, the tools reachable: Claude Code had Serena and Graphify connected (Context7 timed out once while `npx` fetched it). `codex` was on `PATH` and Codex listed Serena, now with `--context=codex` (ticket 16), Context7 and Binnacle, and Graphify, which the owner added to the repository's `.codex/config.toml` as init printed it, as designed. `graphify-out/` held `graph.json` and `GRAPH_REPORT.md`.
+- Ticked, the vault: `~/Obsidian/Binnacle` opened in Obsidian with `Projects/it-bbox-site/` holding Product, Research and `90-Graphify/GRAPH_REPORT.md` (ticket 14); the links worked and the owner's own notes were untouched. `it-bbox-site` has no specs or ADRs, so it has no Specs or Decisions; Binnacle's own project in the vault has both.
+- The owner, 2026-10-06, a remark and not a defect: every vault note is in English. A product wish for a Product session, a candidate for epic 13, Human output.
+- No defect is open: epic 8 is done.
