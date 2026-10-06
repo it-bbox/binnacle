@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, posix, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -54,6 +54,8 @@ type Session = {
   outcomes: { outcome: Outcome; what: string }[];
   /** The harnesses other than Claude Code that were detected: the Summary says how to continue in each. */
   otherHarnesses: Harness[];
+  /** The harnesses the `skills` CLI said it installed Binnacle's skills into, Claude Code apart, for the Summary. */
+  skillHarnesses: string[];
   /** Only the plan is worked out, for `--plan --json`: nothing is asked, and what is said is kept as notes. */
   planOnly: boolean;
   /** Each harness's sessions in this repository, and the local date of the oldest. */
@@ -75,7 +77,7 @@ type Session = {
 export async function init(
   home: string,
   path?: string,
-  options: { plan?: boolean; apply?: string | undefined; window?: ImportWindow | undefined } = {},
+  options: { plan?: boolean; apply?: string | undefined; window?: ImportWindow | undefined; skipHarness?: string[] } = {},
 ): Promise<ExitCode> {
   const git = await readGitFacts(resolve(path ?? process.cwd()), resolveGitTimeout());
   if (!git.available) {
@@ -107,6 +109,7 @@ export async function init(
     plan: [],
     outcomes: [],
     otherHarnesses: [],
+    skillHarnesses: [],
     planOnly,
     history: [],
     window: { days: DEFAULT_WINDOW_DAYS, declared: false, default: true },
@@ -129,6 +132,8 @@ export async function init(
     const harnesses = harnessStep(session);
     session.say('');
     pluginStep(session, plugins);
+    session.say('');
+    skillsStep(session, harnesses, options.skipHarness ?? []);
     session.say('');
     // The manifest as it is now, or the tracker it would propose: the plan is not yet written.
     mattPocockStep(session, declaredManifest(session.root)?.tracker.provider ?? forgeRemote(git.remotes)?.provider ?? 'local');
@@ -178,6 +183,7 @@ export async function init(
   for (const { outcome, what } of session.outcomes) session.say(`  ${outcome.padEnd(8)}  ${what}`);
   session.say('Nothing was committed. Review what binn init wrote, and commit it yourself.');
   session.say('To see how far this repository is from the way Binnacle works, run `binn audit`. It reads and writes nothing.');
+  if (session.skillHarnesses.length > 0) session.say(`Binnacle's skills are installed into ${inSentence(session.skillHarnesses)}: run \`binnacle-product\` there.`);
   for (const harness of session.otherHarnesses) nextSteps(session, harness);
   return EXIT.ok;
 }
@@ -188,19 +194,13 @@ const planId =(root: string, plan: { heading: string; body: string }[]): string 
     .update(JSON.stringify([root, ...plan.map(({ heading, body }) => [heading, body])]))
     .digest('hex');
 
-/** The skill file an agent without Binnacle's plugin is told to read: the project's own plugin, or the one in this package. */
-function productSkill(root: string): string {
-  const own = join(root, '.claude', 'skills', 'binnacle', 'skills', 'product', 'SKILL.md');
-  return existsSync(own) ? own : join(PACKAGE_DIR, 'plugin', 'skills', 'product', 'SKILL.md');
-}
-
-/** What to do next to work from a harness other than Claude Code, which has the plugin: no skill format of its own, so an agent is pointed at the file. */
+/** What to do next to work from a harness other than Claude Code, which has the plugin: the skills step gave it `binnacle-<action>` skills. */
 function nextSteps(session: Session, harness: Harness): void {
   const steps = [
     harness.note,
     harness.open,
     harness.offPath && !onPath(harness.executable) ? harness.offPath : undefined,
-    `Ask the agent: read the Binnacle product skill file at ${productSkill(session.root)} and follow it`,
+    `Run \`binnacle-product\` in ${harness.name}.`,
   ].filter((step): step is string => step !== undefined);
   session.say(`\nTo work from ${harness.name}, once its configuration names binnacle:`);
   steps.forEach((step, index) => session.say(`  ${index + 1}. ${step}`));
@@ -588,6 +588,61 @@ function pluginStep(session: Session, plugins: ClaudePlugins): void {
     ['plugin', 'install', 'binnacle@binnacle', '--scope', 'user'],
   ]);
 }
+
+/**
+ * Step 5b: Binnacle's skills, as this package's `binnacle-<action>` copy, into every harness the
+ * `skills` CLI detects, at user scope, then out of Claude Code again, which has the plugin
+ * (ADR-0039), and out of every `skipHarness` id. Only when `binn` detected a harness: with none
+ * detected and `-y`, the `skills` CLI installs into every harness it knows. Without `npx` the
+ * commands are printed. A failed call is reported with its output, and the next still runs.
+ */
+function skillsStep(session: Session, harnesses: Harness[], skipHarness: string[]): void {
+  const what = "Binnacle's skills";
+  if (harnesses.length === 0) {
+    session.say(`No harness is detected, so ${what} are not installed: the skills CLI would install into every harness it knows. Install a harness, then run binn init again.`);
+    return record(session, 'skipped', `${what}: no harness is detected`);
+  }
+  const copy = join(PACKAGE_DIR, 'skills');
+  const commands = [
+    ['skills', 'add', copy, '-g', '-y'],
+    ['skills', 'remove', '-g', '-a', 'claude-code', ...skipHarness, '-s', ...readdirSync(copy).sort(), '-y'],
+  ];
+  const shown = commands.map((args) => `npx ${args.map(quoted).join(' ')}`);
+  const body = shown.map((line) => `  ${line}`).join('\n');
+  if (!onPath('npx')) {
+    session.say(`\`npx\` is not on PATH, so binn init does not install ${what}. Once it is, run:\n\n${body}\n`);
+    return record(session, 'printed', `${what}: \`npx\` is not on PATH`);
+  }
+  session.plan.push({
+    heading: `Install ${what} into every harness the skills CLI detects, at user scope, outside the repository, then remove them from Claude Code, which has the binnacle plugin, by running`,
+    body,
+    declined: `install ${what}`,
+    apply() {
+      commands.forEach((args, index) => {
+        session.say(`Running ${shown[index]}...`);
+        // Through the shell, so that Windows runs `npx.cmd`; every argument is quoted as shown.
+        const run = spawnSync(shown[index]!, { cwd: session.root, shell: true, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+        const output = `${run.stdout ?? ''}${run.stderr ?? ''}`.trim();
+        if (run.status !== 0) {
+          session.say(`${shown[index]} failed${output ? `:\n${output}` : '.'}`);
+          return record(session, 'failed', shown[index]!);
+        }
+        record(session, 'ran', shown[index]!);
+        if (index === 0) session.skillHarnesses = installedInto(output);
+      });
+    },
+  });
+}
+
+/**
+ * The harnesses `skills add` names in its `Installing to: A, B` line, Claude Code apart.
+ * ponytail: a textual read of the CLI's own line, colours stripped; its `--json` gives agent ids if the line changes.
+ */
+const installedInto = (output: string): string[] =>
+  (output.replace(/\x1b\[[0-9;]*m/g, '').match(/Installing to: (.+)/)?.[1] ?? '')
+    .split(',')
+    .map((name) => name.trim())
+    .filter((name) => name !== '' && name !== 'Claude Code');
 
 /** What Claude Code lists, asked once for every plugin init installs: the plugin ids, or why it could not be asked. */
 type ClaudePlugins = { ids: string[] } | { reason: string };

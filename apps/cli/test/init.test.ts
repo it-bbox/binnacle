@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile, spawn, spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -150,7 +150,7 @@ const PLAN_QUESTION = 'Write this plan? [Y/n]';
 test('binn --help lists binn init', () => {
   const result = spawnSync(process.execPath, [BINN, '--help'], { encoding: 'utf8' });
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /binn init \[--window <days\|all>\] \[path\]/);
+  assert.match(result.stdout, /binn init \[--window <days\|all>\] \[--skip-harness <id>\]\.\.\. \[path\]/);
 });
 
 test('binn init refuses a directory outside any Git repository and writes nothing', (t) => {
@@ -1033,7 +1033,7 @@ test('the Summary suggests binn audit', (t) => {
   assert.match(result.stdout.slice(result.stdout.indexOf('Summary:')), /run `binn audit`/);
 });
 
-test('the Summary gives the next step for a detected harness other than Claude Code, with the prompt that follows the skill', (t) => {
+test('the Summary gives the next step for a detected harness other than Claude Code: run binnacle-product there', (t) => {
   const home = makeHome(t);
   fakeClaude(home);
   installUserDirectory(home, '.codex');
@@ -1044,30 +1044,16 @@ test('the Summary gives the next step for a detected harness other than Claude C
 
   assert.equal(result.status, 0, result.stderr);
   const summary = result.stdout.slice(result.stdout.indexOf('Summary:'));
-  const skill = join(PACKAGE, 'plugin', 'skills', 'product', 'SKILL.md');
-  assert.ok(existsSync(skill), 'the plugin is built into the package');
   const codex = summary.slice(summary.indexOf('To work from Codex'), summary.indexOf('To work from opencode'));
   assert.match(codex, /trusted project/);
   assert.match(codex, /not on PATH.*\/usr\/lib\/chatgpt\/resources\/codex/);
-  assert.ok(codex.includes(`read the Binnacle product skill file at ${skill} and follow it`), summary);
+  assert.match(codex, /Run `binnacle-product` in Codex/);
   const opencode = summary.slice(summary.indexOf('To work from opencode'));
   assert.match(opencode, /Run `opencode`/);
-  assert.ok(opencode.includes(`read the Binnacle product skill file at ${skill} and follow it`), summary);
+  assert.match(opencode, /Run `binnacle-product` in opencode/);
   assert.doesNotMatch(opencode, /not on PATH/);
+  assert.doesNotMatch(summary, /SKILL\.md/);
   assert.doesNotMatch(summary, /To work from Claude Code/);
-});
-
-test('a project that carries its own binnacle plugin has the agent read that skill file', (t) => {
-  const home = makeHome(t);
-  installExecutable(home, 'codex');
-  const own = '.claude/skills/binnacle/skills/product/SKILL.md';
-  const root = makeRepository(t, 'carrier', { [own]: '# product\n' });
-
-  const result = binnIn(home)(root, '\nn\n', 'init');
-
-  assert.equal(result.status, 0, result.stderr);
-  assert.ok(result.stdout.includes(`product skill file at ${join(root, own)} and follow it`), result.stdout);
-  assert.doesNotMatch(result.stdout, /`codex` is not on PATH/);
 });
 
 test('with only Claude Code detected the Summary has no next step for another harness', (t) => {
@@ -1913,8 +1899,8 @@ test('binn init refuses a bad --window, and --plan or --json alone, as usage err
 
 test('binn --help names --plan, --json and --window for binn init', () => {
   const { stdout } = spawnSync(process.execPath, [BINN, '--help'], { encoding: 'utf8' });
-  assert.match(stdout, /binn init \[--window <days\|all>\] \[path\]/);
-  assert.match(stdout, /binn init --plan --json \[--window <days\|all>\] \[path\]/);
+  assert.match(stdout, /binn init \[--window <days\|all>\] \[--skip-harness <id>\]\.\.\. \[path\]/);
+  assert.match(stdout, /binn init --plan --json \[--window <days\|all>\] \[--skip-harness <id>\]\.\.\. \[path\]/);
 });
 
 test('--apply with the id from --plan --json writes that plan with stdin not a terminal, runs the tracker check and prints the Summary', async (t) => {
@@ -1997,5 +1983,170 @@ test('binn init refuses --apply with --plan, or without an id, as usage errors',
 
 test('binn --help names --apply for binn init', () => {
   const { stdout } = spawnSync(process.execPath, [BINN, '--help'], { encoding: 'utf8' });
-  assert.match(stdout, /binn init --apply <id> \[--window <days\|all>\] \[path\]/);
+  assert.match(stdout, /binn init --apply <id> \[--window <days\|all>\] \[--skip-harness <id>\]\.\.\. \[path\]/);
+});
+
+/** The `binnacle-<action>` skills of the package's copy for the `skills` CLI, built by its prepare script. */
+const COPY = join(PACKAGE, 'skills');
+const BINNACLE_SKILLS = readdirSync(COPY).sort();
+const SKILLS_ADD = ['skills', 'add', COPY, '-g', '-y'];
+const skillsRemove = (...skipped: string[]): string[] => ['skills', 'remove', '-g', '-a', 'claude-code', ...skipped, '-s', ...BINNACLE_SKILLS, '-y'];
+
+/**
+ * A fake `npx` first on PATH, recording each call as fakeClaude does. `skills add` prints the
+ * line the `skills` CLI prints for the harnesses it detected; `failing` names the subcommand
+ * that fails, with output of its own.
+ */
+function fakeNpx(home: Home, failing?: 'add' | 'remove'): () => string[][] {
+  const calls = join(home.home, 'npx-calls');
+  writeFileSync(
+    join(home.bin, 'npx'),
+    `#!/bin/sh
+for arg in "$@"; do printf '%s\\t' "$arg"; done >> '${calls}'
+echo >> '${calls}'
+if [ "$2" = "${failing}" ]; then echo "skills $2 broke: no network"; exit 1; fi
+if [ "$2" = "add" ]; then printf '\\033[2m│\\033[0m\\n●  Installing to: \\033[36mCodex\\033[0m, \\033[36mAntigravity\\033[0m, \\033[36mClaude Code\\033[0m\\n'; fi
+exit 0
+`,
+    { mode: 0o755 },
+  );
+  return () =>
+    existsSync(calls)
+      ? readFileSync(calls, 'utf8').trimEnd().split('\n').map((line) => line.replace(/\t$/, '').split('\t'))
+      : [];
+}
+
+test("the skills: with a harness detected, the plan adds Binnacle's skills to every harness and then removes them from Claude Code, after a yes", (t) => {
+  const home = makeHome(t);
+  fakeClaude(home, ['binnacle@binnacle', ...SKILL_PLUGINS]);
+  installExecutable(home, 'codex');
+  const npx = fakeNpx(home);
+  const root = makeRepository(t, 'skills-everywhere');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(BINNACLE_SKILLS.length > 0 && BINNACLE_SKILLS.every((name) => name.startsWith('binnacle-')), BINNACLE_SKILLS.join(' '));
+  assert.deepEqual(npx(), [SKILLS_ADD, skillsRemove()]);
+  const question = result.stdout.indexOf(PLAN_QUESTION);
+  for (const args of [SKILLS_ADD, skillsRemove()]) {
+    const shown = result.stdout.indexOf(`npx ${args.join(' ')}`);
+    assert.ok(shown >= 0 && shown < question, `${args.join(' ')}\n${result.stdout}`);
+  }
+  const summary = result.stdout.slice(result.stdout.indexOf('Summary:'));
+  assert.match(summary, /ran\s+npx skills add /);
+  assert.match(summary, /ran\s+npx skills remove /);
+  // The harnesses the skills CLI named, Claude Code apart: it keeps the plugin.
+  assert.match(summary, /Binnacle's skills are installed into Codex and Antigravity: run `binnacle-product` there\./);
+  assert.match(summary, /Run `binnacle-product` in Codex/);
+});
+
+test('the skills: every --skip-harness is added to the removal, in the plan and in the call', (t) => {
+  const home = makeHome(t);
+  installExecutable(home, 'codex');
+  const npx = fakeNpx(home);
+  const root = makeRepository(t, 'skills-skipped');
+
+  const result = binnIn(home)(root, '\n\n', 'init', '--skip-harness', 'cursor', '--skip-harness', 'pi');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(npx(), [SKILLS_ADD, skillsRemove('cursor', 'pi')]);
+  assert.ok(result.stdout.includes(`npx ${skillsRemove('cursor', 'pi').join(' ')}`), result.stdout);
+});
+
+test('the skills: a declined plan, and a stdin that is not a terminal, run no npx', (t) => {
+  for (const [input, terminal] of [['\nn\n', true], ['\n', false]] as const) {
+    const home = makeHome(t);
+    installExecutable(home, 'codex');
+    const npx = fakeNpx(home);
+    const root = makeRepository(t, `skills-declined-${terminal}`);
+
+    const result = binnIn(home, terminal)(root, input, 'init');
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(result.stdout.includes(`npx ${SKILLS_ADD.join(' ')}`), result.stdout);
+    assert.deepEqual(npx(), []);
+    assert.match(result.stdout, /declined\s+install Binnacle's skills/);
+  }
+});
+
+test('the skills: with no harness detected the step is skipped, and says why', (t) => {
+  const home = makeHome(t);
+  const npx = fakeNpx(home);
+  const root = makeRepository(t, 'skills-nowhere');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(npx(), []);
+  assert.doesNotMatch(result.stdout, /npx skills (add|remove) /);
+  assert.match(result.stdout, /skipped\s+Binnacle's skills: no harness is detected/);
+  assert.match(result.stdout, /would install into every harness it knows/);
+});
+
+test('the skills: without npx on PATH the commands are printed, and nothing runs', (t) => {
+  const home = makeHome(t);
+  installExecutable(home, 'codex');
+  const root = makeRepository(t, 'skills-printed');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  const question = result.stdout.indexOf(PLAN_QUESTION);
+  for (const args of [SKILLS_ADD, skillsRemove()]) assert.ok(result.stdout.slice(0, question).includes(`  npx ${args.join(' ')}`), result.stdout);
+  assert.doesNotMatch(result.stdout.slice(result.stdout.indexOf('The plan.'), question), /Binnacle's skills/);
+  assert.match(result.stdout, /printed\s+Binnacle's skills: `npx` is not on PATH/);
+});
+
+test('the skills: a failed call is reported with its output, and the rest of the plan goes on', (t) => {
+  for (const failing of ['add', 'remove'] as const) {
+    const home = makeHome(t);
+    installExecutable(home, 'codex');
+    const npx = fakeNpx(home, failing);
+    const root = makeRepository(t, `skills-${failing}-fails`);
+
+    const result = binnIn(home)(root, '\n\n', 'init');
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(npx(), [SKILLS_ADD, skillsRemove()]);
+    assert.ok(result.stdout.includes(`skills ${failing} broke: no network`), result.stdout);
+    const summary = result.stdout.slice(result.stdout.indexOf('Summary:'));
+    assert.match(summary, new RegExp(`failed\\s+npx skills ${failing} `));
+    assert.match(summary, new RegExp(`ran\\s+npx skills ${failing === 'add' ? 'remove' : 'add'} `));
+    // The rest of the plan is written.
+    assert.ok(existsSync(join(root, '.codex/config.toml')));
+  }
+});
+
+test('the skills: --plan --json shows the same commands, --skip-harness changes its id, and --apply runs them', async (t) => {
+  const home = makeHome(t);
+  installExecutable(home, 'codex');
+  const npx = fakeNpx(home);
+  const root = makeRepository(t, 'skills-applied');
+
+  const json = await planJson(t, home, root, '--skip-harness', 'cursor');
+  const item = json.plan.find(({ heading }) => heading.startsWith("Install Binnacle's skills"));
+  assert.equal(item?.body, `  npx ${SKILLS_ADD.join(' ')}\n  npx ${skillsRemove('cursor').join(' ')}`);
+  assert.deepEqual(npx(), []);
+  assert.notEqual((await planJson(t, home, root)).id, json.id);
+  assert.notEqual((await planJson(t, home, root, '--skip-harness', 'pi')).id, json.id);
+
+  const refused = binnIn(home, false)(root, '', 'init', '--apply', json.id);
+  assert.equal(refused.status, 3, refused.stdout);
+  assert.deepEqual(npx(), []);
+
+  const result = binnIn(home, false)(root, '', 'init', '--apply', json.id, '--skip-harness', 'cursor');
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(npx(), [SKILLS_ADD, skillsRemove('cursor')]);
+});
+
+test('binn init refuses an empty --skip-harness as a usage error, and --help names it', (t) => {
+  const home = makeHome(t);
+  const root = makeRepository(t, 'skip-misused');
+  for (const args of [['--skip-harness'], ['--skip-harness', ' ']]) {
+    const result = binnIn(home)(root, '', 'init', ...args);
+    assert.equal(result.status, 2, `${args.join(' ')}\n${result.stdout}`);
+  }
+  const { stdout } = spawnSync(process.execPath, [BINN, '--help'], { encoding: 'utf8' });
+  assert.match(stdout, /--skip-harness <id>/);
 });
