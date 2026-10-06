@@ -124,7 +124,7 @@ On 2026-10-02 the owner found that epics 1 to 7 delivered only part of `docs/bas
 
 ### Phase 10 — Telemetry for any harness
 
-- The daemon receives OpenTelemetry, and `binn init` configures the export in every detected harness that supports it (ADR-0038). Session artifacts stay for history and for harnesses without it; a call seen through both counts once. The spec lists which of the owner's harnesses — Claude Code desktop, Codex CLI and desktop, a GLM client, Antigravity, Gemini CLI, opencode — export it, and adds artifact readers for the others.
+- The daemon receives OpenTelemetry, and `binn init` configures the export in every detected harness that supports it (ADR-0038). Session artifacts stay for history and for harnesses without it; a call seen through both counts once. The spec lists which of the owner's harnesses — Claude Code desktop, Codex CLI and desktop, ZCode (the owner's GLM client, on macOS), Antigravity, Gemini CLI, opencode — export it, and adds artifact readers for the others.
 - Review and rework usage, today "not available": a rework run is implementation work on a Task's branch after its first Review or after changes were requested; a review run is one in the reviewer's role. Context growth per run, and the context-pressure signal and attention item of decision 15. All labelled as calculated.
 - Ponytail's effect: tokens per completed Task before and after Ponytail was enabled in a project, labelled as calculated.
 
