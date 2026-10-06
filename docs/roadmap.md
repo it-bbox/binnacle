@@ -36,7 +36,7 @@ On 2026-10-02 the owner found that epics 1 to 7 deliver only part of `docs/basel
 
 The demonstrations of 2026-10-05 passed most criteria and filed defects. Epic 9 is done: its exit demonstration, 08, held every criterion, and its defects 10 to 13 are merged. Epic 8's defects 14 to 17 are done, so a graph run builds Graphify's report for the vault, init corrects Serena's context in Codex, and the dashboard shows the daemon's reasons it knows in its own language; its exit demonstration, 12, can finish, and epic 7's 10 is ready. Each epic's demonstration ticket finishes once its defects are merged. Epics 10 to 12 still need `to-spec`; epic 13, Human output, every command's and skill's output made readable for a person (the owner, 2026-10-05), needs `/grill-with-docs` first.
 
-Next action: run epic 8's defect tickets, 14 to 17, through autopilot; its exit demonstration, 12, finishes once they are merged. `/binnacle:autopilot 8`
+Next action: finish epic 8's exit demonstration, 12. Its defects 14 to 17 are merged, so its two open criteria can be checked again: the tools reachable from Claude Code and Codex with the first graph built, and the vault in Obsidian with `90-Graphify`. Do it in a new session, which loads the refreshed plugin. `/mattpocock-skills:implement docs/specs/project-brain-tools-graphify-obsidian/issues/12-project-brain-exit-demonstration.md`
 
 ## Later
 
