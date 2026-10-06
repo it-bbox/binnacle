@@ -45,3 +45,7 @@ The two open criteria checked again after defects 14 to 17 were merged, on `it-b
 - Ticked, the vault: `~/Obsidian/Binnacle` opened in Obsidian with `Projects/it-bbox-site/` holding Product, Research and `90-Graphify/GRAPH_REPORT.md` (ticket 14); the links worked and the owner's own notes were untouched. `it-bbox-site` has no specs or ADRs, so it has no Specs or Decisions; Binnacle's own project in the vault has both.
 - The owner, 2026-10-06, a remark and not a defect: every vault note is in English. A product wish for a Product session, a candidate for epic 13, Human output.
 - No defect is open: epic 8 is done.
+
+### Review
+
+Nothing to review: this ticket changed no code. Its commits record the owner's demonstrations and mark the ticket and the epic done; the code they checked was reviewed in tickets 01 to 11 and 14 to 17.

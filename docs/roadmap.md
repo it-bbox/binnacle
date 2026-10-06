@@ -35,7 +35,7 @@ Epic 7, Audit and adopt, is done but for its exit demonstration, 08, which can n
 
 On 2026-10-06 the owner found that Binnacle's skills, Matt Pocock Skills and Ponytail reach Claude Code alone, while the baseline makes Codex, GLM and Gemini equal harnesses. That is epic 14, Skills in any harness (`docs/05-mvp-plan.md`). It comes before epic 10, which reuses its list of harnesses; epics 10 to 12 then need `to-spec`. Epic 13, Human output, is grilled last, since it rewrites every skill's output; the vault's notes being all in English is a candidate for it.
 
-Next action: grill epic 14: every detected harness that reads `SKILL.md` gets Binnacle's skills, Matt Pocock Skills and Ponytail, and autopilot's place outside Claude Code is decided. Epic 7's 10 runs beside it through autopilot. `/mattpocock-skills:grill-with-docs`
+Next action: grill epic 14, in a new session: every detected harness that reads `SKILL.md` gets Binnacle's skills, Matt Pocock Skills and Ponytail, and autopilot's place outside Claude Code is decided. Epic 7's demonstration, 08, is the owner's, beside it. `/mattpocock-skills:grill-with-docs`
 
 ## Later
 
