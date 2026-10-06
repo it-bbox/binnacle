@@ -1,5 +1,5 @@
 import { isAlive, readRuntime, type ErrorEnvelope } from '@binnacle/daemon';
-import { serveStdio, toolOperation, type CallDaemon } from '@binnacle/mcp';
+import { serveStdio, toolRequest, type CallDaemon } from '@binnacle/mcp';
 import { callOperation, DaemonUnreachableError, OperationFailedError } from './client.ts';
 import { EXIT, type ExitCode } from './exit.ts';
 import { requireToken } from './report.ts';
@@ -39,22 +39,19 @@ export async function mcp(home: string, version: string): Promise<void> {
  * goes to stderr with the usage exit code.
  */
 export async function call(home: string, tool: string, json: string | undefined): Promise<ExitCode> {
-  const operation = toolOperation(tool);
-  if (operation === undefined) {
-    console.error(`binn: unknown tool ${JSON.stringify(tool)}. \`binn call --help\` lists the tools.`);
-    return EXIT.usage;
-  }
-  let args: unknown = {};
+  let args: unknown;
   try {
-    if (json !== undefined) args = JSON.parse(json);
+    args = json === undefined ? {} : JSON.parse(json);
   } catch {
-    args = null;
-  }
-  if (typeof args !== 'object' || args === null || Array.isArray(args)) {
-    console.error(`binn: the arguments must be one JSON object, such as '{"id":"<task id>"}'.`);
+    console.error(`binn: the arguments are not JSON; give them as one JSON object, such as '{"id":"<task id>"}'.`);
     return EXIT.usage;
   }
-  const answer = await callDaemon(home)(operation, { ...args, path: process.cwd() });
+  const request = toolRequest(tool, args, process.cwd());
+  if ('refused' in request) {
+    console.error(`binn: ${request.refused}. \`binn call --help\` lists the tools and their arguments.`);
+    return EXIT.usage;
+  }
+  const answer = await callDaemon(home)(request.operation, request.body);
   console.log(JSON.stringify('error' in answer ? answer : answer.result));
   if (!('error' in answer)) return EXIT.ok;
   return answer.error.code === 'daemon.unreachable' ? EXIT.unreachable : EXIT.failed;

@@ -208,14 +208,15 @@ test('every daemon-dependent skill names /binnacle:daemon start and /binnacle:re
 /** Epic 14: a harness with a shell and no Binnacle MCP server runs every skill that calls a tool, through binn call. */
 test('every skill that calls a Binnacle tool falls back to binn call, once, and names a missing binn', () => {
   const fallback = "If this session has no `binnacle` MCP tools, run each Binnacle tool this skill calls as `binn call <tool> '<arguments as one JSON object>'` in the shell instead, with the same arguments, and read the JSON it prints: what the tool returns, or the same error with its code.";
-  for (const name of ['product', 'daily', 'task', 'status', 'checkpoint', 'autopilot']) {
+  const calling = ['product', 'daily', 'task', 'status', 'checkpoint', 'autopilot'];
+  for (const name of calling) {
     const skill = skillText(name);
     assert.equal(skill.split(fallback).length - 1, 1, name);
     assert.match(skill, /If the shell cannot find `binn` \(`command not found`, exit 127\), `binn` is not on this harness's PATH \(see the README's setup section\)/, name);
     assert.doesNotMatch(skill, /server is missing or disconnected/, name);
   }
   // Skills that call no tool need no fallback.
-  for (const name of ACTIONS.filter((action) => !['product', 'daily', 'task', 'status', 'checkpoint', 'autopilot'].includes(action))) {
+  for (const name of ACTIONS.filter((action) => !calling.includes(action))) {
     assert.doesNotMatch(skillText(name), /binn call/, name);
   }
 });

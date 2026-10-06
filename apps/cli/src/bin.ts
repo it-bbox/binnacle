@@ -73,8 +73,8 @@ Call one of Binnacle's MCP tools for the Binnacle project containing the working
 takes any, are one JSON object, such as '{"id":"<task id>"}'.
 
 Exit codes: 0 with the result; 3 with the daemon's error envelope on stdout; 4 with daemon.unreachable
-on stdout when the daemon is not running; 2 with a message on stderr for an unknown tool or arguments
-that are not a JSON object.
+on stdout when the daemon is not running; 2 with a message on stderr for an unknown tool, or arguments
+that are not JSON or that the tool does not take.
 
 Tools:
 ${toolsHelp()}

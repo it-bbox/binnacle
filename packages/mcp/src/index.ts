@@ -70,8 +70,20 @@ const TOOLS = {
   },
 } as const;
 
-/** The daemon operation behind a tool, or undefined for a name that is not one of them: `binn call` reads the same table. */
-export const toolOperation = (name: string): string | undefined => (Object.hasOwn(TOOLS, name) ? TOOLS[name as keyof typeof TOOLS].operation : undefined);
+/**
+ * The daemon call behind a tool and its arguments, read as the server reads them: a tool with no
+ * schema takes none, one with a schema keeps only the fields it names, and `path` is always `cwd`.
+ * `binn call` makes its calls through here, so a tool exists in both or in neither. A name that is
+ * not a tool, or arguments its schema refuses, give the reason instead.
+ */
+export function toolRequest(name: string, args: unknown, cwd: string): { operation: string; body: { path: string } & Record<string, unknown> } | { refused: string } {
+  if (!Object.hasOwn(TOOLS, name)) return { refused: `unknown tool ${JSON.stringify(name)}` };
+  const tool = TOOLS[name as keyof typeof TOOLS];
+  if (!('inputSchema' in tool)) return { operation: tool.operation, body: { path: cwd } };
+  const parsed = z.object(tool.inputSchema as Record<string, z.ZodType>).safeParse(args);
+  if (!parsed.success) return { refused: `${name} does not take these arguments: ${z.prettifyError(parsed.error).replaceAll('\n', ' ')}` };
+  return { operation: tool.operation, body: { ...parsed.data, path: cwd } };
+}
 
 /** Every tool with its description, then each argument with its description and whether it may be left out: `binn call --help`. */
 export function toolsHelp(): string {
@@ -95,7 +107,9 @@ export async function serveStdio(version: string, cwd: string, call: CallDaemon)
 
   for (const [name, tool] of Object.entries(TOOLS)) {
     const run = async (args: Record<string, unknown> = {}) => {
-      const answer = await call(tool.operation, { ...args, path: cwd });
+      // The SDK has already checked the arguments against the same schema, so the request is never refused here.
+      const request = toolRequest(name, args, cwd) as { operation: string; body: { path: string } & Record<string, unknown> };
+      const answer = await call(request.operation, request.body);
       return 'error' in answer
         ? { isError: true, content: [{ type: 'text' as const, text: JSON.stringify(answer) }] }
         : { content: [{ type: 'text' as const, text: JSON.stringify(answer.result) }] };

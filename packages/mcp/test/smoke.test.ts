@@ -125,11 +125,11 @@ test('binn mcp lists its tools, explains a stopped daemon, and proxies the snaps
   assert.equal(refusedCall.stdout.trim(), refused.content[0]!.text);
 
   // What binn call refuses itself: a message on stderr, the usage exit code, nothing on stdout.
-  for (const args of [['no_such_tool'], ['task_get', '{"id":'], ['task_get', '["epic/01"]']]) {
+  for (const args of [['no_such_tool'], ['task_get', '{"id":'], ['task_get', '["epic/01"]'], ['task_get', '{"id":1}'], ['task_get']]) {
     const wrong = await binn(project, home, 'call', ...args);
     assert.equal(wrong.status, 2, args.join(' '));
     assert.equal(wrong.stdout, '', args.join(' '));
-    assert.match(wrong.stderr, /^binn: (unknown tool "no_such_tool"|the arguments must be one JSON object)/, args.join(' '));
+    assert.match(wrong.stderr, /^binn: (unknown tool "no_such_tool"|the arguments are not JSON|task_get does not take these arguments)/, args.join(' '));
   }
 
   // binn --help names binn call, and binn call --help every tool the server lists, with its arguments.
