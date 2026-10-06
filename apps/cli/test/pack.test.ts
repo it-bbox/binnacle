@@ -282,6 +282,8 @@ test('/binnacle:help names every skill of the plugin and no other, answers in th
   const skill = skillText('help');
   assert.match(skill, /^disable-model-invocation: true$/m);
   assert.doesNotMatch(skill, /^argument-hint:/m);
+  // The description names no harness's syntax: the binnacle-<action> copy keeps it as written (epic 14).
+  assert.match(skill, /^description: .*which Binnacle skill to use when/m);
   assert.match(skill, /in the language the user writes in/);
   assert.match(skill, /Call no tool and run no command/);
   const named = new Set([...skill.matchAll(/`\/binnacle:([a-z-]+)`/g)].map(([, name]) => name));

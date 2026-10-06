@@ -1,6 +1,6 @@
 ---
 name: help
-description: Explain in plain words, in the language the user writes in, what Binnacle is, which /binnacle skill to use when, and the usual order of a day. Calls no tool, runs no command and needs no daemon.
+description: Explain in plain words, in the language the user writes in, what Binnacle is, which Binnacle skill to use when, and the usual order of a day. Calls no tool, runs no command and needs no daemon.
 disable-model-invocation: true
 ---
 
