@@ -78,7 +78,7 @@ That is the third gap. Every skill that reads the project — product, daily, ta
 
 33. As a user who updated `binn`, I want `binn audit` to report Binnacle's skills installed in my harnesses as stale, so that I know to refresh them.
 34. As a user, I want `binn init`'s plan to reinstall stale skills, so that refreshing is the same one confirmation as installing.
-35. As a user whose skills are current, I want `binn init` to say so and plan nothing for them, so that a second run changes nothing.
+35. As a user whose skills are current, I want `binn init` to say so and still plan their add, so that a second run reaches a harness installed since and changes nothing where they already are.
 36. As the owner on this repository, I want autopilot to refresh the `skills` CLI's copy after a merge that changed the skills, as it already refreshes the plugin, so that every harness runs the merged skills.
 37. As the owner merging by hand, I want the development workflow to name the same refresh, so that it is not autopilot's secret.
 
