@@ -2209,7 +2209,7 @@ function installCopy(home: Home, productVersion?: string): void {
   writeFileSync(file, readFileSync(file, 'utf8').replace(/^(\s+version: )".*"$/m, `$1"${productVersion}"`));
 }
 
-test("the skills: a current set in ~/.agents/skills plans no Binnacle add, and says it is current, while Matt Pocock Skills and Ponytail are still planned", (t) => {
+test('the skills: a current set in ~/.agents/skills is installed again, as a stale one is, so that a harness installed since gets it, and the step says it was current', (t) => {
   const home = makeHome(t);
   installExecutable(home, 'codex');
   installCopy(home);
@@ -2219,15 +2219,14 @@ test("the skills: a current set in ~/.agents/skills plans no Binnacle add, and s
   const result = binnIn(home)(root, '\n\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
-  // Binnacle does not version the other two sets: they are planned whatever ~/.agents/skills holds.
-  assert.deepEqual(npx(), allSkills().slice(2));
-  assert.match(result.stdout, /Binnacle's skills in ~\/\.agents\/skills are current/);
-  // Current is read from ~/.agents/skills alone: a harness installed since gets them by hand.
-  assert.ok(result.stdout.includes(`  npx ${SKILLS_ADD.join(' ')}\n  npx ${skillsRemove().join(' ')}`), result.stdout);
-  assert.doesNotMatch(result.stdout.slice(result.stdout.indexOf('The plan.')), /Install Binnacle's skills/);
+  assert.deepEqual(npx(), allSkills());
+  assert.match(result.stdout.slice(0, result.stdout.indexOf(PLAN_QUESTION)), /Binnacle's skills in ~\/\.agents\/skills are current/);
+  // The plan carries the add and removal: no commands are printed in its place.
+  assert.match(result.stdout.slice(result.stdout.indexOf('The plan.')), /Install Binnacle's skills/);
+  assert.equal(result.stdout.slice(0, result.stdout.indexOf(PLAN_QUESTION)).split(`npx ${SKILLS_ADD.join(' ')}\n`).length, 2, result.stdout);
   const summary = result.stdout.slice(result.stdout.indexOf('Summary:'));
   assert.match(summary, /found\s+Binnacle's skills: current/);
-  assert.match(summary, /Run `binnacle-product` in Codex/);
+  assert.match(summary, /Binnacle's skills are installed into /);
 });
 
 test('the skills: a stale set in ~/.agents/skills is reinstalled, and the plan says why', (t) => {

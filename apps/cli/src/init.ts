@@ -632,14 +632,12 @@ function planSkillSet(session: Session, { what, claudeCodeHas, source, skills }:
   const shown = (args: string[]): string => `npx ${args.map(quoted).join(' ')}`;
   const shownRemoval = binnacle ? shown(removal(skills)) : `${shown(fromClaudeCode)} -s <each skill the add installed> -y`;
   const body = `  ${shown(add)}\n  ${shownRemoval}`;
-  // Binnacle's set alone is versioned by Binnacle (spec, *Freshness*): a current one is not installed again.
+  // Binnacle's set alone is versioned by Binnacle (spec, *Freshness*): a current one is installed again all the same, for a harness installed since.
   const installed = binnacle ? binnacleSkills() : null;
   const where = `${what} in ${tilde(INSTALLED_SKILLS)}`;
   if (installed?.state === 'current') {
-    // ponytail: current is read from ~/.agents/skills alone (spec, *Freshness*), not per harness; a harness installed since gets them by hand.
-    session.say(`${where} are current, so they are not installed again. A harness installed since they were gets them by running:\n\n${body}\n`);
-    session.skills = { into: [], skipped: [] };
-    return record(session, 'found', `${what}: current`);
+    session.say(`${where} are current. The plan installs them again, so that a harness installed since they were gets them.`);
+    record(session, 'found', `${what}: current`);
   }
   if (installed?.state === 'stale') session.say(`${where} are stale: ${installed.reason}. The plan installs them again.`);
   if (!onPath('npx')) {
