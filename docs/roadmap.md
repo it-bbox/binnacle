@@ -23,20 +23,19 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 11 | The state of work | not started | — |
 | 12 | Audit, completed | not started | — |
 | 13 | Human output | not started | — |
+| 14 | Skills in any harness | not started | — |
 
-Epics are ordered by dependency, not by preference. Epic 1 is the foundation; epics 5 to 7 are only meaningful once 1 to 4 exist. Audit and adopt is epic 6 in the specs of epics 1 to 3, written before epic 6 was inserted on 2026-09-26.
+Epics are ordered by dependency, not by preference. Epic 1 is the foundation; epics 5 to 7 are only meaningful once 1 to 4 exist. Audit and adopt is epic 6 in the specs of epics 1 to 3, written before epic 6 was inserted on 2026-09-26. Epic 14 was added on 2026-10-06 and comes before epic 10, which reuses its list of harnesses.
 
 ## Current focus
 
-Epics 1 to 6 are done: the daemon, snapshot, daily and checkpoint over MCP, the `binnacle` plugin with autopilot, Tasks from GitHub, GitLab or local tickets, `binn init`, usage, and the read-only dashboard in English and Russian. Binnacle writes nothing into the repository.
+Epics 1 to 6, 8 and 9 are done: the daemon, snapshot, daily and checkpoint over MCP, the `binnacle` plugin with autopilot, Tasks from any tracker, `binn init` with the tools, the graph and the Obsidian vault, usage, the dashboard in two languages, and setup from the chat.
 
-Epic 7, Audit and adopt (`specs/audit-and-adopt/spec.md`), is done but for its exit demonstration, 08, and ticket 10, a defect it found (ADR-0034).
+Epic 7, Audit and adopt, is done but for ticket 10, a defect, which is ready, and its exit demonstration, 08, which follows it.
 
-On 2026-10-02 the owner found that epics 1 to 7 deliver only part of `docs/baseline.md`, the floor for v1; the gaps are epics 8 to 12 (`docs/05-mvp-plan.md`; ADR-0035 to ADR-0038). Epic 8 (`specs/project-brain-tools-graphify-obsidian/spec.md`): init installs the tools and builds the first graph, the daemon keeps it current and projects the Project Brain into an Obsidian vault, and the snapshot, the dashboard and autopilot use the conflict risk between Tasks. Epic 9 (`specs/everything-from-the-chat/spec.md`): `/binnacle:init`, `/binnacle:daemon`, `/binnacle:register`, `/binnacle:status`, `/binnacle:dashboard` and `/binnacle:help` run from the chat, and autopilot refreshes the installed plugin after a merge that changed its skills.
+On 2026-10-06 the owner found that Binnacle's skills, Matt Pocock Skills and Ponytail reach Claude Code alone, while the baseline makes Codex, GLM and Gemini equal harnesses. That is epic 14, Skills in any harness (`docs/05-mvp-plan.md`). It comes before epic 10, which reuses its list of harnesses; epics 10 to 12 then need `to-spec`. Epic 13, Human output, is grilled last, since it rewrites every skill's output; the vault's notes being all in English is a candidate for it.
 
-The demonstrations of 2026-10-05 passed most criteria and filed defects. Epic 9 is done: its exit demonstration, 08, held every criterion, and its defects 10 to 13 are merged. Epic 8 is done: its defects 14 to 17 are merged, and its exit demonstration, 12, held every criterion on 2026-10-06; the owner's remark that the vault's notes are all in English is a candidate for epic 13. Epic 7's 10 is ready. Each epic's demonstration ticket finishes once its defects are merged. Epics 10 to 12 still need `to-spec`; epic 13, Human output, every command's and skill's output made readable for a person (the owner, 2026-10-05), needs `/grill-with-docs` first.
-
-Next action: finish epic 8's exit demonstration, 12. Its defects 14 to 17 are merged, so its two open criteria can be checked again: the tools reachable from Claude Code and Codex with the first graph built, and the vault in Obsidian with `90-Graphify`. Do it in a new session, which loads the refreshed plugin. `/mattpocock-skills:implement docs/specs/project-brain-tools-graphify-obsidian/issues/12-project-brain-exit-demonstration.md`
+Next action: grill epic 14: every detected harness that reads `SKILL.md` gets Binnacle's skills, Matt Pocock Skills and Ponytail, and autopilot's place outside Claude Code is decided. Epic 7's 10 runs beside it through autopilot. `/mattpocock-skills:grill-with-docs`
 
 ## Later
 

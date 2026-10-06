@@ -139,6 +139,16 @@ On 2026-10-02 the owner found that epics 1 to 7 delivered only part of `docs/bas
 - Three more areas: Docker (a Dockerfile or compose file, and `.dockerignore`); secrets (a committed `.env`, keys and tokens matched by known patterns in tracked files, given by path and line and never by value); security basics (a lockfile, dependency updates by Dependabot or Renovate, `SECURITY.md`). Read-only and offline, as the rest of the audit.
 - A migration plan: the recommendations ordered into steps — `binn init` first, secrets next, then the rest.
 
+### Phase 14 — Skills in any harness
+
+Added on 2026-10-06, after the owner linked Binnacle's skills into `~/.codex/skills` by hand and Codex ran them: the baseline makes Codex, GLM and Gemini equal harnesses, and `binn init` installs the skills, Matt Pocock Skills and Ponytail into Claude Code alone. It comes before epic 10, which reuses its list of harnesses. `/grill-with-docs` decides, and an ADR records how it narrows ADR-0023 and ADR-0027:
+
+- How Binnacle's skills reach every detected harness that reads `SKILL.md`, from the installed package, and how they are refreshed after a merge that changed them, as epic 9 does for Claude Code's plugin.
+- Skill text free of one harness's mechanisms (its agent tool, its question tool, `claude plugin`): one neutral text with per-harness branches, or one template per harness.
+- Autopilot outside Claude Code: ported to each harness that can run it, or limited to Claude Code with the limit stated.
+- `binn init` installs Matt Pocock Skills and Ponytail into each detected harness, not Claude Code alone.
+- `docs/03-mcp-and-skills.md` no longer says that no skill format exists for another harness.
+
 ## Explicit stop conditions
 
 Do not add autonomous agent orchestration, Release/SRE platform, Kubernetes management, multi-user server mode or auto model routing during MVP implementation.
