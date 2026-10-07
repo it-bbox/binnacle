@@ -15,7 +15,7 @@ import {
   type TelemetryRecord,
   type Tree,
 } from '@binnacle/adapters';
-import { branchTask, type ImportWindow, type ObservedRun, type ProjectManifest, type RunRole, type TrackerTask } from '@binnacle/core';
+import { branchTask, type ImportWindow, type ObservedRun, type ProjectManifest, type RunRole, type TaskRole, type TrackerTask } from '@binnacle/core';
 import { ACTIVE_WITHIN_MS, magnitude, mean, observedRuns, sum, type Harness, type ReviewPoints, type RunRecord, type Totals, type UsageRecord } from '@binnacle/telemetry';
 import { resolveGitTimeout, type ArtifactRoots } from './home.ts';
 import type { OperationContext } from './operations.ts';
@@ -298,8 +298,7 @@ export async function latestRuns(
   manifest: ProjectManifest | null,
   tasks: TrackerTask[],
 ): Promise<Map<string, ObservedRun>> {
-  const { checkouts } = await ingested(context, projectPath, manifest);
-  const attributed = await runs(context.store.usage(projectPath, ''), projectPath, tasks, manifest?.tracker.provider !== 'local', checkouts);
+  const attributed = await storedRuns(context, projectPath, manifest, tasks);
   const latest = new Map<string, ObservedRun>();
   for (const run of attributed) {
     const known = run.taskId === null ? undefined : latest.get(run.taskId);
@@ -316,9 +315,14 @@ export async function taskByRole(
   tasks: TrackerTask[],
   task: Pick<TrackerTask, 'id'>,
 ): Promise<Record<TaskRole, Totals>> {
-  const { checkouts } = await ingested(context, projectPath, manifest);
-  const attributed = await runs(context.store.usage(projectPath, ''), projectPath, tasks, manifest?.tracker.provider !== 'local', checkouts);
+  const attributed = await storedRuns(context, projectPath, manifest, tasks);
   return byRole(attributed.filter((run) => run.taskId === task.id), TASK_ROLES);
+}
+
+/** The project's runs among every stored record, after the ingest `usage.get` also runs. */
+async function storedRuns(context: OperationContext, projectPath: string, manifest: ProjectManifest | null, tasks: TrackerTask[]): Promise<(ObservedRun & { records: RunRecord[] })[]> {
+  const { checkouts } = await ingested(context, projectPath, manifest);
+  return runs(context.store.usage(projectPath, ''), projectPath, tasks, manifest?.tracker.provider !== 'local', checkouts);
 }
 
 /**
@@ -416,7 +420,7 @@ async function runs(
  * ticket: history does not change under a commit, so it is read once per daemon.
  * ponytail: one entry per reviewed ticket, never forgotten; bound it if a daemon ever sees tens of thousands.
  */
-const lastWork = new Map<string, number | null>();
+const lastChangeBeforeReview = new Map<string, number | null>();
 
 /**
  * On the local tracker, per Task whose branch `records` were on, when its ticket's first
@@ -433,8 +437,8 @@ async function reviewPoints(projectPath: string, records: UsageRecord[], tasks: 
     const review = first?.get(task.ticket);
     if (review === undefined) continue;
     const key = `${review.commit}\0${task.ticket}`;
-    if (!lastWork.has(key)) lastWork.set(key, await readLastChangeBefore(projectPath, review.commit, task.ticket, timeout));
-    points.set(task.id, { work: lastWork.get(key)!, review: review.at });
+    if (!lastChangeBeforeReview.has(key)) lastChangeBeforeReview.set(key, await readLastChangeBefore(projectPath, review.commit, task.ticket, timeout));
+    points.set(task.id, { lastChange: lastChangeBeforeReview.get(key)!, review: review.at });
   }
   return points;
 }
@@ -521,8 +525,6 @@ function weekly(records: UsageRecord[]): Derived['weekly'] {
 const mondayOf = (date: Date): Date => new Date(date.getFullYear(), date.getMonth(), date.getDate() - ((date.getDay() + 6) % 7));
 
 const ROLES: RunRole[] = ['product', 'implementation', 'review', 'rework', 'unknown'];
-/** The roles a Task's runs can have. */
-export type TaskRole = Extract<RunRole, 'implementation' | 'review' | 'rework'>;
 const TASK_ROLES: TaskRole[] = ['implementation', 'review', 'rework'];
 
 /** Totals by each of `roles`, in that order, one that no run has with no records. */

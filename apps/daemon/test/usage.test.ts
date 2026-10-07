@@ -1390,8 +1390,8 @@ describe('Implementation, review and rework', () => {
       session(artifacts, root, 'parent', [...lines(GRILL, at(0, 0), '-before'), ...lines(ABORTED, at(0, 30), '-after')]);
       // A subagent after the last commit changing anything but the ticket, and ending before the Review: the reviewer.
       subagent(artifacts, root, 'parent', root, lines(SUBAGENT, at(0, 15)));
-      // A subagent before that commit is implementation work.
-      subagent(artifacts, root, 'early', root, lines(SUBAGENT, at(0, 5), '-early'));
+      // A subagent that started before that commit is implementation work, even after it.
+      subagent(artifacts, root, 'early', root, [...lines(SUBAGENT, at(0, 5), '-early'), ...lines(SUBAGENT, at(0, 12), '-later')]);
       await register(daemon, root);
 
       const task = await usageGet<TaskUsage>(daemon, root, 'epic/01');
@@ -1406,8 +1406,8 @@ describe('Implementation, review and rework', () => {
         ],
       );
       const byRole = {
-        // The parent's first record and the early subagent's.
-        implementation: { records: 2, input: reported(4), cachedInput: reported(175067), cacheCreation: reported(31498), output: reported(1558), reasoning: reported(18) },
+        // The parent's first record and the early subagent's two.
+        implementation: { records: 3, input: reported(6), cachedInput: reported(310909), cacheCreation: reported(33165), output: reported(2979), reasoning: reported(18) },
         review: SUBAGENT_TOTALS,
         rework: ABORTED_TOTALS,
       };
@@ -1418,7 +1418,7 @@ describe('Implementation, review and rework', () => {
       assert.deepEqual(brief.body.byRole, byRole);
 
       const records = (roles: Record<string, Totals>): Record<string, number> => Object.fromEntries(Object.entries(roles).map(([role, totals]) => [role, totals.records]));
-      const project = { product: 0, implementation: 2, review: 1, rework: 1, unknown: 0 };
+      const project = { product: 0, implementation: 3, review: 1, rework: 1, unknown: 0 };
       assert.deepEqual(records(available((await usageGet<ProjectUsage>(daemon, root)).byRole)), project);
       assert.deepEqual(records(available((await snapshotUsage(daemon, root)).byRole)), project);
 

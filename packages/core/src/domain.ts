@@ -85,6 +85,8 @@ export type AgentRun = {
  * review or rework, told apart by when the Task's first Review was committed.
  */
 export type RunRole = 'product' | 'implementation' | 'review' | 'rework' | 'unknown';
+/** The roles of a run on a Task's branch. */
+export type TaskRole = Extract<RunRole, 'implementation' | 'review' | 'rework'>;
 
 /**
  * An AgentRun Binnacle reads out of a session artifact rather than one it manages: one

@@ -104,12 +104,17 @@ export type RunAttribution<T extends Pick<TrackerTask, 'id' | 'title' | 'ticket'
   /** The tracker's current Tasks, and whether it is a remote tracker. */
   tasks: T[];
   remote: boolean;
-  /** Per Task id, its first Review's commit time and the time of the last commit before it changing anything but the ticket, null when none did; in milliseconds. */
+  /** Per Task id, the points its first Review sets; a Task with none has no Review. */
   reviews: Map<string, ReviewPoints>;
   now: Date;
 };
 
-export type ReviewPoints = { work: number | null; review: number };
+/**
+ * Where a Task's first Review divides its work, in milliseconds: `review`, when the commit that
+ * first recorded it was made, and `lastChange`, when the last commit before that one changing
+ * anything but the ticket was, null when none did.
+ */
+export type ReviewPoints = { lastChange: number | null; review: number };
 
 /**
  * Records grouped into observed runs: by harness, session and subagent, in time order, a
@@ -118,9 +123,9 @@ export type ReviewPoints = { work: number | null; review: number };
  * id is its first record's key, so more records never change it. Its Task is the one its
  * branch maps back to (`branchTask`), none being unassigned. Its role is each of its records':
  * `product` on the default branch, `unknown` on a branch no Task has, and on a Task's branch
- * `rework` after the Task's first Review, `review` for a subagent's record after the last
- * commit before it changing anything but the ticket, and `implementation` otherwise. Runs
- * come in the order they started.
+ * `rework` after the Task's first Review, `review` up to it for a subagent that started
+ * after the last commit before it changing anything but the ticket, and `implementation`
+ * otherwise. Runs come in the order they started.
  *
  * A subagent's runs name their parent run: the run of the parent session that had started
  * by the subagent's first record. None does when that session has no run among `records`.
@@ -136,16 +141,24 @@ export function observedRuns<R extends RunRecord, T extends Pick<TrackerTask, 'i
     const branch = reflogBranch(record);
     return branch === null ? null : branchTask(branch, tasks, remote);
   };
-  const role = (record: R): RunRole => {
+  /** `start` is when the record's subagent started. */
+  const roleOf = (record: R, start: number): RunRole => {
     if (reflogBranch(record) === defaultBranch) return 'product';
     const task = taskOf(record);
     if (task === null) return 'unknown';
     const points = reviews.get(task.id);
     if (points === undefined) return 'implementation';
-    const time = Date.parse(record.timestamp);
-    if (time > points.review) return 'rework';
-    return record.subagentId !== null && (points.work === null || time > points.work) ? 'review' : 'implementation';
+    if (Date.parse(record.timestamp) > points.review) return 'rework';
+    return record.subagentId !== null && (points.lastChange === null || start > points.lastChange) ? 'review' : 'implementation';
   };
+  // Records come session by session in time order, so a subagent's first one is when it started.
+  const started = new Map<string, number>();
+  const role = new Map<R, RunRole>();
+  for (const record of sorted) {
+    const subagent = [record.harness, record.sessionId, record.subagentId ?? ''].join('\0');
+    if (!started.has(subagent)) started.set(subagent, Date.parse(record.timestamp));
+    role.set(record, roleOf(record, started.get(subagent)!));
+  }
 
   const groups: R[][] = [];
   for (const record of sorted) {
@@ -157,7 +170,7 @@ export function observedRuns<R extends RunRecord, T extends Pick<TrackerTask, 'i
       last.subagentId === record.subagentId &&
       last.checkout === record.checkout &&
       reflogBranch(last) === reflogBranch(record) &&
-      role(last) === role(record);
+      role.get(last) === role.get(record);
     if (same) groups.at(-1)!.push(record);
     else groups.push([record]);
   }
@@ -181,7 +194,7 @@ export function observedRuns<R extends RunRecord, T extends Pick<TrackerTask, 'i
       id: runId(first),
       projectPath,
       taskId: taskOf(first)?.id ?? null,
-      role: role(first),
+      role: role.get(first)!,
       harness: first.harness,
       provider: latest.provider,
       model: latest.model,

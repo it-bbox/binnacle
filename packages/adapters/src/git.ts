@@ -259,6 +259,7 @@ export async function readFirstReviews(cwd: string, paths: string[], timeoutMs: 
   try {
     const pathspecs = paths.map((path) => `:(top,literal)${path}`);
     // Oldest first; `-G` names only the files whose own diff matches.
+    // ponytail: a `### Review` line anywhere in the ticket counts, under `## Comments` or not; read the file at the commit if a ticket body ever uses that heading.
     const run = await git(cwd, timeoutMs, ['log', '--branches', '--reverse', '-G^### Review', '--name-only', '--format=%x00%H %at', '--', ...pathspecs]);
     if (run.code !== 0) return null;
     const reviews = new Map<string, { commit: string; at: number }>();

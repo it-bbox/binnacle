@@ -57,6 +57,7 @@ export {
   type Review,
   type ReviewState,
   type RunRole,
+  type TaskRole,
   type Task,
   type TaskState,
   type TransitionResult,

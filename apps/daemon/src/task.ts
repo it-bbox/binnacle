@@ -1,9 +1,8 @@
 import type { Tree } from '@binnacle/adapters';
-import { sharedBranch, startCommand, taskBranch, type Diagnostic, type ProjectManifest, type TaskState, type TrackerTask } from '@binnacle/core';
+import { sharedBranch, startCommand, taskBranch, type Diagnostic, type ProjectManifest, type TaskRole, type TaskState, type TrackerTask } from '@binnacle/core';
 import { OperationError } from './errors.ts';
 import type { Totals } from '@binnacle/telemetry';
 import { cut, readTracker, type Unavailable } from './snapshot.ts';
-import type { TaskRole } from './usage.ts';
 
 /** In characters: Unicode code points. */
 export const BODY_LIMIT = 8000;
