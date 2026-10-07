@@ -71,6 +71,7 @@ export const PONYTAIL_REASONS = {
   noneBefore: 'No Task with runs was completed before Ponytail, so there is nothing to compare.',
   noneAfter: 'No Task with runs has been completed since Ponytail, so there is nothing to compare.',
   neither: 'No Task with runs was set DONE by a commit on the default branch, so there is nothing to compare.',
+  remote: 'On GitHub or GitLab a Task is DONE by its issue, not by a commit, so no Task is before or after Ponytail.',
 } as const;
 
 /** The instruction files read for Ponytail, as `binn audit` reads them: one set where `CLAUDE.md` imports `AGENTS.md`. */
@@ -477,7 +478,7 @@ export async function usageGet(
   }
   const { runs: attributed, reworkUnread, reviewed } = await runs(records, projectPath, tasks, context.home, manifest, checkouts);
   if (!found) {
-    const derived = { ...(await perTask(projectPath, attributed, tasks, reworkUnread, reviewed)), weekly: weekly(records), contextGrowth: contextGrowth(attributed) };
+    const derived = { ...(await perTask(projectPath, manifest?.tracker?.provider !== 'local', attributed, tasks, reworkUnread, reviewed)), weekly: weekly(records), contextGrowth: contextGrowth(attributed) };
     return { importing, totals: sum(records), ...byTask(attributed, tasks), byRole: byRole(attributed, ROLES), derived };
   }
 
@@ -764,6 +765,7 @@ const byId = (a: { id: string }, b: { id: string }): number => (a.id < b.id ? -1
 /** The derived metrics per Task: those of the `DONE` Tasks, before and after Ponytail too, and the runs of every Task. */
 async function perTask(
   projectPath: string,
+  remote: boolean,
   attributed: { taskId: string | null; role: RunRole; records: RunRecord[] }[],
   tasks: Pick<TrackerTask, 'id' | 'title' | 'state' | 'ticket'>[],
   reworkUnread: Map<string, string>,
@@ -782,7 +784,7 @@ async function perTask(
     const own = runsOf.get(task.id);
     return own === undefined ? [] : [{ id: task.id, title: task.title, ticket: task.ticket, runs: own.length, totals: sum(own.flatMap((run) => run.records)) }];
   });
-  const ponytail = await ponytailEffect(projectPath, completed);
+  const ponytail = await ponytailEffect(projectPath, remote, completed);
   completed.sort((a, b) => magnitude(b.totals) - magnitude(a.totals) || byId(a, b));
 
   const shares = completed.map(({ id, title }) => {
@@ -833,11 +835,14 @@ async function perTask(
  * `derived.ponytail` over `completed`, the `DONE` Tasks with runs, read from the default
  * branch of the registered checkout, `origin/HEAD`'s or else `main`, as the runs' roles are.
  */
-async function ponytailEffect(projectPath: string, completed: { ticket: string; totals: Totals }[]): Promise<Derived['ponytail']> {
+async function ponytailEffect(projectPath: string, remote: boolean, completed: { ticket: string; totals: Totals }[]): Promise<Derived['ponytail']> {
   const timeout = resolveGitTimeout();
   const head = await readBranchCommit(projectPath, (await readDefaultBranch(projectPath, timeout)) ?? 'main', timeout);
+  // ponytail: "Ponytail" anywhere in a line, in any case, names it, a `ponytails` or a `ponytail:` too; match a whole word if that ever dates it wrongly.
   const adoption = head === null ? { known: false, first: null } : await readFirstMention(projectPath, head, 'Ponytail', INSTRUCTION_FILES, timeout);
-  const doneAt = head === null ? null : await readDoneCommits(projectPath, head, completed.map((task) => task.ticket), timeout);
+  // A remote tracker's Task is DONE by its issue, never by a commit. Both sides compare author
+  // times, which a rebase keeps: a ticket set DONE before Ponytail and merged after it is before.
+  const doneAt = head === null || remote ? null : await readDoneCommits(projectPath, head, completed.map((task) => task.ticket), timeout);
   const dated = completed.flatMap((task) => {
     const at = doneAt?.get(task.ticket)?.at;
     return at === undefined ? [] : [{ at, totals: task.totals }];
@@ -851,7 +856,7 @@ async function ponytailEffect(projectPath: string, completed: { ticket: string; 
   const before = side(dated.filter((task) => task.at < since));
   const after = side(dated.filter((task) => task.at >= since));
   const reason =
-    before.tasks + after.tasks === 0 ? PONYTAIL_REASONS.neither : before.tasks === 0 ? PONYTAIL_REASONS.noneBefore : after.tasks === 0 ? PONYTAIL_REASONS.noneAfter : null;
+    before.tasks + after.tasks === 0 ? (remote ? PONYTAIL_REASONS.remote : PONYTAIL_REASONS.neither) : before.tasks === 0 ? PONYTAIL_REASONS.noneBefore : after.tasks === 0 ? PONYTAIL_REASONS.noneAfter : null;
   return { provenance: 'calculated', since: { commit: adoption.first.commit, at: new Date(since).toISOString() }, before, after, undated, reason };
 }
 

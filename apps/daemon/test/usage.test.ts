@@ -2254,4 +2254,26 @@ describe('Ponytail’s effect in usage.get', () => {
       assert.equal(ponytail.reason, 'No Task with runs has been completed since Ponytail, so there is nothing to compare.');
     });
   });
+
+  it('places no GitHub Task on either side, its issue and not a commit making it DONE, and says so', async () => {
+    const issue = { number: 7, title: 'Seven', state: 'closed', state_reason: 'completed', body: 'Status: DONE', labels: [], html_url: 'https://github.com/octo/repo/issues/7' };
+    const github = await fakeForge((url) => (url.pathname === '/repos/octo/repo/issues' ? [issue] : undefined));
+    try {
+      await withDaemon(async (daemon, artifacts) => {
+        const root = makeProject(temporary('binnacle-usage-'), githubTracker(github.base));
+        writeFileSync(join(root, 'AGENTS.md'), 'Use Ponytail.\n');
+        repository(root, at(6, 0), [at(5, 0), 'feat/7-seven']);
+        session(artifacts, root, 'seven', lines(GRILL, at(5, 1)));
+        await register(daemon, root);
+
+        const { derived } = await usageGet<ProjectUsage>(daemon, root);
+        assert.deepEqual(available(derived.perCompletedTask).items.map((item) => item.id), ['#7']);
+        const ponytail = available(derived.ponytail);
+        assert.deepEqual([ponytail.before, ponytail.after, ponytail.undated], [{ tasks: 0, mean: null }, { tasks: 0, mean: null }, 1]);
+        assert.equal(ponytail.reason, 'On GitHub or GitLab a Task is DONE by its issue, not by a commit, so no Task is before or after Ponytail.');
+      });
+    } finally {
+      await github.close();
+    }
+  });
 });

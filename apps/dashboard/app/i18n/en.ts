@@ -132,6 +132,7 @@ export const en = {
     ponytailNoneBefore: 'No Task with runs was completed before Ponytail, so there is nothing to compare.',
     ponytailNoneAfter: 'No Task with runs has been completed since Ponytail, so there is nothing to compare.',
     ponytailNeither: 'No Task with runs was set DONE by a commit on the default branch, so there is nothing to compare.',
+    ponytailRemote: 'On GitHub or GitLab a Task is DONE by its issue, not by a commit, so no Task is before or after Ponytail.',
   },
   runningNow: 'Running now',
   runningNote: '“Running” is Binnacle’s reading of recent activity.',

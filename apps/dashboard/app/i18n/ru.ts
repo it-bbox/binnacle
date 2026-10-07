@@ -118,6 +118,7 @@ export const ru: Dictionary = {
     ponytailNoneBefore: 'Ни один Task с runs не завершён до Ponytail, сравнивать не с чем.',
     ponytailNoneAfter: 'После Ponytail не завершён ни один Task с runs, сравнивать не с чем.',
     ponytailNeither: 'Ни один Task с runs не переведён в DONE коммитом в ветке по умолчанию, сравнивать не с чем.',
+    ponytailRemote: 'В GitHub или GitLab Task переходит в DONE по своему issue, а не коммитом, поэтому ни один Task не попадает ни до, ни после Ponytail.',
   },
   runningNow: 'Идёт сейчас',
   runningNote: '«Идёт» — это вывод Binnacle по недавней активности.',

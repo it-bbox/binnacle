@@ -269,12 +269,13 @@ export async function readDoneCommits(cwd: string, commit: string, paths: string
 }
 
 /**
- * The oldest commit reachable from `commit`, a hash, that changed a line naming `word` in any
- * case in one of `files`, relative to `cwd`: the first that added it, no commit before it
- * holding the word. Null when none did, or Git cannot say, which `known` tells apart.
+ * The oldest commit reachable from `commit`, a hash, that changed a line matching `pattern`, a
+ * basic regular expression, in any case, in one of `files`, relative to `cwd`: the first that
+ * added such a line, no commit before it holding one. Null when none did, or Git cannot say,
+ * which `known` tells apart.
  */
-export async function readFirstMention(cwd: string, commit: string, word: string, files: string[], timeoutMs: number): Promise<{ known: boolean; first: { commit: string; at: number } | null }> {
-  const changes = await lineChanges(cwd, timeoutMs, [commit, '--reverse', '--regexp-ignore-case'], word.replace(/[.*[\]\\^$]/g, '\\$&'), files.map((file) => `:(literal)${file}`));
+export async function readFirstMention(cwd: string, commit: string, pattern: string, files: string[], timeoutMs: number): Promise<{ known: boolean; first: { commit: string; at: number } | null }> {
+  const changes = await lineChanges(cwd, timeoutMs, [commit, '--reverse', '--regexp-ignore-case'], pattern, files.map((file) => `:(literal)${file}`));
   return { known: changes !== null, first: changes?.[0] ?? null };
 }
 
