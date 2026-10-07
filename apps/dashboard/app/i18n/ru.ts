@@ -109,6 +109,7 @@ export const ru: Dictionary = {
     graphNotBuilt: 'Граф ещё не построен: graphify-out/graph.json нет.',
     graphUnreadable: 'graphify-out/graph.json не читается как граф.',
     importNotReached: 'Импорт этого проекта ещё не дошёл ни до одной записи.',
+    opencodeNoExport: 'opencode не экспортирует OpenTelemetry: его вызовы читаются из его базы данных, когда каждый из них завершён, и в реальном времени он не виден.',
     roadmapNoDocs: 'Roadmap лежит в <knowledge.docs>/roadmap.md, а knowledge.docs проект не задаёт.',
     roadmapNoFocus: 'В roadmap нет раздела «## Current focus».',
     roadmapNoTable: 'В roadmap нет таблицы с заголовком «| # | Epic | Status | Spec |».',

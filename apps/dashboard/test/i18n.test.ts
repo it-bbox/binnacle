@@ -87,6 +87,7 @@ describe("the daemon's reasons", () => {
     assert.equal(daemonReason('en', notInThisVersion), notInThisVersion);
     assert.equal(daemonReason('ru', notInThisVersion), 'Недоступно в этой версии Binnacle.');
     assert.equal(daemonReason('ru', 'There is no roadmap at docs/roadmap.md.'), 'There is no roadmap at docs/roadmap.md.');
+    assert.match(daemonReason('ru', 'opencode exports no OpenTelemetry, so its calls are read from its database once each has finished, and it is never seen live.'), /^opencode не экспортирует/);
   });
 
   const tasks = [

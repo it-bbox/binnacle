@@ -180,21 +180,25 @@ export type Runtime = {
 };
 
 /** Where each harness keeps the session artifacts the daemon reads usage from. It only ever reads there. */
-export type ArtifactRoots = { claudeCode: string; codex: string; geminiCli: string };
+export type ArtifactRoots = { claudeCode: string; codex: string; geminiCli: string; opencode: string };
 
 /**
  * Claude Code's: `$CLAUDE_CONFIG_DIR/projects`, otherwise `~/.claude/projects`. Codex's:
  * `$CODEX_HOME/sessions`, otherwise `~/.codex/sessions`. Gemini CLI's:
- * `$GEMINI_CLI_HOME/.gemini/tmp`, otherwise `~/.gemini/tmp`.
+ * `$GEMINI_CLI_HOME/.gemini/tmp`, otherwise `~/.gemini/tmp`. opencode's, its data directory,
+ * which holds its database: `$XDG_DATA_HOME/opencode`, otherwise `~/.local/share/opencode`,
+ * on macOS too.
  */
 export function resolveArtifactRoots(env: NodeJS.ProcessEnv = process.env): ArtifactRoots {
   const claude = env.CLAUDE_CONFIG_DIR?.trim();
   const codex = env.CODEX_HOME?.trim();
   const gemini = env.GEMINI_CLI_HOME?.trim();
+  const data = env.XDG_DATA_HOME?.trim();
   return {
     claudeCode: join(claude ? claude : join(homedir(), '.claude'), 'projects'),
     codex: join(codex ? codex : join(homedir(), '.codex'), 'sessions'),
     geminiCli: join(gemini ? gemini : homedir(), '.gemini', 'tmp'),
+    opencode: join(data ? data : join(homedir(), '.local', 'share'), 'opencode'),
   };
 }
 

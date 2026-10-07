@@ -9,6 +9,8 @@ import {
   readDefaultBranch,
   readGeminiCli,
   readFirstReviews,
+  readOpencode,
+  readOpencodeSteps,
   readHeadHistory,
   readLastChangeBefore,
   readWorktrees,
@@ -36,11 +38,20 @@ export const INGEST_BUDGET_MS = 1000;
 /** How long a Claude Code file must go unwritten before its last message is taken as finished. */
 export const SETTLED_AFTER_MS = 60_000;
 
-/** The harnesses Binnacle counts, in the order the snapshot lists them, with their names and artifact roots. */
-const HARNESSES: { harness: Harness; name: string; root: keyof ArtifactRoots }[] = [
+/**
+ * The harnesses Binnacle counts, in the order the snapshot lists them, with their names and
+ * artifact roots, and, for one that exports no OpenTelemetry, why it never reaches level 4.
+ */
+const HARNESSES: { harness: Harness; name: string; root: keyof ArtifactRoots; noExport?: string }[] = [
   { harness: 'claude-code', name: 'Claude Code', root: 'claudeCode' },
   { harness: 'codex', name: 'Codex', root: 'codex' },
   { harness: 'gemini-cli', name: 'Gemini CLI', root: 'geminiCli' },
+  {
+    harness: 'opencode',
+    name: 'opencode',
+    root: 'opencode',
+    noExport: 'opencode exports no OpenTelemetry, so its calls are read from its database once each has finished, and it is never seen live.',
+  },
 ];
 
 /** Per harness, why its artifacts of a project cannot be read, if they cannot. */
@@ -91,6 +102,7 @@ export async function stopImporting(importer: Importer): Promise<void> {
 export function forgetRead(context: OperationContext, projectPath: string): void {
   context.store.forgetCursors(join(context.runtime.artifacts.claudeCode, claudeCodeDirectory(projectPath)));
   for (const path of geminiCliSessions(context.runtime.artifacts.geminiCli, [projectPath]).files) context.store.forgetCursors(path);
+  context.store.forgetCursors(opencodeDatabase(context.runtime.artifacts.opencode));
 }
 
 export type HarnessLevel = {
@@ -101,7 +113,7 @@ export type HarnessLevel = {
    * were read without any, 1 when an artifact could not be read, null when none were found.
    */
   level: 1 | 2 | 3 | 4 | null;
-  /** Why the level is below 2; null otherwise. */
+  /** Why the level is below 2, or, at 2 or 3, why a harness that exports no OpenTelemetry never reaches 4; null otherwise. */
   reason: string | null;
 };
 
@@ -123,7 +135,7 @@ export type Usage = {
 };
 
 /**
- * Reads what is new in the Claude Code, Codex and Gemini CLI artifacts of `projectPath`, for as long as
+ * Reads what is new in the Claude Code, Codex, Gemini CLI and opencode artifacts of `projectPath`, for as long as
  * the time budget allows, and answers the snapshot's `usage` and `activity` sections from
  * everything stored, attributed to `tasks`, the tracker's current Tasks, or unavailable with
  * why they cannot be read. What the budget does not cover goes on in the background. "Today"
@@ -368,6 +380,8 @@ function unreadableArtifacts(context: OperationContext, directoriesOfProject: st
   const claudeCode = claudeCodeFiles(artifacts.claudeCode, directoriesOfProject);
   const codex = codexSessions(artifacts.codex);
   const geminiCli = geminiCliSessions(artifacts.geminiCli, directoriesOfProject);
+  // opencode's one database holds every project's sessions, so its failure is every project's.
+  const opencode = opencodeDatabase(artifacts.opencode);
   // A rollout says whose it is on its first line; one that cannot be opened may be anyone's, this project's included.
   const ours = (path: string): boolean => {
     try {
@@ -380,6 +394,7 @@ function unreadableArtifacts(context: OperationContext, directoriesOfProject: st
     'claude-code': summary('Claude Code', [...claudeCode.failures, ...failed(claudeCode.files)]),
     codex: summary('Codex', [...codex.failures, ...failed(codex.files.filter((path) => unreadable.has(path) && ours(path)))]),
     'gemini-cli': summary('Gemini CLI', [...geminiCli.failures, ...failed(geminiCli.files)]),
+    opencode: summary('opencode', failed([opencode])),
   };
 }
 
@@ -558,15 +573,15 @@ export async function projectCheckouts(projectPath: string): Promise<Checkouts> 
 function level(
   context: OperationContext,
   projectPath: string,
-  { harness, name, root }: (typeof HARNESSES)[number],
+  { harness, name, root, noExport }: (typeof HARNESSES)[number],
   failure: string | null,
   incomplete: boolean,
 ): HarnessLevel {
   if (failure !== null) return { harness, level: 1, reason: failure };
   const { records, withTokens, live } = context.store.usageCounts(projectPath, harness, new Date(Date.now() - ACTIVE_WITHIN_MS).toISOString());
   if (live > 0) return { harness, level: 4, reason: null };
-  if (withTokens > 0) return { harness, level: 3, reason: null };
-  if (records > 0) return { harness, level: 2, reason: null };
+  if (withTokens > 0) return { harness, level: 3, reason: noExport ?? null };
+  if (records > 0) return { harness, level: 2, reason: noExport ?? null };
   if (incomplete) return { harness, level: null, reason: 'The import of this project has not reached a record yet.' };
   return { harness, level: null, reason: `No ${name} session of this project was found under ${context.runtime.artifacts[root]}.` };
 }
@@ -588,13 +603,15 @@ export function startIngest(context: OperationContext, projectPath: string, mani
     'claude-code': claudeCodeFiles(artifacts.claudeCode, [projectPath, ...linked]),
     codex: codexSessions(artifacts.codex),
     'gemini-cli': geminiCliSessions(artifacts.geminiCli, [projectPath, ...linked]),
+    opencode: { files: existsSync(opencodeDatabase(artifacts.opencode)) ? [opencodeDatabase(artifacts.opencode)] : [] },
   };
 
   const pending: { path: string; harness: Harness }[] = [];
   for (const { harness } of HARNESSES) {
     for (const path of found[harness].files) {
       try {
-        if (readPosition(context.store.cursor(path), statSync(path).size, window) === null) {
+        const cursor = context.store.cursor(path);
+        if (harness === 'opencode' ? !databaseChanged(cursor, databaseMark(path), window) : readPosition(cursor, statSync(path).size, window) === null) {
           // Read to its end, and it can be opened again: nothing about it is unreadable any more.
           importer.unreadable.delete(path);
           continue;
@@ -818,6 +835,7 @@ async function ingestFile(
   places: { path: string; project: string }[],
   histories: Map<string, Promise<HeadHistory | null>>,
 ): Promise<string | null> {
+  if (harness === 'opencode') return ingestDatabase(context, path, window, places, histories);
   let size: number;
   let settled: boolean;
   let from: { offset: number; line: number } | null;
@@ -855,18 +873,78 @@ async function ingestFile(
     return openFailure(path, error);
   }
 
-  const windowStart = window === 'all' ? '' : localMidnight(window - 1).toISOString();
   const reading = read(bytes);
-  const records: Ingested[] = [];
-  for (const record of reading.records) {
-    const project = containingEntry(record.cwd, places)?.project;
-    if (project && record.timestamp >= windowStart) records.push({ record: await withBranch(record, histories), projectPath: project, sourceRef: path });
-  }
-  context.store.ingest({ path, size, offset: reading.stop.offset, line: reading.stop.line, windowDays: window }, records);
-  // A session's OpenTelemetry received before any of its artifact records were stored joins their project now.
-  await attributeSessions(context, records.map(({ record }) => record), histories);
+  await keep(context, { path, size, offset: reading.stop.offset, line: reading.stop.line, windowDays: window }, reading.records, places, histories);
   // Every later reading stops at the same line, a rollout's included, though it is read from its start.
   return reading.failure ? `${path} at line ${reading.failure.line}: ${reading.failure.reason}, and nothing after it is counted, however the file grows, until Binnacle can read that line` : null;
+}
+
+/**
+ * Reads opencode's database at `path` whole, as `ingestFile` reads a file. Its cursor's size
+ * is the database's mark (`databaseMark`) as of this reading, or 0 when a step failed, so
+ * that every later reading tries again.
+ *
+ * ponytail: every step of every project is read whenever the database changed, since a step's
+ * row says nothing of whose it is; select the project's sessions by their directory if the
+ * database ever outgrows the budget.
+ */
+async function ingestDatabase(
+  context: OperationContext,
+  path: string,
+  window: ImportWindow,
+  places: { path: string; project: string }[],
+  histories: Map<string, Promise<HeadHistory | null>>,
+): Promise<string | null> {
+  let mark: number;
+  let reading: ReturnType<typeof readOpencode>;
+  try {
+    mark = databaseMark(path);
+    if (!databaseChanged(context.store.cursor(path), mark, window)) return null;
+    reading = readOpencode(readOpencodeSteps(path));
+  } catch (error) {
+    // SQLite says why in `errstr`, as "file is not a database"; its code is SQLite's for any error.
+    return `${path} (${(error as { errstr?: string }).errstr ?? (error as NodeJS.ErrnoException).code ?? 'error'})`;
+  }
+  await keep(context, { path, size: reading.failure ? 0 : mark, offset: 0, line: 0, windowDays: window }, reading.records, places, histories);
+  return reading.failure ? `${path} at step ${reading.failure.step}: ${reading.failure.reason}, and nothing after it is counted until Binnacle can read that step` : null;
+}
+
+/** Where opencode's database is in its data directory `root`. */
+const opencodeDatabase = (root: string): string => join(root, 'opencode.db');
+
+/**
+ * When opencode's database at `path` last changed: the latest modification of the database
+ * and of its write-ahead log, where opencode writes first.
+ */
+function databaseMark(path: string): number {
+  const wal = `${path}-wal`;
+  return Math.max(statSync(path).mtimeMs, existsSync(wal) ? statSync(wal).mtimeMs : 0);
+}
+
+/** Whether a database marked `mark` has anything new since `cursor`: it changed, or the window is wider. */
+const databaseChanged = (cursor: IngestCursor | null, mark: number, window: ImportWindow): boolean =>
+  cursor === null || cursor.size !== mark || wider(window, cursor.windowDays);
+
+/**
+ * Stores, with `cursor`, the records of a reading whose `cwd` lies in one of `places` and
+ * that are within the window, and attributes the OpenTelemetry waiting for their sessions.
+ */
+async function keep(
+  context: OperationContext,
+  cursor: IngestCursor,
+  read: UsageRecord[],
+  places: { path: string; project: string }[],
+  histories: Map<string, Promise<HeadHistory | null>>,
+): Promise<void> {
+  const windowStart = cursor.windowDays === 'all' ? '' : localMidnight(cursor.windowDays - 1).toISOString();
+  const records: Ingested[] = [];
+  for (const record of read) {
+    const project = containingEntry(record.cwd, places)?.project;
+    if (project && record.timestamp >= windowStart) records.push({ record: await withBranch(record, histories), projectPath: project, sourceRef: cursor.path });
+  }
+  context.store.ingest(cursor, records);
+  // A session's OpenTelemetry received before any of its artifact records were stored joins their project now.
+  await attributeSessions(context, records.map(({ record }) => record), histories);
 }
 
 /**

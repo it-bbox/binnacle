@@ -2,6 +2,7 @@ export { type ArtifactPosition, type ArtifactReading } from './artifact.ts';
 export { readClaudeCode } from './claude-code.ts';
 export { codexSession, readCodex } from './codex.ts';
 export { readGeminiCli, type GeminiCliSession } from './gemini-cli.ts';
+export { readOpencode, readOpencodeSteps, type OpencodeReading, type OpencodeStep } from './opencode.ts';
 export {
   branchAt,
   commitTree,

@@ -338,20 +338,22 @@ describe('Claude Code usage in the Product Snapshot', () => {
     });
   });
 
-  it('carries the Claude Code, Codex and Gemini CLI artifact roots in the runtime', async () => {
+  it('carries the Claude Code, Codex, Gemini CLI and opencode artifact roots in the runtime', async () => {
     await withDaemon(async (daemon, artifacts, codex, geminiCli) => {
-      const { body } = await daemon.call<{ artifacts: { claudeCode: string; codex: string; geminiCli: string } }>('daemon.status');
-      assert.deepEqual(body.artifacts, { claudeCode: artifacts, codex, geminiCli });
+      const { body } = await daemon.call<{ artifacts: { claudeCode: string; codex: string; geminiCli: string; opencode: string } }>('daemon.status');
+      assert.deepEqual(body.artifacts, { claudeCode: artifacts, codex, geminiCli, opencode: join(daemon.home, 'no-opencode-data') });
     });
-    assert.deepEqual(resolveArtifactRoots({ CLAUDE_CONFIG_DIR: '/config/claude', CODEX_HOME: '/config/codex', GEMINI_CLI_HOME: '/config/gemini' }), {
+    assert.deepEqual(resolveArtifactRoots({ CLAUDE_CONFIG_DIR: '/config/claude', CODEX_HOME: '/config/codex', GEMINI_CLI_HOME: '/config/gemini', XDG_DATA_HOME: '/data' }), {
       claudeCode: join('/config/claude', 'projects'),
       codex: join('/config/codex', 'sessions'),
       geminiCli: join('/config/gemini', '.gemini', 'tmp'),
+      opencode: join('/data', 'opencode'),
     });
     assert.deepEqual(resolveArtifactRoots({}), {
       claudeCode: join(homedir(), '.claude', 'projects'),
       codex: join(homedir(), '.codex', 'sessions'),
       geminiCli: join(homedir(), '.gemini', 'tmp'),
+      opencode: join(homedir(), '.local', 'share', 'opencode'),
     });
   });
 });
@@ -1150,7 +1152,7 @@ describe('Codex usage in the Product Snapshot', () => {
       const body = await snapshotUsage(daemon, root);
       assert.deepEqual(body.today, TOOL_CALLS_TOTALS);
       assert.deepEqual(body.byModel, { items: [{ model: 'gpt-5.6-sol', totals: TOOL_CALLS_TOTALS }], remainder: 0 });
-      assert.deepEqual(body.harnesses.map((item) => item.harness), ['claude-code', 'codex', 'gemini-cli']);
+      assert.deepEqual(body.harnesses.map((item) => item.harness), ['claude-code', 'codex', 'gemini-cli', 'opencode']);
       assert.deepEqual(body.harnesses[1], { harness: 'codex', level: 3, reason: null });
 
       const rows = stored(daemon);

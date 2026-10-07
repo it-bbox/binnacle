@@ -123,6 +123,7 @@ export const en = {
     graphNotBuilt: 'No graph has been built yet: there is no graphify-out/graph.json.',
     graphUnreadable: 'graphify-out/graph.json cannot be read as a graph.',
     importNotReached: 'The import of this project has not reached a record yet.',
+    opencodeNoExport: 'opencode exports no OpenTelemetry, so its calls are read from its database once each has finished, and it is never seen live.',
     roadmapNoDocs: 'The roadmap is <knowledge.docs>/roadmap.md, and this project declares no knowledge.docs.',
     roadmapNoFocus: 'The roadmap has no "## Current focus" section.',
     roadmapNoTable: 'The roadmap has no table headed "| # | Epic | Status | Spec |".',
