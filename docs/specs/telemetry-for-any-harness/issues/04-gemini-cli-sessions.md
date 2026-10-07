@@ -11,3 +11,5 @@ Spec: `docs/specs/telemetry-for-any-harness/spec.md`
 - [ ] Daemon process test: a project's Gemini CLI sessions appear in `usage.get` and its level is 3.
 
 ## Comments
+
+- **From 02.** Gemini CLI's OpenTelemetry names no working directory, so its events wait in no project until a record of their session is stored; this reader is what attributes them to a project (`attributeSessions`), with no change there. Its level is already 4 while its events arrive. Map Gemini's counts as 02's `geminiCli` does (input = prompt − cached + tool-use prompt, output = candidates + thoughts), so that a call read from both is counted once. Gemini CLI is in `HARNESSES` with no artifact root; give it one.
