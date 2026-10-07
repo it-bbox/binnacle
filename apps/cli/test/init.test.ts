@@ -1054,8 +1054,6 @@ test('the Summary gives the next step for a detected harness other than Claude C
   assert.match(opencode, /Run `opencode`/);
   assert.match(opencode, /run `binnacle-product` in opencode/);
   assert.doesNotMatch(opencode, /not on PATH/);
-  assert.match(opencode, /opencode exports no OpenTelemetry: Binnacle reads its calls from its database/);
-  assert.doesNotMatch(codex, /exports no OpenTelemetry/);
   assert.doesNotMatch(summary, /SKILL\.md/);
   assert.doesNotMatch(summary, /To work from Claude Code/);
 });

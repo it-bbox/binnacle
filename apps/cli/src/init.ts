@@ -206,7 +206,6 @@ function nextSteps(session: Session, harness: Harness): void {
     harness.note,
     harness.open,
     harness.offPath && !onPath(harness.executable) ? harness.offPath : undefined,
-    harness.noExport,
     session.skills
       ? `Run \`binnacle-product\` in ${harness.name}.`
       : `Once binn init has installed Binnacle's skills, run \`binnacle-product\` in ${harness.name}.`,
@@ -470,8 +469,6 @@ type Harness = {
   open?: string;
   /** Said in the next step when `executable` is not on PATH. */
   offPath?: string;
-  /** Said in the next step of a harness that exports no OpenTelemetry: how Binnacle counts it instead. */
-  noExport?: string;
 };
 
 const json = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
@@ -513,7 +510,6 @@ const HARNESSES: Harness[] = [
     entry: (name, command) => json({ $schema: 'https://opencode.ai/config.json', mcp: { [name]: { type: 'local', command } } }),
     // No `add`: its documented `opencode mcp add` is an interactive wizard.
     open: 'Run `opencode` in the repository root.',
-    noExport: 'opencode exports no OpenTelemetry: Binnacle reads its calls from its database once each has finished, and never sees a session live.',
   },
   {
     name: 'VS Code',

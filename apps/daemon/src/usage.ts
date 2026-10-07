@@ -38,6 +38,9 @@ export const INGEST_BUDGET_MS = 1000;
 /** How long a Claude Code file must go unwritten before its last message is taken as finished. */
 export const SETTLED_AFTER_MS = 60_000;
 
+/** Why opencode never reaches level 4, which `binn init` and `binn audit` say too: it has no export to point at the daemon. */
+export const OPENCODE_NO_EXPORT = 'opencode documents no OpenTelemetry export, so Binnacle counts it only from its database, each call once it has finished';
+
 /**
  * The harnesses Binnacle counts, in the order the snapshot lists them, with their names and
  * artifact roots, and, for one that exports no OpenTelemetry, why it never reaches level 4.
@@ -50,7 +53,7 @@ const HARNESSES: { harness: Harness; name: string; root: keyof ArtifactRoots; no
     harness: 'opencode',
     name: 'opencode',
     root: 'opencode',
-    noExport: 'opencode exports no OpenTelemetry, so its calls are read from its database once each has finished, and it is never seen live.',
+    noExport: `${OPENCODE_NO_EXPORT}.`,
   },
 ];
 

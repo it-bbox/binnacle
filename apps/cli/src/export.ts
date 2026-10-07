@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { isAlive, readRuntime, resolvePort } from '@binnacle/daemon';
+import { isAlive, OPENCODE_NO_EXPORT, readRuntime, resolvePort } from '@binnacle/daemon';
 import { isRecord } from './history.ts';
 import { CONFIG_HOME, onPath, VSCODE_USER_DIRECTORY } from './tools.ts';
 
@@ -132,7 +132,7 @@ export const exporters = (): Exporter[] => {
 
 /** The detected harnesses that export no OpenTelemetry Binnacle receives, and why. */
 export const NO_EXPORT: { name: string; code: string; executable: string; userDirectory: string; reason: string }[] = [
-  { name: 'opencode', code: 'opencode', executable: 'opencode', userDirectory: join(CONFIG_HOME, 'opencode'), reason: 'opencode documents no OpenTelemetry export, so Binnacle can count it only from its session files' },
+  { name: 'opencode', code: 'opencode', executable: 'opencode', userDirectory: join(CONFIG_HOME, 'opencode'), reason: OPENCODE_NO_EXPORT },
   { name: 'VS Code', code: 'vscode', executable: 'code', userDirectory: VSCODE_USER_DIRECTORY, reason: 'Binnacle configures no OpenTelemetry export for VS Code, and reads none of its sessions' },
 ];
 

@@ -17,7 +17,7 @@ type FieldTotal = { tokens: number | null; partial: boolean; provenance: string 
 type Totals = { records: number; input: FieldTotal; cachedInput: FieldTotal; cacheCreation: FieldTotal; output: FieldTotal; reasoning: FieldTotal };
 type Level = { harness: string; level: number | null; reason: string | null };
 
-const NO_EXPORT = 'opencode exports no OpenTelemetry, so its calls are read from its database once each has finished, and it is never seen live.';
+const NO_EXPORT = 'opencode documents no OpenTelemetry export, so Binnacle counts it only from its database, each call once it has finished.';
 
 const roots: string[] = [];
 after(() => {
