@@ -106,7 +106,11 @@ export type Store = {
   usage(projectPath: string, since: string): UsageRecord[];
   /**
    * How many of a project's records of one harness there are, how many report any token count,
-   * and how many arrived through OpenTelemetry at `liveSince` or later, an ISO timestamp.
+   * and how many arrived through OpenTelemetry at `liveSince` or later, an ISO timestamp: the
+   * project's, and the harness's still in no project, since a harness's events arriving make it
+   * live whether or not a project is known for them yet.
+   * ponytail: a record in no project makes its harness live in every project; tell them apart
+   * if a harness's level must ever say which project its live session is in.
    */
   usageCounts(projectPath: string, harness: Harness, liveSince: string): { records: number; withTokens: number; live: number };
   /** Keeps records received through OpenTelemetry in no project, until `attribute` moves them; one already received is left as it was. */
@@ -330,6 +334,7 @@ export function openStore(home: string): Store {
       count(case when source = 'opentelemetry' and ingested_at >= ? then 1 end) as live
     from ingested_record where project_path = ? and harness = ?
   `);
+  const countUnattributed = db.prepare('select count(*) as live from unattributed_record where harness = ? and received_at >= ?');
 
   const COLUMNS = 'path, id, name, registered_at, unavailable, manifest_digest';
   const selectAll = db.prepare(`select ${COLUMNS} from project order by id`);
@@ -429,7 +434,8 @@ export function openStore(home: string): Store {
       })),
     usageCounts: (projectPath, harness, liveSince) => {
       const row = countUsage.get(liveSince, projectPath, harness)!;
-      return { records: Number(row.records), withTokens: Number(row.with_tokens), live: Number(row.live) };
+      const waiting = countUnattributed.get(harness, liveSince)!;
+      return { records: Number(row.records), withTokens: Number(row.with_tokens), live: Number(row.live) + Number(waiting.live) };
     },
     receive: (records) => {
       const now = new Date().toISOString();

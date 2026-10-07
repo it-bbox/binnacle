@@ -95,8 +95,8 @@ export function forgetRead(context: OperationContext, projectPath: string): void
 export type HarnessLevel = {
   harness: Harness;
   /**
-   * ADR-0014, for this project: 4 when its OpenTelemetry records arrived within telemetry's
-   * recency (`ACTIVE_WITHIN_MS`), 3 when records with token counts were read, 2 when records
+   * ADR-0014, for this project: 4 when its OpenTelemetry records, this project's or those still
+   * in no project, arrived within telemetry's recency (`ACTIVE_WITHIN_MS`), 3 when records with token counts were read, 2 when records
    * were read without any, 1 when an artifact could not be read, null when none were found.
    */
   level: 1 | 2 | 3 | 4 | null;

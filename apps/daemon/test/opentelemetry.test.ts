@@ -522,10 +522,28 @@ describe('Gemini CLI’s OpenTelemetry', () => {
 
       // Its events name no working directory, and no artifact of its session is read: it is in no project.
       assert.equal((await totals(daemon, root)).records, 0);
-      const gemini = (await snapshot(daemon, root)).usage.harnesses[2];
-      assert.equal(gemini?.harness, 'gemini-cli');
-      assert.equal(gemini?.level, null);
-      assert.match(gemini?.reason ?? '', /names no working directory/);
+      assert.equal(stored(daemon).length, 0);
+    });
+  });
+
+  it('gives Gemini CLI level 4 while its events arrive, though they name no directory, and adds nothing to any project’s usage', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject();
+      await register(daemon, root);
+      const before = (await snapshot(daemon, root)).usage.harnesses[2];
+      assert.equal(before?.harness, 'gemini-cli');
+      assert.equal(before?.level, null);
+      assert.match(before?.reason ?? '', /names no working directory/);
+
+      const call = { input_token_count: 10, cached_content_token_count: 0, tool_token_count: 0, output_token_count: 1, thoughts_token_count: 0 };
+      await post(daemon, '/v1/logs', geminiOtlp([{ sessionId: 'gemini-now', timestamp: minutesAgo(0), counts: call }]));
+      const after = await snapshot(daemon, root);
+      assert.deepEqual(after.usage.harnesses[2], { harness: 'gemini-cli', level: 4, reason: null });
+      assert.equal(after.usage.last7Days.records, 0);
+      assert.deepEqual(after.activity.running.items, []);
+      assert.equal((await totals(daemon, root)).records, 0);
+      assert.equal(stored(daemon).length, 0);
+      assert.equal(stored(daemon, 'unattributed_record').length, 1);
     });
   });
 });
