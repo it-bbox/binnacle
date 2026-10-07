@@ -113,7 +113,8 @@ export const exporters = (): Exporter[] => {
       code: 'gemini_cli',
       executable: 'gemini',
       userDirectory: join(homedir(), '.gemini'),
-      file: join(homedir(), '.gemini', 'settings.json'),
+      // Under GEMINI_CLI_HOME when it is set, as the daemon reads Gemini CLI's sessions.
+      file: join(process.env.GEMINI_CLI_HOME?.trim() || homedir(), '.gemini', 'settings.json'),
       how: 'merging into',
       read(text, address) {
         const parsed = settings(text);

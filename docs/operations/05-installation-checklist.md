@@ -314,7 +314,7 @@ A vault path that does not exist, is not a directory or cannot be written, and a
 | --- | --- | --- |
 | Claude Code | `settings.json` in `CLAUDE_CONFIG_DIR` or `~/.claude`, merged, keeping the rest | `env`: `CLAUDE_CODE_ENABLE_TELEMETRY=1`, `OTEL_LOGS_EXPORTER=otlp`, `OTEL_EXPORTER_OTLP_PROTOCOL=http/json`, `OTEL_EXPORTER_OTLP_ENDPOINT=<address>` |
 | Codex | `config.toml` in `CODEX_HOME` or `~/.codex`, appended | `[otel]` with `exporter = { otlp-http = { endpoint = "<address>/v1/logs", protocol = "json" } }` and `log_user_prompt = false` |
-| Gemini CLI | `~/.gemini/settings.json`, merged, keeping the rest | `telemetry`: `enabled: true`, `target: "local"`, `otlpEndpoint: "<address>"`, `otlpProtocol: "http"`, `logPrompts: false` |
+| Gemini CLI | `.gemini/settings.json` in `GEMINI_CLI_HOME` or `~`, merged, keeping the rest | `telemetry`: `enabled: true`, `target: "local"`, `otlpEndpoint: "<address>"`, `otlpProtocol: "http"`, `logPrompts: false` |
 
 OpenTelemetry settings of the harness's own, whether they export elsewhere or nowhere, are left as they are and named in the Summary: Claude Code's `env` with any `OTEL_` variable, Codex's file with an `[otel]` table, Gemini CLI's with a `telemetry` block, unless they are already the export above. A settings file that is not plain JSON, such as one with comments, is not rewritten: the change is printed. With the daemon not running and `BINNACLE_PORT` 0 there is no address, and the step is skipped. A detected harness that cannot export — opencode, and VS Code — is named in the Summary with its reason. `binn audit`'s telemetry readiness reads the same settings and reports, per detected harness, whether it exports to Binnacle (`telemetry.export_<harness>`).
 
