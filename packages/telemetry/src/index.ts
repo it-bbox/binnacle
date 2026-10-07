@@ -112,7 +112,8 @@ export type RunAttribution<T extends Pick<TrackerTask, 'id' | 'title' | 'ticket'
 /**
  * Where a Task's first Review divides its work, in milliseconds: `review`, when the commit that
  * first recorded it was made, and `lastChange`, when the last commit before that one changing
- * anything but the ticket was, null when none did.
+ * anything but the ticket was, null when none did. On GitHub or GitLab both are when changes
+ * were first requested on the Task's pull or merge request, so that no run there is a review run.
  */
 export type ReviewPoints = { lastChange: number | null; review: number };
 

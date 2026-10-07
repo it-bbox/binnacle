@@ -37,10 +37,16 @@ export type TaskBrief = Pick<TrackerTask, 'id' | 'title' | 'state' | 'triage' | 
   diagnostics: Diagnostic[];
   /** Its usage by role over everything ingested, as `usage.get` gives it for the Task. */
   byRole: Record<TaskRole, Totals>;
+  /** Why its rework is not read, on GitHub or GitLab, as `usage.get` gives it; null when it is. */
+  reworkUnread: string | null;
 };
 
 /** The brief of `task`, one of `tasks`, the tracker's, which `findTask` read, with its usage by role. */
-export function taskBrief({ tasks, task }: { tasks: TrackerTask[]; task: TrackerTask }, manifest: ProjectManifest | null, byRole: Record<TaskRole, Totals>): TaskBrief {
+export function taskBrief(
+  { tasks, task }: { tasks: TrackerTask[]; task: TrackerTask },
+  manifest: ProjectManifest | null,
+  { byRole, reworkUnread }: Pick<TaskBrief, 'byRole' | 'reworkUnread'>,
+): TaskBrief {
   const byId = new Map(tasks.map((known) => [known.id, known]));
   const remote = manifest?.tracker.provider !== 'local';
   const shared = sharedBranch(task, tasks, remote);
@@ -64,6 +70,7 @@ export function taskBrief({ tasks, task }: { tasks: TrackerTask[]; task: Tracker
     review: remote ? REVIEW_UNAVAILABLE : task.review === null ? null : cut(task.review, BODY_LIMIT),
     diagnostics: shared ? [shared] : [],
     byRole,
+    reworkUnread,
   };
 }
 

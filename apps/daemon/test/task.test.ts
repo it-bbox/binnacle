@@ -101,6 +101,7 @@ describe('the task brief on the local tracker', () => {
         review: { text: 'Nothing found.', truncated: false },
         diagnostics: [],
         byRole: NO_ROLES,
+        reworkUnread: null,
       });
     });
   });

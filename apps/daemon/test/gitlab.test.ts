@@ -498,6 +498,7 @@ describe('the task brief on a GitLab tracker', () => {
         review: { available: false, reason: 'Binnacle reads an issue’s body and never its comments, so no Review is read on GitHub or GitLab.' },
         diagnostics: [],
         byRole: NO_ROLES,
+        reworkUnread: null,
       });
       assert.equal((await taskGet(daemon, root, '3')).body.id, '#3');
       assert.equal((await taskGet(daemon, root, '#9')).body.error.code, 'task.not_found');

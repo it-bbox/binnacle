@@ -1,5 +1,5 @@
 import type { TaskReading } from '@binnacle/core';
-import { readRemoteTasks, type Forge } from './remote-tracker.ts';
+import { readChangesRequested, readRemoteTasks, type ChangesRequested, type Forge } from './remote-tracker.ts';
 
 /**
  * The API root for a declared `tracker.host`: `github.com`, the default, is
@@ -51,4 +51,27 @@ export function readGitHubTasks(repository: string, host: string | null, token: 
   const root = githubApiRoot(host);
   const path = repository.split('/').map(encodeURIComponent).join('/');
   return readRemoteTasks(GITHUB, `${root}/repos/${path}/issues?state=all&per_page=${perPage}`, `${repository} at ${root}`, token);
+}
+
+type Review = { state?: string; submitted_at?: string | null };
+
+/**
+ * When changes were first requested on a pull request whose head is `branch` in
+ * `repository` itself, read with `token`: a review in the `CHANGES_REQUESTED` state, at its
+ * submission. A review dismissed since no longer counts: GitHub then reports it `DISMISSED`.
+ */
+export function readGitHubChangesRequested(repository: string, host: string | null, token: string, branch: string): Promise<ChangesRequested> {
+  const root = githubApiRoot(host);
+  const path = repository.split('/').map(encodeURIComponent).join('/');
+  const head = encodeURIComponent(`${repository.split('/')[0]}:${branch}`);
+  return readChangesRequested(GITHUB, `${repository} at ${root}`, token, {
+    requests: `${root}/repos/${path}/pulls?state=all&head=${head}&per_page=100`,
+    what: 'pull requests',
+    noRequest: `No pull request on GitHub has ${branch} as its head.`,
+    reviews: (pull) => `${root}/repos/${path}/pulls/${(pull as { number: number }).number}/reviews?per_page=100`,
+    changesRequested(entry) {
+      const review = entry as Review;
+      return review.state === 'CHANGES_REQUESTED' && review.submitted_at ? Date.parse(review.submitted_at) : null;
+    },
+  });
 }

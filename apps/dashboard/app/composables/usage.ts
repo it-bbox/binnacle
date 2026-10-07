@@ -40,7 +40,14 @@ export type Derived = {
 };
 
 /** `usage.get` with a Task: its totals, the same by role, and its runs, newest first. */
-export type TaskUsage = { importing: Importing; totals: Totals; byRole: Record<'implementation' | 'review' | 'rework', Totals>; runs: Limited<TaskRun> };
+export type TaskUsage = {
+  importing: Importing;
+  totals: Totals;
+  byRole: Record<'implementation' | 'review' | 'rework', Totals>;
+  /** Why the Task's rework is not read, on GitHub or GitLab; null when it is. */
+  reworkUnread: string | null;
+  runs: Limited<TaskRun>;
+};
 
 /** A run of a Task, as `usage.get` gives it. */
 export type TaskRun = Omit<Run, 'taskTitle'> & { startedAt: string; active: { value: boolean }; totals: Totals };

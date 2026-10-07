@@ -652,27 +652,43 @@ const available = <T>(section: T | Unavailable): T => {
 const taskRecords = (body: Pick<Usage, 'tasks'>): [string, string | null, number][] =>
   available(body.tasks).items.map((item) => [item.id, item.title, item.totals.records]);
 
-/** A loopback stand-in for GitHub's issue list, serving `issues` for `octo/repo`, or `status` with no issues. */
-async function fakeGitHub(issues: { number: number; title: string }[], status = 200): Promise<{ base: string; close(): Promise<void> }> {
+/** What a forge stand-in received: each request's path and query, and the token header it carried. */
+type FakeForge = { base: string; requests: { url: URL; token: string | undefined }[]; close(): Promise<void> };
+
+/**
+ * A loopback stand-in for a forge at the network boundary: `serve` answers a request with
+ * a list, or with undefined for a 404. Every request is kept with its token.
+ */
+async function fakeForge(serve: (url: URL) => unknown[] | undefined, status = 200): Promise<FakeForge> {
+  const fake: FakeForge = { base: '', requests: [], close: async () => {} };
   const server = createServer((request, response) => {
-    const found = new URL(request.url ?? '/', 'http://x').pathname === '/repos/octo/repo/issues';
-    response.writeHead(found ? status : 404, { 'content-type': 'application/json' });
-    const body = issues.map(({ number, title }) => ({
-      number,
-      title,
-      state: 'open',
-      state_reason: null,
-      body: 'Status: READY',
-      labels: [],
-      html_url: `https://github.com/octo/repo/issues/${number}`,
-    }));
-    response.end(JSON.stringify(found && status === 200 ? body : { message: 'Server Error' }));
+    const url = new URL(request.url ?? '/', 'http://x');
+    fake.requests.push({ url, token: request.headers.authorization ?? (request.headers['private-token'] as string | undefined) });
+    const body = serve(url);
+    response.writeHead(body === undefined ? 404 : status, { 'content-type': 'application/json' });
+    response.end(JSON.stringify(body !== undefined && status === 200 ? body : { message: 'Server Error' }));
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  return {
-    base: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
-    close: () => new Promise((resolve) => server.close(() => resolve())),
-  };
+  fake.base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  fake.close = () => new Promise((resolve) => server.close(() => resolve()));
+  return fake;
+}
+
+/**
+ * GitHub's issue list for `octo/repo`, serving `issues`, or `status` with no issues, and
+ * whatever `forge` serves for the rest, its pull requests and their reviews.
+ */
+function fakeGitHub(issues: { number: number; title: string }[], status = 200, forge: (url: URL) => unknown[] | undefined = () => undefined): Promise<FakeForge> {
+  const body = issues.map(({ number, title }) => ({
+    number,
+    title,
+    state: 'open',
+    state_reason: null,
+    body: 'Status: READY',
+    labels: [],
+    html_url: `https://github.com/octo/repo/issues/${number}`,
+  }));
+  return fakeForge((url) => (url.pathname === '/repos/octo/repo/issues' ? body : forge(url)), status);
 }
 const githubTracker = (host: string): string => `\ntracker:\n  provider: github\n  repository: octo/repo\n  host: ${host}\n`;
 
@@ -896,6 +912,7 @@ type TaskUsage = Pick<Usage, 'importing'> & {
   task: { id: string; title: string | null };
   totals: Totals;
   byRole: Record<'implementation' | 'review' | 'rework', Totals>;
+  reworkUnread: string | null;
   runs: { items: Run[]; remainder: number };
 };
 
@@ -1451,7 +1468,178 @@ describe('Implementation, review and rework', () => {
       assert.deepEqual(task.runs.items.map((run) => run.role), ['implementation', 'implementation']);
       assert.deepEqual(task.byRole.review, NO_RECORDS);
       assert.deepEqual(task.byRole.rework, NO_RECORDS);
+      assert.equal(task.reworkUnread, null);
     });
+  });
+});
+
+describe('Rework after a review on GitHub or GitLab', () => {
+  const TOKEN = 'ghp_reviewsAreReadWithThis';
+
+  /** Runs `body` with `name` set to `value` in the daemon's environment, which runs in this process. */
+  async function withToken(name: string, value: string | undefined, body: () => Promise<void>): Promise<void> {
+    const before = process.env[name];
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+    try {
+      await body();
+    } finally {
+      if (before === undefined) delete process.env[name];
+      else process.env[name] = before;
+    }
+  }
+
+  /** Issue #7 worked on feat/7-seven by one session, before and after `minute` 20 of today. */
+  async function workedOnSeven(daemon: TestDaemon, artifacts: string, tracker: string): Promise<string> {
+    const root = makeProject(temporary('binnacle-usage-'), tracker);
+    repository(root, at(1, 0), [at(1, 10), 'feat/7-seven']);
+    session(artifacts, root, 'seven', [...lines(GRILL, at(0, 0), '-before'), ...lines(ABORTED, at(0, 30), '-after')]);
+    await register(daemon, root);
+    return root;
+  }
+
+  const BEFORE = 'claude-code:msg_011CfLMEGjvuTXtzfiK6XfsV-before';
+  const AFTER = `claude-code:${String(ABORTED.find((line) => line.type === 'assistant')!.message!.id)}-after`;
+
+  /** Pull request 20 has feat/7-seven as its head, with `reviews`. */
+  const pulls =
+    (reviews: { state: string; submitted_at: string }[]) =>
+    (url: URL): unknown[] | undefined => {
+      if (url.pathname === '/repos/octo/repo/pulls') return url.searchParams.get('head') === 'octo:feat/7-seven' ? [{ number: 20 }] : [];
+      if (url.pathname === '/repos/octo/repo/pulls/20/reviews') return reviews;
+      return undefined;
+    };
+
+  it('counts the work after a review that requested changes on the pull request as rework, and splits the run there', async () => {
+    const github = await fakeGitHub([{ number: 7, title: 'Seven' }], 200, pulls([
+      { state: 'COMMENTED', submitted_at: at(0, 10) },
+      { state: 'CHANGES_REQUESTED', submitted_at: at(0, 20) },
+      { state: 'CHANGES_REQUESTED', submitted_at: at(0, 25) },
+    ]));
+    try {
+      await withToken('BINNACLE_GITHUB_TOKEN', TOKEN, () =>
+        withDaemon(async (daemon, artifacts) => {
+          const root = await workedOnSeven(daemon, artifacts, githubTracker(github.base));
+          const task = await usageGet<TaskUsage>(daemon, root, '#7');
+          assert.deepEqual(task.runs.items.map((run) => [run.id, run.role]), [[AFTER, 'rework'], [BEFORE, 'implementation']]);
+          const byRole = { implementation: GRILL_TOTALS, review: NO_RECORDS, rework: ABORTED_TOTALS };
+          assert.deepEqual(task.byRole, byRole);
+          assert.equal(task.reworkUnread, null);
+
+          const brief = await daemon.call<{ byRole: unknown; reworkUnread: unknown }>('task.get', { path: root, id: '#7' });
+          assert.equal(brief.status, 200, JSON.stringify(brief.body));
+          assert.deepEqual([brief.body.byRole, brief.body.reworkUnread], [byRole, null]);
+          assert.equal(available((await snapshotUsage(daemon, root)).byRole).rework.records, 1);
+
+          // Read with the tracker's token, the pull request found by its head.
+          const forge = github.requests.filter(({ url }) => url.pathname.startsWith('/repos/octo/repo/pulls'));
+          assert.ok(forge.length > 0);
+          assert.ok(forge.every(({ token }) => token === `Bearer ${TOKEN}`));
+        }),
+      );
+    } finally {
+      await github.close();
+    }
+  });
+
+  it('counts no rework before a review requests changes', async () => {
+    const github = await fakeGitHub([{ number: 7, title: 'Seven' }], 200, pulls([
+      { state: 'COMMENTED', submitted_at: at(0, 10) },
+      { state: 'APPROVED', submitted_at: at(0, 20) },
+    ]));
+    try {
+      await withToken('BINNACLE_GITHUB_TOKEN', TOKEN, () =>
+        withDaemon(async (daemon, artifacts) => {
+          const root = await workedOnSeven(daemon, artifacts, githubTracker(github.base));
+          const task = await usageGet<TaskUsage>(daemon, root, '#7');
+          assert.deepEqual(task.runs.items.map((run) => run.role), ['implementation']);
+          assert.deepEqual(task.byRole.rework, NO_RECORDS);
+          assert.equal(task.reworkUnread, null);
+        }),
+      );
+    } finally {
+      await github.close();
+    }
+  });
+
+  it('says why rework is not read without a token, and asks the forge nothing for it', async () => {
+    const github = await fakeGitHub([{ number: 7, title: 'Seven' }], 200, pulls([{ state: 'CHANGES_REQUESTED', submitted_at: at(0, 20) }]));
+    try {
+      await withToken('BINNACLE_GITHUB_TOKEN', undefined, () =>
+        withDaemon(async (daemon, artifacts) => {
+          const root = await workedOnSeven(daemon, artifacts, githubTracker(github.base));
+          const task = await usageGet<TaskUsage>(daemon, root, '#7');
+          assert.deepEqual(task.runs.items.map((run) => run.role), ['implementation']);
+          assert.match(task.reworkUnread ?? '', /^Without a token for GitHub, the reviews on #7's pull request are not read/);
+          const brief = await daemon.call<{ reworkUnread: unknown }>('task.get', { path: root, id: '#7' });
+          assert.equal(brief.body.reworkUnread, task.reworkUnread);
+          assert.deepEqual(github.requests.filter(({ url }) => url.pathname.includes('/pulls')), []);
+        }),
+      );
+    } finally {
+      await github.close();
+    }
+  });
+
+  it('says why rework is not read when no pull request has the branch as its head, or the forge refuses', async () => {
+    const github = await fakeGitHub([{ number: 7, title: 'Seven' }], 200, (url) => (url.pathname === '/repos/octo/repo/pulls' ? [] : undefined));
+    try {
+      await withToken('BINNACLE_GITHUB_TOKEN', TOKEN, () =>
+        withDaemon(async (daemon, artifacts) => {
+          const root = await workedOnSeven(daemon, artifacts, githubTracker(github.base));
+          const task = await usageGet<TaskUsage>(daemon, root, '#7');
+          assert.deepEqual(task.runs.items.map((run) => run.role), ['implementation']);
+          assert.equal(task.reworkUnread, "No pull request on GitHub has feat/7-seven as its head. So #7's rework is not read.");
+        }),
+      );
+    } finally {
+      await github.close();
+    }
+
+    const refusing = await fakeGitHub([{ number: 7, title: 'Seven' }]);
+    try {
+      await withToken('BINNACLE_GITHUB_TOKEN', TOKEN, () =>
+        withDaemon(async (daemon, artifacts) => {
+          const root = await workedOnSeven(daemon, artifacts, githubTracker(refusing.base));
+          const task = await usageGet<TaskUsage>(daemon, root, '#7');
+          assert.match(task.reworkUnread ?? '', /^GitHub has nothing at octo\/repo .* with pull requests visible to this request \(404\); a token was used\. So #7's rework is not read\.$/);
+          assert.ok(!task.reworkUnread!.includes(TOKEN));
+        }),
+      );
+    } finally {
+      await refusing.close();
+    }
+  });
+
+  it('counts the work after a reviewer requested changes on the GitLab merge request as rework', async () => {
+    const issue = { iid: 7, title: 'Seven', state: 'opened', description: 'Status: READY', labels: [], web_url: 'https://gitlab.com/octo/repo/-/issues/7' };
+    const gitlab = await fakeForge((url) => {
+      const project = '/projects/octo%2Frepo';
+      if (url.pathname === `${project}/issues`) return [issue];
+      if (url.pathname === `${project}/merge_requests`) return url.searchParams.get('source_branch') === 'feat/7-seven' ? [{ iid: 3 }] : [];
+      if (url.pathname === `${project}/merge_requests/3/notes`) {
+        return [
+          { system: true, body: 'approved this merge request', created_at: at(0, 10) },
+          { system: false, body: 'requested changes', created_at: at(0, 15) },
+          { system: true, body: 'requested changes', created_at: at(0, 20) },
+        ];
+      }
+      return undefined;
+    });
+    try {
+      await withToken('BINNACLE_GITLAB_TOKEN', 'glpat-reviewsAreReadWithThis', () =>
+        withDaemon(async (daemon, artifacts) => {
+          const tracker = `\ntracker:\n  provider: gitlab\n  repository: octo/repo\n  host: ${gitlab.base}\n`;
+          const root = await workedOnSeven(daemon, artifacts, tracker);
+          const task = await usageGet<TaskUsage>(daemon, root, '#7');
+          assert.deepEqual(task.runs.items.map((run) => [run.id, run.role]), [[AFTER, 'rework'], [BEFORE, 'implementation']]);
+          assert.deepEqual(task.byRole, { implementation: GRILL_TOTALS, review: NO_RECORDS, rework: ABORTED_TOTALS });
+          assert.equal(task.reworkUnread, null);
+        }),
+      );
+    } finally {
+      await gitlab.close();
+    }
   });
 });
 

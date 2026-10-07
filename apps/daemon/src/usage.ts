@@ -9,12 +9,15 @@ import {
   readDefaultBranch,
   readGeminiCli,
   readFirstReviews,
+  readGitHubChangesRequested,
+  readGitLabChangesRequested,
   readOpencode,
   readOpencodeSteps,
   readHeadHistory,
   readLastChangeBefore,
   readWorktrees,
   type ArtifactReading,
+  type ChangesRequested,
   type GeminiCliSession,
   type HeadHistory,
   type TelemetryRecord,
@@ -22,7 +25,7 @@ import {
 } from '@binnacle/adapters';
 import { branchTask, type ImportWindow, type ObservedRun, type ProjectManifest, type RunRole, type TaskRole, type TrackerTask } from '@binnacle/core';
 import { ACTIVE_WITHIN_MS, magnitude, mean, observedRuns, sum, type Harness, type ReviewPoints, type RunRecord, type Totals, type UsageRecord } from '@binnacle/telemetry';
-import { resolveGitTimeout, type ArtifactRoots } from './home.ts';
+import { resolveGitTimeout, trackerToken, type ArtifactRoots } from './home.ts';
 import type { OperationContext } from './operations.ts';
 import { containingEntry, readRegistry } from './registry.ts';
 import { limited, readTracker, SECTION_LIMIT, trackerUnavailable, type Unavailable } from './snapshot.ts';
@@ -164,7 +167,7 @@ export async function usageAndActivity(
   let activity: Activity | Unavailable;
   let observed: (ObservedRun & { records: RunRecord[] })[] = [];
   if (Array.isArray(tasks)) {
-    observed = await runs(all, projectPath, tasks, manifest?.tracker.provider !== 'local', checkouts);
+    observed = (await runs(all, projectPath, tasks, context.home, manifest, checkouts)).runs;
     const ofWeek = observed.map((run) => ({ ...run, records: run.records.filter((record) => record.timestamp >= weekStart) }));
     attributed = { ...byTask(ofWeek.filter((run) => run.records.length > 0), tasks), byRole: byRole(ofWeek, ROLES) };
     activity = activityOf(observed, tasks);
@@ -260,6 +263,8 @@ export type TaskUsage = Pick<Usage, 'importing'> & {
   task: Pick<TrackerTask, 'id' | 'title'>;
   totals: Totals;
   byRole: Record<TaskRole, Totals>;
+  /** Why the Task's rework is not read, on GitHub or GitLab; null when it is, and on the local tracker. */
+  reworkUnread: string | null;
   runs: { items: RunUsage[]; remainder: number };
 };
 
@@ -292,7 +297,7 @@ export async function usageGet(
   if (!Array.isArray(tasks)) {
     return { importing, totals: sum(records), tasks, unassigned: tasks, byRole: tasks, derived: { perCompletedTask: tasks, runsPerTask: tasks, weekly: weekly(records) } };
   }
-  const attributed = await runs(records, projectPath, tasks, manifest?.tracker.provider !== 'local', checkouts);
+  const { runs: attributed, reworkUnread } = await runs(records, projectPath, tasks, context.home, manifest, checkouts);
   if (!found) {
     return { importing, totals: sum(records), ...byTask(attributed, tasks), byRole: byRole(attributed, ROLES), derived: { ...perTask(attributed, tasks), weekly: weekly(records) } };
   }
@@ -304,6 +309,7 @@ export async function usageGet(
     task: { id: found.task.id, title: found.task.title },
     totals: sum(own.flatMap((run) => run.records)),
     byRole: byRole(own, TASK_ROLES),
+    reworkUnread: reworkUnread.get(found.task.id) ?? null,
     runs: limited(own.map(runUsage)),
   };
 }
@@ -318,7 +324,7 @@ export async function latestRuns(
   manifest: ProjectManifest | null,
   tasks: TrackerTask[],
 ): Promise<Map<string, ObservedRun>> {
-  const attributed = await storedRuns(context, projectPath, manifest, tasks);
+  const attributed = (await storedRuns(context, projectPath, manifest, tasks)).runs;
   const latest = new Map<string, ObservedRun>();
   for (const run of attributed) {
     const known = run.taskId === null ? undefined : latest.get(run.taskId);
@@ -327,22 +333,25 @@ export async function latestRuns(
   return latest;
 }
 
-/** `task`'s totals by role over every stored record, after the ingest `usage.get` also runs; `tasks` are the tracker's. */
+/**
+ * `task`'s totals by role over every stored record, after the ingest `usage.get` also runs, and
+ * why its rework is not read, as `usage.get` gives them; `tasks` are the tracker's.
+ */
 export async function taskByRole(
   context: OperationContext,
   projectPath: string,
   manifest: ProjectManifest | null,
   tasks: TrackerTask[],
   task: Pick<TrackerTask, 'id'>,
-): Promise<Record<TaskRole, Totals>> {
-  const attributed = await storedRuns(context, projectPath, manifest, tasks);
-  return byRole(attributed.filter((run) => run.taskId === task.id), TASK_ROLES);
+): Promise<Pick<TaskUsage, 'byRole' | 'reworkUnread'>> {
+  const { runs: attributed, reworkUnread } = await storedRuns(context, projectPath, manifest, tasks);
+  return { byRole: byRole(attributed.filter((run) => run.taskId === task.id), TASK_ROLES), reworkUnread: reworkUnread.get(task.id) ?? null };
 }
 
 /** The project's runs among every stored record, after the ingest `usage.get` also runs. */
-async function storedRuns(context: OperationContext, projectPath: string, manifest: ProjectManifest | null, tasks: TrackerTask[]): Promise<(ObservedRun & { records: RunRecord[] })[]> {
+async function storedRuns(context: OperationContext, projectPath: string, manifest: ProjectManifest | null, tasks: TrackerTask[]): Promise<Attributed> {
   const { checkouts } = await ingested(context, projectPath, manifest);
-  return runs(context.store.usage(projectPath, ''), projectPath, tasks, manifest?.tracker.provider !== 'local', checkouts);
+  return runs(context.store.usage(projectPath, ''), projectPath, tasks, context.home, manifest, checkouts);
 }
 
 /**
@@ -416,15 +425,20 @@ function summary(name: string, failures: string[]): string | null {
 /**
  * The project's observed runs among `records`, each attributed to the one Task of
  * `tasks` its branch maps back to. The default branch is the one `origin/HEAD` names in
- * the registered checkout, otherwise `main`.
+ * the registered checkout, otherwise `main`. Where a Task's rework cannot be read, which only
+ * a remote tracker's can fail to be, `reworkUnread` says why, by Task id. `home` is the
+ * Binnacle home, where a remote tracker's credentials are.
  */
 async function runs(
   records: UsageRecord[],
   projectPath: string,
   tasks: Pick<TrackerTask, 'id' | 'title' | 'ticket'>[],
-  remote: boolean,
+  home: string,
+  manifest: ProjectManifest | null,
   checkouts: Checkouts,
-): Promise<(ObservedRun & { records: RunRecord[] })[]> {
+): Promise<Attributed> {
+  const tracker = manifest?.tracker;
+  const remote = tracker?.provider !== 'local';
   const defaultBranch = (await readDefaultBranch(projectPath, resolveGitTimeout())) ?? 'main';
   // ponytail: a record's checkout is found among the ones that exist now, so a removed
   // worktree's records have none: its directory is gone, and the registered checkout that
@@ -441,8 +455,80 @@ async function runs(
     return exists.get(cwd) ? root.path : null;
   };
   const withCheckout = records.map((record) => ({ ...record, checkout: checkout(record.cwd) }));
-  const reviews = remote ? new Map<string, ReviewPoints>() : await reviewPoints(projectPath, records, tasks);
-  return observedRuns(withCheckout, { projectPath, defaultBranch, tasks, remote, reviews, now: new Date() });
+  const provider = tracker?.provider;
+  const repository = tracker?.repository ?? null;
+  const { reviews, reworkUnread } =
+    (provider === 'github' || provider === 'gitlab') && repository !== null
+      ? await forgeReviewPoints(home, { provider, repository, host: tracker!.host }, records, tasks)
+      : { reviews: remote ? new Map<string, ReviewPoints>() : await reviewPoints(projectPath, records, tasks), reworkUnread: new Map<string, string>() };
+  return { runs: observedRuns(withCheckout, { projectPath, defaultBranch, tasks, remote, reviews, now: new Date() }), reworkUnread };
+}
+
+type Attributed = { runs: (ObservedRun & { records: RunRecord[] })[]; reworkUnread: Map<string, string> };
+
+/**
+ * When changes were first requested on a forge request, by forge, host, repository and
+ * branch: a review that requested changes stays one.
+ * ponytail: a branch with none is asked again on every call, as the tracker's issues are; keep its answer for a while if a forge's rate limit is ever reached.
+ */
+const changesRequestedAt = new Map<string, number>();
+
+/**
+ * On GitHub or GitLab, per Task whose branch `records` were on, when changes were first
+ * requested on a pull or merge request whose head is that branch, read with the tracker's
+ * token: the work after it is rework, and no run is a review run, the forge's review being no
+ * commit of a ticket's. Without a token, a request or a forge that answers, `reworkUnread`
+ * says why, by Task id.
+ */
+async function forgeReviewPoints(
+  home: string,
+  tracker: { provider: 'github' | 'gitlab'; repository: string; host: string | null },
+  records: UsageRecord[],
+  tasks: Pick<TrackerTask, 'id' | 'title' | 'ticket'>[],
+): Promise<Pick<Attributed, 'reworkUnread'> & { reviews: Map<string, ReviewPoints> }> {
+  const branches = new Map<string, string[]>();
+  for (const branch of new Set(records.flatMap((record) => (record.branch?.source === 'reflog' ? [record.branch.name] : [])))) {
+    const task = branchTask(branch, tasks, true);
+    if (task !== null) branches.set(task.id, [...(branches.get(task.id) ?? []), branch]);
+  }
+  const reviews = new Map<string, ReviewPoints>();
+  const reworkUnread = new Map<string, string>();
+  const name = tracker.provider === 'github' ? 'GitHub' : 'GitLab';
+  const credential = trackerToken(home, tracker.provider, tracker.host);
+  const token = 'token' in credential ? credential.token : null;
+  if (token === null) {
+    const request = tracker.provider === 'github' ? 'pull request' : 'merge request';
+    for (const id of branches.keys()) {
+      const why = 'failure' in credential ? credential.failure.message : `Without a token for ${name}, the reviews on ${id}'s ${request} are not read.`;
+      reworkUnread.set(id, `${why} So ${id}'s rework is not read.`);
+    }
+    return { reviews, reworkUnread };
+  }
+
+  const read = tracker.provider === 'github' ? readGitHubChangesRequested : readGitLabChangesRequested;
+  const changesRequested = async (branch: string): Promise<ChangesRequested> => {
+    const key = [tracker.provider, tracker.host ?? '', tracker.repository, branch].join('\0');
+    const known = changesRequestedAt.get(key);
+    if (known !== undefined) return { at: known };
+    const answer = await read(tracker.repository, tracker.host, token, branch);
+    if ('at' in answer && answer.at !== null) changesRequestedAt.set(key, answer.at);
+    return answer;
+  };
+  await Promise.all(
+    [...branches].map(async ([id, names]) => {
+      const answers = await Promise.all(names.map(changesRequested));
+      const times = answers.flatMap((answer) => ('at' in answer && answer.at !== null ? [answer.at] : []));
+      const reasons = answers.flatMap((answer) => ('reason' in answer ? [answer.reason] : []));
+      if (times.length > 0) {
+        const at = Math.min(...times);
+        reviews.set(id, { lastChange: at, review: at });
+      } else if (reasons.length === answers.length) {
+        // Rework is read when one of the Task's branches could be read, even with no changes requested.
+        reworkUnread.set(id, `${reasons[0]} So ${id}'s rework is not read.`);
+      }
+    }),
+  );
+  return { reviews, reworkUnread };
 }
 
 /**

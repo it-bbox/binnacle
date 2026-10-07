@@ -29,8 +29,9 @@ export {
   type GitRemote,
   type HeadHistory,
 } from './git.ts';
-export { githubApiRoot, readGitHubTasks } from './github.ts';
-export { gitlabApiRoot, readGitLabTasks } from './gitlab.ts';
+export { githubApiRoot, readGitHubChangesRequested, readGitHubTasks } from './github.ts';
+export { gitlabApiRoot, readGitLabChangesRequested, readGitLabTasks } from './gitlab.ts';
+export type { ChangesRequested } from './remote-tracker.ts';
 export { readLocalTasks } from './local-tracker.ts';
 export { readOtlpLogs, type TelemetryRecord } from './opentelemetry.ts';
 export { EMPTY_TREE, workingTree, type Tree, type TreeEntry } from './tree.ts';

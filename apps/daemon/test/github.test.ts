@@ -890,6 +890,7 @@ describe('the task brief on a GitHub tracker', () => {
         review: { available: false, reason: 'Binnacle reads an issue’s body and never its comments, so no Review is read on GitHub or GitLab.' },
         diagnostics: [],
         byRole: NO_ROLES,
+        reworkUnread: null,
       });
       assert.equal((await taskGet(daemon, root, '5')).body.id, '#5');
       const other = (await taskGet(daemon, root, '#6')).body;

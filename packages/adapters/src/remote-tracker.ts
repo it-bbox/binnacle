@@ -46,7 +46,21 @@ export type Forge = {
  * returns; null reads anonymously.
  */
 export async function readRemoteTasks(forge: Forge, firstPage: string, where: string, token: string | null): Promise<TaskReading> {
-  const failed = (code: string, message: string): TaskReading => ({ tasks: null, diagnostics: [{ code, message }] });
+  const entries = await readPages(forge, firstPage, where, token, 'issues');
+  if (!Array.isArray(entries)) return { tasks: null, diagnostics: [entries] };
+  const issues = entries.flatMap((entry) => forge.toIssue(entry) ?? []);
+  const diagnostics: Diagnostic[] = [];
+  const tasks = issues.sort((a, b) => a.number - b.number).map((issue) => toTask(issue, diagnostics));
+  return { tasks, diagnostics };
+}
+
+/**
+ * Every entry of every page from `firstPage` on, `what` naming them, read as `readRemoteTasks`
+ * reads issues: the `Link` header followed on the declared host only, and a failure on any
+ * page giving nothing but the diagnostic that says why.
+ */
+async function readPages(forge: Forge, firstPage: string, where: string, token: string | null, what: string): Promise<unknown[] | Diagnostic> {
+  const failed = (code: string, message: string): Diagnostic => ({ code, message });
   let url: URL;
   try {
     url = new URL(firstPage);
@@ -55,32 +69,65 @@ export async function readRemoteTasks(forge: Forge, firstPage: string, where: st
   }
   const origin = url.origin;
   const headers = token === null ? forge.headers : { ...forge.headers, ...forge.authorization(token) };
-  const issues: RemoteIssue[] = [];
+  const entries: unknown[] = [];
   for (;;) {
     let response: Response;
     let page: unknown;
     try {
       response = await fetch(url, { headers, signal: AbortSignal.timeout(TRACKER_TIMEOUT_MS) });
-      if (!response.ok) return failed(...statusFailure(forge.name, response, where, token !== null));
+      if (!response.ok) return failed(...statusFailure(forge.name, response, where, token !== null, what));
       page = await response.json();
     } catch (error) {
       return failed('tracker.unreachable', `${forge.name} could not be read for ${where}: ${(error as Error).message}.`);
     }
-    if (!Array.isArray(page)) return failed('tracker.unreachable', `${forge.name} answered for ${where} with something other than a list of issues.`);
-    for (const entry of page) {
-      const issue = forge.toIssue(entry);
-      if (issue !== null) issues.push(issue);
-    }
+    if (!Array.isArray(page)) return failed('tracker.unreachable', `${forge.name} answered for ${where} with something other than a list of ${what}.`);
+    entries.push(...page);
 
     const next = /<([^>]*)>\s*;\s*rel="next"/.exec(response.headers.get('link') ?? '')?.[1];
-    if (next === undefined) break;
+    if (next === undefined) return entries;
     url = new URL(next, url);
     if (url.origin !== origin) return failed('tracker.unreachable', `${forge.name} pointed the next page of ${where} at another host, ${url.origin}, which is not read.`);
   }
+}
 
-  const diagnostics: Diagnostic[] = [];
-  const tasks = issues.sort((a, b) => a.number - b.number).map((issue) => toTask(issue, diagnostics));
-  return { tasks, diagnostics };
+/**
+ * When changes were first requested on a pull or merge request of one branch, in
+ * milliseconds: `at`, null while none has had changes requested; or, with no such request or
+ * a forge that cannot be read, the `reason` it is not known.
+ */
+export type ChangesRequested = { at: number | null } | { reason: string };
+
+/** Where a forge lists a branch's requests, and how it tells when one had changes requested. */
+export type RequestReviews = {
+  /** The first page of the requests whose head is the branch, in every state, and what the forge calls them. */
+  requests: string;
+  what: 'pull requests' | 'merge requests';
+  /** The reason when there is none. */
+  noRequest: string;
+  /** The first page of what records the reviews of `request`, one entry of `requests`. */
+  reviews(request: unknown): string;
+  /** When `review`, one entry of `reviews`, requested changes, in milliseconds; null for any other entry. */
+  changesRequested(review: unknown): number | null;
+};
+
+/**
+ * `ChangesRequested` for one branch: the earliest over every request whose head it is, read
+ * with `token` through every page, as `readRemoteTasks` reads issues.
+ */
+export async function readChangesRequested(forge: Forge, where: string, token: string, request: RequestReviews): Promise<ChangesRequested> {
+  const requests = await readPages(forge, request.requests, where, token, request.what);
+  if (!Array.isArray(requests)) return { reason: requests.message };
+  if (requests.length === 0) return { reason: request.noRequest };
+  let first: number | null = null;
+  for (const entry of requests) {
+    const reviews = await readPages(forge, request.reviews(entry), where, token, 'reviews');
+    if (!Array.isArray(reviews)) return { reason: reviews.message };
+    for (const review of reviews) {
+      const at = request.changesRequested(review);
+      if (at !== null && (first === null || at < first)) first = at;
+    }
+  }
+  return { at: first };
 }
 
 /**
@@ -88,15 +135,15 @@ export async function readRemoteTasks(forge: Forge, firstPage: string, where: st
  * the one there is. GitHub signals its primary rate limit as a 403 with no requests
  * remaining; GitLab uses 429.
  */
-function statusFailure(name: Forge['name'], response: Response, where: string, authenticated: boolean): [string, string] {
+function statusFailure(name: Forge['name'], response: Response, where: string, authenticated: boolean, what: string): [string, string] {
   const { status, headers } = response;
   const used = authenticated ? 'a token was used' : 'no token was used';
   if (status === 429 || (status === 403 && (headers.get('x-ratelimit-remaining') === '0' || headers.has('retry-after')))) {
     return ['tracker.rate_limited', `${name} rate-limited the reading of ${where} (${status}).`];
   }
   if (status === 401) return ['tracker.unauthorized', `${name} refused the request for ${where} (401); ${used}.`];
-  if (status === 403) return ['tracker.forbidden', `${name} gave no read access to the issues of ${where} (403); ${used}.`];
-  if (status === 404 || status === 410) return ['tracker.not_found', `${name} has nothing at ${where} with issues visible to this request (${status}); ${used}.`];
+  if (status === 403) return ['tracker.forbidden', `${name} gave no read access to the ${what} of ${where} (403); ${used}.`];
+  if (status === 404 || status === 410) return ['tracker.not_found', `${name} has nothing at ${where} with ${what} visible to this request (${status}); ${used}.`];
   return ['tracker.unreachable', `${name} answered ${status} for ${where}.`];
 }
 

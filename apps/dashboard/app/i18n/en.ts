@@ -244,7 +244,8 @@ export const en = {
   estimated: 'estimated',
   questions: 'Questions and answers',
   rolesReading:
-    "Binnacle's calculation from the Task branch's commits: review is a subagent's work after the last commit changing anything but the ticket and up to the commit that first records its Review, rework all work after that commit.",
+    "Binnacle's calculation from the Task branch's commits: review is a subagent's work after the last commit changing anything but the ticket and up to the commit that first records its Review, rework all work after that commit or, on GitHub or GitLab, after a review on its pull or merge request requested changes.",
+  reworkUnread: 'Rework not read',
   questionsReason: 'Questions and answers are not yet explicit artifacts.',
 
   // The Usage page.

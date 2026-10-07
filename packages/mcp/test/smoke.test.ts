@@ -110,6 +110,7 @@ test('binn mcp lists its tools, explains a stopped daemon, and proxies the snaps
     start: null,
     review: null,
     diagnostics: [],
+    reworkUnread: null,
   });
 
   // binn call prints exactly what the tools return, for the working directory.

@@ -220,6 +220,9 @@ const notAvailableRows = computed(() => [{ element: t.value.questions, reason: t
                   />
                 </div>
                 <p class="m-0 text-[11.5px] leading-snug text-dimmed">{{ t.rolesReading }}</p>
+                <p v-if="usage.reworkUnread" class="m-0 text-xs">
+                  <span class="font-medium">{{ t.reworkUnread }}</span> <span class="text-muted">· <DaemonReason :reason="usage.reworkUnread" /></span>
+                </p>
               </template>
             </div>
             <div v-for="row in notAvailableRows" :key="row.element" class="flex flex-col gap-0.5 border-t border-default px-3.5 py-2.5">
