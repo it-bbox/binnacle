@@ -65,6 +65,8 @@ When a developer asks something not defined by spec:
 - architecture question → involve Architect role, possibly ADR;
 - incorrect spec → update canonical spec before resuming work.
 
+Ideas the owner wants weighed but has not decided wait in `docs/product-inbox.md`. A Product session goes through them when it plans the next epic, and removes each one it turns into a spec, a ticket, a *Later* item or a rejection.
+
 ## Session rotation
 
 Long Product chats are intentionally disposable.
