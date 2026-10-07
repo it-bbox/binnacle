@@ -44,6 +44,35 @@ export type UsageRecord = {
 };
 
 /**
+ * A compaction a harness's artifact shows in a session: when it happened and what triggered
+ * it, never what was dropped or kept. Claude Code writes a compaction boundary, which it
+ * reports; Codex writes none, and a change of its context-window identifier is Binnacle's
+ * reading of one, so calculated (ADR-0007).
+ */
+export type CompactionMarker = {
+  harness: Harness;
+  /** Unique within the harness: Claude Code's boundary uuid; Codex's session id and record ordinal. */
+  naturalKey: string;
+  sessionId: string;
+  /** The subagent whose session compacted; null in a main session. */
+  subagentId: string | null;
+  timestamp: string;
+  cwd: string;
+  /** Claude Code's `auto` or `manual`; null where the harness gives none. */
+  trigger: string | null;
+  provenance: Provenance;
+};
+
+/**
+ * The context a call read: its input, cached input and cache creation together, the counts
+ * it reports of them; null when it reports none.
+ */
+export function callContext(record: Pick<UsageRecord, 'tokens'>): number | null {
+  const { input, cachedInput, cacheCreation } = record.tokens;
+  return input === null && cachedInput === null && cacheCreation === null ? null : (input ?? 0) + (cachedInput ?? 0) + (cacheCreation ?? 0);
+}
+
+/**
  * A field summed over records: null when none of them reports it, `partial` when only some
  * do. Its provenance is the least direct of the values summed, so a sum of reported values
  * stays reported and one that includes a calculated value is calculated.

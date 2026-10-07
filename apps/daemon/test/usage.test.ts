@@ -893,6 +893,7 @@ type Run = {
   lastActivityAt: string;
   active: { value: boolean; provenance: string };
   totals: Totals;
+  contextPressure: unknown;
 };
 type Derived = {
   perCompletedTask:
@@ -915,6 +916,9 @@ type TaskUsage = Pick<Usage, 'importing'> & {
   reworkUnread: string | null;
   runs: { items: Run[]; remainder: number };
 };
+
+/** The context pressure of a session whose latest call read `tokens` of context, as Claude Code reports it, and that never compacted. */
+const pressure = (tokens: number) => ({ context: { tokens, provenance: 'provider_reported' }, compactions: { count: 0, latest: null } });
 
 async function usageGet<T>(daemon: TestDaemon, root: string, task?: string): Promise<T> {
   const result = await daemon.call<T>('usage.get', { path: root, ...(task === undefined ? {} : { task }) });
@@ -972,7 +976,7 @@ describe('usage.get', () => {
       const run = { harness: 'claude-code', provider: null, model: 'claude-opus-5-5', role: 'implementation', branch: 'feat/first', branchSource: 'reflog', taskId: 'epic/01', parentRunId: null, checkout: root };
       assert.deepEqual(body.runs, {
         items: [
-          { ...run, id: 'claude-code:msg_011CfLMEGjvuTXtzfiK6XfsV-recent', startedAt: recent, lastActivityAt: recent, active: { value: true, provenance: 'calculated' }, totals: GRILL_TOTALS },
+          { ...run, id: 'claude-code:msg_011CfLMEGjvuTXtzfiK6XfsV-recent', startedAt: recent, lastActivityAt: recent, active: { value: true, provenance: 'calculated' }, totals: GRILL_TOTALS, contextPressure: pressure(2 + 39225 + 29831) },
           {
             ...run,
             id: 'claude-code:msg_011CfLMEGjvuTXtzfiK6XfsV-nine',
@@ -987,6 +991,8 @@ describe('usage.get', () => {
               output: reported(137 + 2),
               reasoning: { tokens: 18, partial: true, provenance: 'provider_reported' },
             },
+            // Its session's latest call, the aborted one.
+            contextPressure: pressure(4 + 167306 + 994),
           },
         ],
         remainder: 0,

@@ -23,8 +23,22 @@ import {
   type TelemetryRecord,
   type Tree,
 } from '@binnacle/adapters';
-import { branchTask, type ImportWindow, type ObservedRun, type ProjectManifest, type RunRole, type TaskRole, type TrackerTask } from '@binnacle/core';
-import { ACTIVE_WITHIN_MS, magnitude, mean, observedRuns, sum, type Harness, type ReviewPoints, type RunRecord, type Totals, type UsageRecord } from '@binnacle/telemetry';
+import { branchTask, type Diagnostic, type ImportWindow, type ObservedRun, type ProjectManifest, type RunRole, type TaskRole, type TrackerTask } from '@binnacle/core';
+import {
+  ACTIVE_WITHIN_MS,
+  callContext,
+  magnitude,
+  mean,
+  observedRuns,
+  sum,
+  type CompactionMarker,
+  type Harness,
+  type Provenance,
+  type ReviewPoints,
+  type RunRecord,
+  type Totals,
+  type UsageRecord,
+} from '@binnacle/telemetry';
 import { resolveGitTimeout, trackerToken, type ArtifactRoots } from './home.ts';
 import type { OperationContext } from './operations.ts';
 import { containingEntry, readRegistry } from './registry.ts';
@@ -40,6 +54,9 @@ export const INGEST_BUDGET_MS = 1000;
 
 /** How long a Claude Code file must go unwritten before its last message is taken as finished. */
 export const SETTLED_AFTER_MS = 60_000;
+
+/** The context, in tokens, from which an active Product session raises `context.pressure` when the manifest states none. */
+export const DEFAULT_PRESSURE_TOKENS = 150_000;
 
 /** Why opencode never reaches level 4, which `binn init` and `binn audit` say too: it has no export to point at the daemon. */
 export const OPENCODE_NO_EXPORT = 'opencode documents no OpenTelemetry export, so Binnacle counts it only from its database, each call once it has finished';
@@ -144,15 +161,16 @@ export type Usage = {
  * Reads what is new in the Claude Code, Codex, Gemini CLI and opencode artifacts of `projectPath`, for as long as
  * the time budget allows, and answers the snapshot's `usage` and `activity` sections from
  * everything stored, attributed to `tasks`, the tracker's current Tasks, or unavailable with
- * why they cannot be read. What the budget does not cover goes on in the background. "Today"
- * and "the last seven days" are calendar days in the daemon's local time zone.
+ * why they cannot be read, and its `context.pressure` attention items. What the budget does
+ * not cover goes on in the background. "Today" and "the last seven days" are calendar days in
+ * the daemon's local time zone.
  */
 export async function usageAndActivity(
   context: OperationContext,
   projectPath: string,
   manifest: ProjectManifest | null,
   tasks: TrackerTask[] | Unavailable,
-): Promise<{ usage: Usage; activity: Activity | Unavailable; runs: ObservedRun[] }> {
+): Promise<{ usage: Usage; activity: Activity | Unavailable; runs: ObservedRun[]; attention: Diagnostic[] }> {
   const { importing, checkouts } = await ingested(context, projectPath, manifest);
   const failures = unreadableArtifacts(context, [projectPath, ...checkouts.linked]);
 
@@ -165,16 +183,19 @@ export async function usageAndActivity(
   const today = week.filter((record) => record.timestamp >= since);
   let attributed: Pick<Usage, 'tasks' | 'unassigned' | 'byRole'>;
   let activity: Activity | Unavailable;
-  let observed: (ObservedRun & { records: RunRecord[] })[] = [];
+  const pressureOf = contextPressures(all, context.store.compactions(projectPath));
+  // Without the tracker no run is a Task's, but a Product session is still the default branch's.
+  const observed = (await runs(all, projectPath, Array.isArray(tasks) ? tasks : [], context.home, manifest, checkouts)).runs;
   if (Array.isArray(tasks)) {
-    observed = (await runs(all, projectPath, tasks, context.home, manifest, checkouts)).runs;
     const ofWeek = observed.map((run) => ({ ...run, records: run.records.filter((record) => record.timestamp >= weekStart) }));
     attributed = { ...byTask(ofWeek.filter((run) => run.records.length > 0), tasks), byRole: byRole(ofWeek, ROLES) };
-    activity = activityOf(observed, tasks);
+    activity = activityOf(observed, tasks, pressureOf);
   } else {
     attributed = { tasks, unassigned: tasks, byRole: tasks };
     activity = tasks;
   }
+  const threshold = manifest?.telemetry.contextPressure.tokens ?? DEFAULT_PRESSURE_TOKENS;
+  const checkpointAt = context.store.latestEvent(projectPath, ['checkpoint'])?.occurredAt ?? null;
 
   const byModel = grouped(week, 'model').map(([model, totals]) => ({ model, totals }));
   const byProvider = grouped(week, 'provider').map(([provider, totals]) => ({ provider, totals }));
@@ -190,8 +211,83 @@ export async function usageAndActivity(
       harnesses: HARNESSES.map((entry) => level(context, projectPath, entry, failures[entry.harness], importing.incomplete)),
     },
     activity,
-    runs: observed,
+    runs: Array.isArray(tasks) ? observed : [],
+    attention: pressureAttention(observed, pressureOf, threshold, checkpointAt),
   };
+}
+
+/**
+ * A session's context pressure (decision 15): the context its latest call read, and the
+ * compactions its artifact shows, the latest of them named, each with its provenance; null
+ * where its harness reveals neither, which is no sign of health.
+ */
+export type ContextPressure = {
+  context: { tokens: number; provenance: Provenance } | null;
+  compactions: { count: number; latest: { at: string; trigger: string | null; provenance: Provenance } | null };
+} | null;
+
+/** Which session a record or a marker is of, a subagent's its own. */
+type Session = Pick<UsageRecord, 'harness' | 'sessionId' | 'subagentId'>;
+const sessionKey = ({ harness, sessionId, subagentId }: Session): string => [harness, sessionId, subagentId ?? ''].join('\0');
+
+/** Each session's context pressure among `records`, every one stored, and `markers`, oldest first. */
+function contextPressures(records: UsageRecord[], markers: CompactionMarker[]): (session: Session) => ContextPressure {
+  const latest = new Map<string, UsageRecord>();
+  for (const record of records) {
+    const known = latest.get(sessionKey(record));
+    if (known === undefined || record.timestamp > known.timestamp || (record.timestamp === known.timestamp && record.naturalKey > known.naturalKey)) {
+      latest.set(sessionKey(record), record);
+    }
+  }
+  const compactions = new Map<string, CompactionMarker[]>();
+  for (const marker of markers) compactions.set(sessionKey(marker), [...(compactions.get(sessionKey(marker)) ?? []), marker]);
+  return (session) => {
+    const call = latest.get(sessionKey(session));
+    const tokens = call === undefined ? null : callContext(call);
+    const seen = compactions.get(sessionKey(session)) ?? [];
+    const last = seen.at(-1);
+    if (tokens === null && last === undefined) return null;
+    return {
+      context: tokens === null ? null : { tokens, provenance: call!.provenance },
+      compactions: { count: seen.length, latest: last === undefined ? null : { at: last.timestamp, trigger: last.trigger, provenance: last.provenance } },
+    };
+  };
+}
+
+/**
+ * One `context.pressure` item per active Product session, a main session on the default
+ * branch, whose latest call read at least `threshold` tokens of context, or whose latest
+ * compaction is after `checkpointAt`, the project's last recorded checkpoint, or at all when
+ * none was recorded.
+ */
+function pressureAttention(
+  observed: (ObservedRun & { records: RunRecord[] })[],
+  pressureOf: (session: Session) => ContextPressure,
+  threshold: number,
+  checkpointAt: string | null,
+): Diagnostic[] {
+  const raised = new Map<string, Diagnostic>();
+  for (const run of observed) {
+    const session = run.records[0]!;
+    if (run.role !== 'product' || !run.active.value || session.subagentId !== null || raised.has(sessionKey(session))) continue;
+    const pressure = pressureOf(session);
+    const reasons: string[] = [];
+    if (pressure?.context && pressure.context.tokens >= threshold) {
+      reasons.push(`read ${pressure.context.tokens} tokens of context in its latest call, at least telemetry.context_pressure.tokens, ${threshold}`);
+    }
+    const compaction = pressure?.compactions.latest;
+    if (compaction && (checkpointAt === null || compaction.at > checkpointAt)) {
+      const since = checkpointAt === null ? 'and no checkpoint has been recorded' : `after the last checkpoint at ${checkpointAt}`;
+      reasons.push(`compacted (${compaction.trigger ?? 'trigger not reported'}) at ${compaction.at}, ${since}`);
+    }
+    if (reasons.length === 0) continue;
+    const name = HARNESSES.find((entry) => entry.harness === session.harness)!.name;
+    raised.set(sessionKey(session), {
+      code: 'context.pressure',
+      message: `The Product session ${session.sessionId} in ${name} ${reasons.join(', and ')}. Run /binnacle:checkpoint, then go on in a fresh session.`,
+    });
+  }
+  return [...raised.values()];
 }
 
 /** `records` totalled by `key`, largest first, then by key. */
@@ -208,9 +304,13 @@ export type ActivityRun = RunUsage & { taskTitle: string | null };
 /** The snapshot's `activity`: the project's runs active now, and its latest other runs, latest activity first. */
 export type Activity = { running: { items: ActivityRun[]; remainder: number }; recent: ActivityRun[] };
 
-function activityOf(observed: (ObservedRun & { records: RunRecord[] })[], tasks: Pick<TrackerTask, 'id' | 'title'>[]): Activity {
+function activityOf(
+  observed: (ObservedRun & { records: RunRecord[] })[],
+  tasks: Pick<TrackerTask, 'id' | 'title'>[],
+  pressureOf: (session: Session) => ContextPressure,
+): Activity {
   const titles = new Map(tasks.map((task) => [task.id, task.title]));
-  const shown = (run: (typeof observed)[number]): ActivityRun => ({ ...runUsage(run), taskTitle: run.taskId === null ? null : (titles.get(run.taskId) ?? null) });
+  const shown = (run: (typeof observed)[number]): ActivityRun => ({ ...runUsage(run, pressureOf), taskTitle: run.taskId === null ? null : (titles.get(run.taskId) ?? null) });
   const latest = [...observed].sort((a, b) => (a.lastActivityAt !== b.lastActivityAt ? (a.lastActivityAt < b.lastActivityAt ? 1 : -1) : a.id < b.id ? -1 : 1));
   const running = limited(latest.filter((run) => run.active.value));
   return {
@@ -219,7 +319,11 @@ function activityOf(observed: (ObservedRun & { records: RunRecord[] })[], tasks:
   };
 }
 
-const runUsage = ({ records, projectPath: _project, ...run }: ObservedRun & { records: RunRecord[] }): RunUsage => ({ ...run, totals: sum(records) });
+const runUsage = ({ records, projectPath: _project, ...run }: ObservedRun & { records: RunRecord[] }, pressureOf: (session: Session) => ContextPressure): RunUsage => ({
+  ...run,
+  totals: sum(records),
+  contextPressure: pressureOf(records[0]!),
+});
 
 /** `usage.get` without a Task: the project's totals over everything ingested, by Task and unassigned, by role, and derived. */
 export type ProjectUsage = Pick<Usage, 'importing' | 'tasks' | 'unassigned' | 'byRole'> & { totals: Totals; derived: Derived };
@@ -255,8 +359,8 @@ export type Derived = {
   weekly: { provenance: 'calculated'; items: { week: string; totals: Totals }[] };
 };
 
-/** A run as `usage.get` shows it: the observed run, less its project, with its totals. */
-export type RunUsage = Omit<ObservedRun, 'projectPath'> & { totals: Totals };
+/** A run as `usage.get` shows it: the observed run, less its project, with its totals and its session's context pressure. */
+export type RunUsage = Omit<ObservedRun, 'projectPath'> & { totals: Totals; contextPressure: ContextPressure };
 
 /** `usage.get` with a Task: its totals over everything ingested, the same by role, and its runs, newest first. */
 export type TaskUsage = Pick<Usage, 'importing'> & {
@@ -302,6 +406,7 @@ export async function usageGet(
     return { importing, totals: sum(records), ...byTask(attributed, tasks), byRole: byRole(attributed, ROLES), derived: { ...perTask(attributed, tasks), weekly: weekly(records) } };
   }
 
+  const pressureOf = contextPressures(records, context.store.compactions(projectPath));
   // Runs come oldest first.
   const own = attributed.filter((run) => run.taskId === found.task.id).reverse();
   return {
@@ -310,7 +415,7 @@ export async function usageGet(
     totals: sum(own.flatMap((run) => run.records)),
     byRole: byRole(own, TASK_ROLES),
     reworkUnread: reworkUnread.get(found.task.id) ?? null,
-    runs: limited(own.map(runUsage)),
+    runs: limited(own.map((run) => runUsage(run, pressureOf))),
   };
 }
 
@@ -969,7 +1074,7 @@ async function ingestFile(
   }
 
   const reading = read(bytes);
-  await keep(context, { path, size, offset: reading.stop.offset, line: reading.stop.line, windowDays: window }, reading.records, places, histories);
+  await keep(context, { path, size, offset: reading.stop.offset, line: reading.stop.line, windowDays: window }, reading.records, places, histories, reading.markers);
   // Every later reading stops at the same line, a rollout's included, though it is read from its start.
   return reading.failure ? `${path} at line ${reading.failure.line}: ${reading.failure.reason}, and nothing after it is counted, however the file grows, until Binnacle can read that line` : null;
 }
@@ -1039,8 +1144,9 @@ const databaseChanged = (cursor: IngestCursor | null, mark: number, window: Impo
   cursor === null || cursor.size !== mark || wider(window, cursor.windowDays);
 
 /**
- * Stores, with `cursor`, the records of a reading whose `cwd` lies in one of `places` and
- * that are within the window, and attributes the OpenTelemetry waiting for their sessions.
+ * Stores, with `cursor`, the records and compaction markers of a reading whose `cwd` lies in
+ * one of `places` and that are within the window, and attributes the OpenTelemetry waiting
+ * for their sessions.
  */
 async function keep(
   context: OperationContext,
@@ -1048,14 +1154,21 @@ async function keep(
   read: UsageRecord[],
   places: { path: string; project: string }[],
   histories: Map<string, Promise<HeadHistory | null>>,
+  markers: CompactionMarker[] = [],
 ): Promise<void> {
   const windowStart = cursor.windowDays === 'all' ? '' : localMidnight(cursor.windowDays - 1).toISOString();
+  const projectOf = (item: { cwd: string; timestamp: string }): string | undefined =>
+    item.timestamp >= windowStart ? containingEntry(item.cwd, places)?.project : undefined;
   const records: Ingested[] = [];
   for (const record of read) {
-    const project = containingEntry(record.cwd, places)?.project;
-    if (project && record.timestamp >= windowStart) records.push({ record: await withBranch(record, histories), projectPath: project, sourceRef: cursor.path });
+    const project = projectOf(record);
+    if (project) records.push({ record: await withBranch(record, histories), projectPath: project, sourceRef: cursor.path });
   }
-  context.store.ingest(cursor, records);
+  const kept = markers.flatMap((marker) => {
+    const project = projectOf(marker);
+    return project ? [{ marker, projectPath: project, sourceRef: cursor.path }] : [];
+  });
+  context.store.ingest(cursor, records, kept);
   // A session's OpenTelemetry received before any of its artifact records were stored joins their project now.
   await attributeSessions(context, records.map(({ record }) => record), histories);
 }

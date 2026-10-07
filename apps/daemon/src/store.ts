@@ -2,7 +2,7 @@ import { chmodSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import type { ImportWindow } from '@binnacle/core';
 import type { TelemetryRecord } from '@binnacle/adapters';
-import type { Harness, Provenance, TokenField, UsageRecord } from '@binnacle/telemetry';
+import type { CompactionMarker, Harness, Provenance, TokenField, UsageRecord } from '@binnacle/telemetry';
 import { OWNER_ONLY_FILE, storePath } from './home.ts';
 
 /**
@@ -10,8 +10,9 @@ import { OWNER_ONLY_FILE, storePath } from './home.ts';
  *
  * Two tiers live here. `project` is a **projection**, derived from the registry file
  * and each repository's manifest, and it is rebuilt rather than migrated. The
- * append-only tier — events, the usage records ingested from harness artifacts with the
- * cursors they were read up to, and those received through OpenTelemetry — is migrated and
+ * append-only tier — events, the usage records and compaction markers ingested from harness
+ * artifacts with the cursors they were read up to, and the records received through
+ * OpenTelemetry — is migrated and
  * never recreated, because it is the only copy of what was observed.
  *
  * The daemon is the only process that opens this file. The CLI and the dashboard
@@ -63,6 +64,8 @@ export type IngestCursor = { path: string; size: number; offset: number; line: n
 
 /** A record to store, with the registered project its `cwd` lies in and the file it was read from. */
 export type Ingested = { record: UsageRecord; projectPath: string; sourceRef: string };
+/** A compaction marker to store, as a record is. */
+export type IngestedMarker = { marker: CompactionMarker; projectPath: string; sourceRef: string };
 
 /** Where a record comes from: a harness's session artifact, or its OpenTelemetry export. */
 type RecordSource = 'artifact' | 'opentelemetry';
@@ -90,8 +93,10 @@ export type Store = {
   cursor(path: string): IngestCursor | null;
   /** Forgets the cursor of every file whose path starts with `prefix`, so that each is read again from the start. */
   forgetCursors(prefix: string): void;
-  /** Stores the records a file gave and moves its cursor, together or not at all. A record already stored is left as it was. */
-  ingest(cursor: IngestCursor, records: Ingested[]): void;
+  /** Stores the records and markers a file gave and moves its cursor, together or not at all. One already stored is left as it was. */
+  ingest(cursor: IngestCursor, records: Ingested[], markers?: IngestedMarker[]): void;
+  /** A project's compaction markers, of every harness, oldest first. */
+  compactions(projectPath: string): CompactionMarker[];
   /**
    * A project's records, of every harness, from `since` on, an ISO timestamp, each call counted
    * once: an OpenTelemetry record that is the same call as an artifact record of its session is
@@ -196,6 +201,20 @@ export function openStore(home: string): Store {
       received_at text not null,
       primary key (harness, natural_key)
     );
+    create table if not exists compaction (
+      harness text not null,
+      natural_key text not null,
+      project_path text not null,
+      session_id text not null,
+      subagent_id text,
+      source_ref text not null,
+      timestamp text not null,
+      cwd text not null,
+      trigger text,
+      provenance text not null,
+      primary key (harness, natural_key)
+    );
+    create index if not exists compaction_project on compaction (project_path, timestamp);
     create table if not exists ingest_cursor (
       path text primary key,
       size integer not null,
@@ -286,6 +305,15 @@ export function openStore(home: string): Store {
       input, cachedInput, cacheCreation, output, reasoning, record.provenance, ingestedAt, source, record.requestId,
     );
   };
+  const insertMarker = db.prepare(`
+    insert into compaction (harness, natural_key, project_path, session_id, subagent_id, source_ref, timestamp, cwd, trigger, provenance)
+    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    on conflict (harness, natural_key) do nothing
+  `);
+  const selectMarkers = db.prepare(`
+    select harness, natural_key, session_id, subagent_id, timestamp, cwd, trigger, provenance from compaction
+    where project_path = ? order by timestamp, natural_key
+  `);
   const insertUnattributed = db.prepare(`
     insert into unattributed_record (harness, natural_key, session_id, request_id, timestamp, provider, model,
       input, cached_input, cache_creation, output, reasoning, provenance, received_at)
@@ -409,10 +437,14 @@ export function openStore(home: string): Store {
     forgetCursors: (prefix) => {
       deleteCursors.run(prefix);
     },
-    ingest: (cursor, records) => {
+    ingest: (cursor, records, markers = []) => {
       const now = new Date().toISOString();
       transaction(() => {
         for (const { record, projectPath, sourceRef } of records) insertRecordRow(record, projectPath, sourceRef, now, 'artifact');
+        for (const { marker, projectPath, sourceRef } of markers) {
+          const { harness, naturalKey, sessionId, subagentId, timestamp, cwd, trigger, provenance } = marker;
+          insertMarker.run(harness, naturalKey, projectPath, sessionId, subagentId, sourceRef, timestamp, cwd, trigger, provenance);
+        }
         upsertCursor.run(cursor.path, cursor.size, cursor.offset, cursor.line, cursor.windowDays);
       });
     },
@@ -431,6 +463,17 @@ export function openStore(home: string): Store {
         model: stringOrNull(row.model),
         provenance: String(row.provenance) as Provenance,
         tokens: tokensOf(row),
+      })),
+    compactions: (projectPath) =>
+      selectMarkers.all(projectPath).map((row) => ({
+        harness: String(row.harness) as Harness,
+        naturalKey: String(row.natural_key),
+        sessionId: String(row.session_id),
+        subagentId: stringOrNull(row.subagent_id),
+        timestamp: String(row.timestamp),
+        cwd: String(row.cwd),
+        trigger: stringOrNull(row.trigger),
+        provenance: String(row.provenance) as Provenance,
       })),
     usageCounts: (projectPath, harness, liveSince) => {
       const row = countUsage.get(liveSince, projectPath, harness)!;

@@ -41,3 +41,7 @@ telemetry:
   import:
     # Asked at `binn init`: a number of days, or `all` for the whole archive. Unwritten, 90.
     window_days: 30
+  context_pressure:
+    # The context of a Product session's latest call, in tokens, from which the snapshot
+    # suggests /binnacle:checkpoint (`context.pressure`). Unwritten, 150000.
+    tokens: 150000
