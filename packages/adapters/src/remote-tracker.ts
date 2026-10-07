@@ -59,7 +59,7 @@ export async function readRemoteTasks(forge: Forge, firstPage: string, where: st
  * reads issues: the `Link` header followed on the declared host only, and a failure on any
  * page giving nothing but the diagnostic that says why.
  */
-async function readPages(forge: Forge, firstPage: string, where: string, token: string | null, what: string): Promise<unknown[] | Diagnostic> {
+async function readPages(forge: Forge, firstPage: string, where: string, token: string | null, what: Listed): Promise<unknown[] | Diagnostic> {
   const failed = (code: string, message: string): Diagnostic => ({ code, message });
   let url: URL;
   try {
@@ -90,19 +90,22 @@ async function readPages(forge: Forge, firstPage: string, where: string, token: 
   }
 }
 
+/** What a forge's pages list. */
+type Listed = 'issues' | 'pull requests' | 'merge requests' | 'reviews';
+
 /**
  * When changes were first requested on a pull or merge request of one branch, in
- * milliseconds: `at`, null while none has had changes requested; or, with no such request or
- * a forge that cannot be read, the `reason` it is not known.
+ * milliseconds: `at`, null while none has had changes requested; `noRequest`, saying so, when
+ * the branch has no such request; or, when the forge cannot be read, the `reason` why.
  */
-export type ChangesRequested = { at: number | null } | { reason: string };
+export type ChangesRequested = { at: number | null } | { noRequest: string } | { reason: string };
 
 /** Where a forge lists a branch's requests, and how it tells when one had changes requested. */
-export type RequestReviews = {
+type RequestReviews = {
   /** The first page of the requests whose head is the branch, in every state, and what the forge calls them. */
   requests: string;
   what: 'pull requests' | 'merge requests';
-  /** The reason when there is none. */
+  /** What is said when there is none. */
   noRequest: string;
   /** The first page of what records the reviews of `request`, one entry of `requests`. */
   reviews(request: unknown): string;
@@ -117,7 +120,7 @@ export type RequestReviews = {
 export async function readChangesRequested(forge: Forge, where: string, token: string, request: RequestReviews): Promise<ChangesRequested> {
   const requests = await readPages(forge, request.requests, where, token, request.what);
   if (!Array.isArray(requests)) return { reason: requests.message };
-  if (requests.length === 0) return { reason: request.noRequest };
+  if (requests.length === 0) return { noRequest: request.noRequest };
   let first: number | null = null;
   for (const entry of requests) {
     const reviews = await readPages(forge, request.reviews(entry), where, token, 'reviews');
@@ -135,7 +138,7 @@ export async function readChangesRequested(forge: Forge, where: string, token: s
  * the one there is. GitHub signals its primary rate limit as a 403 with no requests
  * remaining; GitLab uses 429.
  */
-function statusFailure(name: Forge['name'], response: Response, where: string, authenticated: boolean, what: string): [string, string] {
+function statusFailure(name: Forge['name'], response: Response, where: string, authenticated: boolean, what: Listed): [string, string] {
   const { status, headers } = response;
   const used = authenticated ? 'a token was used' : 'no token was used';
   if (status === 429 || (status === 403 && (headers.get('x-ratelimit-remaining') === '0' || headers.has('retry-after')))) {

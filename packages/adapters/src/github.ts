@@ -58,7 +58,7 @@ type Review = { state?: string; submitted_at?: string | null };
 /**
  * When changes were first requested on a pull request whose head is `branch` in
  * `repository` itself, read with `token`: a review in the `CHANGES_REQUESTED` state, at its
- * submission. A review dismissed since no longer counts: GitHub then reports it `DISMISSED`.
+ * submission. A review dismissed by the time it is read does not count: GitHub then reports it `DISMISSED`.
  */
 export function readGitHubChangesRequested(repository: string, host: string | null, token: string, branch: string): Promise<ChangesRequested> {
   const root = githubApiRoot(host);

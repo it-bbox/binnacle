@@ -455,11 +455,10 @@ async function runs(
     return exists.get(cwd) ? root.path : null;
   };
   const withCheckout = records.map((record) => ({ ...record, checkout: checkout(record.cwd) }));
-  const provider = tracker?.provider;
-  const repository = tracker?.repository ?? null;
+  const { provider = null, repository = null, host = null } = tracker ?? {};
   const { reviews, reworkUnread } =
     (provider === 'github' || provider === 'gitlab') && repository !== null
-      ? await forgeReviewPoints(home, { provider, repository, host: tracker!.host }, records, tasks)
+      ? await forgeReviewPoints(home, { provider, repository, host }, records, tasks)
       : { reviews: remote ? new Map<string, ReviewPoints>() : await reviewPoints(projectPath, records, tasks), reworkUnread: new Map<string, string>() };
   return { runs: observedRuns(withCheckout, { projectPath, defaultBranch, tasks, remote, reviews, now: new Date() }), reworkUnread };
 }
@@ -470,8 +469,15 @@ type Attributed = { runs: (ObservedRun & { records: RunRecord[] })[]; reworkUnre
  * When changes were first requested on a forge request, by forge, host, repository and
  * branch: a review that requested changes stays one.
  * ponytail: a branch with none is asked again on every call, as the tracker's issues are; keep its answer for a while if a forge's rate limit is ever reached.
+ * ponytail: a review dismissed after it was read here still counts until the daemon restarts; re-read found branches too if dismissals ever matter.
  */
 const changesRequestedAt = new Map<string, number>();
+
+/** What differs between GitHub and GitLab for reading rework. */
+const FORGES = {
+  github: { name: 'GitHub', request: 'pull request', read: readGitHubChangesRequested },
+  gitlab: { name: 'GitLab', request: 'merge request', read: readGitLabChangesRequested },
+} as const;
 
 /**
  * On GitHub or GitLab, per Task whose branch `records` were on, when changes were first
@@ -493,19 +499,15 @@ async function forgeReviewPoints(
   }
   const reviews = new Map<string, ReviewPoints>();
   const reworkUnread = new Map<string, string>();
-  const name = tracker.provider === 'github' ? 'GitHub' : 'GitLab';
+  const unread = (id: string, why: string): void => void reworkUnread.set(id, `${why} So ${id}'s rework is not read.`);
+  const { name, request, read } = FORGES[tracker.provider];
   const credential = trackerToken(home, tracker.provider, tracker.host);
   const token = 'token' in credential ? credential.token : null;
   if (token === null) {
-    const request = tracker.provider === 'github' ? 'pull request' : 'merge request';
-    for (const id of branches.keys()) {
-      const why = 'failure' in credential ? credential.failure.message : `Without a token for ${name}, the reviews on ${id}'s ${request} are not read.`;
-      reworkUnread.set(id, `${why} So ${id}'s rework is not read.`);
-    }
+    for (const id of branches.keys()) unread(id, 'failure' in credential ? credential.failure.message : `Without a token for ${name}, the reviews on ${id}'s ${request} are not read.`);
     return { reviews, reworkUnread };
   }
 
-  const read = tracker.provider === 'github' ? readGitHubChangesRequested : readGitLabChangesRequested;
   const changesRequested = async (branch: string): Promise<ChangesRequested> => {
     const key = [tracker.provider, tracker.host ?? '', tracker.repository, branch].join('\0');
     const known = changesRequestedAt.get(key);
@@ -518,14 +520,13 @@ async function forgeReviewPoints(
     [...branches].map(async ([id, names]) => {
       const answers = await Promise.all(names.map(changesRequested));
       const times = answers.flatMap((answer) => ('at' in answer && answer.at !== null ? [answer.at] : []));
-      const reasons = answers.flatMap((answer) => ('reason' in answer ? [answer.reason] : []));
-      if (times.length > 0) {
-        const at = Math.min(...times);
-        reviews.set(id, { lastChange: at, review: at });
-      } else if (reasons.length === answers.length) {
-        // Rework is read when one of the Task's branches could be read, even with no changes requested.
-        reworkUnread.set(id, `${reasons[0]} So ${id}'s rework is not read.`);
-      }
+      const failures = answers.flatMap((answer) => ('reason' in answer ? [answer.reason] : []));
+      const noRequests = answers.flatMap((answer) => ('noRequest' in answer ? [answer.noRequest] : []));
+      const at = Math.min(...times);
+      if (times.length > 0) reviews.set(id, { lastChange: at, review: at });
+      // A branch the forge did not answer for may hold an earlier request; one with no request holds none.
+      if (failures.length > 0) unread(id, failures[0]!);
+      else if (noRequests.length === answers.length) unread(id, noRequests[0]!);
     }),
   );
   return { reviews, reworkUnread };

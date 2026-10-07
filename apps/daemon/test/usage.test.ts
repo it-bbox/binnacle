@@ -1611,6 +1611,27 @@ describe('Rework after a review on GitHub or GitLab', () => {
     }
   });
 
+  it('says why rework is not read when the forge refuses one of the Task’s branches, though another has its pull request', async () => {
+    const github = await fakeGitHub([{ number: 7, title: 'Seven' }], 200, (url) => {
+      if (url.pathname !== '/repos/octo/repo/pulls') return pulls([])(url);
+      return url.searchParams.get('head') === 'octo:feat/7-seven' ? [{ number: 20 }] : undefined;
+    });
+    try {
+      await withToken('BINNACLE_GITHUB_TOKEN', TOKEN, () =>
+        withDaemon(async (daemon, artifacts) => {
+          const root = makeProject(temporary('binnacle-usage-'), githubTracker(github.base));
+          repository(root, at(1, 0), [at(1, 10), 'feat/7-seven'], [at(0, 20), 'feat/7-renamed']);
+          session(artifacts, root, 'seven', [...lines(GRILL, at(0, 0), '-before'), ...lines(ABORTED, at(0, 30), '-after')]);
+          await register(daemon, root);
+          const task = await usageGet<TaskUsage>(daemon, root, '#7');
+          assert.match(task.reworkUnread ?? '', /\(404\); a token was used\. So #7's rework is not read\.$/);
+        }),
+      );
+    } finally {
+      await github.close();
+    }
+  });
+
   it('counts the work after a reviewer requested changes on the GitLab merge request as rework', async () => {
     const issue = { iid: 7, title: 'Seven', state: 'opened', description: 'Status: READY', labels: [], web_url: 'https://gitlab.com/octo/repo/-/issues/7' };
     const gitlab = await fakeForge((url) => {
