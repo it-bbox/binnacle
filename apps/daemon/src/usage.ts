@@ -606,9 +606,12 @@ function byTask(attributed: { taskId: string | null; records: RunRecord[] }[], t
   const items = [...records]
     .filter((entry): entry is [string, RunRecord[]] => entry[0] !== null)
     .map(([id, taskRecords]) => ({ id, title: titles.get(id) ?? null, totals: sum(taskRecords) }));
-  items.sort((a, b) => magnitude(b.totals) - magnitude(a.totals) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  items.sort((a, b) => magnitude(b.totals) - magnitude(a.totals) || byId(a, b));
   return { tasks: limited(items), unassigned: sum(records.get(null) ?? []) };
 }
+
+/** Code-unit order of ids, so the same items come in the same order anywhere. */
+const byId = (a: { id: string }, b: { id: string }): number => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
 /** The derived metrics per Task: those of the `DONE` Tasks, and the runs of every Task. */
 function perTask(
@@ -624,7 +627,6 @@ function perTask(
     else runsOf.set(run.taskId, [run]);
   }
   const titles = new Map(tasks.map((task) => [task.id, task.title]));
-  const byId = (a: { id: string }, b: { id: string }): number => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
   const done = tasks.filter((task) => task.state === 'DONE');
   const completed = done.flatMap((task) => {
@@ -633,11 +635,9 @@ function perTask(
   });
   completed.sort((a, b) => magnitude(b.totals) - magnitude(a.totals) || byId(a, b));
 
-  const tokensIn = (own: { role: RunRole; records: RunRecord[] }[], role: RunRole): number =>
-    magnitude(sum(own.filter((run) => run.role === role).flatMap((run) => run.records)));
   const shares = completed.map(({ id, title }) => {
-    const own = runsOf.get(id)!;
-    const [implementation, rework] = [tokensIn(own, 'implementation'), tokensIn(own, 'rework')];
+    const roles = byRole(runsOf.get(id)!, ['implementation', 'rework']);
+    const [implementation, rework] = [magnitude(roles.implementation), magnitude(roles.rework)];
     return { id, title, share: reworkUnread.has(id) || implementation + rework === 0 ? null : rework / (implementation + rework) };
   });
   shares.sort((a, b) => (b.share ?? -1) - (a.share ?? -1) || byId(a, b));
@@ -685,7 +685,7 @@ function contextGrowth(attributed: (ObservedRun & { records: RunRecord[] })[]): 
     const largest = contexts.reduce((top, context) => (context.tokens !== null && (top.tokens === null || context.tokens > top.tokens) ? context : top));
     return { id, taskId, role, harness, startedAt, first: contexts[0]!, latest: contexts.at(-1)!, largest };
   });
-  items.sort((a, b) => (b.largest.tokens ?? -1) - (a.largest.tokens ?? -1) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  items.sort((a, b) => (b.largest.tokens ?? -1) - (a.largest.tokens ?? -1) || byId(a, b));
   return { provenance: 'calculated', ...limited(items) };
 }
 

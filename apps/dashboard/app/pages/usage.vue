@@ -143,7 +143,7 @@ const contexts = computed(() => {
         label: item.taskId ?? t.value.unassigned,
         to: item.taskId === null ? undefined : taskLink(item.taskId),
         muted: item.taskId === null,
-        note: `${item.harness} · ${t.value[ROLE_LABELS[item.role as keyof typeof ROLE_LABELS] ?? 'roleUnknown']}`,
+        note: `${item.harness} · ${t.value[ROLE_LABELS[item.role]]}`,
         value: item.largest.tokens,
         text: t.value.contextLine(shown(item.first), shown(item.latest), shown(item.largest)),
         marks: [item.first, item.latest, item.largest].some((context) => context.partial) ? [t.value.partial] : [],

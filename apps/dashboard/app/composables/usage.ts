@@ -19,12 +19,14 @@ export type SnapshotUsage = {
 };
 
 /** `usage.get` without a Task: everything ingested, over the import window. */
+export type Role = 'product' | 'implementation' | 'review' | 'rework' | 'unknown';
+
 export type ProjectUsage = {
   importing: Importing;
   totals: Totals;
   tasks: Limited<{ id: string; title: string | null; totals: Totals }> | Unavailable;
   unassigned: Totals | Unavailable;
-  byRole: Record<'product' | 'implementation' | 'review' | 'rework' | 'unknown', Totals> | Unavailable;
+  byRole: Record<Role, Totals> | Unavailable;
   derived: Derived;
 };
 
@@ -40,7 +42,7 @@ export type Derived = {
   reworkShare: (Limited<{ id: string; title: string | null; share: number | null }> & { provenance: 'calculated'; mean: number | null }) | Unavailable;
   firstPassAcceptance: (Limited<{ id: string; title: string | null; accepted: boolean }> & { provenance: 'calculated'; share: number | null }) | Unavailable;
   contextGrowth:
-    | (Limited<{ id: string; taskId: string | null; role: string; harness: string; startedAt: string; first: Context; latest: Context; largest: Context }> & { provenance: 'calculated' })
+    | (Limited<{ id: string; taskId: string | null; role: Role; harness: string; startedAt: string; first: Context; latest: Context; largest: Context }> & { provenance: 'calculated' })
     | Unavailable;
 };
 
