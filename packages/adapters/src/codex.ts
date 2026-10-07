@@ -35,7 +35,8 @@ export function readCodex(bytes: Buffer): ArtifactReading {
   let session: CodexSession | null = null;
   let model: string | null = null;
   let previous: Counts = { input_tokens: 0, cached_input_tokens: 0, output_tokens: 0, reasoning_output_tokens: 0 };
-  let completed: unknown = undefined;
+  // When the response of the call the next token count totals completed, if Codex wrote it.
+  let completedAt: unknown = undefined;
 
   return readLines(bytes, { offset: 0, line: 0 }, (value): UsageRecord | null | string => {
     const payload = value.payload;
@@ -45,10 +46,12 @@ export function readCodex(bytes: Buffer): ArtifactReading {
     }
     if (value.type === 'turn_context' && isObject(payload)) {
       model = typeof payload.model === 'string' ? payload.model : null;
+      // A turn aborted after its usage record wrote no token count: its time is no later call's.
+      completedAt = undefined;
       return null;
     }
     if (value.type === 'token_usage_record') {
-      completed = value.timestamp;
+      completedAt = value.timestamp;
       return null;
     }
     if (value.type !== 'event_msg' || !isObject(payload) || payload.type !== 'token_count' || payload.info == null) return null;
@@ -56,8 +59,8 @@ export function readCodex(bytes: Buffer): ArtifactReading {
     const total = isObject(payload.info) ? payload.info.total_token_usage : undefined;
     if (!isObject(total) || COUNTS.some((name) => count(total[name]) === null)) return 'a token count without its total';
     // The call's time is when its response completed, the time its OpenTelemetry event has too.
-    const stamp = completed ?? value.timestamp;
-    completed = undefined;
+    const stamp = completedAt ?? value.timestamp;
+    completedAt = undefined;
     const time = typeof stamp === 'string' ? Date.parse(stamp) : NaN;
     if (Number.isNaN(time)) return 'a token count without a timestamp';
     if (!Number.isInteger(value.ordinal)) return 'a token count without an ordinal';

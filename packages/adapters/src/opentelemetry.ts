@@ -32,13 +32,13 @@ export function readOtlpLogs(body: unknown): TelemetryRecord[] {
 }
 
 /** An event's attributes, read as a string or as a token count. */
-type Event = { text: (key: string) => string | null; tokens: (key: string) => number | null };
+type OtlpEvent = { text: (key: string) => string | null; tokens: (key: string) => number | null };
 /** What tells one harness's event from another's: its session, its request id and its counts. */
 type Mapped = Pick<TelemetryRecord, 'harness' | 'requestId' | 'tokens' | 'provenance'> & { sessionId: string | null };
 
 function call(log: Record<string, unknown>, scope: string): TelemetryRecord | null {
   const attributes = new Map(list(log.attributes).map((attribute) => [attribute.key, isObject(attribute.value) ? value(attribute.value) : null]));
-  const event: Event = {
+  const event: OtlpEvent = {
     text: (key) => {
       const found = attributes.get(key);
       return typeof found === 'string' && found !== '' ? found : null;
@@ -86,7 +86,7 @@ function call(log: Record<string, unknown>, scope: string): TelemetryRecord | nu
 }
 
 /** Claude Code's counts, each as its provider reported it; the event has no thinking tokens. */
-const claudeCode = (event: Event): Mapped => ({
+const claudeCode = (event: OtlpEvent): Mapped => ({
   harness: 'claude-code',
   sessionId: event.text('session.id'),
   requestId: event.text('request_id'),
@@ -105,7 +105,7 @@ const claudeCode = (event: Event): Mapped => ({
  * call: input less the input read from cache, calculated, and no cache creation, which Codex
  * may count inside its input. Its session is the conversation, the rollout's session id.
  */
-function codex(event: Event): Mapped {
+function codex(event: OtlpEvent): Mapped {
   const input = event.tokens('input_token_count');
   const cached = event.tokens('cached_token_count');
   return {
@@ -130,7 +130,7 @@ function codex(event: Event): Mapped {
  * output the candidates plus the thoughts, which are its reasoning: calculated, each null when
  * a count it needs is absent. Gemini reports no cache creation.
  */
-function geminiCli(event: Event): Mapped {
+function geminiCli(event: OtlpEvent): Mapped {
   const prompt = event.tokens('input_token_count');
   const cached = event.tokens('cached_content_token_count');
   const tool = event.tokens('tool_token_count');

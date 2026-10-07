@@ -586,7 +586,7 @@ export function startIngest(context: OperationContext, projectPath: string, mani
   const found = { 'claude-code': claudeCodeFiles(artifacts.claudeCode, [projectPath, ...linked]), codex: codexSessions(artifacts.codex) };
 
   const pending: { path: string; harness: Harness }[] = [];
-  for (const harness of ['claude-code', 'codex'] as const) {
+  for (const harness of Object.keys(found) as (keyof typeof found)[]) {
     for (const path of found[harness].files) {
       try {
         if (readPosition(context.store.cursor(path), statSync(path).size, window) === null) {
