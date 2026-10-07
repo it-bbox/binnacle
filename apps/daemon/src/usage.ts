@@ -253,7 +253,37 @@ export type Derived = {
     | Unavailable;
   /** Totals per calendar week, oldest first, from the first record's to this one, each named by its Monday's local date. */
   weekly: { provenance: 'calculated'; items: { week: string; totals: Totals }[] };
+  /**
+   * Each `DONE` Task with attributed runs: its rework tokens over its implementation and rework
+   * tokens, every token counted once, largest first, and their mean. A share is null when the
+   * Task's rework is not read, or it has neither, and the mean leaves it out.
+   */
+  reworkShare:
+    | { provenance: 'calculated'; items: { id: string; title: string | null; share: number | null }[]; remainder: number; mean: number | null }
+    | Unavailable;
+  /**
+   * Each `DONE` Task with attributed runs and a Review, by id: whether it has no rework run;
+   * and the share of them that has none, null when there is none. On GitHub or GitLab a Task
+   * has a Review when the reviews of its branch's pull or merge request are read.
+   */
+  firstPassAcceptance:
+    | { provenance: 'calculated'; items: { id: string; title: string | null; accepted: boolean }[]; remainder: number; share: number | null }
+    | Unavailable;
+  /** Each run's context: its first, latest and largest call's, largest first. */
+  contextGrowth:
+    | {
+        provenance: 'calculated';
+        items: (Pick<ObservedRun, 'id' | 'taskId' | 'role' | 'harness' | 'startedAt'> & { first: Context; latest: Context; largest: Context })[];
+        remainder: number;
+      }
+    | Unavailable;
 };
+
+/**
+ * What a call read: its input, cached input and cache creation together, null when it
+ * reports none of them, partial when it reports only some.
+ */
+export type Context = { tokens: number | null; partial: boolean };
 
 /** A run as `usage.get` shows it: the observed run, less its project, with its totals. */
 export type RunUsage = Omit<ObservedRun, 'projectPath'> & { totals: Totals };
@@ -295,11 +325,13 @@ export async function usageGet(
   // Since the earliest timestamp there is: every record stored, whatever the window is now.
   const records = context.store.usage(projectPath, '');
   if (!Array.isArray(tasks)) {
-    return { importing, totals: sum(records), tasks, unassigned: tasks, byRole: tasks, derived: { perCompletedTask: tasks, runsPerTask: tasks, weekly: weekly(records) } };
+    const derived = { perCompletedTask: tasks, runsPerTask: tasks, weekly: weekly(records), reworkShare: tasks, firstPassAcceptance: tasks, contextGrowth: tasks };
+    return { importing, totals: sum(records), tasks, unassigned: tasks, byRole: tasks, derived };
   }
-  const { runs: attributed, reworkUnread } = await runs(records, projectPath, tasks, context.home, manifest, checkouts);
+  const { runs: attributed, reworkUnread, reviewed } = await runs(records, projectPath, tasks, context.home, manifest, checkouts);
   if (!found) {
-    return { importing, totals: sum(records), ...byTask(attributed, tasks), byRole: byRole(attributed, ROLES), derived: { ...perTask(attributed, tasks), weekly: weekly(records) } };
+    const derived = { ...perTask(attributed, tasks, reworkUnread, reviewed), weekly: weekly(records), contextGrowth: contextGrowth(attributed) };
+    return { importing, totals: sum(records), ...byTask(attributed, tasks), byRole: byRole(attributed, ROLES), derived };
   }
 
   // Runs come oldest first.
@@ -456,14 +488,18 @@ async function runs(
   };
   const withCheckout = records.map((record) => ({ ...record, checkout: checkout(record.cwd) }));
   const { provider = null, repository = null, host = null } = tracker ?? {};
-  const { reviews, reworkUnread } =
-    (provider === 'github' || provider === 'gitlab') && repository !== null
-      ? await forgeReviewPoints(home, { provider, repository, host }, records, tasks)
-      : { reviews: remote ? new Map<string, ReviewPoints>() : await reviewPoints(projectPath, records, tasks), reworkUnread: new Map<string, string>() };
-  return { runs: observedRuns(withCheckout, { projectPath, defaultBranch, tasks, remote, reviews, now: new Date() }), reworkUnread };
+  let read: Pick<Attributed, 'reworkUnread' | 'reviewed'> & { reviews: Map<string, ReviewPoints> };
+  if ((provider === 'github' || provider === 'gitlab') && repository !== null) read = await forgeReviewPoints(home, { provider, repository, host }, records, tasks);
+  else {
+    const reviews = remote ? new Map<string, ReviewPoints>() : await reviewPoints(projectPath, records, tasks);
+    read = { reviews, reworkUnread: new Map(), reviewed: new Set(reviews.keys()) };
+  }
+  const { reviews, reworkUnread, reviewed } = read;
+  return { runs: observedRuns(withCheckout, { projectPath, defaultBranch, tasks, remote, reviews, now: new Date() }), reworkUnread, reviewed };
 }
 
-type Attributed = { runs: (ObservedRun & { records: RunRecord[] })[]; reworkUnread: Map<string, string> };
+/** The runs, why a Task's rework is not read, by Task id, and the Tasks that have a Review. */
+type Attributed = { runs: (ObservedRun & { records: RunRecord[] })[]; reworkUnread: Map<string, string>; reviewed: Set<string> };
 
 /**
  * When changes were first requested on a forge request, by forge, host, repository and
@@ -491,7 +527,7 @@ async function forgeReviewPoints(
   tracker: { provider: 'github' | 'gitlab'; repository: string; host: string | null },
   records: UsageRecord[],
   tasks: Pick<TrackerTask, 'id' | 'title' | 'ticket'>[],
-): Promise<Pick<Attributed, 'reworkUnread'> & { reviews: Map<string, ReviewPoints> }> {
+): Promise<Pick<Attributed, 'reworkUnread' | 'reviewed'> & { reviews: Map<string, ReviewPoints> }> {
   const branches = new Map<string, string[]>();
   for (const branch of new Set(records.flatMap((record) => (record.branch?.source === 'reflog' ? [record.branch.name] : [])))) {
     const task = branchTask(branch, tasks, true);
@@ -499,13 +535,14 @@ async function forgeReviewPoints(
   }
   const reviews = new Map<string, ReviewPoints>();
   const reworkUnread = new Map<string, string>();
+  const reviewed = new Set<string>();
   const unread = (id: string, why: string): void => void reworkUnread.set(id, `${why} So ${id}'s rework is not read.`);
   const { name, request, read } = FORGES[tracker.provider];
   const credential = trackerToken(home, tracker.provider, tracker.host);
   const token = 'token' in credential ? credential.token : null;
   if (token === null) {
     for (const id of branches.keys()) unread(id, 'failure' in credential ? credential.failure.message : `Without a token for ${name}, the reviews on ${id}'s ${request} are not read.`);
-    return { reviews, reworkUnread };
+    return { reviews, reworkUnread, reviewed };
   }
 
   const changesRequested = async (branch: string): Promise<ChangesRequested> => {
@@ -527,9 +564,11 @@ async function forgeReviewPoints(
       // A branch the forge did not answer for may hold an earlier request; one with no request holds none.
       if (failures.length > 0) unread(id, failures[0]!);
       else if (noRequests.length === answers.length) unread(id, noRequests[0]!);
+      // ponytail: a request whose reviews were read counts as reviewed, though none was submitted; read approvals too if first-pass acceptance ever needs it.
+      else reviewed.add(id);
     }),
   );
-  return { reviews, reworkUnread };
+  return { reviews, reworkUnread, reviewed };
 }
 
 /**
@@ -573,14 +612,16 @@ function byTask(attributed: { taskId: string | null; records: RunRecord[] }[], t
 
 /** The derived metrics per Task: those of the `DONE` Tasks, and the runs of every Task. */
 function perTask(
-  attributed: { taskId: string | null; records: RunRecord[] }[],
+  attributed: { taskId: string | null; role: RunRole; records: RunRecord[] }[],
   tasks: Pick<TrackerTask, 'id' | 'title' | 'state'>[],
-): Pick<Derived, 'perCompletedTask' | 'runsPerTask'> {
-  const runsOf = new Map<string, RunRecord[][]>();
-  for (const { taskId, records } of attributed) {
-    if (taskId === null) continue;
-    if (runsOf.has(taskId)) runsOf.get(taskId)!.push(records);
-    else runsOf.set(taskId, [records]);
+  reworkUnread: Map<string, string>,
+  reviewed: Set<string>,
+): Pick<Derived, 'perCompletedTask' | 'runsPerTask' | 'reworkShare' | 'firstPassAcceptance'> {
+  const runsOf = new Map<string, { role: RunRole; records: RunRecord[] }[]>();
+  for (const run of attributed) {
+    if (run.taskId === null) continue;
+    if (runsOf.has(run.taskId)) runsOf.get(run.taskId)!.push(run);
+    else runsOf.set(run.taskId, [run]);
   }
   const titles = new Map(tasks.map((task) => [task.id, task.title]));
   const byId = (a: { id: string }, b: { id: string }): number => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
@@ -588,16 +629,30 @@ function perTask(
   const done = tasks.filter((task) => task.state === 'DONE');
   const completed = done.flatMap((task) => {
     const own = runsOf.get(task.id);
-    return own === undefined ? [] : [{ id: task.id, title: task.title, runs: own.length, totals: sum(own.flat()) }];
+    return own === undefined ? [] : [{ id: task.id, title: task.title, runs: own.length, totals: sum(own.flatMap((run) => run.records)) }];
   });
   completed.sort((a, b) => magnitude(b.totals) - magnitude(a.totals) || byId(a, b));
+
+  const tokensIn = (own: { role: RunRole; records: RunRecord[] }[], role: RunRole): number =>
+    magnitude(sum(own.filter((run) => run.role === role).flatMap((run) => run.records)));
+  const shares = completed.map(({ id, title }) => {
+    const own = runsOf.get(id)!;
+    const [implementation, rework] = [tokensIn(own, 'implementation'), tokensIn(own, 'rework')];
+    return { id, title, share: reworkUnread.has(id) || implementation + rework === 0 ? null : rework / (implementation + rework) };
+  });
+  shares.sort((a, b) => (b.share ?? -1) - (a.share ?? -1) || byId(a, b));
+  const known = shares.flatMap((item) => (item.share === null ? [] : [item.share]));
+  const firstPass = completed
+    .filter((item) => reviewed.has(item.id))
+    .map(({ id, title }) => ({ id, title, accepted: !runsOf.get(id)!.some((run) => run.role === 'rework') }))
+    .sort(byId);
 
   const runCounts = [...runsOf].map(([id, own]) => ({
     id,
     title: titles.get(id) ?? null,
     runs: own.length,
     // A run is a subagent's when its records are: every one of them comes from the same session and subagent.
-    subagentRuns: own.filter((records) => records[0]!.subagentId !== null).length,
+    subagentRuns: own.filter((run) => run.records[0]!.subagentId !== null).length,
   }));
   runCounts.sort((a, b) => b.runs - a.runs || byId(a, b));
   const average = (value: (item: (typeof runCounts)[number]) => number): number => runCounts.reduce((all, item) => all + value(item), 0) / runCounts.length;
@@ -614,7 +669,31 @@ function perTask(
       ...limited(runCounts),
       mean: runCounts.length === 0 ? null : { runs: average((item) => item.runs), subagentRuns: average((item) => item.subagentRuns) },
     },
+    reworkShare: { provenance: 'calculated', ...limited(shares), mean: known.length === 0 ? null : known.reduce((all, share) => all + share, 0) / known.length },
+    firstPassAcceptance: {
+      provenance: 'calculated',
+      ...limited(firstPass),
+      share: firstPass.length === 0 ? null : firstPass.filter((item) => item.accepted).length / firstPass.length,
+    },
   };
+}
+
+/** Each run's context growth, the run with the largest context first, one whose calls report none last. */
+function contextGrowth(attributed: (ObservedRun & { records: RunRecord[] })[]): Derived['contextGrowth'] {
+  const items = attributed.map(({ id, taskId, role, harness, startedAt, records }) => {
+    const contexts = records.map(contextOf);
+    const largest = contexts.reduce((top, context) => (context.tokens !== null && (top.tokens === null || context.tokens > top.tokens) ? context : top));
+    return { id, taskId, role, harness, startedAt, first: contexts[0]!, latest: contexts.at(-1)!, largest };
+  });
+  items.sort((a, b) => (b.largest.tokens ?? -1) - (a.largest.tokens ?? -1) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return { provenance: 'calculated', ...limited(items) };
+}
+
+const CONTEXT_FIELDS = ['input', 'cachedInput', 'cacheCreation'] as const;
+
+function contextOf(record: Pick<UsageRecord, 'tokens'>): Context {
+  const reported = CONTEXT_FIELDS.flatMap((name) => (record.tokens[name] === null ? [] : [record.tokens[name]]));
+  return reported.length === 0 ? { tokens: null, partial: false } : { tokens: reported.reduce((all, tokens) => all + tokens, 0), partial: reported.length < CONTEXT_FIELDS.length };
 }
 
 /** `records` totalled per calendar week, weeks starting on Monday in the daemon's local time zone. */

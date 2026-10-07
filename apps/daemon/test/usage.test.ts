@@ -678,13 +678,13 @@ async function fakeForge(serve: (url: URL) => unknown[] | undefined, status = 20
  * GitHub's issue list for `octo/repo`, serving `issues`, or `status` with no issues, and
  * whatever `forge` serves for the rest, its pull requests and their reviews.
  */
-function fakeGitHub(issues: { number: number; title: string }[], status = 200, forge: (url: URL) => unknown[] | undefined = () => undefined): Promise<FakeForge> {
-  const body = issues.map(({ number, title }) => ({
+function fakeGitHub(issues: { number: number; title: string; done?: boolean }[], status = 200, forge: (url: URL) => unknown[] | undefined = () => undefined): Promise<FakeForge> {
+  const body = issues.map(({ number, title, done = false }) => ({
     number,
     title,
-    state: 'open',
-    state_reason: null,
-    body: 'Status: READY',
+    state: done ? 'closed' : 'open',
+    state_reason: done ? 'completed' : null,
+    body: done ? 'Status: DONE' : 'Status: READY',
     labels: [],
     html_url: `https://github.com/octo/repo/issues/${number}`,
   }));
@@ -902,7 +902,17 @@ type Derived = {
     | { provenance: string; items: { id: string; title: string | null; runs: number; subagentRuns: number }[]; remainder: number; mean: { runs: number; subagentRuns: number } | null }
     | Unavailable;
   weekly: { provenance: string; items: { week: string; totals: Totals }[] };
+  reworkShare: { provenance: string; items: { id: string; title: string | null; share: number | null }[]; remainder: number; mean: number | null } | Unavailable;
+  firstPassAcceptance: { provenance: string; items: { id: string; title: string | null; accepted: boolean }[]; remainder: number; share: number | null } | Unavailable;
+  contextGrowth:
+    | {
+        provenance: string;
+        items: { id: string; taskId: string | null; role: string; harness: string; startedAt: string; first: Context; latest: Context; largest: Context }[];
+        remainder: number;
+      }
+    | Unavailable;
 };
+type Context = { tokens: number | null; partial: boolean };
 type ProjectUsage = Pick<Usage, 'importing' | 'tasks' | 'unassigned'> & {
   totals: Totals;
   byRole: Record<Role, Totals> | Unavailable;
@@ -1079,6 +1089,9 @@ describe('usage.get', () => {
         // The derived metrics that need the tracker are unavailable as well; the weekly trend does not need it.
         assert.deepEqual(body.derived.perCompletedTask, body.tasks);
         assert.deepEqual(body.derived.runsPerTask, body.tasks);
+        assert.deepEqual(body.derived.reworkShare, body.tasks);
+        assert.deepEqual(body.derived.firstPassAcceptance, body.tasks);
+        assert.deepEqual(body.derived.contextGrowth, body.tasks);
         assert.deepEqual(
           body.derived.weekly.items.map((item) => item.totals),
           [GRILL_TOTALS],
@@ -1511,7 +1524,7 @@ describe('Rework after a review on GitHub or GitLab', () => {
     };
 
   it('counts the work after a review that requested changes on the pull request as rework, and splits the run there', async () => {
-    const github = await fakeGitHub([{ number: 7, title: 'Seven' }], 200, pulls([
+    const github = await fakeGitHub([{ number: 7, title: 'Seven', done: true }], 200, pulls([
       { state: 'COMMENTED', submitted_at: at(0, 10) },
       { state: 'CHANGES_REQUESTED', submitted_at: at(0, 20) },
       { state: 'CHANGES_REQUESTED', submitted_at: at(0, 25) },
@@ -1530,6 +1543,10 @@ describe('Rework after a review on GitHub or GitLab', () => {
           assert.equal(brief.status, 200, JSON.stringify(brief.body));
           assert.deepEqual([brief.body.byRole, brief.body.reworkUnread], [byRole, null]);
           assert.equal(available((await snapshotUsage(daemon, root)).byRole).rework.records, 1);
+          const { derived } = await usageGet<ProjectUsage>(daemon, root);
+          const [grill, aborted] = [2 + 39225 + 29831 + 137, 4 + 167306 + 994 + 2];
+          assert.deepEqual(available(derived.reworkShare).items, [{ id: '#7', title: 'Seven', share: aborted / (grill + aborted) }]);
+          assert.deepEqual(available(derived.firstPassAcceptance).items, [{ id: '#7', title: 'Seven', accepted: false }]);
 
           // Read with the tracker's token, the pull request found by its head.
           const forge = github.requests.filter(({ url }) => url.pathname.startsWith('/repos/octo/repo/pulls'));
@@ -1543,7 +1560,7 @@ describe('Rework after a review on GitHub or GitLab', () => {
   });
 
   it('counts no rework before a review requests changes', async () => {
-    const github = await fakeGitHub([{ number: 7, title: 'Seven' }], 200, pulls([
+    const github = await fakeGitHub([{ number: 7, title: 'Seven', done: true }], 200, pulls([
       { state: 'COMMENTED', submitted_at: at(0, 10) },
       { state: 'APPROVED', submitted_at: at(0, 20) },
     ]));
@@ -1555,6 +1572,10 @@ describe('Rework after a review on GitHub or GitLab', () => {
           assert.deepEqual(task.runs.items.map((run) => run.role), ['implementation']);
           assert.deepEqual(task.byRole.rework, NO_RECORDS);
           assert.equal(task.reworkUnread, null);
+          // Its pull request's reviews were read and requested no change: accepted at the first pass.
+          const { derived } = await usageGet<ProjectUsage>(daemon, root);
+          assert.deepEqual(available(derived.firstPassAcceptance), { provenance: 'calculated', items: [{ id: '#7', title: 'Seven', accepted: true }], remainder: 0, share: 1 });
+          assert.deepEqual(available(derived.reworkShare).items, [{ id: '#7', title: 'Seven', share: 0 }]);
         }),
       );
     } finally {
@@ -1563,7 +1584,7 @@ describe('Rework after a review on GitHub or GitLab', () => {
   });
 
   it('says why rework is not read without a token, and asks the forge nothing for it', async () => {
-    const github = await fakeGitHub([{ number: 7, title: 'Seven' }], 200, pulls([{ state: 'CHANGES_REQUESTED', submitted_at: at(0, 20) }]));
+    const github = await fakeGitHub([{ number: 7, title: 'Seven', done: true }], 200, pulls([{ state: 'CHANGES_REQUESTED', submitted_at: at(0, 20) }]));
     try {
       await withToken('BINNACLE_GITHUB_TOKEN', undefined, () =>
         withDaemon(async (daemon, artifacts) => {
@@ -1573,6 +1594,10 @@ describe('Rework after a review on GitHub or GitLab', () => {
           assert.match(task.reworkUnread ?? '', /^Without a token for GitHub, the reviews on #7's pull request are not read/);
           const brief = await daemon.call<{ reworkUnread: unknown }>('task.get', { path: root, id: '#7' });
           assert.equal(brief.body.reworkUnread, task.reworkUnread);
+          // Neither its rework share nor whether it was accepted at the first pass is known.
+          const { derived } = await usageGet<ProjectUsage>(daemon, root);
+          assert.deepEqual(available(derived.reworkShare), { provenance: 'calculated', items: [{ id: '#7', title: 'Seven', share: null }], remainder: 0, mean: null });
+          assert.deepEqual(available(derived.firstPassAcceptance), { provenance: 'calculated', items: [], remainder: 0, share: null });
           assert.deepEqual(github.requests.filter(({ url }) => url.pathname.includes('/pulls')), []);
         }),
       );
@@ -2017,6 +2042,97 @@ describe('Derived metrics in usage.get', () => {
           },
         },
       ]);
+    });
+  });
+  it('gives each DONE Task’s rework share and their mean, and the share of reviewed DONE Tasks accepted with no rework run', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
+      ticket(root, 'epic', '01-first.md', 'First', 'DONE');
+      ticket(root, 'epic', '02-second.md', 'Second', 'DONE');
+      ticket(root, 'epic', '03-third.md', 'Third', 'DONE');
+      ticket(root, 'epic', '04-fourth.md', 'Fourth');
+      repository(root, at(1, 0), [at(1, 10), 'feat/first']);
+      const commit = (time: string, file: string, text: string): void => {
+        appendFileSync(join(root, file), text);
+        gitAt(time, root, 'add', '.');
+        gitAt(time, root, 'commit', '--quiet', '-m', file);
+      };
+      const REVIEW = '\n## Comments\n\n### Review\n\nOne finding.\n';
+      // The first Task is reviewed and fixed after it.
+      commit(at(0, 10), 'work.txt', 'the change\n');
+      commit(at(0, 20), 'docs/specs/epic/issues/01-first.md', REVIEW);
+      commit(at(0, 40), 'work.txt', 'the fix\n');
+      session(artifacts, root, 'first', [...lines(GRILL, at(0, 0), '-first'), ...lines(ABORTED, at(0, 30), '-fix')]);
+      // The second is reviewed and needs no fix.
+      gitAt(at(0, 50), root, 'switch', '--quiet', '-C', 'feat/second');
+      commit(at(0, 55), 'docs/specs/epic/issues/02-second.md', REVIEW);
+      session(artifacts, root, 'second', lines(GRILL, at(0, 51), '-second'));
+      // The third has no Review; the fourth is not DONE.
+      gitAt(at(0, 60), root, 'switch', '--quiet', '-C', 'feat/third');
+      session(artifacts, root, 'third', lines(GRILL, at(0, 61), '-third'));
+      gitAt(at(0, 70), root, 'switch', '--quiet', '-C', 'feat/fourth');
+      commit(at(0, 75), 'docs/specs/epic/issues/04-fourth.md', REVIEW);
+      session(artifacts, root, 'fourth', lines(ABORTED, at(0, 80), '-fourth'));
+      await register(daemon, root);
+
+      // Every token once: input, cached input, cache creation and output.
+      const [grill, aborted] = [2 + 39225 + 29831 + 137, 4 + 167306 + 994 + 2];
+      const share = aborted / (grill + aborted);
+      const { derived } = await usageGet<ProjectUsage>(daemon, root);
+      assert.deepEqual(available(derived.reworkShare), {
+        provenance: 'calculated',
+        items: [
+          { id: 'epic/01', title: 'First', share },
+          { id: 'epic/02', title: 'Second', share: 0 },
+          { id: 'epic/03', title: 'Third', share: 0 },
+        ],
+        remainder: 0,
+        mean: share / 3,
+      });
+      // Only the reviewed DONE Tasks: the first needed rework, the second did not.
+      assert.deepEqual(available(derived.firstPassAcceptance), {
+        provenance: 'calculated',
+        items: [
+          { id: 'epic/01', title: 'First', accepted: false },
+          { id: 'epic/02', title: 'Second', accepted: true },
+        ],
+        remainder: 0,
+        share: 0.5,
+      });
+    });
+  });
+
+  it('gives each run’s context, the input of its first, latest and largest call, largest first, partial where a count is not reported', async () => {
+    await withDaemon(async (daemon, artifacts, codex) => {
+      const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
+      ticket(root, 'epic', '01-first.md', 'First');
+      repository(root, at(1, 0), [at(1, 10), 'feat/first']);
+      session(artifacts, root, 'grown', [...lines(GRILL, at(0, 0), '-one'), ...lines(ABORTED, at(0, 1), '-two'), ...lines(GRILL, at(0, 2), '-three')]);
+      rollout(codex, root, 'codex-run', movedTo(TOOL_CALLS, at(0, 30)));
+      await register(daemon, root);
+
+      const { derived } = await usageGet<ProjectUsage>(daemon, root);
+      const growth = available(derived.contextGrowth);
+      assert.equal(growth.provenance, 'calculated');
+      assert.equal(growth.remainder, 0);
+      const [claude, other] = growth.items;
+      // Input, cached input and cache creation together.
+      const full = (tokens: number): Context => ({ tokens, partial: false });
+      assert.deepEqual(claude, {
+        id: 'claude-code:msg_011CfLMEGjvuTXtzfiK6XfsV-one',
+        taskId: 'epic/01',
+        role: 'implementation',
+        harness: 'claude-code',
+        startedAt: at(0, 0),
+        first: full(2 + 39225 + 29831),
+        latest: full(2 + 39225 + 29831),
+        largest: full(4 + 167306 + 994),
+      });
+      // Codex reports no cache creation: each context is partial.
+      assert.equal(other?.harness, 'codex');
+      assert.ok(other.first.partial && other.latest.partial && other.largest.partial);
+      assert.ok(other.largest.tokens! >= other.first.tokens! && other.largest.tokens! >= other.latest.tokens!);
+      assert.ok(other.largest.tokens! < claude!.largest.tokens!);
     });
   });
 });

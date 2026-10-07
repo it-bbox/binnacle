@@ -37,7 +37,15 @@ export type Derived = {
     | (Limited<{ id: string; title: string | null; runs: number; subagentRuns: number }> & { provenance: 'calculated'; mean: { runs: number; subagentRuns: number } | null })
     | Unavailable;
   weekly: { provenance: 'calculated'; items: { week: string; totals: Totals }[] };
+  reworkShare: (Limited<{ id: string; title: string | null; share: number | null }> & { provenance: 'calculated'; mean: number | null }) | Unavailable;
+  firstPassAcceptance: (Limited<{ id: string; title: string | null; accepted: boolean }> & { provenance: 'calculated'; share: number | null }) | Unavailable;
+  contextGrowth:
+    | (Limited<{ id: string; taskId: string | null; role: string; harness: string; startedAt: string; first: Context; latest: Context; largest: Context }> & { provenance: 'calculated' })
+    | Unavailable;
 };
+
+/** What a call read: input, cached input and cache creation together; null when it reports none, partial when only some. */
+export type Context = { tokens: number | null; partial: boolean };
 
 /** `usage.get` with a Task: its totals, the same by role, and its runs, newest first. */
 export type TaskUsage = {

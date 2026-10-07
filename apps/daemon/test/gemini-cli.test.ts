@@ -151,6 +151,28 @@ describe('Gemini CLI usage', () => {
     });
   });
 
+  it('gives a run’s context growth, null for the call written without tokens and partial without cache creation', async () => {
+    await withDaemon(async (daemon, geminiCli) => {
+      const root = makeProject();
+      // Runs need a tracker read for their Tasks.
+      appendFileSync(join(root, '.binnacle', 'project.yaml'), '\ntracker:\n  provider: local\n  local:\n    issues: docs/specs\n');
+      geminiSession(geminiCli, 'gemini-project', root, 'main');
+      assert.equal((await daemon.call('project.register', { path: root })).status, 200);
+
+      type Context = { tokens: number | null; partial: boolean };
+      const usage = await call<{ derived: { contextGrowth: { items: { first: Context; latest: Context; largest: Context }[] } } }>(daemon, 'usage.get', root);
+      const [run, ...others] = usage.derived.contextGrowth.items;
+      assert.deepEqual(others, []);
+      // Input not read from cache with what was: the prompt count and the tool-use prompt.
+      assert.deepEqual(run, {
+        ...run,
+        first: { tokens: 12480, partial: true },
+        latest: { tokens: null, partial: false },
+        largest: { tokens: 13050 + 40, partial: true },
+      });
+    });
+  });
+
   it('counts a call once when it is both in its session file and posted as an event, and attributes the event the file does not have', async () => {
     await withDaemon(async (daemon, geminiCli) => {
       const root = makeProject();

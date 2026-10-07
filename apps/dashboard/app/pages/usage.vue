@@ -3,7 +3,7 @@ import type { BarRow } from '~/components/BarList.vue';
 import { call, usePolling } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
 import { isUnavailable, projectName, SELECTED_VIEW } from '~/composables/projects';
-import { FIELDS, marks, tokensLine, type Field, type ProjectUsage, type Totals } from '~/composables/usage';
+import { FIELDS, marks, tokensLine, type Context, type Field, type ProjectUsage, type Totals } from '~/composables/usage';
 
 /**
  * The selected project's usage. The shell's snapshot answers today, the last seven days, by
@@ -100,6 +100,58 @@ const runsPer = computed(() => {
   };
 });
 const oneDecimal = (value: number): string => number(Math.round(value * 10) / 10);
+const percent = (share: number): string => t.value.percent(number(Math.round(share * 100)));
+
+/** The rework share of each completed Task, a bar each, and their mean. */
+const reworkShares = computed(() => {
+  const metric = usage.data.value?.derived.reworkShare;
+  if (metric === undefined || isUnavailable(metric)) return null;
+  return {
+    mean: metric.mean === null ? null : percent(metric.mean),
+    rows: metric.items.map(
+      (item): BarRow => ({ key: item.id, label: item.id, to: taskLink(item.id), title: item.title, value: item.share, text: item.share === null ? t.value.shareUnread : percent(item.share) }),
+    ),
+    remainder: metric.remainder,
+  };
+});
+
+/** The reviewed completed Tasks, each accepted at the first pass or reworked, and the share accepted. */
+const firstPass = computed(() => {
+  const metric = usage.data.value?.derived.firstPassAcceptance;
+  if (metric === undefined || isUnavailable(metric)) return null;
+  return {
+    share: metric.share === null ? null : percent(metric.share),
+    count: metric.items.length + metric.remainder,
+    rows: metric.items.map(
+      (item): BarRow => ({ key: item.id, label: item.id, to: taskLink(item.id), title: item.title, value: null, text: item.accepted ? t.value.acceptedFirstPass : t.value.reworked }),
+    ),
+    remainder: metric.remainder,
+  };
+});
+
+const ROLE_LABELS = { product: 'roleProduct', implementation: 'roleImplementation', review: 'roleReview', rework: 'roleRework', unknown: 'roleUnknown' } as const;
+
+/** Each run's context growth, a bar for its largest call's context, largest first. */
+const contexts = computed(() => {
+  const metric = usage.data.value?.derived.contextGrowth;
+  if (metric === undefined || isUnavailable(metric)) return null;
+  const shown = (context: Context): string => (context.tokens === null ? t.value.notReported : compact(context.tokens));
+  return {
+    rows: metric.items.map(
+      (item): BarRow => ({
+        key: item.id,
+        label: item.taskId ?? t.value.unassigned,
+        to: item.taskId === null ? undefined : taskLink(item.taskId),
+        muted: item.taskId === null,
+        note: [item.harness, t.value[ROLE_LABELS[item.role as keyof typeof ROLE_LABELS] ?? 'roleUnknown'], item.startedAt].join(' · '),
+        value: item.largest.tokens,
+        text: t.value.contextLine(shown(item.first), shown(item.latest), shown(item.largest)),
+        marks: [item.first, item.latest, item.largest].some((context) => context.partial) ? [t.value.partial] : [],
+      }),
+    ),
+    remainder: metric.remainder,
+  };
+});
 
 /** The weekly trend of the picked kind, each week scaled to the largest. */
 const weeks = computed(() => {
@@ -299,6 +351,52 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
                 </li>
               </ol>
               <p class="text-[11px] text-dimmed">{{ t.weeklyNote }}</p>
+            </section>
+            <div class="grid grid-cols-2 divide-x divide-default border-t border-default">
+              <section class="flex min-w-0 flex-col gap-1">
+                <div class="flex flex-col gap-1 px-3.5 pt-3 pb-1.5">
+                  <h3 class="text-xs leading-snug text-muted">{{ t.reworkShare }}</h3>
+                  <p v-if="isUnavailable(usage.data.value.derived.reworkShare)">
+                    <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.reworkShare.reason" /></span>
+                  </p>
+                  <template v-else-if="reworkShares">
+                    <template v-if="reworkShares.mean !== null">
+                      <span class="font-mono text-lg font-medium">{{ reworkShares.mean }}</span>
+                      <span class="text-[11px] text-dimmed">{{ t.meanShareOver }}</span>
+                    </template>
+                    <p v-else class="text-muted">{{ t.noShare }}</p>
+                    <span class="text-[11px] text-dimmed">{{ t.reworkShareNote }}</span>
+                  </template>
+                </div>
+                <BarList v-if="reworkShares && reworkShares.rows.length > 0" class="pb-1" :rows="reworkShares.rows" :remainder="reworkShares.remainder" />
+              </section>
+              <section class="flex min-w-0 flex-col gap-1">
+                <div class="flex flex-col gap-1 px-3.5 pt-3 pb-1.5">
+                  <h3 class="text-xs leading-snug text-muted">{{ t.firstPassAcceptance }}</h3>
+                  <p v-if="isUnavailable(usage.data.value.derived.firstPassAcceptance)">
+                    <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.firstPassAcceptance.reason" /></span>
+                  </p>
+                  <template v-else-if="firstPass">
+                    <template v-if="firstPass.share !== null">
+                      <span class="font-mono text-lg font-medium">{{ firstPass.share }}</span>
+                      <span class="text-[11px] text-dimmed">{{ plural(firstPass.count, t.acceptedOf) }}</span>
+                    </template>
+                    <p v-else class="text-muted">{{ t.noReviewedDone }}</p>
+                  </template>
+                </div>
+                <BarList v-if="firstPass && firstPass.rows.length > 0" class="pb-1" :rows="firstPass.rows" :remainder="firstPass.remainder" />
+              </section>
+            </div>
+            <section class="flex flex-col gap-1 border-t border-default">
+              <h3 class="px-3.5 pt-3 pb-1.5 text-xs text-muted">{{ t.contextGrowth }}</h3>
+              <p v-if="isUnavailable(usage.data.value.derived.contextGrowth)" class="px-3.5 pb-2">
+                <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.contextGrowth.reason" /></span>
+              </p>
+              <template v-else-if="contexts">
+                <p v-if="contexts.rows.length === 0" class="px-3.5 pb-2 text-muted">{{ t.noRunsSeen }}</p>
+                <BarList v-else class="pb-1" :rows="contexts.rows" :remainder="contexts.remainder" />
+                <p class="px-3.5 pb-3 text-[11px] text-dimmed">{{ t.contextNote }}</p>
+              </template>
             </section>
           </template>
           <template #footer>
