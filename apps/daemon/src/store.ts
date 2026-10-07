@@ -65,7 +65,7 @@ export type IngestCursor = { path: string; size: number; offset: number; line: n
 export type Ingested = { record: UsageRecord; projectPath: string; sourceRef: string };
 
 /** Where a record comes from: a harness's session artifact, or its OpenTelemetry export. */
-export type RecordSource = 'artifact' | 'opentelemetry';
+type RecordSource = 'artifact' | 'opentelemetry';
 
 /** A record received through OpenTelemetry and not yet in any project, with when it arrived. */
 export type Unattributed = { record: TelemetryRecord; receivedAt: string };
@@ -98,6 +98,10 @@ export type Store = {
    * left out, the artifact's kept. The same call is the one with the same request id when both
    * have one, otherwise the one with the same model and token counts within `SAME_CALL_WITHIN_S`,
    * a count the event does not report matching any.
+   *
+   * ponytail: without a request id the match is not one to one, so two identical calls of a
+   * session within the window, only one of them in its artifact yet, count once until the
+   * artifact has the other; pair records off if a harness without request ids ever makes that common.
    */
   usage(projectPath: string, since: string): UsageRecord[];
   /**
@@ -258,6 +262,17 @@ export function openStore(home: string): Store {
     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     on conflict (harness, natural_key) do nothing
   `);
+  /** Runs `body` as one write transaction: all of it commits, or none of it. */
+  const transaction = (body: () => void): void => {
+    db.exec('begin immediate');
+    try {
+      body();
+      db.exec('commit');
+    } catch (error) {
+      if (db.isTransaction) db.exec('rollback');
+      throw error;
+    }
+  };
   const insertRecordRow = (record: UsageRecord, projectPath: string, sourceRef: string, ingestedAt: string, source: RecordSource): void => {
     const { input, cachedInput, cacheCreation, output, reasoning } = record.tokens;
     insertRecord.run(
@@ -391,15 +406,10 @@ export function openStore(home: string): Store {
     },
     ingest: (cursor, records) => {
       const now = new Date().toISOString();
-      db.exec('begin immediate');
-      try {
+      transaction(() => {
         for (const { record, projectPath, sourceRef } of records) insertRecordRow(record, projectPath, sourceRef, now, 'artifact');
         upsertCursor.run(cursor.path, cursor.size, cursor.offset, cursor.line, cursor.windowDays);
-        db.exec('commit');
-      } catch (error) {
-        if (db.isTransaction) db.exec('rollback');
-        throw error;
-      }
+      });
     },
     usage: (projectPath, since) =>
       selectUsage.all(projectPath, since).map((row) => ({
@@ -423,8 +433,7 @@ export function openStore(home: string): Store {
     },
     receive: (records) => {
       const now = new Date().toISOString();
-      db.exec('begin immediate');
-      try {
+      transaction(() => {
         for (const record of records) {
           const { input, cachedInput, cacheCreation, output, reasoning } = record.tokens;
           insertUnattributed.run(
@@ -432,11 +441,7 @@ export function openStore(home: string): Store {
             input, cachedInput, cacheCreation, output, reasoning, record.provenance, now,
           );
         }
-        db.exec('commit');
-      } catch (error) {
-        if (db.isTransaction) db.exec('rollback');
-        throw error;
-      }
+      });
     },
     unattributed: (harness, sessionId) =>
       selectUnattributed.all(harness, sessionId).map((row) => ({
@@ -460,15 +465,10 @@ export function openStore(home: string): Store {
       return row ? { cwd: String(row.cwd), projectPath: String(row.project_path) } : null;
     },
     attribute: (record, projectPath, receivedAt) => {
-      db.exec('begin immediate');
-      try {
+      transaction(() => {
         insertRecordRow(record, projectPath, 'opentelemetry', receivedAt, 'opentelemetry');
         deleteUnattributed.run(record.harness, record.naturalKey);
-        db.exec('commit');
-      } catch (error) {
-        if (db.isTransaction) db.exec('rollback');
-        throw error;
-      }
+      });
     },
     close: () => db.close(),
   };

@@ -1,9 +1,9 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { readOtlpLogs } from '@binnacle/adapters';
 import { extname, isAbsolute, join, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readOtlpLogs } from '@binnacle/adapters';
 import {
   DEFAULT_PORT,
   ensureHome,

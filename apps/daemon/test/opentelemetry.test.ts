@@ -222,6 +222,21 @@ describe('Claude Code’s OpenTelemetry', () => {
     });
   });
 
+  it('matches by model, tokens and time when only one side has a request id, and not beyond a few seconds', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject();
+      const call = minutesAgo(30);
+      // The artifact's call has no request id; the event has one.
+      artifact(artifacts, root, 'partial', lines(call, '-plain', '').map(({ requestId: _id, ...line }) => line as Line));
+      await register(daemon, root);
+      await post(daemon, '/v1/logs', otlp([{ sessionId: 'partial', timestamp: call, requestId: 'req_plain' }]));
+      assert.equal((await totals(daemon, root)).records, 1);
+
+      await post(daemon, '/v1/logs', otlp([{ sessionId: 'partial', timestamp: new Date(Date.parse(call) + 10_000).toISOString() }]));
+      assert.equal((await totals(daemon, root)).records, 2);
+    });
+  });
+
   it('keeps an event whose session has no artifact yet in no project, and attributes it once the artifact arrives', async () => {
     await withDaemon(async (daemon, artifacts) => {
       const root = makeProject();

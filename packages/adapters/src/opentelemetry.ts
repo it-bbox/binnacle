@@ -61,6 +61,8 @@ function claudeCodeRequest(log: Record<string, unknown>, scope: string): Telemet
     naturalKey: `otel:${requestId ?? text('client_request_id') ?? `${sessionId}:${timestamp}:${String(attributes.get('event.sequence') ?? '')}`}`,
     requestId,
     sessionId,
+    // ponytail: the event names no subagent, so a subagent's call its artifact does not have yet
+    // counts in its parent session's run; take `query_source` if those runs must be told apart.
     subagentId: null,
     parentSession: null,
     timestamp,

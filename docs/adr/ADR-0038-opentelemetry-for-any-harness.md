@@ -19,3 +19,4 @@ The owner works in one project from many harnesses in turn — Claude Code deskt
 
 - The specification of epic 10 lists which of the owner's harnesses export OpenTelemetry and adds artifact readers for the ones that do not.
 - Support level 4 (ADR-0014) becomes reachable.
+- The receiver takes no token, as `/health` takes none: an exporter is configured with an endpoint alone, and writing Binnacle's token into each harness's settings would spread it. The `Host` and `Origin` checks still apply, and an event gives no more than a call's metadata and token counts, so a local process can add usage records as it could already write a harness's artifacts, and read nothing (recorded by ticket 01 of epic 10, 2026-10-07).
