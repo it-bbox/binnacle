@@ -4,15 +4,17 @@ import { count, isObject } from './artifact.ts';
 
 /**
  * One model call as opencode's database holds it: a `step-finish` part, the time its row was
- * written, its session and the session that started it, and the assistant message it belongs
- * to, the part and the message as the JSON opencode stores.
+ * written, its session, the directory that session was launched in and the session that
+ * started it, and the assistant message it belongs to, the part and the message as the JSON
+ * opencode stores.
  */
-export type OpencodeStep = { id: string; sessionId: string; parentSession: string | null; time: number; part: string; message: string };
+export type OpencodeStep = { id: string; sessionId: string; directory: string; parentSession: string | null; time: number; part: string; message: string };
 
 export type OpencodeReading = {
+  /** The records of every step read. */
   records: UsageRecord[];
-  /** The step the reading stopped at because it could not be read, and why. */
-  failure: { step: string; reason: string } | null;
+  /** Per session whose reading stopped, the step it stopped at because it could not be read, and why. */
+  failures: { step: string; sessionId: string; directory: string; reason: string }[];
 };
 
 /**
@@ -23,12 +25,12 @@ export type OpencodeReading = {
 export function readOpencodeSteps(path: string): OpencodeStep[] {
   const db = new DatabaseSync(path, { readOnly: true });
   try {
-    // The `like` narrows the parts before they are parsed; `readOpencode` checks each one's type.
+    // `instr` narrows the parts before they are parsed, however the JSON is spaced; `readOpencode` checks each one's type.
     return db
       .prepare(
-        `select part.id, part.session_id as sessionId, session.parent_id as parentSession, part.time_created as time, part.data as part, message.data as message
+        `select part.id, part.session_id as sessionId, session.directory, session.parent_id as parentSession, part.time_created as time, part.data as part, message.data as message
          from part join message on message.id = part.message_id join session on session.id = part.session_id
-         where part.data like '%"type":"step-finish"%'
+         where instr(part.data, 'step-finish') > 0
          order by part.time_created, part.id`,
       )
       .all() as OpencodeStep[];
@@ -39,8 +41,9 @@ export function readOpencodeSteps(path: string): OpencodeStep[] {
 
 /**
  * opencode's steps, oldest first, to normalised records: one per `step-finish` part, a model
- * call. The reading stops at a step it cannot read, with the reason, and keeps those before
- * it. Only the ids, time, directory, provider, model and tokens are read, never content.
+ * call. A session's reading stops at a step it cannot read, with the reason, keeping the
+ * steps before it; the other sessions', every project's in one database, go on. Only the
+ * ids, time, directory, provider, model and tokens are read, never content.
  *
  * Every count is `calculated`. opencode writes input without what was read from cache or
  * written to it, as Binnacle counts it, and the two apart; its output leaves out reasoning,
@@ -52,14 +55,17 @@ export function readOpencodeSteps(path: string): OpencodeStep[] {
  */
 export function readOpencode(steps: OpencodeStep[]): OpencodeReading {
   const records: UsageRecord[] = [];
+  const failures: OpencodeReading['failures'] = [];
   for (const step of steps) {
+    if (failures.some((failure) => failure.sessionId === step.sessionId)) continue;
     const result = readStep(step);
-    if (typeof result === 'string') return { records, failure: { step: step.id, reason: result } };
-    if (result) records.push(result);
+    if (typeof result === 'string') failures.push({ step: step.id, sessionId: step.sessionId, directory: step.directory, reason: result });
+    else if (result) records.push(result);
   }
-  return { records, failure: null };
+  return { records, failures };
 }
 
+/** A step's record, null for a part that is no step, or why it cannot be read. */
 function readStep(step: OpencodeStep): UsageRecord | null | string {
   const part = parsed(step.part, 'part');
   if (typeof part === 'string') return part;
@@ -97,6 +103,7 @@ function readStep(step: OpencodeStep): UsageRecord | null | string {
   };
 }
 
+/** `text` as a JSON object, or why it is not one, naming `what` it is. */
 function parsed(text: string, what: 'part' | 'message'): Record<string, unknown> | string {
   let value: unknown;
   try {

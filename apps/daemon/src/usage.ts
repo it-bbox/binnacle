@@ -394,7 +394,12 @@ function unreadableArtifacts(context: OperationContext, directoriesOfProject: st
     'claude-code': summary('Claude Code', [...claudeCode.failures, ...failed(claudeCode.files)]),
     codex: summary('Codex', [...codex.failures, ...failed(codex.files.filter((path) => unreadable.has(path) && ours(path)))]),
     'gemini-cli': summary('Gemini CLI', [...geminiCli.failures, ...failed(geminiCli.files)]),
-    opencode: summary('opencode', failed([opencode])),
+    opencode: summary('opencode', [
+      ...failed([opencode]),
+      ...[...unreadable]
+        .filter(([key]) => key.startsWith(sessionFailureKey(opencode, '')) && containingEntry(key.slice(sessionFailureKey(opencode, '').length), places) !== undefined)
+        .map(([, failure]) => failure),
+    ]),
   };
 }
 
@@ -880,9 +885,13 @@ async function ingestFile(
 }
 
 /**
- * Reads opencode's database at `path` whole, as `ingestFile` reads a file. Its cursor's size
- * is the database's mark (`databaseMark`) as of this reading, or 0 when a step failed, so
- * that every later reading tries again.
+ * Reads opencode's database at `path` whole, as `ingestFile` reads a file, and returns why it
+ * could not be opened or read, if it could not. The database holds every project's sessions,
+ * so a session stopped at a step it cannot read is unreadable only for the project it was
+ * launched in: kept in `importer.unreadable` under `sessionFailureKey`, and only when that
+ * project is registered. The cursor's `size` holds the database's mark (`databaseMark`) as of
+ * this reading, its offset and line none, or 0 when such a step was found, so that every later
+ * reading tries it again.
  *
  * ponytail: every step of every project is read whenever the database changed, since a step's
  * row says nothing of whose it is; select the project's sessions by their directory if the
@@ -905,9 +914,23 @@ async function ingestDatabase(
     // SQLite says why in `errstr`, as "file is not a database"; its code is SQLite's for any error.
     return `${path} (${(error as { errstr?: string }).errstr ?? (error as NodeJS.ErrnoException).code ?? 'error'})`;
   }
-  await keep(context, { path, size: reading.failure ? 0 : mark, offset: 0, line: 0, windowDays: window }, reading.records, places, histories);
-  return reading.failure ? `${path} at step ${reading.failure.step}: ${reading.failure.reason}, and nothing after it is counted until Binnacle can read that step` : null;
+  const { unreadable } = context.importer;
+  for (const key of unreadable.keys()) if (key.startsWith(sessionFailureKey(path, ''))) unreadable.delete(key);
+  const failures = reading.failures.filter((failure) => containingEntry(failure.directory, places) !== undefined);
+  for (const { step, directory, reason } of failures) {
+    unreadable.set(sessionFailureKey(path, directory), `${path} at step ${step}: ${reason}, and nothing after it in its session is counted until Binnacle can read that step`);
+  }
+  await keep(context, { path, size: failures.length > 0 ? 0 : mark, offset: 0, line: 0, windowDays: window }, reading.records, places, histories);
+  return null;
 }
+
+/**
+ * Where `importer.unreadable` keeps a step of opencode's database at `path` that stopped a
+ * session launched in `directory`.
+ * ponytail: one failure per directory is kept, the latest read; key it by session too if
+ * two broken sessions in one directory ever need telling apart.
+ */
+const sessionFailureKey = (path: string, directory: string): string => `${path}\0${directory}`;
 
 /** Where opencode's database is in its data directory `root`. */
 const opencodeDatabase = (root: string): string => join(root, 'opencode.db');

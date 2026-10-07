@@ -163,20 +163,25 @@ describe('opencode usage', () => {
     });
   });
 
-  it('says which step it could not read in its level, and keeps the steps before it', async () => {
+  it('says which step it could not read in its project’s level, keeping the steps before it, and other projects’ sessions are read on', async () => {
     await withDaemon(async (daemon, opencode) => {
       const root = makeProject();
+      const other = makeProject();
       opencodeSession(opencode, root, 'ses_broken');
+      opencodeSession(opencode, other, 'ses_other');
       const db = database(opencode);
       db.prepare('update part set data = ? where id = ?').run('{"type":"step-finish", cut', 'prt_b_ses_broken');
       db.close();
       assert.equal((await daemon.call('project.register', { path: root })).status, 200);
+      assert.equal((await daemon.call('project.register', { path: other })).status, 200);
       assert.deepEqual(await level(daemon, root), {
         harness: 'opencode',
         level: 1,
-        reason: `opencode could not read ${join(opencode, 'opencode.db')} at step prt_b_ses_broken: a part that is not JSON, and nothing after it is counted until Binnacle can read that step.`,
+        reason: `opencode could not read ${join(opencode, 'opencode.db')} at step prt_b_ses_broken: a part that is not JSON, and nothing after it in its session is counted until Binnacle can read that step.`,
       });
-      assert.equal(stored(daemon).length, 1);
+      assert.equal((await call<{ totals: Totals }>(daemon, 'usage.get', root)).totals.records, 1);
+      assert.deepEqual((await call<{ totals: Totals }>(daemon, 'usage.get', other)).totals, calls(1));
+      assert.deepEqual(await level(daemon, other), { harness: 'opencode', level: 3, reason: NO_EXPORT });
     });
   });
 

@@ -26,6 +26,7 @@ const MESSAGE = {
 const step = (id: string, time: number, tokens: unknown, message: object = MESSAGE): OpencodeStep => ({
   id,
   sessionId: 'ses_main',
+  directory: '/repo',
   parentSession: null,
   time,
   part: JSON.stringify({ type: 'step-finish', reason: 'tool-calls', snapshot: 'MUST-NOT-BE-STORED', cost: 0.01, tokens }),
@@ -42,7 +43,7 @@ const STEPS: OpencodeStep[] = [
 describe('opencode steps', () => {
   it('gives a record per step, with the input opencode writes, reasoning within output, and the provider it names', () => {
     const reading = readOpencode(STEPS);
-    assert.equal(reading.failure, null);
+    assert.deepEqual(reading.failures, []);
     assert.deepEqual(
       reading.records.map(({ naturalKey, provider, model, timestamp, tokens }) => ({ naturalKey, provider, model, timestamp, tokens })),
       [
@@ -83,19 +84,21 @@ describe('opencode steps', () => {
   });
 
   it('gives no record for a part that is no step-finish', () => {
-    assert.deepEqual(readOpencode([{ ...STEPS[0]!, part: JSON.stringify({ type: 'text', text: 'MUST-NOT-BE-STORED' }) }]), { records: [], failure: null });
+    assert.deepEqual(readOpencode([{ ...STEPS[0]!, part: JSON.stringify({ type: 'text', text: 'MUST-NOT-BE-STORED' }) }]), { records: [], failures: [] });
   });
 
-  it('stops at a step it cannot read, with the reason, keeping what came before it', () => {
-    const broken = (changed: Partial<OpencodeStep>) => readOpencode([STEPS[0]!, { ...STEPS[1]!, ...changed }, STEPS[2]!]);
+  it('stops a session at a step it cannot read, with the reason, keeping what came before it and the other sessions', () => {
+    const other = { ...STEPS[2]!, id: 'prt_other', sessionId: 'ses_other', directory: '/elsewhere' };
+    const broken = (changed: Partial<OpencodeStep>) => readOpencode([STEPS[0]!, { ...STEPS[1]!, ...changed }, STEPS[2]!, other]);
+    const failure = (reason: string) => [{ step: 'prt_2', sessionId: 'ses_main', directory: '/repo', reason }];
 
     const notJson = broken({ part: '{"type": "step-fin' });
-    assert.deepEqual(notJson.failure, { step: 'prt_2', reason: 'a part that is not JSON' });
-    assert.deepEqual(notJson.records.map((record) => record.naturalKey), ['prt_1']);
+    assert.deepEqual(notJson.failures, failure('a part that is not JSON'));
+    assert.deepEqual(notJson.records.map((record) => record.naturalKey), ['prt_1', 'prt_other']);
 
-    assert.deepEqual(broken({ message: '[]' }).failure, { step: 'prt_2', reason: 'a message that is not a JSON object' });
-    assert.deepEqual(broken({ message: JSON.stringify({ ...MESSAGE, role: 'user' }) }).failure, { step: 'prt_2', reason: 'a step of no assistant message' });
-    assert.deepEqual(broken({ message: JSON.stringify({ ...MESSAGE, path: undefined }) }).failure, { step: 'prt_2', reason: 'an assistant message without its directory' });
-    assert.deepEqual(broken({ time: Number.NaN }).failure, { step: 'prt_2', reason: 'a step without the time it was written' });
+    assert.deepEqual(broken({ message: '[]' }).failures, failure('a message that is not a JSON object'));
+    assert.deepEqual(broken({ message: JSON.stringify({ ...MESSAGE, role: 'user' }) }).failures, failure('a step of no assistant message'));
+    assert.deepEqual(broken({ message: JSON.stringify({ ...MESSAGE, path: undefined }) }).failures, failure('an assistant message without its directory'));
+    assert.deepEqual(broken({ time: Number.NaN }).failures, failure('a step without the time it was written'));
   });
 });
