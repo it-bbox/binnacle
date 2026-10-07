@@ -24,6 +24,8 @@ export type UsageRecord = {
   harness: Harness;
   /** Unique within the harness: Claude Code's message id; Codex's session id and record ordinal. */
   naturalKey: string;
+  /** The provider's id of the request, where the harness records one: what tells an artifact's call and its OpenTelemetry event to be the same. */
+  requestId: string | null;
   /** For a subagent, the session that started it, which Claude Code writes as its session id. */
   sessionId: string;
   /** The subagent whose session this record is from; null in a main session. */

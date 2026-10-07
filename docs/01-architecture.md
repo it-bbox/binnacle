@@ -95,6 +95,6 @@ This is a hard architectural requirement.
 
 Default daemon bind must be localhost only. Every API call carries a token read from a `0600` file under `~/.binnacle/`, and `Origin`/`Host` are validated — loopback alone is not an authentication boundary, because any browser tab can reach `127.0.0.1`.
 
-The daemon also serves the dashboard's generated files on every path outside `/health` and `/ops/`, without a token. Those files hold no project data, the `Host` check covers them, and no path outside their directory is ever served. The page receives the token through the URL fragment that `binn dashboard` opens, keeps it in the browser's storage, and sends it like any other client (ADR-0031).
+The daemon receives OpenTelemetry at `/v1/logs`, `/v1/metrics` and `/v1/traces` without a token, as an exporter sends it: OTLP JSON over HTTP, of which it keeps only the calls' metadata and token counts. It also serves the dashboard's generated files on every other path outside `/health` and `/ops/`, without a token. Those files hold no project data, the `Host` check covers them, and no path outside their directory is ever served. The page receives the token through the URL fragment that `binn dashboard` opens, keeps it in the browser's storage, and sends it like any other client (ADR-0031).
 
 Tracker credentials are requested with read-only scope and never live in `.binnacle/project.yaml`. No secrets are committed to project manifests. Content telemetry is opt-in; metadata-only is the default target mode.

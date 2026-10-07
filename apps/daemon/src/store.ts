@@ -1,6 +1,7 @@
 import { chmodSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import type { ImportWindow } from '@binnacle/core';
+import type { TelemetryRecord } from '@binnacle/adapters';
 import type { Harness, Provenance, TokenField, UsageRecord } from '@binnacle/telemetry';
 import { OWNER_ONLY_FILE, storePath } from './home.ts';
 
@@ -9,9 +10,9 @@ import { OWNER_ONLY_FILE, storePath } from './home.ts';
  *
  * Two tiers live here. `project` is a **projection**, derived from the registry file
  * and each repository's manifest, and it is rebuilt rather than migrated. The
- * append-only tier — events, and the usage records ingested from harness artifacts with
- * the cursors they were read up to — is migrated and never recreated, because it is the
- * only copy of what was observed.
+ * append-only tier — events, the usage records ingested from harness artifacts with the
+ * cursors they were read up to, and those received through OpenTelemetry — is migrated and
+ * never recreated, because it is the only copy of what was observed.
  *
  * The daemon is the only process that opens this file. The CLI and the dashboard
  * reach state through the API.
@@ -63,6 +64,18 @@ export type IngestCursor = { path: string; size: number; offset: number; line: n
 /** A record to store, with the registered project its `cwd` lies in and the file it was read from. */
 export type Ingested = { record: UsageRecord; projectPath: string; sourceRef: string };
 
+/** Where a record comes from: a harness's session artifact, or its OpenTelemetry export. */
+export type RecordSource = 'artifact' | 'opentelemetry';
+
+/** A record received through OpenTelemetry and not yet in any project, with when it arrived. */
+export type Unattributed = { record: TelemetryRecord; receivedAt: string };
+
+/**
+ * How far apart an artifact's call and an OpenTelemetry event may be, in seconds, and still be
+ * the same call when no request id tells them apart: each harness stamps the call at its own moment.
+ */
+export const SAME_CALL_WITHIN_S = 5;
+
 export const EVENT_LIMIT_DEFAULT = 50;
 export const EVENT_LIMIT_MAX = 500;
 
@@ -79,10 +92,30 @@ export type Store = {
   forgetCursors(prefix: string): void;
   /** Stores the records a file gave and moves its cursor, together or not at all. A record already stored is left as it was. */
   ingest(cursor: IngestCursor, records: Ingested[]): void;
-  /** A project's records, of every harness, from `since` on, an ISO timestamp. */
+  /**
+   * A project's records, of every harness, from `since` on, an ISO timestamp, each call counted
+   * once: an OpenTelemetry record that is the same call as an artifact record of its session is
+   * left out, the artifact's kept. The same call is the one with the same request id when both
+   * have one, otherwise the one with the same model and token counts within `SAME_CALL_WITHIN_S`,
+   * a count the event does not report matching any.
+   */
   usage(projectPath: string, since: string): UsageRecord[];
-  /** How many of a project's records of one harness there are, and how many report any token count. */
-  usageCounts(projectPath: string, harness: Harness): { records: number; withTokens: number };
+  /**
+   * How many of a project's records of one harness there are, how many report any token count,
+   * and how many arrived through OpenTelemetry at `liveSince` or later, an ISO timestamp.
+   */
+  usageCounts(projectPath: string, harness: Harness, liveSince: string): { records: number; withTokens: number; live: number };
+  /** Keeps records received through OpenTelemetry in no project, until `attribute` moves them; one already received is left as it was. */
+  receive(records: TelemetryRecord[]): void;
+  /** The records received for a session of `harness` that are still in no project. */
+  unattributed(harness: Harness, sessionId: string): Unattributed[];
+  /**
+   * Where a session's artifact says it ran at `timestamp`: the directory and project of its
+   * latest main-session record at or before it, else its first; null when no artifact record is stored.
+   */
+  sessionPlace(harness: Harness, sessionId: string, timestamp: string): { cwd: string; projectPath: string } | null;
+  /** Moves a received record into its project, as an OpenTelemetry record that arrived at `receivedAt`. */
+  attribute(record: UsageRecord, projectPath: string, receivedAt: string): void;
   close(): void;
 };
 
@@ -138,6 +171,23 @@ export function openStore(home: string): Store {
       unique (harness, natural_key)
     );
     create index if not exists ingested_record_project on ingested_record (project_path, harness, timestamp);
+    create table if not exists unattributed_record (
+      harness text not null,
+      natural_key text not null,
+      session_id text not null,
+      request_id text,
+      timestamp text not null,
+      provider text,
+      model text,
+      input integer,
+      cached_input integer,
+      cache_creation integer,
+      output integer,
+      reasoning integer,
+      provenance text not null,
+      received_at text not null,
+      primary key (harness, natural_key)
+    );
     create table if not exists ingest_cursor (
       path text primary key,
       size integer not null,
@@ -146,6 +196,12 @@ export function openStore(home: string): Store {
       window_days integer not null
     );
   `);
+
+  // The append-only tier's migrations: each column added once, to a table that may already hold rows.
+  const columns = new Set(db.prepare('pragma table_info(ingested_record)').all().map((column) => String(column.name)));
+  if (!columns.has('source')) db.exec("alter table ingested_record add column source text not null default 'artifact'");
+  if (!columns.has('request_id')) db.exec('alter table ingested_record add column request_id text');
+  db.exec('create index if not exists ingested_record_session on ingested_record (harness, session_id)');
 
   const insertEvent = db.prepare(
     'insert into event (type, project_path, occurred_at, payload, provenance) values (?, ?, ?, ?, ?)',
@@ -198,9 +254,37 @@ export function openStore(home: string): Store {
 
   const insertRecord = db.prepare(`
     insert into ingested_record (harness, natural_key, project_path, session_id, subagent_id, parent_session, source_ref, timestamp, cwd,
-      branch, branch_source, provider, model, input, cached_input, cache_creation, output, reasoning, provenance, ingested_at)
-    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      branch, branch_source, provider, model, input, cached_input, cache_creation, output, reasoning, provenance, ingested_at, source, request_id)
+    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     on conflict (harness, natural_key) do nothing
+  `);
+  const insertRecordRow = (record: UsageRecord, projectPath: string, sourceRef: string, ingestedAt: string, source: RecordSource): void => {
+    const { input, cachedInput, cacheCreation, output, reasoning } = record.tokens;
+    insertRecord.run(
+      record.harness, record.naturalKey, projectPath, record.sessionId, record.subagentId, record.parentSession, sourceRef,
+      record.timestamp, record.cwd,
+      record.branch?.name ?? null, record.branch?.source ?? null, record.provider, record.model,
+      input, cachedInput, cacheCreation, output, reasoning, record.provenance, ingestedAt, source, record.requestId,
+    );
+  };
+  const insertUnattributed = db.prepare(`
+    insert into unattributed_record (harness, natural_key, session_id, request_id, timestamp, provider, model,
+      input, cached_input, cache_creation, output, reasoning, provenance, received_at)
+    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    on conflict (harness, natural_key) do nothing
+  `);
+  const selectUnattributed = db.prepare(`
+    select harness, natural_key, session_id, request_id, timestamp, provider, model, input, cached_input, cache_creation, output, reasoning,
+      provenance, received_at
+    from unattributed_record where harness = ? and session_id = ? order by timestamp
+  `);
+  const deleteUnattributed = db.prepare('delete from unattributed_record where harness = ? and natural_key = ?');
+  // A main session's record before a subagent's; of them, the latest at or before the time, else the first after it.
+  const selectPlace = db.prepare(`
+    select cwd, project_path from ingested_record
+    where harness = ?1 and session_id = ?2 and source = 'artifact'
+    order by subagent_id is not null, timestamp > ?3, case when timestamp > ?3 then timestamp end, timestamp desc
+    limit 1
   `);
   // `window_days` holds `all` as text: SQLite keeps a value its column's type cannot convert as it is.
   const upsertCursor = db.prepare(`
@@ -211,12 +295,24 @@ export function openStore(home: string): Store {
   const deleteCursors = db.prepare('delete from ingest_cursor where substr(path, 1, length(?1)) = ?1');
   const selectUsage = db.prepare(`
     select harness, natural_key, session_id, subagent_id, parent_session, timestamp, cwd, branch, branch_source, provider, model, provenance,
-      input, cached_input, cache_creation, output, reasoning
-    from ingested_record where project_path = ? and timestamp >= ?
+      request_id, input, cached_input, cache_creation, output, reasoning
+    from ingested_record r where project_path = ? and timestamp >= ?
+      and not (source = 'opentelemetry' and exists (
+        select 1 from ingested_record a
+        where a.harness = r.harness and a.session_id = r.session_id and a.source = 'artifact'
+          and case when a.request_id is not null and r.request_id is not null then a.request_id = r.request_id
+            else a.model is r.model
+              and (r.input is null or a.input is r.input) and (r.cached_input is null or a.cached_input is r.cached_input)
+              and (r.cache_creation is null or a.cache_creation is r.cache_creation) and (r.output is null or a.output is r.output)
+              and (r.reasoning is null or a.reasoning is r.reasoning)
+              and abs(unixepoch(a.timestamp, 'subsec') - unixepoch(r.timestamp, 'subsec')) <= ${SAME_CALL_WITHIN_S}
+            end
+      ))
   `);
   const countUsage = db.prepare(`
     select count(*) as records,
-      count(case when coalesce(input, cached_input, cache_creation, output, reasoning) is not null then 1 end) as with_tokens
+      count(case when coalesce(input, cached_input, cache_creation, output, reasoning) is not null then 1 end) as with_tokens,
+      count(case when source = 'opentelemetry' and ingested_at >= ? then 1 end) as live
     from ingested_record where project_path = ? and harness = ?
   `);
 
@@ -297,15 +393,7 @@ export function openStore(home: string): Store {
       const now = new Date().toISOString();
       db.exec('begin immediate');
       try {
-        for (const { record, projectPath, sourceRef } of records) {
-          const { input, cachedInput, cacheCreation, output, reasoning } = record.tokens;
-          insertRecord.run(
-            record.harness, record.naturalKey, projectPath, record.sessionId, record.subagentId, record.parentSession, sourceRef,
-            record.timestamp, record.cwd,
-            record.branch?.name ?? null, record.branch?.source ?? null, record.provider, record.model,
-            input, cachedInput, cacheCreation, output, reasoning, record.provenance, now,
-          );
-        }
+        for (const { record, projectPath, sourceRef } of records) insertRecordRow(record, projectPath, sourceRef, now, 'artifact');
         upsertCursor.run(cursor.path, cursor.size, cursor.offset, cursor.line, cursor.windowDays);
         db.exec('commit');
       } catch (error) {
@@ -317,6 +405,7 @@ export function openStore(home: string): Store {
       selectUsage.all(projectPath, since).map((row) => ({
         harness: String(row.harness) as Harness,
         naturalKey: String(row.natural_key),
+        requestId: stringOrNull(row.request_id),
         sessionId: String(row.session_id),
         subagentId: stringOrNull(row.subagent_id),
         parentSession: stringOrNull(row.parent_session),
@@ -326,23 +415,73 @@ export function openStore(home: string): Store {
         provider: stringOrNull(row.provider),
         model: stringOrNull(row.model),
         provenance: String(row.provenance) as Provenance,
-        tokens: {
-          input: numberOrNull(row.input),
-          cachedInput: numberOrNull(row.cached_input),
-          cacheCreation: numberOrNull(row.cache_creation),
-          output: numberOrNull(row.output),
-          reasoning: numberOrNull(row.reasoning),
-        } satisfies Record<TokenField, number | null>,
+        tokens: tokensOf(row),
       })),
-    usageCounts: (projectPath, harness) => {
-      const row = countUsage.get(projectPath, harness)!;
-      return { records: Number(row.records), withTokens: Number(row.with_tokens) };
+    usageCounts: (projectPath, harness, liveSince) => {
+      const row = countUsage.get(liveSince, projectPath, harness)!;
+      return { records: Number(row.records), withTokens: Number(row.with_tokens), live: Number(row.live) };
+    },
+    receive: (records) => {
+      const now = new Date().toISOString();
+      db.exec('begin immediate');
+      try {
+        for (const record of records) {
+          const { input, cachedInput, cacheCreation, output, reasoning } = record.tokens;
+          insertUnattributed.run(
+            record.harness, record.naturalKey, record.sessionId, record.requestId, record.timestamp, record.provider, record.model,
+            input, cachedInput, cacheCreation, output, reasoning, record.provenance, now,
+          );
+        }
+        db.exec('commit');
+      } catch (error) {
+        if (db.isTransaction) db.exec('rollback');
+        throw error;
+      }
+    },
+    unattributed: (harness, sessionId) =>
+      selectUnattributed.all(harness, sessionId).map((row) => ({
+        record: {
+          harness: String(row.harness) as Harness,
+          naturalKey: String(row.natural_key),
+          requestId: stringOrNull(row.request_id),
+          sessionId: String(row.session_id),
+          subagentId: null,
+          parentSession: null,
+          timestamp: String(row.timestamp),
+          provider: stringOrNull(row.provider),
+          model: stringOrNull(row.model),
+          provenance: String(row.provenance) as Provenance,
+          tokens: tokensOf(row),
+        },
+        receivedAt: String(row.received_at),
+      })),
+    sessionPlace: (harness, sessionId, timestamp) => {
+      const row = selectPlace.get(harness, sessionId, timestamp);
+      return row ? { cwd: String(row.cwd), projectPath: String(row.project_path) } : null;
+    },
+    attribute: (record, projectPath, receivedAt) => {
+      db.exec('begin immediate');
+      try {
+        insertRecordRow(record, projectPath, 'opentelemetry', receivedAt, 'opentelemetry');
+        deleteUnattributed.run(record.harness, record.naturalKey);
+        db.exec('commit');
+      } catch (error) {
+        if (db.isTransaction) db.exec('rollback');
+        throw error;
+      }
     },
     close: () => db.close(),
   };
 }
 
 const numberOrNull = (value: unknown): number | null => (value === null ? null : Number(value));
+const tokensOf = (row: Record<string, unknown>): Record<TokenField, number | null> => ({
+  input: numberOrNull(row.input),
+  cachedInput: numberOrNull(row.cached_input),
+  cacheCreation: numberOrNull(row.cache_creation),
+  output: numberOrNull(row.output),
+  reasoning: numberOrNull(row.reasoning),
+});
 const stringOrNull = (value: unknown): string | null => (value === null ? null : String(value));
 
 function toEvent(row: Record<string, unknown>): EventRow {

@@ -60,6 +60,7 @@ function readRecord(value: Record<string, unknown>): UsageRecord | null | string
   return {
     harness: 'claude-code',
     naturalKey: message.id,
+    requestId: typeof value.requestId === 'string' ? value.requestId : null,
     sessionId: value.sessionId,
     subagentId,
     parentSession: subagentId === null ? null : value.sessionId,

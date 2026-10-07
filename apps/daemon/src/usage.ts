@@ -1,9 +1,9 @@
 import { closeSync, existsSync, openSync, readdirSync, readSync, statSync, type Dirent } from 'node:fs';
 import { join, relative } from 'node:path';
 import { setImmediate, setTimeout } from 'node:timers/promises';
-import { branchAt, codexSession, readClaudeCode, readCodex, readDefaultBranch, readHeadHistory, readWorktrees, type HeadHistory, type Tree } from '@binnacle/adapters';
+import { branchAt, codexSession, readClaudeCode, readCodex, readDefaultBranch, readHeadHistory, readWorktrees, type HeadHistory, type TelemetryRecord, type Tree } from '@binnacle/adapters';
 import type { ImportWindow, ObservedRun, ProjectManifest, RunRole, TrackerTask } from '@binnacle/core';
-import { magnitude, mean, observedRuns, sum, type Harness, type RunRecord, type Totals, type UsageRecord } from '@binnacle/telemetry';
+import { ACTIVE_WITHIN_MS, magnitude, mean, observedRuns, sum, type Harness, type RunRecord, type Totals, type UsageRecord } from '@binnacle/telemetry';
 import { resolveGitTimeout, type ArtifactRoots } from './home.ts';
 import type { OperationContext } from './operations.ts';
 import { containingEntry, readRegistry } from './registry.ts';
@@ -78,10 +78,11 @@ export function forgetRead(context: OperationContext, projectPath: string): void
 export type HarnessLevel = {
   harness: Harness;
   /**
-   * ADR-0014, for this project: 3 when records with token counts were read, 2 when records
+   * ADR-0014, for this project: 4 when its OpenTelemetry records arrived within telemetry's
+   * recency (`ACTIVE_WITHIN_MS`), 3 when records with token counts were read, 2 when records
    * were read without any, 1 when an artifact could not be read, null when none were found.
    */
-  level: 1 | 2 | 3 | null;
+  level: 1 | 2 | 3 | 4 | null;
   /** Why the level is below 2; null otherwise. */
   reason: string | null;
 };
@@ -489,7 +490,8 @@ function level(
   incomplete: boolean,
 ): HarnessLevel {
   if (failure !== null) return { harness, level: 1, reason: failure };
-  const { records, withTokens } = context.store.usageCounts(projectPath, harness);
+  const { records, withTokens, live } = context.store.usageCounts(projectPath, harness, new Date(Date.now() - ACTIVE_WITHIN_MS).toISOString());
+  if (live > 0) return { harness, level: 4, reason: null };
   if (withTokens > 0) return { harness, level: 3, reason: null };
   if (records > 0) return { harness, level: 2, reason: null };
   if (incomplete) return { harness, level: null, reason: 'The import of this project has not reached a record yet.' };
@@ -713,8 +715,43 @@ async function ingestFile(
     if (project && record.timestamp >= windowStart) records.push({ record: await withBranch(record, histories), projectPath: project, sourceRef: path });
   }
   context.store.ingest({ path, size, offset: reading.stop.offset, line: reading.stop.line, windowDays: window }, records);
+  // A session's OpenTelemetry received before any of its artifact records were stored joins their project now.
+  await attributeSessions(context, records.map(({ record }) => record), histories);
   // Every later reading stops at the same line, a rollout's included, though it is read from its start.
   return reading.failure ? `${path} at line ${reading.failure.line}: ${reading.failure.reason}, and nothing after it is counted, however the file grows, until Binnacle can read that line` : null;
+}
+
+/**
+ * Keeps the calls an OpenTelemetry export posted, and attributes each whose session's
+ * artifact records are already stored; the rest wait, in no project, for those records.
+ */
+export async function receiveTelemetry(context: OperationContext, records: TelemetryRecord[]): Promise<void> {
+  context.store.receive(records);
+  await attributeSessions(context, records, new Map());
+}
+
+/**
+ * Moves the OpenTelemetry records still in no project of the sessions of `records` into the
+ * project their session's artifact records are in, each with the directory of that session's
+ * record nearest before it and, as every record, the branch that directory's reflog gives it.
+ *
+ * ponytail: a session whose artifact never names a registered project keeps its records in
+ * no project for good; forget them past the import window if they ever weigh on the store.
+ */
+async function attributeSessions(
+  context: OperationContext,
+  records: Pick<UsageRecord, 'harness' | 'sessionId'>[],
+  histories: Map<string, Promise<HeadHistory | null>>,
+): Promise<void> {
+  const sessions = new Map(records.map((record) => [`${record.harness}\0${record.sessionId}`, record]));
+  for (const { harness, sessionId } of sessions.values()) {
+    for (const { record, receivedAt } of context.store.unattributed(harness, sessionId)) {
+      const place = context.store.sessionPlace(harness, sessionId, record.timestamp);
+      if (place === null) break;
+      const placed = await withBranch({ ...record, cwd: place.cwd, branch: null }, histories);
+      context.store.attribute(placed, place.projectPath, receivedAt);
+    }
+  }
 }
 
 /**

@@ -61,6 +61,7 @@ export function readCodex(bytes: Buffer): ArtifactReading {
     return {
       harness: 'codex',
       naturalKey: `${session.id}:${String(value.ordinal)}`,
+      requestId: null,
       sessionId: session.id,
       timestamp: new Date(time).toISOString(),
       cwd: session.cwd,

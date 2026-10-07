@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { readOtlpLogs } from '@binnacle/adapters';
 import { extname, isAbsolute, join, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -22,18 +23,23 @@ import { startVaultProjector, VAULT_POLL_MS } from './vault.ts';
 import { operations, type OperationContext } from './operations.ts';
 import { projectRegistry } from './projection.ts';
 import { openStore } from './store.ts';
-import { importer, INGEST_BUDGET_MS, projectCheckouts, SETTLED_AFTER_MS, startIngest, stopImporting } from './usage.ts';
+import { importer, INGEST_BUDGET_MS, projectCheckouts, receiveTelemetry, SETTLED_AFTER_MS, startIngest, stopImporting } from './usage.ts';
 import { VERSION } from './version.ts';
 
 export const LOOPBACK = '127.0.0.1';
 export const HEALTH_PATH = '/health';
 export const OPS_PREFIX = '/ops/';
+/** OTLP over HTTP's paths: logs carry the calls; metrics and traces are answered and not stored, since they would count the same calls again. */
+export const OTLP_LOGS_PATH = '/v1/logs';
+const OTLP_PATHS = new Set([OTLP_LOGS_PATH, '/v1/metrics', '/v1/traces']);
 /** Where `pnpm dashboard:generate` writes the dashboard, found from the daemon's own place in the workspace. */
 export const DASHBOARD_DIRECTORY = fileURLToPath(new URL('../../dashboard/.output/public/', import.meta.url));
 const DASHBOARD_GENERATE = 'pnpm dashboard:generate';
 
 /** A hostile client should not be able to make the daemon buffer an arbitrary amount. */
 const MAX_BODY_BYTES = 1024 * 1024;
+/** An exporter's batch is larger than any operation's body: up to 512 events of every kind a harness exports. */
+const MAX_OTLP_BODY_BYTES = 16 * 1024 * 1024;
 
 export class DaemonAlreadyRunningError extends Error {
   runtime: Runtime;
@@ -196,6 +202,7 @@ async function handle(
     return send(response, 200, { service: 'binnacle', version: context.runtime.version });
   }
 
+  if (OTLP_PATHS.has(path)) return receiveOtlp(request, response, context, path);
   if (!path.startsWith(OPS_PREFIX)) return serveStatic(request, response, dashboard);
   if (request.method !== 'POST') {
     return fail(response, methodNotAllowed(request.method, 'POST'));
@@ -213,6 +220,27 @@ async function handle(
   }
 
   send(response, 200, await operation(await readJsonBody(request), context));
+}
+
+/**
+ * OTLP over HTTP, JSON-encoded only, which every harness Binnacle reads can export: no
+ * OpenTelemetry dependency decodes protobuf or a compressed body, and either is refused with
+ * 415 so that the exporter says why. Like `/health` it needs no token, since an exporter is
+ * configured with an endpoint and nothing else; the Host and Origin checks have already run,
+ * and what it accepts is never more than the calls' metadata and token counts.
+ */
+async function receiveOtlp(request: IncomingMessage, response: ServerResponse, context: OperationContext, path: string): Promise<void> {
+  if (request.method !== 'POST') return fail(response, methodNotAllowed(request.method, 'POST'));
+  const type = (request.headers['content-type'] ?? '').split(';', 1)[0]!.trim().toLowerCase();
+  const encoding = (request.headers['content-encoding'] ?? 'identity').trim().toLowerCase();
+  if (type !== 'application/json' || encoding !== 'identity') {
+    const received = `${type || 'no content type'}${encoding === 'identity' ? '' : `, ${encoding}`}`;
+    return fail(response, new OperationError('request.unsupported_media_type', `Binnacle accepts OTLP over HTTP as uncompressed JSON (application/json) only, not ${received}: set the exporter's protocol to http/json.`, 415));
+  }
+  const body = await readJsonBody(request, MAX_OTLP_BODY_BYTES);
+  if (path === OTLP_LOGS_PATH) await receiveTelemetry(context, readOtlpLogs(body));
+  // An `Export…ServiceResponse` with nothing rejected.
+  send(response, 200, {});
 }
 
 /** Content types of what `nuxt generate` writes; anything else is served as `application/octet-stream`. */
@@ -343,14 +371,14 @@ function secretsMatch(presented: string, expected: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-async function readJsonBody(request: IncomingMessage): Promise<unknown> {
+async function readJsonBody(request: IncomingMessage, limit = MAX_BODY_BYTES): Promise<unknown> {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of request) {
     const buffer = chunk as Buffer;
     size += buffer.length;
-    if (size > MAX_BODY_BYTES) {
-      throw new OperationError('request.body_too_large', `Request body exceeds ${MAX_BODY_BYTES} bytes.`, 413);
+    if (size > limit) {
+      throw new OperationError('request.body_too_large', `Request body exceeds ${limit} bytes.`, 413);
     }
     chunks.push(buffer);
   }

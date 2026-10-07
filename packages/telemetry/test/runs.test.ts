@@ -13,6 +13,7 @@ function record(minute: number, fields: Partial<RunRecord> = {}): RunRecord {
   return {
     harness: 'claude-code',
     naturalKey: `msg_${String(++ordinal).padStart(3, '0')}`,
+    requestId: null,
     sessionId: 'session',
     subagentId: null,
     parentSession: null,

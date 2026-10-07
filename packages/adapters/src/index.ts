@@ -28,4 +28,5 @@ export {
 export { githubApiRoot, readGitHubTasks } from './github.ts';
 export { gitlabApiRoot, readGitLabTasks } from './gitlab.ts';
 export { readLocalTasks } from './local-tracker.ts';
+export { readOtlpLogs, type TelemetryRecord } from './opentelemetry.ts';
 export { EMPTY_TREE, workingTree, type Tree, type TreeEntry } from './tree.ts';
