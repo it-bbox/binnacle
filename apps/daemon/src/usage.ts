@@ -12,6 +12,7 @@ import {
   readHeadHistory,
   readLastChangeBefore,
   readWorktrees,
+  type ArtifactReading,
   type GeminiCliSession,
   type HeadHistory,
   type TelemetryRecord,
@@ -723,7 +724,10 @@ export function geminiCliSessions(root: string, directoriesOfProject: string[]):
   const sessions = (entries: Dirent[]): string[] =>
     entries.filter((entry) => entry.isFile() && entry.name.endsWith('.jsonl')).map((entry) => join(entry.parentPath, entry.name));
   const files = list(root)
-    .filter((entry) => entry.isDirectory() && containingEntry(projectRoot(join(root, entry.name)) ?? '', places) !== undefined)
+    .filter((entry) => {
+      const launched = entry.isDirectory() ? projectRoot(join(root, entry.name)) : null;
+      return launched !== null && containingEntry(launched, places) !== undefined;
+    })
     .flatMap((entry) => {
       const chats = list(join(root, entry.name, 'chats'));
       const subagents = chats.filter((chat) => chat.isDirectory()).flatMap((chat) => sessions(list(join(chat.parentPath, chat.name))));
@@ -746,10 +750,8 @@ function geminiCliSession(path: string): GeminiCliSession {
   const directory = dirname(path);
   const main = basename(directory) === 'chats';
   const temp = dirname(main ? directory : dirname(directory));
-  const cwd = projectRoot(temp);
-  // Listed only under a temp directory that names one; gone since, it cannot be read.
-  if (cwd === null) throw Object.assign(new Error(`${temp} names no project root`), { code: 'ENOENT' });
-  return { cwd, parentSession: main ? null : basename(directory) };
+  // Listed only under a temp directory that names one, so a failure to read it now is reported.
+  return { cwd: readFileSync(join(temp, '.project_root'), 'utf8').trim(), parentSession: main ? null : basename(directory) };
 }
 
 /**
@@ -820,7 +822,7 @@ async function ingestFile(
   let settled: boolean;
   let from: { offset: number; line: number } | null;
   let bytes: Buffer;
-  let gemini: GeminiCliSession | null = null;
+  let read: (bytes: Buffer) => ArtifactReading;
   try {
     // Decided again: the file, or its cursor, may have moved while this ingest was queued.
     const stat = statSync(path);
@@ -828,11 +830,25 @@ async function ingestFile(
     settled = Date.now() - stat.mtimeMs >= context.importer.settledAfterMs;
     from = readPosition(context.store.cursor(path), size, window);
     if (from === null) return null;
-    // ponytail: a rollout is read whole whenever it has grown, since its differences need the
-    // totals before them; keep the reader's running totals on the cursor if rollouts outgrow that.
-    // A Gemini CLI file names its session on its first line only, so it is read whole too.
-    if (harness === 'codex' || harness === 'gemini-cli') from = { offset: 0, line: 0 };
-    if (harness === 'gemini-cli') gemini = geminiCliSession(path);
+    const start = from;
+    switch (harness) {
+      case 'claude-code':
+        read = (bytes) => readClaudeCode(bytes, start, settled);
+        break;
+      // ponytail: a rollout is read whole whenever it has grown, since its differences need the
+      // totals before them; keep the reader's running totals on the cursor if rollouts outgrow that.
+      case 'codex':
+        from = { offset: 0, line: 0 };
+        read = readCodex;
+        break;
+      // A Gemini CLI file names its session on its first line only, so it is read whole too.
+      case 'gemini-cli': {
+        from = { offset: 0, line: 0 };
+        const session = geminiCliSession(path);
+        read = (bytes) => readGeminiCli(bytes, session, settled);
+        break;
+      }
+    }
     bytes = readFrom(path, from.offset, size);
   } catch (error) {
     // A file that vanished or cannot be opened is reported, never a failed snapshot.
@@ -840,7 +856,7 @@ async function ingestFile(
   }
 
   const windowStart = window === 'all' ? '' : localMidnight(window - 1).toISOString();
-  const reading = harness === 'codex' ? readCodex(bytes) : gemini ? readGeminiCli(bytes, gemini, settled) : readClaudeCode(bytes, from, settled);
+  const reading = read(bytes);
   const records: Ingested[] = [];
   for (const record of reading.records) {
     const project = containingEntry(record.cwd, places)?.project;

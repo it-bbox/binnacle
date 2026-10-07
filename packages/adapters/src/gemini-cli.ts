@@ -19,7 +19,8 @@ export type GeminiCliSession = { cwd: string; parentSession: string | null };
  * Every count is `calculated`. Gemini's prompt count includes what was read from cache and
  * leaves out the tool-use prompt, so input not read from cache is `input − cached + tool`;
  * its output leaves out thoughts, which are reasoning, so output is `output + thoughts`, as
- * reasoning is a part of output on every harness. Cache creation is not reported. A message
+ * reasoning is a part of output on every harness; a sum missing one of its parts is null,
+ * never the parts there are. Cache creation is not reported. A message
  * written without tokens has every count null; Gemini CLI writes a count its API did not give
  * as 0, which cannot be told from a reported 0. The model's provider is not written (ADR-0004),
  * and neither is a branch.
