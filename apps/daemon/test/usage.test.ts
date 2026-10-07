@@ -1144,7 +1144,7 @@ describe('Codex usage in the Product Snapshot', () => {
       const body = await snapshotUsage(daemon, root);
       assert.deepEqual(body.today, TOOL_CALLS_TOTALS);
       assert.deepEqual(body.byModel, { items: [{ model: 'gpt-5.6-sol', totals: TOOL_CALLS_TOTALS }], remainder: 0 });
-      assert.deepEqual(body.harnesses.map((item) => item.harness), ['claude-code', 'codex']);
+      assert.deepEqual(body.harnesses.map((item) => item.harness), ['claude-code', 'codex', 'gemini-cli']);
       assert.deepEqual(body.harnesses[1], { harness: 'codex', level: 3, reason: null });
 
       const rows = stored(daemon);

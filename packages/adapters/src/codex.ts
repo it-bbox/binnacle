@@ -12,6 +12,11 @@ type Counts = Record<(typeof COUNTS)[number], number>;
  * the session's id, `cwd` and provider are in its first record, `session_meta`
  * (`readLines` says how the bytes are read).
  *
+ * A record's time is that of the `token_usage_record` Codex writes as the call's response
+ * completes, where one is written since the token count before; otherwise the token count's
+ * own, which Codex writes only once the turn's pending tools have resolved, up to a minute
+ * later.
+ *
  * Every count is `calculated`. Codex's `input_tokens` includes the input read from cache, so
  * input not read from cache is `input_tokens − cached_input_tokens`; reasoning is a part of
  * output, as on every harness. Cache creation is not mapped: whether Codex counts it inside
@@ -30,6 +35,7 @@ export function readCodex(bytes: Buffer): ArtifactReading {
   let session: CodexSession | null = null;
   let model: string | null = null;
   let previous: Counts = { input_tokens: 0, cached_input_tokens: 0, output_tokens: 0, reasoning_output_tokens: 0 };
+  let completed: unknown = undefined;
 
   return readLines(bytes, { offset: 0, line: 0 }, (value): UsageRecord | null | string => {
     const payload = value.payload;
@@ -41,11 +47,18 @@ export function readCodex(bytes: Buffer): ArtifactReading {
       model = typeof payload.model === 'string' ? payload.model : null;
       return null;
     }
+    if (value.type === 'token_usage_record') {
+      completed = value.timestamp;
+      return null;
+    }
     if (value.type !== 'event_msg' || !isObject(payload) || payload.type !== 'token_count' || payload.info == null) return null;
 
     const total = isObject(payload.info) ? payload.info.total_token_usage : undefined;
     if (!isObject(total) || COUNTS.some((name) => count(total[name]) === null)) return 'a token count without its total';
-    const time = typeof value.timestamp === 'string' ? Date.parse(value.timestamp) : NaN;
+    // The call's time is when its response completed, the time its OpenTelemetry event has too.
+    const stamp = completed ?? value.timestamp;
+    completed = undefined;
+    const time = typeof stamp === 'string' ? Date.parse(stamp) : NaN;
     if (Number.isNaN(time)) return 'a token count without a timestamp';
     if (!Number.isInteger(value.ordinal)) return 'a token count without an ordinal';
     if (session === null) return 'a token count before the session meta';

@@ -113,12 +113,13 @@ async function post(daemon: TestDaemon, path: string, body: unknown, headers: Re
   return { status: response.status, body: await response.json() };
 }
 
-async function withDaemon(body: (daemon: TestDaemon, artifacts: string) => Promise<void>): Promise<void> {
+async function withDaemon(body: (daemon: TestDaemon, artifacts: string, codex: string) => Promise<void>): Promise<void> {
   const home = temporary('binnacle-otel-home-');
   const artifacts = temporary('binnacle-otel-projects-');
-  const daemon = await startTestDaemon({ home, artifacts: { claudeCode: artifacts, codex: join(home, 'no-codex') } });
+  const codex = temporary('binnacle-otel-codex-');
+  const daemon = await startTestDaemon({ home, artifacts: { claudeCode: artifacts, codex } });
   try {
-    await body(daemon, artifacts);
+    await body(daemon, artifacts, codex);
   } finally {
     await daemon.stop();
   }
@@ -331,6 +332,200 @@ describe('Claude Code’s OpenTelemetry', () => {
       assert.equal((await fetch(daemon.url('/v1/logs'))).status, 405);
       assert.equal((await post(daemon, '/v1/logs', otlp([]), { 'content-type': 'application/json', origin: 'http://evil.example' })).status, 403);
       assert.equal((await totals(daemon, root)).records, 2);
+    });
+  });
+});
+
+type CodexLine = { timestamp: string; ordinal: number; type: string; payload: Record<string, unknown> };
+
+/** The Codex rollout `usage.test.ts` reads, cut from a real session: its first call is 33,332 input, 304 output and 76 reasoning tokens. */
+const TOOL_CALLS = readFileSync(join(import.meta.dirname, 'fixtures', 'codex', 'tool-calls.jsonl'), 'utf8')
+  .trim()
+  .split('\n')
+  .map((line) => JSON.parse(line) as CodexLine);
+
+/**
+ * Writes the rollout of session `id`, launched in `cwd`, under Codex's root, its first record
+ * at `start`, and returns when its first call's response completed. That call's token count
+ * is written `lagMs` after its usage record, as Codex writes it once the turn's tools resolve.
+ */
+function rollout(root: string, cwd: string, id: string, start: string, lagMs: number): { completed: string } {
+  const shift = Date.parse(start) - Date.parse(TOOL_CALLS[0]!.timestamp);
+  const placed = TOOL_CALLS.map((record) => ({
+    ...record,
+    timestamp: new Date(Date.parse(record.timestamp) + shift + (record.ordinal === 33 ? lagMs : 0)).toISOString(),
+    payload: record.type === 'session_meta' ? { ...record.payload, id, session_id: id, cwd } : record.type === 'turn_context' ? { ...record.payload, cwd } : record.payload,
+  }));
+  const dir = join(root, '2026', '09', '07');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, `rollout-2026-09-07T20-39-35-${id}.jsonl`), placed.map((record) => `${JSON.stringify(record)}\n`).join(''));
+  return { completed: placed.find((record) => record.type === 'token_usage_record')!.timestamp };
+}
+
+/** The first call of `TOOL_CALLS`, as Codex's `codex.sse_event` reports it: input including the cached input. */
+const FIRST_CALL = { input_token_count: 33332, cached_token_count: 0, output_token_count: 304, reasoning_token_count: 76, cache_write_token_count: 0 };
+
+/** OTLP JSON logs as Codex exports them, `codex.sse_event` per streamed event, with attributes Binnacle must not keep. */
+function codexOtlp(events: { sessionId: string; timestamp: string; kind?: string; counts?: Record<string, number> }[]): unknown {
+  return {
+    resourceLogs: [
+      {
+        resource: { attributes: [string('service.name', 'codex_cli_rs')] },
+        scopeLogs: [
+          {
+            scope: { name: 'codex_otel' },
+            logRecords: events.map((event) => ({
+              timeUnixNano: String(Date.parse(event.timestamp) * 1_000_000),
+              attributes: [
+                string('event.name', 'codex.sse_event'),
+                string('event.kind', event.kind ?? 'response.completed'),
+                string('event.timestamp', event.timestamp),
+                string('conversation.id', event.sessionId),
+                string('model', 'gpt-5.6-sol'),
+                string('user.email', `${MARKER}@example.invalid`),
+                string('error.message', `${MARKER}: the error`),
+                ...Object.entries(event.counts ?? FIRST_CALL).map(([key, value]) => int(key, value)),
+              ],
+            })),
+          },
+        ],
+      },
+    ],
+  };
+}
+
+/** OTLP JSON logs as Gemini CLI exports them, `gemini_cli.api_response` per call, with attributes Binnacle must not keep. */
+function geminiOtlp(events: { sessionId: string; timestamp: string; counts: Record<string, number> }[]): unknown {
+  return {
+    resourceLogs: [
+      {
+        resource: { attributes: [string('service.name', 'gemini-cli')] },
+        scopeLogs: [
+          {
+            scope: { name: 'gemini-cli' },
+            logRecords: events.map((event) => ({
+              timeUnixNano: String(Date.parse(event.timestamp) * 1_000_000),
+              body: { stringValue: 'API response from gemini-3-pro. Status: 200. Duration: 812ms.' },
+              attributes: [
+                string('event.name', 'gemini_cli.api_response'),
+                string('event.timestamp', event.timestamp),
+                string('session.id', event.sessionId),
+                string('installation.id', `${MARKER}-installation`),
+                string('user.email', `${MARKER}@example.invalid`),
+                string('prompt_id', `${MARKER}-prompt`),
+                string('response_text', `${MARKER}: the response`),
+                string('model', 'gemini-3-pro'),
+                ...Object.entries(event.counts).map(([key, value]) => int(key, value)),
+              ],
+            })),
+          },
+        ],
+      },
+    ],
+  };
+}
+
+const assertNoMarker = (daemon: TestDaemon): void => assert.doesNotMatch(JSON.stringify([stored(daemon), stored(daemon, 'unattributed_record')]), new RegExp(MARKER));
+
+const counts = (rows: Record<string, unknown>[]): Record<string, unknown>[] =>
+  rows.map(({ harness, session_id, model, input, cached_input, cache_creation, output, reasoning, provenance }) => ({ harness, session_id, model, input, cached_input, cache_creation, output, reasoning, provenance }));
+
+describe('Codex’s OpenTelemetry', () => {
+  it('turns a completed response into a record with input less cached input, calculated, nulls where a count is absent, and stores none of its other attributes', async () => {
+    await withDaemon(async (daemon, _artifacts, codex) => {
+      const root = makeProject();
+      rollout(codex, root, 'codex-live', minutesAgo(60), 0);
+      await register(daemon, root);
+      assert.equal((await totals(daemon, root)).records, 10);
+
+      await post(
+        daemon,
+        '/v1/logs',
+        codexOtlp([
+          { sessionId: 'codex-live', timestamp: minutesAgo(2), counts: { input_token_count: 1200, cached_token_count: 1000, output_token_count: 40, reasoning_token_count: 8, cache_write_token_count: 3 } },
+          // Without the cached count, the input not read from cache cannot be told: not reported.
+          { sessionId: 'codex-live', timestamp: minutesAgo(1), counts: { input_token_count: 500, output_token_count: 7 } },
+          // A streamed event that is not a completed response is no call.
+          { sessionId: 'codex-live', timestamp: minutesAgo(1), kind: 'response.output_item.done' },
+        ]),
+      );
+      const rows = stored(daemon).filter((row) => row.source === 'opentelemetry');
+      assert.deepEqual(counts(rows), [
+        { harness: 'codex', session_id: 'codex-live', model: 'gpt-5.6-sol', input: 200, cached_input: 1000, cache_creation: null, output: 40, reasoning: 8, provenance: 'calculated' },
+        { harness: 'codex', session_id: 'codex-live', model: 'gpt-5.6-sol', input: null, cached_input: null, cache_creation: null, output: 7, reasoning: null, provenance: 'calculated' },
+      ]);
+      assert.ok(rows.every((row) => row.cwd === root && row.project_path === root));
+      assert.equal((await totals(daemon, root)).records, 12);
+      assertNoMarker(daemon);
+    });
+  });
+
+  it('counts a call read from its rollout and posted once, though its token count was written well after the response', async () => {
+    await withDaemon(async (daemon, _artifacts, codex) => {
+      const root = makeProject();
+      const { completed } = rollout(codex, root, 'codex-both', minutesAgo(60), 40_000);
+      await register(daemon, root);
+      const before = await totals(daemon, root);
+      assert.equal(before.records, 10);
+
+      await post(daemon, '/v1/logs', codexOtlp([{ sessionId: 'codex-both', timestamp: completed }]));
+      assert.equal(stored(daemon).filter((row) => row.source === 'opentelemetry').length, 1);
+      assert.deepEqual(await totals(daemon, root), before);
+    });
+  });
+
+  it('shows a Codex session as running from its event, and Codex at level 4 while its events arrive', async () => {
+    await withDaemon(async (daemon, _artifacts, codex) => {
+      const root = makeProject();
+      rollout(codex, root, 'codex-resumed', minutesAgo(60 * 24), 0);
+      await register(daemon, root);
+      const before = await snapshot(daemon, root);
+      assert.deepEqual(before.activity.running.items, []);
+      assert.deepEqual(before.usage.harnesses[1], { harness: 'codex', level: 3, reason: null });
+
+      const call = { input_token_count: 10, cached_token_count: 0, output_token_count: 1, reasoning_token_count: 0 };
+      await post(daemon, '/v1/logs', codexOtlp([{ sessionId: 'codex-resumed', timestamp: minutesAgo(0), counts: call }]));
+      const after = await snapshot(daemon, root);
+      assert.deepEqual(
+        after.activity.running.items.map((run) => [run.harness, run.active.value, run.totals.records]),
+        [['codex', true, 11]],
+      );
+      assert.deepEqual(after.usage.harnesses[1], { harness: 'codex', level: 4, reason: null });
+    });
+  });
+});
+
+describe('Gemini CLI’s OpenTelemetry', () => {
+  it('turns an api_response into a record with Gemini’s counts, calculated, nulls where a count is absent, in no project, and stores none of its other attributes', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject();
+      await register(daemon, root);
+      await post(
+        daemon,
+        '/v1/logs',
+        geminiOtlp([
+          {
+            sessionId: 'gemini-live',
+            timestamp: minutesAgo(2),
+            counts: { input_token_count: 1000, cached_content_token_count: 400, tool_token_count: 10, output_token_count: 50, thoughts_token_count: 20, total_token_count: 1080 },
+          },
+          // Without the thoughts, output and reasoning cannot be told: not reported.
+          { sessionId: 'gemini-live', timestamp: minutesAgo(1), counts: { input_token_count: 300, cached_content_token_count: 0, tool_token_count: 0, output_token_count: 9 } },
+        ]),
+      );
+
+      assert.deepEqual(counts(stored(daemon, 'unattributed_record')), [
+        { harness: 'gemini-cli', session_id: 'gemini-live', model: 'gemini-3-pro', input: 1000 - 400 + 10, cached_input: 400, cache_creation: null, output: 50 + 20, reasoning: 20, provenance: 'calculated' },
+        { harness: 'gemini-cli', session_id: 'gemini-live', model: 'gemini-3-pro', input: 300, cached_input: 0, cache_creation: null, output: null, reasoning: null, provenance: 'calculated' },
+      ]);
+      assertNoMarker(daemon);
+
+      // Its events name no working directory, and no artifact of its session is read: it is in no project.
+      assert.equal((await totals(daemon, root)).records, 0);
+      const gemini = (await snapshot(daemon, root)).usage.harnesses[2];
+      assert.equal(gemini?.harness, 'gemini-cli');
+      assert.equal(gemini?.level, null);
+      assert.match(gemini?.reason ?? '', /names no working directory/);
     });
   });
 });

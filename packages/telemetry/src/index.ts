@@ -8,7 +8,7 @@ import { branchTask, type ObservedRun, type RunRole, type TrackerTask } from '@b
 /** ADR-0007: a value says where it came from, and nothing is ever invented to fill a gap. */
 export type Provenance = 'measured' | 'provider_reported' | 'calculated' | 'estimated';
 
-export type Harness = 'claude-code' | 'codex';
+export type Harness = 'claude-code' | 'codex' | 'gemini-cli';
 
 export const TOKEN_FIELDS = ['input', 'cachedInput', 'cacheCreation', 'output', 'reasoning'] as const;
 /**

@@ -33,10 +33,14 @@ export const INGEST_BUDGET_MS = 1000;
 /** How long a Claude Code file must go unwritten before its last message is taken as finished. */
 export const SETTLED_AFTER_MS = 60_000;
 
-/** The harnesses Binnacle has an adapter for, in the order the snapshot lists them, with their names and artifact roots. */
-const HARNESSES: { harness: Harness; name: string; root: keyof ArtifactRoots }[] = [
+/**
+ * The harnesses Binnacle counts, in the order the snapshot lists them, with their names and
+ * artifact roots: null for one whose sessions are known only from its OpenTelemetry.
+ */
+const HARNESSES: { harness: Harness; name: string; root: keyof ArtifactRoots | null }[] = [
   { harness: 'claude-code', name: 'Claude Code', root: 'claudeCode' },
   { harness: 'codex', name: 'Codex', root: 'codex' },
+  { harness: 'gemini-cli', name: 'Gemini CLI', root: null },
 ];
 
 /** Per harness, why its artifacts of a project cannot be read, if they cannot. */
@@ -373,6 +377,7 @@ function unreadableArtifacts(context: OperationContext, directoriesOfProject: st
   return {
     'claude-code': summary('Claude Code', [...claudeCode.failures, ...failed(claudeCode.files)]),
     codex: summary('Codex', [...codex.failures, ...failed(codex.files.filter((path) => unreadable.has(path) && ours(path)))]),
+    'gemini-cli': null,
   };
 }
 
@@ -561,6 +566,7 @@ function level(
   if (withTokens > 0) return { harness, level: 3, reason: null };
   if (records > 0) return { harness, level: 2, reason: null };
   if (incomplete) return { harness, level: null, reason: 'The import of this project has not reached a record yet.' };
+  if (root === null) return { harness, level: null, reason: `No ${name} session of this project was found: its OpenTelemetry names no working directory, and Binnacle reads no ${name} session files.` };
   return { harness, level: null, reason: `No ${name} session of this project was found under ${context.runtime.artifacts[root]}.` };
 }
 
@@ -580,7 +586,7 @@ export function startIngest(context: OperationContext, projectPath: string, mani
   const found = { 'claude-code': claudeCodeFiles(artifacts.claudeCode, [projectPath, ...linked]), codex: codexSessions(artifacts.codex) };
 
   const pending: { path: string; harness: Harness }[] = [];
-  for (const { harness } of HARNESSES) {
+  for (const harness of ['claude-code', 'codex'] as const) {
     for (const path of found[harness].files) {
       try {
         if (readPosition(context.store.cursor(path), statSync(path).size, window) === null) {
