@@ -22,7 +22,7 @@ export const SUBSET_OF: Partial<Record<TokenField, TokenField>> = { reasoning: '
 /** One call to a model, as a harness recorded it: metadata and token counts, never content. */
 export type UsageRecord = {
   harness: Harness;
-  /** Unique within the harness: Claude Code's message id; Codex's session id and record ordinal. */
+  /** Unique within the harness: Claude Code's and Gemini CLI's message id; Codex's session id and record ordinal. */
   naturalKey: string;
   /** The provider's id of the request, where the harness records one: what tells an artifact's call and its OpenTelemetry event to be the same. */
   requestId: string | null;

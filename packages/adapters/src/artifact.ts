@@ -42,6 +42,34 @@ export function readLines(
   return { records, stop: { offset, line }, failure: null };
 }
 
+/**
+ * `readLines` over an artifact that writes a message's record again as the message grows:
+ * every record of a message has its natural key, and the message is its last record.
+ *
+ * The last message read may still be being written. Unless `settled` says the file has been
+ * idle long enough to be finished, the reading stops before that message's first record,
+ * and a later reading takes it whole once a later message has started after it or the file
+ * has settled. A stored record is never completed from a later one (ADR-0015).
+ */
+export function readMessages(
+  bytes: Buffer,
+  start: ArtifactPosition,
+  settled: boolean,
+  read: (value: Record<string, unknown>) => UsageRecord | null | string,
+): ArtifactReading {
+  // Where each message's first record starts, in the order the messages began.
+  const starts = new Map<string, ArtifactPosition>();
+  const reading = readLines(bytes, start, read, (record, at) => {
+    if (!starts.has(record.naturalKey)) starts.set(record.naturalKey, at);
+  });
+  const records = new Map(reading.records.map((record) => [record.naturalKey, record]));
+  const last = [...starts].at(-1);
+  if (settled || last === undefined) return { ...reading, records: [...records.values()] };
+  // A line that cannot be read is no later message, so it does not finish the one before it either.
+  records.delete(last[0]);
+  return { ...reading, records: [...records.values()], stop: last[1] };
+}
+
 function readObject(raw: string, read: (value: Record<string, unknown>) => UsageRecord | null | string): UsageRecord | null | string {
   let value: unknown;
   try {

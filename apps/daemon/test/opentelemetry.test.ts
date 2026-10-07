@@ -533,7 +533,7 @@ describe('Gemini CLI’s OpenTelemetry', () => {
       const before = (await snapshot(daemon, root)).usage.harnesses[2];
       assert.equal(before?.harness, 'gemini-cli');
       assert.equal(before?.level, null);
-      assert.match(before?.reason ?? '', /names no working directory/);
+      assert.match(before?.reason ?? '', /No Gemini CLI session of this project was found under/);
 
       const call = { input_token_count: 10, cached_content_token_count: 0, tool_token_count: 0, output_token_count: 1, thoughts_token_count: 0 };
       await post(daemon, '/v1/logs', geminiOtlp([{ sessionId: 'gemini-now', timestamp: minutesAgo(0), counts: call }]));

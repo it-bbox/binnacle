@@ -1,5 +1,5 @@
-import { closeSync, existsSync, openSync, readdirSync, readSync, statSync, type Dirent } from 'node:fs';
-import { join, relative } from 'node:path';
+import { closeSync, existsSync, openSync, readdirSync, readFileSync, readSync, statSync, type Dirent } from 'node:fs';
+import { basename, dirname, join, relative } from 'node:path';
 import { setImmediate, setTimeout } from 'node:timers/promises';
 import {
   branchAt,
@@ -7,10 +7,12 @@ import {
   readClaudeCode,
   readCodex,
   readDefaultBranch,
+  readGeminiCli,
   readFirstReviews,
   readHeadHistory,
   readLastChangeBefore,
   readWorktrees,
+  type GeminiCliSession,
   type HeadHistory,
   type TelemetryRecord,
   type Tree,
@@ -33,14 +35,11 @@ export const INGEST_BUDGET_MS = 1000;
 /** How long a Claude Code file must go unwritten before its last message is taken as finished. */
 export const SETTLED_AFTER_MS = 60_000;
 
-/**
- * The harnesses Binnacle counts, in the order the snapshot lists them, with their names and
- * artifact roots: null for one whose sessions are known only from its OpenTelemetry.
- */
-const HARNESSES: { harness: Harness; name: string; root: keyof ArtifactRoots | null }[] = [
+/** The harnesses Binnacle counts, in the order the snapshot lists them, with their names and artifact roots. */
+const HARNESSES: { harness: Harness; name: string; root: keyof ArtifactRoots }[] = [
   { harness: 'claude-code', name: 'Claude Code', root: 'claudeCode' },
   { harness: 'codex', name: 'Codex', root: 'codex' },
-  { harness: 'gemini-cli', name: 'Gemini CLI', root: null },
+  { harness: 'gemini-cli', name: 'Gemini CLI', root: 'geminiCli' },
 ];
 
 /** Per harness, why its artifacts of a project cannot be read, if they cannot. */
@@ -90,6 +89,7 @@ export async function stopImporting(importer: Importer): Promise<void> {
  */
 export function forgetRead(context: OperationContext, projectPath: string): void {
   context.store.forgetCursors(join(context.runtime.artifacts.claudeCode, claudeCodeDirectory(projectPath)));
+  for (const path of geminiCliSessions(context.runtime.artifacts.geminiCli, [projectPath]).files) context.store.forgetCursors(path);
 }
 
 export type HarnessLevel = {
@@ -122,7 +122,7 @@ export type Usage = {
 };
 
 /**
- * Reads what is new in the Claude Code and Codex artifacts of `projectPath`, for as long as
+ * Reads what is new in the Claude Code, Codex and Gemini CLI artifacts of `projectPath`, for as long as
  * the time budget allows, and answers the snapshot's `usage` and `activity` sections from
  * everything stored, attributed to `tasks`, the tracker's current Tasks, or unavailable with
  * why they cannot be read. What the budget does not cover goes on in the background. "Today"
@@ -366,6 +366,7 @@ function unreadableArtifacts(context: OperationContext, directoriesOfProject: st
   const failed = (files: string[]): string[] => files.sort().flatMap((path) => unreadable.get(path) ?? []);
   const claudeCode = claudeCodeFiles(artifacts.claudeCode, directoriesOfProject);
   const codex = codexSessions(artifacts.codex);
+  const geminiCli = geminiCliSessions(artifacts.geminiCli, directoriesOfProject);
   // A rollout says whose it is on its first line; one that cannot be opened may be anyone's, this project's included.
   const ours = (path: string): boolean => {
     try {
@@ -377,7 +378,7 @@ function unreadableArtifacts(context: OperationContext, directoriesOfProject: st
   return {
     'claude-code': summary('Claude Code', [...claudeCode.failures, ...failed(claudeCode.files)]),
     codex: summary('Codex', [...codex.failures, ...failed(codex.files.filter((path) => unreadable.has(path) && ours(path)))]),
-    'gemini-cli': null,
+    'gemini-cli': summary('Gemini CLI', [...geminiCli.failures, ...failed(geminiCli.files)]),
   };
 }
 
@@ -566,7 +567,6 @@ function level(
   if (withTokens > 0) return { harness, level: 3, reason: null };
   if (records > 0) return { harness, level: 2, reason: null };
   if (incomplete) return { harness, level: null, reason: 'The import of this project has not reached a record yet.' };
-  if (root === null) return { harness, level: null, reason: `No ${name} session of this project was found: its OpenTelemetry names no working directory, and Binnacle reads no ${name} session files.` };
   return { harness, level: null, reason: `No ${name} session of this project was found under ${context.runtime.artifacts[root]}.` };
 }
 
@@ -583,10 +583,14 @@ export function startIngest(context: OperationContext, projectPath: string, mani
   const directories = [projectPath, ...linked].map((path) => ({ path }));
   const { artifacts } = context.runtime;
   const { importer } = context;
-  const found = { 'claude-code': claudeCodeFiles(artifacts.claudeCode, [projectPath, ...linked]), codex: codexSessions(artifacts.codex) };
+  const found: Record<Harness, { files: string[] }> = {
+    'claude-code': claudeCodeFiles(artifacts.claudeCode, [projectPath, ...linked]),
+    codex: codexSessions(artifacts.codex),
+    'gemini-cli': geminiCliSessions(artifacts.geminiCli, [projectPath, ...linked]),
+  };
 
   const pending: { path: string; harness: Harness }[] = [];
-  for (const harness of Object.keys(found) as (keyof typeof found)[]) {
+  for (const { harness } of HARNESSES) {
     for (const path of found[harness].files) {
       try {
         if (readPosition(context.store.cursor(path), statSync(path).size, window) === null) {
@@ -696,6 +700,59 @@ export function codexSessions(root: string): { files: string[]; failures: string
 }
 
 /**
+ * Gemini CLI's session files under its `root`, `~/.gemini/tmp`, of the project's directories,
+ * and why a directory could not be listed. Gemini CLI keeps a temp directory per launch
+ * directory, which its `.project_root` names, and in its `chats` each main session's file
+ * and, in a directory named after a main session, its subagents'. A temp directory with no
+ * `.project_root`, as one older Gemini CLI named by a hash, is no project's.
+ *
+ * ponytail: the `.json` files of a Gemini CLI from before its JSON Lines sessions are not read;
+ * Gemini CLI converts one when it resumes it. Read them if history that old turns out to matter.
+ */
+export function geminiCliSessions(root: string, directoriesOfProject: string[]): { files: string[]; failures: string[] } {
+  const places = directoriesOfProject.map((path) => ({ path }));
+  const failures: string[] = [];
+  const list = (directory: string): Dirent[] => {
+    try {
+      return readdirSync(directory, { withFileTypes: true });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') failures.push(openFailure(directory, error));
+      return [];
+    }
+  };
+  const sessions = (entries: Dirent[]): string[] =>
+    entries.filter((entry) => entry.isFile() && entry.name.endsWith('.jsonl')).map((entry) => join(entry.parentPath, entry.name));
+  const files = list(root)
+    .filter((entry) => entry.isDirectory() && containingEntry(projectRoot(join(root, entry.name)) ?? '', places) !== undefined)
+    .flatMap((entry) => {
+      const chats = list(join(root, entry.name, 'chats'));
+      const subagents = chats.filter((chat) => chat.isDirectory()).flatMap((chat) => sessions(list(join(chat.parentPath, chat.name))));
+      return [...sessions(chats), ...subagents];
+    });
+  return { files, failures };
+}
+
+/** The launch directory a Gemini CLI temp directory's `.project_root` names; null when it names none. */
+function projectRoot(directory: string): string | null {
+  try {
+    return readFileSync(join(directory, '.project_root'), 'utf8').trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** What a Gemini CLI session file's place says of it: the directory it ran in, and the main session a subagent's is under. */
+function geminiCliSession(path: string): GeminiCliSession {
+  const directory = dirname(path);
+  const main = basename(directory) === 'chats';
+  const temp = dirname(main ? directory : dirname(directory));
+  const cwd = projectRoot(temp);
+  // Listed only under a temp directory that names one; gone since, it cannot be read.
+  if (cwd === null) throw Object.assign(new Error(`${temp} names no project root`), { code: 'ENOENT' });
+  return { cwd, parentSession: main ? null : basename(directory) };
+}
+
+/**
  * The `cwd` a rollout's first line, its `session_meta`, names; null when it names none, or
  * the line cannot be read yet. Only that line is read.
  *
@@ -763,6 +820,7 @@ async function ingestFile(
   let settled: boolean;
   let from: { offset: number; line: number } | null;
   let bytes: Buffer;
+  let gemini: GeminiCliSession | null = null;
   try {
     // Decided again: the file, or its cursor, may have moved while this ingest was queued.
     const stat = statSync(path);
@@ -772,7 +830,9 @@ async function ingestFile(
     if (from === null) return null;
     // ponytail: a rollout is read whole whenever it has grown, since its differences need the
     // totals before them; keep the reader's running totals on the cursor if rollouts outgrow that.
-    if (harness === 'codex') from = { offset: 0, line: 0 };
+    // A Gemini CLI file names its session on its first line only, so it is read whole too.
+    if (harness === 'codex' || harness === 'gemini-cli') from = { offset: 0, line: 0 };
+    if (harness === 'gemini-cli') gemini = geminiCliSession(path);
     bytes = readFrom(path, from.offset, size);
   } catch (error) {
     // A file that vanished or cannot be opened is reported, never a failed snapshot.
@@ -780,7 +840,7 @@ async function ingestFile(
   }
 
   const windowStart = window === 'all' ? '' : localMidnight(window - 1).toISOString();
-  const reading = harness === 'codex' ? readCodex(bytes) : readClaudeCode(bytes, from, settled);
+  const reading = harness === 'codex' ? readCodex(bytes) : gemini ? readGeminiCli(bytes, gemini, settled) : readClaudeCode(bytes, from, settled);
   const records: Ingested[] = [];
   for (const record of reading.records) {
     const project = containingEntry(record.cwd, places)?.project;

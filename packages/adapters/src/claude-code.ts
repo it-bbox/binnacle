@@ -1,9 +1,10 @@
 import type { UsageRecord } from '@binnacle/telemetry';
-import { count, isObject, readLines, type ArtifactPosition, type ArtifactReading } from './artifact.ts';
+import { count, isObject, readMessages, type ArtifactPosition, type ArtifactReading } from './artifact.ts';
 
 /**
  * A Claude Code session artifact, from `start`, to normalised records: one per message that
- * carries usage (`readLines` says how the bytes are read).
+ * carries usage (`readLines` says how the bytes are read, `readMessages` how the last
+ * message waits until `settled`).
  *
  * The reader takes the fields it needs and ignores every other one, content, tool input and
  * tool output included; a line that is not JSON, or an assistant record without a field it
@@ -11,11 +12,6 @@ import { count, isObject, readLines, type ArtifactPosition, type ArtifactReading
  * block, and every repeat has the message's id as its natural key. In a main session the
  * repeats carry the same usage. In a subagent's session the earlier ones carry the output
  * counted so far and the last the message's own, so a message is its last record.
- *
- * The last message read may still be being written. Unless `settled` says the file has been
- * idle long enough to be finished, the reading stops before that message's first record,
- * and a later reading takes it whole once a later message has started after it or the file
- * has settled. A stored record is never completed from a later one (ADR-0015).
  *
  * A subagent's session (`<session>/subagents/agent-<id>.jsonl`) is read the same way: each
  * of its records names the subagent, and the session that started it as its own session.
@@ -25,17 +21,7 @@ import { count, isObject, readLines, type ArtifactPosition, type ArtifactReading
  * model and give no record.
  */
 export function readClaudeCode(bytes: Buffer, start: ArtifactPosition, settled: boolean): ArtifactReading {
-  // Where each message's first record starts, in the order the messages began.
-  const starts = new Map<string, ArtifactPosition>();
-  const reading = readLines(bytes, start, readRecord, (record, at) => {
-    if (!starts.has(record.naturalKey)) starts.set(record.naturalKey, at);
-  });
-  const records = new Map(reading.records.map((record) => [record.naturalKey, record]));
-  const last = [...starts].at(-1);
-  if (settled || last === undefined) return { ...reading, records: [...records.values()] };
-  // A line that cannot be read is no later message, so it does not finish the one before it either.
-  records.delete(last[0]);
-  return { ...reading, records: [...records.values()], stop: last[1] };
+  return readMessages(bytes, start, settled, readRecord);
 }
 
 /** A record, null for a line that carries no usage, or why the line cannot be read. */

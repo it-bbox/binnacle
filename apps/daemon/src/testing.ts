@@ -34,20 +34,20 @@ export type TestDaemon = {
 };
 
 /**
- * `artifacts` defaults to directories inside the home that do not exist, so that no test
- * reads the harness artifacts of the machine it runs on, and `dashboard` likewise, so that no
- * test depends on a generated dashboard. `settledAfterMs` defaults to `0`, so
+ * Each artifact root `artifacts` leaves out defaults to a directory inside the home that does
+ * not exist, so that no test reads the harness artifacts of the machine it runs on, and
+ * `dashboard` likewise, so that no test depends on a generated dashboard. `settledAfterMs` defaults to `0`, so
  * that a file a test has just written is read to its end.
  */
 export async function startTestDaemon(
-  options: { home?: string; artifacts?: ArtifactRoots; ingestBudgetMs?: number; settledAfterMs?: number; dashboard?: string; searchPath?: string; graphPollMs?: number; vaultPollMs?: number } = {},
+  options: { home?: string; artifacts?: Partial<ArtifactRoots>; ingestBudgetMs?: number; settledAfterMs?: number; dashboard?: string; searchPath?: string; graphPollMs?: number; vaultPollMs?: number } = {},
 ): Promise<TestDaemon> {
   const home = options.home ?? mkdtempSync(join(tmpdir(), 'binnacle-test-'));
   const temporary = options.home === undefined;
   const daemon = await startDaemon({
     home,
     port: 0,
-    artifacts: options.artifacts ?? { claudeCode: join(home, 'no-claude-code-artifacts'), codex: join(home, 'no-codex-sessions') },
+    artifacts: { claudeCode: join(home, 'no-claude-code-artifacts'), codex: join(home, 'no-codex-sessions'), geminiCli: join(home, 'no-gemini-cli-sessions'), ...options.artifacts },
     ...(options.ingestBudgetMs === undefined ? {} : { ingestBudgetMs: options.ingestBudgetMs }),
     settledAfterMs: options.settledAfterMs ?? 0,
     dashboard: options.dashboard ?? join(home, 'no-dashboard'),

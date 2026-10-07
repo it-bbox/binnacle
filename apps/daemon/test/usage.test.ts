@@ -94,16 +94,17 @@ function session(artifacts: string, cwd: string, sessionId: string, records: Lin
   return file;
 }
 
-/** Runs `body` against a daemon whose Claude Code and Codex artifact roots are temporary directories. */
+/** Runs `body` against a daemon whose Claude Code, Codex and Gemini CLI artifact roots are temporary directories. */
 async function withDaemon(
-  body: (daemon: TestDaemon, artifacts: string, codex: string) => Promise<void>,
+  body: (daemon: TestDaemon, artifacts: string, codex: string, geminiCli: string) => Promise<void>,
   options: { home?: string; ingestBudgetMs?: number; settledAfterMs?: number } = {},
 ): Promise<void> {
   const artifacts = temporary('binnacle-claude-projects-');
   const codex = temporary('binnacle-codex-sessions-');
-  const daemon = await startTestDaemon({ ...options, artifacts: { claudeCode: artifacts, codex } });
+  const geminiCli = temporary('binnacle-gemini-tmp-');
+  const daemon = await startTestDaemon({ ...options, artifacts: { claudeCode: artifacts, codex, geminiCli } });
   try {
-    await body(daemon, artifacts, codex);
+    await body(daemon, artifacts, codex, geminiCli);
   } finally {
     await daemon.stop();
   }
@@ -337,16 +338,21 @@ describe('Claude Code usage in the Product Snapshot', () => {
     });
   });
 
-  it('carries the Claude Code and Codex artifact roots in the runtime', async () => {
-    await withDaemon(async (daemon, artifacts, codex) => {
-      const { body } = await daemon.call<{ artifacts: { claudeCode: string; codex: string } }>('daemon.status');
-      assert.deepEqual(body.artifacts, { claudeCode: artifacts, codex });
+  it('carries the Claude Code, Codex and Gemini CLI artifact roots in the runtime', async () => {
+    await withDaemon(async (daemon, artifacts, codex, geminiCli) => {
+      const { body } = await daemon.call<{ artifacts: { claudeCode: string; codex: string; geminiCli: string } }>('daemon.status');
+      assert.deepEqual(body.artifacts, { claudeCode: artifacts, codex, geminiCli });
     });
-    assert.deepEqual(resolveArtifactRoots({ CLAUDE_CONFIG_DIR: '/config/claude', CODEX_HOME: '/config/codex' }), {
+    assert.deepEqual(resolveArtifactRoots({ CLAUDE_CONFIG_DIR: '/config/claude', CODEX_HOME: '/config/codex', GEMINI_CLI_HOME: '/config/gemini' }), {
       claudeCode: join('/config/claude', 'projects'),
       codex: join('/config/codex', 'sessions'),
+      geminiCli: join('/config/gemini', '.gemini', 'tmp'),
     });
-    assert.deepEqual(resolveArtifactRoots({}), { claudeCode: join(homedir(), '.claude', 'projects'), codex: join(homedir(), '.codex', 'sessions') });
+    assert.deepEqual(resolveArtifactRoots({}), {
+      claudeCode: join(homedir(), '.claude', 'projects'),
+      codex: join(homedir(), '.codex', 'sessions'),
+      geminiCli: join(homedir(), '.gemini', 'tmp'),
+    });
   });
 });
 
