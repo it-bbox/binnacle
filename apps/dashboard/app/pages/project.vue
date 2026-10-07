@@ -264,6 +264,8 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
             :columns="[
               { key: 'product', label: t.roleProduct, totals: usage.data.value.byRole.product },
               { key: 'implementation', label: t.roleImplementation, totals: usage.data.value.byRole.implementation },
+              { key: 'review', label: t.roleReview, totals: usage.data.value.byRole.review },
+              { key: 'rework', label: t.roleRework, totals: usage.data.value.byRole.rework },
               { key: 'unknown', label: t.roleUnknown, totals: usage.data.value.byRole.unknown },
               ...(isUnavailable(usage.data.value.unassigned) ? [] : [{ key: 'unassigned', label: t.unassigned, totals: usage.data.value.unassigned }]),
             ]"

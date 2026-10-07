@@ -249,6 +249,46 @@ export async function readLastCommitTimes(cwd: string, pathspec: string, timeout
 }
 
 /**
+ * Per file among `paths`, relative to the repository root, the first commit on any local
+ * branch that added a `### Review` line to it, with its author time in milliseconds, which a
+ * rebase keeps. A file with none is absent. Null whenever Git cannot say. Merge commits are
+ * not diffed, so the commit found is the one that made the change.
+ */
+export async function readFirstReviews(cwd: string, paths: string[], timeoutMs: number): Promise<Map<string, { commit: string; at: number }> | null> {
+  if (paths.length === 0) return new Map();
+  try {
+    const pathspecs = paths.map((path) => `:(top,literal)${path}`);
+    // Oldest first; `-G` names only the files whose own diff matches.
+    const run = await git(cwd, timeoutMs, ['log', '--branches', '--reverse', '-G^### Review', '--name-only', '--format=%x00%H %at', '--', ...pathspecs]);
+    if (run.code !== 0) return null;
+    const reviews = new Map<string, { commit: string; at: number }>();
+    for (const entry of run.stdout.split('\0').slice(1)) {
+      const [header = '', ...files] = entry.split('\n');
+      const [commit = '', time = ''] = header.split(' ');
+      for (const file of files) if (file !== '' && !reviews.has(file)) reviews.set(file, { commit, at: Number(time) * 1000 });
+    }
+    return reviews;
+  } catch (error) {
+    if (isGitUnavailable(error)) return null;
+    throw error;
+  }
+}
+
+/**
+ * The author time, in milliseconds, of the newest commit before `commit`, a hash, that changed
+ * anything but `path`, relative to the repository root; null when none did, or Git cannot say.
+ */
+export async function readLastChangeBefore(cwd: string, commit: string, path: string, timeoutMs: number): Promise<number | null> {
+  try {
+    const run = await git(cwd, timeoutMs, ['log', '-1', '--format=%at', `${commit}^`, '--', ':(top)', `:(top,exclude,literal)${path}`]);
+    return run.code === 0 && run.stdout.trim() !== '' ? Number(run.stdout.trim()) * 1000 : null;
+  } catch (error) {
+    if (isGitUnavailable(error)) return null;
+    throw error;
+  }
+}
+
+/**
  * The full hash of the commit that `hash`, full or abbreviated, names; null when it names
  * none here. Anything but hexadecimal digits is null without asking Git, which is what
  * lets every other function here take the commits it returns.

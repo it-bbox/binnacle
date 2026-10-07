@@ -221,6 +221,8 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
               :rows="[
                 tokenRow('product', t.roleProduct, usage.data.value.byRole.product),
                 tokenRow('implementation', t.roleImplementation, usage.data.value.byRole.implementation),
+                tokenRow('review', t.roleReview, usage.data.value.byRole.review),
+                tokenRow('rework', t.roleRework, usage.data.value.byRole.rework),
                 tokenRow('unknown', t.roleUnknown, usage.data.value.byRole.unknown, { muted: true }),
               ]"
             />

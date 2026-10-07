@@ -160,6 +160,8 @@ export const ru: Dictionary = {
   usageByRole: 'Расход по ролям',
   roleProduct: 'Product',
   roleImplementation: 'Реализация',
+  roleReview: 'Review',
+  roleRework: 'Доработка',
   roleUnknown: 'Роль неизвестна',
   unassigned: 'Без Task',
   unassignedNote: 'Без Task — это runs, которые не относятся к ветке ни одного Task.',
@@ -215,7 +217,6 @@ export const ru: Dictionary = {
   latestActivity: 'Последняя активность',
   tokens: 'Токены',
   importing: 'Импорт этого проекта ещё идёт, поэтому суммы могут быть занижены.',
-  implementationUsage: 'Расход на реализацию',
   sinceWindow: (date) => `за окно импорта, с ${date}`,
   wholeWindow: 'за окно импорта, которое берёт всё',
   records: 'Записи',
@@ -226,11 +227,9 @@ export const ru: Dictionary = {
   reasoning: 'из них рассуждения',
   calculated: 'расчёт',
   estimated: 'оценка',
-  reviewUsage: 'Расход на Review',
-  reworkUsage: 'Расход на доработку',
   questions: 'Вопросы и ответы',
-  reviewUsageReason: 'Runs Review пока не отличаются от runs реализации.',
-  reworkUsageReason: 'Runs доработки тоже пока не отличаются от runs реализации.',
+  rolesReading:
+    'Расчёт Binnacle по коммитам ветки Task: Review — работа субагента после последнего коммита, менявшего что-то кроме тикета, и до коммита, впервые записавшего Review, доработка — вся работа после этого коммита.',
   questionsReason: 'Вопросы и ответы пока не стали явными артефактами.',
 
   // Страница расхода.

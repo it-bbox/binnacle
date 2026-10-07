@@ -174,6 +174,8 @@ export const en = {
   usageByRole: 'Usage by role',
   roleProduct: 'Product',
   roleImplementation: 'Implementation',
+  roleReview: 'Review',
+  roleRework: 'Rework',
   roleUnknown: 'Unknown role',
   unassigned: 'Unassigned',
   unassignedNote: "Unassigned are the runs no Task's branch accounts for.",
@@ -229,7 +231,6 @@ export const en = {
   latestActivity: 'Latest activity',
   tokens: 'Tokens',
   importing: 'The import of this project is still running, so these totals may be low.',
-  implementationUsage: 'Implementation usage',
   sinceWindow: (date: string) => `over the import window, since ${date}`,
   wholeWindow: 'over the import window, which takes everything',
   records: 'Records',
@@ -240,11 +241,9 @@ export const en = {
   reasoning: 'of which reasoning',
   calculated: 'calculated',
   estimated: 'estimated',
-  reviewUsage: 'Review usage',
-  reworkUsage: 'Rework usage',
   questions: 'Questions and answers',
-  reviewUsageReason: 'Review runs are not told apart from implementation runs.',
-  reworkUsageReason: 'Rework runs are not told apart from implementation runs either.',
+  rolesReading:
+    "Binnacle's calculation from the Task branch's commits: review is a subagent's work after the last commit changing anything but the ticket and up to the commit that first records its Review, rework all work after that commit.",
   questionsReason: 'Questions and answers are not yet explicit artifacts.',
 
   // The Usage page.

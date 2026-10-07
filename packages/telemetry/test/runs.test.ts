@@ -30,7 +30,7 @@ function record(minute: number, fields: Partial<RunRecord> = {}): RunRecord {
 }
 
 const tasks = [{ id: 'epic/01', title: 'First', ticket: 'docs/specs/epic/issues/01-first.md' }];
-const attribution = { projectPath: '/repo', defaultBranch: 'main', tasks, remote: false, now: NOW };
+const attribution = { projectPath: '/repo', defaultBranch: 'main', tasks, remote: false, reviews: new Map(), now: NOW };
 const feat = { name: 'feat/first', source: 'reflog' } as const;
 
 test('a run is one stretch of one session in one checkout on one branch, with the id of its first record', () => {

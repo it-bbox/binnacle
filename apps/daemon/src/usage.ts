@@ -1,9 +1,22 @@
 import { closeSync, existsSync, openSync, readdirSync, readSync, statSync, type Dirent } from 'node:fs';
 import { join, relative } from 'node:path';
 import { setImmediate, setTimeout } from 'node:timers/promises';
-import { branchAt, codexSession, readClaudeCode, readCodex, readDefaultBranch, readHeadHistory, readWorktrees, type HeadHistory, type TelemetryRecord, type Tree } from '@binnacle/adapters';
-import type { ImportWindow, ObservedRun, ProjectManifest, RunRole, TrackerTask } from '@binnacle/core';
-import { ACTIVE_WITHIN_MS, magnitude, mean, observedRuns, sum, type Harness, type RunRecord, type Totals, type UsageRecord } from '@binnacle/telemetry';
+import {
+  branchAt,
+  codexSession,
+  readClaudeCode,
+  readCodex,
+  readDefaultBranch,
+  readFirstReviews,
+  readHeadHistory,
+  readLastChangeBefore,
+  readWorktrees,
+  type HeadHistory,
+  type TelemetryRecord,
+  type Tree,
+} from '@binnacle/adapters';
+import { branchTask, type ImportWindow, type ObservedRun, type ProjectManifest, type RunRole, type TrackerTask } from '@binnacle/core';
+import { ACTIVE_WITHIN_MS, magnitude, mean, observedRuns, sum, type Harness, type ReviewPoints, type RunRecord, type Totals, type UsageRecord } from '@binnacle/telemetry';
 import { resolveGitTimeout, type ArtifactRoots } from './home.ts';
 import type { OperationContext } from './operations.ts';
 import { containingEntry, readRegistry } from './registry.ts';
@@ -99,6 +112,8 @@ export type Usage = {
   tasks: { items: { id: string; title: string | null; totals: Totals }[]; remainder: number } | Unavailable;
   /** The last seven days of runs no Task's branch accounts for. */
   unassigned: Totals | Unavailable;
+  /** The last seven days by role, every role listed; unavailable, as `tasks` is, without the tracker. */
+  byRole: Record<RunRole, Totals> | Unavailable;
   harnesses: HarnessLevel[];
 };
 
@@ -125,16 +140,16 @@ export async function usageAndActivity(
   const week = all.filter((record) => record.timestamp >= weekStart);
   const since = localMidnight(0).toISOString();
   const today = week.filter((record) => record.timestamp >= since);
-  let attributed: Pick<Usage, 'tasks' | 'unassigned'>;
+  let attributed: Pick<Usage, 'tasks' | 'unassigned' | 'byRole'>;
   let activity: Activity | Unavailable;
   let observed: (ObservedRun & { records: RunRecord[] })[] = [];
   if (Array.isArray(tasks)) {
     observed = await runs(all, projectPath, tasks, manifest?.tracker.provider !== 'local', checkouts);
     const ofWeek = observed.map((run) => ({ ...run, records: run.records.filter((record) => record.timestamp >= weekStart) }));
-    attributed = byTask(ofWeek.filter((run) => run.records.length > 0), tasks);
+    attributed = { ...byTask(ofWeek.filter((run) => run.records.length > 0), tasks), byRole: byRole(ofWeek, ROLES) };
     activity = activityOf(observed, tasks);
   } else {
-    attributed = { tasks, unassigned: tasks };
+    attributed = { tasks, unassigned: tasks, byRole: tasks };
     activity = tasks;
   }
 
@@ -184,7 +199,7 @@ function activityOf(observed: (ObservedRun & { records: RunRecord[] })[], tasks:
 const runUsage = ({ records, projectPath: _project, ...run }: ObservedRun & { records: RunRecord[] }): RunUsage => ({ ...run, totals: sum(records) });
 
 /** `usage.get` without a Task: the project's totals over everything ingested, by Task and unassigned, by role, and derived. */
-export type ProjectUsage = Pick<Usage, 'importing' | 'tasks' | 'unassigned'> & { totals: Totals; byRole: Record<RunRole, Totals> | Unavailable; derived: Derived };
+export type ProjectUsage = Pick<Usage, 'importing' | 'tasks' | 'unassigned' | 'byRole'> & { totals: Totals; derived: Derived };
 
 /**
  * Binnacle's calculations over the same records, each labelled so. The two that need the
@@ -220,10 +235,11 @@ export type Derived = {
 /** A run as `usage.get` shows it: the observed run, less its project, with its totals. */
 export type RunUsage = Omit<ObservedRun, 'projectPath'> & { totals: Totals };
 
-/** `usage.get` with a Task: its totals over everything ingested, and its runs, newest first. */
+/** `usage.get` with a Task: its totals over everything ingested, the same by role, and its runs, newest first. */
 export type TaskUsage = Pick<Usage, 'importing'> & {
   task: Pick<TrackerTask, 'id' | 'title'>;
   totals: Totals;
+  byRole: Record<TaskRole, Totals>;
   runs: { items: RunUsage[]; remainder: number };
 };
 
@@ -258,7 +274,7 @@ export async function usageGet(
   }
   const attributed = await runs(records, projectPath, tasks, manifest?.tracker.provider !== 'local', checkouts);
   if (!found) {
-    return { importing, totals: sum(records), ...byTask(attributed, tasks), byRole: byRole(attributed), derived: { ...perTask(attributed, tasks), weekly: weekly(records) } };
+    return { importing, totals: sum(records), ...byTask(attributed, tasks), byRole: byRole(attributed, ROLES), derived: { ...perTask(attributed, tasks), weekly: weekly(records) } };
   }
 
   // Runs come oldest first.
@@ -267,6 +283,7 @@ export async function usageGet(
     importing,
     task: { id: found.task.id, title: found.task.title },
     totals: sum(own.flatMap((run) => run.records)),
+    byRole: byRole(own, TASK_ROLES),
     runs: limited(own.map(runUsage)),
   };
 }
@@ -289,6 +306,19 @@ export async function latestRuns(
     if (run.taskId !== null && (known === undefined || run.lastActivityAt >= known.lastActivityAt)) latest.set(run.taskId, run);
   }
   return latest;
+}
+
+/** `task`'s totals by role over every stored record, after the ingest `usage.get` also runs; `tasks` are the tracker's. */
+export async function taskByRole(
+  context: OperationContext,
+  projectPath: string,
+  manifest: ProjectManifest | null,
+  tasks: TrackerTask[],
+  task: Pick<TrackerTask, 'id'>,
+): Promise<Record<TaskRole, Totals>> {
+  const { checkouts } = await ingested(context, projectPath, manifest);
+  const attributed = await runs(context.store.usage(projectPath, ''), projectPath, tasks, manifest?.tracker.provider !== 'local', checkouts);
+  return byRole(attributed.filter((run) => run.taskId === task.id), TASK_ROLES);
 }
 
 /**
@@ -377,7 +407,36 @@ async function runs(
     return exists.get(cwd) ? root.path : null;
   };
   const withCheckout = records.map((record) => ({ ...record, checkout: checkout(record.cwd) }));
-  return observedRuns(withCheckout, { projectPath, defaultBranch, tasks, remote, now: new Date() });
+  const reviews = remote ? new Map<string, ReviewPoints>() : await reviewPoints(projectPath, records, tasks);
+  return observedRuns(withCheckout, { projectPath, defaultBranch, tasks, remote, reviews, now: new Date() });
+}
+
+/**
+ * The last change before each commit that first recorded a ticket's Review, by commit and
+ * ticket: history does not change under a commit, so it is read once per daemon.
+ * ponytail: one entry per reviewed ticket, never forgotten; bound it if a daemon ever sees tens of thousands.
+ */
+const lastWork = new Map<string, number | null>();
+
+/**
+ * On the local tracker, per Task whose branch `records` were on, when its ticket's first
+ * Review was committed and when the last commit before it changed anything but the ticket.
+ * A Task with no Review, or whose history Git cannot read, has none: its runs are implementation.
+ */
+async function reviewPoints(projectPath: string, records: UsageRecord[], tasks: Pick<TrackerTask, 'id' | 'title' | 'ticket'>[]): Promise<Map<string, ReviewPoints>> {
+  const branches = new Set(records.flatMap((record) => (record.branch?.source === 'reflog' ? [record.branch.name] : [])));
+  const worked = [...new Set([...branches].flatMap((branch) => branchTask(branch, tasks, false) ?? []))];
+  const timeout = resolveGitTimeout();
+  const first = await readFirstReviews(projectPath, worked.map((task) => task.ticket), timeout);
+  const points = new Map<string, ReviewPoints>();
+  for (const task of worked) {
+    const review = first?.get(task.ticket);
+    if (review === undefined) continue;
+    const key = `${review.commit}\0${task.ticket}`;
+    if (!lastWork.has(key)) lastWork.set(key, await readLastChangeBefore(projectPath, review.commit, task.ticket, timeout));
+    points.set(task.id, { work: lastWork.get(key)!, review: review.at });
+  }
+  return points;
 }
 
 function byTask(attributed: { taskId: string | null; records: RunRecord[] }[], tasks: Pick<TrackerTask, 'id' | 'title'>[]): Pick<Usage, 'tasks' | 'unassigned'> {
@@ -461,10 +520,15 @@ function weekly(records: UsageRecord[]): Derived['weekly'] {
 /** Local midnight of the Monday that starts `date`'s week. */
 const mondayOf = (date: Date): Date => new Date(date.getFullYear(), date.getMonth(), date.getDate() - ((date.getDay() + 6) % 7));
 
-/** Totals by role, with every role listed, one that no run has with no records. */
-function byRole(attributed: { role: RunRole; records: RunRecord[] }[]): Record<RunRole, Totals> {
+const ROLES: RunRole[] = ['product', 'implementation', 'review', 'rework', 'unknown'];
+/** The roles a Task's runs can have. */
+export type TaskRole = Extract<RunRole, 'implementation' | 'review' | 'rework'>;
+const TASK_ROLES: TaskRole[] = ['implementation', 'review', 'rework'];
+
+/** Totals by each of `roles`, in that order, one that no run has with no records. */
+function byRole<Role extends RunRole>(attributed: { role: RunRole; records: RunRecord[] }[], roles: Role[]): Record<Role, Totals> {
   const records = (role: RunRole): RunRecord[] => attributed.filter((run) => run.role === role).flatMap((run) => run.records);
-  return { product: sum(records('product')), implementation: sum(records('implementation')), unknown: sum(records('unknown')) };
+  return Object.fromEntries(roles.map((role) => [role, sum(records(role))])) as Record<Role, Totals>;
 }
 
 /**

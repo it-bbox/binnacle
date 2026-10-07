@@ -9,9 +9,13 @@ import { DatabaseSync } from 'node:sqlite';
 import { after, describe, it } from 'node:test';
 import { githubApiRoot, readGitHubTasks } from '@binnacle/adapters';
 import { BRANCH_SLUG_LIMIT } from '@binnacle/core';
+import { sum } from '@binnacle/telemetry';
 import { storePath } from '../src/index.ts';
 import { BODY_LIMIT } from '../src/task.ts';
 import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
+
+/** A Task's usage by role with no runs, as the brief gives it. */
+const NO_ROLES = { implementation: sum([]), review: sum([]), rework: sum([]) };
 
 type SnapshotTask = { id: string; title: string | null; state: string | null; unmetDependencies: string[]; ticket: string; start: string | null };
 type Section = { items: SnapshotTask[]; remainder: number };
@@ -885,6 +889,7 @@ describe('the task brief on a GitHub tracker', () => {
         start: null,
         review: { available: false, reason: 'Binnacle reads an issue’s body and never its comments, so no Review is read on GitHub or GitLab.' },
         diagnostics: [],
+        byRole: NO_ROLES,
       });
       assert.equal((await taskGet(daemon, root, '5')).body.id, '#5');
       const other = (await taskGet(daemon, root, '#6')).body;

@@ -1,7 +1,9 @@
 import type { Tree } from '@binnacle/adapters';
 import { sharedBranch, startCommand, taskBranch, type Diagnostic, type ProjectManifest, type TaskState, type TrackerTask } from '@binnacle/core';
 import { OperationError } from './errors.ts';
+import type { Totals } from '@binnacle/telemetry';
 import { cut, readTracker, type Unavailable } from './snapshot.ts';
+import type { TaskRole } from './usage.ts';
 
 /** In characters: Unicode code points. */
 export const BODY_LIMIT = 8000;
@@ -34,15 +36,12 @@ export type TaskBrief = Pick<TrackerTask, 'id' | 'title' | 'state' | 'triage' | 
   review: { text: string; truncated: boolean } | Unavailable | null;
   /** `task.shared_branch` when another Task has the same branch, which then credits neither. */
   diagnostics: Diagnostic[];
+  /** Its usage by role over everything ingested, as `usage.get` gives it for the Task. */
+  byRole: Record<TaskRole, Totals>;
 };
 
-/**
- * `id` is `<spec-slug>/<NN>` on the local tracker and `#<number>` or `<number>` on a remote
- * one; the ticket number is compared, so `epic/6` is `epic/06`. An id the tracker does not
- * hold is `task.not_found`. A tracker that cannot be read is an error with its own code.
- */
-export async function taskBrief(home: string, tree: Tree, manifest: ProjectManifest | null, id: string): Promise<TaskBrief> {
-  const { tasks, task } = await findTask(home, tree, manifest, id);
+/** The brief of `task`, one of `tasks`, the tracker's, which `findTask` read, with its usage by role. */
+export function taskBrief({ tasks, task }: { tasks: TrackerTask[]; task: TrackerTask }, manifest: ProjectManifest | null, byRole: Record<TaskRole, Totals>): TaskBrief {
   const byId = new Map(tasks.map((known) => [known.id, known]));
   const remote = manifest?.tracker.provider !== 'local';
   const shared = sharedBranch(task, tasks, remote);
@@ -65,12 +64,15 @@ export async function taskBrief(home: string, tree: Tree, manifest: ProjectManif
     start: startCommand(task, manifest?.workflow.provider ?? null),
     review: remote ? REVIEW_UNAVAILABLE : task.review === null ? null : cut(task.review, BODY_LIMIT),
     diagnostics: shared ? [shared] : [],
+    byRole,
   };
 }
 
 /**
- * The tracker's Tasks and the one `id` names, in the forms `taskBrief` takes. An id the
- * tracker does not hold is `task.not_found`; a tracker that cannot be read is an error with its own code.
+ * The tracker's Tasks and the one `id` names: `<spec-slug>/<NN>` on the local tracker and
+ * `#<number>` or `<number>` on a remote one; the ticket number is compared, so `epic/6` is
+ * `epic/06`. An id the tracker does not hold is `task.not_found`; a tracker that cannot be
+ * read is an error with its own code.
  */
 export async function findTask(home: string, tree: Tree, manifest: ProjectManifest | null, id: string): Promise<{ tasks: TrackerTask[]; task: TrackerTask }> {
   const { tasks, diagnostics } = await readTracker(home, tree, manifest);

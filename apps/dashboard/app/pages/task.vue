@@ -57,11 +57,7 @@ function stateBadge(state: string | null) {
 const dependency = (item: Brief['dependencies'][number]): string =>
   item.dangling ? t.value.dangling : `${item.state ?? t.value.noState}, ${item.met ? t.value.met : t.value.notMet}`;
 
-const notAvailableRows = computed(() => [
-  { element: t.value.reviewUsage, reason: t.value.reviewUsageReason },
-  { element: t.value.reworkUsage, reason: t.value.reworkUsageReason },
-  { element: t.value.questions, reason: t.value.questionsReason },
-]);
+const notAvailableRows = computed(() => [{ element: t.value.questions, reason: t.value.questionsReason }]);
 </script>
 
 <template>
@@ -206,14 +202,25 @@ const notAvailableRows = computed(() => [
             <div class="border-b border-default px-3.5 py-2.5"><h2 class="m-0 text-[13px] font-semibold">{{ t.usage }}</h2></div>
             <div class="flex flex-col gap-2 px-3.5 py-3">
               <div>
-                <span class="font-medium">{{ t.implementationUsage }}</span>
+                <span class="font-medium">{{ t.usageByRole }}</span>
                 <span v-if="usage" class="text-xs text-dimmed">, {{ usage.importing.windowStart === null ? t.wholeWindow : t.sinceWindow(usage.importing.windowStart) }}</span>
               </div>
               <p v-if="usageError" class="m-0 text-xs">
                 <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <code>{{ usageError.code }}</code></span>
               </p>
               <USkeleton v-else-if="usage === null" class="h-24" />
-              <TokenKinds v-else :columns="[{ key: 'task', label: t.implementationUsage, totals: usage.totals }]" />
+              <template v-else>
+                <div class="overflow-x-auto">
+                  <TokenKinds
+                    :columns="[
+                      { key: 'implementation', label: t.roleImplementation, totals: usage.byRole.implementation },
+                      { key: 'review', label: t.roleReview, totals: usage.byRole.review },
+                      { key: 'rework', label: t.roleRework, totals: usage.byRole.rework },
+                    ]"
+                  />
+                </div>
+                <p class="m-0 text-[11.5px] leading-snug text-dimmed">{{ t.rolesReading }}</p>
+              </template>
             </div>
             <div v-for="row in notAvailableRows" :key="row.element" class="flex flex-col gap-0.5 border-t border-default px-3.5 py-2.5">
               <div class="flex justify-between gap-2">

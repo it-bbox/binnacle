@@ -80,8 +80,11 @@ export type AgentRun = {
   budgetPolicy: string | null;
 };
 
-/** From the run's branch: the default branch is Product work, a Task's branch implementation. */
-export type RunRole = 'product' | 'implementation' | 'unknown';
+/**
+ * From the run's branch: the default branch is Product work, a Task's branch implementation,
+ * review or rework, told apart by when the Task's first Review was committed.
+ */
+export type RunRole = 'product' | 'implementation' | 'review' | 'rework' | 'unknown';
 
 /**
  * An AgentRun Binnacle reads out of a session artifact rather than one it manages: one

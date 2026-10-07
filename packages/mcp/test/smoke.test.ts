@@ -88,7 +88,16 @@ test('binn mcp lists its tools, explains a stopped daemon, and proxies the snaps
 
   const brief = (await client.callTool({ name: 'task_get', arguments: { id: 'epic/01' } })) as ToolResult;
   assert.equal(brief.isError, undefined, brief.content[0]?.text);
-  assert.deepEqual(JSON.parse(brief.content[0]!.text) as unknown, {
+  const { byRole, ...fields } = JSON.parse(brief.content[0]!.text) as { byRole: Record<string, { records: number }> };
+  assert.deepEqual(
+    Object.entries(byRole).map(([role, totals]) => [role, totals.records]),
+    [
+      ['implementation', 0],
+      ['review', 0],
+      ['rework', 0],
+    ],
+  );
+  assert.deepEqual(fields, {
     id: 'epic/01',
     title: 'First',
     state: 'READY',

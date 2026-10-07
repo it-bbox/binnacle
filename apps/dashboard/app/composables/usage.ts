@@ -24,7 +24,7 @@ export type ProjectUsage = {
   totals: Totals;
   tasks: Limited<{ id: string; title: string | null; totals: Totals }> | Unavailable;
   unassigned: Totals | Unavailable;
-  byRole: Record<'product' | 'implementation' | 'unknown', Totals> | Unavailable;
+  byRole: Record<'product' | 'implementation' | 'review' | 'rework' | 'unknown', Totals> | Unavailable;
   derived: Derived;
 };
 
@@ -39,8 +39,8 @@ export type Derived = {
   weekly: { provenance: 'calculated'; items: { week: string; totals: Totals }[] };
 };
 
-/** `usage.get` with a Task: its totals and its runs, newest first. */
-export type TaskUsage = { importing: Importing; totals: Totals; runs: Limited<TaskRun> };
+/** `usage.get` with a Task: its totals, the same by role, and its runs, newest first. */
+export type TaskUsage = { importing: Importing; totals: Totals; byRole: Record<'implementation' | 'review' | 'rework', Totals>; runs: Limited<TaskRun> };
 
 /** A run of a Task, as `usage.get` gives it. */
 export type TaskRun = Omit<Run, 'taskTitle'> & { startedAt: string; active: { value: boolean }; totals: Totals };

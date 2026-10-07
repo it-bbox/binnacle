@@ -12,10 +12,10 @@ import { BASELINE_EVENTS, committedHead, daily, isRemoteTracker, taskStates, typ
 import { graphSection } from './graph.ts';
 import { readTasks, snapshot, type CallerCheckout } from './snapshot.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type ProjectRow, type Store } from './store.ts';
-import { taskBrief } from './task.ts';
+import { findTask, taskBrief } from './task.ts';
 import { taskList } from './board.ts';
 import { writeServed } from './vault.ts';
-import { forgetRead, latestRuns, usageAndActivity, usageGet, type Importer } from './usage.ts';
+import { forgetRead, latestRuns, taskByRole, usageAndActivity, usageGet, type Importer } from './usage.ts';
 
 export type OperationContext = {
   home: string;
@@ -184,7 +184,8 @@ export const operations: Record<string, Operation> = {
     const id = taskId(body);
     const projected = reproject(context.store, await resolveEntry(path, context));
     const caller = await callerCheckout(path, projected.row.path);
-    return taskBrief(context.home, workingTree(caller.project), projected.manifest, id);
+    const found = await findTask(context.home, workingTree(caller.project), projected.manifest, id);
+    return taskBrief(found, projected.manifest, await taskByRole(context, projected.row.path, projected.manifest, found.tasks, found.task));
   },
 
   // The board: one epic's Tasks in their columns, In progress read from runs where the ticket still says READY (ADR-0032).

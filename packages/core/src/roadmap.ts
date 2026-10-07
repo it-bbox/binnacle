@@ -252,7 +252,7 @@ function byRule(epics: Epic[], tasks: ResolvedTask[], runs: RunReading[], workfl
   const forAgent = (task: ResolvedTask): boolean => task.triage !== 'ready-for-human';
   const attributed = new Set(runs.map((run) => run.taskId));
   const working = runs
-    .filter((run) => run.role === 'implementation' && run.active.value && run.taskId !== null)
+    .filter((run) => run.role !== 'product' && run.active.value && run.taskId !== null)
     .sort((a, b) => (a.lastActivityAt < b.lastActivityAt ? 1 : a.lastActivityAt > b.lastActivityAt ? -1 : 0));
   // Only a Task the board places In progress is waited on: a DONE one's run may outlive its merge,
   // and a run naming no known Task is placed nowhere. Each has a run, so a READY one stands In progress.

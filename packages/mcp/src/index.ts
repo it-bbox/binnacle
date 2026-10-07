@@ -39,7 +39,7 @@ const TOOLS = {
   task_get: {
     operation: 'task.get',
     description:
-      'The compact brief for starting one Task: its fields, its dependencies with their titles and states, its spec path, the ticket body without comments, the branch name, the command that starts it in a fresh session (`start`, null for a DONE or CANCELLED Task or another workflow), and its Review as the ticket records it (`review`: null when there is none, not available on GitHub or GitLab), with a diagnostic when another Task has the same branch. Changes nothing.',
+      'The compact brief for starting one Task: its fields, its dependencies with their titles and states, its spec path, the ticket body without comments, the branch name, the command that starts it in a fresh session (`start`, null for a DONE or CANCELLED Task or another workflow), and its Review as the ticket records it (`review`: null when there is none, not available on GitHub or GitLab), with a diagnostic when another Task has the same branch, and its token usage by role (`byRole`: implementation, review and rework, each `calculated` from the branch\'s commits and the ticket\'s first Review). Changes nothing.',
     inputSchema: {
       id: z.string().describe('The Task id: `<spec-slug>/<NN>` on the local tracker, `#<number>` or `<number>` on GitHub or GitLab.'),
     },
@@ -47,7 +47,7 @@ const TOOLS = {
   usage_get: {
     operation: 'usage.get',
     description:
-      'Token usage read from the harnesses\' session artifacts: without `task`, the project\'s totals by Task and unassigned, by role (product, implementation, unknown), and `derived`, Binnacle\'s calculations, each labelled `calculated`: tokens and runs per DONE Task with their mean, runs per Task with the subagents\' apart, and totals per calendar week from Monday; with `task`, that Task\'s totals and its runs, newest first. Tokens only, never cost; a field no harness reported is null.',
+      'Token usage read from the harnesses\' session artifacts: without `task`, the project\'s totals by Task and unassigned, by role (product, implementation, review, rework, unknown), and `derived`, Binnacle\'s calculations, each labelled `calculated`: tokens and runs per DONE Task with their mean, runs per Task with the subagents\' apart, and totals per calendar week from Monday; with `task`, that Task\'s totals, the same by role, and its runs, newest first. Review is a subagent\'s work on the Task\'s branch after the last commit changing anything but its ticket, up to the commit that first records the ticket\'s Review; rework is the work after that commit; both are Binnacle\'s calculation. Tokens only, never cost; a field no harness reported is null.',
     inputSchema: {
       task: z.string().optional().describe('A Task id, in the forms task_get takes; omit it for the whole project.'),
     },

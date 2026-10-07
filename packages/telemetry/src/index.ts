@@ -3,7 +3,7 @@
  * it. Nothing here does I/O: finding and reading artifacts is the daemon's, parsing them
  * the adapters'.
  */
-import { branchTask, type ObservedRun, type TrackerTask } from '@binnacle/core';
+import { branchTask, type ObservedRun, type RunRole, type TrackerTask } from '@binnacle/core';
 
 /** ADR-0007: a value says where it came from, and nothing is ever invented to fill a gap. */
 export type Provenance = 'measured' | 'provider_reported' | 'calculated' | 'estimated';
@@ -104,26 +104,48 @@ export type RunAttribution<T extends Pick<TrackerTask, 'id' | 'title' | 'ticket'
   /** The tracker's current Tasks, and whether it is a remote tracker. */
   tasks: T[];
   remote: boolean;
+  /** Per Task id, its first Review's commit time and the time of the last commit before it changing anything but the ticket, null when none did; in milliseconds. */
+  reviews: Map<string, ReviewPoints>;
   now: Date;
 };
 
+export type ReviewPoints = { work: number | null; review: number };
+
 /**
  * Records grouped into observed runs: by harness, session and subagent, in time order, a
- * new run starting wherever the checkout or the branch changes. A record's branch is the one
+ * new run starting wherever the checkout, the branch or the role changes. A record's branch is the one
  * its checkout's reflog gave it; one only its harness wrote is no branch (ADR-0030). A run's
  * id is its first record's key, so more records never change it. Its Task is the one its
- * branch maps back to (`branchTask`), none being unassigned; its role follows from the
- * branch. Runs come in the order they started.
+ * branch maps back to (`branchTask`), none being unassigned. Its role is each of its records':
+ * `product` on the default branch, `unknown` on a branch no Task has, and on a Task's branch
+ * `rework` after the Task's first Review, `review` for a subagent's record after the last
+ * commit before it changing anything but the ticket, and `implementation` otherwise. Runs
+ * come in the order they started.
  *
  * A subagent's runs name their parent run: the run of the parent session that had started
  * by the subagent's first record. None does when that session has no run among `records`.
  */
 export function observedRuns<R extends RunRecord, T extends Pick<TrackerTask, 'id' | 'title' | 'ticket'>>(
   records: R[],
-  { projectPath, defaultBranch, tasks, remote, now }: RunAttribution<T>,
+  { projectPath, defaultBranch, tasks, remote, reviews, now }: RunAttribution<T>,
 ): (ObservedRun & { records: R[] })[] {
   const order = (record: R): string[] => [record.harness, record.sessionId, record.subagentId ?? '', record.timestamp, record.naturalKey];
   const sorted = [...records].sort((a, b) => compare(order(a), order(b)));
+
+  const taskOf = (record: R): T | null => {
+    const branch = reflogBranch(record);
+    return branch === null ? null : branchTask(branch, tasks, remote);
+  };
+  const role = (record: R): RunRole => {
+    if (reflogBranch(record) === defaultBranch) return 'product';
+    const task = taskOf(record);
+    if (task === null) return 'unknown';
+    const points = reviews.get(task.id);
+    if (points === undefined) return 'implementation';
+    const time = Date.parse(record.timestamp);
+    if (time > points.review) return 'rework';
+    return record.subagentId !== null && (points.work === null || time > points.work) ? 'review' : 'implementation';
+  };
 
   const groups: R[][] = [];
   for (const record of sorted) {
@@ -134,7 +156,8 @@ export function observedRuns<R extends RunRecord, T extends Pick<TrackerTask, 'i
       last.sessionId === record.sessionId &&
       last.subagentId === record.subagentId &&
       last.checkout === record.checkout &&
-      reflogBranch(last) === reflogBranch(record);
+      reflogBranch(last) === reflogBranch(record) &&
+      role(last) === role(record);
     if (same) groups.at(-1)!.push(record);
     else groups.push([record]);
   }
@@ -154,12 +177,11 @@ export function observedRuns<R extends RunRecord, T extends Pick<TrackerTask, 'i
     const first = group[0]!;
     const latest = group.at(-1)!;
     const branch = reflogBranch(first);
-    const task = branch === null ? null : branchTask(branch, tasks, remote);
     return {
       id: runId(first),
       projectPath,
-      taskId: task?.id ?? null,
-      role: branch === defaultBranch ? 'product' : task ? 'implementation' : 'unknown',
+      taskId: taskOf(first)?.id ?? null,
+      role: role(first),
       harness: first.harness,
       provider: latest.provider,
       model: latest.model,

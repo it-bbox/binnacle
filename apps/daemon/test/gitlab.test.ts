@@ -7,7 +7,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, it } from 'node:test';
 import { gitlabApiRoot, readGitLabTasks } from '@binnacle/adapters';
+import { sum } from '@binnacle/telemetry';
 import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
+
+/** A Task's usage by role with no runs, as the brief gives it. */
+const NO_ROLES = { implementation: sum([]), review: sum([]), rework: sum([]) };
 
 type SnapshotTask = { id: string; title: string | null; state: string | null; unmetDependencies: string[]; ticket: string; start: string | null };
 type Section = { items: SnapshotTask[]; remainder: number };
@@ -493,6 +497,7 @@ describe('the task brief on a GitLab tracker', () => {
         start: null,
         review: { available: false, reason: 'Binnacle reads an issue’s body and never its comments, so no Review is read on GitHub or GitLab.' },
         diagnostics: [],
+        byRole: NO_ROLES,
       });
       assert.equal((await taskGet(daemon, root, '3')).body.id, '#3');
       assert.equal((await taskGet(daemon, root, '#9')).body.error.code, 'task.not_found');

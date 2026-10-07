@@ -28,8 +28,10 @@ type Usage = {
   byProvider: { items: { provider: string | null; totals: Totals }[]; remainder: number };
   tasks: { items: { id: string; title: string | null; totals: Totals }[]; remainder: number } | Unavailable;
   unassigned: Totals | Unavailable;
+  byRole: Record<Role, Totals> | Unavailable;
   harnesses: { harness: string; level: number | null; reason: string | null }[];
 };
+type Role = 'product' | 'implementation' | 'review' | 'rework' | 'unknown';
 type Line = Record<string, unknown> & { type: string; message?: Record<string, unknown> };
 
 const FIXTURES = join(import.meta.dirname, 'fixtures', 'claude-code');
@@ -845,9 +847,9 @@ describe('Observed runs and Task attribution in the Product Snapshot', () => {
         const byRole = available((await usageGet<ProjectUsage>(daemon, root)).byRole);
         return Object.fromEntries(Object.entries(byRole).map(([role, totals]) => [role, totals.records]));
       };
-      assert.deepEqual(await roles(trunk), { product: 1, implementation: 4, unknown: 2 + 8 });
+      assert.deepEqual(await roles(trunk), { product: 1, implementation: 4, review: 0, rework: 0, unknown: 2 + 8 });
       // Without `origin/HEAD`, the default branch is `main`.
-      assert.deepEqual(await roles(plain), { product: 2, implementation: 4, unknown: 1 + 8 });
+      assert.deepEqual(await roles(plain), { product: 2, implementation: 4, review: 0, rework: 0, unknown: 1 + 8 });
     });
   });
 });
@@ -879,10 +881,15 @@ type Derived = {
 };
 type ProjectUsage = Pick<Usage, 'importing' | 'tasks' | 'unassigned'> & {
   totals: Totals;
-  byRole: Record<'product' | 'implementation' | 'unknown', Totals> | Unavailable;
+  byRole: Record<Role, Totals> | Unavailable;
   derived: Derived;
 };
-type TaskUsage = Pick<Usage, 'importing'> & { task: { id: string; title: string | null }; totals: Totals; runs: { items: Run[]; remainder: number } };
+type TaskUsage = Pick<Usage, 'importing'> & {
+  task: { id: string; title: string | null };
+  totals: Totals;
+  byRole: Record<'implementation' | 'review' | 'rework', Totals>;
+  runs: { items: Run[]; remainder: number };
+};
 
 async function usageGet<T>(daemon: TestDaemon, root: string, task?: string): Promise<T> {
   const result = await daemon.call<T>('usage.get', { path: root, ...(task === undefined ? {} : { task }) });
@@ -1359,6 +1366,83 @@ describe('Subagent runs', () => {
       );
       const byRole = available((await usageGet<ProjectUsage>(daemon, root)).byRole);
       assert.deepEqual([byRole.product.records, byRole.implementation.records, byRole.unknown.records], [2, 1, 0]);
+    });
+  });
+});
+
+describe('Implementation, review and rework', () => {
+  it('reads review and rework runs from the Task branch’s commits, and splits a run that crosses the Review there', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
+      ticket(root, 'epic', '01-first.md', 'First');
+      repository(root, at(1, 0), [at(1, 10), 'feat/first']);
+      const commit = (time: string, file: string, text: string): void => {
+        appendFileSync(join(root, file), text);
+        gitAt(time, root, 'add', '.');
+        gitAt(time, root, 'commit', '--quiet', '-m', file);
+      };
+      commit(at(0, 10), 'work.txt', 'the change\n');
+      // The Review is recorded in a commit of its own, and a fix follows it.
+      commit(at(0, 20), 'docs/specs/epic/issues/01-first.md', '\n## Comments\n\n### Review\n\nOne finding.\n');
+      commit(at(0, 40), 'work.txt', 'the fix\n');
+
+      // One session from before the Review to after it, which is split there.
+      session(artifacts, root, 'parent', [...lines(GRILL, at(0, 0), '-before'), ...lines(ABORTED, at(0, 30), '-after')]);
+      // A subagent after the last commit changing anything but the ticket, and ending before the Review: the reviewer.
+      subagent(artifacts, root, 'parent', root, lines(SUBAGENT, at(0, 15)));
+      // A subagent before that commit is implementation work.
+      subagent(artifacts, root, 'early', root, lines(SUBAGENT, at(0, 5), '-early'));
+      await register(daemon, root);
+
+      const task = await usageGet<TaskUsage>(daemon, root, 'epic/01');
+      const after = `claude-code:${String(ABORTED.find((line) => line.type === 'assistant')!.message!.id)}-after`;
+      assert.deepEqual(
+        task.runs.items.map((run) => [run.id, run.role, run.parentRunId, run.startedAt]),
+        [
+          [after, 'rework', null, at(0, 30)],
+          [SUBAGENT_RUN, 'review', 'claude-code:msg_011CfLMEGjvuTXtzfiK6XfsV-before', at(0, 15)],
+          [`${SUBAGENT_RUN}-early`, 'implementation', null, at(0, 5)],
+          ['claude-code:msg_011CfLMEGjvuTXtzfiK6XfsV-before', 'implementation', null, at(0, 0)],
+        ],
+      );
+      const byRole = {
+        // The parent's first record and the early subagent's.
+        implementation: { records: 2, input: reported(4), cachedInput: reported(175067), cacheCreation: reported(31498), output: reported(1558), reasoning: reported(18) },
+        review: SUBAGENT_TOTALS,
+        rework: ABORTED_TOTALS,
+      };
+      assert.deepEqual(task.byRole, byRole);
+
+      const brief = await daemon.call<{ byRole: unknown }>('task.get', { path: root, id: 'epic/01' });
+      assert.equal(brief.status, 200, JSON.stringify(brief.body));
+      assert.deepEqual(brief.body.byRole, byRole);
+
+      const records = (roles: Record<string, Totals>): Record<string, number> => Object.fromEntries(Object.entries(roles).map(([role, totals]) => [role, totals.records]));
+      const project = { product: 0, implementation: 2, review: 1, rework: 1, unknown: 0 };
+      assert.deepEqual(records(available((await usageGet<ProjectUsage>(daemon, root)).byRole)), project);
+      assert.deepEqual(records(available((await snapshotUsage(daemon, root)).byRole)), project);
+
+      // Merged, and its branch deleted: the default branch still holds the Review.
+      gitAt(at(0, 50), root, 'switch', '--quiet', 'main');
+      gitAt(at(0, 50), root, 'merge', '--quiet', '--no-ff', '-m', 'merge', 'feat/first');
+      gitAt(at(0, 50), root, 'branch', '--quiet', '-d', 'feat/first');
+      assert.deepEqual((await usageGet<TaskUsage>(daemon, root, 'epic/01')).byRole, byRole);
+    });
+  });
+
+  it('reads every run of a Task with no Review as implementation', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
+      ticket(root, 'epic', '01-first.md', 'First');
+      repository(root, at(1, 0), [at(1, 10), 'feat/first']);
+      session(artifacts, root, 'parent', lines(GRILL, at(0, 0)));
+      subagent(artifacts, root, 'parent', root, lines(SUBAGENT, at(0, 15)));
+      await register(daemon, root);
+
+      const task = await usageGet<TaskUsage>(daemon, root, 'epic/01');
+      assert.deepEqual(task.runs.items.map((run) => run.role), ['implementation', 'implementation']);
+      assert.deepEqual(task.byRole.review, NO_RECORDS);
+      assert.deepEqual(task.byRole.rework, NO_RECORDS);
     });
   });
 });

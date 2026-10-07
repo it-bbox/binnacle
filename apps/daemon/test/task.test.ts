@@ -4,8 +4,12 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, it } from 'node:test';
+import { sum } from '@binnacle/telemetry';
 import { BODY_LIMIT } from '../src/task.ts';
 import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
+
+/** A Task's usage by role with no runs, as the brief gives it. */
+const NO_ROLES = { implementation: sum([]), review: sum([]), rework: sum([]) };
 
 type Brief = {
   id: string;
@@ -96,6 +100,7 @@ describe('the task brief on the local tracker', () => {
         start: null,
         review: { text: 'Nothing found.', truncated: false },
         diagnostics: [],
+        byRole: NO_ROLES,
       });
     });
   });
