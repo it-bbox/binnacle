@@ -1133,39 +1133,36 @@ function telemetryStep(session: Session, home: string): void {
       continue;
     }
     const text = settingsText(file);
-    const found = exporter.read(text, address);
-    if (found.state === 'binnacle') {
+    const state = exporter.read(text, address);
+    if (state.state === 'binnacle') {
       session.say(`${name} already exports OpenTelemetry to Binnacle at ${address}, in ${where}. It is left as it is.`);
       record(session, 'skipped', `${what}: it already exports to Binnacle`);
       continue;
     }
-    if (found.state === 'elsewhere') {
-      session.say(`${name} already configures an OpenTelemetry export in ${where}: ${found.what}. It is left as it is.`);
-      record(session, 'skipped', `${what}: ${where} already configures one (${found.what})`);
+    if (state.state === 'elsewhere') {
+      session.say(`${name} already has OpenTelemetry settings of its own in ${where}: ${state.what}. They are left as they are.`);
+      record(session, 'skipped', `${what}: ${where} already has settings of its own (${state.what})`);
       continue;
     }
     const change = exporter.change(address);
-    if (found.state === 'unreadable') {
-      session.say(`${where} cannot be read as ${name}'s settings: ${found.why}. binn init does not rewrite it. To export to Binnacle, add this yourself:\n\n${change.trimEnd()}\n`);
+    if (state.state === 'unreadable') {
+      session.say(`${where} cannot be read as ${name}'s settings: ${state.why}. binn init does not rewrite it. To export to Binnacle, add this yourself:\n\n${change.trimEnd()}\n`);
       record(session, 'printed', `${what} for ${where}`);
       continue;
     }
     session.say(`${name} is installed (${why}) and does not export OpenTelemetry. Pointing it at the Binnacle daemon is in the plan.`);
-    const append = exporter.write === 'append';
-    const addition = append && text !== null && text !== '' && !text.endsWith('\n') ? `\n${change}` : change;
     session.plan.push({
       heading:
         `Export ${name}'s OpenTelemetry to the Binnacle daemon at ${address}, JSON over HTTP, prompts not logged, at user scope, outside the repository, ` +
-        (append ? `by appending to ${where}` : `by merging into ${where}, keeping the rest of it`),
-      body: addition,
+        `by ${exporter.how} ${where}${exporter.how === 'merging into' ? ', keeping the rest of it' : ''}`,
+      body: change,
       declined: `configure ${what}`,
       apply() {
         // Only the settings the human saw: a file that changed since it was read is not written.
         if (settingsText(file) !== text) throw new Error('the file changed since the plan was shown');
         mkdirSync(dirname(file), { recursive: true });
-        if (append) appendFileSync(file, addition);
-        else writeFileSync(file, exporter.merged!(text, address), { flag: text === null ? 'wx' : 'w' });
-        record(session, text === null ? 'created' : append ? 'extended' : 'updated', where);
+        writeFileSync(file, exporter.next(text, address), { flag: text === null ? 'wx' : 'w' });
+        record(session, text === null ? 'created' : 'updated', where);
       },
     });
   }

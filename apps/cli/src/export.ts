@@ -12,7 +12,7 @@ import { CONFIG_HOME, onPath, VSCODE_USER_DIRECTORY } from './tools.ts';
  * points them at the daemon, JSON over HTTP, with prompt logging off; for the others, why not.
  */
 
-/** What a harness's settings say about its export. `elsewhere` names what is already there; `unreadable` why the file cannot be read. */
+/** What a harness's settings say about its export. `elsewhere`: settings of the harness's own that are not Binnacle's, naming what is there; `unreadable` why the file cannot be read. */
 export type ExportState = { state: 'binnacle' } | { state: 'none' } | { state: 'elsewhere'; what: string } | { state: 'unreadable'; why: string };
 
 export type Exporter = {
@@ -26,10 +26,10 @@ export type Exporter = {
   read(text: string | null, address: string): ExportState;
   /** The change shown in the plan: the keys merged into a JSON file, or the addition to a TOML one. */
   change(address: string): string;
-  /** `merge`: the JSON file is rewritten with the change merged in; `append`: the change is appended to it. */
-  write: 'merge' | 'append';
-  /** For `merge`: the whole new file. */
-  merged?(text: string | null, address: string): string;
+  /** How the change is made, for the plan's heading. */
+  how: 'merging into' | 'appending to';
+  /** The whole file once the change is made, from a text `read` found readable. */
+  next(text: string | null, address: string): string;
 };
 
 const json = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
@@ -75,9 +75,10 @@ export const exporters = (): Exporter[] => {
       name: 'Claude Code',
       code: 'claude_code',
       executable: 'claude',
+      // Detected as init detects it for its MCP registration, by ~/.claude; its settings are where CLAUDE_CONFIG_DIR puts them.
       userDirectory: join(homedir(), '.claude'),
       file: join(claude, 'settings.json'),
-      write: 'merge',
+      how: 'merging into',
       read(text, address) {
         const parsed = settings(text);
         if (typeof parsed === 'string') return { state: 'unreadable', why: parsed };
@@ -88,7 +89,7 @@ export const exporters = (): Exporter[] => {
         return set.length > 0 ? { state: 'elsewhere', what: `its env sets ${set.join(', ')}` } : { state: 'none' };
       },
       change: (address) => json({ env: claudeEnv(address) }),
-      merged(text, address) {
+      next(text, address) {
         const parsed = settings(text) as Record<string, unknown>;
         return json({ ...parsed, env: { ...(parsed.env as object | undefined), ...claudeEnv(address) } });
       },
@@ -99,12 +100,13 @@ export const exporters = (): Exporter[] => {
       executable: 'codex',
       userDirectory: join(homedir(), '.codex'),
       file: join(codex, 'config.toml'),
-      write: 'append',
+      how: 'appending to',
       read(text, address) {
         if (text === null || !hasOtel(text)) return { state: 'none' };
         return text.includes(JSON.stringify(`${address}/v1/logs`)) ? { state: 'binnacle' } : { state: 'elsewhere', what: 'it has an [otel] table' };
       },
       change: codexOtel,
+      next: (text, address) => `${text && !text.endsWith('\n') ? `${text}\n` : (text ?? '')}${codexOtel(address)}`,
     },
     {
       name: 'Gemini CLI',
@@ -112,7 +114,7 @@ export const exporters = (): Exporter[] => {
       executable: 'gemini',
       userDirectory: join(homedir(), '.gemini'),
       file: join(homedir(), '.gemini', 'settings.json'),
-      write: 'merge',
+      how: 'merging into',
       read(text, address) {
         const parsed = settings(text);
         if (typeof parsed === 'string') return { state: 'unreadable', why: parsed };
@@ -122,7 +124,7 @@ export const exporters = (): Exporter[] => {
         return { state: 'elsewhere', what: 'it has a telemetry block' };
       },
       change: (address) => json({ telemetry: geminiTelemetry(address) }),
-      merged: (text, address) => json({ ...(settings(text) as object), telemetry: geminiTelemetry(address) }),
+      next: (text, address) => json({ ...(settings(text) as object), telemetry: geminiTelemetry(address) }),
     },
   ];
 };

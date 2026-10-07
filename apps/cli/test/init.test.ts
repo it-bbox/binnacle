@@ -2293,7 +2293,7 @@ test('the telemetry export: each supporting harness is pointed at the daemon aft
   assert.equal(userFile(home, '.codex/config.toml'), `model = "o3"\n${CODEX_OTEL}`);
   assert.deepEqual(JSON.parse(userFile(home, '.gemini/settings.json')!), { telemetry: GEMINI_TELEMETRY });
   assert.match(result.stdout, /updated\s+~\/\.claude\/settings\.json/);
-  assert.match(result.stdout, /extended\s+~\/\.codex\/config\.toml/);
+  assert.match(result.stdout, /updated\s+~\/\.codex\/config\.toml/);
   assert.match(result.stdout, /created\s+~\/\.gemini\/settings\.json/);
 
   const again = binnIn(home)(root, '\n', 'init');
@@ -2322,7 +2322,7 @@ test('the telemetry export: --plan --json carries the same changes, and --apply 
   const json = await planJson(t, home, root);
   const item = (name: string) => json.plan.find(({ heading }) => heading.startsWith(`Export ${name}'s OpenTelemetry`));
   assert.equal(item('Claude Code')?.body, `${JSON.stringify({ env: CLAUDE_ENV }, null, 2)}\n`);
-  assert.equal(item('Codex')?.body, `\n${CODEX_OTEL}`);
+  assert.equal(item('Codex')?.body, CODEX_OTEL);
   assert.equal(item('Gemini CLI')?.body, `${JSON.stringify({ telemetry: GEMINI_TELEMETRY }, null, 2)}\n`);
   assert.equal(userFile(home, '.gemini/settings.json'), null);
 
@@ -2351,8 +2351,8 @@ test('the telemetry export: an export already configured elsewhere is left alone
 
   assert.equal(result.status, 0, result.stderr);
   for (const [relative, text] of Object.entries(files)) assert.equal(userFile(home, relative), text);
-  assert.match(result.stdout, /skipped\s+Claude Code's OpenTelemetry export: ~\/\.claude\/settings\.json already configures one \(its env sets OTEL_EXPORTER_OTLP_ENDPOINT\)/);
-  assert.match(result.stdout, /skipped\s+Codex's OpenTelemetry export: ~\/\.codex\/config\.toml already configures one \(it has an \[otel\] table\)/);
+  assert.match(result.stdout, /skipped\s+Claude Code's OpenTelemetry export: ~\/\.claude\/settings\.json already has settings of its own \(its env sets OTEL_EXPORTER_OTLP_ENDPOINT\)/);
+  assert.match(result.stdout, /skipped\s+Codex's OpenTelemetry export: ~\/\.codex\/config\.toml already has settings of its own \(it has an \[otel\] table\)/);
   assert.match(result.stdout, /printed\s+Gemini CLI's OpenTelemetry export for ~\/\.gemini\/settings\.json/);
   assert.match(result.stdout, /"otlpEndpoint": "http:\/\/127\.0\.0\.1:7717"/);
   assert.match(result.stdout, /skipped\s+opencode's OpenTelemetry export: opencode documents no OpenTelemetry export/);

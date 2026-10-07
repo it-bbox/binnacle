@@ -100,7 +100,7 @@ export function telemetryExport(home: string): Finding[] {
     else if (state.state === 'none')
       found.push({ code, area, status: 'gap', reason: `${name} does not export OpenTelemetry (${where}), so Binnacle sees its calls only once its session files are written.`, recommendation: `Run binn init, which shows the export it would add to ${where} and writes it only after you confirm.` });
     else if (state.state === 'elsewhere')
-      found.push({ code, area, status: 'gap', reason: `${name} exports OpenTelemetry elsewhere: ${where}, ${state.what}. It does not export to Binnacle at ${address}.`, recommendation: `binn init leaves an existing export alone. If Binnacle should receive ${name}'s calls, point the export at ${address} yourself.` });
+      found.push({ code, area, status: 'gap', reason: `${name} has OpenTelemetry settings of its own (${where}: ${state.what}), which do not export to Binnacle at ${address}.`, recommendation: `binn init leaves OpenTelemetry settings of a harness's own alone. If Binnacle should receive ${name}'s calls, point its export at ${address} yourself.` });
     else found.push({ code, area, status: 'unknown', reason: `${where} cannot be read as ${name}'s settings: ${state.why}.`, recommendation: `Fix ${where}; binn init prints the export to add to it.` });
   }
   for (const harness of NO_EXPORT) {

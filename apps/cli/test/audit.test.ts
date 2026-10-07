@@ -493,8 +493,8 @@ test('telemetry readiness says, per detected harness, whether it exports OpenTel
   assert.equal(byCode(all, 'telemetry.export_gemini_cli').status, 'ok');
   assert.match(byCode(all, 'telemetry.export_gemini_cli').reason, /exports OpenTelemetry to Binnacle at http:\/\/127\.0\.0\.1:7717/);
   assert.equal(byCode(all, 'telemetry.export_claude_code').status, 'gap');
-  assert.match(byCode(all, 'telemetry.export_claude_code').reason, /elsewhere/);
-  assert.match(byCode(all, 'telemetry.export_claude_code').recommendation!, /leaves an existing export alone/);
+  assert.match(byCode(all, 'telemetry.export_claude_code').reason, /settings of its own/);
+  assert.match(byCode(all, 'telemetry.export_claude_code').recommendation!, /leaves OpenTelemetry settings of a harness's own alone/);
   assert.equal(byCode(all, 'telemetry.export_codex').status, 'gap');
   assert.match(byCode(all, 'telemetry.export_codex').recommendation!, /Run binn init/);
   assert.equal(byCode(all, 'telemetry.export_opencode').status, 'ok');
