@@ -143,6 +143,8 @@ export function openStore(home: string): Store {
   }
 
   db.exec('pragma journal_mode = wal');
+  // Before the compaction table, a cursor may be past compaction boundaries never stored.
+  const markersNew = db.prepare("select 1 from sqlite_master where type = 'table' and name = 'compaction'").get() === undefined;
   // The append-only tier first: it is migrated, never dropped, so it exists before any
   // decision about the projections is made — including the event that records one.
   db.exec(`
@@ -229,6 +231,8 @@ export function openStore(home: string): Store {
   if (!columns.has('source')) db.exec("alter table ingested_record add column source text not null default 'artifact'");
   if (!columns.has('request_id')) db.exec('alter table ingested_record add column request_id text');
   db.exec('create index if not exists ingested_record_session on ingested_record (harness, session_id)');
+  // Every artifact is read again from its start once, for its markers; its records are stored already and stay as they were.
+  if (markersNew) db.exec('delete from ingest_cursor');
 
   const insertEvent = db.prepare(
     'insert into event (type, project_path, occurred_at, payload, provenance) values (?, ?, ?, ?, ?)',

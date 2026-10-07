@@ -33,7 +33,7 @@ type Counts = Record<(typeof COUNTS)[number], number>;
  * Codex writes no compaction boundary. Its `session_meta` names the session's context window
  * (`context_window.window_id`), and each `compacted` record the window it continues in: one
  * that names another than the window in force gives a compaction marker, calculated and with
- * no trigger. What it replaced the history with is never read.
+ * no trigger; one that follows no named window gives none. What it replaced the history with is never read.
  */
 export function readCodex(bytes: Buffer): ArtifactReading {
   let session: CodexSession | null = null;
@@ -53,7 +53,11 @@ export function readCodex(bytes: Buffer): ArtifactReading {
       return session ? null : 'a session meta without an id or a cwd';
     }
     if (value.type === 'compacted' && isObject(payload) && typeof payload.window_id === 'string') {
-      if (payload.window_id === contextWindow) return null;
+      // With no window known before it, no change is seen: the signal is absent, not guessed.
+      if (contextWindow === null || payload.window_id === contextWindow) {
+        contextWindow = payload.window_id;
+        return null;
+      }
       const time = typeof value.timestamp === 'string' ? Date.parse(value.timestamp) : NaN;
       if (Number.isNaN(time)) return 'a compaction without a timestamp';
       if (!Number.isInteger(value.ordinal)) return 'a compaction without an ordinal';

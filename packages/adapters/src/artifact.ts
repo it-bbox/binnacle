@@ -13,7 +13,10 @@ export type ArtifactReading = {
   failure: { line: number; reason: string } | null;
 };
 
-/** What `read` makes of one line: a record, a compaction marker, null for neither, or why it cannot be read. */
+/**
+ * What `read` makes of one line: a record, a compaction marker, null for neither, or why it
+ * cannot be read. A marker is told from a record by its `trigger`, which no record has.
+ */
 export type LineReading = UsageRecord | CompactionMarker | null | string;
 
 /**

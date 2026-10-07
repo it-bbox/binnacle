@@ -219,7 +219,9 @@ export async function usageAndActivity(
 /**
  * A session's context pressure (decision 15): the context its latest call read, and the
  * compactions its artifact shows, the latest of them named, each with its provenance; null
- * where its harness reveals neither, which is no sign of health.
+ * where its harness reveals neither, which is no sign of health. The context is Binnacle's
+ * sum of the counts the call reports (`callContext`), so calculated, or estimated when the
+ * call's counts are.
  */
 export type ContextPressure = {
   context: { tokens: number; provenance: Provenance } | null;
@@ -229,9 +231,11 @@ export type ContextPressure = {
 /** Which session a record or a marker is of, a subagent's its own. */
 type Session = Pick<UsageRecord, 'harness' | 'sessionId' | 'subagentId'>;
 const sessionKey = ({ harness, sessionId, subagentId }: Session): string => [harness, sessionId, subagentId ?? ''].join('\0');
+/** A session's context pressure, as `contextPressures` reads it. */
+type PressureOf = (session: Session) => ContextPressure;
 
 /** Each session's context pressure among `records`, every one stored, and `markers`, oldest first. */
-function contextPressures(records: UsageRecord[], markers: CompactionMarker[]): (session: Session) => ContextPressure {
+function contextPressures(records: UsageRecord[], markers: CompactionMarker[]): PressureOf {
   const latest = new Map<string, UsageRecord>();
   for (const record of records) {
     const known = latest.get(sessionKey(record));
@@ -240,7 +244,11 @@ function contextPressures(records: UsageRecord[], markers: CompactionMarker[]): 
     }
   }
   const compactions = new Map<string, CompactionMarker[]>();
-  for (const marker of markers) compactions.set(sessionKey(marker), [...(compactions.get(sessionKey(marker)) ?? []), marker]);
+  for (const marker of markers) {
+    const seen = compactions.get(sessionKey(marker));
+    if (seen) seen.push(marker);
+    else compactions.set(sessionKey(marker), [marker]);
+  }
   return (session) => {
     const call = latest.get(sessionKey(session));
     const tokens = call === undefined ? null : callContext(call);
@@ -248,7 +256,7 @@ function contextPressures(records: UsageRecord[], markers: CompactionMarker[]): 
     const last = seen.at(-1);
     if (tokens === null && last === undefined) return null;
     return {
-      context: tokens === null ? null : { tokens, provenance: call!.provenance },
+      context: tokens === null ? null : { tokens, provenance: call!.provenance === 'estimated' ? 'estimated' : 'calculated' },
       compactions: { count: seen.length, latest: last === undefined ? null : { at: last.timestamp, trigger: last.trigger, provenance: last.provenance } },
     };
   };
@@ -258,11 +266,11 @@ function contextPressures(records: UsageRecord[], markers: CompactionMarker[]): 
  * One `context.pressure` item per active Product session, a main session on the default
  * branch, whose latest call read at least `threshold` tokens of context, or whose latest
  * compaction is after `checkpointAt`, the project's last recorded checkpoint, or at all when
- * none was recorded.
+ * none was recorded. It names the session, its context where known, and that compaction.
  */
 function pressureAttention(
   observed: (ObservedRun & { records: RunRecord[] })[],
-  pressureOf: (session: Session) => ContextPressure,
+  pressureOf: PressureOf,
   threshold: number,
   checkpointAt: string | null,
 ): Diagnostic[] {
@@ -271,16 +279,18 @@ function pressureAttention(
     const session = run.records[0]!;
     if (run.role !== 'product' || !run.active.value || session.subagentId !== null || raised.has(sessionKey(session))) continue;
     const pressure = pressureOf(session);
-    const reasons: string[] = [];
-    if (pressure?.context && pressure.context.tokens >= threshold) {
-      reasons.push(`read ${pressure.context.tokens} tokens of context in its latest call, at least telemetry.context_pressure.tokens, ${threshold}`);
-    }
+    const crossed = pressure?.context != null && pressure.context.tokens >= threshold;
     const compaction = pressure?.compactions.latest;
-    if (compaction && (checkpointAt === null || compaction.at > checkpointAt)) {
+    const compacted = compaction != null && (checkpointAt === null || compaction.at > checkpointAt);
+    if (!crossed && !compacted) continue;
+    const reasons: string[] = [];
+    if (pressure?.context) {
+      reasons.push(`read ${pressure.context.tokens} tokens of context in its latest call${crossed ? `, at least telemetry.context_pressure.tokens, ${threshold}` : ''}`);
+    }
+    if (compacted) {
       const since = checkpointAt === null ? 'and no checkpoint has been recorded' : `after the last checkpoint at ${checkpointAt}`;
       reasons.push(`compacted (${compaction.trigger ?? 'trigger not reported'}) at ${compaction.at}, ${since}`);
     }
-    if (reasons.length === 0) continue;
     const name = HARNESSES.find((entry) => entry.harness === session.harness)!.name;
     raised.set(sessionKey(session), {
       code: 'context.pressure',
@@ -307,7 +317,7 @@ export type Activity = { running: { items: ActivityRun[]; remainder: number }; r
 function activityOf(
   observed: (ObservedRun & { records: RunRecord[] })[],
   tasks: Pick<TrackerTask, 'id' | 'title'>[],
-  pressureOf: (session: Session) => ContextPressure,
+  pressureOf: PressureOf,
 ): Activity {
   const titles = new Map(tasks.map((task) => [task.id, task.title]));
   const shown = (run: (typeof observed)[number]): ActivityRun => ({ ...runUsage(run, pressureOf), taskTitle: run.taskId === null ? null : (titles.get(run.taskId) ?? null) });
@@ -319,7 +329,7 @@ function activityOf(
   };
 }
 
-const runUsage = ({ records, projectPath: _project, ...run }: ObservedRun & { records: RunRecord[] }, pressureOf: (session: Session) => ContextPressure): RunUsage => ({
+const runUsage = ({ records, projectPath: _project, ...run }: ObservedRun & { records: RunRecord[] }, pressureOf: PressureOf): RunUsage => ({
   ...run,
   totals: sum(records),
   contextPressure: pressureOf(records[0]!),

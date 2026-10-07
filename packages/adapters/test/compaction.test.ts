@@ -129,14 +129,21 @@ describe('Codex compaction markers', () => {
     assert.doesNotMatch(JSON.stringify(reading.markers), new RegExp(CONTENT));
   });
 
-  it('takes the first identifier a compaction names as a change when the session meta names none, and gives none for a compaction that names none', () => {
-    const reading = readCodex(bytes([meta(null), compacted(3, '2026-10-07T10:00:00.000Z', null), compacted(5, '2026-10-07T10:10:00.000Z', '01a0e853-d89d-74a2-b2f9-c515cccbe704')]));
-    assert.deepEqual(reading.markers.map((marker) => marker.naturalKey), [`${ROLLOUT}:5`]);
+  it('sees no change in the first identifier a compaction names when the session meta names none, nor in a compaction that names none, and a change after it', () => {
+    const reading = readCodex(
+      bytes([
+        meta(null),
+        compacted(3, '2026-10-07T10:00:00.000Z', null),
+        compacted(5, '2026-10-07T10:10:00.000Z', '01a0e853-d89d-74a2-b2f9-c515cccbe704'),
+        compacted(8, '2026-10-07T10:20:00.000Z', '01a0ec2f-be6e-78a2-8ffe-7f2591454817'),
+      ]),
+    );
+    assert.deepEqual(reading.markers.map((marker) => marker.naturalKey), [`${ROLLOUT}:8`]);
   });
 
-  it('stops at a compaction before the session meta, with the reason', () => {
-    const reading = readCodex(bytes([compacted(3, '2026-10-07T10:00:00.000Z', '01a0e853-d89d-74a2-b2f9-c515cccbe704')]));
-    assert.deepEqual(reading.failure, { line: 1, reason: 'a compaction before the session meta' });
+  it('stops at a compaction without a timestamp, with the reason', () => {
+    const reading = readCodex(bytes([meta('01a0e491-e764-7952-8750-42953a91f830'), { ...compacted(3, '', '01a0e853-d89d-74a2-b2f9-c515cccbe704'), timestamp: undefined }]));
+    assert.deepEqual(reading.failure, { line: 2, reason: 'a compaction without a timestamp' });
     assert.deepEqual(reading.markers, []);
   });
 });

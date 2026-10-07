@@ -917,8 +917,8 @@ type TaskUsage = Pick<Usage, 'importing'> & {
   runs: { items: Run[]; remainder: number };
 };
 
-/** The context pressure of a session whose latest call read `tokens` of context, as Claude Code reports it, and that never compacted. */
-const pressure = (tokens: number) => ({ context: { tokens, provenance: 'provider_reported' }, compactions: { count: 0, latest: null } });
+/** The context pressure of a session whose latest call read `tokens` of context, Binnacle's sum of what Claude Code reports, and that never compacted. */
+const pressure = (tokens: number) => ({ context: { tokens, provenance: 'calculated' }, compactions: { count: 0, latest: null } });
 
 async function usageGet<T>(daemon: TestDaemon, root: string, task?: string): Promise<T> {
   const result = await daemon.call<T>('usage.get', { path: root, ...(task === undefined ? {} : { task }) });

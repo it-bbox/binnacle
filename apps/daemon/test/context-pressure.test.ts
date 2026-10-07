@@ -3,8 +3,10 @@ import { execFileSync } from 'node:child_process';
 import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { setTimeout } from 'node:timers/promises';
 import { after, describe, it } from 'node:test';
+import { storePath } from '../src/home.ts';
 import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
 
 /**
@@ -130,7 +132,8 @@ describe('Context pressure', () => {
       ]);
       const [running] = body.activity.running.items;
       assert.equal(running?.id, 'claude-code:msg_011CfLMEGjvuTXtzfiK6XfsV-product');
-      assert.deepEqual(running.contextPressure, { context: { tokens: GRILL_CONTEXT, provenance: 'provider_reported' }, compactions: { count: 0, latest: null } });
+      // Binnacle's sum of the counts Claude Code reports.
+      assert.deepEqual(running.contextPressure, { context: { tokens: GRILL_CONTEXT, provenance: 'calculated' }, compactions: { count: 0, latest: null } });
     });
   });
 
@@ -158,7 +161,7 @@ describe('Context pressure', () => {
       // No checkpoint was ever recorded, so every compaction is after it.
       const first = await snapshot(daemon, root);
       assert.deepEqual(pressure(first.attention), [
-        { code: 'context.pressure', message: `The Product session compacted in Claude Code compacted (auto) at ${compactedAt}, and no checkpoint has been recorded. ${SUGGESTION}` },
+        { code: 'context.pressure', message: `The Product session compacted in Claude Code read ${GRILL_CONTEXT} tokens of context in its latest call, and compacted (auto) at ${compactedAt}, and no checkpoint has been recorded. ${SUGGESTION}` },
       ]);
       assert.deepEqual(first.activity.running.items[0]?.contextPressure?.compactions, { count: 1, latest: { at: compactedAt, trigger: 'auto', provenance: 'provider_reported' } });
 
@@ -172,7 +175,7 @@ describe('Context pressure', () => {
       assert.deepEqual(pressure((await snapshot(daemon, root)).attention), [
         {
           code: 'context.pressure',
-          message: `The Product session compacted in Claude Code compacted (manual) at ${again}, after the last checkpoint at ${checkpoint.occurredAt}. ${SUGGESTION}`,
+          message: `The Product session compacted in Claude Code read ${GRILL_CONTEXT} tokens of context in its latest call, and compacted (manual) at ${again}, after the last checkpoint at ${checkpoint.occurredAt}. ${SUGGESTION}`,
         },
       ]);
     });
@@ -200,7 +203,7 @@ describe('Context pressure', () => {
 
       const body = await snapshot(daemon, root);
       assert.deepEqual(pressure(body.attention), [
-        { code: 'context.pressure', message: `The Product session rotated in Codex compacted (trigger not reported) at ${rotatedAt}, and no checkpoint has been recorded. ${SUGGESTION}` },
+        { code: 'context.pressure', message: `The Product session rotated in Codex read 500 tokens of context in its latest call, and compacted (trigger not reported) at ${rotatedAt}, and no checkpoint has been recorded. ${SUGGESTION}` },
       ]);
       // The latest call's input, the difference of the running totals, is Binnacle's calculation.
       assert.deepEqual(body.activity.running.items[0]?.contextPressure, {
@@ -227,6 +230,34 @@ describe('Context pressure', () => {
       assert.equal(body.activity.running.items[0]?.contextPressure, null);
       assert.deepEqual(pressure(body.attention), []);
     });
+  });
+
+  it('reads the compactions a store from before them was read past, once, and counts no record twice', async () => {
+    const home = temporary('binnacle-pressure-home-');
+    const claudeCode = temporary('binnacle-claude-');
+    const root = makeProject();
+    const compactedAt = minutesAgo(5);
+    claudeSession(claudeCode, root, 'upgraded', [...call(minutesAgo(6), 'before'), boundary(compactedAt, 'f0151d72-35ae-462a-bf26-5ccb7807569f', 'auto'), ...call(minutesAgo(1), 'after')]);
+    const first = await startTestDaemon({ home, artifacts: { claudeCode } });
+    try {
+      await snapshot(first, root);
+    } finally {
+      await first.stop();
+    }
+    // The store as a Binnacle without markers left it: the file read to its end, and no compaction kept.
+    const db = new DatabaseSync(storePath(home));
+    db.exec('drop table compaction');
+    db.close();
+
+    const second = await startTestDaemon({ home, artifacts: { claudeCode } });
+    try {
+      const body = await snapshot(second, root);
+      assert.deepEqual(body.activity.running.items[0]?.contextPressure?.compactions, { count: 1, latest: { at: compactedAt, trigger: 'auto', provenance: 'provider_reported' } });
+      const records = (await second.call<{ totals: { records: number } }>('usage.get', { path: root })).body.totals.records;
+      assert.equal(records, 2);
+    } finally {
+      await second.stop();
+    }
   });
 
   it('refuses a threshold that is not a positive number of tokens', async () => {
