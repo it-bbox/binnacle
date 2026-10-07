@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test, type TestContext } from 'node:test';
 
@@ -461,6 +461,48 @@ test('telemetry readiness counts the sessions of this repository only, and shows
   assert.equal(byCode(all, 'telemetry.codex').status, 'ok');
   assert.match(byCode(all, 'telemetry.codex').reason, /1 Codex session\b/);
   assert.ok(!JSON.stringify(all).includes('SECRET PROMPT'));
+});
+
+test('telemetry readiness says, per detected harness, whether it exports OpenTelemetry to Binnacle', (t) => {
+  const root = fixture(t);
+  const home = scratch(t);
+  const address = 'http://127.0.0.1:7717';
+  write(home, {
+    // Installed by their user directories; settings where CLAUDE_CONFIG_DIR and CODEX_HOME point.
+    '.claude/.keep': '',
+    '.codex/.keep': '',
+    '.gemini/settings.json': JSON.stringify({ telemetry: { enabled: true, target: 'local', otlpEndpoint: address, otlpProtocol: 'http', logPrompts: false } }),
+    'claude-config/settings.json': JSON.stringify({ env: { OTEL_EXPORTER_OTLP_ENDPOINT: 'http://collector:4318' } }),
+    'xdg/opencode/.keep': '',
+  });
+  // PATH holds git and no harness, so that each is detected by its user directory alone.
+  const bin = join(home, 'bin');
+  mkdirSync(bin);
+  const git = (process.env.PATH ?? '').split(delimiter).map((dir) => join(dir, 'git')).find(existsSync)!;
+  symlinkSync(git, join(bin, 'git'));
+  const run = (env: Record<string, string>) => {
+    const result = spawnSync(process.execPath, [BINN, 'audit', '--json'], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...baseEnv, PATH: bin, HOME: home, BINNACLE_HOME: join(home, '.binnacle'), CLAUDE_CONFIG_DIR: join(home, 'claude-config'), CODEX_HOME: join(home, 'codex-home'), XDG_CONFIG_HOME: join(home, 'xdg'), ...env },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    return findings(result.stdout);
+  };
+  const all = run({ BINNACLE_PORT: '7717' });
+  assert.equal(byCode(all, 'telemetry.export_gemini_cli').status, 'ok');
+  assert.match(byCode(all, 'telemetry.export_gemini_cli').reason, /exports OpenTelemetry to Binnacle at http:\/\/127\.0\.0\.1:7717/);
+  assert.equal(byCode(all, 'telemetry.export_claude_code').status, 'gap');
+  assert.match(byCode(all, 'telemetry.export_claude_code').reason, /elsewhere/);
+  assert.match(byCode(all, 'telemetry.export_claude_code').recommendation!, /leaves an existing export alone/);
+  assert.equal(byCode(all, 'telemetry.export_codex').status, 'gap');
+  assert.match(byCode(all, 'telemetry.export_codex').recommendation!, /Run binn init/);
+  assert.equal(byCode(all, 'telemetry.export_opencode').status, 'ok');
+  assert.match(byCode(all, 'telemetry.export_opencode').reason, /documents no OpenTelemetry export/);
+  assert.ok(all.filter(({ code }) => code.startsWith('telemetry.export_')).every(({ area }) => area === 'telemetry'));
+
+  // Port 0 and no daemon: there is no address to compare with.
+  assert.equal(byCode(run({ BINNACLE_PORT: '0' }), 'telemetry.export_gemini_cli').status, 'unknown');
 });
 
 /** The roadmap's format, as Binnacle reads it: the epic table and a current focus ending with a Next action. */

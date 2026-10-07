@@ -27,6 +27,7 @@ import {
   settingsPath,
 } from '@binnacle/daemon';
 import { EXIT, type ExitCode } from './exit.ts';
+import { daemonAddress, detected, exporters, NO_EXPORT, settingsText } from './export.ts';
 import { isRecord, sessionHistory } from './history.ts';
 import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, mattPocockFiles, ROADMAP_SKELETON, roadmapGaps } from './layout.ts';
 import { register } from './project-commands.ts';
@@ -146,6 +147,8 @@ export async function init(
     toolsStep(session, tools);
     session.say('');
     serversStep(session, tools, harnesses);
+    session.say('');
+    telemetryStep(session, home);
     session.say('');
     const builds = await graphIgnoreStep(session, tools);
     session.say('');
@@ -522,7 +525,7 @@ const HARNESSES: Harness[] = [
 
 /** Step 4: the MCP registration for each detected harness, then a generic snippet for any other. Returns the detected harnesses. */
 function harnessStep(session: Session): Harness[] {
-  const found = HARNESSES.map((harness) => ({ harness, reason: detect(harness) })).filter(({ reason }) => reason !== null);
+  const found = HARNESSES.map((harness) => ({ harness, reason: detected(harness) })).filter(({ reason }) => reason !== null);
   if (found.length === 0) session.say(`No known harness is installed (${HARNESSES.map(({ name }) => name).join(', ')}).\n`);
 
   for (const { harness, reason } of found) {
@@ -546,12 +549,6 @@ function harnessStep(session: Session): Harness[] {
   return found.map(({ harness }) => harness);
 }
 
-function detect(harness: Harness): string | null {
-  if (onPath(harness.executable)) return `${harness.executable} is on PATH`;
-  if (existsSync(harness.userDirectory)) return `${harness.userDirectory} exists`;
-  return null;
-}
-
 /**
  * ponytail: a textual check, not a parse. A `"binnacle":` key anywhere in a JSON file counts as
  * naming it, and so does, in a TOML file, a `[mcp_servers.binnacle]` table or a `binnacle` or
@@ -565,7 +562,7 @@ const namesBinnacle = (text: string): boolean =>
 /**
  * Step 5: the `binnacle` plugin from this very package, so that the skills match the `binn`
  * that serves their tools (ADR-0027). Only through Claude Code's own CLI, at user scope:
- * binn init never edits Claude Code's settings files.
+ * the plugins are never written into Claude Code's settings files by hand.
  */
 function pluginStep(session: Session, plugins: ClaudePlugins): void {
   const what = 'the binnacle plugin';
@@ -718,7 +715,7 @@ const listedAs = (ids: string[], id: string): string | undefined => ids.find((li
  * manifest is proposed, which declares what is found. A failed listing is reported here.
  */
 function listClaudePlugins(session: Session): ClaudePlugins {
-  if (!detect(HARNESSES.find(({ executable }) => executable === 'claude')!)) return { reason: 'Claude Code is not detected' };
+  if (!detected(HARNESSES.find(({ executable }) => executable === 'claude')!)) return { reason: 'Claude Code is not detected' };
   const listing = ['plugin', 'list', '--json'];
   session.say(`Asking Claude Code for its plugins (${shownClaude(listing)})...`);
   const list = spawnSync('claude', listing, { cwd: session.root, encoding: 'utf8' });
@@ -1112,6 +1109,70 @@ function serversStep(session: Session, tools: ToolState[], harnesses: Harness[])
         });
       },
     });
+  }
+}
+
+/**
+ * Step 9b: the OpenTelemetry export of each detected harness that has one (spec of epic 10,
+ * *`binn init`'s telemetry step*), in its user-scope settings, outside the repository: pointed at
+ * the daemon's address, JSON over HTTP, prompt logging off. An export already configured, to
+ * Binnacle or elsewhere, is left as it is and named; a file that cannot be read gets the change
+ * printed. A detected harness without an export is named with its reason.
+ */
+function telemetryStep(session: Session, home: string): void {
+  const address = daemonAddress(home);
+  for (const exporter of exporters()) {
+    const why = detected(exporter);
+    if (why === null) continue;
+    const { name, file } = exporter;
+    const what = `${name}'s OpenTelemetry export`;
+    const where = tilde(file);
+    if (address === null) {
+      session.say(`${name} is installed (${why}), but the Binnacle daemon is not running and BINNACLE_PORT is 0, so there is no address to export to. Start the daemon, then run binn init again.`);
+      record(session, 'skipped', `${what}: the daemon's address is not known`);
+      continue;
+    }
+    const text = settingsText(file);
+    const found = exporter.read(text, address);
+    if (found.state === 'binnacle') {
+      session.say(`${name} already exports OpenTelemetry to Binnacle at ${address}, in ${where}. It is left as it is.`);
+      record(session, 'skipped', `${what}: it already exports to Binnacle`);
+      continue;
+    }
+    if (found.state === 'elsewhere') {
+      session.say(`${name} already configures an OpenTelemetry export in ${where}: ${found.what}. It is left as it is.`);
+      record(session, 'skipped', `${what}: ${where} already configures one (${found.what})`);
+      continue;
+    }
+    const change = exporter.change(address);
+    if (found.state === 'unreadable') {
+      session.say(`${where} cannot be read as ${name}'s settings: ${found.why}. binn init does not rewrite it. To export to Binnacle, add this yourself:\n\n${change.trimEnd()}\n`);
+      record(session, 'printed', `${what} for ${where}`);
+      continue;
+    }
+    session.say(`${name} is installed (${why}) and does not export OpenTelemetry. Pointing it at the Binnacle daemon is in the plan.`);
+    const append = exporter.write === 'append';
+    const addition = append && text !== null && text !== '' && !text.endsWith('\n') ? `\n${change}` : change;
+    session.plan.push({
+      heading:
+        `Export ${name}'s OpenTelemetry to the Binnacle daemon at ${address}, JSON over HTTP, prompts not logged, at user scope, outside the repository, ` +
+        (append ? `by appending to ${where}` : `by merging into ${where}, keeping the rest of it`),
+      body: addition,
+      declined: `configure ${what}`,
+      apply() {
+        // Only the settings the human saw: a file that changed since it was read is not written.
+        if (settingsText(file) !== text) throw new Error('the file changed since the plan was shown');
+        mkdirSync(dirname(file), { recursive: true });
+        if (append) appendFileSync(file, addition);
+        else writeFileSync(file, exporter.merged!(text, address), { flag: text === null ? 'wx' : 'w' });
+        record(session, text === null ? 'created' : append ? 'extended' : 'updated', where);
+      },
+    });
+  }
+  for (const harness of NO_EXPORT) {
+    if (detected(harness) === null) continue;
+    session.say(`${harness.name} is not configured to export OpenTelemetry: ${harness.reason}.`);
+    record(session, 'skipped', `${harness.name}'s OpenTelemetry export: ${harness.reason}`);
   }
 }
 

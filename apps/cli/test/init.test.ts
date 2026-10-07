@@ -56,7 +56,8 @@ function makeRepository(t: TestContext, name: string, files: Record<string, stri
   return root;
 }
 
-type Home = { home: string; binnacleHome: string; bin: string };
+/** `env`: what a test adds to the environment `binn` runs with. */
+type Home = { home: string; binnacleHome: string; bin: string; env?: NodeJS.ProcessEnv };
 
 /**
  * A temporary home whose `bin` is the whole PATH `binn init` sees: `git`, and whatever fake
@@ -127,6 +128,7 @@ const envFor = (home: Home): NodeJS.ProcessEnv => ({
   BINNACLE_PORT: '0',
   PATH: home.bin,
   XDG_CONFIG_HOME: join(home.home, '.config'),
+  ...home.env,
 });
 
 /** `binn` run with piped input, which reads as a terminal unless `terminal` is false. */
@@ -2254,4 +2256,116 @@ test('binn init refuses an empty --skip-harness as a usage error, and --help nam
   }
   const { stdout } = spawnSync(process.execPath, [BINN, '--help'], { encoding: 'utf8' });
   assert.match(stdout, /--skip-harness <id>/);
+});
+
+/** The address the export points at in these tests: no daemon runs, so the one it would bind, at a fixed port. */
+const OTEL = 'http://127.0.0.1:7717';
+const CLAUDE_ENV = { CLAUDE_CODE_ENABLE_TELEMETRY: '1', OTEL_LOGS_EXPORTER: 'otlp', OTEL_EXPORTER_OTLP_PROTOCOL: 'http/json', OTEL_EXPORTER_OTLP_ENDPOINT: OTEL };
+const CODEX_OTEL = `[otel]\nexporter = { otlp-http = { endpoint = "${OTEL}/v1/logs", protocol = "json" } }\nlog_user_prompt = false\n`;
+const GEMINI_TELEMETRY = { enabled: true, target: 'local', otlpEndpoint: OTEL, otlpProtocol: 'http', logPrompts: false };
+
+/** A home where Claude Code, Codex and Gemini CLI are installed by their user directories, Claude Code's and Codex's settings already holding something of the owner's. */
+function exportingHome(t: TestContext): Home {
+  const home = makeHome(t);
+  home.env = { BINNACLE_PORT: '7717' };
+  installUserDirectory(home, '.gemini');
+  installUserDirectory(home, '.codex');
+  installUserDirectory(home, '.claude');
+  writeFileSync(join(home.home, '.claude', 'settings.json'), JSON.stringify({ theme: 'dark', env: { FOO: 'bar' } }));
+  writeFileSync(join(home.home, '.codex', 'config.toml'), 'model = "o3"');
+  return home;
+}
+
+const userFile = (home: Home, relative: string): string | null => (existsSync(join(home.home, relative)) ? readFileSync(join(home.home, relative), 'utf8') : null);
+
+test('the telemetry export: each supporting harness is pointed at the daemon after the one yes, keeping its settings, and is left alone at the next run', (t) => {
+  const home = exportingHome(t);
+  const root = makeRepository(t, 'export-written');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  // Each change is shown before the one question.
+  const beforeQuestion = result.stdout.slice(0, result.stdout.indexOf(PLAN_QUESTION));
+  for (const name of ['Claude Code', 'Codex', 'Gemini CLI']) assert.match(beforeQuestion, new RegExp(`Export ${name}'s OpenTelemetry to the Binnacle daemon at ${OTEL}, JSON over HTTP, prompts not logged`));
+  assert.match(beforeQuestion, /OTEL_EXPORTER_OTLP_PROTOCOL/);
+  assert.deepEqual(JSON.parse(userFile(home, '.claude/settings.json')!), { theme: 'dark', env: { FOO: 'bar', ...CLAUDE_ENV } });
+  assert.equal(userFile(home, '.codex/config.toml'), `model = "o3"\n${CODEX_OTEL}`);
+  assert.deepEqual(JSON.parse(userFile(home, '.gemini/settings.json')!), { telemetry: GEMINI_TELEMETRY });
+  assert.match(result.stdout, /updated\s+~\/\.claude\/settings\.json/);
+  assert.match(result.stdout, /extended\s+~\/\.codex\/config\.toml/);
+  assert.match(result.stdout, /created\s+~\/\.gemini\/settings\.json/);
+
+  const again = binnIn(home)(root, '\n', 'init');
+  assert.equal(again.status, 0, again.stderr);
+  for (const name of ['Claude Code', 'Codex', 'Gemini CLI']) assert.match(again.stdout, new RegExp(`skipped\\s+${name}'s OpenTelemetry export: it already exports to Binnacle`));
+  assert.doesNotMatch(again.stdout, /Export .*'s OpenTelemetry/);
+});
+
+test('the telemetry export: a declined plan writes no harness settings', (t) => {
+  const home = exportingHome(t);
+  const root = makeRepository(t, 'export-declined');
+
+  const result = binnIn(home)(root, '\nn\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(userFile(home, '.claude/settings.json'), JSON.stringify({ theme: 'dark', env: { FOO: 'bar' } }));
+  assert.equal(userFile(home, '.codex/config.toml'), 'model = "o3"');
+  assert.equal(userFile(home, '.gemini/settings.json'), null);
+  assert.match(result.stdout, /declined\s+configure Gemini CLI's OpenTelemetry export/);
+});
+
+test('the telemetry export: --plan --json carries the same changes, and --apply writes them', async (t) => {
+  const home = exportingHome(t);
+  const root = makeRepository(t, 'export-applied');
+
+  const json = await planJson(t, home, root);
+  const item = (name: string) => json.plan.find(({ heading }) => heading.startsWith(`Export ${name}'s OpenTelemetry`));
+  assert.equal(item('Claude Code')?.body, `${JSON.stringify({ env: CLAUDE_ENV }, null, 2)}\n`);
+  assert.equal(item('Codex')?.body, `\n${CODEX_OTEL}`);
+  assert.equal(item('Gemini CLI')?.body, `${JSON.stringify({ telemetry: GEMINI_TELEMETRY }, null, 2)}\n`);
+  assert.equal(userFile(home, '.gemini/settings.json'), null);
+
+  const result = binnIn(home, false)(root, '', 'init', '--apply', json.id);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(userFile(home, '.codex/config.toml'), `model = "o3"\n${CODEX_OTEL}`);
+  assert.deepEqual(JSON.parse(userFile(home, '.gemini/settings.json')!), { telemetry: GEMINI_TELEMETRY });
+});
+
+test('the telemetry export: an export already configured elsewhere is left alone and named, an unreadable file gets the change printed, and a harness without export is named with its reason', (t) => {
+  const home = makeHome(t);
+  home.env = { BINNACLE_PORT: '7717' };
+  installUserDirectory(home, '.claude');
+  installUserDirectory(home, '.codex');
+  installUserDirectory(home, '.gemini');
+  installExecutable(home, 'opencode');
+  const files = {
+    '.claude/settings.json': JSON.stringify({ env: { OTEL_EXPORTER_OTLP_ENDPOINT: 'http://collector:4318' } }),
+    '.codex/config.toml': '[otel]\nexporter = "none"\n',
+    '.gemini/settings.json': '{ // mine\n  "telemetry": { "enabled": true }\n}\n',
+  };
+  for (const [relative, text] of Object.entries(files)) writeFileSync(join(home.home, relative), text);
+  const root = makeRepository(t, 'export-elsewhere');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  for (const [relative, text] of Object.entries(files)) assert.equal(userFile(home, relative), text);
+  assert.match(result.stdout, /skipped\s+Claude Code's OpenTelemetry export: ~\/\.claude\/settings\.json already configures one \(its env sets OTEL_EXPORTER_OTLP_ENDPOINT\)/);
+  assert.match(result.stdout, /skipped\s+Codex's OpenTelemetry export: ~\/\.codex\/config\.toml already configures one \(it has an \[otel\] table\)/);
+  assert.match(result.stdout, /printed\s+Gemini CLI's OpenTelemetry export for ~\/\.gemini\/settings\.json/);
+  assert.match(result.stdout, /"otlpEndpoint": "http:\/\/127\.0\.0\.1:7717"/);
+  assert.match(result.stdout, /skipped\s+opencode's OpenTelemetry export: opencode documents no OpenTelemetry export/);
+});
+
+test('the telemetry export: with no daemon running and BINNACLE_PORT 0, there is no address, and nothing is planned for it', (t) => {
+  const home = makeHome(t);
+  installUserDirectory(home, '.gemini');
+  const root = makeRepository(t, 'export-no-address');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(userFile(home, '.gemini/settings.json'), null);
+  assert.match(result.stdout, /skipped\s+Gemini CLI's OpenTelemetry export: the daemon's address is not known/);
 });

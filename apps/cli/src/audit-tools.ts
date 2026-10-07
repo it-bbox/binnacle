@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { type Finding } from '@binnacle/core';
 import { MANIFEST_RELATIVE, resolveArtifactRoots } from '@binnacle/daemon';
+import { daemonAddress, detected, exporters, NO_EXPORT, settingsText } from './export.ts';
 import { sessionHistory } from './history.ts';
 import { binnacleSkills, declaredCapabilities, INSTALLED_SKILLS, mcpSources, registeredIn, tilde, TOOLS } from './tools.ts';
 
@@ -75,4 +76,35 @@ export async function telemetry(root: string): Promise<Finding[]> {
       recommendation: `Nothing to do for a new project. If ${name} keeps its sessions elsewhere, point ${env} at them.`,
     };
   });
+}
+
+/**
+ * Per detected harness, whether its user-scope settings export OpenTelemetry to Binnacle, read as
+ * `binn init` reads them; a detected harness without an export says so. Nothing is written or sent.
+ */
+export function telemetryExport(home: string): Finding[] {
+  const area = 'telemetry';
+  const address = daemonAddress(home);
+  const found: Finding[] = [];
+  for (const exporter of exporters()) {
+    if (detected(exporter) === null) continue;
+    const { name, code: suffix, file } = exporter;
+    const code = `telemetry.export_${suffix}`;
+    const where = tilde(file);
+    if (address === null) {
+      found.push({ code, area, status: 'unknown', reason: `The Binnacle daemon is not running and BINNACLE_PORT is 0, so whether ${name} exports to it cannot be told.`, recommendation: 'Start the daemon, then run binn audit again.' });
+      continue;
+    }
+    const state = exporter.read(settingsText(file), address);
+    if (state.state === 'binnacle') found.push({ code, area, status: 'ok', reason: `${name} exports OpenTelemetry to Binnacle at ${address}, in ${where}.` });
+    else if (state.state === 'none')
+      found.push({ code, area, status: 'gap', reason: `${name} does not export OpenTelemetry (${where}), so Binnacle sees its calls only once its session files are written.`, recommendation: `Run binn init, which shows the export it would add to ${where} and writes it only after you confirm.` });
+    else if (state.state === 'elsewhere')
+      found.push({ code, area, status: 'gap', reason: `${name} exports OpenTelemetry elsewhere: ${where}, ${state.what}. It does not export to Binnacle at ${address}.`, recommendation: `binn init leaves an existing export alone. If Binnacle should receive ${name}'s calls, point the export at ${address} yourself.` });
+    else found.push({ code, area, status: 'unknown', reason: `${where} cannot be read as ${name}'s settings: ${state.why}.`, recommendation: `Fix ${where}; binn init prints the export to add to it.` });
+  }
+  for (const harness of NO_EXPORT) {
+    if (detected(harness) !== null) found.push({ code: `telemetry.export_${harness.code}`, area, status: 'ok', reason: `${harness.name} does not export to Binnacle: ${harness.reason}.` });
+  }
+  return found;
 }
