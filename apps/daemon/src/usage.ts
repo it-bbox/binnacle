@@ -6,7 +6,10 @@ import {
   codexSession,
   readClaudeCode,
   readCodex,
+  readBranchCommit,
   readDefaultBranch,
+  readDoneCommits,
+  readFirstMention,
   readGeminiCli,
   readFirstReviews,
   readGitHubChangesRequested,
@@ -60,6 +63,18 @@ export const DEFAULT_PRESSURE_TOKENS = 150_000;
 
 /** Why opencode never reaches level 4, which `binn init` and `binn audit` say too: it has no export to point at the daemon. */
 export const OPENCODE_NO_EXPORT = 'opencode documents no OpenTelemetry export, so Binnacle counts it only from its database, each call once it has finished';
+
+/** Why `derived.ponytail` compares nothing, in the words the dashboard translates. */
+export const PONYTAIL_REASONS = {
+  noCommit: 'No commit on the default branch adds Ponytail to AGENTS.md or CLAUDE.md, so there is no before and after.',
+  unread: "Git cannot read the default branch's history, so Ponytail's date is not known.",
+  noneBefore: 'No Task with runs was completed before Ponytail, so there is nothing to compare.',
+  noneAfter: 'No Task with runs has been completed since Ponytail, so there is nothing to compare.',
+  neither: 'No Task with runs was set DONE by a commit on the default branch, so there is nothing to compare.',
+} as const;
+
+/** The instruction files read for Ponytail, as `binn audit` reads them: one set where `CLAUDE.md` imports `AGENTS.md`. */
+const INSTRUCTION_FILES = ['AGENTS.md', 'CLAUDE.md'];
 
 /**
  * The harnesses Binnacle counts, in the order the snapshot lists them, with their names and
@@ -391,6 +406,22 @@ export type Derived = {
         remainder: number;
       }
     | Unavailable;
+  /**
+   * Ponytail's date, `since`, the first commit on the default branch adding the word to the
+   * instruction files, and the mean totals of the `DONE` Tasks with runs completed before and
+   * after it, each by the commit that set it `DONE`; `undated` counts those no such commit
+   * dates. Without a date, no sides; `reason` says why a comparison is missing.
+   */
+  ponytail:
+    | {
+        provenance: 'calculated';
+        since: { commit: string; at: string } | null;
+        before: PonytailSide | null;
+        after: PonytailSide | null;
+        undated: number;
+        reason: string | null;
+      }
+    | Unavailable;
 };
 
 /**
@@ -398,6 +429,8 @@ export type Derived = {
  * reports none of them, partial when it reports only some.
  */
 export type Context = { tokens: number | null; partial: boolean };
+
+type PonytailSide = { tasks: number; mean: Totals | null };
 
 /** A run as `usage.get` shows it: the observed run, less its project, with its totals and its session's context pressure. */
 export type RunUsage = Omit<ObservedRun, 'projectPath'> & { totals: Totals; contextPressure: ContextPressure };
@@ -439,12 +472,12 @@ export async function usageGet(
   // Since the earliest timestamp there is: every record stored, whatever the window is now.
   const records = context.store.usage(projectPath, '');
   if (!Array.isArray(tasks)) {
-    const derived = { perCompletedTask: tasks, runsPerTask: tasks, weekly: weekly(records), reworkShare: tasks, firstPassAcceptance: tasks, contextGrowth: tasks };
+    const derived = { perCompletedTask: tasks, runsPerTask: tasks, weekly: weekly(records), reworkShare: tasks, firstPassAcceptance: tasks, contextGrowth: tasks, ponytail: tasks };
     return { importing, totals: sum(records), tasks, unassigned: tasks, byRole: tasks, derived };
   }
   const { runs: attributed, reworkUnread, reviewed } = await runs(records, projectPath, tasks, context.home, manifest, checkouts);
   if (!found) {
-    const derived = { ...perTask(attributed, tasks, reworkUnread, reviewed), weekly: weekly(records), contextGrowth: contextGrowth(attributed) };
+    const derived = { ...(await perTask(projectPath, attributed, tasks, reworkUnread, reviewed)), weekly: weekly(records), contextGrowth: contextGrowth(attributed) };
     return { importing, totals: sum(records), ...byTask(attributed, tasks), byRole: byRole(attributed, ROLES), derived };
   }
 
@@ -728,13 +761,14 @@ function byTask(attributed: { taskId: string | null; records: RunRecord[] }[], t
 /** Code-unit order of ids, so the same items come in the same order anywhere. */
 const byId = (a: { id: string }, b: { id: string }): number => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
-/** The derived metrics per Task: those of the `DONE` Tasks, and the runs of every Task. */
-function perTask(
+/** The derived metrics per Task: those of the `DONE` Tasks, before and after Ponytail too, and the runs of every Task. */
+async function perTask(
+  projectPath: string,
   attributed: { taskId: string | null; role: RunRole; records: RunRecord[] }[],
-  tasks: Pick<TrackerTask, 'id' | 'title' | 'state'>[],
+  tasks: Pick<TrackerTask, 'id' | 'title' | 'state' | 'ticket'>[],
   reworkUnread: Map<string, string>,
   reviewed: Set<string>,
-): Pick<Derived, 'perCompletedTask' | 'runsPerTask' | 'reworkShare' | 'firstPassAcceptance'> {
+): Promise<Pick<Derived, 'perCompletedTask' | 'runsPerTask' | 'reworkShare' | 'firstPassAcceptance' | 'ponytail'>> {
   const runsOf = new Map<string, { role: RunRole; records: RunRecord[] }[]>();
   for (const run of attributed) {
     if (run.taskId === null) continue;
@@ -746,8 +780,9 @@ function perTask(
   const done = tasks.filter((task) => task.state === 'DONE');
   const completed = done.flatMap((task) => {
     const own = runsOf.get(task.id);
-    return own === undefined ? [] : [{ id: task.id, title: task.title, runs: own.length, totals: sum(own.flatMap((run) => run.records)) }];
+    return own === undefined ? [] : [{ id: task.id, title: task.title, ticket: task.ticket, runs: own.length, totals: sum(own.flatMap((run) => run.records)) }];
   });
+  const ponytail = await ponytailEffect(projectPath, completed);
   completed.sort((a, b) => magnitude(b.totals) - magnitude(a.totals) || byId(a, b));
 
   const shares = completed.map(({ id, title }) => {
@@ -775,7 +810,7 @@ function perTask(
   return {
     perCompletedTask: {
       provenance: 'calculated',
-      ...limited(completed),
+      ...limited(completed.map(({ ticket: _ticket, ...item }) => item)),
       mean: completed.length === 0 ? null : mean(completed.map((item) => item.totals)),
       withoutRuns: done.length - completed.length,
     },
@@ -790,7 +825,34 @@ function perTask(
       ...limited(firstPass),
       share: firstPass.length === 0 ? null : firstPass.filter((item) => item.accepted).length / firstPass.length,
     },
+    ponytail,
   };
+}
+
+/**
+ * `derived.ponytail` over `completed`, the `DONE` Tasks with runs, read from the default
+ * branch of the registered checkout, `origin/HEAD`'s or else `main`, as the runs' roles are.
+ */
+async function ponytailEffect(projectPath: string, completed: { ticket: string; totals: Totals }[]): Promise<Derived['ponytail']> {
+  const timeout = resolveGitTimeout();
+  const head = await readBranchCommit(projectPath, (await readDefaultBranch(projectPath, timeout)) ?? 'main', timeout);
+  const adoption = head === null ? { known: false, first: null } : await readFirstMention(projectPath, head, 'Ponytail', INSTRUCTION_FILES, timeout);
+  const doneAt = head === null ? null : await readDoneCommits(projectPath, head, completed.map((task) => task.ticket), timeout);
+  const dated = completed.flatMap((task) => {
+    const at = doneAt?.get(task.ticket)?.at;
+    return at === undefined ? [] : [{ at, totals: task.totals }];
+  });
+  const undated = completed.length - dated.length;
+  if (adoption.first === null) {
+    return { provenance: 'calculated', since: null, before: null, after: null, undated, reason: adoption.known ? PONYTAIL_REASONS.noCommit : PONYTAIL_REASONS.unread };
+  }
+  const since = adoption.first.at;
+  const side = (tasks: { totals: Totals }[]): PonytailSide => ({ tasks: tasks.length, mean: tasks.length === 0 ? null : mean(tasks.map((task) => task.totals)) });
+  const before = side(dated.filter((task) => task.at < since));
+  const after = side(dated.filter((task) => task.at >= since));
+  const reason =
+    before.tasks + after.tasks === 0 ? PONYTAIL_REASONS.neither : before.tasks === 0 ? PONYTAIL_REASONS.noneBefore : after.tasks === 0 ? PONYTAIL_REASONS.noneAfter : null;
+  return { provenance: 'calculated', since: { commit: adoption.first.commit, at: new Date(since).toISOString() }, before, after, undated, reason };
 }
 
 /** Each run's context growth, the run with the largest context first, one whose calls report none last. */

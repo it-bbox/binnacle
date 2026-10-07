@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { compactNumber, daemonReason, LANGUAGES, pairReason, plural, secondsAgo, startingLanguage } from '../app/i18n/index.ts';
 import { parseRoadmap } from '../../../packages/core/src/roadmap.ts';
 import { trackerUnavailable, UNAVAILABLE } from '../../daemon/src/snapshot.ts';
-import { OPENCODE_NO_EXPORT } from '../../daemon/src/usage.ts';
+import { OPENCODE_NO_EXPORT, PONYTAIL_REASONS } from '../../daemon/src/usage.ts';
 
 /**
  * The dashboard's own dictionary (ADR-0033): which language the page starts in, and how a
@@ -119,7 +119,7 @@ describe("the daemon's reasons", () => {
   });
 
   it('the page knows are the texts the daemon writes, so a reworded one is caught here rather than shown in English', () => {
-    const written = [UNAVAILABLE.reason, trackerUnavailable([]).reason, ...parseRoadmap('').diagnostics.map((item) => item.message)];
+    const written = [UNAVAILABLE.reason, trackerUnavailable([]).reason, ...parseRoadmap('').diagnostics.map((item) => item.message), ...Object.values(PONYTAIL_REASONS)];
     for (const reason of written) assert.notEqual(daemonReason('ru', reason), reason, reason);
   });
 });

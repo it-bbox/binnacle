@@ -912,6 +912,16 @@ type Derived = {
         remainder: number;
       }
     | Unavailable;
+  ponytail:
+    | {
+        provenance: string;
+        since: { commit: string; at: string } | null;
+        before: { tasks: number; mean: Totals | null } | null;
+        after: { tasks: number; mean: Totals | null } | null;
+        undated: number;
+        reason: string | null;
+      }
+    | Unavailable;
 };
 type Context = { tokens: number | null; partial: boolean };
 type ProjectUsage = Pick<Usage, 'importing' | 'tasks' | 'unassigned'> & {
@@ -1098,6 +1108,7 @@ describe('usage.get', () => {
         assert.deepEqual(body.derived.reworkShare, body.tasks);
         assert.deepEqual(body.derived.firstPassAcceptance, body.tasks);
         assert.deepEqual(body.derived.contextGrowth, body.tasks);
+        assert.deepEqual(body.derived.ponytail, body.tasks);
         assert.deepEqual(
           body.derived.weekly.items.map((item) => item.totals),
           [GRILL_TOTALS],
@@ -2139,6 +2150,108 @@ describe('Derived metrics in usage.get', () => {
       assert.ok(other.first.partial && other.latest.partial && other.largest.partial);
       assert.ok(other.largest.tokens! >= other.first.tokens! && other.largest.tokens! >= other.latest.tokens!);
       assert.ok(other.largest.tokens! < claude!.largest.tokens!);
+    });
+  });
+});
+
+describe('Ponytail’s effect in usage.get', () => {
+  /** Writes `text` to `file` in `root` and commits it at `time` on the branch checked out; the commit's hash. */
+  const commitFile = (root: string, time: string, file: string, text: string): string => {
+    mkdirSync(dirname(join(root, file)), { recursive: true });
+    writeFileSync(join(root, file), text);
+    gitAt(time, root, 'add', '--', file);
+    gitAt(time, root, 'commit', '--quiet', '-m', file);
+    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+  };
+  const done = (root: string, time: string, file: string, title: string): void =>
+    void commitFile(root, time, `docs/specs/epic/issues/${file}`, `# ${file.slice(0, 2)}: ${title}\n\nStatus: DONE\n`);
+
+  it('dates Ponytail by the first commit on the default branch adding it to the instruction files, and gives the mean tokens per Task completed before and after it', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
+      ticket(root, 'epic', '01-first.md', 'First');
+      ticket(root, 'epic', '02-second.md', 'Second');
+      ticket(root, 'epic', '03-third.md', 'Third');
+      writeFileSync(join(root, 'AGENTS.md'), '# Agent Instructions\n');
+      writeFileSync(join(root, 'CLAUDE.md'), '@AGENTS.md\n');
+      // Named outside the instruction files: not Ponytail's adoption.
+      writeFileSync(join(root, 'README.md'), 'Built with Ponytail in mind.\n');
+      repository(root, at(6, 0), [at(5, 0), 'feat/first']);
+      session(artifacts, root, 'first', lines(GRILL, at(5, 1), '-first'));
+      // On a Task's branch that is never merged: not on the default branch.
+      commitFile(root, at(5, 30), 'AGENTS.md', '# Agent Instructions\n\nTry Ponytail.\n');
+      gitAt(at(4, 0), root, 'switch', '--quiet', 'main');
+      done(root, at(4, 0), '01-first.md', 'First');
+      // The word in the file CLAUDE.md imports, in lower case.
+      const adopted = commitFile(root, at(3, 0), 'AGENTS.md', '# Agent Instructions\n\nUse ponytail principles.\n');
+      // A later commit naming it again is not its date.
+      commitFile(root, at(3, 5), 'CLAUDE.md', '@AGENTS.md\n\nPonytail applies.\n');
+      gitAt(at(3, 10), root, 'switch', '--quiet', '-C', 'feat/second');
+      session(artifacts, root, 'second', lines(GRILL, at(3, 11), '-second'));
+      gitAt(at(3, 20), root, 'switch', '--quiet', '-C', 'feat/third');
+      session(artifacts, root, 'third', lines(ABORTED, at(3, 21), '-third'));
+      gitAt(at(2, 0), root, 'switch', '--quiet', 'main');
+      done(root, at(2, 0), '02-second.md', 'Second');
+      done(root, at(2, 10), '03-third.md', 'Third');
+      await register(daemon, root);
+
+      const { derived } = await usageGet<ProjectUsage>(daemon, root);
+      assert.deepEqual(available(derived.ponytail), {
+        provenance: 'calculated',
+        since: { commit: adopted, at: at(3, 0) },
+        before: {
+          tasks: 1,
+          mean: { records: 1, input: calculated(2), cachedInput: calculated(39225), cacheCreation: calculated(29831), output: calculated(137), reasoning: calculated(18) },
+        },
+        after: {
+          tasks: 2,
+          mean: {
+            records: 1,
+            input: calculated((2 + 4) / 2),
+            cachedInput: calculated((39225 + 167306) / 2),
+            cacheCreation: calculated((29831 + 994) / 2),
+            output: calculated((137 + 2) / 2),
+            reasoning: { tokens: 18, partial: true, provenance: 'calculated' },
+          },
+        },
+        undated: 0,
+        reason: null,
+      });
+    });
+  });
+
+  it('says why there is no comparison: no commit adds Ponytail, or no Task with runs was completed on one side', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
+      ticket(root, 'epic', '01-first.md', 'First');
+      writeFileSync(join(root, 'AGENTS.md'), '# Agent Instructions\n');
+      repository(root, at(6, 0), [at(5, 0), 'feat/first']);
+      session(artifacts, root, 'first', lines(GRILL, at(5, 1), '-first'));
+      gitAt(at(4, 0), root, 'switch', '--quiet', 'main');
+      done(root, at(4, 0), '01-first.md', 'First');
+      // DONE in the checkout and never committed: dated by no commit, so on neither side.
+      gitAt(at(3, 50), root, 'switch', '--quiet', '-C', 'feat/second');
+      session(artifacts, root, 'second', lines(ABORTED, at(3, 51), '-second'));
+      gitAt(at(3, 55), root, 'switch', '--quiet', 'main');
+      ticket(root, 'epic', '02-second.md', 'Second', 'DONE');
+      await register(daemon, root);
+
+      assert.deepEqual(available((await usageGet<ProjectUsage>(daemon, root)).derived.ponytail), {
+        provenance: 'calculated',
+        since: null,
+        before: null,
+        after: null,
+        undated: 1,
+        reason: 'No commit on the default branch adds Ponytail to AGENTS.md or CLAUDE.md, so there is no before and after.',
+      });
+
+      const adopted = commitFile(root, at(0, 0), 'AGENTS.md', '# Agent Instructions\n\nPonytail.\n');
+      const ponytail = available((await usageGet<ProjectUsage>(daemon, root)).derived.ponytail);
+      assert.deepEqual(ponytail.since, { commit: adopted, at: at(0, 0) });
+      assert.equal(ponytail.before?.tasks, 1);
+      assert.deepEqual(ponytail.after, { tasks: 0, mean: null });
+      assert.equal(ponytail.undated, 1);
+      assert.equal(ponytail.reason, 'No Task with runs has been completed since Ponytail, so there is nothing to compare.');
     });
   });
 });

@@ -113,7 +113,7 @@ A roadmap that cannot be read, and a project or epic with no Tasks, each show th
 
 - tokens by kind today and over the last seven days: input, cached input, cache creation, output, and reasoning as the part of output it is. A kind no record reports is "not reported", never zero, and a partial, calculated or estimated total is marked. One line under them gives the import window's totals, marked the same way, and how many records each period counts;
 - by model and by provider over the last seven days, a provider no artifact states being "not reported"; by Task, the largest Tasks, with the unassigned total; and by role, over the import window. Each is a bar of one kind of token, output unless another is picked: kinds are never added together. A row is one line, its name, its bar and its figure, with its record count, and a Task's title, in its tooltip;
-- the derived metrics below that have a source, labelled as Binnacle's calculation: tokens per completed Task, runs per Task, the weekly trend as CSS bars, the rework share of each completed Task (its rework tokens over its implementation and rework tokens) and their mean, first-pass review acceptance (the share of reviewed completed Tasks with no rework run), and each run's context growth (the context — input, cached input and cache creation together — of its first, latest and largest call), a count a harness does not report being "not reported";
+- the derived metrics below that have a source, labelled as Binnacle's calculation: tokens per completed Task, the same before and after Ponytail, runs per Task, the weekly trend as CSS bars, the rework share of each completed Task (its rework tokens over its implementation and rework tokens) and their mean, first-pass review acceptance (the share of reviewed completed Tasks with no rework run), and each run's context growth (the context — input, cached input and cache creation together — of its first, latest and largest call), a count a harness does not report being "not reported". Ponytail's date is the first commit on the default branch that adds the word to `AGENTS.md` or `CLAUDE.md`, and a Task is before or after it by the commit that set it `DONE`; where a side has no Task, or no commit names Ponytail, the page gives the daemon's reason;
 - each harness with its support level, named as in `CONTEXT.md` (Context, Attribution, Usage, Live), or the daemon's reason for none;
 - cost, not available, with the reason.
 
@@ -133,7 +133,7 @@ Settings are shown, never written (ADR-0020): each says where it is changed.
 
 Derived metrics must be labeled as Binnacle calculations.
 
-- tokens per completed task;
+- tokens per completed task, and the same before and after Ponytail;
 - runs per task;
 - rework share;
 - first-pass review acceptance;

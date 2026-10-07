@@ -255,24 +255,61 @@ export async function readLastCommitTimes(cwd: string, pathspec: string, timeout
  * not diffed, so the commit found is the one that made the change.
  */
 export async function readFirstReviews(cwd: string, paths: string[], timeoutMs: number): Promise<Map<string, { commit: string; at: number }> | null> {
-  if (paths.length === 0) return new Map();
+  // ponytail: a `### Review` line anywhere in the ticket counts, under `## Comments` or not; read the file at the commit if a ticket body ever uses that heading.
+  return firstPerFile(await lineChanges(cwd, timeoutMs, ['--branches', '--reverse'], '^### Review', paths.map((path) => `:(top,literal)${path}`)));
+}
+
+/**
+ * Per file among `paths`, relative to the repository root, the newest commit reachable from
+ * `commit`, a hash, that added or removed a `Status: DONE` line in it: for a ticket that is
+ * `DONE` now, the commit that set it so. A file with none is absent. Null whenever Git cannot say.
+ */
+export async function readDoneCommits(cwd: string, commit: string, paths: string[], timeoutMs: number): Promise<Map<string, { commit: string; at: number }> | null> {
+  return firstPerFile(await lineChanges(cwd, timeoutMs, [commit], '^Status: DONE', paths.map((path) => `:(top,literal)${path}`)));
+}
+
+/**
+ * The oldest commit reachable from `commit`, a hash, that changed a line naming `word` in any
+ * case in one of `files`, relative to `cwd`: the first that added it, no commit before it
+ * holding the word. Null when none did, or Git cannot say, which `known` tells apart.
+ */
+export async function readFirstMention(cwd: string, commit: string, word: string, files: string[], timeoutMs: number): Promise<{ known: boolean; first: { commit: string; at: number } | null }> {
+  const changes = await lineChanges(cwd, timeoutMs, [commit, '--reverse', '--regexp-ignore-case'], word.replace(/[.*[\]\\^$]/g, '\\$&'), files.map((file) => `:(literal)${file}`));
+  return { known: changes !== null, first: changes?.[0] ?? null };
+}
+
+/**
+ * The commits `revisions` list, in their order, whose own diff of a file among `pathspecs`
+ * adds or removes a line matching `pattern`, each with its author time in milliseconds, which
+ * a rebase keeps, and those files relative to the repository root. Merge commits are not
+ * diffed, so a commit found is the one that made the change. Null whenever Git cannot say.
+ */
+async function lineChanges(cwd: string, timeoutMs: number, revisions: string[], pattern: string, pathspecs: string[]): Promise<{ commit: string; at: number; files: string[] }[] | null> {
+  if (pathspecs.length === 0) return [];
   try {
-    const pathspecs = paths.map((path) => `:(top,literal)${path}`);
-    // Oldest first; `-G` names only the files whose own diff matches.
-    // ponytail: a `### Review` line anywhere in the ticket counts, under `## Comments` or not; read the file at the commit if a ticket body ever uses that heading.
-    const run = await git(cwd, timeoutMs, ['log', '--branches', '--reverse', '-G^### Review', '--name-only', '--format=%x00%H %at', '--', ...pathspecs]);
+    // `-G` names only the files whose own diff matches.
+    const run = await git(cwd, timeoutMs, ['log', ...revisions, `-G${pattern}`, '--name-only', '--format=%x00%H %at', '--', ...pathspecs]);
     if (run.code !== 0) return null;
-    const reviews = new Map<string, { commit: string; at: number }>();
-    for (const entry of run.stdout.split('\0').slice(1)) {
-      const [header = '', ...files] = entry.split('\n');
-      const [commit = '', time = ''] = header.split(' ');
-      for (const file of files) if (file !== '' && !reviews.has(file)) reviews.set(file, { commit, at: Number(time) * 1000 });
-    }
-    return reviews;
+    return run.stdout
+      .split('\0')
+      .slice(1)
+      .map((entry) => {
+        const [header = '', ...files] = entry.split('\n');
+        const [commit = '', time = ''] = header.split(' ');
+        return { commit, at: Number(time) * 1000, files: files.filter((file) => file !== '') };
+      });
   } catch (error) {
     if (isGitUnavailable(error)) return null;
     throw error;
   }
+}
+
+/** Each file's first commit among `changes`. */
+function firstPerFile(changes: { commit: string; at: number; files: string[] }[] | null): Map<string, { commit: string; at: number }> | null {
+  if (changes === null) return null;
+  const first = new Map<string, { commit: string; at: number }>();
+  for (const { commit, at, files } of changes) for (const file of files) if (!first.has(file)) first.set(file, { commit, at });
+  return first;
 }
 
 /**

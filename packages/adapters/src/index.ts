@@ -15,6 +15,8 @@ export {
   readCommit,
   readCommitBefore,
   readDefaultBranch,
+  readDoneCommits,
+  readFirstMention,
   readFirstReviews,
   readGitFacts,
   readGitLocation,

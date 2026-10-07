@@ -44,7 +44,20 @@ export type Derived = {
   contextGrowth:
     | (Limited<{ id: string; taskId: string | null; role: Role; harness: string; startedAt: string; first: Context; latest: Context; largest: Context }> & { provenance: 'calculated' })
     | Unavailable;
+  ponytail:
+    | {
+        provenance: 'calculated';
+        since: { commit: string; at: string } | null;
+        before: PonytailSide | null;
+        after: PonytailSide | null;
+        undated: number;
+        reason: string | null;
+      }
+    | Unavailable;
 };
+
+/** The DONE Tasks with runs completed on one side of Ponytail's date, and their mean. */
+export type PonytailSide = { tasks: number; mean: Totals | null };
 
 /** What a call read: input, cached input and cache creation together; null when it reports none, partial when only some. */
 export type Context = { tokens: number | null; partial: boolean };

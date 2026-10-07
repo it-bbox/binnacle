@@ -3,7 +3,7 @@ import type { BarRow } from '~/components/BarList.vue';
 import { call, usePolling } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
 import { isUnavailable, projectName, SELECTED_VIEW } from '~/composables/projects';
-import { FIELDS, marks, tokensLine, type Context, type Field, type ProjectUsage, type Totals } from '~/composables/usage';
+import { FIELDS, marks, tokensLine, type Context, type Field, type PonytailSide, type ProjectUsage, type Totals } from '~/composables/usage';
 
 /**
  * The selected project's usage. The shell's snapshot answers today, the last seven days, by
@@ -15,7 +15,7 @@ const view = inject(SELECTED_VIEW, ref(null));
 const snapshot = computed(() => view.value?.snapshot ?? null);
 const route = useRoute();
 const project = typeof route.query.project === 'string' ? route.query.project : null;
-const { t, plural, number, compact } = useLanguage();
+const { t, plural, number, compact, dateTime } = useLanguage();
 
 const usage = usePolling(async () => (project === null ? null : call<ProjectUsage>('usage.get', { path: project })));
 
@@ -97,6 +97,19 @@ const runsPer = computed(() => {
     ),
     remainder: metric.remainder,
     count: metric.items.length + metric.remainder,
+  };
+});
+/** Tokens per completed Task before and after Ponytail, each side's mean of the picked kind, or why there is none. */
+const ponytail = computed(() => {
+  const metric = usage.data.value?.derived.ponytail;
+  if (metric === undefined || isUnavailable(metric)) return null;
+  const side = (key: string, label: string, value: PonytailSide | null) =>
+    value === null ? null : { key, label, mean: value.mean === null ? null : tokenRow(key, label, value.mean), tasks: value.tasks };
+  return {
+    since: metric.since === null ? null : t.value.ponytailSince(dateTime(metric.since.at), metric.since.commit.slice(0, 7)),
+    sides: [side('before', t.value.beforePonytail, metric.before), side('after', t.value.afterPonytail, metric.after)].filter((item) => item !== null),
+    undated: metric.undated,
+    reason: metric.reason,
   };
 });
 const oneDecimal = (value: number): string => number(Math.round(value * 10) / 10);
@@ -330,6 +343,28 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
                 <BarList v-if="runsPer && runsPer.rows.length > 0" class="pb-1" :rows="runsPer.rows" :remainder="runsPer.remainder" />
               </section>
             </div>
+            <section class="flex flex-col gap-1.5 border-t border-default px-3.5 py-3">
+              <h3 class="text-xs leading-snug text-muted">{{ t.ponytail }} · {{ t[kind] }}</h3>
+              <p v-if="isUnavailable(usage.data.value.derived.ponytail)">
+                <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.ponytail.reason" /></span>
+              </p>
+              <template v-else-if="ponytail">
+                <div v-if="ponytail.sides.length > 0" class="grid grid-cols-2 gap-3">
+                  <div v-for="side in ponytail.sides" :key="side.key" class="flex min-w-0 flex-col gap-0.5">
+                    <span class="text-[11px] text-dimmed">{{ side.label }}</span>
+                    <span v-if="side.mean" class="inline-flex items-center gap-1.5">
+                      <span class="font-mono text-lg font-medium">{{ side.mean.text }}</span>
+                      <UBadge v-for="mark in side.mean.marks" :key="mark" :label="mark" color="neutral" variant="outline" size="sm" />
+                    </span>
+                    <span v-else class="font-mono text-lg text-dimmed">—</span>
+                    <span class="text-[11px] text-dimmed">{{ plural(side.tasks, t.meanOverDone) }}</span>
+                  </div>
+                </div>
+                <DaemonReason v-if="ponytail.reason !== null" class="block text-muted" :reason="ponytail.reason" />
+                <p v-if="ponytail.since" class="text-[11px] text-dimmed">{{ ponytail.since }}</p>
+                <p v-if="ponytail.undated > 0" class="text-[11px] text-dimmed">{{ plural(ponytail.undated, t.ponytailUndated) }}</p>
+              </template>
+            </section>
             <section class="flex flex-col gap-2.5 border-t border-default px-3.5 py-3">
               <h3 class="text-xs text-muted">{{ t.weekly }} · {{ t[kind] }}</h3>
               <p v-if="weeks.length === 0" class="text-muted">{{ t.noRecords }}</p>
