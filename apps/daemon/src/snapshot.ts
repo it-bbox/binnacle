@@ -139,15 +139,15 @@ export async function snapshot(
   caller: CallerCheckout,
   diagnostics: Diagnostic[],
   graph: { graph: GraphSection; attention: Diagnostic[] },
-  usageAndActivity: (tasks: TrackerTask[] | Unavailable) => Promise<Pick<Snapshot, 'usage' | 'activity'> & { runs: ObservedRun[] }>,
+  usageAndActivity: (tasks: TrackerTask[] | Unavailable) => Promise<Pick<Snapshot, 'usage' | 'activity'> & { runs: ObservedRun[]; attention: Diagnostic[] }>,
 ): Promise<Snapshot> {
   const tree = workingTree(caller.project);
   const { tasks, unreadable, roadmap, adrs, attention } = await readState(home, tree, projected, diagnostics);
-  const { usage: usageSection, activity, runs } = await usageAndActivity(tasks ?? trackerUnavailable(unreadable));
+  const { usage: usageSection, activity, runs, attention: pressure } = await usageAndActivity(tasks ?? trackerUnavailable(unreadable));
   const workflow = projected.manifest?.workflow.provider ?? null;
   // A harness whose artifacts cannot be read is at level 1, and says why.
   for (const { level, reason } of usageSection.harnesses) if (level === 1 && reason !== null) attention.push({ code: 'telemetry.unreadable', message: reason });
-  attention.push(...graph.attention, ...vaultAttention(home));
+  attention.push(...pressure, ...graph.attention, ...vaultAttention(home));
   const limit = projected.manifest?.automation.maxParallelDevelopmentTasks ?? PARALLEL_LIMIT;
   const listed = tasks && taskSections(tasks, new Set(runs.flatMap((run) => run.taskId ?? [])));
   const impact = listed && (await impactSection(projected.row.path, graph.graph, listed.inFlightAndReady, projected.manifest?.tracker.provider !== 'local'));

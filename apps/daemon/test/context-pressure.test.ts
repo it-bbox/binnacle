@@ -1,0 +1,271 @@
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
+import { setTimeout } from 'node:timers/promises';
+import { after, describe, it } from 'node:test';
+import { storePath } from '../src/home.ts';
+import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
+
+/**
+ * Context pressure, through the daemon's HTTP API: each run's session's latest context and
+ * compactions, and the `context.pressure` attention item an active Product session raises.
+ * Claude Code's sessions are built from `fixtures/claude-code/grill-on-main.jsonl`, one call
+ * that read 2 + 39,225 + 29,831 tokens of context; Codex's and Gemini CLI's are written here.
+ */
+type Line = Record<string, unknown> & { type: string; message?: Record<string, unknown> };
+type Attention = { code: string; message: string }[];
+type Pressure = { context: { tokens: number; provenance: string } | null; compactions: { count: number; latest: { at: string; trigger: string | null; provenance: string } | null } } | null;
+type Run = { id: string; role: string; harness: string; contextPressure: Pressure };
+type Snapshot = { attention: Attention; activity: { running: { items: Run[] }; recent: Run[] } };
+
+const GRILL = readFileSync(join(import.meta.dirname, 'fixtures', 'claude-code', 'grill-on-main.jsonl'), 'utf8')
+  .trim()
+  .split('\n')
+  .map((line) => JSON.parse(line) as Line);
+const GRILL_CONTEXT = 2 + 39225 + 29831;
+const CONTENT = 'MUST-NOT-BE-STORED';
+
+const roots: string[] = [];
+after(() => {
+  for (const root of roots) rmSync(root, { recursive: true, force: true });
+});
+
+function temporary(prefix: string): string {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), prefix)));
+  roots.push(root);
+  return root;
+}
+
+const threshold = (tokens: number): string => `\ntelemetry:\n  context_pressure:\n    tokens: ${tokens}\n`;
+
+/** A project with the local tracker and one ticket, whose repository's `HEAD` has been on `main` since yesterday. */
+function makeProject(manifest = ''): string {
+  const root = temporary('binnacle-pressure-');
+  mkdirSync(join(root, '.binnacle'), { recursive: true });
+  writeFileSync(join(root, '.binnacle', 'project.yaml'), `version: 1\n\nproject:\n  id: pressure-project\n\ntracker:\n  provider: local\n  local:\n    issues: docs/specs\n${manifest}`);
+  mkdirSync(join(root, 'docs', 'specs', 'epic', 'issues'), { recursive: true });
+  writeFileSync(join(root, 'docs', 'specs', 'epic', 'issues', '01-first.md'), '# 01: First\n\nStatus: READY\n');
+  gitAt(minutesAgo(24 * 60), root, 'init', '--quiet', '--initial-branch=main');
+  gitAt(minutesAgo(24 * 60), root, 'add', '.');
+  gitAt(minutesAgo(24 * 60), root, 'commit', '--quiet', '-m', 'initial');
+  return root;
+}
+
+function gitAt(timestamp: string, cwd: string, ...args: string[]): void {
+  const date = `@${Math.floor(Date.parse(timestamp) / 1000)} +0000`;
+  execFileSync('git', ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', '-c', 'commit.gpgsign=false', ...args], {
+    cwd,
+    stdio: 'ignore',
+    env: { ...process.env, GIT_COMMITTER_DATE: date, GIT_AUTHOR_DATE: date },
+  });
+}
+
+const minutesAgo = (minutes: number): string => new Date(Date.now() - minutes * 60_000).toISOString();
+
+/** The fixture's call at `timestamp`, as a message of its own. */
+const call = (timestamp: string, id: string): Line[] =>
+  GRILL.map((line) => ({ ...line, timestamp, ...(line.message && line.type === 'assistant' ? { message: { ...line.message, id: `${String(line.message.id)}-${id}` } } : {}) }));
+
+/** A compaction boundary as Claude Code writes one, its metadata cut short. */
+const boundary = (timestamp: string, uuid: string, trigger: string): Line => ({
+  type: 'system',
+  subtype: 'compact_boundary',
+  content: CONTENT,
+  isSidechain: false,
+  uuid,
+  timestamp,
+  compactMetadata: { trigger, preTokens: 996850, postTokens: 23587 },
+});
+
+const claudeLines = (cwd: string, sessionId: string, lines: Line[]): string => lines.map((line) => `${JSON.stringify({ ...line, cwd, sessionId })}\n`).join('');
+
+/** Writes a Claude Code session launched in `cwd`, and returns its file. */
+function claudeSession(artifacts: string, cwd: string, sessionId: string, lines: Line[]): string {
+  const dir = join(artifacts, cwd.replace(/[^a-zA-Z0-9]/g, '-'));
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, `${sessionId}.jsonl`);
+  writeFileSync(file, claudeLines(cwd, sessionId, lines));
+  return file;
+}
+
+async function withDaemon(body: (daemon: TestDaemon, roots: { claudeCode: string; codex: string; geminiCli: string }) => Promise<void>): Promise<void> {
+  const artifacts = { claudeCode: temporary('binnacle-claude-'), codex: temporary('binnacle-codex-'), geminiCli: temporary('binnacle-gemini-') };
+  const daemon = await startTestDaemon({ artifacts });
+  try {
+    await body(daemon, artifacts);
+  } finally {
+    await daemon.stop();
+  }
+}
+
+async function snapshot(daemon: TestDaemon, root: string): Promise<Snapshot> {
+  assert.equal((await daemon.call('project.register', { path: root })).status, 200);
+  const result = await daemon.call<Snapshot>('project.snapshot', { path: root });
+  assert.equal(result.status, 200, JSON.stringify(result.body));
+  return result.body;
+}
+
+const pressure = (attention: Attention): Attention => attention.filter((item) => item.code === 'context.pressure');
+const SUGGESTION = 'Run /binnacle:checkpoint, then go on in a fresh session.';
+
+describe('Context pressure', () => {
+  it('raises context.pressure for an active Product session whose latest call reads at least the manifest’s threshold, and for no other', async () => {
+    await withDaemon(async (daemon, { claudeCode }) => {
+      const root = makeProject(threshold(60000));
+      gitAt(minutesAgo(9), root, 'switch', '--quiet', '-c', 'feat/first');
+      gitAt(minutesAgo(5), root, 'switch', '--quiet', 'main');
+      claudeSession(claudeCode, root, 'product', call(minutesAgo(1), 'product'));
+      // Product work, but no longer active.
+      claudeSession(claudeCode, root, 'idle', call(minutesAgo(11), 'idle'));
+      // Active, and over the threshold, but the Task's.
+      claudeSession(claudeCode, root, 'ticket', call(minutesAgo(7), 'ticket'));
+
+      const body = await snapshot(daemon, root);
+      assert.deepEqual(pressure(body.attention), [
+        {
+          code: 'context.pressure',
+          message: `The Product session product in Claude Code read ${GRILL_CONTEXT} tokens of context in its latest call, at least telemetry.context_pressure.tokens, 60000. ${SUGGESTION}`,
+        },
+      ]);
+      const [running] = body.activity.running.items;
+      assert.equal(running?.id, 'claude-code:msg_011CfLMEGjvuTXtzfiK6XfsV-product');
+      // Binnacle's sum of the counts Claude Code reports.
+      assert.deepEqual(running.contextPressure, { context: { tokens: GRILL_CONTEXT, provenance: 'calculated' }, compactions: { count: 0, latest: null } });
+    });
+  });
+
+  it('reads 150 000 tokens as the threshold when the manifest states none', async () => {
+    await withDaemon(async (daemon, { claudeCode }) => {
+      const below = makeProject();
+      claudeSession(claudeCode, below, 'below', call(minutesAgo(1), 'below'));
+      assert.deepEqual(pressure((await snapshot(daemon, below)).attention), []);
+
+      const over = makeProject();
+      const heavy = call(minutesAgo(1), 'over').map((line) =>
+        line.type === 'assistant' ? { ...line, message: { ...line.message, usage: { input_tokens: 2, cache_read_input_tokens: 150000, cache_creation_input_tokens: 0, output_tokens: 1 } } } : line,
+      );
+      claudeSession(claudeCode, over, 'over', heavy);
+      assert.match(pressure((await snapshot(daemon, over)).attention)[0]?.message ?? '', /read 150002 tokens of context in its latest call, at least telemetry\.context_pressure\.tokens, 150000\./);
+    });
+  });
+
+  it('raises it for a Claude Code compaction after the last recorded checkpoint, naming its trigger, and not for one before it', async () => {
+    await withDaemon(async (daemon, { claudeCode }) => {
+      const root = makeProject();
+      const compactedAt = minutesAgo(5);
+      const file = claudeSession(claudeCode, root, 'compacted', [...call(minutesAgo(6), 'before'), boundary(compactedAt, 'b9151d72-35ae-462a-bf26-5ccb7807569f', 'auto'), ...call(minutesAgo(1), 'after')]);
+
+      // No checkpoint was ever recorded, so every compaction is after it.
+      const first = await snapshot(daemon, root);
+      assert.deepEqual(pressure(first.attention), [
+        { code: 'context.pressure', message: `The Product session compacted in Claude Code read ${GRILL_CONTEXT} tokens of context in its latest call, and compacted (auto) at ${compactedAt}, and no checkpoint has been recorded. ${SUGGESTION}` },
+      ]);
+      assert.deepEqual(first.activity.running.items[0]?.contextPressure?.compactions, { count: 1, latest: { at: compactedAt, trigger: 'auto', provenance: 'provider_reported' } });
+
+      assert.equal((await daemon.call('checkpoint.record', { path: root, promoted: [] })).status, 200);
+      assert.deepEqual(pressure((await snapshot(daemon, root)).attention), []);
+
+      const checkpoint = (await daemon.call<{ events: { type: string; occurredAt: string }[] }>('event.list', { path: root })).body.events.find((event) => event.type === 'checkpoint')!;
+      await setTimeout(5);
+      const again = new Date().toISOString();
+      appendFileSync(file, claudeLines(root, 'compacted', [boundary(again, 'c0151d72-35ae-462a-bf26-5ccb7807569f', 'manual'), ...call(new Date().toISOString(), 'again')]));
+      assert.deepEqual(pressure((await snapshot(daemon, root)).attention), [
+        {
+          code: 'context.pressure',
+          message: `The Product session compacted in Claude Code read ${GRILL_CONTEXT} tokens of context in its latest call, and compacted (manual) at ${again}, after the last checkpoint at ${checkpoint.occurredAt}. ${SUGGESTION}`,
+        },
+      ]);
+    });
+  });
+
+  it('raises it for a Codex rotation of its context window after the last checkpoint, with no trigger', async () => {
+    await withDaemon(async (daemon, { codex }) => {
+      const root = makeProject();
+      const rotatedAt = minutesAgo(3);
+      const counts = (ordinal: number, timestamp: string, input: number): Record<string, unknown> => ({
+        timestamp,
+        ordinal,
+        type: 'event_msg',
+        payload: { type: 'token_count', info: { total_token_usage: { input_tokens: input, cached_input_tokens: 0, output_tokens: 10, reasoning_output_tokens: 0 } } },
+      });
+      const rollout = [
+        { timestamp: minutesAgo(10), ordinal: 0, type: 'session_meta', payload: { id: 'rotated', cwd: root, model_provider: 'openai', context_window: { window_id: 'window-1' } } },
+        { timestamp: minutesAgo(10), ordinal: 1, type: 'turn_context', payload: { model: 'gpt-5.6-sol', cwd: root } },
+        counts(2, minutesAgo(9), 1000),
+        { timestamp: rotatedAt, ordinal: 3, type: 'compacted', payload: { message: CONTENT, window_id: 'window-2' } },
+        counts(4, minutesAgo(1), 1500),
+      ];
+      mkdirSync(join(codex, '2026', '10', '07'), { recursive: true });
+      writeFileSync(join(codex, '2026', '10', '07', 'rollout-2026-10-07T09-00-00-rotated.jsonl'), rollout.map((line) => `${JSON.stringify(line)}\n`).join(''));
+
+      const body = await snapshot(daemon, root);
+      assert.deepEqual(pressure(body.attention), [
+        { code: 'context.pressure', message: `The Product session rotated in Codex read 500 tokens of context in its latest call, and compacted (trigger not reported) at ${rotatedAt}, and no checkpoint has been recorded. ${SUGGESTION}` },
+      ]);
+      // The latest call's input, the difference of the running totals, is Binnacle's calculation.
+      assert.deepEqual(body.activity.running.items[0]?.contextPressure, {
+        context: { tokens: 500, provenance: 'calculated' },
+        compactions: { count: 1, latest: { at: rotatedAt, trigger: null, provenance: 'calculated' } },
+      });
+    });
+  });
+
+  it('raises nothing, and shows no pressure, for a harness that reveals neither a context nor a compaction', async () => {
+    await withDaemon(async (daemon, { geminiCli }) => {
+      const root = makeProject(threshold(1));
+      const chats = join(geminiCli, 'project', 'chats');
+      mkdirSync(chats, { recursive: true });
+      writeFileSync(join(geminiCli, 'project', '.project_root'), root);
+      const lines = [
+        { sessionId: 'silent', startTime: minutesAgo(2), kind: 'main' },
+        { id: 'e9f8a7b6-c5d4-4e3f-a2b1-c0d9e8f7a6b5', timestamp: minutesAgo(1), type: 'gemini', content: CONTENT, tokens: null, model: 'gemini-2.5-pro' },
+      ];
+      writeFileSync(join(chats, 'session-2026-10-07T09-00-silent.jsonl'), lines.map((line) => `${JSON.stringify(line)}\n`).join(''));
+
+      const body = await snapshot(daemon, root);
+      assert.equal(body.activity.running.items[0]?.harness, 'gemini-cli');
+      assert.equal(body.activity.running.items[0]?.contextPressure, null);
+      assert.deepEqual(pressure(body.attention), []);
+    });
+  });
+
+  it('reads the compactions a store from before them was read past, once, and counts no record twice', async () => {
+    const home = temporary('binnacle-pressure-home-');
+    const claudeCode = temporary('binnacle-claude-');
+    const root = makeProject();
+    const compactedAt = minutesAgo(5);
+    claudeSession(claudeCode, root, 'upgraded', [...call(minutesAgo(6), 'before'), boundary(compactedAt, 'f0151d72-35ae-462a-bf26-5ccb7807569f', 'auto'), ...call(minutesAgo(1), 'after')]);
+    const first = await startTestDaemon({ home, artifacts: { claudeCode } });
+    try {
+      await snapshot(first, root);
+    } finally {
+      await first.stop();
+    }
+    // The store as a Binnacle without markers left it: the file read to its end, and no compaction kept.
+    const db = new DatabaseSync(storePath(home));
+    db.exec('drop table compaction');
+    db.close();
+
+    const second = await startTestDaemon({ home, artifacts: { claudeCode } });
+    try {
+      const body = await snapshot(second, root);
+      assert.deepEqual(body.activity.running.items[0]?.contextPressure?.compactions, { count: 1, latest: { at: compactedAt, trigger: 'auto', provenance: 'provider_reported' } });
+      const records = (await second.call<{ totals: { records: number } }>('usage.get', { path: root })).body.totals.records;
+      assert.equal(records, 2);
+    } finally {
+      await second.stop();
+    }
+  });
+
+  it('refuses a threshold that is not a positive number of tokens', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject(threshold(0));
+      const result = await daemon.call<{ error: { code: string; details: { path: string }[] } }>('project.register', { path: root });
+      assert.equal(result.body.error.code, 'manifest.invalid');
+      assert.deepEqual(result.body.error.details.map((detail) => detail.path), ['telemetry.context_pressure.tokens']);
+    });
+  });
+});

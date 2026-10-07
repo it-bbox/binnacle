@@ -1,5 +1,4 @@
-import type { UsageRecord } from '@binnacle/telemetry';
-import { count, isObject, readLines, type ArtifactReading } from './artifact.ts';
+import { count, isObject, readLines, type ArtifactReading, type LineReading } from './artifact.ts';
 
 /** The running counts of Codex's `total_token_usage` a record is the difference of. */
 const COUNTS = ['input_tokens', 'cached_input_tokens', 'output_tokens', 'reasoning_output_tokens'] as const;
@@ -30,6 +29,11 @@ type Counts = Record<(typeof COUNTS)[number], number>;
  * session's meta or without a field the difference needs. A count that repeats the total
  * before it, as Codex writes when a turn is aborted, is no new call and gives no record;
  * nor does one with no totals yet. Content, tool input and output are never read.
+ *
+ * Codex writes no compaction boundary. Its `session_meta` names the session's context window
+ * (`context_window.window_id`), and each `compacted` record the window it continues in: one
+ * that names another than the window in force gives a compaction marker, calculated and with
+ * no trigger; one that follows no named window gives none. What it replaced the history with is never read.
  */
 export function readCodex(bytes: Buffer): ArtifactReading {
   let session: CodexSession | null = null;
@@ -37,12 +41,38 @@ export function readCodex(bytes: Buffer): ArtifactReading {
   let previous: Counts = { input_tokens: 0, cached_input_tokens: 0, output_tokens: 0, reasoning_output_tokens: 0 };
   // When the response of the call the next token count totals completed, if Codex wrote it.
   let completedAt: unknown = undefined;
+  // The context window in force, null until a record names one.
+  let contextWindow: string | null = null;
 
-  return readLines(bytes, { offset: 0, line: 0 }, (value): UsageRecord | null | string => {
+  return readLines(bytes, { offset: 0, line: 0 }, (value): LineReading => {
     const payload = value.payload;
     if (value.type === 'session_meta') {
       session = codexSession(value);
+      const window = isObject(payload) && isObject(payload.context_window) ? payload.context_window.window_id : undefined;
+      if (typeof window === 'string') contextWindow = window;
       return session ? null : 'a session meta without an id or a cwd';
+    }
+    if (value.type === 'compacted' && isObject(payload) && typeof payload.window_id === 'string') {
+      // With no window known before it, no change is seen: the signal is absent, not guessed.
+      if (contextWindow === null || payload.window_id === contextWindow) {
+        contextWindow = payload.window_id;
+        return null;
+      }
+      const time = typeof value.timestamp === 'string' ? Date.parse(value.timestamp) : NaN;
+      if (Number.isNaN(time)) return 'a compaction without a timestamp';
+      if (!Number.isInteger(value.ordinal)) return 'a compaction without an ordinal';
+      if (session === null) return 'a compaction before the session meta';
+      contextWindow = payload.window_id;
+      return {
+        harness: 'codex',
+        naturalKey: `${session.id}:${String(value.ordinal)}`,
+        sessionId: session.id,
+        subagentId: null,
+        timestamp: new Date(time).toISOString(),
+        cwd: session.cwd,
+        trigger: null,
+        provenance: 'calculated',
+      };
     }
     if (value.type === 'turn_context' && isObject(payload)) {
       model = typeof payload.model === 'string' ? payload.model : null;

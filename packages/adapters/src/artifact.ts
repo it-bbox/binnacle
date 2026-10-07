@@ -1,10 +1,12 @@
-import type { UsageRecord } from '@binnacle/telemetry';
+import type { CompactionMarker, UsageRecord } from '@binnacle/telemetry';
 
 /** Where a reading starts or stopped: a byte offset into the file, and the number of lines before it. */
 export type ArtifactPosition = { offset: number; line: number };
 
 export type ArtifactReading = {
   records: UsageRecord[];
+  /** The compactions the lines read show, beside the records; none for a harness that writes none. */
+  markers: CompactionMarker[];
   /** After the last line read; the next reading starts here. */
   stop: ArtifactPosition;
   /** The line the reading stopped at because it could not be read, which `stop` is just before. */
@@ -12,8 +14,14 @@ export type ArtifactReading = {
 };
 
 /**
+ * What `read` makes of one line: a record, a compaction marker, null for neither, or why it
+ * cannot be read. A marker is told from a record by its `trigger`, which no record has.
+ */
+export type LineReading = UsageRecord | CompactionMarker | null | string;
+
+/**
  * The complete lines of a JSON Lines artifact, from `start`, each read by `read` into a
- * record, null for a line that carries none, or why it cannot be read, which stops the
+ * record or a compaction marker, null for a line that carries neither, or why it cannot be read, which stops the
  * reading there. `bytes` are the file's from `start.offset` on; positions are counted in
  * bytes of the file, whatever a line decodes to. A line still being written, with no
  * newline yet, is left for the next reading. `seen`, if given, is told each record with the
@@ -22,24 +30,26 @@ export type ArtifactReading = {
 export function readLines(
   bytes: Buffer,
   start: ArtifactPosition,
-  read: (value: Record<string, unknown>) => UsageRecord | null | string,
+  read: (value: Record<string, unknown>) => LineReading,
   seen?: (record: UsageRecord, at: ArtifactPosition) => void,
 ): ArtifactReading {
   const records: UsageRecord[] = [];
+  const markers: CompactionMarker[] = [];
   let { offset, line } = start;
   let from = 0;
   for (let end = bytes.indexOf(NEWLINE); end !== -1; from = end + 1, end = bytes.indexOf(NEWLINE, from)) {
     const raw = bytes.subarray(from, end).toString('utf8');
     const result = raw.trim() === '' ? null : readObject(raw, read);
-    if (typeof result === 'string') return { records, stop: { offset, line }, failure: { line: line + 1, reason: result } };
-    if (result) {
+    if (typeof result === 'string') return { records, markers, stop: { offset, line }, failure: { line: line + 1, reason: result } };
+    if (result && 'trigger' in result) markers.push(result);
+    else if (result) {
       records.push(result);
       seen?.(result, { offset, line });
     }
     offset += end - from + 1;
     line += 1;
   }
-  return { records, stop: { offset, line }, failure: null };
+  return { records, markers, stop: { offset, line }, failure: null };
 }
 
 /**
@@ -49,13 +59,14 @@ export function readLines(
  * The last message read may still be being written. Unless `settled` says the file has been
  * idle long enough to be finished, the reading stops before that message's first record,
  * and a later reading takes it whole once a later message has started after it or the file
- * has settled. A stored record is never completed from a later one (ADR-0015).
+ * has settled. A stored record is never completed from a later one (ADR-0015). A marker past
+ * that stop is read again by the next reading, which stores it once.
  */
 export function readMessages(
   bytes: Buffer,
   start: ArtifactPosition,
   settled: boolean,
-  read: (value: Record<string, unknown>) => UsageRecord | null | string,
+  read: (value: Record<string, unknown>) => LineReading,
 ): ArtifactReading {
   // Where each message's first record starts, in the order the messages began.
   const starts = new Map<string, ArtifactPosition>();
@@ -70,7 +81,7 @@ export function readMessages(
   return { ...reading, records: [...records.values()], stop: last[1] };
 }
 
-function readObject(raw: string, read: (value: Record<string, unknown>) => UsageRecord | null | string): UsageRecord | null | string {
+function readObject(raw: string, read: (value: Record<string, unknown>) => LineReading): LineReading {
   let value: unknown;
   try {
     value = JSON.parse(raw);

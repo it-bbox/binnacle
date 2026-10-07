@@ -42,7 +42,12 @@ export type ProjectManifest = {
   workflow: { provider: string | null; scratch: string | null };
   capabilities: Record<string, Capability>;
   automation: { mode: AutomationMode | null; maxParallelDevelopmentTasks: number | null };
-  telemetry: { privacy: TelemetryPrivacy | null; import: { windowDays: ImportWindow | null } };
+  telemetry: {
+    privacy: TelemetryPrivacy | null;
+    import: { windowDays: ImportWindow | null };
+    /** The context of a session's latest call, in tokens, from which an active Product session raises `context.pressure`. */
+    contextPressure: { tokens: number | null };
+  };
 };
 
 /** How far back usage is imported: a number of days, or everything on disk. */
@@ -182,9 +187,11 @@ function readAutomation(value: unknown, notes: Notes): ProjectManifest['automati
 
 function readTelemetry(value: unknown, notes: Notes): ProjectManifest['telemetry'] {
   const section = sectionOf(value, 'telemetry', notes);
-  warnUnknownKeys(section, 'telemetry', ['privacy', 'import'], notes);
+  warnUnknownKeys(section, 'telemetry', ['privacy', 'import', 'context_pressure'], notes);
   const importing = sectionOf(section.import, 'telemetry.import', notes);
   warnUnknownKeys(importing, 'telemetry.import', ['window_days'], notes);
+  const pressure = sectionOf(section.context_pressure, 'telemetry.context_pressure', notes);
+  warnUnknownKeys(pressure, 'telemetry.context_pressure', ['tokens'], notes);
   return {
     privacy: oneOf(section.privacy, 'telemetry.privacy', TELEMETRY_PRIVACY, notes),
     // A number of days, or `all` for everything on disk. Null is "not stated"; the default
@@ -193,6 +200,7 @@ function readTelemetry(value: unknown, notes: Notes): ProjectManifest['telemetry
       windowDays:
         importing.window_days === 'all' ? 'all' : positiveInteger(importing.window_days, 'telemetry.import.window_days', notes, 'or all'),
     },
+    contextPressure: { tokens: positiveInteger(pressure.tokens, 'telemetry.context_pressure.tokens', notes) },
   };
 }
 

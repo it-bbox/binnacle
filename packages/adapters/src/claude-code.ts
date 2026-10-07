@@ -1,5 +1,5 @@
-import type { UsageRecord } from '@binnacle/telemetry';
-import { count, isObject, readMessages, type ArtifactPosition, type ArtifactReading } from './artifact.ts';
+import type { CompactionMarker, UsageRecord } from '@binnacle/telemetry';
+import { count, isObject, readMessages, type ArtifactPosition, type ArtifactReading, type LineReading } from './artifact.ts';
 
 /**
  * A Claude Code session artifact, from `start`, to normalised records: one per message that
@@ -19,13 +19,18 @@ import { count, isObject, readMessages, type ArtifactPosition, type ArtifactRead
  *
  * Claude Code's own `<synthetic>` messages, written for an API error, are no call to a
  * model and give no record.
+ *
+ * Each compaction boundary, the `system` record Claude Code writes where it compacted the
+ * session, gives a marker with its trigger, `auto` or `manual`; what it dropped and kept is
+ * never read.
  */
 export function readClaudeCode(bytes: Buffer, start: ArtifactPosition, settled: boolean): ArtifactReading {
   return readMessages(bytes, start, settled, readRecord);
 }
 
-/** A record, null for a line that carries no usage, or why the line cannot be read. */
-function readRecord(value: Record<string, unknown>): UsageRecord | null | string {
+/** A record, a compaction marker, null for a line that carries neither, or why the line cannot be read. */
+function readRecord(value: Record<string, unknown>): LineReading {
+  if (value.type === 'system' && value.subtype === 'compact_boundary') return readBoundary(value);
   if (value.type !== 'assistant') return null;
 
   const message = value.message;
@@ -63,6 +68,28 @@ function readRecord(value: Record<string, unknown>): UsageRecord | null | string
       output: count(usage.output_tokens),
       reasoning: isObject(details) ? count(details.thinking_tokens) : null,
     },
+    provenance: 'provider_reported',
+  };
+}
+
+/** A compaction boundary's marker, or why the boundary cannot be read. */
+function readBoundary(value: Record<string, unknown>): CompactionMarker | string {
+  const time = typeof value.timestamp === 'string' ? Date.parse(value.timestamp) : NaN;
+  if (typeof value.uuid !== 'string') return 'a compaction boundary without a uuid';
+  if (Number.isNaN(time)) return 'a compaction boundary without a timestamp';
+  if (typeof value.cwd !== 'string') return 'a compaction boundary without a cwd';
+  if (typeof value.sessionId !== 'string') return 'a compaction boundary without a session id';
+  const subagentId = value.isSidechain === true ? value.agentId : null;
+  if (subagentId !== null && typeof subagentId !== 'string') return 'a subagent compaction boundary without an agent id';
+  const trigger = isObject(value.compactMetadata) ? value.compactMetadata.trigger : undefined;
+  return {
+    harness: 'claude-code',
+    naturalKey: value.uuid,
+    sessionId: value.sessionId,
+    subagentId,
+    timestamp: new Date(time).toISOString(),
+    cwd: value.cwd,
+    trigger: typeof trigger === 'string' ? trigger : null,
     provenance: 'provider_reported',
   };
 }
