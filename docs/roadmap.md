@@ -33,7 +33,7 @@ Epics 1 to 9 are done. Epic 13, Human output, is grilled last, since it rewrites
 
 Epic 14, Skills in any harness (`specs/skills-in-any-harness/spec.md`), has every ticket done but 08, the owner's exit demonstration.
 
-Epic 10, Telemetry for any harness (`specs/telemetry-for-any-harness/spec.md`), has 01 to 06, 08 and 09 to 13 done: OpenTelemetry from Claude Code, Codex and Gemini CLI configured by `binn init`, readers for Gemini CLI, opencode and ZCode, review and rework usage, context pressure and Ponytail's effect. On 2026-10-08 the owner moved the demonstrations off the Mac to their own machine, since every harness has a Linux build, and added pi as a harness: 16, pi's sessions, can start. 06 recorded Antigravity's and ZCode's formats, and the owner marked the Google harnesses, Gemini CLI and Antigravity, not verified: 07 and 16 can start; 14 waits on them, and 15, the exit demonstration, on all of them.
+Epic 10, Telemetry for any harness (`specs/telemetry-for-any-harness/spec.md`), has 01 to 13 done: OpenTelemetry from Claude Code, Codex and Gemini CLI configured by `binn init`, readers for Gemini CLI, opencode, ZCode and Antigravity, review and rework usage, context pressure and Ponytail's effect. On 2026-10-08 the owner moved the demonstrations off the Mac to their own machine, since every harness has a Linux build, and added pi as a harness. 06 recorded Antigravity's and ZCode's formats, and the owner marked the Google harnesses, Gemini CLI and Antigravity, not verified. 16, pi's sessions, can start; 14 waits on it, and 15, the exit demonstration, on all of them.
 
 Next action: run epic 10's tickets. `/binnacle:autopilot 10`
 
