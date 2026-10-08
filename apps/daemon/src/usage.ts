@@ -1325,14 +1325,21 @@ async function ingestAntigravity(
 ): Promise<string | null> {
   const root = context.runtime.artifacts.antigravity;
   let mark: number;
-  let reading: ReturnType<typeof readAntigravity>;
+  let summaries: string | null;
   try {
     mark = antigravityMark(path, root);
     if (!databaseChanged(context.store.cursor(path), mark, window)) return null;
-    reading = readAntigravity(readAntigravityState(path), antigravityConversations(root));
+    summaries = readAntigravityState(path);
   } catch (error) {
     return databaseFailure(path, error);
   }
+  let conversations: AntigravityConversation[];
+  try {
+    conversations = antigravityConversations(root);
+  } catch (error) {
+    return openFailure(join(root, 'conversations'), error);
+  }
+  const reading = readAntigravity(summaries, conversations);
   if (reading.failure !== null) return `${path}: ${reading.failure}`;
   await keep(context, { path, size: mark, offset: 0, line: 0, windowDays: window }, reading.records, places, histories);
   return null;

@@ -49,12 +49,14 @@ export function readAntigravity(summaries: string | null, conversations: Antigra
 
   const times = new Map(conversations.map(({ id, time }) => [id, time]));
   const records: UsageRecord[] = [];
+  const read = new Set<string>();
   for (const entry of entries) {
     const held: string[] = [];
     strings(entry, 0, held);
     const id = held.find((value) => times.has(value));
     const cwd = held.flatMap(directory)[0];
-    if (id === undefined || cwd === undefined || records.some((record) => record.sessionId === id)) continue;
+    if (id === undefined || cwd === undefined || read.has(id)) continue;
+    read.add(id);
     records.push({
       harness: 'antigravity',
       naturalKey: id,
@@ -97,9 +99,17 @@ function directory(value: string): string[] {
   }
 }
 
-/** Every string `message` holds, its own and its nested messages', base64 ones decoded, depth first, to a bounded depth. */
+/**
+ * How deep `strings` goes. Ticket 06's summaries nest the workspace about four messages down,
+ * a base64 string counted as one.
+ * ponytail: a value is tried both as a message and as base64, so the work can double per level;
+ * it is bounded here, and goes once the fields are read by their numbers.
+ */
+const DEPTH = 8;
+
+/** Every string `message` holds, its own and its nested messages', base64 ones decoded, depth first, down to `DEPTH`. */
 function strings(message: Buffer, depth: number, held: string[]): void {
-  if (depth > 8) return;
+  if (depth > DEPTH) return;
   for (const value of fields(message) ?? []) {
     const text = value.toString('utf8');
     held.push(text);
