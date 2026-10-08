@@ -68,7 +68,7 @@ The harnesses Binnacle reads today, the highest level each reaches, and how:
 | Claude Code (CLI and desktop) | 4 — Live | its session files under `~/.claude/projects`, and the OpenTelemetry export `binn init` enables in its settings |
 | Codex (CLI and desktop) | 4 — Live | its rollouts under `~/.codex/sessions`, and the OpenTelemetry export `binn init` enables in `~/.codex/config.toml` |
 | Gemini CLI | 4 — Live, not verified | its session files under `~/.gemini/tmp`, and the OpenTelemetry export `binn init` enables in `~/.gemini/settings.json` |
-| opencode | 3 — Usage | its database in `~/.local/share/opencode`; it has no OpenTelemetry export |
+| opencode | 3 — Usage | its database in `~/.local/share/opencode`; it documents no OpenTelemetry export |
 | ZCode | 3 — Usage | its database in `~/.zcode/cli/db`; it documents no OpenTelemetry export |
 | pi | 3 — Usage | its session files under `~/.pi/agent/sessions`; it has no built-in OpenTelemetry export |
 | Antigravity | 2 — Attribution, not verified | its window state, which names each conversation's workspace; its conversations are encrypted, so no model or tokens |

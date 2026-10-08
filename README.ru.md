@@ -68,7 +68,7 @@ Harness, которые Binnacle читает сегодня, наивысший
 | Claude Code (CLI и desktop) | 4 — Live | его файлы сессий в `~/.claude/projects` и экспорт OpenTelemetry, который `binn init` включает в его настройках |
 | Codex (CLI и desktop) | 4 — Live | его rollouts в `~/.codex/sessions` и экспорт OpenTelemetry, который `binn init` включает в `~/.codex/config.toml` |
 | Gemini CLI | 4 — Live, не проверен | его файлы сессий в `~/.gemini/tmp` и экспорт OpenTelemetry, который `binn init` включает в `~/.gemini/settings.json` |
-| opencode | 3 — Usage | его база данных в `~/.local/share/opencode`; экспорта OpenTelemetry у него нет |
+| opencode | 3 — Usage | его база данных в `~/.local/share/opencode`; экспорт OpenTelemetry у него не задокументирован |
 | ZCode | 3 — Usage | его база данных в `~/.zcode/cli/db`; экспорт OpenTelemetry у него не задокументирован |
 | pi | 3 — Usage | его файлы сессий в `~/.pi/agent/sessions`; встроенного экспорта OpenTelemetry у него нет |
 | Antigravity | 2 — Attribution, не проверен | его состояние окна, где названо рабочее пространство каждого разговора; сами разговоры зашифрованы, поэтому ни модели, ни токенов |

@@ -58,7 +58,7 @@ A run's role is read from Git and the forge, never from what an agent wrote, and
 
 - `product` — on the default branch;
 - `implementation` — on a Task's branch, unless one of the two below applies;
-- `review` — a subagent run on a Task's branch that starts after the branch's last commit changing anything but its ticket, and ends by the commit that first adds `### Review` under the ticket's `## Comments`;
+- `review` — a subagent run on a Task's branch that starts after the branch's last commit changing anything but its ticket, and ends by the commit that first adds a `### Review` heading to the ticket;
 - `rework` — work on a Task's branch after that commit; on GitHub or GitLab, which keep no Review in a ticket, after the first review on the Task's pull or merge request that requested changes, read with the tracker's token. A forge has no Review commit, so no run there is a review run, and where its requests cannot be read — no token, no request, a forge that refused — the Task says why in `reworkUnread`;
 - `unknown` — any other branch.
 
@@ -163,7 +163,7 @@ Binnacle normalises these into one signal per session, **context pressure**, car
 - the context its latest call read: input, cached input and cache creation together, Binnacle's sum, so `calculated`;
 - the compactions seen in it, their count and the latest with its time: Claude Code's boundaries with their trigger, `provider_reported`, and Codex's changes of context window, Binnacle's reading of a compaction, `calculated` and with no trigger.
 
-Where a harness reveals neither, the signal is absent rather than guessed. pi writes its compactions with no trigger, and gives no marker.
+Where a harness reveals neither, the signal is absent rather than guessed. pi's compactions are not part of the signal: pi writes them with no trigger, so Binnacle reads no marker from them.
 
 An active Product session — a main session on the default branch — raises the attention item `context.pressure` when its latest call read at least the threshold, or when it compacted after the project's last recorded checkpoint, or at all, when none is recorded. The item names the session, its context and its compaction, and suggests `/binnacle:checkpoint`, then a fresh session. A subagent's session raises none. The threshold is `telemetry.context_pressure.tokens` in the manifest, 150 000 where it writes none: configuration, not a universal truth.
 

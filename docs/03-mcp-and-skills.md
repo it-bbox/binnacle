@@ -20,7 +20,7 @@ MCP is the stable contract. Client-specific slash commands/skills are thin UX wr
 - `run.list`
 - `question.list`
 - `review.status`
-- `usage.get` (the tool `usage_get`: the project's token usage by Task and by role — `product`, `implementation`, `review`, `rework` and `unknown`, read from Git and the forge as `04-telemetry-dashboard.md`, *Run roles*, says — each harness's support level, and derived metrics labelled as Binnacle's calculations; or one Task's, with its runs, its totals by role and `reworkUnread`, why its rework is not read on GitHub or GitLab, which `task.get` carries too)
+- `usage.get` (the tool `usage_get`: the project's token usage by Task and by role, each harness's support level, and derived metrics labelled as Binnacle's calculations; or one Task's, with its runs. The roles are `product`, `implementation`, `review`, `rework` and `unknown`, read from Git and the forge (`04-telemetry-dashboard.md`, *Run roles*). One Task's usage, like `task.get`, also carries its totals by role and `reworkUnread`, why its rework is not read on GitHub or GitLab)
 
 ### Controlled mutations
 
@@ -84,7 +84,7 @@ Every harness with MCP or a shell is at level 1, Context. Above it, Binnacle rea
 | --- | --- | --- |
 | Claude Code (CLI and desktop) | 4 — Live | its session files under `~/.claude/projects` (`$CLAUDE_CONFIG_DIR/projects`); its OpenTelemetry, `claude_code.api_request` events, which `binn init` enables in its settings' `env` |
 | Codex (CLI and desktop) | 4 — Live | its rollouts under `~/.codex/sessions` (`$CODEX_HOME/sessions`); its OpenTelemetry, `codex.sse_event` events, which `binn init` enables in the `[otel]` table of `~/.codex/config.toml` |
-| Gemini CLI | 4 — Live, not verified | its session files under `~/.gemini/tmp/<project>/chats` (`$GEMINI_CLI_HOME/.gemini/tmp`); its OpenTelemetry, `gemini_cli.api_response` events, which `binn init` enables in the `telemetry` block of `~/.gemini/settings.json`. Its events name no directory, so they wait in no project until a session file names one |
+| Gemini CLI | 4 — Live, not verified | its session files under `~/.gemini/tmp/<project>/chats` (`$GEMINI_CLI_HOME/.gemini/tmp`); its OpenTelemetry, `gemini_cli.api_response` events, which `binn init` enables in the `telemetry` block of `~/.gemini/settings.json`. Its events name no directory, so they wait in no project until a session file names one, though while they arrive they make Gemini CLI live in every project's level |
 | opencode | 3 — Usage | its SQLite database, `opencode.db` in `~/.local/share/opencode` (`$XDG_DATA_HOME/opencode`), one record per finished call; it documents no OpenTelemetry export |
 | ZCode | 3 — Usage | its SQLite database, `~/.zcode/cli/db/db.sqlite`, one record per row of `model_usage`, with its provider and model, such as GLM, apart; it documents no OpenTelemetry export |
 | pi | 3 — Usage | its session files under `~/.pi/agent/sessions` (`$PI_CODING_AGENT_DIR/sessions`), one record per entry pi totals; it has no built-in OpenTelemetry export, and `binn init` installs none |
