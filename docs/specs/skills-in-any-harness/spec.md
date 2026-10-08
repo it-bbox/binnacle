@@ -3,11 +3,11 @@
 Status: READY
 Triage: ready-for-agent
 
-Epic 14 of v1, as defined in `docs/05-mvp-plan.md` phase 14, and ADR-0039. Exit criterion, restated while specifying: on a Mac with Codex, Antigravity and ZCode installed, the owner runs `binn init` on a repository, confirms once, and runs `binnacle-product` in each of the three and gets the Product Snapshot, in one of them through `binn call` rather than MCP; Claude Code, installed afterwards, gets the `binnacle` plugin and no second copy from one more `binn init`. The phase was grilled on 2026-10-06; the owner confirmed this spec's test seams on 2026-10-06, recorded under *Further Notes*.
+Epic 14 of v1, as defined in `docs/05-mvp-plan.md` phase 14, and ADR-0039. Exit criterion, restated while specifying: on the owner's machine with Codex, Antigravity and ZCode installed, the owner runs `binn init` on a repository, confirms once, and runs `binnacle-product` in each of the three and gets the Product Snapshot, in one of them through `binn call` rather than MCP; Claude Code, installed afterwards, gets the `binnacle` plugin and no second copy from one more `binn init`. The phase was grilled on 2026-10-06; the owner confirmed this spec's test seams on 2026-10-06, recorded under *Further Notes*.
 
 ## Problem Statement
 
-The owner works in one project from several harnesses — on a Mac, Codex, Antigravity and ZCode — and the people expected to use Binnacle work from Pi, DeepSeek's harness and others. Binnacle's skills reach only Claude Code: `binn init` installs them as the `binnacle` plugin through `claude plugin`, and for every other harness its Summary prints a prompt that points an agent at a `SKILL.md` file by path. Matt Pocock Skills and Ponytail are the same: installed into Claude Code, printed as a link for the rest.
+The owner works in one project from several harnesses — Codex, Antigravity and ZCode — and the people expected to use Binnacle work from Pi, DeepSeek's harness and others. Binnacle's skills reach only Claude Code: `binn init` installs them as the `binnacle` plugin through `claude plugin`, and for every other harness its Summary prints a prompt that points an agent at a `SKILL.md` file by path. Matt Pocock Skills and Ponytail are the same: installed into Claude Code, printed as a link for the rest.
 
 Even placed by hand, the skills are written for Claude Code. They call each other `/binnacle:daemon`, autopilot names Claude Code's agent tool, its worktrees under `.claude/worktrees` and its push notification, and `/binnacle:init` tells the human to approve a server "when Claude Code asks". On 2026-10-06 the owner linked the skills into `~/.codex/skills` by hand, and Codex ran them only because it also had Binnacle's MCP server.
 
@@ -29,7 +29,7 @@ That is the third gap. Every skill that reads the project — product, daily, ta
 
 ### Installing
 
-1. As the owner on a Mac with Codex, Antigravity and ZCode, I want one `binn init` to give all three Binnacle's skills, so that I do not install them per harness.
+1. As the owner on a machine with Codex, Antigravity and ZCode, I want one `binn init` to give all three Binnacle's skills, so that I do not install them per harness.
 2. As a user of Pi or another harness the `skills` CLI knows, I want `binn init` to install Binnacle's skills into it, so that Binnacle is not a Claude Code product.
 3. As a user, I want the skills installed at user scope, so that every project on the machine has them and nothing is written into the repository (ADR-0020).
 4. As a user, I want the install shown in `binn init`'s plan and run only after my one yes, so that nothing changes on my machine without it (ADR-0026, ADR-0034).
@@ -134,4 +134,4 @@ That is the third gap. Every skill that reads the project — product, daily, ta
 - **Test seams confirmed by the owner on 2026-10-06**: the `binn init` process, the `binn call` process, the package build, and `binn audit`, with the exit demonstration for what an agent does.
 - **Found while specifying**: with `-y` and no harness detected, the `skills` CLI installs into every harness it knows; hence the skip when `binn` detects none. Ponytail's repository holds its skills under `skills/*/SKILL.md`, which the `skills` CLI reads.
 - **Defaults taken from the docs and Ponytail, not asked**: the copy built from the plugin rather than a second source; the version in `metadata` rather than a lock file of our own; freshness read from `~/.agents/skills` alone, where the `skills` CLI keeps canonical copies; `binn call`'s output identical to the tool's rather than a new format.
-- **The exit demonstration**: on the owner's Mac with Codex, Antigravity and ZCode, `binn init` with one yes; `binnacle-product` in each of the three, one of them without the `binnacle` MCP server so that it goes through `binn call`; `binnacle-autopilot` in a harness without background agents refuses and changes nothing; Claude Code installed afterwards, `binn init` again, and Claude Code lists `/binnacle:product` once.
+- **The exit demonstration**: on the owner's machine with Codex, Antigravity and ZCode, `binn init` with one yes; `binnacle-product` in each of the three, one of them without the `binnacle` MCP server so that it goes through `binn call`; `binnacle-autopilot` in a harness without background agents refuses and changes nothing; Claude Code installed afterwards, `binn init` again, and Claude Code lists `/binnacle:product` once.

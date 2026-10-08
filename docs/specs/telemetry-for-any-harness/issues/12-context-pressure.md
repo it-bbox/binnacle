@@ -63,7 +63,7 @@ Spec: `docs/specs/telemetry-for-any-harness/spec.md`
 1. **The item did not always name the context**, when only a compaction raised it. The spec says "naming the session, its context and the marker". **Fixed**: the context is named whenever the call reports one.
 2. **`contextPressure` on every run of the snapshot's `activity`.** **Kept**: "Each session carries its context pressure", and the activity's runs are `usage.get`'s. It is a fixed-size field on at most twenty runs.
 3. **Pressure is raised without a readable tracker.** **Kept**, and recorded in *Decisions*: a Product session is the default branch's, whatever the tracker.
-4. **A Codex compaction following no named window was taken as a change.** **Fixed**: no change is seen there, and no marker is given. The format was read from this machine's Codex 0.155 rollouts; the exit demonstration confirms it on the owner's Mac.
+4. **A Codex compaction following no named window was taken as a change.** **Fixed**: no change is seen there, and no marker is given. The format was read from this machine's Codex 0.155 rollouts; the exit demonstration confirms it on the owner's machine.
 5. **Every compaction counts when no checkpoint was ever recorded.** **Kept**, and recorded in *Decisions*: nothing has been checkpointed since it.
 6. **`docs/04-telemetry-dashboard.md` describes pressure as cumulative input.** **Left** to ticket 14.
 

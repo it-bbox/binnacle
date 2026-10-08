@@ -14,7 +14,7 @@ Spec: `docs/specs/telemetry-for-any-harness/spec.md`
 
 ### Decisions
 
-- **The format, from opencode's source.** No opencode was installed where this ticket was built, so the format comes from opencode v1.18.35, its latest release (`anomalyco/opencode`, formerly `sst/opencode`): `packages/core/src/session/sql.ts`, `packages/schema/src/v1/session.ts`, `packages/core/src/database/database.ts` and `packages/opencode/src/session/processor.ts`. The exit demonstration (ticket 15) confirms it on the owner's Mac. The format as read:
+- **The format, from opencode's source.** No opencode was installed where this ticket was built, so the format comes from opencode v1.18.35, its latest release (`anomalyco/opencode`, formerly `sst/opencode`): `packages/core/src/session/sql.ts`, `packages/schema/src/v1/session.ts`, `packages/core/src/database/database.ts` and `packages/opencode/src/session/processor.ts`. The exit demonstration (ticket 15) confirms it on the owner's machine. The format as read:
   - Since opencode 1.2, its sessions are not files but one SQLite database, `opencode.db`, in its data directory: `$XDG_DATA_HOME/opencode`, otherwise `~/.local/share/opencode`, on macOS too. It runs in WAL mode.
   - The `session` table has each session's `directory` and `parent_id`, the session that started it, for a subagent's. `message` and `part` hold each message and part as JSON in `data`.
   - Each model call writes one `step-finish` part with its tokens once the call has finished. The assistant message's own `tokens` are overwritten by each step, so they are only the last call's.
@@ -45,7 +45,7 @@ Spec: `docs/specs/telemetry-for-any-harness/spec.md`
   - the `session_message` table, opencode's next message format. The released CLI writes steps to `part`.
 - **Out of this ticket:** `binn init`'s session history (`apps/cli/src/history.ts`) still names only Claude Code and Codex. The documents are ticket 14's.
 - **Against ticket 04, merged before this branch:** Gemini CLI keeps its entry and artifact root in `HARNESSES`; opencode is a fourth beside it. The reader does not use `readMessages` in `artifact.ts`: opencode writes a step once, when its call has finished, so no record waits to settle. It shares `count` and `isObject`.
-- **For the exit demonstration**, on the owner's Mac, after an opencode session in a registered project:
+- **For the exit demonstration**, on the owner's machine, after an opencode session in a registered project:
 
   ```sh
   ls ~/.local/share/opencode/                       # opencode.db, -wal and -shm

@@ -16,7 +16,7 @@ Spec: `docs/specs/telemetry-for-any-harness/spec.md`
 
 ### Decisions
 
-- **The format, from Gemini CLI's source.** No Gemini CLI was installed where this ticket was built, so the format comes from `packages/core/src/services/chatRecordingService.ts` and `config/storage.ts` on Gemini CLI's `main`. The sample in `packages/adapters/test/fixtures/gemini-cli` is built from it. The exit demonstration (ticket 15) confirms it on the owner's Mac. The format as read:
+- **The format, from Gemini CLI's source.** No Gemini CLI was installed where this ticket was built, so the format comes from `packages/core/src/services/chatRecordingService.ts` and `config/storage.ts` on Gemini CLI's `main`. The sample in `packages/adapters/test/fixtures/gemini-cli` is built from it. The exit demonstration (ticket 15) confirms it on the owner's machine. The format as read:
   - Each launch directory has a temp directory `~/.gemini/tmp/<slug>/` (`$GEMINI_CLI_HOME/.gemini/tmp` when that is set). Its `.project_root` holds the launch directory.
   - A main session is `chats/session-<time>-<id>.jsonl`. A subagent's is `chats/<parent session id>/<id>.jsonl`.
   - The first line is the session's metadata, `sessionId` among it. Then come the messages. Gemini CLI appends a message again, whole and with the same id, when it gains its tokens or its tool results. `$patch`, `$set` and `$rewindTo` lines may sit in between.
@@ -34,7 +34,7 @@ Spec: `docs/specs/telemetry-for-any-harness/spec.md`
 - **A rewound call still counts**: its tokens were spent. Prompts, notices, patches and metadata updates give no record.
 - **Older formats are not read.** A temp directory with no `.project_root`, as an older Gemini CLI named by a hash of the path, belongs to no project. A `.json` session from before the JSON Lines format is not read either; Gemini CLI converts one when it resumes it. `geminiCliSessions`'s doc comment says both, the second as a `ponytail:` ceiling.
 - **Out of this ticket:** `binn init`'s session history (`apps/cli/src/history.ts`) and `binn audit`'s telemetry readiness still name only Claude Code and Codex. The audit and the export are ticket 03's, and the documents ticket 14's.
-- **For the exit demonstration**, on the owner's Mac, after a Gemini CLI session in a registered project:
+- **For the exit demonstration**, on the owner's machine, after a Gemini CLI session in a registered project:
 
   ```sh
   ls ~/.gemini/tmp/*/.project_root ~/.gemini/tmp/*/chats/
