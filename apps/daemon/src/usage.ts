@@ -4,6 +4,8 @@ import { setImmediate, setTimeout } from 'node:timers/promises';
 import {
   branchAt,
   codexSession,
+  readAntigravity,
+  readAntigravityState,
   readClaudeCode,
   readCodex,
   readBranchCommit,
@@ -21,6 +23,7 @@ import {
   readHeadHistory,
   readLastChangeBefore,
   readWorktrees,
+  type AntigravityConversation,
   type ArtifactReading,
   type ChangesRequested,
   type DatabaseReading,
@@ -69,6 +72,9 @@ export const OPENCODE_NO_EXPORT = 'opencode documents no OpenTelemetry export, s
 
 /** Why ZCode never reaches level 4, as for opencode. */
 export const ZCODE_NO_EXPORT = 'ZCode documents no OpenTelemetry export, so Binnacle counts it only from its database, each call once it has finished';
+/** Why Antigravity stays at level 2: its sessions and their directories are all it shows. */
+export const ANTIGRAVITY_NO_TOKENS =
+  'Antigravity has no OpenTelemetry export and keeps its conversations encrypted, so Binnacle sees only its sessions and their directories, from its window state, and no model or token counts';
 
 /** Why `derived.ponytail` compares nothing, in the words the dashboard translates. */
 export const PONYTAIL_REASONS = {
@@ -85,7 +91,8 @@ const INSTRUCTION_FILES = ['AGENTS.md', 'CLAUDE.md'];
 
 /**
  * The harnesses Binnacle counts, in the order the snapshot lists them, with their names and
- * artifact roots, and, for one that exports no OpenTelemetry, why it never reaches level 4.
+ * artifact roots, and, for one that exports no OpenTelemetry, why it never reaches level 4, or,
+ * for one without token counts, level 3.
  */
 const HARNESSES: { harness: Harness; name: string; root: keyof ArtifactRoots; noExport?: string }[] = [
   { harness: 'claude-code', name: 'Claude Code', root: 'claudeCode' },
@@ -98,6 +105,7 @@ const HARNESSES: { harness: Harness; name: string; root: keyof ArtifactRoots; no
     noExport: `${OPENCODE_NO_EXPORT}.`,
   },
   { harness: 'zcode', name: 'ZCode', root: 'zcode', noExport: `${ZCODE_NO_EXPORT}.` },
+  { harness: 'antigravity', name: 'Antigravity', root: 'antigravity', noExport: `${ANTIGRAVITY_NO_TOKENS}.` },
 ];
 
 /** Per harness, why its artifacts of a project cannot be read, if they cannot. */
@@ -149,6 +157,7 @@ export function forgetRead(context: OperationContext, projectPath: string): void
   context.store.forgetCursors(join(context.runtime.artifacts.claudeCode, claudeCodeDirectory(projectPath)));
   for (const path of geminiCliSessions(context.runtime.artifacts.geminiCli, [projectPath]).files) context.store.forgetCursors(path);
   for (const harness of DATABASE_HARNESSES) context.store.forgetCursors(databasePath(context.runtime.artifacts, harness));
+  context.store.forgetCursors(context.runtime.artifacts.antigravityState);
 }
 
 export type HarnessLevel = {
@@ -159,7 +168,7 @@ export type HarnessLevel = {
    * were read without any, 1 when an artifact could not be read, null when none were found.
    */
   level: 1 | 2 | 3 | 4 | null;
-  /** Why the level is below 2, or, at 2 or 3, why a harness that exports no OpenTelemetry never reaches 4; null otherwise. */
+  /** Why the level is below 2, or, at 2 or 3, why a harness that exports no OpenTelemetry never reaches 4, or one without token counts 3; null otherwise. */
   reason: string | null;
 };
 
@@ -181,7 +190,7 @@ export type Usage = {
 };
 
 /**
- * Reads what is new in the Claude Code, Codex, Gemini CLI, opencode and ZCode artifacts of `projectPath`, for as long as
+ * Reads what is new in the Claude Code, Codex, Gemini CLI, opencode, ZCode and Antigravity artifacts of `projectPath`, for as long as
  * the time budget allows, and answers the snapshot's `usage` and `activity` sections from
  * everything stored, attributed to `tasks`, the tracker's current Tasks, or unavailable with
  * why they cannot be read, and its `context.pressure` attention items. What the budget does
@@ -601,6 +610,8 @@ function unreadableArtifacts(context: OperationContext, directoriesOfProject: st
     'gemini-cli': summary('Gemini CLI', [...geminiCli.failures, ...failed(geminiCli.files)]),
     opencode: database('opencode', 'opencode'),
     zcode: database('zcode', 'ZCode'),
+    // Antigravity's one window state names every project's sessions, so its failure is every project's too.
+    antigravity: summary('Antigravity', failed([artifacts.antigravityState])),
   };
 }
 
@@ -969,6 +980,7 @@ export function startIngest(context: OperationContext, projectPath: string, mani
     'gemini-cli': geminiCliSessions(artifacts.geminiCli, [projectPath, ...linked]),
     opencode: databaseFiles(artifacts, 'opencode'),
     zcode: databaseFiles(artifacts, 'zcode'),
+    antigravity: { files: existsSync(artifacts.antigravityState) ? [artifacts.antigravityState] : [] },
   };
 
   const pending: { path: string; harness: Harness }[] = [];
@@ -976,7 +988,12 @@ export function startIngest(context: OperationContext, projectPath: string, mani
     for (const path of found[harness].files) {
       try {
         const cursor = context.store.cursor(path);
-        if (isDatabase(harness) ? !databaseChanged(cursor, databaseMark(path), window) : readPosition(cursor, statSync(path).size, window) === null) {
+        const changed = isDatabase(harness)
+          ? databaseChanged(cursor, databaseMark(path), window)
+          : harness === 'antigravity'
+            ? databaseChanged(cursor, antigravityMark(path, artifacts.antigravity), window)
+            : readPosition(cursor, statSync(path).size, window) !== null;
+        if (!changed) {
           // Read to its end, and it can be opened again: nothing about it is unreadable any more.
           importer.unreadable.delete(path);
           continue;
@@ -1201,6 +1218,7 @@ async function ingestFile(
   histories: Map<string, Promise<HeadHistory | null>>,
 ): Promise<string | null> {
   if (isDatabase(harness)) return ingestDatabase(context, { path, harness }, window, places, histories);
+  if (harness === 'antigravity') return ingestAntigravity(context, path, window, places, histories);
   let size: number;
   let settled: boolean;
   let from: { offset: number; line: number } | null;
@@ -1272,8 +1290,7 @@ async function ingestDatabase(
     if (!databaseChanged(context.store.cursor(path), mark, window)) return null;
     reading = read(path);
   } catch (error) {
-    // SQLite says why in `errstr`, as "file is not a database"; its code is SQLite's for any error.
-    return `${path} (${(error as { errstr?: string }).errstr ?? (error as NodeJS.ErrnoException).code ?? 'error'})`;
+    return databaseFailure(path, error);
   }
   const { unreadable } = context.importer;
   for (const key of unreadable.keys()) if (key.startsWith(sessionFailureKey(path, ''))) unreadable.delete(key);
@@ -1283,6 +1300,61 @@ async function ingestDatabase(
   }
   await keep(context, { path, size: failures.length > 0 ? 0 : mark, offset: 0, line: 0, windowDays: window }, reading.records, places, histories);
   return null;
+}
+
+/** Why the database at `path` could not be opened or read: SQLite says why in `errstr`, as "file is not a database"; its code is SQLite's for any error. */
+const databaseFailure = (path: string, error: unknown): string =>
+  `${path} (${(error as { errstr?: string }).errstr ?? (error as NodeJS.ErrnoException).code ?? 'error'})`;
+
+/**
+ * Reads Antigravity's window state at `path` and its conversations, under its artifact root,
+ * whole whenever either changed, as `ingestDatabase` reads opencode's, and returns why they
+ * could not be read, if they could not; the next reading tries again. The cursor's `size`
+ * holds their mark (`antigravityMark`).
+ *
+ * ponytail: a conversation is one record, at its start, so its run shows no activity after
+ * it and is running only just after it began; key a record per change of its file if
+ * Antigravity's running sessions should show as running.
+ */
+async function ingestAntigravity(
+  context: OperationContext,
+  path: string,
+  window: ImportWindow,
+  places: { path: string; project: string }[],
+  histories: Map<string, Promise<HeadHistory | null>>,
+): Promise<string | null> {
+  const root = context.runtime.artifacts.antigravity;
+  let mark: number;
+  let reading: ReturnType<typeof readAntigravity>;
+  try {
+    mark = antigravityMark(path, root);
+    if (!databaseChanged(context.store.cursor(path), mark, window)) return null;
+    reading = readAntigravity(readAntigravityState(path), antigravityConversations(root));
+  } catch (error) {
+    return databaseFailure(path, error);
+  }
+  if (reading.failure !== null) return `${path}: ${reading.failure}`;
+  await keep(context, { path, size: mark, offset: 0, line: 0, windowDays: window }, reading.records, places, histories);
+  return null;
+}
+
+/** Antigravity's conversations under its artifact `root`, each at the earliest time its file gives; none when it has none. */
+function antigravityConversations(root: string): AntigravityConversation[] {
+  const directory = join(root, 'conversations');
+  if (!existsSync(directory)) return [];
+  return readdirSync(directory, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.pb'))
+    .map((entry) => {
+      const { birthtimeMs, mtimeMs } = statSync(join(directory, entry.name));
+      // A file system that keeps no birth time gives 0.
+      return { id: entry.name.slice(0, -'.pb'.length), time: birthtimeMs > 0 ? Math.min(birthtimeMs, mtimeMs) : mtimeMs };
+    });
+}
+
+/** When Antigravity's window state at `path`, or its conversations under `root`, last changed. */
+function antigravityMark(path: string, root: string): number {
+  const conversations = join(root, 'conversations');
+  return Math.max(databaseMark(path), existsSync(conversations) ? statSync(conversations).mtimeMs : 0);
 }
 
 /**

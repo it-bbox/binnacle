@@ -47,7 +47,7 @@ export async function startTestDaemon(
   const daemon = await startDaemon({
     home,
     port: 0,
-    artifacts: { claudeCode: join(home, 'no-claude-code-artifacts'), codex: join(home, 'no-codex-sessions'), geminiCli: join(home, 'no-gemini-cli-sessions'), opencode: join(home, 'no-opencode-data'), zcode: join(home, 'no-zcode-db'), ...options.artifacts },
+    artifacts: { claudeCode: join(home, 'no-claude-code-artifacts'), codex: join(home, 'no-codex-sessions'), geminiCli: join(home, 'no-gemini-cli-sessions'), opencode: join(home, 'no-opencode-data'), zcode: join(home, 'no-zcode-db'), antigravity: join(home, 'no-antigravity-data'), antigravityState: join(home, 'no-antigravity-state.vscdb'), ...options.artifacts },
     ...(options.ingestBudgetMs === undefined ? {} : { ingestBudgetMs: options.ingestBudgetMs }),
     settledAfterMs: options.settledAfterMs ?? 0,
     dashboard: options.dashboard ?? join(home, 'no-dashboard'),

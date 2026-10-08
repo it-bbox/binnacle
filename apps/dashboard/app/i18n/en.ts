@@ -125,6 +125,8 @@ export const en = {
     importNotReached: 'The import of this project has not reached a record yet.',
     opencodeNoExport: 'opencode documents no OpenTelemetry export, so Binnacle counts it only from its database, each call once it has finished.',
     zcodeNoExport: 'ZCode documents no OpenTelemetry export, so Binnacle counts it only from its database, each call once it has finished.',
+    antigravityNoTokens:
+      'Antigravity has no OpenTelemetry export and keeps its conversations encrypted, so Binnacle sees only its sessions and their directories, from its window state, and no model or token counts.',
     roadmapNoDocs: 'The roadmap is <knowledge.docs>/roadmap.md, and this project declares no knowledge.docs.',
     roadmapNoFocus: 'The roadmap has no "## Current focus" section.',
     roadmapNoTable: 'The roadmap has no table headed "| # | Epic | Status | Spec |".',

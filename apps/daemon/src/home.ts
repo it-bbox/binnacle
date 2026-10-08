@@ -180,7 +180,7 @@ export type Runtime = {
 };
 
 /** Where each harness keeps the session artifacts the daemon reads usage from. It only ever reads there. */
-export type ArtifactRoots = { claudeCode: string; codex: string; geminiCli: string; opencode: string; zcode: string };
+export type ArtifactRoots = { claudeCode: string; codex: string; geminiCli: string; opencode: string; zcode: string; antigravity: string; antigravityState: string };
 
 /**
  * Claude Code's: `$CLAUDE_CONFIG_DIR/projects`, otherwise `~/.claude/projects`. Codex's:
@@ -188,18 +188,25 @@ export type ArtifactRoots = { claudeCode: string; codex: string; geminiCli: stri
  * `$GEMINI_CLI_HOME/.gemini/tmp`, otherwise `~/.gemini/tmp`. opencode's, its data directory,
  * which holds its database: `$XDG_DATA_HOME/opencode`, otherwise `~/.local/share/opencode`,
  * on macOS too. ZCode's, the directory of its database: `~/.zcode/cli/db`.
+ * Antigravity's: `~/.gemini/antigravity`, which holds its conversations, and its
+ * window state, `Antigravity/User/globalStorage/state.vscdb` in VS Code's user data directory:
+ * `~/Library/Application Support` on macOS, otherwise `$XDG_CONFIG_HOME`, else `~/.config`.
  */
 export function resolveArtifactRoots(env: NodeJS.ProcessEnv = process.env): ArtifactRoots {
   const claude = env.CLAUDE_CONFIG_DIR?.trim();
   const codex = env.CODEX_HOME?.trim();
   const gemini = env.GEMINI_CLI_HOME?.trim();
   const data = env.XDG_DATA_HOME?.trim();
+  const config = env.XDG_CONFIG_HOME?.trim();
+  const userData = process.platform === 'darwin' ? join(homedir(), 'Library', 'Application Support') : config ? config : join(homedir(), '.config');
   return {
     claudeCode: join(claude ? claude : join(homedir(), '.claude'), 'projects'),
     codex: join(codex ? codex : join(homedir(), '.codex'), 'sessions'),
     geminiCli: join(gemini ? gemini : homedir(), '.gemini', 'tmp'),
     opencode: join(data ? data : join(homedir(), '.local', 'share'), 'opencode'),
     zcode: join(homedir(), '.zcode', 'cli', 'db'),
+    antigravity: join(homedir(), '.gemini', 'antigravity'),
+    antigravityState: join(userData, 'Antigravity', 'User', 'globalStorage', 'state.vscdb'),
   };
 }
 
