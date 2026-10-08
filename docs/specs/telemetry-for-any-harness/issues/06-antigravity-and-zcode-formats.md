@@ -43,3 +43,7 @@ So ZCode carries a working directory, a session id, a provider and a model kept 
 
 Not part of this ticket, found while doing it: signing in to Gemini CLI with a personal Google account fails with "This client is no longer supported for Gemini Code Assist for individuals", pointing to Antigravity. An API key from Google AI Studio still works. The owner decided to leave Gemini CLI, as Antigravity, built and marked not verified.
 
+
+### Review
+
+None: this ticket changed no code. It records formats observed on the owner's machine, and tickets 07 and 08 review the readers built from them.
