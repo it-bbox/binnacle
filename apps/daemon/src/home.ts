@@ -180,7 +180,7 @@ export type Runtime = {
 };
 
 /** Where each harness keeps the session artifacts the daemon reads usage from. It only ever reads there. */
-export type ArtifactRoots = { claudeCode: string; codex: string; geminiCli: string; opencode: string; zcode: string; antigravity: string; antigravityState: string };
+export type ArtifactRoots = { claudeCode: string; codex: string; geminiCli: string; opencode: string; zcode: string; antigravity: string; antigravityState: string; pi: string };
 
 /**
  * Claude Code's: `$CLAUDE_CONFIG_DIR/projects`, otherwise `~/.claude/projects`. Codex's:
@@ -190,7 +190,8 @@ export type ArtifactRoots = { claudeCode: string; codex: string; geminiCli: stri
  * on macOS too. ZCode's, the directory of its database: `~/.zcode/cli/db`.
  * Antigravity's: `~/.gemini/antigravity`, which holds its conversations, and its
  * window state, `Antigravity/User/globalStorage/state.vscdb` in VS Code's user data directory:
- * `~/Library/Application Support` on macOS, otherwise `$XDG_CONFIG_HOME`, else `~/.config`.
+ * `~/Library/Application Support` on macOS, otherwise `$XDG_CONFIG_HOME`, else `~/.config`. pi's:
+ * `$PI_CODING_AGENT_DIR/sessions`, otherwise `~/.pi/agent/sessions`.
  */
 export function resolveArtifactRoots(env: NodeJS.ProcessEnv = process.env): ArtifactRoots {
   const claude = env.CLAUDE_CONFIG_DIR?.trim();
@@ -199,6 +200,7 @@ export function resolveArtifactRoots(env: NodeJS.ProcessEnv = process.env): Arti
   const data = env.XDG_DATA_HOME?.trim();
   const config = env.XDG_CONFIG_HOME?.trim();
   const userData = process.platform === 'darwin' ? join(homedir(), 'Library', 'Application Support') : config ? config : join(homedir(), '.config');
+  const pi = env.PI_CODING_AGENT_DIR?.trim();
   return {
     claudeCode: join(claude ? claude : join(homedir(), '.claude'), 'projects'),
     codex: join(codex ? codex : join(homedir(), '.codex'), 'sessions'),
@@ -207,6 +209,7 @@ export function resolveArtifactRoots(env: NodeJS.ProcessEnv = process.env): Arti
     zcode: join(homedir(), '.zcode', 'cli', 'db'),
     antigravity: join(homedir(), '.gemini', 'antigravity'),
     antigravityState: join(userData, 'Antigravity', 'User', 'globalStorage', 'state.vscdb'),
+    pi: join(pi ? pi : join(homedir(), '.pi', 'agent'), 'sessions'),
   };
 }
 

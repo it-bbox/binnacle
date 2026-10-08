@@ -8,7 +8,7 @@ import { branchTask, type ObservedRun, type RunRole, type TrackerTask } from '@b
 /** ADR-0007: a value says where it came from, and nothing is ever invented to fill a gap. */
 export type Provenance = 'measured' | 'provider_reported' | 'calculated' | 'estimated';
 
-export type Harness = 'claude-code' | 'codex' | 'gemini-cli' | 'opencode' | 'zcode' | 'antigravity';
+export type Harness = 'claude-code' | 'codex' | 'gemini-cli' | 'opencode' | 'zcode' | 'antigravity' | 'pi';
 
 export const TOKEN_FIELDS = ['input', 'cachedInput', 'cacheCreation', 'output', 'reasoning'] as const;
 /**
@@ -22,7 +22,7 @@ export const SUBSET_OF: Partial<Record<TokenField, TokenField>> = { reasoning: '
 /** One call to a model, as a harness recorded it: metadata and token counts, never content. */
 export type UsageRecord = {
   harness: Harness;
-  /** Unique within the harness: Claude Code's and Gemini CLI's message id; Codex's session id and record ordinal; opencode's step part id; ZCode's model usage id; Antigravity's conversation id. */
+  /** Unique within the harness: Claude Code's and Gemini CLI's message id; Codex's session id and record ordinal; opencode's step part id; ZCode's model usage id; Antigravity's conversation id; pi's entry id and timestamp. */
   naturalKey: string;
   /** The provider's id of the request, where the harness records one: what tells an artifact's call and its OpenTelemetry event to be the same. */
   requestId: string | null;

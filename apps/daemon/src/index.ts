@@ -28,6 +28,6 @@ export { operations, type Operation, type OperationContext, type ProjectStatus }
 export { type ProjectRow } from './store.ts';
 export { readTracker } from './snapshot.ts';
 export { containingEntry } from './registry.ts';
-export { ANTIGRAVITY_NO_TOKENS, claudeCodeSessions, codexSessions, DEFAULT_WINDOW_DAYS, OPENCODE_NO_EXPORT, projectCheckouts, ZCODE_NO_EXPORT } from './usage.ts';
+export { ANTIGRAVITY_NO_TOKENS, claudeCodeSessions, codexSessions, DEFAULT_WINDOW_DAYS, OPENCODE_NO_EXPORT, PI_NO_EXPORT, projectCheckouts, ZCODE_NO_EXPORT } from './usage.ts';
 export { packageVersion } from './version.ts';
 export { GRAPH_CLUSTER, GRAPH_DIRECTORY, GRAPH_EXTRACT, GRAPH_FILE, GRAPH_RUN_TIMEOUT_MS } from './graph.ts';

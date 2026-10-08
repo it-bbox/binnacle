@@ -5,6 +5,7 @@ export { codexSession, readCodex } from './codex.ts';
 export { readGeminiCli, type GeminiCliSession } from './gemini-cli.ts';
 export { readOpencode, readOpencodeSteps, type OpencodeStep } from './opencode.ts';
 export { readZcode, readZcodeCalls, type ZcodeCall } from './zcode.ts';
+export { readPi } from './pi.ts';
 export {
   branchAt,
   commitTree,

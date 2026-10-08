@@ -2341,6 +2341,7 @@ test('the telemetry export: an export already configured elsewhere is left alone
   installExecutable(home, 'opencode');
   installUserDirectory(home, '.zcode');
   installExecutable(home, 'antigravity');
+  installUserDirectory(home, '.pi');
   const files = {
     '.claude/settings.json': JSON.stringify({ env: { OTEL_EXPORTER_OTLP_ENDPOINT: 'http://collector:4318' } }),
     '.codex/config.toml': '[otel]\nexporter = "none"\n',
@@ -2360,6 +2361,7 @@ test('the telemetry export: an export already configured elsewhere is left alone
   assert.match(result.stdout, /skipped\s+opencode's OpenTelemetry export: opencode documents no OpenTelemetry export/);
   assert.match(result.stdout, /skipped\s+ZCode's OpenTelemetry export: ZCode documents no OpenTelemetry export/);
   assert.match(result.stdout, /skipped\s+Antigravity's OpenTelemetry export: Antigravity has no OpenTelemetry export/);
+  assert.match(result.stdout, /skipped\s+pi's OpenTelemetry export: pi has no built-in OpenTelemetry export/);
 });
 
 test('the telemetry export: with no daemon running and BINNACLE_PORT 0, there is no address, and nothing is planned for it', (t) => {

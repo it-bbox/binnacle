@@ -124,6 +124,7 @@ export const en = {
     graphUnreadable: 'graphify-out/graph.json cannot be read as a graph.',
     importNotReached: 'The import of this project has not reached a record yet.',
     opencodeNoExport: 'opencode documents no OpenTelemetry export, so Binnacle counts it only from its database, each call once it has finished.',
+    piNoExport: 'pi has no built-in OpenTelemetry export, so Binnacle counts it only from its session files, each call once it has finished.',
     zcodeNoExport: 'ZCode documents no OpenTelemetry export, so Binnacle counts it only from its database, each call once it has finished.',
     antigravityNoTokens:
       'Antigravity has no OpenTelemetry export and keeps its conversations encrypted, so Binnacle sees only its sessions and their directories, from its window state, and no model or token counts.',

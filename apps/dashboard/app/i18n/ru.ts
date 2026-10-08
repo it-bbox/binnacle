@@ -110,6 +110,7 @@ export const ru: Dictionary = {
     graphUnreadable: 'graphify-out/graph.json не читается как граф.',
     importNotReached: 'Импорт этого проекта ещё не дошёл ни до одной записи.',
     opencodeNoExport: 'Экспорт OpenTelemetry у opencode не описан, поэтому Binnacle считает его только по его базе данных, каждый вызов — после его завершения.',
+    piNoExport: 'Встроенного экспорта OpenTelemetry у pi нет, поэтому Binnacle считает его только по файлам его сессий, каждый вызов — после его завершения.',
     zcodeNoExport: 'Экспорт OpenTelemetry у ZCode не описан, поэтому Binnacle считает его только по его базе данных, каждый вызов — после его завершения.',
     antigravityNoTokens:
       'У Antigravity нет экспорта OpenTelemetry, а его разговоры зашифрованы, поэтому Binnacle видит только его сессии и их каталоги, по состоянию его окна, без модели и счётчиков токенов.',

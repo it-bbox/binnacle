@@ -18,6 +18,7 @@ import {
   readGitLabChangesRequested,
   readOpencode,
   readOpencodeSteps,
+  readPi,
   readZcode,
   readZcodeCalls,
   readHeadHistory,
@@ -76,6 +77,9 @@ export const ZCODE_NO_EXPORT = 'ZCode documents no OpenTelemetry export, so Binn
 export const ANTIGRAVITY_NO_TOKENS =
   'Antigravity has no OpenTelemetry export and keeps its conversations encrypted, so Binnacle sees only its sessions and their directories, from its window state, and no model or token counts';
 
+/** Why pi never reaches level 4: an extension of its own could export, and `binn init` installs none. */
+export const PI_NO_EXPORT = 'pi has no built-in OpenTelemetry export, so Binnacle counts it only from its session files, each call once it has finished';
+
 /** Why `derived.ponytail` compares nothing, in the words the dashboard translates. */
 export const PONYTAIL_REASONS = {
   noCommit: 'No commit on the default branch adds Ponytail to AGENTS.md or CLAUDE.md, so there is no before and after.',
@@ -106,6 +110,7 @@ const HARNESSES: { harness: Harness; name: string; root: keyof ArtifactRoots; no
   },
   { harness: 'zcode', name: 'ZCode', root: 'zcode', noExport: `${ZCODE_NO_EXPORT}.` },
   { harness: 'antigravity', name: 'Antigravity', root: 'antigravity', noExport: `${ANTIGRAVITY_NO_TOKENS}.` },
+  { harness: 'pi', name: 'pi', root: 'pi', noExport: `${PI_NO_EXPORT}.` },
 ];
 
 /** Per harness, why its artifacts of a project cannot be read, if they cannot. */
@@ -158,6 +163,7 @@ export function forgetRead(context: OperationContext, projectPath: string): void
   for (const path of geminiCliSessions(context.runtime.artifacts.geminiCli, [projectPath]).files) context.store.forgetCursors(path);
   for (const harness of DATABASE_HARNESSES) context.store.forgetCursors(databasePath(context.runtime.artifacts, harness));
   context.store.forgetCursors(context.runtime.artifacts.antigravityState);
+  context.store.forgetCursors(join(context.runtime.artifacts.pi, piDirectory(projectPath)));
 }
 
 export type HarnessLevel = {
@@ -190,7 +196,7 @@ export type Usage = {
 };
 
 /**
- * Reads what is new in the Claude Code, Codex, Gemini CLI, opencode, ZCode and Antigravity artifacts of `projectPath`, for as long as
+ * Reads what is new in the Claude Code, Codex, Gemini CLI, opencode, ZCode, Antigravity and pi artifacts of `projectPath`, for as long as
  * the time budget allows, and answers the snapshot's `usage` and `activity` sections from
  * everything stored, attributed to `tasks`, the tracker's current Tasks, or unavailable with
  * why they cannot be read, and its `context.pressure` attention items. What the budget does
@@ -589,6 +595,7 @@ function unreadableArtifacts(context: OperationContext, directoriesOfProject: st
   const claudeCode = claudeCodeFiles(artifacts.claudeCode, directoriesOfProject);
   const codex = codexSessions(artifacts.codex);
   const geminiCli = geminiCliSessions(artifacts.geminiCli, directoriesOfProject);
+  const pi = piSessions(artifacts.pi, directoriesOfProject);
   // opencode's and ZCode's one database holds every project's sessions, so its failure is every project's,
   // and a session's failure is the project's it was launched in.
   const database = (harness: DatabaseHarness, name: string): string | null => {
@@ -612,6 +619,7 @@ function unreadableArtifacts(context: OperationContext, directoriesOfProject: st
     zcode: database('zcode', 'ZCode'),
     // Antigravity's one window state names every project's sessions, so its failure is every project's too.
     antigravity: summary('Antigravity', failed([artifacts.antigravityState])),
+    pi: summary('pi', [...pi.failures, ...failed(pi.files)]),
   };
 }
 
@@ -981,6 +989,7 @@ export function startIngest(context: OperationContext, projectPath: string, mani
     opencode: databaseFiles(artifacts, 'opencode'),
     zcode: databaseFiles(artifacts, 'zcode'),
     antigravity: { files: existsSync(artifacts.antigravityState) ? [artifacts.antigravityState] : [] },
+    pi: piSessions(artifacts.pi, [projectPath, ...linked]),
   };
 
   const pending: { path: string; harness: Harness }[] = [];
@@ -1135,6 +1144,38 @@ export function geminiCliSessions(root: string, directoriesOfProject: string[]):
   return { files, failures };
 }
 
+/**
+ * pi's directory name for the directory a session was launched in. It is lossy, so it only
+ * selects candidates, as Claude Code's does: every directory whose name starts with the
+ * project's, its subdirectories and the worktrees under it included. Each file's own `cwd` decides.
+ */
+const piDirectory = (path: string): string => `--${path.replace(/^[/\\]/, '').replace(/[/\\:]/g, '-')}`;
+
+/**
+ * pi's session files under its `root`, `~/.pi/agent/sessions`, in the candidate directories of
+ * the project's directories, and why a directory could not be listed.
+ * ponytail: a session pi was told to keep elsewhere (`--session-dir`) is not found; look there
+ * too if anyone keeps theirs elsewhere.
+ */
+function piSessions(root: string, directoriesOfProject: string[]): { files: string[]; failures: string[] } {
+  const prefixes = directoriesOfProject.map(piDirectory);
+  const failures: string[] = [];
+  const list = (directory: string, missing: boolean): Dirent[] => {
+    try {
+      return readdirSync(directory, { withFileTypes: true });
+    } catch (error) {
+      if (!missing || (error as NodeJS.ErrnoException).code !== 'ENOENT') failures.push(openFailure(directory, error));
+      return [];
+    }
+  };
+  const files = list(root, true)
+    .filter((entry) => entry.isDirectory() && prefixes.some((prefix) => entry.name.startsWith(prefix)))
+    .flatMap((entry) => list(join(root, entry.name), false))
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.jsonl'))
+    .map((entry) => join(entry.parentPath, entry.name));
+  return { files, failures };
+}
+
 /** The launch directory a Gemini CLI temp directory's `.project_root` names; null when it names none. */
 function projectRoot(directory: string): string | null {
   try {
@@ -1249,6 +1290,11 @@ async function ingestFile(
         read = (bytes) => readGeminiCli(bytes, session, settled);
         break;
       }
+      // A pi file names its session and directory on its first line only, so it is read whole too.
+      case 'pi':
+        from = { offset: 0, line: 0 };
+        read = readPi;
+        break;
     }
     bytes = readFrom(path, from.offset, size);
   } catch (error) {
