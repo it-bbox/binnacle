@@ -7,8 +7,9 @@ import { readPi } from '../src/index.ts';
 /**
  * A pi session file, built from the owner's (pi 1.1.0, `@earendil-works/pi-coding-agent`),
  * its content replaced: the session header, a call that failed before its provider reported
- * anything, two OpenAI calls, an Anthropic call with cache writes and no reasoning breakdown,
- * a cache-warming call, a compaction with the usage of its summary and one without.
+ * anything, two OpenAI calls, a tool result whose tool called a model, an Anthropic call with
+ * cache writes, no reasoning breakdown and the model it answered with, a cache-warming call,
+ * a compaction with the usage of its summary and one without.
  */
 const SESSION = readFileSync(join(import.meta.dirname, 'fixtures', 'pi', 'session.jsonl'));
 const ID = '01a11b90-b3e2-709a-b95f-bc851152d76d';
@@ -40,12 +41,21 @@ describe('pi session files', () => {
           timestamp: '2026-10-08T12:53:52.120Z',
           tokens: { input: 412, cachedInput: 3072, cacheCreation: 0, output: 208, reasoning: 64 },
         },
-        // No reasoning breakdown from this provider: null, not 0.
+        // A tool's own call: pi does not say on which model.
+        {
+          naturalKey: 'c4e9d2a7@2026-10-08T12:53:52.300Z',
+          requestId: null,
+          provider: null,
+          model: null,
+          timestamp: '2026-10-08T12:53:52.300Z',
+          tokens: { input: 900, cachedInput: 0, cacheCreation: 0, output: 75, reasoning: null },
+        },
+        // No reasoning breakdown from this provider: null, not 0. The model is the one that answered.
         {
           naturalKey: 'e1f2a3b4@2026-10-08T12:54:09.500Z',
           requestId: 'msg_01AbCd',
           provider: 'anthropic',
-          model: 'claude-sonnet-5',
+          model: 'claude-sonnet-5-20261001',
           timestamp: '2026-10-08T12:54:09.500Z',
           tokens: { input: 96, cachedInput: 2048, cacheCreation: 1210, output: 140, reasoning: null },
         },
@@ -83,7 +93,7 @@ describe('pi session files', () => {
     const reading = readPi(partial);
     assert.equal(reading.failure, null);
     assert.equal(reading.stop.line, 16);
-    assert.equal(reading.records.length, 6);
+    assert.equal(reading.records.length, 7);
   });
 
   it('stops at a line it cannot read, with the reason, keeping the records before it', () => {
@@ -98,6 +108,10 @@ describe('pi session files', () => {
 
     assert.deepEqual(readPi(at(8, JSON.stringify({ ...call, id: undefined }))).failure, { line: 9, reason: 'a pi entry with usage but without an id' });
     assert.deepEqual(readPi(at(8, JSON.stringify({ ...call, timestamp: 'never' }))).failure, { line: 9, reason: 'a pi entry with usage but without a timestamp' });
+    // Aborted before its provider said anything: pi's zeros are no counts either.
+    const failed = JSON.parse(lines[5]!) as { message: Record<string, unknown> };
+    const aborted = readPi(at(5, JSON.stringify({ ...failed, message: { ...failed.message, stopReason: 'aborted' } })));
+    assert.deepEqual(aborted.records[0]?.tokens, NONE);
     assert.deepEqual(readPi(Buffer.from(lines.slice(1).join('\n'))).failure, { line: 5, reason: 'a pi entry with usage before the session header' });
   });
 });

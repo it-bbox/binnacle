@@ -10,7 +10,7 @@ import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
 /**
  * pi's sessions, through the daemon's HTTP API. Its artifact root, pi's `~/.pi/agent/sessions`,
  * is a temporary directory holding a directory per launch directory, named as pi names it,
- * and every session in it is built from `packages/adapters/test/fixtures/pi`: six calls, the
+ * and every session in it is built from `packages/adapters/test/fixtures/pi`: seven calls, the
  * first failed before its provider reported anything.
  */
 type FieldTotal = { tokens: number | null; partial: boolean; provenance: string | null };
@@ -93,15 +93,15 @@ function stored(daemon: TestDaemon): Record<string, unknown>[] {
   }
 }
 
-/** The fixture's calls in `sessions` sessions: five with tokens each, one with none. */
+/** The fixture's calls in `sessions` sessions: six with tokens each, one with none. */
 function calls(sessions: number): Totals {
   const field = (tokens: number): FieldTotal => ({ tokens: tokens * sessions, partial: true, provenance: 'calculated' });
   return {
-    records: 6 * sessions,
-    input: field(3143 + 412 + 96 + 4 + 3300),
+    records: 7 * sessions,
+    input: field(3143 + 412 + 900 + 96 + 4 + 3300),
     cachedInput: field(3072 + 2048 + 3354),
     cacheCreation: field(1210),
-    output: field(11 + 208 + 140 + 1 + 420),
+    output: field(11 + 208 + 75 + 140 + 1 + 420),
     reasoning: field(64),
   };
 }
@@ -127,10 +127,10 @@ describe('pi usage', () => {
       assert.deepEqual(await level(daemon, root), { harness: 'pi', level: 3, reason: NO_EXPORT });
 
       const rows = stored(daemon);
-      assert.equal(rows.length, 12);
+      assert.equal(rows.length, 14);
       assert.ok(rows.every((row) => row.harness === 'pi' && row.provenance === 'calculated' && row.project_path === root && row.subagent_id === null));
-      assert.equal(rows.filter((row) => row.cwd === join(root, 'apps')).length, 6);
-      assert.deepEqual([...new Set(rows.map((row) => `${String(row.provider)}/${String(row.model)}`))].sort(), ['anthropic/claude-opus-4-8', 'anthropic/claude-sonnet-5', 'null/null', 'openai/gpt-6.1-sol']);
+      assert.equal(rows.filter((row) => row.cwd === join(root, 'apps')).length, 7);
+      assert.deepEqual([...new Set(rows.map((row) => `${String(row.provider)}/${String(row.model)}`))].sort(), ['anthropic/claude-opus-4-8', 'anthropic/claude-sonnet-5', 'anthropic/claude-sonnet-5-20261001', 'null/null', 'openai/gpt-6.1-sol']);
       assert.doesNotMatch(JSON.stringify(rows), /MUST-NOT-BE-STORED/);
     });
   });
@@ -146,7 +146,7 @@ describe('pi usage', () => {
         level: 1,
         reason: `pi could not read ${file} at line 18: not a JSON line, and nothing after it is counted, however the file grows, until Binnacle can read that line.`,
       });
-      assert.equal(stored(daemon).length, 6);
+      assert.equal(stored(daemon).length, 7);
     });
   });
 });
