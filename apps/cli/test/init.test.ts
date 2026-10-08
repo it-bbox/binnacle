@@ -2339,6 +2339,7 @@ test('the telemetry export: an export already configured elsewhere is left alone
   installUserDirectory(home, '.codex');
   installUserDirectory(home, '.gemini');
   installExecutable(home, 'opencode');
+  installUserDirectory(home, '.zcode');
   const files = {
     '.claude/settings.json': JSON.stringify({ env: { OTEL_EXPORTER_OTLP_ENDPOINT: 'http://collector:4318' } }),
     '.codex/config.toml': '[otel]\nexporter = "none"\n',
@@ -2356,6 +2357,7 @@ test('the telemetry export: an export already configured elsewhere is left alone
   assert.match(result.stdout, /printed\s+Gemini CLI's OpenTelemetry export for ~\/\.gemini\/settings\.json/);
   assert.match(result.stdout, /"otlpEndpoint": "http:\/\/127\.0\.0\.1:7717"/);
   assert.match(result.stdout, /skipped\s+opencode's OpenTelemetry export: opencode documents no OpenTelemetry export/);
+  assert.match(result.stdout, /skipped\s+ZCode's OpenTelemetry export: ZCode documents no OpenTelemetry export/);
 });
 
 test('the telemetry export: with no daemon running and BINNACLE_PORT 0, there is no address, and nothing is planned for it', (t) => {

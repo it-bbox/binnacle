@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { compactNumber, daemonReason, LANGUAGES, pairReason, plural, secondsAgo, startingLanguage } from '../app/i18n/index.ts';
 import { parseRoadmap } from '../../../packages/core/src/roadmap.ts';
 import { trackerUnavailable, UNAVAILABLE } from '../../daemon/src/snapshot.ts';
-import { OPENCODE_NO_EXPORT, PONYTAIL_REASONS } from '../../daemon/src/usage.ts';
+import { OPENCODE_NO_EXPORT, PONYTAIL_REASONS, ZCODE_NO_EXPORT } from '../../daemon/src/usage.ts';
 
 /**
  * The dashboard's own dictionary (ADR-0033): which language the page starts in, and how a
@@ -89,6 +89,7 @@ describe("the daemon's reasons", () => {
     assert.equal(daemonReason('ru', notInThisVersion), 'Недоступно в этой версии Binnacle.');
     assert.equal(daemonReason('ru', 'There is no roadmap at docs/roadmap.md.'), 'There is no roadmap at docs/roadmap.md.');
     assert.match(daemonReason('ru', `${OPENCODE_NO_EXPORT}.`), /^Экспорт OpenTelemetry у opencode/);
+    assert.match(daemonReason('ru', `${ZCODE_NO_EXPORT}.`), /^Экспорт OpenTelemetry у ZCode/);
   });
 
   const tasks = [

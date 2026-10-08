@@ -474,6 +474,7 @@ test('telemetry readiness says, per detected harness, whether it exports OpenTel
     '.gemini/settings.json': JSON.stringify({ telemetry: { enabled: true, target: 'local', otlpEndpoint: address, otlpProtocol: 'http', logPrompts: false } }),
     'claude-config/settings.json': JSON.stringify({ env: { OTEL_EXPORTER_OTLP_ENDPOINT: 'http://collector:4318' } }),
     'xdg/opencode/.keep': '',
+    '.zcode/.keep': '',
   });
   // PATH holds git and no harness, so that each is detected by its user directory alone.
   const bin = join(home, 'bin');
@@ -499,6 +500,8 @@ test('telemetry readiness says, per detected harness, whether it exports OpenTel
   assert.match(byCode(all, 'telemetry.export_codex').recommendation!, /Run binn init/);
   assert.equal(byCode(all, 'telemetry.export_opencode').status, 'ok');
   assert.match(byCode(all, 'telemetry.export_opencode').reason, /documents no OpenTelemetry export/);
+  assert.equal(byCode(all, 'telemetry.export_zcode').status, 'ok');
+  assert.match(byCode(all, 'telemetry.export_zcode').reason, /ZCode documents no OpenTelemetry export/);
   assert.ok(all.filter(({ code }) => code.startsWith('telemetry.export_')).every(({ area }) => area === 'telemetry'));
 
   // Port 0 and no daemon: there is no address to compare with.

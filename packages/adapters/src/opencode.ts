@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import type { UsageRecord } from '@binnacle/telemetry';
-import { count, isObject } from './artifact.ts';
+import { count, isObject, readSessionRows, type DatabaseReading } from './artifact.ts';
 
 /**
  * One model call as opencode's database holds it: a `step-finish` part, the time its row was
@@ -9,13 +9,6 @@ import { count, isObject } from './artifact.ts';
  * opencode stores.
  */
 export type OpencodeStep = { id: string; sessionId: string; directory: string; parentSession: string | null; time: number; part: string; message: string };
-
-export type OpencodeReading = {
-  /** The records of every step read. */
-  records: UsageRecord[];
-  /** Per session whose reading stopped, the step it stopped at because it could not be read, and why. */
-  failures: { step: string; sessionId: string; directory: string; reason: string }[];
-};
 
 /**
  * Every step of opencode's database at `path` (`opencode.db`), oldest first, read without
@@ -53,16 +46,8 @@ export function readOpencodeSteps(path: string): OpencodeStep[] {
  * a session opencode started from another, under which its records go. Its provider is the one
  * opencode names; a branch is not written.
  */
-export function readOpencode(steps: OpencodeStep[]): OpencodeReading {
-  const records: UsageRecord[] = [];
-  const failures: OpencodeReading['failures'] = [];
-  for (const step of steps) {
-    if (failures.some((failure) => failure.sessionId === step.sessionId)) continue;
-    const result = readStep(step);
-    if (typeof result === 'string') failures.push({ step: step.id, sessionId: step.sessionId, directory: step.directory, reason: result });
-    else if (result) records.push(result);
-  }
-  return { records, failures };
+export function readOpencode(steps: OpencodeStep[]): DatabaseReading {
+  return readSessionRows(steps, readStep);
 }
 
 /** A step's record, null for a part that is no step, or why it cannot be read. */

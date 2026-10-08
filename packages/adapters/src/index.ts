@@ -1,8 +1,9 @@
-export { type ArtifactPosition, type ArtifactReading } from './artifact.ts';
+export { type ArtifactPosition, type ArtifactReading, type DatabaseReading } from './artifact.ts';
 export { readClaudeCode } from './claude-code.ts';
 export { codexSession, readCodex } from './codex.ts';
 export { readGeminiCli, type GeminiCliSession } from './gemini-cli.ts';
-export { readOpencode, readOpencodeSteps, type OpencodeReading, type OpencodeStep } from './opencode.ts';
+export { readOpencode, readOpencodeSteps, type OpencodeStep } from './opencode.ts';
+export { readZcode, readZcodeCalls, type ZcodeCall } from './zcode.ts';
 export {
   branchAt,
   commitTree,

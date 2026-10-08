@@ -16,11 +16,14 @@ import {
   readGitLabChangesRequested,
   readOpencode,
   readOpencodeSteps,
+  readZcode,
+  readZcodeCalls,
   readHeadHistory,
   readLastChangeBefore,
   readWorktrees,
   type ArtifactReading,
   type ChangesRequested,
+  type DatabaseReading,
   type GeminiCliSession,
   type HeadHistory,
   type TelemetryRecord,
@@ -64,6 +67,9 @@ export const DEFAULT_PRESSURE_TOKENS = 150_000;
 /** Why opencode never reaches level 4, which `binn init` and `binn audit` say too: it has no export to point at the daemon. */
 export const OPENCODE_NO_EXPORT = 'opencode documents no OpenTelemetry export, so Binnacle counts it only from its database, each call once it has finished';
 
+/** Why ZCode never reaches level 4, as for opencode. */
+export const ZCODE_NO_EXPORT = 'ZCode documents no OpenTelemetry export, so Binnacle counts it only from its database, each call once it has finished';
+
 /** Why `derived.ponytail` compares nothing, in the words the dashboard translates. */
 export const PONYTAIL_REASONS = {
   noCommit: 'No commit on the default branch adds Ponytail to AGENTS.md or CLAUDE.md, so there is no before and after.',
@@ -91,6 +97,7 @@ const HARNESSES: { harness: Harness; name: string; root: keyof ArtifactRoots; no
     root: 'opencode',
     noExport: `${OPENCODE_NO_EXPORT}.`,
   },
+  { harness: 'zcode', name: 'ZCode', root: 'zcode', noExport: `${ZCODE_NO_EXPORT}.` },
 ];
 
 /** Per harness, why its artifacts of a project cannot be read, if they cannot. */
@@ -141,7 +148,7 @@ export async function stopImporting(importer: Importer): Promise<void> {
 export function forgetRead(context: OperationContext, projectPath: string): void {
   context.store.forgetCursors(join(context.runtime.artifacts.claudeCode, claudeCodeDirectory(projectPath)));
   for (const path of geminiCliSessions(context.runtime.artifacts.geminiCli, [projectPath]).files) context.store.forgetCursors(path);
-  context.store.forgetCursors(opencodeDatabase(context.runtime.artifacts.opencode));
+  for (const harness of DATABASE_HARNESSES) context.store.forgetCursors(databasePath(context.runtime.artifacts, harness));
 }
 
 export type HarnessLevel = {
@@ -174,7 +181,7 @@ export type Usage = {
 };
 
 /**
- * Reads what is new in the Claude Code, Codex, Gemini CLI and opencode artifacts of `projectPath`, for as long as
+ * Reads what is new in the Claude Code, Codex, Gemini CLI, opencode and ZCode artifacts of `projectPath`, for as long as
  * the time budget allows, and answers the snapshot's `usage` and `activity` sections from
  * everything stored, attributed to `tasks`, the tracker's current Tasks, or unavailable with
  * why they cannot be read, and its `context.pressure` attention items. What the budget does
@@ -573,8 +580,13 @@ function unreadableArtifacts(context: OperationContext, directoriesOfProject: st
   const claudeCode = claudeCodeFiles(artifacts.claudeCode, directoriesOfProject);
   const codex = codexSessions(artifacts.codex);
   const geminiCli = geminiCliSessions(artifacts.geminiCli, directoriesOfProject);
-  // opencode's one database holds every project's sessions, so its failure is every project's.
-  const opencode = opencodeDatabase(artifacts.opencode);
+  // opencode's and ZCode's one database holds every project's sessions, so its failure is every project's,
+  // and a session's failure is the project's it was launched in.
+  const database = (harness: DatabaseHarness, name: string): string | null => {
+    const path = databasePath(artifacts, harness);
+    const ours = [...unreadable].filter(([key]) => key.startsWith(sessionFailureKey(path, '')) && containingEntry(key.slice(sessionFailureKey(path, '').length), places) !== undefined);
+    return summary(name, [...failed([path]), ...ours.map(([, failure]) => failure)]);
+  };
   // A rollout says whose it is on its first line; one that cannot be opened may be anyone's, this project's included.
   const ours = (path: string): boolean => {
     try {
@@ -587,12 +599,8 @@ function unreadableArtifacts(context: OperationContext, directoriesOfProject: st
     'claude-code': summary('Claude Code', [...claudeCode.failures, ...failed(claudeCode.files)]),
     codex: summary('Codex', [...codex.failures, ...failed(codex.files.filter((path) => unreadable.has(path) && ours(path)))]),
     'gemini-cli': summary('Gemini CLI', [...geminiCli.failures, ...failed(geminiCli.files)]),
-    opencode: summary('opencode', [
-      ...failed([opencode]),
-      ...[...unreadable]
-        .filter(([key]) => key.startsWith(sessionFailureKey(opencode, '')) && containingEntry(key.slice(sessionFailureKey(opencode, '').length), places) !== undefined)
-        .map(([, failure]) => failure),
-    ]),
+    opencode: database('opencode', 'opencode'),
+    zcode: database('zcode', 'ZCode'),
   };
 }
 
@@ -959,7 +967,8 @@ export function startIngest(context: OperationContext, projectPath: string, mani
     'claude-code': claudeCodeFiles(artifacts.claudeCode, [projectPath, ...linked]),
     codex: codexSessions(artifacts.codex),
     'gemini-cli': geminiCliSessions(artifacts.geminiCli, [projectPath, ...linked]),
-    opencode: { files: existsSync(opencodeDatabase(artifacts.opencode)) ? [opencodeDatabase(artifacts.opencode)] : [] },
+    opencode: databaseFiles(artifacts, 'opencode'),
+    zcode: databaseFiles(artifacts, 'zcode'),
   };
 
   const pending: { path: string; harness: Harness }[] = [];
@@ -967,7 +976,7 @@ export function startIngest(context: OperationContext, projectPath: string, mani
     for (const path of found[harness].files) {
       try {
         const cursor = context.store.cursor(path);
-        if (harness === 'opencode' ? !databaseChanged(cursor, databaseMark(path), window) : readPosition(cursor, statSync(path).size, window) === null) {
+        if (isDatabase(harness) ? !databaseChanged(cursor, databaseMark(path), window) : readPosition(cursor, statSync(path).size, window) === null) {
           // Read to its end, and it can be opened again: nothing about it is unreadable any more.
           importer.unreadable.delete(path);
           continue;
@@ -1191,7 +1200,7 @@ async function ingestFile(
   places: { path: string; project: string }[],
   histories: Map<string, Promise<HeadHistory | null>>,
 ): Promise<string | null> {
-  if (harness === 'opencode') return ingestDatabase(context, path, window, places, histories);
+  if (isDatabase(harness)) return ingestDatabase(context, { path, harness }, window, places, histories);
   let size: number;
   let settled: boolean;
   let from: { offset: number; line: number } | null;
@@ -1236,31 +1245,32 @@ async function ingestFile(
 }
 
 /**
- * Reads opencode's database at `path` whole, as `ingestFile` reads a file, and returns why it
+ * Reads opencode's or ZCode's database at `path` whole, as `ingestFile` reads a file, and returns why it
  * could not be opened or read, if it could not. The database holds every project's sessions,
- * so a session stopped at a step it cannot read is unreadable only for the project it was
+ * so a session stopped at a row it cannot read is unreadable only for the project it was
  * launched in: kept in `importer.unreadable` under `sessionFailureKey`, and only when that
  * project is registered. The cursor's `size` holds the database's mark (`databaseMark`) as of
- * this reading, its offset and line none, or 0 when such a step was found, so that every later
+ * this reading, its offset and line none, or 0 when such a row was found, so that every later
  * reading tries it again.
  *
- * ponytail: every step of every project is read whenever the database changed, since a step's
- * row says nothing of whose it is; select the project's sessions by their directory if the
+ * ponytail: every row of every project is read whenever the database changed, since a row
+ * says nothing of whose it is; select the project's sessions by their directory if the
  * database ever outgrows the budget.
  */
 async function ingestDatabase(
   context: OperationContext,
-  path: string,
+  { path, harness }: { path: string; harness: DatabaseHarness },
   window: ImportWindow,
   places: { path: string; project: string }[],
   histories: Map<string, Promise<HeadHistory | null>>,
 ): Promise<string | null> {
+  const { read, row } = DATABASES[harness];
   let mark: number;
-  let reading: ReturnType<typeof readOpencode>;
+  let reading: DatabaseReading;
   try {
     mark = databaseMark(path);
     if (!databaseChanged(context.store.cursor(path), mark, window)) return null;
-    reading = readOpencode(readOpencodeSteps(path));
+    reading = read(path);
   } catch (error) {
     // SQLite says why in `errstr`, as "file is not a database"; its code is SQLite's for any error.
     return `${path} (${(error as { errstr?: string }).errstr ?? (error as NodeJS.ErrnoException).code ?? 'error'})`;
@@ -1269,26 +1279,44 @@ async function ingestDatabase(
   for (const key of unreadable.keys()) if (key.startsWith(sessionFailureKey(path, ''))) unreadable.delete(key);
   const failures = reading.failures.filter((failure) => containingEntry(failure.directory, places) !== undefined);
   for (const { step, directory, reason } of failures) {
-    unreadable.set(sessionFailureKey(path, directory), `${path} at step ${step}: ${reason}, and nothing after it in its session is counted until Binnacle can read that step`);
+    unreadable.set(sessionFailureKey(path, directory), `${path} at ${row} ${step}: ${reason}, and nothing after it in its session is counted until Binnacle can read that ${row}`);
   }
   await keep(context, { path, size: failures.length > 0 ? 0 : mark, offset: 0, line: 0, windowDays: window }, reading.records, places, histories);
   return null;
 }
 
 /**
- * Where `importer.unreadable` keeps a step of opencode's database at `path` that stopped a
+ * Where `importer.unreadable` keeps a row of a database at `path` that stopped a
  * session launched in `directory`.
  * ponytail: one failure per directory is kept, the latest read; key it by session too if
  * two broken sessions in one directory ever need telling apart.
  */
 const sessionFailureKey = (path: string, directory: string): string => `${path}\0${directory}`;
 
-/** Where opencode's database is in its data directory `root`. */
-const opencodeDatabase = (root: string): string => join(root, 'opencode.db');
+/**
+ * The harnesses that keep every project's sessions in one database: its file in their
+ * artifact root, how it is read, and what a row of it is, a model call either way.
+ */
+const DATABASES = {
+  opencode: { file: 'opencode.db', read: (path: string) => readOpencode(readOpencodeSteps(path)), row: 'step' },
+  zcode: { file: 'db.sqlite', read: (path: string) => readZcode(readZcodeCalls(path)), row: 'call' },
+} satisfies Partial<Record<Harness, { file: string; read: (path: string) => DatabaseReading; row: string }>>;
+type DatabaseHarness = keyof typeof DATABASES;
+const DATABASE_HARNESSES = Object.keys(DATABASES) as DatabaseHarness[];
+const isDatabase = (harness: Harness): harness is DatabaseHarness => harness in DATABASES;
+
+/** Where `harness`'s database is among the artifact roots. */
+const databasePath = (artifacts: ArtifactRoots, harness: DatabaseHarness): string => join(artifacts[harness], DATABASES[harness].file);
+
+/** `harness`'s database, as the files to read, none when it is not there. */
+function databaseFiles(artifacts: ArtifactRoots, harness: DatabaseHarness): { files: string[] } {
+  const path = databasePath(artifacts, harness);
+  return { files: existsSync(path) ? [path] : [] };
+}
 
 /**
- * When opencode's database at `path` last changed: the latest modification of the database
- * and of its write-ahead log, where opencode writes first.
+ * When a database at `path` last changed: the latest modification of the database
+ * and of its write-ahead log, where opencode and ZCode write first.
  */
 function databaseMark(path: string): number {
   const wal = `${path}-wal`;

@@ -110,6 +110,7 @@ export const ru: Dictionary = {
     graphUnreadable: 'graphify-out/graph.json не читается как граф.',
     importNotReached: 'Импорт этого проекта ещё не дошёл ни до одной записи.',
     opencodeNoExport: 'Экспорт OpenTelemetry у opencode не описан, поэтому Binnacle считает его только по его базе данных, каждый вызов — после его завершения.',
+    zcodeNoExport: 'Экспорт OpenTelemetry у ZCode не описан, поэтому Binnacle считает его только по его базе данных, каждый вызов — после его завершения.',
     roadmapNoDocs: 'Roadmap лежит в <knowledge.docs>/roadmap.md, а knowledge.docs проект не задаёт.',
     roadmapNoFocus: 'В roadmap нет раздела «## Current focus».',
     roadmapNoTable: 'В roadmap нет таблицы с заголовком «| # | Epic | Status | Spec |».',

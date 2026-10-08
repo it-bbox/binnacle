@@ -124,6 +124,7 @@ export const en = {
     graphUnreadable: 'graphify-out/graph.json cannot be read as a graph.',
     importNotReached: 'The import of this project has not reached a record yet.',
     opencodeNoExport: 'opencode documents no OpenTelemetry export, so Binnacle counts it only from its database, each call once it has finished.',
+    zcodeNoExport: 'ZCode documents no OpenTelemetry export, so Binnacle counts it only from its database, each call once it has finished.',
     roadmapNoDocs: 'The roadmap is <knowledge.docs>/roadmap.md, and this project declares no knowledge.docs.',
     roadmapNoFocus: 'The roadmap has no "## Current focus" section.',
     roadmapNoTable: 'The roadmap has no table headed "| # | Epic | Status | Spec |".',

@@ -81,6 +81,32 @@ export function readMessages(
   return { ...reading, records: [...records.values()], stop: last[1] };
 }
 
+/**
+ * What a database a harness keeps every project's sessions in gives: its records, and per
+ * session whose reading stopped, the row it stopped at because it could not be read, and why.
+ */
+export type DatabaseReading = {
+  records: UsageRecord[];
+  failures: { step: string; sessionId: string; directory: string; reason: string }[];
+};
+
+/**
+ * A database's rows, oldest first, each read by `read` into a record, null for a row that is
+ * none, or why it cannot be read. A session's reading stops at a row it cannot read, keeping
+ * the rows before it; the other sessions', every project's in one database, go on.
+ */
+export function readSessionRows<Row extends { id: string; sessionId: string; directory: string }>(rows: Row[], read: (row: Row) => UsageRecord | null | string): DatabaseReading {
+  const records: UsageRecord[] = [];
+  const failures: DatabaseReading['failures'] = [];
+  for (const row of rows) {
+    if (failures.some((failure) => failure.sessionId === row.sessionId)) continue;
+    const result = read(row);
+    if (typeof result === 'string') failures.push({ step: row.id, sessionId: row.sessionId, directory: row.directory, reason: result });
+    else if (result) records.push(result);
+  }
+  return { records, failures };
+}
+
 function readObject(raw: string, read: (value: Record<string, unknown>) => LineReading): LineReading {
   let value: unknown;
   try {

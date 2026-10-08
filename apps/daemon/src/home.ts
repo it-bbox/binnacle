@@ -180,14 +180,14 @@ export type Runtime = {
 };
 
 /** Where each harness keeps the session artifacts the daemon reads usage from. It only ever reads there. */
-export type ArtifactRoots = { claudeCode: string; codex: string; geminiCli: string; opencode: string };
+export type ArtifactRoots = { claudeCode: string; codex: string; geminiCli: string; opencode: string; zcode: string };
 
 /**
  * Claude Code's: `$CLAUDE_CONFIG_DIR/projects`, otherwise `~/.claude/projects`. Codex's:
  * `$CODEX_HOME/sessions`, otherwise `~/.codex/sessions`. Gemini CLI's:
  * `$GEMINI_CLI_HOME/.gemini/tmp`, otherwise `~/.gemini/tmp`. opencode's, its data directory,
  * which holds its database: `$XDG_DATA_HOME/opencode`, otherwise `~/.local/share/opencode`,
- * on macOS too.
+ * on macOS too. ZCode's, the directory of its database: `~/.zcode/cli/db`.
  */
 export function resolveArtifactRoots(env: NodeJS.ProcessEnv = process.env): ArtifactRoots {
   const claude = env.CLAUDE_CONFIG_DIR?.trim();
@@ -199,6 +199,7 @@ export function resolveArtifactRoots(env: NodeJS.ProcessEnv = process.env): Arti
     codex: join(codex ? codex : join(homedir(), '.codex'), 'sessions'),
     geminiCli: join(gemini ? gemini : homedir(), '.gemini', 'tmp'),
     opencode: join(data ? data : join(homedir(), '.local', 'share'), 'opencode'),
+    zcode: join(homedir(), '.zcode', 'cli', 'db'),
   };
 }
 
