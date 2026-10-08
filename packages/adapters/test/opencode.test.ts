@@ -90,7 +90,7 @@ describe('opencode steps', () => {
   it('stops a session at a step it cannot read, with the reason, keeping what came before it and the other sessions', () => {
     const other = { ...STEPS[2]!, id: 'prt_other', sessionId: 'ses_other', directory: '/elsewhere' };
     const broken = (changed: Partial<OpencodeStep>) => readOpencode([STEPS[0]!, { ...STEPS[1]!, ...changed }, STEPS[2]!, other]);
-    const failure = (reason: string) => [{ step: 'prt_2', sessionId: 'ses_main', directory: '/repo', reason }];
+    const failure = (reason: string) => [{ id: 'prt_2', sessionId: 'ses_main', directory: '/repo', reason }];
 
     const notJson = broken({ part: '{"type": "step-fin' });
     assert.deepEqual(notJson.failures, failure('a part that is not JSON'));

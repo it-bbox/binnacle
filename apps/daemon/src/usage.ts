@@ -1278,8 +1278,8 @@ async function ingestDatabase(
   const { unreadable } = context.importer;
   for (const key of unreadable.keys()) if (key.startsWith(sessionFailureKey(path, ''))) unreadable.delete(key);
   const failures = reading.failures.filter((failure) => containingEntry(failure.directory, places) !== undefined);
-  for (const { step, directory, reason } of failures) {
-    unreadable.set(sessionFailureKey(path, directory), `${path} at ${row} ${step}: ${reason}, and nothing after it in its session is counted until Binnacle can read that ${row}`);
+  for (const { id, directory, reason } of failures) {
+    unreadable.set(sessionFailureKey(path, directory), `${path} at ${row} ${id}: ${reason}, and nothing after it in its session is counted until Binnacle can read that ${row}`);
   }
   await keep(context, { path, size: failures.length > 0 ? 0 : mark, offset: 0, line: 0, windowDays: window }, reading.records, places, histories);
   return null;
@@ -1301,8 +1301,11 @@ const DATABASES = {
   opencode: { file: 'opencode.db', read: (path: string) => readOpencode(readOpencodeSteps(path)), row: 'step' },
   zcode: { file: 'db.sqlite', read: (path: string) => readZcode(readZcodeCalls(path)), row: 'call' },
 } satisfies Partial<Record<Harness, { file: string; read: (path: string) => DatabaseReading; row: string }>>;
+/** A harness that keeps its sessions in one database. */
 type DatabaseHarness = keyof typeof DATABASES;
+/** Every harness that keeps its sessions in one database. */
 const DATABASE_HARNESSES = Object.keys(DATABASES) as DatabaseHarness[];
+/** Whether `harness` keeps its sessions in one database, read whole by `ingestDatabase` rather than line by line. */
 const isDatabase = (harness: Harness): harness is DatabaseHarness => harness in DATABASES;
 
 /** Where `harness`'s database is among the artifact roots. */

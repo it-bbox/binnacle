@@ -83,11 +83,11 @@ export function readMessages(
 
 /**
  * What a database a harness keeps every project's sessions in gives: its records, and per
- * session whose reading stopped, the row it stopped at because it could not be read, and why.
+ * session whose reading stopped, the id of the row it stopped at because it could not be read, and why.
  */
 export type DatabaseReading = {
   records: UsageRecord[];
-  failures: { step: string; sessionId: string; directory: string; reason: string }[];
+  failures: { id: string; sessionId: string; directory: string; reason: string }[];
 };
 
 /**
@@ -101,7 +101,7 @@ export function readSessionRows<Row extends { id: string; sessionId: string; dir
   for (const row of rows) {
     if (failures.some((failure) => failure.sessionId === row.sessionId)) continue;
     const result = read(row);
-    if (typeof result === 'string') failures.push({ step: row.id, sessionId: row.sessionId, directory: row.directory, reason: result });
+    if (typeof result === 'string') failures.push({ id: row.id, sessionId: row.sessionId, directory: row.directory, reason: result });
     else if (result) records.push(result);
   }
   return { records, failures };

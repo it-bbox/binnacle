@@ -84,7 +84,7 @@ describe('ZCode calls', () => {
   it('stops a session at a call it cannot read, with the reason, keeping what came before it and the other sessions', () => {
     const other = call('usage_other', 1_791_463_550_000, { sessionId: 'sess_other', directory: '/elsewhere' });
     const broken = (changed: Partial<ZcodeCall>) => readZcode([CALLS[0]!, { ...CALLS[1]!, ...changed }, CALLS[2]!, other]);
-    const failure = (reason: string, directory = '/repo/apps') => [{ step: 'usage_model_session_title_msg_1_0', sessionId: 'sess_main', directory, reason }];
+    const failure = (reason: string, directory = '/repo/apps') => [{ id: 'usage_model_session_title_msg_1_0', sessionId: 'sess_main', directory, reason }];
 
     const noDirectory = broken({ directory: '' });
     assert.deepEqual(noDirectory.failures, failure('a call of a session without its directory', ''));
