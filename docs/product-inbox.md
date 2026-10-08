@@ -26,10 +26,6 @@ Not to take: Dolt as the source of truth, since canonical knowledge lives in Mar
 
 A one-command context dump like `bd prime` is already epic 14's `binn call` (`specs/skills-in-any-harness/spec.md`).
 
-## The order of a review's fixes and its Review commit (2026-10-08)
-
-Ticket 09 of epic 10 reads a review run as a subagent's work after a branch's last change and before the commit that first records `### Review`, and rework as work after it. On this repository, review fixes are committed before that commit, which is also the `DONE` commit, so reviewers and fixes count as implementation and rework is near zero. Either the per-ticket flow records the Review before committing its fixes, or the definition of the roles changes (`specs/telemetry-for-any-harness/spec.md`, *Roles*).
-
 ## A repository Antigravity cannot open (2026-10-08)
 
 Antigravity's agent did not answer in this repository because its Git library refuses `extensions.worktreeconfig`, which some worktree tool had set with no `config.worktree` using it; unsetting it fixed it (ticket 06 of epic 10). `binn audit` could report the extension when no `config.worktree` exists, and say which harness it breaks.
