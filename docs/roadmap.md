@@ -35,7 +35,7 @@ Epic 14, Skills in any harness (`specs/skills-in-any-harness/spec.md`), has ever
 
 Epic 10, Telemetry for any harness (`specs/telemetry-for-any-harness/spec.md`), has every ticket done but 15: OpenTelemetry from Claude Code, Codex and Gemini CLI configured by `binn init`, readers for Gemini CLI, opencode, ZCode, Antigravity and pi, review and rework usage, context pressure, Ponytail's effect, and the documents listing each harness's level. On 2026-10-08 the owner moved the demonstrations off the Mac to their own machine, since every harness has a Linux build, and added pi as a harness. 06 recorded Antigravity's and ZCode's formats, and the owner marked the Google harnesses, Gemini CLI and Antigravity, not verified. 15, the owner's exit demonstration, can start.
 
-Next action: run epic 10's tickets. `/binnacle:autopilot 10`
+Next action: the owner's exit demonstrations on their machine: epic 10's 15 (`specs/telemetry-for-any-harness/issues/15-telemetry-exit-demonstration.md`), then epic 14's 08 (`specs/skills-in-any-harness/issues/08-skills-exit-demonstration.md`).
 
 ## Later
 

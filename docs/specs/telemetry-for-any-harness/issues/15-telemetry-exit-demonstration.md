@@ -16,3 +16,7 @@ Spec: `docs/specs/telemetry-for-any-harness/spec.md`
 Gemini CLI and Antigravity are marked not verified, by the owner's decision of 2026-10-08 (spec, *Further Notes*): their sessions are shown if they run, and the demonstration passes without them.
 
 ## Comments
+
+- Left to this demonstration by 07 and 08, each in its ticket's *Decisions*:
+  - ZCode: that `input_tokens` holds the input written to cache, which the reader subtracts. A call that writes cache shows whether its input is right (08).
+  - Antigravity, if it runs: that a conversation lands in its own project, since the reader takes the first `file://` URI of its summary rather than a numbered field (07, with its script).
