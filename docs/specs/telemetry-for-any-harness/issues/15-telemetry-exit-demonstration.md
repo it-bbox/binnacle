@@ -13,4 +13,6 @@ Spec: `docs/specs/telemetry-for-any-harness/spec.md`
 - [ ] A long Product session raises `context.pressure`.
 - [ ] The usage page shows Ponytail's before and after.
 
+Gemini CLI and Antigravity are marked not verified, by the owner's decision of 2026-10-08 (spec, *Further Notes*): their sessions are shown if they run, and the demonstration passes without them.
+
 ## Comments
