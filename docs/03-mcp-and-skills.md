@@ -20,7 +20,7 @@ MCP is the stable contract. Client-specific slash commands/skills are thin UX wr
 - `run.list`
 - `question.list`
 - `review.status`
-- `usage.get` (the tool `usage_get`: the project's token usage by Task and by role, with derived metrics labelled as Binnacle's calculations; or one Task's, with its runs)
+- `usage.get` (the tool `usage_get`: the project's token usage by Task and by role — `product`, `implementation`, `review`, `rework` and `unknown`, read from Git and the forge as `04-telemetry-dashboard.md`, *Run roles*, says — each harness's support level, and derived metrics labelled as Binnacle's calculations; or one Task's, with its runs, its totals by role and `reworkUnread`, why its rework is not read on GitHub or GitLab, which `task.get` carries too)
 
 ### Controlled mutations
 
@@ -32,7 +32,7 @@ MCP is the stable contract. Client-specific slash commands/skills are thin UX wr
 
 With an Obsidian vault set on this machine, serving `project.snapshot` or `daily.get` also writes its note into the vault's Product folder, outside every repository (`operations/05-installation-checklist.md`, *The vault projection*).
 
-The snapshot's attention includes `next_action.missing`, `next_action.stale` and `review.missing`, which names each `DONE` Task on the local tracker whose ticket records no Review, `graph.update_failed`, whose message names the failed commit and Graphify's reason while the last good graph is kept, and `graph.not_ignored`, when Git does not ignore `graphify-out/` and the daemon therefore runs nothing; a missing `graphify` is the `graph` section's reason, never an attention item. `vault.unwritable` names an Obsidian vault set in the Binnacle home's `settings.json` that does not exist or cannot be written; with no vault set there is none (`docs/operations/05-installation-checklist.md`, *The vault projection*). The dashboard reads the same operations over the daemon's local API (ADR-0031), and adds no MCP tool.
+The snapshot's attention includes `next_action.missing`, `next_action.stale` and `review.missing`, which names each `DONE` Task on the local tracker whose ticket records no Review, `graph.update_failed`, whose message names the failed commit and Graphify's reason while the last good graph is kept, and `graph.not_ignored`, when Git does not ignore `graphify-out/` and the daemon therefore runs nothing; a missing `graphify` is the `graph` section's reason, never an attention item. `context.pressure` names an active Product session whose latest call read at least the manifest's threshold, or that compacted after the last recorded checkpoint, and suggests `/binnacle:checkpoint` (`04-telemetry-dashboard.md`, *Product session health*). `vault.unwritable` names an Obsidian vault set in the Binnacle home's `settings.json` that does not exist or cannot be written; with no vault set there is none (`docs/operations/05-installation-checklist.md`, *The vault projection*). The dashboard reads the same operations over the daemon's local API (ADR-0031), and adds no MCP tool.
 
 The read-only audit is not an MCP tool: it is the CLI command `binn audit [path]` (`specs/audit-and-adopt/spec.md`), which needs no daemon, so an agent runs it as a command and reads `--json`. The skill `/audit` does exactly that and adds no tool and no daemon operation. It writes nothing; applying a recommendation is the human's, through `binn init`.
 
@@ -75,6 +75,23 @@ Command wrappers are generated from a single procedure description per action, s
 Both MCP transports are served — stdio for harnesses that spawn processes, Streamable HTTP from the daemon for those that prefer an endpoint. The tool implementations behind them are the same.
 
 A harness with a shell and no Binnacle MCP server — one without MCP, or one whose `binnacle` server is not registered yet — reaches the same tools through `binn call <tool> [json]` (ADR-0039). It reads the same tool table and makes the same daemon call as `binn mcp`, so a tool exists in both or in neither, and it answers for the project containing the working directory. The arguments, if the tool takes any, are one JSON object, such as `binn call task_get '{"id":"<task id>"}'`, checked against the tool's schema as the MCP server checks them, and a tool that takes none is called with none. It prints what the tool returns as JSON on stdout and exits 0; the daemon's error envelope, the same the tool returns, on stdout with exit 3, or with exit 4 when it is `daemon.unreachable`; and an unknown tool, or arguments that are not JSON or that the tool does not take, as a message on stderr with exit 2. `binn call --help` lists the tools and their arguments. Each skill that calls a tool — `/product`, `/daily`, `/task`, `/status`, `/checkpoint` and `/autopilot` — says once to call the `binnacle` MCP tool and, where the session has none, to run `binn call` with the same arguments in the shell and read its JSON.
+
+## Harnesses and their levels
+
+Every harness with MCP or a shell is at level 1, Context. Above it, Binnacle reads what each harness leaves on this machine, and receives the OpenTelemetry of those that export it, which `binn init` configures (ADR-0014, ADR-0038). Each level is the highest one a harness can reach: a project's actual level, and the reason a harness stays below the next one, are in `usage.get` and on the dashboard's usage page.
+
+| Harness | Level | How Binnacle reaches it |
+| --- | --- | --- |
+| Claude Code (CLI and desktop) | 4 — Live | its session files under `~/.claude/projects` (`$CLAUDE_CONFIG_DIR/projects`); its OpenTelemetry, `claude_code.api_request` events, which `binn init` enables in its settings' `env` |
+| Codex (CLI and desktop) | 4 — Live | its rollouts under `~/.codex/sessions` (`$CODEX_HOME/sessions`); its OpenTelemetry, `codex.sse_event` events, which `binn init` enables in the `[otel]` table of `~/.codex/config.toml` |
+| Gemini CLI | 4 — Live, not verified | its session files under `~/.gemini/tmp/<project>/chats` (`$GEMINI_CLI_HOME/.gemini/tmp`); its OpenTelemetry, `gemini_cli.api_response` events, which `binn init` enables in the `telemetry` block of `~/.gemini/settings.json`. Its events name no directory, so they wait in no project until a session file names one |
+| opencode | 3 — Usage | its SQLite database, `opencode.db` in `~/.local/share/opencode` (`$XDG_DATA_HOME/opencode`), one record per finished call; it documents no OpenTelemetry export |
+| ZCode | 3 — Usage | its SQLite database, `~/.zcode/cli/db/db.sqlite`, one record per row of `model_usage`, with its provider and model, such as GLM, apart; it documents no OpenTelemetry export |
+| pi | 3 — Usage | its session files under `~/.pi/agent/sessions` (`$PI_CODING_AGENT_DIR/sessions`), one record per entry pi totals; it has no built-in OpenTelemetry export, and `binn init` installs none |
+| Antigravity | 2 — Attribution, not verified | its window state, `Antigravity/User/globalStorage/state.vscdb` in VS Code's user data directory, which names each conversation's workspace, and its conversations under `~/.gemini/antigravity/conversations`. They are encrypted and it has no exporter, so a record is a conversation with no model and no tokens |
+| any other | 1 — Context | MCP, or `binn call` in its shell |
+
+Level 4 holds while a harness's events arrive: within the last ten minutes. Without the export, or before it was configured, Claude Code, Codex and Gemini CLI are read at level 3 from their files, and a call seen both ways is counted once. `binn init`'s Summary and `binn audit` name each detected harness that cannot export, with the same reason. Gemini CLI and Antigravity are built from their sources and descriptions, and marked not verified: on the owner's machine, Gemini CLI no longer signs in with a personal Google account and Antigravity's model answered only with quota errors (`specs/telemetry-for-any-harness/spec.md`, *Further Notes*). opencode's database is read as its source describes it, until the exit demonstration confirms it on a real install.
 
 ## Skill design rule
 

@@ -6,7 +6,7 @@ Measure AI-development behavior without pretending all providers expose identica
 
 ## Primary source
 
-Local session artifacts written by each harness are the primary telemetry source; OpenTelemetry is an optional addition where a harness supports it (ADR-0011). Artifacts exist without any configuration by the user and cover work already done, which is why they come first.
+Local session artifacts written by each harness are the primary telemetry source; OpenTelemetry is an addition where a harness exports it (ADR-0011, ADR-0038). Artifacts exist without any configuration by the user and cover work already done, which is why they come first. The daemon also accepts OTLP logs as JSON over HTTP at its own address, which `binn init` points Claude Code, Codex and Gemini CLI at: an event becomes a record with the same fields as an artifact's, never its content, shows a running session as it runs, and a call seen both ways is counted once, as its artifact's record. Each harness, its level and how it is reached are listed in `03-mcp-and-skills.md`, *Harnesses and their levels*.
 
 Aggregation semantics differ between harnesses and belong to the adapter contract: some report per-message deltas, others running totals. Adding them the same way double-counts.
 
@@ -51,6 +51,18 @@ Each metric should carry provenance where relevant:
 - `estimated`.
 
 Do not invent unavailable fields.
+
+## Run roles
+
+A run's role is read from Git and the forge, never from what an agent wrote, and is labelled as Binnacle's calculation:
+
+- `product` — on the default branch;
+- `implementation` — on a Task's branch, unless one of the two below applies;
+- `review` — a subagent run on a Task's branch that starts after the branch's last commit changing anything but its ticket, and ends by the commit that first adds `### Review` under the ticket's `## Comments`;
+- `rework` — work on a Task's branch after that commit; on GitHub or GitLab, which keep no Review in a ticket, after the first review on the Task's pull or merge request that requested changes, read with the tracker's token. A forge has no Review commit, so no run there is a review run, and where its requests cannot be read — no token, no request, a forge that refused — the Task says why in `reworkUnread`;
+- `unknown` — any other branch.
+
+A run whose records cross such a point is split there, as a run is split where its branch changes. The rework share and first-pass review acceptance below follow from these roles.
 
 ## The dashboard is read-only in v1
 
@@ -103,9 +115,7 @@ A roadmap that cannot be read, and a project or epic with no Tasks, each show th
 - the brief, the branch and the command that starts the Task; for a Task In progress from its runs, the same command, labelled as resuming it, and none for a `DONE` or `CANCELLED` one;
 - the ticket's body and its Review, as plain text, or "no Review yet";
 - AgentRun timeline;
-- implementation usage;
-- review usage — not available: review runs are not told apart from implementation runs;
-- correction/rework usage — not available, for the same reason;
+- usage by role: implementation, review and rework side by side, labelled as Binnacle's calculation from the Task branch's commits (*Run roles*), with the reason when the Task's rework cannot be read on GitHub or GitLab;
 - questions/answers — not available: they are not yet explicit artifacts;
 - branch/worktree.
 
@@ -114,7 +124,7 @@ A roadmap that cannot be read, and a project or epic with no Tasks, each show th
 - tokens by kind today and over the last seven days: input, cached input, cache creation, output, and reasoning as the part of output it is. A kind no record reports is "not reported", never zero, and a partial, calculated or estimated total is marked. One line under them gives the import window's totals, marked the same way, and how many records each period counts;
 - by model and by provider over the last seven days, a provider no artifact states being "not reported"; by Task, the largest Tasks, with the unassigned total; and by role, over the import window. Each is a bar of one kind of token, output unless another is picked: kinds are never added together. A row is one line, its name, its bar and its figure, with its record count, and a Task's title, in its tooltip;
 - the derived metrics below that have a source, labelled as Binnacle's calculation: tokens per completed Task, the same before and after Ponytail, runs per Task, the weekly trend as CSS bars, the rework share of each completed Task (its rework tokens over its implementation and rework tokens) and their mean, first-pass review acceptance (the share of reviewed completed Tasks with no rework run), and each run's context growth (the context — input, cached input and cache creation together — of its first, latest and largest call), a count a harness does not report being "not reported". Ponytail's date is the first commit on the default branch that adds the word to `AGENTS.md` or `CLAUDE.md`, and a Task is before or after it by the commit that set it `DONE`; where a side has no Task, or no commit names Ponytail, the page gives the daemon's reason;
-- each harness with its support level, named as in `CONTEXT.md` (Context, Attribution, Usage, Live), or the daemon's reason for none;
+- each harness with its support level, named as in `CONTEXT.md` (Context, Attribution, Usage, Live), with the reason a harness that cannot export stays below Live, or the daemon's reason for none;
 - cost, not available, with the reason.
 
 ### Attention/current activity
@@ -148,9 +158,14 @@ Never optimize a single metric in isolation. Token reduction that increases rewo
 
 Harnesses signal context exhaustion in incompatible ways. Claude Code emits an explicit compaction boundary carrying an `auto` or `manual` trigger; Codex emits no such event and instead rotates a context-window identifier; a newer agent may expose nothing at all.
 
-Binnacle normalises these into one signal, **context pressure**: cumulative input over the session plus explicit compaction markers where they exist, each carrying its provenance per ADR-0007. Where a harness reveals nothing, the signal is absent rather than guessed.
+Binnacle normalises these into one signal per session, **context pressure**, carried by each of its runs, each part with its provenance per ADR-0007:
 
-It surfaces as an attention item suggesting `/checkpoint`. Thresholds are configuration, not universal truths.
+- the context its latest call read: input, cached input and cache creation together, Binnacle's sum, so `calculated`;
+- the compactions seen in it, their count and the latest with its time: Claude Code's boundaries with their trigger, `provider_reported`, and Codex's changes of context window, Binnacle's reading of a compaction, `calculated` and with no trigger.
+
+Where a harness reveals neither, the signal is absent rather than guessed. pi writes its compactions with no trigger, and gives no marker.
+
+An active Product session — a main session on the default branch — raises the attention item `context.pressure` when its latest call read at least the threshold, or when it compacted after the project's last recorded checkpoint, or at all, when none is recorded. The item names the session, its context and its compaction, and suggests `/binnacle:checkpoint`, then a fresh session. A subagent's session raises none. The threshold is `telemetry.context_pressure.tokens` in the manifest, 150 000 where it writes none: configuration, not a universal truth.
 
 ## Historical import
 

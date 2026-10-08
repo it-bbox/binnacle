@@ -39,7 +39,7 @@ Claude Code, Codex, GLM, Gemini and future/local agents are replaceable executor
 - Project / Task / AgentRun / Review entities;
 - Product Snapshot and Daily Snapshot;
 - checkpoint instead of conversation handoff;
-- telemetry ingestion from coding agents, read from the session artifacts they already write to disk;
+- telemetry ingestion from coding agents, read from the session artifacts they already write to disk, and received from the OpenTelemetry of those that export it;
 - read-only GitHub/GitLab tracker adapters plus a local markdown fallback;
 - audit/adopt for an existing project;
 - integration with Matt Pocock Skills;
@@ -60,6 +60,21 @@ Agents differ enormously in what they expose, so support is graded rather than b
 | 4 — Live | it exposes an observable stream | current activity |
 
 **Level 1 is all it takes to be supported, and it needs no adapter.** An agent released tomorrow gets project memory on the day it can speak MCP. See `docs/adr/ADR-0014-harness-support-levels.md`.
+
+The harnesses Binnacle reads today, the highest level each reaches, and how:
+
+| Harness | Level | How it is reached |
+| --- | --- | --- |
+| Claude Code (CLI and desktop) | 4 — Live | its session files under `~/.claude/projects`, and the OpenTelemetry export `binn init` enables in its settings |
+| Codex (CLI and desktop) | 4 — Live | its rollouts under `~/.codex/sessions`, and the OpenTelemetry export `binn init` enables in `~/.codex/config.toml` |
+| Gemini CLI | 4 — Live, not verified | its session files under `~/.gemini/tmp`, and the OpenTelemetry export `binn init` enables in `~/.gemini/settings.json` |
+| opencode | 3 — Usage | its database in `~/.local/share/opencode`; it has no OpenTelemetry export |
+| ZCode | 3 — Usage | its database in `~/.zcode/cli/db`; it documents no OpenTelemetry export |
+| pi | 3 — Usage | its session files under `~/.pi/agent/sessions`; it has no built-in OpenTelemetry export |
+| Antigravity | 2 — Attribution, not verified | its window state, which names each conversation's workspace; its conversations are encrypted, so no model or tokens |
+| any other | 1 — Context | MCP, or `binn call` in its shell |
+
+Level 4 holds while a harness's events arrive; without the export, Claude Code, Codex and Gemini CLI are read at level 3 from their files, and a call seen both ways is counted once. Gemini CLI and Antigravity are built from their sources, as neither could run a session on the owner's machine, and are marked not verified. Each project's actual levels, with the reason a harness stays below the next one, are on the dashboard's usage page. Details: `docs/03-mcp-and-skills.md`, *Harnesses and their levels*.
 
 ## Out of scope for v1
 
@@ -208,7 +223,7 @@ One `binn init` sets up every harness on the machine. Its plan installs Binnacle
 
 - **Codex** reads a project's `.codex/config.toml` only in a trusted project. Trust the project in Codex, or the `binnacle` entry is not seen. The Codex desktop app ships its CLI outside `PATH`; on Linux it is `/usr/lib/chatgpt/resources/codex`.
 - **opencode** reads `opencode.json` or `opencode.jsonc` in the project. Run `opencode` in the repository root.
-- **GLM** is a model, not a harness. Reach it through a harness such as Claude Code or opencode; there is no GLM adapter to look for.
+- **GLM** is a model, not a harness. Reach it through a harness such as ZCode, Claude Code or opencode; there is no GLM adapter to look for.
 
 ## Documentation
 

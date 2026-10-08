@@ -58,12 +58,18 @@ How far Binnacle can see into a given harness, graded rather than binary:
 What a harness writes to local disk about a session. The primary source of telemetry, because it exists without configuration and covers work already done.
 
 ### Context pressure
-The normalised signal for a session outgrowing its context: cumulative input plus explicit compaction markers where a harness emits them. Harnesses express this differently; the signal is normalised, the underlying values are never invented.
+The normalised signal for a session outgrowing its context: the context its latest call read (input, cached input and cache creation together), and the compactions seen in it — Claude Code's compaction boundaries with their trigger, Codex's change of context window — each with its provenance. Harnesses express this differently; the signal is normalised, the underlying values are never invented, and where a harness reveals neither it is absent. An active Product session over the manifest's threshold, or compacted since the last checkpoint, raises an attention item suggesting a checkpoint.
 
 ### AgentRun
 One concrete run of a coding agent in a given role, harness/provider/model/profile. A single Task may have several AgentRuns.
 
-An AgentRun observed in a session artifact is one unbroken stretch of a session in one checkout on one branch: a session that switches branch becomes two AgentRuns, each attributed on its own. A subagent's session is an AgentRun of its own, linked to the run that started it. Its role comes from its branch — the default branch is Product work, a ticket's branch is implementation, anything else is unknown. An observed AgentRun has no lifecycle state, because an artifact cannot tell a finished run from an abandoned one; whether it is active is read from its latest activity.
+An AgentRun observed in a session artifact is one unbroken stretch of a session in one checkout on one branch: a session that switches branch becomes two AgentRuns, each attributed on its own. A subagent's session is an AgentRun of its own, linked to the run that started it. Its role comes from its branch and that branch's history, never from what the agent wrote — the default branch is Product work; a ticket's branch is implementation, except for a Review run or a Rework run; anything else is unknown. A run whose records cross the point where its role changes is split there, as at a change of branch. An observed AgentRun has no lifecycle state, because an artifact cannot tell a finished run from an abandoned one; whether it is active is read from its latest activity.
+
+### Review run
+An AgentRun in the reviewer's role: a subagent run on a Task's branch that starts after the branch's last commit changing anything but its ticket, and ends by the commit that first records the ticket's Review. A forge's review leaves no such commit, so a Task on GitHub or GitLab has none. It is Binnacle's calculation.
+
+### Rework run
+Implementation work on a Task's branch after its first Review, or, on GitHub or GitLab, after the first review on the Task's pull or merge request that requested changes. It is what a review cost in fixes, and the rework share and first-pass review acceptance are read from it. It is Binnacle's calculation.
 
 ### Unassigned
 Usage attributed to a Project but to no Task, because no branch mapping to a Task can be proven for it. It is a first-class outcome, never a guess.
