@@ -43,3 +43,11 @@ After epic 14's autopilot run the roadmap's Next action still read `/binnacle:au
 
 1. **The stale Next action is not detected.** ADR-0032 makes a Next action that names finished work an attention item, but only a command naming a `DONE` Task is caught. `/binnacle:autopilot <epic>` for an epic with no ticket left for an agent, only `ready-for-human` ones, passed with no attention item.
 2. **Nothing proposes the next course.** Implementation sessions and autopilot's agents leave the paragraph to a Product session (2026-10-02), which is right, but neither `/binnacle:product`, autopilot's end nor `/binnacle:checkpoint` proposes a new one, so it lags behind every merge until the owner asks. Autopilot's report or the checkpoint could propose the new paragraph, written once the owner confirms it in the chat (ADR-0037).
+
+## A daemon that does not come back after a reboot (2026-10-09)
+
+After a reboot the owner found the daemon down: nothing starts it. ADR-0016 makes autostart "a documented manual step in v1", but no document describes it; the README and `docs/` say nothing. On the owner's machine it now runs as a systemd user unit, `~/.config/systemd/user/binnacle.service`, which starts `apps/daemon/src/bin.ts` with Node at login, with `BINNACLE_HOME` and a `PATH` that reaches `git`, `graphify` and `npx`, and restarts it on failure. Three things to weigh:
+
+1. **The documented step ADR-0016 promises**: a unit for systemd, an agent for launchd, a Task Scheduler entry for Windows, each a few lines.
+2. **`binn init` asking for it**, as it asks for the import window, so that a new user is not left with the same gap.
+3. **Who restarts it**: `binn daemon stop` then `binn daemon start`, as autopilot runs after a merge that changes the daemon, leaves a daemon outside the service manager; `systemctl --user restart binnacle` is the restart there. Node's path is pinned to one nvm version and breaks when Node is upgraded.
