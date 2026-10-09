@@ -24,7 +24,7 @@ workflow:
 capabilities:
   # What is installed on this machine. CLAUDE.md routes agents only to what is true here.
   serena: true
-  graphify: false
+  graphify: true
   context7: true
   ast_grep: false
   obsidian: optional

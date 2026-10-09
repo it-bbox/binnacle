@@ -17,10 +17,11 @@
 ## Codebase navigation
 
 1. Serena for symbols/references/editing.
-2. Context7 for version-specific external docs.
-3. Broad grep/full-file reads only when the above are insufficient or local implementation context is necessary.
+2. Graphify for cross-module architecture and impact.
+3. Context7 for version-specific external docs.
+4. Broad grep/full-file reads only when the above are insufficient or local implementation context is necessary.
 
-Graphify and ast-grep are not set up for this repository (`.binnacle/project.yaml`, `capabilities`). Add them back here when the manifest says they are installed.
+ast-grep is not set up for this repository (`.binnacle/project.yaml`, `capabilities`). Add it back here when the manifest says it is installed.
 
 ## Coding policy
 
