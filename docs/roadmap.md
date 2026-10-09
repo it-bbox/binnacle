@@ -35,13 +35,14 @@ Epic 14, Skills in any harness (`specs/skills-in-any-harness/spec.md`), has ever
 
 Epic 10, Telemetry for any harness (`specs/telemetry-for-any-harness/spec.md`), has every ticket done but 15. On 2026-10-08 the owner demonstrated 15 on their machine: `binn init`'s export, Claude Code and Codex live and counted once, opencode, ZCode and pi from their files, context pressure and Ponytail; Gemini CLI and Antigravity not verified. Review and rework did not show, since sessions committed their fixes before their Review: the per-ticket flow now commits the Review first, and 17, done, brings autopilot to it and was itself run in that order. 15's last criterion can now be demonstrated on 17's branch.
 
+The daemon's autostart left *Later* on 2026-10-09: a daemon that does not come back after a reboot is the first thing a user meets, so `binn init` sets it up and it is done right after these two demonstrations (`docs/product-inbox.md`; it narrows ADR-0016).
+
 Next action: no agent has a ticket left; the owner demonstrates epic 14's ticket 08, starting with binn init on a repository now that 10 is merged, then epic 10's ticket 15. `binn init`
 
 ## Later
 
 Deferred deliberately, each with the decision that deferred it:
 
-- installing `binnd` as an auto-starting service per platform — `ADR-0016`;
 - standalone binaries for users without Node — `ADR-0016`;
 - adopting a large third-party repository as a baseline case — `docs/00-scope.md`;
 - autopilot notifications through a Telegram bot, beside the push notification it sends today — `ADR-0022`;

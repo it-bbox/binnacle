@@ -46,6 +46,8 @@ After epic 14's autopilot run the roadmap's Next action still read `/binnacle:au
 
 ## A daemon that does not come back after a reboot (2026-10-09)
 
+**Decided by the owner on 2026-10-09: v1, right after epics 10 and 14's demonstrations, set up automatically, not a documented manual step.** It left *Later* in the roadmap. What is still open is how, below, and an ADR narrowing ADR-0016's "autostart is a documented manual step".
+
 After a reboot the owner found the daemon down: nothing starts it. ADR-0016 makes autostart "a documented manual step in v1", but no document describes it; the README and `docs/` say nothing. On the owner's machine it now runs as a systemd user unit, `~/.config/systemd/user/binnacle.service`, which starts `apps/daemon/src/bin.ts` with Node at login, with `BINNACLE_HOME` and a `PATH` that reaches `git`, `graphify` and `npx`, and restarts it on failure. Three things to weigh:
 
 1. **The documented step ADR-0016 promises**: a unit for systemd, an agent for launchd, a Task Scheduler entry for Windows, each a few lines.
