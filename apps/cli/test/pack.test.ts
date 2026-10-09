@@ -153,6 +153,18 @@ test('autopilot leaves the Next action to the owner, in the brief and in its rep
   assert.match(skill, /stale `Next action:`/);
 });
 
+/** Epic 10's ticket 17: review and rework are told apart at the commit that first records `### Review`, so the Review is committed before its fixes (the owner, 2026-10-08). */
+test('autopilot asks for the Review\'s commit before its fixes, as the development workflow does, and step 8 sends back a Review recorded only at the end', () => {
+  const skill = skillText('autopilot');
+  assert.match(workflowText(), /The review's findings go under `### Review` there, each marked to fix or kept with its reason, in a commit of their own before any fix/);
+  assert.match(skill, /commit the ticket's `### Review` with every finding, each marked "to fix" or "kept" with its reason, in a commit of its own that changes only the ticket/);
+  assert.match(skill, /Commit the fixes in commits of their own\. 5\) The last commit marks each finding fixed, kept or left, ticks the criteria and sets `Status: DONE`/);
+  assert.match(skill, /If the review finds nothing to fix, say so in the Review commit and the last commit may be the DONE one/);
+  assert.match(skill, /the commit that first adds `### Review` to the ticket .+ changes only the ticket, and when the Review marks any finding fixed, comes before the fixes rather than being the last commit/);
+  assert.match(skill, /Review recorded only in the last commit, after its fixes/);
+  assert.doesNotMatch(skill, /record its findings under the ticket's `## Comments` → `### Review` as fixed, kept or left, tick/);
+});
+
 /** Epic 9: the installed binnacle@binnacle shadows the skills-directory plugin here, so a merged skill reaches the owner only once refreshed; epic 14 keeps Claude Code's commands in the development workflow, out of the skill. */
 test('autopilot refreshes the plugin only when a merge changed its skills, with the development workflow\'s commands, and a failure does not stop the run', () => {
   const skill = skillText('autopilot');
