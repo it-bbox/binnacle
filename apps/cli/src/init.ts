@@ -626,9 +626,8 @@ function planSkillSet(session: Session, { what, claudeCodeHas, source, skills }:
   const add = ['skills', 'add', source, '-g', '-y', '--json'];
   const fromClaudeCode = ['skills', 'remove', '-g', '-a', 'claude-code', ...skipHarness];
   const removal = (names: string[]): string[] => [...fromClaudeCode, '-s', ...names, '-y'];
-  const shown = (args: string[]): string => `npx ${args.map(quoted).join(' ')}`;
-  const shownRemoval = binnacle ? shown(removal(skills)) : `${shown(fromClaudeCode)} -s <each skill the add installed> -y`;
-  const body = `  ${shown(add)}\n  ${shownRemoval}`;
+  const shownRemoval = binnacle ? shownSkills(removal(skills)) : `${shownSkills(fromClaudeCode)} -s <each skill the add installed> -y`;
+  const body = `  ${shownSkills(add)}\n  ${shownRemoval}`;
   // Binnacle's set alone is versioned by Binnacle (spec, *Freshness*): a current one is installed again all the same, for a harness installed since.
   const installed = binnacle ? binnacleSkills() : null;
   const where = `${what} in ${tilde(INSTALLED_SKILLS)}`;
@@ -648,7 +647,7 @@ function planSkillSet(session: Session, { what, claudeCodeHas, source, skills }:
     declined: binnacle ? `install ${what}` : `install ${what} into every harness`,
     apply() {
       const added = addSkills(session, what, add);
-      if (binnacle && added) session.skills = { into: installedInto(added.output), skipped: skipHarness };
+      if (binnacle && added) session.skills = { into: added.into, skipped: skipHarness };
       const names = skills ?? added?.names ?? [];
       if (names.length === 0) {
         const why = added ? 'its add named no skills it installed' : 'its add failed';
@@ -689,28 +688,33 @@ function runSkills(session: Session, args: string[]): string | null {
 }
 
 /**
- * Runs a set's `skills add --json` and reads what it installed: its whole output, and the skills
- * to remove from Claude Code. Exiting 0, those are the skills its JSON lists as installed: one it
- * did not install, such as a skill of the human's own by that name, is never removed. Exiting
- * non-zero, as `skills` does when one harness fails while the others install, its JSON calls
- * every such skill failed: those of its skills that `skills list` then shows anywhere were
- * installed, the ones in Claude Code are removed, and the Summary names each reason the add gave
- * for a harness. With none of them installed, or a list that fails, it is recorded as failed: null.
- * ponytail: a skill of the set already installed by an earlier run counts as installed; a snapshot before the add tells them apart if that matters.
+ * Runs a set's `skills add --json` and reads what it installed: the harnesses, Claude Code apart,
+ * and the skills to remove from Claude Code. Exiting 0, the harnesses are those its `Installing
+ * to:` line names, and the skills those its JSON lists as installed: one it did not install, such
+ * as a skill of the human's own by that name, is never removed. Exiting non-zero, as `skills` does
+ * when one harness fails while the others install, its JSON calls every such skill failed and the
+ * line names the failing harness too: `skills list` then tells which of its skills were installed
+ * and where, the ones in Claude Code are removed, and the Summary names each reason the add gave
+ * for a harness. With none of them listed, or a listing that fails, it is recorded as failed: null.
+ * ponytail: a skill of the set from an earlier run, or one Claude Code failed while it holds the human's own by that name, counts as installed; a listing before the add tells them apart if that matters.
  */
-function addSkills(session: Session, what: string, args: string[]): { output: string; names: string[] } | null {
+function addSkills(session: Session, what: string, args: string[]): { into: string[]; names: string[] } | null {
   const run = spawnSkills(session, args);
-  const report = parsedArray<{ name?: unknown; status?: unknown; error?: unknown }>(run.stdout);
-  const named = (status?: string): string[] =>
-    report.flatMap(({ name, status: was }) => (typeof name === 'string' && (status === undefined || was === status) ? [name] : []));
-  const output = `${run.stdout}${run.stderr}`;
+  const report = parsedArray(run.stdout);
+  const named = (status?: string): string[] => report.flatMap((skill) => (status === undefined || skill.status === status ? nameOf(skill) : []));
   if (run.status === 0) {
     record(session, 'ran', shownSkills(args));
-    return { output, names: named('installed') };
+    return { into: installedInto(`${run.stdout}${run.stderr}`), names: named('installed') };
   }
   const all = named();
-  const listing = all.length > 0 ? runSkills(session, ['skills', 'list', '-g', '--json']) : null;
-  const installed = parsedArray<{ name?: unknown; agents?: unknown }>(listing ?? '').filter(({ name }) => all.includes(name as string));
+  // Spawned rather than run, so that the Summary lists the add before it; a failed listing is recorded all the same.
+  const listing = all.length > 0 ? spawnSkills(session, LIST_SKILLS) : null;
+  if (listing && listing.status !== 0) skillsFailed(session, LIST_SKILLS, listing);
+  const installed = parsedArray(listing?.status === 0 ? listing.stdout : '').flatMap((skill) => {
+    const [name] = nameOf(skill);
+    const agents = Array.isArray(skill.agents) ? skill.agents.filter((agent): agent is string => typeof agent === 'string') : [];
+    return name !== undefined && all.includes(name) ? [{ name, agents }] : [];
+  });
   if (installed.length === 0) {
     skillsFailed(session, args, run);
     return null;
@@ -719,25 +723,38 @@ function addSkills(session: Session, what: string, args: string[]): { output: st
   const reasons = [...new Set(report.flatMap(({ status, error }) => (status === 'failed' && typeof error === 'string' ? [error] : [])))];
   session.say(`${shownSkills(args)} installed ${what}, but not into every harness:\n${reasons.join('\n')}`);
   for (const reason of reasons) record(session, 'failed', `${what} for a harness: ${reason}`);
-  return { output, names: installed.flatMap(({ name, agents }) => (Array.isArray(agents) && agents.includes('Claude Code') ? [name as string] : [])) };
+  return {
+    into: [...new Set(installed.flatMap(({ agents }) => agents))].filter((agent) => agent !== 'Claude Code'),
+    names: installed.filter(({ agents }) => agents.includes('Claude Code')).map(({ name }) => name),
+  };
 }
+
+/** What the step asks after an add that exits non-zero: the skills at user scope, each with the harnesses it is in, by display name. */
+const LIST_SKILLS = ['skills', 'list', '-g', '--json'];
+
+/** One skill of a `skills` CLI JSON listing, as far as it is read: an add's report, or `skills list`'s. */
+type ListedSkill = { name?: unknown; status?: unknown; error?: unknown; agents?: unknown };
+
+/** A listed skill's name, as a list of one, or none when it has none. */
+const nameOf = ({ name }: ListedSkill): string[] => (typeof name === 'string' ? [name] : []);
 
 /**
  * A `skills` CLI call's stdout read whole as the JSON array it prints with `--json`; empty when it is not one.
  * ponytail: anything else on stdout, and nothing is read as installed, so no removal follows and the Summary says so.
  */
-function parsedArray<T>(json: string): T[] {
+function parsedArray(json: string): ListedSkill[] {
   try {
     const parsed: unknown = JSON.parse(json);
-    return Array.isArray(parsed) ? (parsed as T[]) : [];
+    return Array.isArray(parsed) ? (parsed as ListedSkill[]) : [];
   } catch {
     return [];
   }
 }
 
 /**
- * The harnesses `skills add` names in its `Installing to: A, B` line, Claude Code apart.
- * ponytail: a textual read of the CLI's own line, colours stripped; its `--json` gives agent ids if the line changes.
+ * The harnesses `skills add` names in its `Installing to: A, B` line, Claude Code apart: those it
+ * installed into, once it exits 0.
+ * ponytail: a textual read of the CLI's own line, colours stripped; `skills list -g --json` names them per skill if the line changes.
  */
 const installedInto = (output: string): string[] =>
   (output.replace(/\x1b\[[0-9;]*m/g, '').match(/Installing to: (.+)/)?.[1] ?? '')

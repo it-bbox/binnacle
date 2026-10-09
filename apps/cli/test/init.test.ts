@@ -2016,9 +2016,9 @@ const allSkills = (...skipped: string[]): string[][] => [
  * the `skills` CLI does with `--json`, the line naming the harnesses it detected on stderr and
  * the skills it installed as JSON on stdout; `failing` names the subcommand that fails, with
  * output of its own. With `one-harness`, every add exits non-zero and reports each skill failed
- * for PromptScript, as `skills` 1.7.1 did on 2026-10-08, while `skills list` shows each
- * installed into Codex and Claude Code; with `every-harness`, the same add installed nothing,
- * and `skills list` shows none of them.
+ * for PromptScript, which its line names among the others, as `skills` 1.7.1 did on 2026-10-08,
+ * while `skills list` shows each installed into Codex, Antigravity and Claude Code; with
+ * `every-harness`, the same add installed nothing, and `skills list` shows none of them.
  */
 function fakeNpx(home: Home, failing?: 'add' | 'remove' | 'one-harness' | 'every-harness'): () => string[][] {
   const calls = join(home.home, 'npx-calls');
@@ -2033,7 +2033,7 @@ function fakeNpx(home: Home, failing?: 'add' | 'remove' | 'one-harness' | 'every
     );
   // The human's own `wizard` is in Claude Code too: no add names it, so no removal does.
   const listed = JSON.stringify(
-    failing === 'one-harness' ? [...sets.flat(), 'wizard'].map((name) => ({ name, scope: 'global', agents: ['Codex', 'Claude Code'] })) : [],
+    failing === 'one-harness' ? [...sets.flat(), 'wizard'].map((name) => ({ name, scope: 'global', agents: ['Codex', 'Antigravity', 'Claude Code'] })) : [],
   );
   writeFileSync(
     join(home.bin, 'npx'),
@@ -2043,7 +2043,7 @@ echo >> '${calls}'
 if [ "$2" = "${failing ?? ''}" ]; then echo "skills $2 broke: no network"; exit 1; fi
 if [ "$2" = "list" ]; then printf '%s\\n' '${listed}'; exit 0; fi
 if [ "$2" = "add" ]; then
-  printf '\\033[2m│\\033[0m\\n●  Installing to: \\033[36mCodex\\033[0m, \\033[36mAntigravity\\033[0m, \\033[36mClaude Code\\033[0m\\n' >&2
+  printf '\\033[2m│\\033[0m\\n●  Installing to: \\033[36mCodex\\033[0m, \\033[36mAntigravity\\033[0m, \\033[36mClaude Code\\033[0m${partial ? ', \\033[36mPromptScript\\033[0m' : ''}\\n' >&2
   case "$3" in
     mattpocock/skills) echo 'npm warn exec installing skills' >&2; printf '%s\\n' '${reported(sets[0]!)}' ;;
     DietrichGebert/ponytail) printf '%s\\n' '${reported(sets[1]!)}' ;;
