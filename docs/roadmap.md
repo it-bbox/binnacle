@@ -33,7 +33,7 @@ Epics 1 to 9 are done. Epic 13, Human output, is grilled last, since it rewrites
 
 Epic 14, Skills in any harness (`specs/skills-in-any-harness/spec.md`), has every ticket done but 10 and 08. 10, found in epic 10's demonstration, stops `binn init` leaving Matt Pocock Skills and Ponytail twice in Claude Code when a `skills add` fails for one harness; 08, the owner's exit demonstration, waits on it.
 
-Epic 10, Telemetry for any harness (`specs/telemetry-for-any-harness/spec.md`), has every ticket done but 17 and 15. On 2026-10-08 the owner demonstrated 15 on their machine: `binn init`'s export, Claude Code and Codex live and counted once, opencode, ZCode and pi from their files, context pressure and Ponytail; Gemini CLI and Antigravity not verified. Review and rework did not show, since sessions committed their fixes before their Review: the per-ticket flow now commits the Review first, and 17 brings autopilot to it. 15's last criterion waits on 17, run in that order.
+Epic 10, Telemetry for any harness (`specs/telemetry-for-any-harness/spec.md`), has every ticket done but 15. On 2026-10-08 the owner demonstrated 15 on their machine: `binn init`'s export, Claude Code and Codex live and counted once, opencode, ZCode and pi from their files, context pressure and Ponytail; Gemini CLI and Antigravity not verified. Review and rework did not show, since sessions committed their fixes before their Review: the per-ticket flow now commits the Review first, and 17, done, brings autopilot to it and was itself run in that order. 15's last criterion can now be demonstrated on 17's branch.
 
 Next action: run epic 10's ticket 17, then epic 14's 10. `/binnacle:autopilot 10`
 
