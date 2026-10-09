@@ -159,8 +159,10 @@ test('autopilot asks for the Review\'s commit before its fixes, as the developme
   assert.match(workflowText(), /The review's findings go under `### Review` there, each marked to fix or kept with its reason, in a commit of their own before any fix/);
   assert.match(skill, /commit the ticket's `### Review` with every finding, each marked "to fix" or "kept" with its reason, in a commit of its own that changes only the ticket/);
   assert.match(skill, /Commit the fixes in commits of their own\. 5\) The last commit marks each finding fixed, kept or left, ticks the criteria and sets `Status: DONE`/);
-  assert.match(skill, /If the review finds nothing to fix, say so in the Review commit and the last commit may be the DONE one/);
-  assert.match(skill, /the commit that first adds `### Review` to the ticket .+ changes only the ticket, and when the Review marks any finding fixed, comes before the fixes rather than being the last commit/);
+  assert.match(skill, /If the review finds nothing to fix, say so in the Review commit, which stays a commit of its own, and the last commit, right after it, may be the DONE one/);
+  assert.match(skill, /Binnacle tells review from rework at the commit that first adds `### Review`, so keep this order/);
+  assert.doesNotMatch(skill, /the development workflow sets under \*Per ticket\*/);
+  assert.match(skill, /the commit that first adds `### Review` to the ticket .+ changes only the ticket, and when the Review marks any finding fixed, a commit after it, before the last, changes more than the ticket \(`git log --format=%H <review>\.\.<branch>~1 -- \. ':\(exclude\)<ticket path>'` prints one\)/);
   assert.match(skill, /Review recorded only in the last commit, after its fixes/);
   assert.doesNotMatch(skill, /record its findings under the ticket's `## Comments` → `### Review` as fixed, kept or left, tick/);
 });
