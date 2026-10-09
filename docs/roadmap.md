@@ -35,7 +35,7 @@ Epic 14, Skills in any harness (`specs/skills-in-any-harness/spec.md`), has ever
 
 Epic 10, Telemetry for any harness (`specs/telemetry-for-any-harness/spec.md`), has every ticket done but 15. On 2026-10-08 the owner demonstrated 15 on their machine: `binn init`'s export, Claude Code and Codex live and counted once, opencode, ZCode and pi from their files, context pressure and Ponytail; Gemini CLI and Antigravity not verified. Review and rework did not show, since sessions committed their fixes before their Review: the per-ticket flow now commits the Review first, and 17, done, brings autopilot to it and was itself run in that order. 15's last criterion can now be demonstrated on 17's branch.
 
-Next action: run epic 10's ticket 17, then epic 14's 10. `/binnacle:autopilot 10`
+Next action: no agent has a ticket left; the owner demonstrates epic 14's ticket 08, starting with binn init on a repository now that 10 is merged, then epic 10's ticket 15. `binn init`
 
 ## Later
 

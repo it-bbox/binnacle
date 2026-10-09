@@ -36,3 +36,10 @@ Antigravity's agent did not answer in this repository because its Git library re
 
 1. **Requirements traced end to end.** The brief is split into numbered requirements, recorded word for word. Every requirement has a section of the spec and a task, every task a requirement, which catches work nobody asked for, and only the owner can drop a requirement. Here a story of a spec could carry a number that its tickets and their criteria name, and the snapshot or `binn audit` could report a story with no ticket and a ticket with no story.
 2. **Blind acceptance.** At the end, a separate agent checks the result against the owner's original words only, without the spec, so that what was lost on the way from brief to spec to tickets shows. Here an epic's exit demonstration could start from such a check against the grilling's record.
+
+## A Next action nobody moves (2026-10-09)
+
+After epic 14's autopilot run the roadmap's Next action still read `/binnacle:autopilot 10`, with epic 10's 17 and epic 14's 10 both done, and every report since epic 8 has said so without anything changing. Two gaps:
+
+1. **The stale Next action is not detected.** ADR-0032 makes a Next action that names finished work an attention item, but only a command naming a `DONE` Task is caught. `/binnacle:autopilot <epic>` for an epic with no ticket left for an agent, only `ready-for-human` ones, passed with no attention item.
+2. **Nothing proposes the next course.** Implementation sessions and autopilot's agents leave the paragraph to a Product session (2026-10-02), which is right, but neither `/binnacle:product`, autopilot's end nor `/binnacle:checkpoint` proposes a new one, so it lags behind every merge until the owner asks. Autopilot's report or the checkpoint could propose the new paragraph, written once the owner confirms it in the chat (ADR-0037).
