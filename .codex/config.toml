@@ -1,0 +1,3 @@
+[mcp_servers.binnacle]
+command = "binn"
+args = ["mcp"]
