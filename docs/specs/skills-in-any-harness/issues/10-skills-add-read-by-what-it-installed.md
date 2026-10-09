@@ -1,6 +1,6 @@
 # 10: A skills add that fails for one harness still leaves Claude Code clean
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/skills-in-any-harness/spec.md`
@@ -9,12 +9,13 @@ Spec: `docs/specs/skills-in-any-harness/spec.md`
 
 The step reads what the add installed, not its exit status alone: the set's skills are removed from Claude Code whenever the add installed them there, and the Summary names a harness the add failed for, with the CLI's reason, rather than calling the whole add failed (spec, *One install for every harness*).
 
-- [ ] Process test with a stub `npx skills` whose add exits non-zero and reports one harness's failure for every skill while it installs them elsewhere: the removal from Claude Code runs for the set's skills, and the Summary names the failing harness and its reason.
-- [ ] An add that installed nothing is still recorded as failed, and nothing is removed.
+- [x] Process test with a stub `npx skills` whose add exits non-zero and reports one harness's failure for every skill while it installs them elsewhere: the removal from Claude Code runs for the set's skills, and the Summary names the failing harness and its reason.
+- [x] An add that installed nothing is still recorded as failed, and nothing is removed.
 
 ## Comments
 
 - How to tell what was installed is this ticket's to choose: the add's own output, or the installed skills listed after it.
+- On 2026-10-09 the same failure happened a second time on the owner's machine, with 44 symlinks left in `~/.claude/skills`. Seeing it gone on a real machine is ticket 08's exit demonstration: `binn init` there should show `failed <set> for a harness: PromptScript does not support global skill installation` with the add itself `ran`, and `ls ~/.claude/skills` should hold none of Matt Pocock's or Ponytail's skills afterwards.
 
 ### Decisions
 
@@ -29,15 +30,15 @@ The step reads what the add installed, not its exit status alone: the set's skil
 
 **Standards: no hard violation.** Findings:
 
-1. **`shownSkills` repeats `planSkillSet`'s local `shown`.** To fix: one function.
-2. **`spawnSkills`, `runSkills` and `addSkills` differ only by their verb; `parsedArray` is vague.** Kept: each has a comment saying what it records.
-3. **`'Claude Code'` is a literal in `installedInto` and in `addSkills`.** Kept: the CLI's display name, matched where it is read, as before.
-4. **`addSkills` is long, with `name as string` casts beside a `typeof` guard.** To fix the casts; the recovery branch stays in the function that reads the add.
-5. **`installedInto`'s `ponytail:` says `--json` gives agent ids if the line changes, now that every add runs with `--json`.** To fix, with Spec 1.
-6. **`fakeNpx`'s `failing` mixes a failing subcommand with a partial-failure scenario.** Kept: one fake, one switch, each value documented.
+1. **`shownSkills` repeats `planSkillSet`'s local `shown`.** **Fixed**: one function.
+2. **`spawnSkills`, `runSkills` and `addSkills` differ only by their verb; `parsedArray` is vague.** **Kept**: each has a comment saying what it records.
+3. **`'Claude Code'` is a literal in `installedInto` and in `addSkills`.** **Kept**: the CLI's display name, matched where it is read, as before.
+4. **`addSkills` is long, with `name as string` casts beside a `typeof` guard.** **Fixed** for the casts: `nameOf` and a type guard on the listed harnesses. The recovery branch is **kept** in the function that reads the add.
+5. **`installedInto`'s `ponytail:` says `--json` gives agent ids if the line changes, now that every add runs with `--json`.** **Fixed** with Spec 1: it says the line is read once the add exits 0, and that `skills list` names the harnesses per skill.
+6. **`fakeNpx`'s `failing` mixes a failing subcommand with a partial-failure scenario.** **Kept**: one fake, one switch, each value documented.
 
 **Spec: both criteria implemented.** Findings:
 
-1. **After a partial add, the Summary's harnesses come from the `Installing to:` line**, which names every target, the failing harness too: the real CLI's line would put PromptScript among the harnesses Binnacle's skills went into. To fix: after a non-zero add, the harnesses are those `skills list` shows the skills in.
-2. **A skill the add named `failed` that `skills list` shows in Claude Code is removed even when it is the human's own**, against ticket 05's rule. Kept: `skills` overwrites a skill of that name in each harness it installs into, so it is the human's own only when Claude Code itself failed it; the `ponytail:` comment is to name that case.
-3. **A reason that names no harness is still written `for a harness`.** Kept: the JSON gives no harness, and the human output's `✗ skill → harness` lines are not printed with `--json`; in 1.7.1 the global-install refusal names its harness.
+1. **After a partial add, the Summary's harnesses come from the `Installing to:` line**, which names every target, the failing harness too: the real CLI's line would put PromptScript among the harnesses Binnacle's skills went into. **Fixed**: after a non-zero add, the harnesses are those `skills list` shows the skills in, and the fake's line names PromptScript, as the real one does. The listing is no longer a Summary line of its own ahead of the add; a failed listing still is.
+2. **A skill the add named `failed` that `skills list` shows in Claude Code is removed even when it is the human's own**, against ticket 05's rule. **Kept**: `skills` overwrites a skill of that name in each harness it installs into, so it is the human's own only when Claude Code itself failed it; the `ponytail:` comment names that case.
+3. **A reason that names no harness is still written `for a harness`.** **Kept**: the JSON gives no harness, and the human output's `✗ skill → harness` lines are not printed with `--json`; in 1.7.1 the global-install refusal names its harness.
