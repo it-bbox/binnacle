@@ -595,7 +595,7 @@ function pluginStep(session: Session, plugins: ClaudePlugins): void {
  * from their repositories, unless the manifest declares one false. Only when `binn` detected a
  * harness: with none detected and `-y`, the `skills` CLI installs into every harness it knows.
  * Without `npx` the commands are printed. A failed call is reported with its output, and the
- * next still runs.
+ * next still runs. An add is read by what it installed, not by its exit status alone.
  */
 function skillsStep(session: Session, harnesses: Harness[], tools: ToolState[], skipHarness: string[]): void {
   const sets: SkillSet[] = [
@@ -623,7 +623,7 @@ type SkillSet = { what: string; claudeCodeHas: string; source: string; skills: s
 
 function planSkillSet(session: Session, { what, claudeCodeHas, source, skills }: SkillSet, skipHarness: string[]): void {
   const binnacle = skills !== null;
-  const add = ['skills', 'add', source, '-g', '-y', ...(binnacle ? [] : ['--json'])];
+  const add = ['skills', 'add', source, '-g', '-y', '--json'];
   const fromClaudeCode = ['skills', 'remove', '-g', '-a', 'claude-code', ...skipHarness];
   const removal = (names: string[]): string[] => [...fromClaudeCode, '-s', ...names, '-y'];
   const shown = (args: string[]): string => `npx ${args.map(quoted).join(' ')}`;
@@ -647,9 +647,9 @@ function planSkillSet(session: Session, { what, claudeCodeHas, source, skills }:
     body,
     declined: binnacle ? `install ${what}` : `install ${what} into every harness`,
     apply() {
-      const added = runSkills(session, add);
-      if (binnacle && added) session.skills = { into: installedInto(`${added.stdout}${added.stderr}`), skipped: skipHarness };
-      const names = skills ?? (added ? addedSkills(added.stdout) : []);
+      const added = addSkills(session, what, add);
+      if (binnacle && added) session.skills = { into: installedInto(added.output), skipped: skipHarness };
+      const names = skills ?? added?.names ?? [];
       if (names.length === 0) {
         const why = added ? 'its add named no skills it installed' : 'its add failed';
         session.say(`${what} are not removed from Claude Code: ${why}.`);
@@ -660,33 +660,76 @@ function planSkillSet(session: Session, { what, claudeCodeHas, source, skills }:
   });
 }
 
-/** Runs one `skills` CLI call through `npx`, reported and recorded; its output once it succeeded, null once it failed. */
-function runSkills(session: Session, args: string[]): { stdout: string; stderr: string } | null {
-  const shown = `npx ${args.map(quoted).join(' ')}`;
-  session.say(`Running ${shown}...`);
+const shownSkills = (args: string[]): string => `npx ${args.map(quoted).join(' ')}`;
+
+/** Runs one `skills` CLI call through `npx`, said before it runs; its status and output. */
+function spawnSkills(session: Session, args: string[]): { status: number | null; stdout: string; stderr: string } {
+  session.say(`Running ${shownSkills(args)}...`);
   // ponytail: no shell, so a --skip-harness id and the package's path pass as they are; Windows' `npx.cmd` would need one, as in the servers step.
   const run = spawnSync('npx', args, { cwd: session.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  return { status: run.status, stdout: run.stdout ?? '', stderr: run.stderr ?? '' };
+}
+
+/** A failed `skills` call, reported with its output and recorded. */
+function skillsFailed(session: Session, args: string[], { stdout, stderr }: { stdout: string; stderr: string }): void {
+  const output = `${stdout}${stderr}`.trim();
+  session.say(`${shownSkills(args)} failed${output ? `:\n${output}` : '.'}`);
+  record(session, 'failed', shownSkills(args));
+}
+
+/** Runs one `skills` CLI call, reported and recorded; its stdout once it succeeded, null once it failed. */
+function runSkills(session: Session, args: string[]): string | null {
+  const run = spawnSkills(session, args);
   if (run.status !== 0) {
-    const output = `${run.stdout ?? ''}${run.stderr ?? ''}`.trim();
-    session.say(`${shown} failed${output ? `:\n${output}` : '.'}`);
-    record(session, 'failed', shown);
+    skillsFailed(session, args, run);
     return null;
   }
-  record(session, 'ran', shown);
-  return { stdout: run.stdout ?? '', stderr: run.stderr ?? '' };
+  record(session, 'ran', shownSkills(args));
+  return run.stdout;
 }
 
 /**
- * The skills `skills add --json` lists as installed, by name: one it did not install, such as a
- * skill of the human's own by that name, is never removed. None when its stdout is not that list.
- * ponytail: stdout read whole as the JSON the `skills` CLI prints; anything else there, and the removal is skipped, said in the Summary.
+ * Runs a set's `skills add --json` and reads what it installed: its whole output, and the skills
+ * to remove from Claude Code. Exiting 0, those are the skills its JSON lists as installed: one it
+ * did not install, such as a skill of the human's own by that name, is never removed. Exiting
+ * non-zero, as `skills` does when one harness fails while the others install, its JSON calls
+ * every such skill failed: those of its skills that `skills list` then shows anywhere were
+ * installed, the ones in Claude Code are removed, and the Summary names each reason the add gave
+ * for a harness. With none of them installed, or a list that fails, it is recorded as failed: null.
+ * ponytail: a skill of the set already installed by an earlier run counts as installed; a snapshot before the add tells them apart if that matters.
  */
-function addedSkills(json: string): string[] {
+function addSkills(session: Session, what: string, args: string[]): { output: string; names: string[] } | null {
+  const run = spawnSkills(session, args);
+  const report = parsedArray<{ name?: unknown; status?: unknown; error?: unknown }>(run.stdout);
+  const named = (status?: string): string[] =>
+    report.flatMap(({ name, status: was }) => (typeof name === 'string' && (status === undefined || was === status) ? [name] : []));
+  const output = `${run.stdout}${run.stderr}`;
+  if (run.status === 0) {
+    record(session, 'ran', shownSkills(args));
+    return { output, names: named('installed') };
+  }
+  const all = named();
+  const listing = all.length > 0 ? runSkills(session, ['skills', 'list', '-g', '--json']) : null;
+  const installed = parsedArray<{ name?: unknown; agents?: unknown }>(listing ?? '').filter(({ name }) => all.includes(name as string));
+  if (installed.length === 0) {
+    skillsFailed(session, args, run);
+    return null;
+  }
+  record(session, 'ran', shownSkills(args));
+  const reasons = [...new Set(report.flatMap(({ status, error }) => (status === 'failed' && typeof error === 'string' ? [error] : [])))];
+  session.say(`${shownSkills(args)} installed ${what}, but not into every harness:\n${reasons.join('\n')}`);
+  for (const reason of reasons) record(session, 'failed', `${what} for a harness: ${reason}`);
+  return { output, names: installed.flatMap(({ name, agents }) => (Array.isArray(agents) && agents.includes('Claude Code') ? [name as string] : [])) };
+}
+
+/**
+ * A `skills` CLI call's stdout read whole as the JSON array it prints with `--json`; empty when it is not one.
+ * ponytail: anything else on stdout, and nothing is read as installed, so no removal follows and the Summary says so.
+ */
+function parsedArray<T>(json: string): T[] {
   try {
-    return (JSON.parse(json) as { name?: unknown; status?: unknown }[])
-      .filter(({ status }) => status === 'installed')
-      .map(({ name }) => name)
-      .filter((name): name is string => typeof name === 'string');
+    const parsed: unknown = JSON.parse(json);
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
   } catch {
     return [];
   }

@@ -1989,7 +1989,9 @@ test('binn --help names --apply for binn init', () => {
 /** The `binnacle-<action>` skills of the package's copy for the `skills` CLI, built by its prepare script. */
 const COPY = join(PACKAGE, 'skills');
 const BINNACLE_SKILLS = readdirSync(COPY).sort();
-const SKILLS_ADD = ['skills', 'add', COPY, '-g', '-y'];
+const SKILLS_ADD = ['skills', 'add', COPY, '-g', '-y', '--json'];
+/** What the step asks once an add exits non-zero: the skills at user scope, and the harnesses each is in. */
+const SKILLS_LIST = ['skills', 'list', '-g', '--json'];
 const removal = (skills: string[], skipped: string[]): string[] => ['skills', 'remove', '-g', '-a', 'claude-code', ...skipped, '-s', ...skills, '-y'];
 const skillsRemove = (...skipped: string[]): string[] => removal(BINNACLE_SKILLS, skipped);
 /** Matt Pocock Skills and Ponytail, from their repositories: each removal names the skills the fake `npx`'s add reports as JSON. */
@@ -2010,28 +2012,44 @@ const allSkills = (...skipped: string[]): string[][] => [
 ];
 
 /**
- * A fake `npx` first on PATH, recording each call as fakeClaude does. `skills add` prints the
- * line the `skills` CLI prints for the harnesses it detected, and with `--json` the skills it
- * installed from Matt Pocock's or Ponytail's repository, as the `skills` CLI does; `failing`
- * names the subcommand that fails, with output of its own.
+ * A fake `npx` first on PATH, recording each call as fakeClaude does. `skills add` prints, as
+ * the `skills` CLI does with `--json`, the line naming the harnesses it detected on stderr and
+ * the skills it installed as JSON on stdout; `failing` names the subcommand that fails, with
+ * output of its own. With `one-harness`, every add exits non-zero and reports each skill failed
+ * for PromptScript, as `skills` 1.7.1 did on 2026-10-08, while `skills list` shows each
+ * installed into Codex and Claude Code; with `every-harness`, the same add installed nothing,
+ * and `skills list` shows none of them.
  */
-function fakeNpx(home: Home, failing?: 'add' | 'remove'): () => string[][] {
+function fakeNpx(home: Home, failing?: 'add' | 'remove' | 'one-harness' | 'every-harness'): () => string[][] {
   const calls = join(home.home, 'npx-calls');
+  const sets = [['grill-with-docs', 'tdd'], ['ponytail', 'ponytail-audit'], BINNACLE_SKILLS];
+  const partial = failing === 'one-harness' || failing === 'every-harness';
   // A skill it failed to install, such as one of the human's own by that name, is never removed.
-  const installed = (...names: string[]): string =>
-    JSON.stringify([...names.map((name) => ({ name, status: 'installed', agents: ['codex', 'claude-code'] })), { name: 'wizard', status: 'failed', error: 'exists' }]);
+  const reported = (names: string[]): string =>
+    JSON.stringify(
+      partial
+        ? names.map((name) => ({ name, status: 'failed', error: 'PromptScript does not support global skill installation' }))
+        : [...names.map((name) => ({ name, status: 'installed', agents: ['codex', 'claude-code'] })), { name: 'wizard', status: 'failed', error: 'exists' }],
+    );
+  // The human's own `wizard` is in Claude Code too: no add names it, so no removal does.
+  const listed = JSON.stringify(
+    failing === 'one-harness' ? [...sets.flat(), 'wizard'].map((name) => ({ name, scope: 'global', agents: ['Codex', 'Claude Code'] })) : [],
+  );
   writeFileSync(
     join(home.bin, 'npx'),
     `#!/bin/sh
 for arg in "$@"; do printf '%s\\t' "$arg"; done >> '${calls}'
 echo >> '${calls}'
 if [ "$2" = "${failing ?? ''}" ]; then echo "skills $2 broke: no network"; exit 1; fi
+if [ "$2" = "list" ]; then printf '%s\\n' '${listed}'; exit 0; fi
 if [ "$2" = "add" ]; then
+  printf '\\033[2m│\\033[0m\\n●  Installing to: \\033[36mCodex\\033[0m, \\033[36mAntigravity\\033[0m, \\033[36mClaude Code\\033[0m\\n' >&2
   case "$3" in
-    mattpocock/skills) echo 'npm warn exec installing skills' >&2; printf '%s\\n' '${installed('grill-with-docs', 'tdd')}' ;;
-    DietrichGebert/ponytail) printf '%s\\n' '${installed('ponytail', 'ponytail-audit')}' ;;
-    *) printf '\\033[2m│\\033[0m\\n●  Installing to: \\033[36mCodex\\033[0m, \\033[36mAntigravity\\033[0m, \\033[36mClaude Code\\033[0m\\n' ;;
+    mattpocock/skills) echo 'npm warn exec installing skills' >&2; printf '%s\\n' '${reported(sets[0]!)}' ;;
+    DietrichGebert/ponytail) printf '%s\\n' '${reported(sets[1]!)}' ;;
+    *) printf '%s\\n' '${reported(sets[2]!)}' ;;
   esac
+  ${partial ? 'exit 1' : ''}
 fi
 exit 0
 `,
@@ -2176,6 +2194,45 @@ test('the skills: a failed call is reported with its output, and the rest of the
     // The rest of the plan is written.
     assert.ok(existsSync(join(root, '.codex/config.toml')));
   }
+});
+
+test('the skills: an add that fails for one harness and installs elsewhere is read by what it installed: each set leaves Claude Code, and the Summary names the harness and why', (t) => {
+  const home = makeHome(t);
+  installExecutable(home, 'codex');
+  const npx = fakeNpx(home, 'one-harness');
+  const root = makeRepository(t, 'skills-one-harness-fails');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  // The removal names the skills the add reported that Claude Code now has, and not the human's own `wizard`.
+  assert.deepEqual(npx(), [SKILLS_ADD, SKILLS_LIST, skillsRemove(), MATT_POCOCK_ADD, SKILLS_LIST, mattPocockRemove(), PONYTAIL_ADD, SKILLS_LIST, ponytailRemove()]);
+  const summary = result.stdout.slice(result.stdout.indexOf('Summary:'));
+  for (const args of allSkills()) assert.ok(summary.includes(`ran       npx ${args.join(' ')}`), `${args.join(' ')}\n${summary}`);
+  for (const what of ["Binnacle's skills", 'Matt Pocock Skills', 'Ponytail']) {
+    assert.ok(summary.includes(`failed    ${what} for a harness: PromptScript does not support global skill installation`), `${what}\n${summary}`);
+  }
+  assert.doesNotMatch(summary, /failed\s+npx skills add/);
+  assert.match(summary, /Binnacle's skills are installed into Codex and Antigravity: run `binnacle-product` there\./);
+});
+
+test('the skills: an add that installed nothing is still recorded as failed, and no repository set is removed', (t) => {
+  const home = makeHome(t);
+  installExecutable(home, 'codex');
+  const npx = fakeNpx(home, 'every-harness');
+  const root = makeRepository(t, 'skills-every-harness-fails');
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  // Binnacle's removal names the copy's own, and still runs, as after any failed add.
+  assert.deepEqual(npx(), [SKILLS_ADD, SKILLS_LIST, skillsRemove(), MATT_POCOCK_ADD, SKILLS_LIST, PONYTAIL_ADD, SKILLS_LIST]);
+  const summary = result.stdout.slice(result.stdout.indexOf('Summary:'));
+  for (const args of [SKILLS_ADD, MATT_POCOCK_ADD, PONYTAIL_ADD]) assert.ok(summary.includes(`failed    npx ${args.join(' ')}`), `${args.join(' ')}\n${summary}`);
+  for (const what of ['Matt Pocock Skills', 'Ponytail']) assert.match(summary, new RegExp(`skipped\\s+removing ${what} from Claude Code: its add failed`));
+  assert.doesNotMatch(summary, /for a harness:/);
+  assert.match(result.stdout, /PromptScript does not support global skill installation/);
+  assert.doesNotMatch(summary, /Binnacle's skills are installed into/);
 });
 
 test('the skills: --plan --json shows the same commands, --skip-harness changes its id, and --apply runs them', async (t) => {
