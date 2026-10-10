@@ -60,8 +60,9 @@ type Reply = { status: number; headers?: Record<string, string>; body: unknown }
 /**
  * A loopback stand-in for GitLab at the network boundary: it serves `pages` of issues for
  * `REPOSITORY`, and `notes`, pages of each issue's notes by iid, none when it has no entry,
- * with GitLab's `Link` pagination header, or whatever `reply` says instead. Every request path
- * it receives is kept as sent, still encoded, with the `private-token` header it carried.
+ * with GitLab's `Link` pagination header, or whatever `reply` says instead; a reply with status
+ * 0 drops the connection. Every request path it receives is kept as sent, still encoded, with the
+ * `private-token` header it carried.
  */
 type FakeGitLab = {
   base: string;
@@ -80,6 +81,7 @@ async function fakeGitLab(pages: unknown[][]): Promise<FakeGitLab> {
     fake.tokens.push(request.headers['private-token'] as string | undefined);
     const url = new URL(request.url ?? '/', fake.base);
     const reply = fake.reply?.(url) ?? pageReply(fake, url);
+    if (reply.status === 0) return void request.socket.destroy();
     response.writeHead(reply.status, { 'content-type': 'application/json', ...reply.headers });
     response.end(JSON.stringify(reply.body));
   });
@@ -563,16 +565,50 @@ describe('questions and answers from GitLab issue notes', () => {
     });
   });
 
-  it('leaves the Tasks readable and their questions unavailable with the reason when a note cannot be read', async () => {
-    await withGitLab([[issue(1, 'One', { description: header({ Status: 'ACTIVE' }) }), issue(2, 'Two', { description: header({ Status: 'READY' }) })]], async (daemon, fake) => {
-      fake.reply = (url) => (url.pathname.endsWith('/2/notes') ? { status: 403, body: { message: '403 Forbidden' } } : null);
-      const root = makeProject(manifest(fake.base));
-      const body = await snapshot(daemon, root);
-      assert.deepEqual(ids(body.tasks!.inFlight), ['#1']);
-      assert.deepEqual(codes(body), []);
-      const unavailable = await questions(daemon, root, '#1');
-      assert.ok('available' in unavailable && !unavailable.available, JSON.stringify(unavailable));
-      assert.match(unavailable.reason, /^GitLab gave no read access to the comments of .*\(403\); no token was used\.$/);
+  const failures: [string, Reply, RegExp][] = [
+    ['a token refused', { status: 401, body: { message: '401 Unauthorized' } }, /^GitLab refused the request for .*\(401\); a token was used\.$/],
+    ['no read access', { status: 403, body: { message: '403 Forbidden' } }, /^GitLab gave no read access to the comments of .*\(403\); a token was used\.$/],
+    ['the rate limit', { status: 429, headers: { 'retry-after': '60' }, body: 'Retry later' }, /^GitLab rate-limited the reading of .*\(429\)/],
+    ['a dropped connection', { status: 0, body: null }, /^GitLab could not be read for /],
+  ];
+
+  for (const [name, reply, reason] of failures) {
+    it(`leaves the Tasks readable and their questions unavailable with the reason, never the token, when one issue's notes fail on ${name}`, async () => {
+      const token = 'glpat-readingTheNotes';
+      process.env.BINNACLE_GITLAB_TOKEN = token;
+      try {
+        await withGitLab([[issue(1, 'One', { description: header({ Status: 'ACTIVE' }) }), issue(2, 'Two', { description: header({ Status: 'READY' }) })]], async (daemon, fake) => {
+          fake.notes = { 1: [[note('### Question\nAsked.')]] };
+          fake.reply = (url) => (url.pathname.endsWith('/2/notes') ? reply : null);
+          const root = makeProject(manifest(fake.base));
+          const body = await snapshot(daemon, root);
+          assert.deepEqual(ids(body.tasks!.inFlight), ['#1']);
+          assert.deepEqual(codes(body), []);
+          const unavailable = await questions(daemon, root, '#1');
+          assert.ok('available' in unavailable && !unavailable.available, JSON.stringify(unavailable));
+          assert.match(unavailable.reason, reason);
+          assert.equal(JSON.stringify([body, unavailable]).includes(token), false);
+          assert.ok(fake.tokens.every((sent) => sent === token));
+        });
+      } finally {
+        delete process.env.BINNACLE_GITLAB_TOKEN;
+      }
+    });
+  }
+
+  it('never follows a next page of notes to another host', async () => {
+    await withGitLab([[issue(1, 'One')]], async (daemon, fake) => {
+      fake.reply = (url) =>
+        url.pathname.endsWith('/1/notes') ? { status: 200, headers: { link: '<http://elsewhere.invalid/notes?page=2>; rel="next"' }, body: [] } : null;
+      const unavailable = await questions(daemon, makeProject(manifest(fake.base)), '#1');
+      assert.deepEqual(unavailable, {
+        available: false,
+        reason: `GitLab pointed the next page of ${REPOSITORY} at ${fake.base} at another host, http://elsewhere.invalid, which is not read.`,
+      });
+      assert.deepEqual(
+        fake.requests.map((path) => path.split('?')[0]),
+        [`/api/v4${ISSUES_PATH}`, `/api/v4${ISSUES_PATH}/1/notes`],
+      );
     });
   });
 });
