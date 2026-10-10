@@ -132,6 +132,12 @@ export async function readGitHubCi(
   const repo = `${root}/repos/${repository.split('/').map(encodeURIComponent).join('/')}`;
   const where = `${repository} at ${root}`;
   const object = (url: string, what: 'check runs' | 'statuses') => readObject(GITHUB, url, where, token, what);
+  const state = async (sha: string): Promise<CiState | { reason: string }> => {
+    const [runs, status] = await Promise.all([object(`${repo}/commits/${sha}/check-runs?per_page=100`, 'check runs'), object(`${repo}/commits/${sha}/status?per_page=100`, 'statuses')]);
+    if ('failure' in runs) return { reason: runs.failure.message };
+    if ('failure' in status) return { reason: status.failure.message };
+    return commitState((runs.entry.check_runs ?? []) as CheckRun[], (status.entry.statuses ?? []) as { state?: string }[]);
+  };
   return readRemoteCi(
     GITHUB,
     where,
@@ -144,15 +150,10 @@ export async function readGitHubCi(
       what: 'pull requests',
       toRequest(entry) {
         const pull = entry as Pull;
-        return { number: pull.number, title: pull.title, branch: pull.head.ref, draft: pull.draft ?? false, sha: pull.head.sha, url: pull.html_url };
+        return { number: pull.number, title: pull.title, branch: pull.head.ref, draft: pull.draft ?? false, url: pull.html_url, state: () => state(pull.head.sha) };
       },
       named: (number) => `pull request #${number}`,
-      async state(sha) {
-        const [runs, status] = await Promise.all([object(`${repo}/commits/${sha}/check-runs?per_page=100`, 'check runs'), object(`${repo}/commits/${sha}/status?per_page=100`, 'statuses')]);
-        if ('failure' in runs) return { reason: runs.failure.message };
-        if ('failure' in status) return { reason: status.failure.message };
-        return commitState((runs.entry.check_runs ?? []) as CheckRun[], (status.entry.statuses ?? []) as { state?: string }[]);
-      },
+      state: (_, sha) => state(sha),
     },
     limit,
     keep,

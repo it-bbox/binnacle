@@ -209,6 +209,9 @@ export type CiReading =
     }
   | { reason: string };
 
+/** A state as read, or the reason it cannot be. */
+type StateRead = Promise<CiState | { reason: string }>;
+
 /** What differs between the forges' CI, past how their APIs are spoken to. */
 export type CiSource = {
   /** The repository, whose `default_branch` names the default branch. */
@@ -220,12 +223,12 @@ export type CiSource = {
   /** The first page of the open requests, and what the forge calls them. */
   requests: string;
   what: 'pull requests' | 'merge requests';
-  /** One entry of `requests` as a request, its head commit `sha` and its link as given. */
-  toRequest(entry: unknown): Omit<CiRequest, 'state' | 'url'> & { sha: string; url: unknown };
+  /** One entry of `requests` as a request, its link as given, and how its state is read. */
+  toRequest(entry: unknown): Omit<CiRequest, 'state' | 'url'> & { url: unknown; state(): StateRead };
   /** How the forge refers to request `number`, as `pull request #7` or `merge request !7`. */
   named(number: number): string;
-  /** A commit's state, or the reason it cannot be read. */
-  state(sha: string): Promise<CiState | { reason: string }>;
+  /** The state of `sha`, the latest commit of the default branch `branch`. */
+  state(branch: string, sha: string): StateRead;
 };
 
 /** A link a page may bind to `href`: `http:` or `https:` only, so that a forge cannot hand the dashboard a `javascript:` URL. */
@@ -234,8 +237,7 @@ const isWebLink = (url: unknown): url is string => typeof url === 'string' && /^
 /**
  * A forge's CI (`CiReading`), read with `token` or anonymously from the declared host only: its
  * default branch, that branch's latest commit and the commit's state, and the open requests
- * through every page whose branch `keep` keeps, the first `limit` with their head commits'
- * states. What the forge does not give is said, never written as a value it did not report (ADR-0007).
+ * through every page whose branch `keep` keeps, the first `limit` with their states. What the forge does not give is said, never written as a value it did not report (ADR-0007).
  */
 export async function readRemoteCi(
   forge: Forge,
@@ -260,7 +262,7 @@ export async function readRemoteCi(
   const listed = kept.slice(0, limit);
   const unlinked = listed.find((request) => !isWebLink(request.url));
   if (unlinked !== undefined) return missing(`link to ${source.named(unlinked.number)}`);
-  const states = await Promise.all([source.state(sha), ...listed.map((request) => source.state(request.sha))]);
+  const states = await Promise.all([source.state(branch, sha), ...listed.map((request) => request.state())]);
   const unread = states.find((state): state is { reason: string } => typeof state !== 'string');
   if (unread !== undefined) return unread;
 
@@ -268,7 +270,7 @@ export async function readRemoteCi(
   return {
     defaultBranch: { branch, commit: sha, state: reported(0), url, at },
     requests: {
-      items: listed.map(({ sha: _, ...request }, index): CiRequest => ({ ...request, state: reported(index + 1), url: request.url as string })),
+      items: listed.map(({ number, title, branch, draft, url }, index): CiRequest => ({ number, title, branch, draft, state: reported(index + 1), url: url as string })),
       remainder: Math.max(0, kept.length - limit),
     },
   };

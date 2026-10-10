@@ -558,9 +558,10 @@ const GITLAB_TOKEN = 'glpat-ci-secret-token';
 
 /**
  * GitLab's API for `PROJECT`, served under `/api/v4`: the project, its default branch's latest
- * commit, each commit's pipelines newest first, its open merge requests, and `issues`. A
- * pipeline list follows `per_page` with GitLab's `Link` header, so that reading more than the
- * latest would show.
+ * commit, its open merge requests, and `issues`. `pipelines` holds statuses newest first: by SHA
+ * for the default branch's commit, served only with `ref` set to the default branch, and by
+ * `!iid` for a merge request's own pipelines, whatever commit they ran on. A pipeline list
+ * follows `per_page` with GitLab's `Link` header, so that reading more than the latest would show.
  */
 type FakeGitLab = {
   origin: string;
@@ -626,8 +627,10 @@ function gitlabRoute(fake: FakeGitLab, url: URL): Reply {
   if (path === `${PROJECT_PATH}/repository/commits/${encodeURIComponent(fake.defaultBranch)}`) {
     return { status: 200, body: { id: fake.head, web_url: `https://gitlab.com/${PROJECT}/-/commit/${fake.head}`, committed_date: '2026-10-11T07:00:00.000Z' } };
   }
-  if (path === `${PROJECT_PATH}/pipelines`) {
-    const statuses = fake.pipelines[url.searchParams.get('sha') ?? ''] ?? [];
+  const merge = new RegExp(`^${PROJECT_PATH}/merge_requests/(\\d+)/pipelines$`).exec(path)?.[1];
+  if (path === `${PROJECT_PATH}/pipelines` || merge !== undefined) {
+    const key = merge !== undefined ? `!${merge}` : url.searchParams.get('ref') === fake.defaultBranch ? (url.searchParams.get('sha') ?? '') : '';
+    const statuses = fake.pipelines[key] ?? [];
     const perPage = Number(url.searchParams.get('per_page') ?? '20');
     const page = Number(url.searchParams.get('page') ?? '1');
     const next = new URL(url);
@@ -728,8 +731,8 @@ describe('the ci section on GitLab', () => {
         { iid: 8, title: 'Draft', branch: 'spike', sha: 'c'.repeat(40), draft: true },
         ...Array.from({ length: 10 }, (_, index) => ({ iid: 20 + index, title: `More ${index}`, branch: `more-${index}`, sha: String(index).repeat(40) })),
       ];
-      fake.pipelines['b'.repeat(40)] = ['failed'];
-      fake.pipelines['c'.repeat(40)] = ['pending'];
+      fake.pipelines['!7'] = ['failed'];
+      fake.pipelines['!8'] = ['pending'];
       const ci = available((await snapshotOf(daemon, gitlabProject(fake))).ci);
       assert.equal(ci.requests.items.length, 10);
       assert.equal(ci.requests.remainder, 2);
@@ -754,8 +757,9 @@ describe('the ci section on GitLab', () => {
       assert.deepEqual(ci.requests.items[2]!.state, reported('none'));
       // A failing merge request is no attention item: only the default branch's is.
       assert.equal(ci.defaultBranch.state.value, 'none');
-      // The pipelines of the requests left out are not read.
-      assert.ok(!fake.requests.some((url) => ['8'.repeat(40), '9'.repeat(40)].includes(url.searchParams.get('sha') ?? '')));
+      // A merge request's state is its own pipelines', whatever commit they ran on; those of the requests left out are not read.
+      assert.ok(!fake.requests.some((url) => url.searchParams.has('sha') && url.searchParams.get('sha') !== MAIN_SHA));
+      assert.ok(!fake.requests.some((url) => /\/merge_requests\/(28|29)\/pipelines$/.test(url.pathname)));
     });
   });
 
@@ -795,7 +799,7 @@ describe('the ci section on GitLab', () => {
       const root = gitlabProject(fake);
       fake.merges = [{ iid: 7, title: 'Second step', branch: 'feat/2-second', sha: 'b'.repeat(40) }];
       const cases: [(url: URL) => Reply | null, RegExp][] = [
-        [(url) => (url.searchParams.get('sha') === 'b'.repeat(40) ? { status: 403, body: { message: 'No' } } : null), /no read access to the pipelines .*\(403\); no token was used/],
+        [(url) => (url.pathname.endsWith('/merge_requests/7/pipelines') ? { status: 403, body: { message: 'No' } } : null), /no read access to the pipelines .*\(403\); no token was used/],
         [(url) => (url.pathname === PROJECT_PATH ? { status: 200, body: { default_branch: null } } : null), /GitLab gave no default branch/],
         [(url) => (url.pathname.includes('/repository/commits/') ? { status: 200, body: { id: MAIN_SHA, web_url: 'javascript:alert(1)' } } : null), /GitLab gave no link to the commit of main/],
         [
@@ -823,7 +827,7 @@ describe('the GitLab forge of a project whose tracker is local', () => {
       redirect = fake.origin;
       fake.pipelines[MAIN_SHA] = ['success'];
       fake.merges = [{ iid: 3, title: 'First step', branch: 'feat/first-step', sha: 'b'.repeat(40) }];
-      fake.pipelines['b'.repeat(40)] = ['running'];
+      fake.pipelines['!3'] = ['running'];
       const ci = available((await snapshotOf(daemon, localProject(`https://gitlab.com/${PROJECT}.git`))).ci);
       assert.deepEqual(ci.forge, { provider: 'gitlab', host: 'gitlab.com', repository: PROJECT, from: 'remote' });
       assert.deepEqual(ci.defaultBranch.state, reported('passing'));
@@ -850,7 +854,7 @@ describe('the Task’s request on task_get on GitLab', () => {
         ...Array.from({ length: 11 }, (_, index) => ({ iid: 20 + index, title: `More ${index}`, branch: `more-${index}`, sha: String(index).repeat(40) })),
         { iid: 7, title: 'Second step', branch: 'feat/2-second', sha: 'b'.repeat(40), draft: true },
       ];
-      fake.pipelines['b'.repeat(40)] = ['failed'];
+      fake.pipelines['!7'] = ['failed'];
       const root = gitlabProject(fake);
       assert.deepEqual(await requestOf(daemon, root, '#2'), {
         forge: { provider: 'gitlab', host: fake.base, repository: PROJECT, from: 'tracker' },
@@ -861,7 +865,7 @@ describe('the Task’s request on task_get on GitLab', () => {
         state: reported('failing'),
         url: `https://gitlab.com/${PROJECT}/-/merge_requests/7`,
       });
-      assert.ok(!fake.requests.some((url) => /^[0-9]{40}$/.test(url.searchParams.get('sha') ?? '')));
+      assert.ok(!fake.requests.some((url) => /\/merge_requests\/(2\d|30)\/pipelines$/.test(url.pathname)));
       assert.equal(await requestOf(daemon, root, '#3'), null);
     });
   });
