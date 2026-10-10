@@ -32,7 +32,7 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 ## Current focus
 
-Epics 1 to 10 and 14 are done. On 2026-10-10 the owner set a date: on 2026-10-12 a video presents Binnacle, published to npm and open source, and every remaining v1 epic is in it, 11, 12 and 13 included, not left for after the release.
+Epics 1 to 10 and 14 are done. On 2026-10-10 the owner set a date: on the evening of 2026-10-13 a video presents Binnacle, published to npm and open source, and every remaining v1 epic is in it, 11, 12 and 13 included, not left for after the release.
 
 Three epics were added for it. 15, Daemon autostart: `binn init` sets the daemon up to start at login, which narrows ADR-0016's documented manual step (`docs/product-inbox.md`). 16, Dashboard redesign: the dashboard reads too small and too crowded, so it is redesigned with the Impeccable and UI UX Pro Max skills. 17, Release: npm and open source, which takes publishing `@binnacle/cli` out of *Later*: the build step that turns its TypeScript into JavaScript with the dashboard generated into it (`ADR-0031`), the README's install from npm, and the repository made public under Apache-2.0 (`ADR-0010`).
 
