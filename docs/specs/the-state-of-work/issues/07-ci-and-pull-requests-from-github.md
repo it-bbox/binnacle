@@ -1,6 +1,6 @@
 # 07: CI state and open pull requests from GitHub in the snapshot
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/the-state-of-work/spec.md`
@@ -8,10 +8,10 @@ Roles: Developer, Reviewer, Security
 
 **What to build:** the snapshot's `ci` section, replacing its placeholder: the forge — the tracker when it is GitHub or GitLab, else the first GitHub or GitLab Git remote — read with the token Binnacle holds for its host or anonymously; the default branch's latest commit with its CI state from its check runs and combined status; the open pull requests, each with its head's CI state and the Task its branch maps to (spec, *The forge*, *CI on GitHub*, *The `ci` section*). A failing default branch is `ci.failing`. `/binnacle:product` presents it, the project page shows it in place of *Not available*, and the vault's snapshot note carries it. GitLab is ticket 09.
 
-- [ ] Loopback-forge tests: passing, failing, running and `none`; check runs and statuses combined as the spec says; open pull requests with their Task; `ci.failing`; the forge taken from the remote when the tracker is local; no forge at all, and 401, 403 and 429, each giving the section unavailable with the reason.
-- [ ] Every state is `provider_reported`; the token appears in nothing returned; requests go to the forge's host only.
-- [ ] `/binnacle:product` (plugin and copy) presents *CI*.
-- [ ] The project page shows it, strings in English and Russian, checked in a browser; the vault's snapshot note carries it.
+- [x] Loopback-forge tests: passing, failing, running and `none`; check runs and statuses combined as the spec says; open pull requests with their Task; `ci.failing`; the forge taken from the remote when the tracker is local; no forge at all, and 401, 403 and 429, each giving the section unavailable with the reason.
+- [x] Every state is `provider_reported`; the token appears in nothing returned; requests go to the forge's host only.
+- [x] `/binnacle:product` (plugin and copy) presents *CI*.
+- [x] The project page shows it, strings in English and Russian, checked in a browser; the vault's snapshot note carries it.
 
 ## Comments
 
@@ -35,11 +35,11 @@ Roles: Developer, Reviewer, Security
 
 **Standards.** Three findings against a documented standard, the rest judgement calls:
 
-1. **A token can reach a host no one declared** (`docs/operations/04-security-resilience.md`: "A token is sent only to the declared host"): a forge read from a Git remote takes `BINNACLE_GITHUB_TOKEN` whatever the remote's host, and `forgeRemote` takes any host with a `github` label, so a remote on `github.example.org` would receive the token meant for `github.com`. **To fix**: a remote's forge on any host but the provider's own is read with the credentials file's entry for that host only, never the environment's token.
-2. **A missing field becomes the text `"undefined"`** (ADR-0007, AGENTS.md 5): `String(about.entry.default_branch)`, `String(commit.entry.sha)` and `String(commit.entry.html_url)` stand in for what GitHub did not give, labelled `provider_reported`. **To fix**: an answer without them leaves the section unavailable, saying what was missing.
-3. **`UNAVAILABLE` is dead** (AGENTS.md 9, Ponytail): nothing in the daemon gives "Not available in this version of Binnacle." any more; only the dashboard's i18n test and its dictionaries know it. **To fix**: the constant, its translation and the documentation's example go.
-4. **Mysterious Name**: the repository is read as `'commits'`, so a 403 on it speaks of commits. **To fix**: it is read as the repository.
-5. **Mysterious Name**: `ci.ts`'s `Forge` (where CI is read from) shares its name with `remote-tracker.ts`'s `Forge` (how an API is spoken to). **To fix**: `CiForge`.
+1. **A token can reach a host no one declared** (`docs/operations/04-security-resilience.md`: "A token is sent only to the declared host"): a forge read from a Git remote takes `BINNACLE_GITHUB_TOKEN` whatever the remote's host, and `forgeRemote` takes any host with a `github` label, so a remote on `github.example.org` would receive the token meant for `github.com`. **Fixed**, and `ci.test.ts` pins it: a remote's forge on any host but the provider's own is read with the credentials file's entry for that host only, never the environment's token.
+2. **A missing field becomes the text `"undefined"`** (ADR-0007, AGENTS.md 5): `String(about.entry.default_branch)`, `String(commit.entry.sha)` and `String(commit.entry.html_url)` stand in for what GitHub did not give, labelled `provider_reported`. **Fixed**, and `ci.test.ts` pins it: an answer without them leaves the section unavailable, saying what was missing.
+3. **`UNAVAILABLE` is dead** (AGENTS.md 9, Ponytail): nothing in the daemon gives "Not available in this version of Binnacle." any more; only the dashboard's i18n test and its dictionaries know it. **Fixed**: the constant, its translation and the documentation's example go, and the i18n test pins the no-forge reason in its place.
+4. **Mysterious Name**: the repository is read as `'commits'`, so a 403 on it speaks of commits. **Fixed**, and `ci.test.ts` pins it: it is read as the repository.
+5. **Mysterious Name**: `ci.ts`'s `Forge` (where CI is read from) shares its name with `remote-tracker.ts`'s `Forge` (how an API is spoken to). **Fixed**: `CiForge`.
 6. **Duplicated Code / Repeated Switches**: `provider === 'github' ? 'GitHub' : 'GitLab'` in `ci.ts`, `vault.ts` and the project page. **Kept**: three surfaces, each words the forge for its reader, and the page spells the daemon's answers locally throughout, as earlier Reviews kept; ticket 09 adds no third provider.
 7. **Divergent Change**: `remote-tracker.ts` now reads CI as well, its failures coded `tracker.*` and one saying "tracker.host gives no URL" for a remote's forge. **Kept**: the code is never shown, only the message, and a remote's forge always gives a URL, built from its host; one request path and one set of failure messages for every forge read is the point of sharing it.
 8. **Data Clumps**: `(forge, url, where, token, what)` through `readPages`, `readObject` and `readResponse`, with three result shapes. **Kept**: the parameters were `readPages`'s already; `readObject` returns `{ entry } | { failure }` because an object, unlike a list, cannot be told from a `Diagnostic` by its shape.
@@ -48,8 +48,8 @@ Roles: Developer, Reviewer, Security
 
 **Spec.** Every criterion is implemented, with no scope creep. Findings:
 
-11. **The token reaches a host the remote names**, as finding 1. **To fix**, by the same change.
-12. **A token that cannot be used says "so the tracker was not read"** in the CI section, though for a remote's forge the local tracker was read; story 41 asks for "the forge's reason". **To fix**: the credentials' failures say nothing was read with the token, which is true for the tracker and for CI.
+11. **The token reaches a host the remote names**, as finding 1. **Fixed**, by the same change.
+12. **A token that cannot be used says "so the tracker was not read"** in the CI section, though for a remote's forge the local tracker was read; story 41 asks for "the forge's reason". **Fixed**, and `ci.test.ts` pins it: the credentials' failures say nothing was read with the token, which is true for the tracker and for CI.
 13. **`taskId` is null both when no Task maps to the branch and when the Tasks cannot be read.** **Kept**: the snapshot's `tasks` is then `null` and its attention says why, which tells the two apart; docs/03 says so.
 14. **`neutral` passes**, where the spec says "passing when all succeeded or were skipped". **Kept**: decided under *Comments*; GitHub counts a neutral check as success for a required check, and the other unnamed conclusions fail, so nothing red passes as green.
 
@@ -57,7 +57,9 @@ Roles: Developer, Reviewer, Security
 
 The ticket's `Roles:` names Security beyond the Developer and the Reviewer, so the change was also read for its security concerns, after the fixes above for findings 1, 2 and 12, which are the first of them. Findings:
 
-15. **A link the forge gives is rendered as a link without checking its scheme**: the project page binds `defaultBranch.url` and each request's `url` to `href`, and Vue does not refuse a `javascript:` URL, so a hostile forge, such as a Git remote's host, could run script in the dashboard, which holds the daemon's token. **To fix**: the adapter takes a link only when it is `http:` or `https:`; any other leaves the section unavailable, saying GitHub gave no link, as a missing one does.
+15. **A link the forge gives is rendered as a link without checking its scheme**: the project page binds `defaultBranch.url` and each request's `url` to `href`, and Vue does not refuse a `javascript:` URL, so a hostile forge, such as a Git remote's host, could run script in the dashboard, which holds the daemon's token. **Fixed**, and `ci.test.ts` pins it: the adapter takes a link only when it is `http:` or `https:`; any other leaves the section unavailable, saying GitHub gave no link, as a missing one does.
 16. **The commit SHA GitHub gives is put into the next request's path unescaped.** **Kept**: the request stays on the forge's own origin, which already holds the token, and the next page of a list is held to that origin too; nothing is sent elsewhere.
 17. **A pull request's title and branch go into the vault's Markdown as written.** **Kept**: Obsidian renders Markdown, not script, and the dashboard shows them as text; the tickets' and issues' titles already reach the vault the same way.
 18. **The token reaches nothing returned**: the failures are `statusFailure`'s, which name the host and whether a token was used, never its value, as `ci.test.ts` checks for 401, 403 and 429. Nothing to fix.
+
+**In all**: eight findings fixed, 1 and 11 by one change, nine kept with their reasons, and one that finds nothing. The full suite, 670 tests, and the typecheck pass after the fixes.
