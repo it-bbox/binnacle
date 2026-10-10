@@ -53,3 +53,11 @@ After a reboot the owner found the daemon down: nothing starts it. ADR-0016 make
 1. **The documented step ADR-0016 promises**: a unit for systemd, an agent for launchd, a Task Scheduler entry for Windows, each a few lines.
 2. **`binn init` asking for it**, as it asks for the import window, so that a new user is not left with the same gap.
 3. **Who restarts it**: `binn daemon stop` then `binn daemon start`, as autopilot runs after a merge that changes the daemon, leaves a daemon outside the service manager; `systemctl --user restart binnacle` is the restart there. Node's path is pinned to one nvm version and breaks when Node is upgraded.
+
+## A demonstration ticket flagged for its missing Review (2026-10-10)
+
+Once epic 14's 08 was `DONE`, the dashboard's Attention page showed `review.missing` for it. The rule that a `DONE` Task without `### Review` is an attention item (`specs/minimal-dashboard/spec.md`) assumes code to review, and a `ready-for-human` demonstration has none. Either the check leaves out `ready-for-human` tickets, or a demonstration records a short `### Review` saying there is no code. Epic 10's 15 will meet the same item.
+
+## A scratchpad project in the owner's daemon (2026-10-10)
+
+The owner's daemon had a project registered at `/tmp/claude-1000/…/aeb63b29-…/scratchpad/demo-init`, a session's scratchpad, shown on every page as unavailable once the directory was gone; the owner had it unregistered on 2026-10-10. Some session ran `binn init` or `binn project register` there against the owner's `BINNACLE_HOME` rather than a temporary one, which `dashboard-design-and-languages/12` asks of agents. Two things to weigh: whether skills and briefs that try a CLI on a throwaway repository say to use a temporary home, and whether a registration whose directory is gone should drop out of the dashboard or be offered for removal rather than shown on every page.
