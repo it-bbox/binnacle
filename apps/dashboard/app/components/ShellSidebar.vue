@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui';
 import { useLanguage } from '~/composables/language';
-import { projectName, type ProjectView } from '~/composables/projects';
+import { PROJECT_VIEWS, projectName, type ProjectView } from '~/composables/projects';
 
-/** The selected project's name and current Epic, the menu and the data's freshness. */
+/** The selected project's name and current Epic, the menu (the selected project's pages, then the general ones) and the data's freshness. */
 const props = defineProps<{ view: ProjectView | null; selected: string | null; updatedAt: number | null; unreachable: boolean }>();
 const { t, number, secondsAgo } = useLanguage();
 const route = useRoute();
@@ -21,7 +21,9 @@ const epic = computed((): { text: string; muted: boolean; title?: string } | nul
   return { text: snapshot.roadmap.epics.length === 0 ? t.value.noEpics : t.value.everyEpicDone, muted: true };
 });
 
-const attention = computed(() => props.view?.snapshot?.attention.length ?? 0);
+const views = inject(PROJECT_VIEWS, ref(null));
+/** Every project's attention items, as the Attention page lists them. */
+const attention = computed(() => (views.value ?? []).reduce((sum, view) => sum + (view.snapshot?.attention.length ?? 0), 0));
 
 const menu = computed((): NavigationMenuItem[][] => {
   const query = props.selected === null ? {} : { project: props.selected };
@@ -30,6 +32,9 @@ const menu = computed((): NavigationMenuItem[][] => {
       { label: t.value.overview, icon: 'i-lucide-layout-dashboard', to: { path: '/', query }, active: route.path === '/' },
       { label: t.value.project, icon: 'i-lucide-folder-kanban', to: { path: '/project', query }, active: route.path === '/project' || route.path === '/task' },
       { label: t.value.usage, icon: 'i-lucide-chart-column', to: { path: '/usage', query }, active: route.path === '/usage' },
+    ],
+    [
+      { label: t.value.projects, icon: 'i-lucide-layers', to: { path: '/projects', query }, active: route.path === '/projects' },
       {
         label: t.value.attention,
         icon: 'i-lucide-bell',
@@ -37,9 +42,6 @@ const menu = computed((): NavigationMenuItem[][] => {
         active: route.path === '/attention',
         ...(attention.value > 0 ? { badge: { label: number(attention.value), color: 'warning' as const, variant: 'soft' as const } } : {}),
       },
-    ],
-    [
-      { label: t.value.projects, icon: 'i-lucide-layers', to: { path: '/projects', query }, active: route.path === '/projects' },
       { label: t.value.settings, icon: 'i-lucide-settings', to: { path: '/settings', query }, active: route.path === '/settings' },
     ],
   ];

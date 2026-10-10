@@ -134,7 +134,7 @@ Below it sit the epic's progress, what is running, Ready to start (a set, "in an
 ### The shell and pages
 
 - **Rail:** one icon per project from `project.list`, with initials, a dot when its snapshot has running runs or attention items, and "+" opening a modal with `binn project register` to copy.
-- **Sidebar:** the menu, a count badge on Attention, Settings and the freshness line.
+- **Sidebar:** the menu and the freshness line. The menu's first group is the selected project's Overview, Project and Usage; under a divider, Projects, Attention with a count badge of every project's items, and Settings (ticket 13).
 - The selected project stays in the URL's `project` query, as today. Without one, the first registered project is shown.
 - **Overview:** the Next action and alternatives come from the snapshot. The current epic's progress and its waiting `READY` Tasks come from `task.list` for the current epic, whose Ready column already carries Unmet dependencies. Progress is Done over all the epic's Tasks, leaving out `CANCELLED`.
 - **Task:** a Task In progress from runs shows its start command, labelled as resuming it. `DONE` and `CANCELLED` show none. The Review is the ticket's text, or "no Review yet".
@@ -210,3 +210,4 @@ Read-only, loopback only, no model invocation (ADR-0012), no writes into the rep
   - the neutrals are the mockup's tokens, not Tailwind's `zinc` (ticket 08);
   - the Usage page keeps the mockup's density, one line per row, with record counts and titles in tooltips (ticket 09);
   - a Settings page holds the language choice, which leaves the sidebar because more languages will come, and shows the project's manifest and the daemon's version and address read-only, each with where to change it (ticket 10). Editing settings from the dashboard stays under *Later*, since it needs an ADR narrowing ADR-0020.
+- **Found by the owner, 2026-10-10,** and decided in chat: the Attention page lists every project's items, but its link sat beside the selected project's pages, so it read as that project's. The link moves under the divider, beside Projects and Settings, and its badge counts every project's items; the page does not change (ticket 13).

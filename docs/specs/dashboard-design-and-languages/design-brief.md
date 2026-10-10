@@ -77,7 +77,7 @@ English and Russian, chosen on the Settings page. Show the Overview in both, to 
 ### Shell
 
 - **Project rail**, far left, about 56 px: one rounded square per registered project (initials or a letter), the selected one highlighted, a small dot when something is running or needs attention. At its foot, a **"+"** that opens a modal, "Add a project": run `binn project register` in the project's folder, with a copy button. Nothing is registered from the page.
-- **Sidebar**, about 220 px: the project's name and current Epic; the menu — Overview, Project, Usage, Attention (with a count badge); under a divider, Projects (all) and Settings. The freshness line at its foot. The language is chosen on the Settings page, not here (*Changed in the exit demonstration, 2026-09-27*).
+- **Sidebar**, about 220 px: the project's name and current Epic; the menu — Overview, Project, Usage; under a divider, Projects (all), Attention (with a count badge of every project's items) and Settings. *Changed 2026-10-10:* Attention moved under the divider, since its page lists every project (`spec.md`, *Further Notes*). The freshness line at its foot. The language is chosen on the Settings page, not here (*Changed in the exit demonstration, 2026-09-27*).
 
 ### Pages
 
