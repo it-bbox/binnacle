@@ -336,6 +336,9 @@ describe('the ci section on GitHub', () => {
         [`/repos/${REPOSITORY}`, { full_name: REPOSITORY }, /default branch/],
         [`/repos/${REPOSITORY}/commits/main`, { html_url: 'https://github.com/x' }, /commit/],
         [`/repos/${REPOSITORY}/commits/main`, { sha: MAIN_SHA }, /link/],
+        // A link the dashboard would bind to href is a web link, or none.
+        [`/repos/${REPOSITORY}/commits/main`, { sha: MAIN_SHA, html_url: 'javascript:alert(1)' }, /link/],
+        [`/repos/${REPOSITORY}/pulls`, [{ number: 7, title: 'T', html_url: 'javascript:alert(1)', head: { ref: 'b', sha: MAIN_SHA } }], /link to pull request #7/],
       ] as const) {
         fake.reply = (url) => (url.pathname === path ? { status: 200, body } : null);
         const ci = (await snapshotOf(daemon, root)).ci;

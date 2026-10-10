@@ -100,6 +100,9 @@ export function readGitHubChangesRequested(repository: string, host: string | nu
 type CheckRun = { status?: string; conclusion?: string | null };
 type Pull = { number: number; title: string; draft?: boolean; html_url: string; head: { ref: string; sha: string } };
 
+/** A link a page may bind to `href`: `http:` or `https:` only, so that a forge cannot hand the dashboard a `javascript:` URL. */
+const isWebLink = (url: unknown): url is string => typeof url === 'string' && /^https?:\/\//i.test(url);
+
 /** A completed check run that counts as passed; any other conclusion, a failure, a cancellation or a timeout among them, fails. */
 const PASSED = new Set(['success', 'skipped', 'neutral']);
 
@@ -146,8 +149,10 @@ export async function readGitHubCi(repository: string, host: string | null, toke
   if ('failure' in commit) return { reason: commit.failure.message };
   const { sha, html_url: url } = commit.entry;
   if (typeof sha !== 'string') return missing(`commit of ${branch}`);
-  if (typeof url !== 'string') return missing(`link to the commit of ${branch}`);
+  if (!isWebLink(url)) return missing(`link to the commit of ${branch}`);
   const listed = (pulls as Pull[]).slice(0, limit);
+  const unlinked = listed.find((pull) => !isWebLink(pull.html_url));
+  if (unlinked !== undefined) return missing(`link to pull request #${unlinked.number}`);
   const states = await Promise.all([state(sha), ...listed.map((pull) => state(pull.head.sha))]);
   const unread = states.find((read): read is { reason: string } => typeof read !== 'string');
   if (unread !== undefined) return unread;
