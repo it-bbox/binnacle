@@ -485,6 +485,12 @@ test('autopilot resumes a ticket whose branch exists unmerged and whose question
   // The new agent checks the branch out, rebases it and reads the Answer.
   assert.match(six, /Do not create the branch: check it out in your worktree, rebase it onto the local `main`, read each `### Question` and its `### Answer`/);
   assert.match(six, /A resumed ticket counts toward the parallel limit and the conflict risk/);
+  // Only a ticket stopped on a question is resumed; one step 9 stopped for another reason stays the owner's (the Review's finding 14).
+  assert.match(six, /With `asked` zero, it stopped for another reason than a question, which step 9 left to the owner: start no agent for it either/);
+  assert.match(six, /With `asked` above zero and `unanswered` zero, every question answered, resume it/);
+  // A ticket past `readyToStart`'s remainder is checked for its branch too, and none with an unmerged branch starts afresh (findings 1 and 9).
+  assert.match(six, /or read from the tickets' lines past `readyToStart`'s remainder/);
+  assert.match(six, /has no branch that exists unmerged, which the paragraph above decides instead/);
   const nine = step(skill, 9);
   assert.match(nine, /autopilot started again on the epic resumes the ticket on its branch \(step 6\)/);
   assert.match(nine, /`\/binnacle:answer`/);
