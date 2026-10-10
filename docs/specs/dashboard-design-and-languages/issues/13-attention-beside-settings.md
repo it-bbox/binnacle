@@ -16,6 +16,13 @@ Spec: `docs/specs/dashboard-design-and-languages/spec.md`
 ## Comments
 
 - **Decided by the owner in chat, 2026-10-10:** move the link, not filter the page to the selected project. The ticket was therefore written on its implementation branch, not by a Product session.
+- **Where it lives.** `apps/dashboard/app/components/ShellSidebar.vue`: its menu's first group keeps Overview, Project and Usage, and its second gains Attention between Projects and Settings. The sidebar now takes every project's view as a prop from `app.vue`, as the rail does, and sums their attention items through `attentionCount` in `composables/projects.ts`, which the rail's dots and titles use too. No string changed: the labels are the dictionaries' `attention`, `projects` and `settings`, in both languages. The docs that describe the menu are the spec's *The shell and pages* and *Further Notes*, the design brief's sidebar and `docs/04-telemetry-dashboard.md`.
+- **Decided here, where the owner did not say:**
+  - **The order is Projects, Attention, Settings**: the two pages of all projects together, and Settings last, as before.
+  - **The badge counts every project's items**, since the page lists them all. A project whose snapshot cannot be read counts none, as the page shows none for it.
+- **Test-first, as read here.** The spec's seams are the daemon's HTTP API and the MCP smoke test (*Testing Decisions*). The change renders what the shell already polls and touches no daemon operation, so neither seam has a new test, as with ticket 10. The dashboard's own tests cover its dictionaries and palette, which did not change.
+- **Verified in a browser.** The generated dashboard ran against a daemon on a temporary `BINNACLE_HOME` under this worktree's `.binnacle/cache/`, with `BINNACLE_PORT=0`, and two projects registered there: this worktree, with 3 attention items, and a scratch repository with the example manifest, with 4. The sidebar read Обзор, Проект, Расход, then Проекты, Внимание 7, Настройки, and in English Overview, Project, Usage, then Projects, Attention 7, Settings. The rail's titles still gave each project its own count, 3 and 4. The Attention page listed both projects as before, and its link kept the selected project in the address. Checked again after the Review's fixes. The daemon was stopped, its home and the scratch repository deleted, and the owner's daemon was not touched.
+- **For the owner.** While this ticket is not `DONE`, this repository's own snapshot has an attention item: epic 6 is done on the roadmap with ticket 13 open. The ticket's last commit closes it, so the roadmap's row stays `done` and its current focus does not move.
 
 ### Review
 
