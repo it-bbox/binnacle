@@ -17,3 +17,23 @@ Spec: `docs/specs/skills-in-any-harness/spec.md`
 
 - The owner asked for this fix directly in the chat on 2026-10-10, after the failed reinstall, so this ticket is written on its own branch by the session that implements it, not by a Product session.
 - Ticket 07's *Decisions* still quote the old command. It is left as the history of a closed ticket: the rule it names lives in the development workflow, which this ticket corrects.
+
+### Review
+
+`mattpocock-skills:code-review` against `main` (765500e), both axes, its sub-agents in the foreground. Standards: no documented standard broken; five smells and three edge cases of the quoting. Spec: both criteria met, no scope creep; two findings, on descriptions no skill holds yet.
+
+Standards:
+
+1. `prepareSkills`'s replacer names its argument `text`, which shadows the whole `SKILL.md` text a few lines up. To fix: name it `value`.
+2. The test renames `/binnacle:<action>` with the same `replaceAll` twice in a row. To fix: one local `renamed` in the test.
+3. The test borrows the daemon's `yaml` through `createRequire`, so a CLI test depends on the daemon's dependencies. Kept: the brief forbade a new dependency, the daemon's parser is the strict reader the `skills` CLI is, and the comment says so.
+4. A skill with no `description` would compare `undefined` with `undefined` and pass. To fix: assert the plugin's description is there first.
+5. The new comment in `prepare.ts` is one long line. Kept: the file's other comments run as long.
+6. A block description (`description: >` or `|`, or one on the following lines) would be written as `">"` with its text left dangling. To fix: the build fails on a description that is not on its own line, as it fails on a skill without frontmatter.
+7. A partly quoted value such as `"Foo" bar` is left as it is. Kept: it is not YAML in the plugin either, and the strict parse in the test fails on it.
+8. A trailing ` # comment` or trailing spaces would end up inside the quoted text, where plain YAML drops them. Kept: no description holds either, and Claude Code reads the plugin's text as it is.
+
+Spec:
+
+9. The same as 6: the ticket says any description "now or later" parses, and a block one would lose its text. To fix: as 6.
+10. The test compares the parsed description with the plugin's raw line, so a block one would pass (`">"` reads as `>`) and a missing one too. To fix: 4 and 6 close both; a description quoted in the plugin would fail the test loudly rather than pass, so that comparison is kept.
