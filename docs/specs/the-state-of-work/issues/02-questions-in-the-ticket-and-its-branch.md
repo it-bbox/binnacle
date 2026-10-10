@@ -14,3 +14,22 @@ Roles: Developer, Reviewer, Architect
 - [ ] On a remote tracker `task_get`'s questions are unavailable with a reason until ticket 05.
 - [ ] `/binnacle:task` (plugin and `binnacle-task` copy) presents each question with its answer or as unanswered.
 - [ ] The Task page shows the questions and answers; new strings in English and Russian, `i18n.test.ts` passing; checked in a browser.
+
+## Comments
+
+### Review
+
+`mattpocock-skills:code-review` ran against `main` on both axes, with its sub-agents in the foreground.
+
+**Standards: no hard violation.** Authorship, the documentation's language, the Git adapter's read-only rules and ADR-0007's unavailable-with-a-reason hold. Findings:
+
+1. **An empty `### Answer` answers its Question.** Its text is `''`, not null, so the Question counts as answered and a later Answer before the next Question is ignored, where an empty Review is null. Both reviewers found it. **To fix**: an empty Answer is no answer, as an empty Review is none.
+2. **The questions are not cut at the body limit**, where the body and the Review are. **Kept**: the spec gives each question its text and its answer's text, a question and its answer are short by the convention ticket 06 writes, and a cut would change the shape ticket 04 and 05 build on. Cut them if a ticket ever holds a long exchange.
+3. **A Git that cannot say falls back to the checkout silently.** **Kept**: ADR-0040 reads the checkout "otherwise", and the brief names where the questions were read from, `branch` null for the checkout.
+4. **Primitive Obsession: the parser's `section.kind` is a string.** **Kept**: `SECTION` admits only the three headings, each compared literally beside it.
+5. **`task.ts` takes `defaultCommit` from `graph.ts`.** **Kept**: reusing the default branch usage and the graph already read is what the ticket asks, and a move would be a refactor of its own.
+
+**Spec: every criterion is implemented, with no scope creep.** Findings:
+
+6. The empty Answer, as 1.
+7. **`taskQuestions` reads the default branch's commit on every call.** **Kept**: one Task per `task_get`; ticket 04, which reads every Task's questions for the snapshot, should read it once.
