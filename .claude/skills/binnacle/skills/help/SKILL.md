@@ -24,6 +24,7 @@ Binnacle keeps track of a software project for you and your coding agent: where 
 - `/binnacle:product` — start your session: where the project stands and what comes next.
 - `/binnacle:daily` — what changed since your last daily and what needs your attention.
 - `/binnacle:task` — the brief for one ticket, ending with the command that starts it.
+- `/binnacle:answer` — answer a question an agent left in a ticket for you: it writes your answer there and says how the work resumes.
 - `/binnacle:checkpoint` — at the end of a `/binnacle:product` session, save the decisions it made into the project's documents.
 
 ## Planning
