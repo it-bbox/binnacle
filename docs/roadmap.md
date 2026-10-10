@@ -38,7 +38,7 @@ Three epics were added for it. 15, Daemon autostart: `binn init` sets the daemon
 
 Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own. On 2026-10-10 the owner set the order: 11, the largest and the one that needs the owner least, is grilled that night and run by autopilot overnight; it also comes before 16, so that the redesign covers the questions, roles and CI state 11 adds to the dashboard. 16 follows on 2026-10-11 with the owner watching, beside 15 and 12; 13 rewrites every skill's output and comes after them; 17 publishes what the others merged and comes last.
 
-Epic 11 was grilled on 2026-10-10 into its spec and twelve tickets (ADR-0040); the last, its exit demonstration, is the owner's. Ticket 02 is done: a Task's questions and answers are read from its ticket, on its branch while that is unmerged, so 04 and 05 can start. Ticket 03 is done: a Task's roles are read from its ticket header's `Roles:` line, with Binnacle's suggested roles beside them; 11 still waits on 04 and 07.
+Epic 11 was grilled on 2026-10-10 into its spec and twelve tickets (ADR-0040); the last, its exit demonstration, is the owner's. Done: 02, a Task's questions read from its ticket and unmerged branch; 03, its roles with Binnacle's suggestions; 04, what waits for the owner in the snapshot, the daily, the dashboard and the vault. 05 can start; 06 waits only on 05, and 11 only on 07.
 
 Next action: run epic 11 overnight with autopilot. `/binnacle:autopilot 11`
 
