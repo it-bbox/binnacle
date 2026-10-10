@@ -124,9 +124,10 @@ export type TaskRoles = {
   suggested: { role: Role; reason: string; provenance: 'calculated' }[];
 };
 
-export const DEFAULT_ROLES: Role[] = ['Developer', 'Reviewer'];
+/** The roles a Task needs when its ticket's `Roles:` line names none. */
+const DEFAULT_ROLES: Role[] = ['Developer', 'Reviewer'];
 /** ponytail: a fixed threshold; make it a manifest setting if it proves noisy. */
-export const ARCHITECT_MODULES = 8;
+const ARCHITECT_MODULES = 8;
 const SECURITY_WORDS = ['auth', 'token', 'secret', 'credential', 'password', 'permission', 'oauth'];
 
 /**
