@@ -52,3 +52,12 @@ Roles: Developer, Reviewer, Security
 12. **A token that cannot be used says "so the tracker was not read"** in the CI section, though for a remote's forge the local tracker was read; story 41 asks for "the forge's reason". **To fix**: the credentials' failures say nothing was read with the token, which is true for the tracker and for CI.
 13. **`taskId` is null both when no Task maps to the branch and when the Tasks cannot be read.** **Kept**: the snapshot's `tasks` is then `null` and its attention says why, which tells the two apart; docs/03 says so.
 14. **`neutral` passes**, where the spec says "passing when all succeeded or were skipped". **Kept**: decided under *Comments*; GitHub counts a neutral check as success for a required check, and the other unnamed conclusions fail, so nothing red passes as green.
+
+#### Security
+
+The ticket's `Roles:` names Security beyond the Developer and the Reviewer, so the change was also read for its security concerns, after the fixes above for findings 1, 2 and 12, which are the first of them. Findings:
+
+15. **A link the forge gives is rendered as a link without checking its scheme**: the project page binds `defaultBranch.url` and each request's `url` to `href`, and Vue does not refuse a `javascript:` URL, so a hostile forge, such as a Git remote's host, could run script in the dashboard, which holds the daemon's token. **To fix**: the adapter takes a link only when it is `http:` or `https:`; any other leaves the section unavailable, saying GitHub gave no link, as a missing one does.
+16. **The commit SHA GitHub gives is put into the next request's path unescaped.** **Kept**: the request stays on the forge's own origin, which already holds the token, and the next page of a list is held to that origin too; nothing is sent elsewhere.
+17. **A pull request's title and branch go into the vault's Markdown as written.** **Kept**: Obsidian renders Markdown, not script, and the dashboard shows them as text; the tickets' and issues' titles already reach the vault the same way.
+18. **The token reaches nothing returned**: the failures are `statusFailure`'s, which name the host and whether a token was used, never its value, as `ci.test.ts` checks for 401, 403 and 429. Nothing to fix.
