@@ -1,6 +1,6 @@
 ---
 name: daily
-description: Show what changed in this project since the previous daily on this machine, what can start next and what needs attention. Records the next daily's baseline and changes nothing else.
+description: Show what changed in this project since the previous daily on this machine, what waits for the owner, what can start next and what needs attention. Records the next daily's baseline and changes nothing else.
 argument-hint: "[commit to look back from]"
 disable-model-invocation: true
 ---
