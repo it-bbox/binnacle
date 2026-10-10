@@ -109,7 +109,7 @@ A roadmap that cannot be read, and a project or epic with no Tasks, each show th
 - tasks, on a mini kanban for one epic, the current one unless another is picked: Backlog, Ready, In progress, Done. A card shows its Unmet dependencies, `BLOCKED` and how many of its questions are unanswered. A `READY` Task with AgentRuns attributed to it stands In progress, marked as read from runs, and a card names who works on it, with a live dot while its run is active. Done shows its count and its latest cards until opened;
 - reviews: whether a `DONE` Task's ticket records a Review, and never a review state the ticket does not;
 - usage by role;
-- the registered checkout; the graph, from the snapshot's `graph` section: the commit it was built from and when, whether the default branch has moved past it, and the last run's outcome, commit, time and Graphify's reason when it failed, or why there is no graph; recent decisions; and CI, not available.
+- the registered checkout; the graph, from the snapshot's `graph` section: the commit it was built from and when, whether the default branch has moved past it, and the last run's outcome, commit, time and Graphify's reason when it failed, or why there is no graph; recent decisions; and CI, from the snapshot's `ci` section, as the forge reports it: the default branch with its state, its commit linked to the forge and when, then the open pull requests, each with its number linked, its title, whether it is a draft, its branch, the Task it maps to linked to its page, and its state; or not available, with the reason.
 
 ### Task
 

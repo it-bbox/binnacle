@@ -12,11 +12,24 @@ type PendingDecisions = {
   owner: Section<WaitingTask>;
 };
 
+/** A commit's CI state, as the forge reports it. */
+type CiState = { value: 'passing' | 'failing' | 'running' | 'none'; provenance: 'provider_reported' };
+/** The snapshot's `ci`: the default branch's latest commit and the open pull requests, with the Task each maps to. */
+type Ci = {
+  forge: { provider: 'github' | 'gitlab'; host: string; repository: string; from: 'tracker' | 'remote' };
+  defaultBranch: { branch: string; commit: string; state: CiState; url: string; at: string | null };
+  requests: Section<{ number: number; title: string; branch: string; taskId: string | null; draft: boolean; state: CiState; url: string }>;
+};
+
 type ProjectSnapshot = Snapshot & {
   decisions: Section<{ title: string | null; path: string }> | null;
   pendingDecisions: PendingDecisions | Unavailable;
-  ci: Unavailable;
+  ci: Ci | Unavailable;
 };
+
+/** How each CI state is coloured: a failing one warns. */
+const CI_TONE: Record<CiState['value'], string> = { passing: 'text-success', failing: 'text-error', running: 'text-warning', none: 'text-dimmed' };
+const forgeName = (ci: Ci): string => (ci.forge.provider === 'github' ? 'GitHub' : 'GitLab');
 
 type ColumnKey = keyof Board['columns'];
 
@@ -392,9 +405,30 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
         <section class="flex flex-col gap-0.5 rounded-lg border border-default bg-default px-3.5 py-2.5">
           <div class="flex justify-between gap-2">
             <h2 class="m-0 text-[13px] font-semibold">{{ t.ci }}</h2>
-            <span class="text-xs text-muted">{{ t.notAvailable }}</span>
+            <span v-if="isUnavailable(snapshot.ci)" class="text-xs text-muted">{{ t.notAvailable }}</span>
+            <span v-else class="font-mono text-[11.5px] text-dimmed">{{ snapshot.ci.forge.repository }}</span>
           </div>
-          <DaemonReason class="block text-[11.5px] leading-snug text-dimmed" :reason="snapshot.ci.reason" />
+          <DaemonReason v-if="isUnavailable(snapshot.ci)" class="block text-[11.5px] leading-snug text-dimmed" :reason="snapshot.ci.reason" />
+          <template v-else>
+            <div class="text-xs">
+              <code class="font-mono">{{ snapshot.ci.defaultBranch.branch }}</code> ·
+              <span class="font-medium" :class="CI_TONE[snapshot.ci.defaultBranch.state.value]">{{ t.ciStates[snapshot.ci.defaultBranch.state.value] }}</span> ·
+              <a :href="snapshot.ci.defaultBranch.url" target="_blank" rel="noopener noreferrer" class="font-mono text-default underline">{{ snapshot.ci.defaultBranch.commit.slice(0, 12) }}</a>
+              <template v-if="snapshot.ci.defaultBranch.at"> · {{ since(snapshot.ci.defaultBranch.at) }}</template>
+            </div>
+            <div class="mt-1 text-xs text-muted">{{ t.openRequests }}</div>
+            <div v-if="snapshot.ci.requests.items.length === 0" class="text-xs text-dimmed">{{ t.none }}</div>
+            <div v-for="item in snapshot.ci.requests.items" :key="item.number" class="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-xs">
+              <a :href="item.url" target="_blank" rel="noopener noreferrer" class="font-mono text-default underline">#{{ item.number }}</a>
+              <span lang="en" class="min-w-0 truncate">{{ item.title }}</span>
+              <span v-if="item.draft" class="text-dimmed">({{ t.draft }})</span>
+              · <code class="font-mono text-dimmed">{{ item.branch }}</code>
+              <NuxtLink v-if="item.taskId" :to="{ path: '/task', query: { project, id: item.taskId } }" class="font-mono text-primary hover:underline">{{ item.taskId }}</NuxtLink>
+              · <span :class="CI_TONE[item.state.value]">{{ t.ciStates[item.state.value] }}</span>
+            </div>
+            <div v-if="snapshot.ci.requests.remainder > 0" class="text-xs text-dimmed">{{ t.more(number(snapshot.ci.requests.remainder)) }}</div>
+            <div class="text-[11.5px] leading-snug text-dimmed">{{ t.ciReported(forgeName(snapshot.ci)) }}</div>
+          </template>
         </section>
       </div>
     </template>

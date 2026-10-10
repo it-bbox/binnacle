@@ -23,12 +23,14 @@ Five environment variables configure it, all read by the daemon from its own env
 | `BINNACLE_HOME` | `~/.binnacle` | Where Binnacle keeps the daemon's runtime file, the API token, the store, the tracker credentials file and this machine's settings file. Point it elsewhere to run a throwaway instance beside the real one. |
 | `BINNACLE_PORT` | `7717` | The loopback port the daemon binds. `0` takes an ephemeral port. |
 | `BINNACLE_GIT_TIMEOUT_MS` | `5000` | How long one read-only `git` call may take before `project.status` reports Git facts unavailable. Raise it for a repository on a slow filesystem. |
-| `BINNACLE_GITHUB_TOKEN` | none | A read-only token for every project whose `tracker.provider` is `github`. |
+| `BINNACLE_GITHUB_TOKEN` | none | A read-only token for every project whose `tracker.provider` is `github`, and for the CI of every project whose forge is GitHub. |
 | `BINNACLE_GITLAB_TOKEN` | none | A read-only token for every project whose `tracker.provider` is `gitlab`. |
 
 ### Tracker credentials
 
 A project on GitHub or GitLab issues is read with a read-only token: on GitHub a fine-grained token with Issues read access, on GitLab a token with `read_api` (`docs/operations/04-security-resilience.md`). A public repository needs none.
+
+The snapshot's CI is read with the same token, from the tracker when it is GitHub or GitLab, or else from the project's first GitHub or GitLab Git remote, with the token kept for that remote's host: `BINNACLE_GITHUB_TOKEN`, or the credentials file's entry for the host, `github.com` for GitHub's own. On GitHub the fine-grained token then also needs read access to Checks, Commit statuses and Pull requests; GitLab's `read_api` covers its pipelines and merge requests.
 
 For one host, or several, keep the tokens in `credentials.json` in the Binnacle home (`~/.binnacle/credentials.json`): a JSON object keyed by the project's `tracker.host` exactly as its manifest writes it, or by `github.com` or `gitlab.com` when the manifest writes none.
 

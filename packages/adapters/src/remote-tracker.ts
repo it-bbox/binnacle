@@ -121,8 +121,7 @@ async function readQuestions(
  * reads issues: the `Link` header followed on the declared host only, and a failure on any
  * page giving nothing but the diagnostic that says why.
  */
-async function readPages(forge: Forge, firstPage: string, where: string, token: string | null, what: Listed): Promise<unknown[] | Diagnostic> {
-  const failed = (code: string, message: string): Diagnostic => ({ code, message });
+export async function readPages(forge: Forge, firstPage: string, where: string, token: string | null, what: Listed): Promise<unknown[] | Diagnostic> {
   let url: URL;
   try {
     url = new URL(firstPage);
@@ -130,18 +129,11 @@ async function readPages(forge: Forge, firstPage: string, where: string, token: 
     return failed('tracker.unreachable', `tracker.host gives no URL for ${where}.`);
   }
   const origin = url.origin;
-  const headers = token === null ? forge.headers : { ...forge.headers, ...forge.authorization(token) };
   const entries: unknown[] = [];
   for (;;) {
-    let response: Response;
-    let page: unknown;
-    try {
-      response = await fetch(url, { headers, signal: AbortSignal.timeout(TRACKER_TIMEOUT_MS) });
-      if (!response.ok) return failed(...statusFailure(forge.name, response, where, token !== null, what));
-      page = await response.json();
-    } catch (error) {
-      return failed('tracker.unreachable', `${forge.name} could not be read for ${where}: ${(error as Error).message}.`);
-    }
+    const read = await readResponse(forge, url, where, token, what);
+    if ('code' in read) return read;
+    const { response, body: page } = read;
     if (!Array.isArray(page)) return failed('tracker.unreachable', `${forge.name} answered for ${where} with something other than a list of ${what}.`);
     entries.push(...page);
 
@@ -152,8 +144,41 @@ async function readPages(forge: Forge, firstPage: string, where: string, token: 
   }
 }
 
-/** What a forge's pages list. */
-type Listed = 'issues' | 'comments' | 'pull requests' | 'merge requests' | 'reviews';
+/**
+ * The one object a forge answers `url` with, read as `readPages` reads a page; `{ failure }`,
+ * the diagnostic that says why, when it cannot be read or is not an object.
+ */
+export async function readObject(forge: Forge, url: string, where: string, token: string | null, what: Listed): Promise<{ entry: Record<string, unknown> } | { failure: Diagnostic }> {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { failure: failed('tracker.unreachable', `tracker.host gives no URL for ${where}.`) };
+  }
+  const read = await readResponse(forge, parsed, where, token, what);
+  if ('code' in read) return { failure: read };
+  if (typeof read.body !== 'object' || read.body === null || Array.isArray(read.body)) {
+    return { failure: failed('tracker.unreachable', `${forge.name} answered for ${where} with something other than its ${what}.`) };
+  }
+  return { entry: read.body as Record<string, unknown> };
+}
+
+const failed = (code: string, message: string): Diagnostic => ({ code, message });
+
+/** One request, with `token` when there is one, and its JSON body; the diagnostic that says why when it fails. */
+async function readResponse(forge: Forge, url: URL, where: string, token: string | null, what: Listed): Promise<{ response: Response; body: unknown } | Diagnostic> {
+  const headers = token === null ? forge.headers : { ...forge.headers, ...forge.authorization(token) };
+  try {
+    const response = await fetch(url, { headers, signal: AbortSignal.timeout(TRACKER_TIMEOUT_MS) });
+    if (!response.ok) return failed(...statusFailure(forge.name, response, where, token !== null, what));
+    return { response, body: await response.json() };
+  } catch (error) {
+    return failed('tracker.unreachable', `${forge.name} could not be read for ${where}: ${(error as Error).message}.`);
+  }
+}
+
+/** What a forge's pages list, or what one of its objects is. */
+type Listed = 'issues' | 'comments' | 'pull requests' | 'merge requests' | 'reviews' | 'commits' | 'check runs' | 'statuses';
 
 /**
  * When changes were first requested on a pull or merge request of one branch, in
@@ -161,6 +186,27 @@ type Listed = 'issues' | 'comments' | 'pull requests' | 'merge requests' | 'revi
  * the branch has no such request; or, when the forge cannot be read, the `reason` why.
  */
 export type ChangesRequested = { at: number | null } | { noRequest: string } | { reason: string };
+
+/** A commit's CI state as a forge reports it: any check failed, any still to finish, all passed, or none at all. */
+export type CiState = 'passing' | 'failing' | 'running' | 'none';
+
+/** A state as the forge reported it, never Binnacle's guess. */
+export type ReportedState = { value: CiState; provenance: 'provider_reported' };
+
+/** An open pull or merge request, with its head commit's CI state. */
+export type CiRequest = { number: number; title: string; branch: string; draft: boolean; state: ReportedState; url: string };
+
+/**
+ * A forge's CI (ADR-0007): the default branch's latest commit with its state, and the open
+ * requests, the first `limit` of them with theirs and how many more there are; or, when
+ * anything of it cannot be read, the `reason` why, never part of it.
+ */
+export type CiReading =
+  | {
+      defaultBranch: { branch: string; commit: string; state: ReportedState; url: string; at: string | null };
+      requests: { items: CiRequest[]; remainder: number };
+    }
+  | { reason: string };
 
 /** Where a forge lists a branch's requests, and how it tells when one had changes requested. */
 type RequestReviews = {

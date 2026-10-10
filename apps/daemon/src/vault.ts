@@ -367,9 +367,26 @@ function waiting(pending: PendingDecisions | Unavailable, link: Link): string[] 
   ];
 }
 
+/** CI as the forge reports it: the default branch's latest commit, then the open pull requests with their Tasks. */
+function ciNote(ci: Snapshot['ci']): string[] {
+  if (unavailable(ci)) return ['## CI', `Not available: ${ci.reason}`];
+  const { forge, defaultBranch: head, requests } = ci;
+  const at = (url: string): string => ` (provider reported). ${url}`;
+  return [
+    '## CI',
+    `\`${head.branch}\` on ${forge.provider === 'github' ? 'GitHub' : 'GitLab'} (${forge.repository}): ${head.state.value} at \`${short(head.commit)}\`${head.at ? `, ${head.at}` : ''}${at(head.url)}`,
+    '### Open pull requests',
+    list(
+      requests.items,
+      (item) => `#${item.number} ${item.title}${item.draft ? ' (draft)' : ''}, \`${item.branch}\`${item.taskId ? `, ${item.taskId}` : ''}: ${item.state.value}${at(item.url)}`,
+      requests.remainder,
+    ),
+  ];
+}
+
 /**
  * The snapshot as a note: where it was served from, the next step, what waits for the owner, the Tasks, the parallel limit
- * and its conflict risk, the ADRs, the graph and the attention. Usage and activity are left to
+ * and its conflict risk, the ADRs, the graph, CI and the attention. Usage and activity are left to
  * the dashboard.
  */
 function snapshotNote(name: string, snapshot: Snapshot, link: Link): string {
@@ -412,6 +429,7 @@ function snapshotNote(name: string, snapshot: Snapshot, link: Link): string {
         ? ` The last run, of \`${short(graph.lastRun.commit)}\` at ${graph.lastRun.at}, ${graph.lastRun.outcome === 'built' ? 'built' : `failed: ${graph.lastRun.reason}`}.`
         : '',
     ].join(''),
+    ...ciNote(snapshot.ci),
     '## Attention',
     attention(snapshot.attention),
   );

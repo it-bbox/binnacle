@@ -39,6 +39,7 @@ import {
   type TaskState,
   type TrackerTask,
 } from '@binnacle/core';
+import { ciAttention, readCi, type Ci } from './ci.ts';
 import { resolveGitTimeout, trackerToken } from './home.ts';
 import { defaultCommit, impactSection, touchedBy, type GraphSection } from './graph.ts';
 import { vaultAttention } from './vault.ts';
@@ -164,7 +165,12 @@ export type Snapshot = {
   graph: GraphSection;
   /** *Waiting for the owner*; unavailable, with the tracker's reason, when the Tasks cannot be read. */
   pendingDecisions: PendingDecisions | Unavailable;
-  ci: Unavailable;
+  /**
+   * CI as the forge reports it now: the default branch's latest commit and the open pull
+   * requests, each with the Task its branch maps to; unavailable with the reason when there is
+   * no forge or it cannot be read.
+   */
+  ci: Ci | Unavailable;
   usage: Usage;
   /**
    * The runs active now, within telemetry's recency, and the latest others; unavailable,
@@ -189,7 +195,11 @@ export async function snapshot(
   usageAndActivity: (tasks: TrackerTask[] | Unavailable) => Promise<Pick<Snapshot, 'usage' | 'activity'> & { runs: ObservedRun[]; attention: Diagnostic[] }>,
 ): Promise<Snapshot> {
   const tree = workingTree(caller.project);
+  // The forge is read while the tracker is.
+  const forge = readCi(home, projected.manifest, caller.git, SECTION_LIMIT);
   const { tasks, unreadable, roadmap, adrs, attention } = await readState(home, tree, projected, diagnostics);
+  const ci = (await forge)(tasks);
+  attention.push(...ciAttention(ci));
   const { usage: usageSection, activity, runs, attention: pressure } = await usageAndActivity(tasks ?? trackerUnavailable(unreadable));
   const workflow = projected.manifest?.workflow.provider ?? null;
   // A harness whose artifacts cannot be read is at level 1, and says why.
@@ -217,7 +227,7 @@ export async function snapshot(
     decisions: adrs && (await recentDecisions(tree, caller.project, adrs)),
     graph: graph.graph,
     pendingDecisions: tasks && questions ? pendingDecisions(tasks, attributed, questions) : trackerUnavailable(unreadable),
-    ci: UNAVAILABLE,
+    ci,
     usage: usageSection,
     activity,
     attention,

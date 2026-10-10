@@ -1,5 +1,15 @@
 import type { TaskReading } from '@binnacle/core';
-import { readChangesRequested, readRemoteTasks, type ChangesRequested, type Forge } from './remote-tracker.ts';
+import {
+  readChangesRequested,
+  readObject,
+  readPages,
+  readRemoteTasks,
+  type ChangesRequested,
+  type CiReading,
+  type CiRequest,
+  type CiState,
+  type Forge,
+} from './remote-tracker.ts';
 
 /**
  * The API root for a declared `tracker.host`: `github.com`, the default, is
@@ -85,4 +95,67 @@ export function readGitHubChangesRequested(repository: string, host: string | nu
       return review.state === 'CHANGES_REQUESTED' && review.submitted_at ? Date.parse(review.submitted_at) : null;
     },
   });
+}
+
+type CheckRun = { status?: string; conclusion?: string | null };
+type Pull = { number: number; title: string; draft?: boolean; html_url: string; head: { ref: string; sha: string } };
+
+/** A completed check run that counts as passed; any other conclusion, a failure, a cancellation or a timeout among them, fails. */
+const PASSED = new Set(['success', 'skipped', 'neutral']);
+
+/**
+ * A commit's state from its check runs and the statuses of its combined status together:
+ * failing when any failed, was cancelled or timed out; running when any is queued or in
+ * progress; passing when every one passed; `none` when it has neither.
+ */
+function commitState(runs: CheckRun[], statuses: { state?: string }[]): CiState {
+  const states = [
+    ...runs.map((run) => (run.status !== 'completed' ? 'running' : PASSED.has(run.conclusion ?? '') ? 'passing' : 'failing')),
+    ...statuses.map((status) => (status.state === 'success' ? 'passing' : status.state === 'pending' ? 'running' : 'failing')),
+  ];
+  if (states.length === 0) return 'none';
+  return states.includes('failing') ? 'failing' : states.includes('running') ? 'running' : 'passing';
+}
+
+/**
+ * A GitHub repository's CI (`CiReading`), read with `token` or anonymously from the declared
+ * host only: its default branch, that branch's latest commit and the commit's state, and the open
+ * pull requests through every page, the first `limit` with their head commits' states.
+ * ponytail: one page of 100 check runs per commit; follow the pages once a commit has more.
+ */
+export async function readGitHubCi(repository: string, host: string | null, token: string | null, limit: number): Promise<CiReading> {
+  const root = githubApiRoot(host);
+  const repo =`${root}/repos/${repository.split('/').map(encodeURIComponent).join('/')}`;
+  const where = `${repository} at ${root}`;
+  const object = (url: string, what: 'commits' | 'check runs' | 'statuses') => readObject(GITHUB, url, where, token, what);
+  const state = async (sha: string): Promise<CiState | { reason: string }> => {
+    const [runs, status] = await Promise.all([object(`${repo}/commits/${sha}/check-runs?per_page=100`, 'check runs'), object(`${repo}/commits/${sha}/status?per_page=100`, 'statuses')]);
+    if ('failure' in runs) return { reason: runs.failure.message };
+    if ('failure' in status) return { reason: status.failure.message };
+    return commitState((runs.entry.check_runs ?? []) as CheckRun[], (status.entry.statuses ?? []) as { state?: string }[]);
+  };
+
+  const [about, pulls] = await Promise.all([object(repo, 'commits'), readPages(GITHUB, `${repo}/pulls?state=open&per_page=100`, where, token, 'pull requests')]);
+  if ('failure' in about) return { reason: about.failure.message };
+  if (!Array.isArray(pulls)) return { reason: pulls.message };
+  const branch = String(about.entry.default_branch);
+  const commit = await object(`${repo}/commits/${encodeURIComponent(branch)}`, 'commits');
+  if ('failure' in commit) return { reason: commit.failure.message };
+  const sha = String(commit.entry.sha);
+  const listed = (pulls as Pull[]).slice(0, limit);
+  const states = await Promise.all([state(sha), ...listed.map((pull) => state(pull.head.sha))]);
+  const unread = states.find((read): read is { reason: string } => typeof read !== 'string');
+  if (unread !== undefined) return unread;
+
+  const reported = (index: number) => ({ value: states[index] as CiState, provenance: 'provider_reported' as const });
+  const at = (commit.entry.commit as { committer?: { date?: string } } | undefined)?.committer?.date ?? null;
+  return {
+    defaultBranch: { branch, commit: sha, state: reported(0), url: String(commit.entry.html_url), at },
+    requests: {
+      items: listed.map(
+        (pull, index): CiRequest => ({ number: pull.number, title: pull.title, branch: pull.head.ref, draft: pull.draft ?? false, state: reported(index + 1), url: pull.html_url }),
+      ),
+      remainder: Math.max(0, pulls.length - limit),
+    },
+  };
 }

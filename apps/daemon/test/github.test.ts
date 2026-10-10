@@ -66,8 +66,9 @@ type Reply = { status: number; headers?: Record<string, string>; body: unknown }
  * A loopback stand-in for GitHub at the network boundary: it serves `pages` of issues and
  * `comments`, pages of the repository's issue comments, for `REPOSITORY` with GitHub's `Link`
  * pagination header, or whatever `reply` says instead; a reply with status 0 drops the
- * connection. Every request it receives is kept, with the `authorization` header it carried,
- * so a test can see what Binnacle asked for and with which token.
+ * connection. Every request for the issues it receives is kept, with the `authorization` header
+ * it carried, so a test can see what Binnacle asked for and with which token. The snapshot's CI
+ * reads go to the same host, answered 404 and not kept: `ci.test.ts` covers them.
  */
 type FakeGitHub = {
   base: string;
@@ -83,9 +84,12 @@ async function fakeGitHub(pages: unknown[][]): Promise<FakeGitHub> {
   const fake: FakeGitHub = { base: '', pages, comments: [[]], reply: null, requests: [], authorizations: [], close: async () => {} };
   const server: Server = createServer((request: IncomingMessage, response) => {
     const url = new URL(request.url ?? '/', fake.base);
-    fake.requests.push(url);
-    fake.authorizations.push(request.headers.authorization);
-    const reply = fake.reply?.(url) ?? pageReply(fake, url);
+    const issues = url.pathname.startsWith(`/repos/${REPOSITORY}/issues`);
+    if (issues) {
+      fake.requests.push(url);
+      fake.authorizations.push(request.headers.authorization);
+    }
+    const reply = (issues ? fake.reply?.(url) : null) ?? pageReply(fake, url);
     if (reply.status === 0) return void request.socket.destroy();
     response.writeHead(reply.status, { 'content-type': 'application/json', ...reply.headers });
     response.end(JSON.stringify(reply.body));
