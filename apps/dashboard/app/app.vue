@@ -47,7 +47,7 @@ const pageKey = (page: RouteLocationNormalizedLoaded): string => `${page.path}|$
     </div>
     <div v-else class="flex h-screen min-w-[1024px] overflow-hidden">
       <ShellRail :views="data ?? []" :selected="selected" />
-      <ShellSidebar :view="view" :selected="selected" :updated-at="updatedAt" :unreachable="unreachable" />
+      <ShellSidebar :view="view" :views="data ?? []" :selected="selected" :updated-at="updatedAt" :unreachable="unreachable" />
       <main class="min-w-0 flex-1 overflow-auto">
         <div v-if="unreachable" class="flex min-h-full items-center justify-center px-8 py-10">
           <div class="flex w-full max-w-[520px] flex-col gap-4 rounded-xl border border-default bg-default p-8">
