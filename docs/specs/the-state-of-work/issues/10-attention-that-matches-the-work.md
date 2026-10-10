@@ -1,6 +1,6 @@
 # 10: Attention that matches the work
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/the-state-of-work/spec.md`
@@ -8,9 +8,9 @@ Roles: Developer, Reviewer
 
 **What to build:** two attention items corrected (spec, *The stale Next action* and *`review.missing`*). A Next action of `/binnacle:autopilot` or `binnacle-autopilot` naming an epic, by number or spec slug, whose spec has tickets and none left for an agent — every Task `DONE`, `CANCELLED` or `ready-for-human` — is `next_action.stale`, saying why. A `DONE` Task whose `Triage:` is `ready-for-human` is not `review.missing`. Both items leave `docs/product-inbox.md` with this spec.
 
-- [ ] Tests as `next.test.ts` sets up a roadmap: stale by number and by slug; not stale while one Task is left for an agent, one with an unanswered question included; not stale for an epic with no tickets; the existing `DONE`-Task rule unchanged.
-- [ ] Tests as `snapshot.test.ts`: a `DONE` `ready-for-human` ticket without a Review raises nothing; a `DONE` `ready-for-agent` one still does.
-- [ ] On this repository, `project_snapshot` no longer raises `review.missing` for `skills-in-any-harness/08` and `telemetry-for-any-harness/15`.
+- [x] Tests as `next.test.ts` sets up a roadmap: stale by number and by slug; not stale while one Task is left for an agent, one with an unanswered question included; not stale for an epic with no tickets; the existing `DONE`-Task rule unchanged.
+- [x] Tests as `snapshot.test.ts`: a `DONE` `ready-for-human` ticket without a Review raises nothing; a `DONE` `ready-for-agent` one still does.
+- [x] On this repository, `project_snapshot` no longer raises `review.missing` for `skills-in-any-harness/08` and `telemetry-for-any-harness/15`.
 
 ## Comments
 
@@ -28,16 +28,16 @@ Roles: Developer, Reviewer
 
 **Standards: no hard violation.** The documentation is in English, the dashboard's string changed in both languages, and nothing new was abstracted. Findings, all judgement calls:
 
-1. **Duplicated Code**: the new `finished` in `nextActionAttention` repeats the one in `roadmapAttention`. **To fix**: one module-level `finished` for both.
+1. **Duplicated Code**: the new `finished` in `nextActionAttention` repeats the one in `roadmapAttention`. **Fixed**: one module-level `finished` serves both.
 2. **Primitive Obsession / Shotgun Surgery**: `'ready-for-human'` is compared in five places across `roadmap.ts` and `snapshot.ts`, two of them new. **Kept**: one string comparison each, against the canonical label `docs/agents/triage-labels.md` fixes verbatim; a shared predicate would move code this ticket does not otherwise touch.
-3. **`epic!` three times**: the check on `own.length` loses the narrowing of `epic`. **To fix**: test `epic` itself, so that no `!` is needed.
-4. **The test of an unanswered question does not show the question is read**: the Task is `ACTIVE`, so it is left for an agent whatever its comments say. **To fix**: the test asserts the snapshot counts the question unanswered, so that the fixture is known to hold one.
+3. **`epic!` three times**: the check on `own.length` loses the narrowing of `epic`. **Fixed**: the condition tests `epic` itself, and no `!` is left.
+4. **The test of an unanswered question does not show the question is read**: the Task is `ACTIVE`, so it is left for an agent whatever its comments say. **Fixed**: the test asserts the snapshot counts the question unanswered, so that the fixture is known to hold one.
 5. **`docs/specs/dashboard-design-and-languages/design-brief.md` still quotes the old warning**, "The Next action names a Task already DONE". **Kept**: a closed epic's brief is a record of what was designed then, not a description of the dashboard now.
 
 **Spec: every criterion is implemented; the inbox items had already left with the spec.** Findings:
 
 6. **Criteria unticked and `Status: READY`**. **Kept**: the process ticks them and sets `DONE` in the ticket's last commit, after the fixes.
-7. **The unanswered-question case passes whatever the question**: the same as 4. **To fix** with 4.
-8. **`$binnacle-autopilot` and `/binnacle-autopilot` are accepted beyond the spec's two forms, untested.** **To fix**: kept, since another harness writes its skill's name with such a prefix, and a test pins `$binnacle-autopilot`.
-9. **Both reasons at once give two `next_action.stale` items**, which the dashboard's What's next lists keyed by code, so the key repeats. **To fix**: one item, its message giving both reasons.
+7. **The unanswered-question case passes whatever the question**: the same as 4. **Fixed** with 4.
+8. **`$binnacle-autopilot` and `/binnacle-autopilot` are accepted beyond the spec's two forms, untested.** **Fixed**: the prefix stays, since another harness writes its skill's name with one, and a test pins `$binnacle-autopilot`.
+9. **Both reasons at once give two `next_action.stale` items**, which the dashboard's What's next lists keyed by code, so the key repeats. **Fixed**: one item, its message giving both reasons, and a test pins it.
 10. **`02`, `#2` or `epic 2` is not read as an epic**, so such a Next action is never found stale. **Kept**: autopilot's argument is an epic number or spec slug, as its `argument-hint` and the roadmap write it; matching other spellings nobody writes is speculative, and the code says where to widen it if one appears.
