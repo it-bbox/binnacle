@@ -23,7 +23,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 11 | The state of work | not started | — |
 | 12 | Audit, completed | not started | — |
 | 13 | Human output | not started | — |
-| 14 | Skills in any harness | in progress | [`skills-in-any-harness`](specs/skills-in-any-harness/spec.md) |
+| 14 | Skills in any harness | done | [`skills-in-any-harness`](specs/skills-in-any-harness/spec.md) |
 
 Epics are ordered by dependency, not by preference. Epic 1 is the foundation; epics 5 to 7 are only meaningful once 1 to 4 exist. Audit and adopt is epic 6 in the specs of epics 1 to 3, written before epic 6 was inserted on 2026-09-26. Epic 14 was added on 2026-10-06 and comes before epic 10, which reuses its list of harnesses.
 
@@ -31,13 +31,13 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 Epics 1 to 9 are done. Epic 13, Human output, is grilled last, since it rewrites every skill's output; epics 11 and 12 need `to-spec` before it.
 
-Epic 14, Skills in any harness (`specs/skills-in-any-harness/spec.md`), has every ticket done but 08. On 2026-10-09 the owner showed 08's first and third criteria. 11, found there, was merged on 2026-10-10 and the package's copy reinstalled, so 08's fourth criterion can be shown again in ZCode; its second and fifth still need ZCode's `binnacle-product` and Claude Code's `/` list. The reinstall found two defects, which 12, done, fixes: the documented `npx skills add` now names `./apps/cli/skills`, which the `skills` CLI no longer reads as a GitHub repository, and the copy quotes every description, so strict YAML no longer skips `binnacle-status`.
+Epic 14, Skills in any harness (`specs/skills-in-any-harness/spec.md`), is done. On 2026-10-10 the owner finished 08, its exit demonstration, with Antigravity left unverified as agreed: ZCode's `binnacle-product` showed the Product Snapshot, ZCode's `binnacle-autopilot 14` refused at its first step after 11, and Claude Code lists each `/binnacle:<action>` once.
 
 Epic 10, Telemetry for any harness (`specs/telemetry-for-any-harness/spec.md`), has every ticket done but 15. On 2026-10-08 the owner demonstrated 15 on their machine: `binn init`'s export, Claude Code and Codex live and counted once, opencode, ZCode and pi from their files, context pressure and Ponytail; Gemini CLI and Antigravity not verified. Review and rework did not show, since sessions committed their fixes before their Review: the per-ticket flow now commits the Review first, and 17, done, brings autopilot to it and was itself run in that order. 15's last criterion can now be demonstrated on 17's branch.
 
 The daemon's autostart left *Later* on 2026-10-09: a daemon that does not come back after a reboot is the first thing a user meets, so `binn init` sets it up and it is done right after these two demonstrations (`docs/product-inbox.md`; it narrows ADR-0016).
 
-Next action: merge epic 14's 12, then the owner finishes 08 and demonstrates epic 10's 15.
+Next action: the owner demonstrates epic 10's 15; the daemon's autostart is grilled after it. `/binnacle:task telemetry-for-any-harness/15`
 
 ## Later
 
