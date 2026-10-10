@@ -28,7 +28,7 @@ export function preparePlugin(source: string, target: string): string {
 /**
  * Writes to `target` the copy of the plugin's skills that the `skills` CLI installs into every other
  * harness (ADR-0039): `binnacle-<action>` for each skill, every `/binnacle:<action>` renamed so,
- * the plugin's `version` under `metadata`, and without the fields only Claude Code reads.
+ * the plugin's `version` under `metadata`, each description quoted, and without the fields only Claude Code reads.
  */
 export function prepareSkills(source: string, target: string, version: string): void {
   rmSync(target, { recursive: true, force: true });
@@ -41,6 +41,8 @@ export function prepareSkills(source: string, target: string, version: string): 
       .split('\n')
       .filter((line) => !/^(disable-model-invocation|argument-hint):/.test(line))
       .map((line) => (line.startsWith('name: ') ? `name: binnacle-${action}` : line))
+      // The `skills` CLI reads frontmatter as strict YAML and skips a skill whose plain description holds `: `; JSON's string is a YAML double-quoted scalar.
+      .map((line) => line.replace(/^description: (?!["'])(.*)$/, (_, text: string) => `description: ${JSON.stringify(text)}`))
       .join('\n');
     const copy = `${frontmatter}\nmetadata:\n  version: "${version}"${text.slice(end)}`.replaceAll(/\/binnacle:([a-z-]+)/g, 'binnacle-$1');
     mkdirSync(join(target, `binnacle-${action}`), { recursive: true });

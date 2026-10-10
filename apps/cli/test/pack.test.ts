@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,6 +9,8 @@ import { test } from 'node:test';
 import { preparePlugin, prepareSkills } from '../src/prepare.ts';
 
 const PACKAGE = fileURLToPath(new URL('..', import.meta.url));
+// The `skills` CLI reads frontmatter as strict YAML; the daemon's `yaml` parser reads it the same way, so the test borrows it rather than adding a dependency.
+const { parse: parseYaml } = createRequire(new URL('../../daemon/package.json', import.meta.url))('yaml') as { parse: (text: string) => unknown };
 const PLUGIN_SOURCE = fileURLToPath(new URL('../../../.claude/skills/binnacle', import.meta.url));
 const skillText = (name: string): string => readFileSync(join(PLUGIN_SOURCE, 'skills', name, 'SKILL.md'), 'utf8');
 const workflowText = (): string => readFileSync(fileURLToPath(new URL('../../../docs/workflow/02-development-workflow.md', import.meta.url)), 'utf8');
@@ -103,6 +106,9 @@ test('the skills copy has one binnacle-<action> folder per plugin skill, renamed
     assert.match(frontmatter, new RegExp(`^metadata:\n  version: "${version}"$`, 'm'), action);
     assert.doesNotMatch(frontmatter, /^(disable-model-invocation|argument-hint):/m, action);
     assert.doesNotMatch(text, /\/binnacle:/, action);
+    // Strict YAML, as the `skills` CLI reads it, which skips a skill whose plain description holds `: ` (ticket 12).
+    const [, description] = /^description: (.*)$/m.exec(skillText(action)) ?? [];
+    assert.equal((parseYaml(frontmatter) as { description?: unknown }).description, description?.replaceAll(/\/binnacle:([a-z-]+)/g, 'binnacle-$1'), action);
     // Nothing else changes: the body is the plugin's with each skill renamed.
     const body = (skill: string): string => skill.slice(skill.indexOf('\n---\n', 4));
     assert.equal(body(text), body(skillText(action)).replaceAll(/\/binnacle:([a-z-]+)/g, 'binnacle-$1'), action);
@@ -184,8 +190,12 @@ test('autopilot reinstalls the skills CLI\'s copy after the plugin refresh, with
   const skill = skillText('autopilot');
   assert.match(skill, /then reinstall the package's `binnacle-<action>` copy through the `skills` CLI as the same paragraph says, right after the plugin refresh/);
   const workflow = workflowText();
-  assert.match(workflow, /Then, if `~\/\.agents\/skills` holds a `binnacle-\*` skill, `npx skills add apps\/cli\/skills -g -y` then `npx skills remove -g -a claude-code -s \$\(ls apps\/cli\/skills\) -y`/);
+  assert.match(workflow, /Then, if `~\/\.agents\/skills` holds a `binnacle-\*` skill, `npx skills add \.\/apps\/cli\/skills -g -y` then `npx skills remove -g -a claude-code -s \$\(ls apps\/cli\/skills\) -y`/);
   assert.match(skill, /the skills CLI's copy reinstalled, or why it was skipped, or which command failed and the commands run before it/);
+  // Without `./` the `skills` CLI reads `apps/cli` as a GitHub repository (ticket 12).
+  for (const readme of ['README.md', 'README.ru.md']) {
+    assert.match(readFileSync(fileURLToPath(new URL(`../../../${readme}`, import.meta.url)), 'utf8'), /^npx skills add \.\/apps\/cli\/skills -g -y$/m, readme);
+  }
 });
 
 /** Epic 9's ticket 13: with no terminal, a push that waits on a prompt hangs the run instead of failing. */

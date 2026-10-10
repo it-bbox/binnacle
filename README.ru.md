@@ -138,7 +138,7 @@ claude plugin update binnacle@binnacle
 Первая команда копирует skills в CLI-пакет и даёт plugin версию, вычисленную из файлов plugin, поэтому она меняется при каждом изменении skill; две другие заставляют Claude Code обновить свою копию до этой версии. Все остальные harness работают с копией `binnacle-<action>`, которую тоже пишет первая команда, поэтому, если в `~/.agents/skills` есть навык `binnacle-*`, установите заново и эту копию, а из Claude Code уберите её снова, назвав после `claude-code` и каждый harness, который вы не пускаете к ним через `binn init --skip-harness`:
 
 ```bash
-npx skills add apps/cli/skills -g -y
+npx skills add ./apps/cli/skills -g -y
 npx skills remove -g -a claude-code -s $(ls apps/cli/skills) -y
 ```
 
