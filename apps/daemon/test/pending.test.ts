@@ -145,9 +145,13 @@ describe('waiting for the owner', () => {
     });
   });
 
-  it('gives each list empty when nothing waits', async () => {
+  it('gives each list empty when nothing waits, a closed Task’s unanswered question included', async () => {
     await withDaemon(async (daemon) => {
-      const root = repository({ '01-done.md': ticket('01: Done', ['Status: DONE', 'Triage: ready-for-human'], '### Question', '', 'Asked.', '### Answer', '', 'Answered.') });
+      const root = repository({
+        '01-done.md': ticket('01: Done', ['Status: DONE', 'Triage: ready-for-human'], '### Question', '', 'Asked.', '### Answer', '', 'Answered.'),
+        '02-done.md': ticket('02: Done, still asking', ['Status: DONE'], '### Question', '', 'Moot?'),
+        '03-cancelled.md': ticket('03: Cancelled', ['Status: CANCELLED'], '### Question', '', 'Moot too?'),
+      });
       assert.deepEqual(pending(await snapshot(daemon, root)), {
         questions: { items: [], remainder: 0 },
         approvals: { items: [], remainder: 0 },

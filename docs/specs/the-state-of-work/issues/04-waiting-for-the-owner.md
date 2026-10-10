@@ -21,6 +21,7 @@ Roles: Developer, Reviewer
 - **Decided here, where the spec does not say:**
   - **A Task item's `questions` is `null` on GitHub or GitLab**, where no question is read until ticket 05, rather than a count of zero, which would be a guess (ADR-0007). The section's `questions` list is unavailable there with the same reason as `task_get`'s, and the approvals and the owner's Tasks are listed.
   - **The questions list is cut at the snapshot's limit by question**, not by Task, in tracker order and then the ticket's.
+  - **A `DONE` or `CANCELLED` Task's unanswered question is not listed**: no answer moves a closed Task, so it waits for no one. Its count and `task_get` still show it.
   - **The owner's Tasks are ready to start as the snapshot's Ready to start reads them**: `READY`, no Unmet dependency and no attributed run.
   - **The board's cards carry `questions` too** (`task.list`), since the board marks a card from it; the daily's own lists (`newTickets`, `readyToStart`) do not, as they are not the snapshot's Task items.
   - **The daily's section is read over the Tasks at HEAD**, as its other lists are, with their questions from an unmerged branch as the snapshot reads them.

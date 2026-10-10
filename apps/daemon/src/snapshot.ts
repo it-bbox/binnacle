@@ -84,7 +84,7 @@ export type TaskQuestions = { branch: string | null; items: Question[] };
 export type PendingQuestion = Pick<SnapshotTask, 'id' | 'title' | 'ticket'> & { question: string; branch: string | null };
 
 /**
- * *Waiting for the owner*: what only the owner can move. `questions`, every unanswered question, in
+ * *Waiting for the owner*: what only the owner can move. `questions`, every unanswered question of a Task neither `DONE` nor `CANCELLED`, in
  * tracker order and then the ticket's, unavailable where questions are not read; `approvals`, the
  * Tasks in `READY_FOR_REVIEW`, which the owner approves by changing their status; `owner`, the
  * Tasks triaged `ready-for-human` and ready to start, as the snapshot's Ready to start reads it.
@@ -436,7 +436,9 @@ export function pendingDecisions(tasks: ResolvedTask[], attributed: ReadonlySet<
     questions:
       questions instanceof Map
         ? limited(
-            tasks.flatMap(({ id, title, ticket }) => {
+            // A closed Task's question waits for no one: no answer moves it.
+            tasks.flatMap(({ id, title, ticket, state }) => {
+              if (state === 'DONE' || state === 'CANCELLED') return [];
               const { branch, items } = questions.get(id)!;
               return items.filter((item) => item.answer === null).map((item) => ({ id, title, ticket, question: item.text, branch }));
             }),
