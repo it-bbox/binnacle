@@ -396,6 +396,16 @@ describe('the forge of a project whose tracker is local', () => {
     });
   });
 
+  it('says that nothing was read, and not that the tracker was not, when its token cannot be used', async () => {
+    await withForge(async (daemon) => {
+      writeFileSync(join(daemon.home, 'credentials.json'), '[]', { mode: 0o600 });
+      const ci = (await snapshotOf(daemon, localProject(`https://github.com/${REPOSITORY}.git`))).ci;
+      assert.match((ci as { reason: string }).reason, /nothing was read/);
+      assert.doesNotMatch((ci as { reason: string }).reason, /tracker/);
+      assert.deepEqual(outbound, []);
+    });
+  });
+
   it('is none without a GitHub or GitLab remote, and the section says so', async () => {
     await withForge(async (daemon) => {
       for (const remote of [null, 'https://git.example.com/team/project.git']) {

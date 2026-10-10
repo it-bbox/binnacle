@@ -84,7 +84,7 @@ export function trackerToken(
   const variable = `BINNACLE_${provider.toUpperCase()}_TOKEN`;
   const path = credentialsPath(home);
   const unusable = (source: string): { failure: Diagnostic } => ({
-    failure: { code: 'tracker.unavailable', message: `${source} is not a usable token, so the tracker was not read.` },
+    failure: { code: 'tracker.unavailable', message: `${source} is not a usable token, so nothing was read with it.` },
   });
 
   const fromEnv = env[variable]?.trim();
@@ -122,7 +122,7 @@ export function trackerToken(
     entries = null;
   }
   if (typeof entries !== 'object' || entries === null || Array.isArray(entries)) {
-    return { failure: { code: 'tracker.unavailable', message: `${path} is not a JSON object of host to token, so the tracker was not read.` } };
+    return { failure: { code: 'tracker.unavailable', message: `${path} is not a JSON object of host to token, so nothing was read with its tokens.` } };
   }
   const key = credentialsKey(provider, host);
   if (!Object.hasOwn(entries, key)) return { token: null };
