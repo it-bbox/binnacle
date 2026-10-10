@@ -83,7 +83,7 @@ const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 /**
  * What the ticket's `## Comments` record. The Review: the text under the first `### Review`;
  * null when there is none, or it is empty. The questions (ADR-0040): each `### Question`, with
- * the text of the first `### Answer` after it and before the next Question, or null; an Answer
+ * the text of the first non-empty `### Answer` after it and before the next Question, or null; an Answer
  * with no Question before it is left out. Each section runs to the next heading of level three or
  * above, and its text is without the blank lines around it. A line inside a code fence is never a
  * heading: a fence closes only with a run of its own character at least as long as the one that
@@ -101,7 +101,7 @@ export function ticketComments(text: string): Pick<TrackerTask, 'review' | 'ques
     const body = section.lines.join('\n').replace(/^(?:[ \t]*\n)+/, '').trimEnd();
     const last = questions.at(-1);
     if (section.kind === 'Question') questions.push({ text: body, answer: null });
-    else if (section.kind === 'Answer' && last !== undefined && last.answer === null) last.answer = body;
+    else if (section.kind === 'Answer' && last !== undefined && last.answer === null) last.answer = body || null;
     else if (section.kind === 'Review' && review === undefined) review = body || null;
     section = null;
   };

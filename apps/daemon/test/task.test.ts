@@ -432,6 +432,18 @@ describe('questions and answers', () => {
         '',
         'And the second?',
         '',
+        '### Answer',
+        '',
+        '### Answer',
+        '',
+        'After an empty one, which is none.',
+        '',
+        '### Question',
+        '',
+        'And the third?',
+        '',
+        '### Answer',
+        '',
         '## Later',
         '',
         '### Answer',
@@ -446,7 +458,8 @@ describe('questions and answers', () => {
         branch: null,
         items: [
           { text: '  Which way?\n\n#### Context\n\n```md\n### Answer\nIn a fence: not a heading.\n```', answer: 'The first way.' },
-          { text: 'And the second?', answer: null },
+          { text: 'And the second?', answer: 'After an empty one, which is none.' },
+          { text: 'And the third?', answer: null },
         ],
       });
       assert.deepEqual(brief.review, { text: 'Found nothing.', truncated: false }, 'the Review is read as before');
