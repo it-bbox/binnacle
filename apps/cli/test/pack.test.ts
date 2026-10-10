@@ -13,6 +13,13 @@ const PACKAGE = fileURLToPath(new URL('..', import.meta.url));
 const { parse: parseYaml } = createRequire(new URL('../../daemon/package.json', import.meta.url))('yaml') as { parse: (text: string) => unknown };
 const PLUGIN_SOURCE = fileURLToPath(new URL('../../../.claude/skills/binnacle', import.meta.url));
 const skillText = (name: string): string => readFileSync(join(PLUGIN_SOURCE, 'skills', name, 'SKILL.md'), 'utf8');
+/** A numbered step of a skill, from its number to the next step's: `step(skill, 6)` is step 6. */
+const step = (skill: string, n: number): string => {
+  const start = skill.search(new RegExp(`^ {0,3}${n}\\. `, 'm'));
+  assert.ok(start >= 0, `step ${n}`);
+  const next = skill.slice(start + 1).search(new RegExp(`^ {0,3}${n + 1}\\. `, 'm'));
+  return next < 0 ? skill.slice(start) : skill.slice(start, start + 1 + next);
+};
 const workflowText = (): string => readFileSync(fileURLToPath(new URL('../../../docs/workflow/02-development-workflow.md', import.meta.url)), 'utf8');
 const ACTIONS = readdirSync(join(PLUGIN_SOURCE, 'skills')).sort();
 const filesUnder = (dir: string): string[] =>
@@ -164,8 +171,8 @@ test('/binnacle:product presents the graph\'s freshness in one line and each pai
   assert.match(skill, /When `impact` is marked `available: false`, say the risk was not assessed, with its reason, here rather than under \*\*Not available\*\*/);
 });
 
-/** The Next action is the owner's, set by a Product session (docs/workflow/02-development-workflow.md, step 3). */
-test('autopilot leaves the Next action to the owner, in the brief and in its report', () => {
+/** The Next action is the owner's (docs/workflow/02-development-workflow.md, step 3): no agent and no run moves it; the report only proposes it. */
+test('autopilot\'s agents leave the Next action as it is, and the run reports a stale one', () => {
   const skill = skillText('autopilot');
   assert.match(skill, /never its `Next action:` paragraph/);
   assert.match(skill, /stale `Next action:`/);
@@ -368,7 +375,7 @@ test('no plugin skill names an agent tool, a question tool, claude plugin, a .cl
 test('autopilot is started by a human only, refuses at its first step where the harness has no background agent in a worktree of its own, and notifies only where it can', () => {
   const skill = skillText('autopilot');
   assert.match(skill, /Only a human starts this skill/);
-  const first = skill.slice(skill.indexOf('\n1. '), skill.indexOf('\n2. '));
+  const first = step(skill, 1);
   assert.match(first, /cannot start a background agent in a worktree of its own/);
   assert.match(first, /start nothing and change nothing/);
   assert.match(first, /the epic's tickets are run by hand/);
@@ -451,14 +458,6 @@ test('/binnacle:answer ends with autopilot for a Task of a planned epic, and the
   assert.match(end, /on the local tracker, the Task id's part before `\/`/);
   assert.match(end, /the brief's `start`/);
 });
-
-/** A numbered step of a skill, from its number to the next step's: `step(skill, 6)` is step 6. */
-const step = (skill: string, n: number): string => {
-  const start = skill.search(new RegExp(`^ {0,3}${n}\\. `, 'm'));
-  assert.ok(start >= 0, `step ${n}`);
-  const next = skill.slice(start + 1).search(new RegExp(`^ {0,3}${n + 1}\\. `, 'm'));
-  return next < 0 ? skill.slice(start) : skill.slice(start, start + 1 + next);
-};
 
 /** Epic 11, ADR-0040: a genuine question outlives the agent's session, in the ticket on its branch. */
 test('autopilot\'s brief records a genuine product question as ### Question in a commit of the ticket alone, after what is sound, and never answers it', () => {
