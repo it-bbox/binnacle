@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui';
 import { useLanguage } from '~/composables/language';
-import { PROJECT_VIEWS, projectName, type ProjectView } from '~/composables/projects';
+import { attentionCount, PROJECT_VIEWS, projectName, type ProjectView } from '~/composables/projects';
 
 /** The selected project's name and current Epic, the menu (the selected project's pages, then the general ones) and the data's freshness. */
 const props = defineProps<{ view: ProjectView | null; selected: string | null; updatedAt: number | null; unreachable: boolean }>();
@@ -23,7 +23,7 @@ const epic = computed((): { text: string; muted: boolean; title?: string } | nul
 
 const views = inject(PROJECT_VIEWS, ref(null));
 /** Every project's attention items, as the Attention page lists them. */
-const attention = computed(() => (views.value ?? []).reduce((sum, view) => sum + (view.snapshot?.attention.length ?? 0), 0));
+const attention = computed(() => (views.value ?? []).reduce((sum, view) => sum + attentionCount(view), 0));
 
 const menu = computed((): NavigationMenuItem[][] => {
   const query = props.selected === null ? {} : { project: props.selected };

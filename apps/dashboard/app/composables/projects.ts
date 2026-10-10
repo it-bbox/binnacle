@@ -82,6 +82,9 @@ export type Snapshot = {
 
 export type ProjectView = { project: ProjectRow; snapshot: Snapshot | null; failure: Failure | null };
 
+/** How many attention items a project has, none when its snapshot cannot be read. */
+export const attentionCount = (view: ProjectView): number => view.snapshot?.attention.length ?? 0;
+
 /** The shell's view of every registered project, which the Projects and Attention pages read rather than poll again. */
 export const PROJECT_VIEWS: InjectionKey<Ref<ProjectView[] | null>> = Symbol('registered projects');
 
