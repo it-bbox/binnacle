@@ -13,6 +13,7 @@ import {
   type Board,
   type Card,
   type CiForge,
+  type CiRequest,
   type CiState,
   type LatestRun,
   type Section,
@@ -33,7 +34,7 @@ type PendingDecisions = {
 type Ci = {
   forge: CiForge;
   defaultBranch: { branch: string; commit: string; state: CiState; url: string; at: string | null };
-  requests: Section<{ number: number; title: string; branch: string; taskId: string | null; draft: boolean; state: CiState; url: string }>;
+  requests: Section<CiRequest & { taskId: string | null }>;
 };
 
 type ProjectSnapshot = Snapshot & {

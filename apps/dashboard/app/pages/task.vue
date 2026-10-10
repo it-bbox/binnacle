@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { call, usePolling, type Failure } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
-import { CI_TONE, forgeName, isUnavailable, type CiForge, type CiState, type Unavailable } from '~/composables/projects';
+import { CI_TONE, forgeName, isUnavailable, type CiForge, type CiRequest, type Unavailable } from '~/composables/projects';
 import { tokensLine, type TaskUsage } from '~/composables/usage';
 
 /** `task.get`'s brief, as the Task page renders it. */
@@ -20,7 +20,7 @@ type Brief = {
   questions: { branch: string | null; items: { text: string; answer: string | null }[] } | Unavailable;
   roles: { required: string[]; source: 'ticket' | 'default'; suggested: { role: string; reason: string; provenance: 'calculated' }[] };
   /** Its open pull or merge request with its CI state, as the forge reports it. */
-  request: { forge: CiForge; number: number; title: string; branch: string; draft: boolean; state: CiState; url: string } | Unavailable | null;
+  request: (CiRequest & { forge: CiForge }) | Unavailable | null;
   diagnostics: Failure[];
 };
 

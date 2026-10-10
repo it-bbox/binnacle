@@ -156,6 +156,8 @@ export const statusBadge = (status: string) =>
 export type CiState = { value: 'passing' | 'failing' | 'running' | 'none'; provenance: 'provider_reported' };
 /** Where CI is read from, as the snapshot's `ci` and the brief's `request` name it. */
 export type CiForge = { provider: 'github' | 'gitlab'; host: string; repository: string; from: 'tracker' | 'remote' };
+/** An open pull or merge request with its head's CI state, as the `ci` section lists it and the brief's `request` gives it. */
+export type CiRequest = { number: number; title: string; branch: string; draft: boolean; state: CiState; url: string };
 /** How each CI state is coloured: a failing one warns. */
 export const CI_TONE: Record<CiState['value'], string> = { passing: 'text-success', failing: 'text-error', running: 'text-warning', none: 'text-dimmed' };
 export const forgeName = (forge: CiForge): string => (forge.provider === 'github' ? 'GitHub' : 'GitLab');
