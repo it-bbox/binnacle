@@ -350,6 +350,12 @@ test('autopilot is started by a human only, refuses at its first step where the 
   assert.match(first, /cannot start a background agent in a worktree of its own/);
   assert.match(first, /start nothing and change nothing/);
   assert.match(first, /the epic's tickets are run by hand/);
+  // Ticket 11 of epic 14: the step reads the harness's tool, not the model's belief. ZCode passed it by planning worktrees of its own.
+  assert.match(first, /tool that starts an agent, as the harness defines it, not from what you believe/);
+  assert.match(first, /must take a parameter[^.]*that has the harness create the agent's worktree/);
+  assert.match(first, /A worktree you would create yourself[^.]* does not count/);
+  assert.match(first, /in the background but has no such parameter does not count/);
+  assert.match(first, /say which of the two this harness lacks/);
   // A harness that can start such an agent but not message it: what would be sent stops the ticket instead.
   assert.match(skill, /Where the harness cannot send a message to an agent it started, whatever this skill would send to that agent stops its ticket instead/);
   // A linked worktree in general, not the one Claude Code's desktop app opens.

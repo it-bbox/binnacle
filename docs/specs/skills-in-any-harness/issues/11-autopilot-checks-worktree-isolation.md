@@ -14,4 +14,5 @@ The step names the signal it reads: the tool that starts an agent offers a workt
 
 ## Comments
 
+- The step names the parameter by what it does, "a parameter, such as an isolation or worktree option, that has the harness create the agent's worktree", not by Claude Code's `isolation: "worktree"`: the spec's *One neutral text per skill* and ADR-0039 keep every harness's mechanism out of the skills, and `pack.test.ts` forbids that very string. The refusal also says which of the two the harness lacks, a background agent or a worktree the harness creates, which is the "why" the ticket asks for. The package's `binnacle-autopilot` copy is built from the plugin's text by `prepareSkills`, so it carries the same step without an edit of its own.
 - Script for the second criterion, once this ticket is merged and the skills are refreshed (`docs/workflow/02-development-workflow.md`, *Per ticket*): open this repository in ZCode, start a new task, run `binnacle-autopilot 14`. It should say at once that ZCode cannot start an agent in a worktree the harness creates, start nothing, and leave `git status` and `git worktree list` as they were.
