@@ -1,6 +1,6 @@
 # 09: CI state and merge requests from GitLab
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 07
 Spec: `docs/specs/the-state-of-work/spec.md`
@@ -8,9 +8,9 @@ Roles: Developer, Reviewer, Security
 
 **What to build:** on GitLab, the `ci` section, `ci.failing` and each Task's request are read as on GitHub: the default branch's latest pipeline and the open merge requests with their head pipeline's status, mapped onto passing, failing, running and `none` (spec, *CI on GitLab*). The forge comes from the tracker or the remote as in 07.
 
-- [ ] Loopback-forge tests, as `gitlab.test.ts` serves the issues: each pipeline status mapped; open merge requests with their Task; `ci.failing`; a GitLab remote with a local tracker; 401, 403 and 429 with their reasons.
-- [ ] The token appears in nothing returned, and requests go to the forge's host only.
-- [ ] A Task's `request` in `task_get` works on GitLab.
+- [x] Loopback-forge tests, as `gitlab.test.ts` serves the issues: each pipeline status mapped; open merge requests with their Task; `ci.failing`; a GitLab remote with a local tracker; 401, 403 and 429 with their reasons.
+- [x] The token appears in nothing returned, and requests go to the forge's host only.
+- [x] A Task's `request` in `task_get` works on GitLab.
 
 ## Comments
 
@@ -29,8 +29,8 @@ Roles: Developer, Reviewer, Security
 
 **Standards.** No documented standard is broken: what GitLab does not give is said (ADR-0007), the token goes to the forge's host only and is returned nowhere, the documents are in English, and nothing is added as a dependency. Judgement calls:
 
-1. **Speculative Generality**: `CiSource` is exported, though only `remote-tracker.ts` names it; `github.ts` and `gitlab.ts` pass a literal. **To fix**: the export goes.
-2. **A value GitHub did not give, written as one** (ADR-0007): GitHub's `toCommit` takes the committer's date unchecked, where GitLab's checks it is a string. **To fix**: GitHub's is checked the same way, null otherwise.
+1. **Speculative Generality**: `CiSource` is exported, though only `remote-tracker.ts` names it; `github.ts` and `gitlab.ts` pass a literal. **Fixed**: the export goes.
+2. **A value GitHub did not give, written as one** (ADR-0007): GitHub's `toCommit` takes the committer's date unchecked, where GitLab's checks it is a string. **Fixed**, and `ci.test.ts` pins it: GitHub's is checked the same way, null otherwise.
 3. **Casts without checks** in `toRequest`: a request with no `head` or `source_branch` would throw or be dropped rather than give a reason. **Kept**: inherited from ticket 07's reader; both forges always give these fields, and the issues' readers (`toIssue`) read their entries the same way.
 4. **Duplicated Code** in `ci.test.ts`: `fakeGitLab` and `withGitLab` have the shape of `fakeGitHub` and `withForge`. **Kept**: each fake serves its own API, as `github.test.ts` and `gitlab.test.ts` keep theirs; a shared helper would save some twenty lines of test setup at the cost of a generic fake.
 5. **A nested ternary** in `pipelineState`, where GitHub's `commitState` uses a set. **Kept**: one expression of three outcomes, with its doc comment saying each.
@@ -39,8 +39,8 @@ Roles: Developer, Reviewer, Security
 
 **Spec.** Every criterion is implemented, with no scope creep: the wording "pull or merge requests" in the skills, the MCP description and docs/03 follows from the section now holding merge requests. Findings:
 
-8. **A merge request's head pipeline is not the latest pipeline of its head commit in the target project** (spec: "each with its head pipeline's status"): a merged-results pipeline runs on a merge commit, and a fork's pipelines run in the fork, so either would show `none` or an older branch pipeline. **To fix**: a merge request's state is read from its own pipelines (`/merge_requests/:iid/pipelines`), the latest first, which GitLab lists whatever commit or project they ran on, and which still answers 403 when pipelines may not be read; the Comments' decision is corrected.
-9. **The default branch's state is the latest pipeline of its latest commit, not "the latest pipeline of the default branch"**, and without a `ref` a tag's or a merge request's pipeline on the same commit would stand for the branch. **To fix in part**: the pipelines are read with `ref` set to the default branch, so that it is the branch's latest pipeline for its latest commit. **Kept in part**: the section pairs a `state` with the `commit` it shows, as GitHub's does, so an older commit's pipeline is not shown as the newest commit's; that commit has `none` until its pipeline starts. This answers the spec within its own `ci` shape and is no product question.
+8. **A merge request's head pipeline is not the latest pipeline of its head commit in the target project** (spec: "each with its head pipeline's status"): a merged-results pipeline runs on a merge commit, and a fork's pipelines run in the fork, so either would show `none` or an older branch pipeline. **Fixed**, and `ci.test.ts` pins it, its fake serving a merge request's pipelines by the request alone: a merge request's state is read from its own pipelines (`/merge_requests/:iid/pipelines`), the latest first, which GitLab lists whatever commit or project they ran on, and which still answers 403 when pipelines may not be read; the Comments' decision is corrected.
+9. **The default branch's state is the latest pipeline of its latest commit, not "the latest pipeline of the default branch"**, and without a `ref` a tag's or a merge request's pipeline on the same commit would stand for the branch. **Fixed in part**, and `ci.test.ts` pins it, its fake serving the default branch's pipelines only with that `ref`: the pipelines are read with `ref` set to the default branch, so that it is the branch's latest pipeline for its latest commit. **Kept in part**: the section pairs a `state` with the `commit` it shows, as GitHub's does, so an older commit's pipeline is not shown as the newest commit's; that commit has `none` until its pipeline starts. This answers the spec within its own `ci` shape and is no product question.
 10. **The fake ignores `order_by` and `sort`.** **Kept**: GitLab lists pipelines newest first by default, and the request asks for that order explicitly as well.
 11. **The ticket is not yet DONE.** Nothing to fix: its last commit does that, after this Review.
 
@@ -52,3 +52,5 @@ The ticket's `Roles:` names Security beyond the Developer and the Reviewer, so t
 13. **The token appears in nothing returned**: the failures are `statusFailure`'s, which name the host and whether a token was used; `ci.test.ts` checks the snapshot and the 401, 403 and 429 reasons. Nothing to fix.
 14. **A link GitLab gives is bound to `href` only when it is `http:` or `https:`**, by the shared `readRemoteCi`, as `ci.test.ts` checks for a commit's and a merge request's `javascript:` link. Nothing to fix.
 15. **A merge request's `iid` goes into the next request's path unescaped** (after the fix for 8). **Kept**, as ticket 07 kept GitHub's SHA in a path: the request stays on the forge's own origin, which already holds the token, and a commit's SHA in a query is escaped.
+
+**In all**: four findings fixed, 9 in part and kept in part with its reason; seven kept with their reasons; four that find nothing. The full suite, 700 tests, and the typecheck pass after the fixes.
