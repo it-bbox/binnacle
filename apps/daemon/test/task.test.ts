@@ -101,6 +101,7 @@ describe('the task brief on the local tracker', () => {
         start: null,
         review: { text: 'Nothing found.', truncated: false },
         questions: { branch: null, items: [] },
+        roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] },
         diagnostics: [],
         byRole: NO_ROLES,
         reworkUnread: null,

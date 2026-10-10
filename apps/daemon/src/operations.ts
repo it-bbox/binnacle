@@ -1,7 +1,7 @@
 import { existsSync, realpathSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative } from 'node:path';
 import { readGitFacts, readGitLocation, workingTree, type GitFacts } from '@binnacle/adapters';
-import { trackerRemoteMismatch, type Diagnostic, type ProjectManifest, type TrackerTask } from '@binnacle/core';
+import { taskRoles, trackerRemoteMismatch, type Diagnostic, type ProjectManifest, type TrackerTask } from '@binnacle/core';
 import { OperationError, pathNotFound } from './errors.ts';
 import { resolveGitTimeout, type Runtime } from './home.ts';
 import { readManifest } from './manifest.ts';
@@ -9,7 +9,7 @@ import { projectRegistry, reproject, type Projected } from './projection.ts';
 import { containingEntry, readRegistry, writeRegistry, type RegistryEntry } from './registry.ts';
 import { promotedItems, promotionDiagnostics, promotionTargets } from './checkpoint.ts';
 import { BASELINE_EVENTS, committedHead, daily, isRemoteTracker, taskStates, type Baseline, type BaselineEvent, type TaskStates } from './daily.ts';
-import { graphSection } from './graph.ts';
+import { graphSection, impactSection, touchedBy } from './graph.ts';
 import { readTasks, snapshot, type CallerCheckout } from './snapshot.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type ProjectRow, type Store } from './store.ts';
 import { findTask, taskBrief, taskQuestions } from './task.ts';
@@ -185,11 +185,14 @@ export const operations: Record<string, Operation> = {
     const projected = reproject(context.store, await resolveEntry(path, context));
     const caller = await callerCheckout(path, projected.row.path);
     const found = await findTask(context.home, workingTree(caller.project), projected.manifest, id);
-    const [usage, questions] = await Promise.all([
+    // Its roles read against the graph as the snapshot reads them, so that both suggest the same.
+    const { graph } = await graphSection(context.store, context.searchPath, projected.row.path, projected.manifest);
+    const [usage, questions, impact] = await Promise.all([
       taskByRole(context, projected.row.path, projected.manifest, found.tasks, found.task),
       taskQuestions(projected.row.path, projected.manifest, found.task),
+      impactSection(projected.row.path, graph, [found.task], projected.manifest?.tracker.provider !== 'local'),
     ]);
-    return taskBrief(found, projected.manifest, { ...usage, questions });
+    return taskBrief(found, projected.manifest, { ...usage, questions, roles: taskRoles(found.task, touchedBy(impact, found.task.id)) });
   },
 
   // The board: one epic's Tasks in their columns, In progress read from runs where the ticket still says READY (ADR-0032).

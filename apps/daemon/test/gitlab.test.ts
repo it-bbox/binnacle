@@ -145,11 +145,11 @@ describe('GitLab issues as Tasks in the Product Snapshot', () => {
 
       assert.deepEqual(body.tasks, {
         inFlight: {
-          items: [{ id: '#3', title: 'Third', state: 'ACTIVE', unmetDependencies: [], ticket: `https://gitlab.com/${REPOSITORY}/-/issues/3`, start: null }],
+          items: [{ id: '#3', title: 'Third', state: 'ACTIVE', unmetDependencies: [], ticket: `https://gitlab.com/${REPOSITORY}/-/issues/3`, start: null, roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] } }],
           remainder: 0,
         },
         readyToStart: {
-          items: [{ id: '#2', title: 'Second', state: 'READY', unmetDependencies: [], ticket: `https://gitlab.com/${REPOSITORY}/-/issues/2`, start: null }],
+          items: [{ id: '#2', title: 'Second', state: 'READY', unmetDependencies: [], ticket: `https://gitlab.com/${REPOSITORY}/-/issues/2`, start: null, roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] } }],
           remainder: 0,
         },
         counts: { BACKLOG: 0, READY: 0, MERGED: 0, DONE: 1, CANCELLED: 0, unknown: 0 },
@@ -497,6 +497,7 @@ describe('the task brief on a GitLab tracker', () => {
         start: null,
         review: { available: false, reason: 'Binnacle reads an issue’s body and never its comments, so no Review is read on GitHub or GitLab.' },
         questions: { available: false, reason: 'Binnacle does not read an issue’s comments yet, so no question or answer is read on GitHub or GitLab.' },
+        roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] },
         diagnostics: [],
         byRole: NO_ROLES,
         reworkUnread: null,

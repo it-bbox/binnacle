@@ -5,7 +5,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, posix, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { isIgnored, readGitFacts, workingTree, type GitRemote } from '@binnacle/adapters';
-import { forgeRemote, instructionSets, TASK_STATES, type ImportWindow, type ProjectManifest, type TrackerProvider } from '@binnacle/core';
+import { forgeRemote, instructionSets, ROLES, TASK_STATES, type ImportWindow, type ProjectManifest, type TrackerProvider } from '@binnacle/core';
 import {
   credentialsKey,
   credentialsPath,
@@ -897,12 +897,16 @@ function mattPocockStep(session: Session, provider: TrackerProvider): void {
 const ISSUE_NUMBERS = 'the issue numbers of the issues it waits for, such as `#12, #15`';
 const PATH_OR_LINK = 'its path, such as `docs/specs/<slug>/spec.md`, or a link to that file pinned to a commit';
 const KEEP_CURRENT = 'Binnacle reports any disagreement between the two, so keep the line current when you close the issue.';
+const REMOTE_QUESTIONS =
+  'A question only the owner can answer, and its answer, are issue comments that start with `### Question` and `### Answer`; ' +
+  'the answer is written by the owner or `/binnacle:answer`, never by an agent.';
 
 /**
  * What the section says differently on each tracker (ADR-0024). `rule` follows the fields: on
  * the local tracker, the unique slug a ticket's branch needs; on a remote one, the spec's closed-issue states.
+ * `questions` says where a question for the owner and its answer go (ADR-0040).
  */
-const CONVENTIONS: Record<TrackerProvider, { ticket: string; blockedBy: string; example: string; spec: string; rule: string }> = {
+const CONVENTIONS: Record<TrackerProvider, { ticket: string; blockedBy: string; example: string; spec: string; rule: string; questions: string }> = {
   local: {
     ticket: 'ticket',
     blockedBy: 'the numbers of the tickets in the same spec it waits for, such as `01, 03`',
@@ -911,6 +915,10 @@ const CONVENTIONS: Record<TrackerProvider, { ticket: string; blockedBy: string; 
     rule:
       "A ticket's slug, its file name without the number, is unique across every spec's tickets: it names the ticket's branch, `feat/<slug>`, " +
       'and Binnacle credits the work on a branch two tickets share to neither.',
+    questions:
+      'A question only the owner can answer goes under a `### Question` heading inside `## Comments`, in a commit that changes only the ticket, on the branch where the work is; ' +
+      "the owner's reply goes right after it under `### Answer`, written by the owner or `/binnacle:answer`, never by an agent. " +
+      "Binnacle reads them from the Task's branch while it is unmerged.",
   },
   github: {
     ticket: 'issue body',
@@ -920,6 +928,7 @@ const CONVENTIONS: Record<TrackerProvider, { ticket: string; blockedBy: string; 
     rule:
       'Closing an issue outranks its `Status:` line: an issue closed as completed is done, and one closed as not planned or as a duplicate is cancelled, whatever the line says. ' +
       `An issue closed with no reason is cancelled when its \`Status:\` says \`CANCELLED\`, and done otherwise. ${KEEP_CURRENT}`,
+    questions: REMOTE_QUESTIONS,
   },
   gitlab: {
     ticket: 'issue body',
@@ -929,12 +938,13 @@ const CONVENTIONS: Record<TrackerProvider, { ticket: string; blockedBy: string; 
     rule:
       'Closing an issue outranks its `Status:` line, and GitLab reports no reason for closing: a closed issue is done, unless its `Status:` says `CANCELLED`. ' +
       `Set \`Status: CANCELLED\` before closing work that was abandoned. ${KEEP_CURRENT}`,
+    questions: REMOTE_QUESTIONS,
   },
 };
 
 /** The convention `/to-tickets` writes by, for the tracker in use. It leads with a blank line, after the file's last section. */
 function ticketHeaderSection(provider: TrackerProvider): string {
-  const { ticket, blockedBy, example, spec, rule } = CONVENTIONS[provider];
+  const { ticket, blockedBy, example, spec, rule, questions } = CONVENTIONS[provider];
   const states = TASK_STATES.map((state) => `\`${state}\``).join(', ');
   return `
 ## Ticket header
@@ -944,8 +954,11 @@ Binnacle reads a ticket's state, dependencies and spec from its header: these li
 - \`Status:\` — the ticket's state, one of ${states}.
 - \`Blocked by:\` — ${blockedBy}, or \`None\`.
 - \`Spec:\` — the spec it implements, as ${spec}.
+- \`Roles:\` — the roles the Task needs, comma-separated, from ${ROLES.join(', ').replace(/, (\w+)$/, ' and $1')}, such as \`Developer, Reviewer, Security\`. Optional: without it a Task needs a Developer and a Reviewer. Binnacle shows its own suggested roles beside the line and never changes it.
 
 ${rule}
+
+${questions}
 
 For example:
 
@@ -953,6 +966,7 @@ For example:
 Status: READY
 Blocked by: ${example}
 Spec: \`docs/specs/<slug>/spec.md\`
+Roles: Developer, Reviewer, Security
 \`\`\`
 `;
 }

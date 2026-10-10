@@ -16,6 +16,7 @@ test('reads the header block after one leading heading', () => {
     'Triage: ready-for-agent',
     'Blocked by: 01, 02',
     'Spec: `docs/specs/epic/spec.md`',
+    'Roles: Developer, Reviewer, Security',
     '',
     'Status: DONE',
     '',
@@ -28,6 +29,7 @@ test('reads the header block after one leading heading', () => {
     triage: 'ready-for-agent',
     blockedBy: '01, 02',
     spec: '`docs/specs/epic/spec.md`',
+    roles: 'Developer, Reviewer, Security',
   });
 });
 
@@ -40,12 +42,13 @@ test('reads an issue body with no heading from its first line, the same way', ()
     triage: null,
     blockedBy: '#4',
     spec: 'docs/specs/epic/spec.md',
+    roles: null,
   });
 });
 
 test('reads nothing from a body whose first paragraph is not a header, and keeps the first of a repeated line', () => {
   const none = parseTicketHeader('\n\nSomething is broken.\n\nStatus: READY\n');
-  assert.deepEqual(none, { heading: null, status: null, triage: null, blockedBy: null, spec: null });
+  assert.deepEqual(none, { heading: null, status: null, triage: null, blockedBy: null, spec: null, roles: null });
 
   const repeated = parseTicketHeader('## A heading of any level\n\nStatus: READY\nStatus: DONE\nTriage:\n');
   assert.equal(repeated.heading, 'A heading of any level');
@@ -70,6 +73,7 @@ const task = (id: string, specSlug: string | null, state: TrackerTask['state']):
   body: '',
   review: null,
   questions: [],
+  roles: null,
 });
 
 /**

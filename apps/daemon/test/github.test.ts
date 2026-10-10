@@ -17,7 +17,8 @@ import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
 /** A Task's usage by role with no runs, as the brief gives it. */
 const NO_ROLES = { implementation: sum([]), review: sum([]), rework: sum([]) };
 
-type SnapshotTask = { id: string; title: string | null; state: string | null; unmetDependencies: string[]; ticket: string; start: string | null };
+type Roles = { required: string[]; source: 'ticket' | 'default'; suggested: { role: string; reason: string; provenance: string }[] };
+type SnapshotTask = { id: string; title: string | null; state: string | null; unmetDependencies: string[]; ticket: string; start: string | null; roles: Roles };
 type Section = { items: SnapshotTask[]; remainder: number };
 type Snapshot = {
   roadmap: { epics: unknown[] } | null;
@@ -132,6 +133,9 @@ async function snapshot(daemon: TestDaemon, root: string): Promise<Snapshot> {
   return result.body;
 }
 
+/** A Task's roles with no `Roles:` line and nothing suggested. */
+const DEFAULT_ROLES: Roles = { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] };
+
 const ids = (section: Section): string[] => section.items.map((task) => task.id);
 /** Tracker, Task and Review attention only: these projects declare no roadmap, which is not what is tested here. A closed issue is DONE without a Review read, and is no review.missing item. */
 const codes = (body: Pick<Snapshot, 'attention'>): string[] => body.attention.map((item) => item.code).filter((code) => /^(tracker|task|review)\./.test(code));
@@ -151,11 +155,11 @@ describe('GitHub issues as Tasks in the Product Snapshot', () => {
 
       assert.deepEqual(body.tasks, {
         inFlight: {
-          items: [{ id: '#3', title: 'Third', state: 'ACTIVE', unmetDependencies: [], ticket: `https://github.com/${REPOSITORY}/issues/3`, start: null }],
+          items: [{ id: '#3', title: 'Third', state: 'ACTIVE', unmetDependencies: [], ticket: `https://github.com/${REPOSITORY}/issues/3`, start: null, roles: DEFAULT_ROLES }],
           remainder: 0,
         },
         readyToStart: {
-          items: [{ id: '#2', title: 'Second', state: 'READY', unmetDependencies: [], ticket: `https://github.com/${REPOSITORY}/issues/2`, start: null }],
+          items: [{ id: '#2', title: 'Second', state: 'READY', unmetDependencies: [], ticket: `https://github.com/${REPOSITORY}/issues/2`, start: null, roles: DEFAULT_ROLES }],
           remainder: 0,
         },
         counts: { BACKLOG: 0, READY: 0, MERGED: 0, DONE: 1, CANCELLED: 0, unknown: 0 },
@@ -846,6 +850,7 @@ describe('the task brief on a GitHub tracker', () => {
     branch: string;
     start: string | null;
     review: { text: string; truncated: boolean } | { available: false; reason: string } | null;
+    roles: Roles;
     diagnostics: { code: string; message: string }[];
   };
   type Envelope = { error: { code: string; message: string } };
@@ -889,6 +894,7 @@ describe('the task brief on a GitHub tracker', () => {
         start: null,
         review: { available: false, reason: 'Binnacle reads an issue’s body and never its comments, so no Review is read on GitHub or GitLab.' },
         questions: { available: false, reason: 'Binnacle does not read an issue’s comments yet, so no question or answer is read on GitHub or GitLab.' },
+        roles: DEFAULT_ROLES,
         diagnostics: [],
         byRole: NO_ROLES,
         reworkUnread: null,
@@ -927,6 +933,26 @@ describe('the task brief on a GitHub tracker', () => {
       const command = `/mattpocock-skills:implement https://github.com/${REPOSITORY}/issues/7`;
       assert.equal((await taskGet(daemon, root, '#7')).body.start, command);
       assert.deepEqual((await snapshot(daemon, root)).tasks!.readyToStart.items.map((task) => task.start), [command]);
+    });
+  });
+
+  it('reads an issue’s Roles: line as a local ticket’s, a Developer and a Reviewer without one, and an unknown role as task.unknown_role', async () => {
+    const pages = [
+      [
+        issue(1, 'Named', { body: header({ Status: 'READY', Roles: 'developer, Security, Wizard' }) }),
+        issue(2, 'Unnamed', { body: header({ Status: 'READY' }) }),
+      ],
+    ];
+    await withGitHub(pages, async (daemon, fake) => {
+      const root = makeProject(manifest(fake.base));
+      // The issue's text holds no security word, and there is no graph: nothing is suggested.
+      assert.deepEqual((await taskGet(daemon, root, '#1')).body.roles, { required: ['Developer', 'Security'], source: 'ticket', suggested: [] });
+      assert.deepEqual((await taskGet(daemon, root, '#2')).body.roles, DEFAULT_ROLES);
+      const body = await snapshot(daemon, root);
+      assert.deepEqual(body.tasks!.readyToStart.items.map((task) => task.roles.required), [['Developer', 'Security'], ['Developer', 'Reviewer']]);
+      const unknown = body.attention.filter((item) => item.code === 'task.unknown_role');
+      assert.equal(unknown.length, 1);
+      assert.match(unknown[0]!.message, /#1 .*"Wizard"/);
     });
   });
 

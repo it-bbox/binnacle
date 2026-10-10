@@ -1,6 +1,6 @@
 ---
 name: task
-description: Load the compact brief for one Task, its fields, dependencies, spec path, ticket body, Review, questions with their answers and branch name, ending with the command that starts it. Changes nothing.
+description: Load the compact brief for one Task, its fields, roles, dependencies, spec path, ticket body, Review, questions with their answers and branch name, ending with the command that starts it. Changes nothing.
 argument-hint: "<task id: spec-slug/NN, or #number>"
 disable-model-invocation: true
 ---
@@ -16,6 +16,7 @@ disable-model-invocation: true
    - Any other error: quote its code and message. A `tracker.` code means the tracker could not be read, not that the Task is missing.
 3. Present the brief, compactly:
    - **Task**: id, title, state, triage role and ticket path or URL.
+   - **Roles**: the `required` roles, from the ticket's `Roles:` line, or, when `source` is `default`, a Developer and a Reviewer because it has none; say which. Then each of `suggested`, with its `reason`, as Binnacle's suggestion: its calculation, never part of the ticket. With none, say Binnacle suggests no other role.
    - **Dependencies**: each with its id, title and state, marked met or not met. Say plainly when one is not met, and when one is dangling (`met` is null): it names no known Task, probably a typo in the ticket, and blocks nothing.
    - **Spec**: the path, to read when the ticket needs it. Do not read it now.
    - **Body**: the text as given. If `truncated` is true, say that the brief cut it, and that the full ticket is at the ticket path or URL.

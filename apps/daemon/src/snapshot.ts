@@ -9,6 +9,7 @@ import {
   roadmapAttention,
   startCommand,
   suggestedStep,
+  taskRoles,
   type Alternative,
   type Diagnostic,
   type Epic,
@@ -19,11 +20,12 @@ import {
   type ResolvedTask,
   type Roadmap,
   type TaskReading,
+  type TaskRoles,
   type TaskState,
   type TrackerTask,
 } from '@binnacle/core';
 import { resolveGitTimeout, trackerToken } from './home.ts';
-import { impactSection, type GraphSection } from './graph.ts';
+import { impactSection, touchedBy, type GraphSection } from './graph.ts';
 import { vaultAttention } from './vault.ts';
 import type { Projected } from './projection.ts';
 import type { ProjectRow } from './store.ts';
@@ -47,8 +49,11 @@ type InFlight = 'ACTIVE' | 'BLOCKED' | 'READY_FOR_REVIEW' | 'APPROVED' | 'MERGE_
 
 export type SnapshotTask = Pick<ResolvedTask, 'id' | 'title' | 'state' | 'unmetDependencies' | 'ticket'>;
 export type Section = { items: SnapshotTask[]; remainder: number };
-/** A section whose Tasks each carry the command that starts them (`startCommand`), or null when there is none. */
-export type SectionWithStart = { items: (SnapshotTask & { start: string | null })[]; remainder: number };
+/**
+ * A section whose Tasks each carry the command that starts them (`startCommand`), or null when
+ * there is none, and their roles with Binnacle's suggestions (`taskRoles`).
+ */
+export type SectionWithStart = { items: (SnapshotTask & { start: string | null; roles: TaskRoles })[]; remainder: number };
 
 export type TaskCounts = Record<Exclude<TaskState, InFlight> | 'unknown', number>;
 
@@ -294,14 +299,21 @@ export function taskSections(
   return { inFlight: section(listedInFlight), readyToStart: section(readyToStart), counts, inFlightAndReady: [...listedInFlight, ...readyToStart] };
 }
 
-/** The snapshot's sections, each Task with its start command under the project's `workflow.provider`, and the parallel capacity under `limit`. */
+/**
+ * The snapshot's sections, each Task with its start command under the project's `workflow.provider`
+ * and its roles read against `impact`, and the parallel capacity under `limit`.
+ */
 function withStartAndParallel(
-  { inFlight, readyToStart, counts }: ReturnType<typeof taskSections>,
+  { inFlight, readyToStart, counts, inFlightAndReady }: ReturnType<typeof taskSections>,
   workflow: string | null,
   limit: number,
   impact: Impact | Unavailable,
 ): NonNullable<Snapshot['tasks']> {
-  const startable = ({ items, remainder }: Section): SectionWithStart => ({ items: items.map((task) => ({ ...task, start: startCommand(task, workflow) })), remainder });
+  const byId = new Map(inFlightAndReady.map((task) => [task.id, task]));
+  const startable = ({ items, remainder }: Section): SectionWithStart => ({
+    items: items.map((task) => ({ ...task, start: startCommand(task, workflow), roles: taskRoles(byId.get(task.id)!, touchedBy(impact, task.id)) })),
+    remainder,
+  });
   const inProgress = inFlight.items.length + inFlight.remainder;
   return {
     inFlight: startable(inFlight),

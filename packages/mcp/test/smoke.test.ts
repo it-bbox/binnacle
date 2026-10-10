@@ -110,6 +110,7 @@ test('binn mcp lists its tools, explains a stopped daemon, and proxies the snaps
     start: null,
     review: null,
     questions: { branch: null, items: [] },
+    roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] },
     diagnostics: [],
     reworkUnread: null,
   });

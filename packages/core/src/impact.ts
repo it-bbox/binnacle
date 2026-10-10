@@ -2,7 +2,9 @@
  * The impact and conflict analysis beside the parallel limit: which modules each ready or
  * in-flight Task touches, and the conflict risk of running two of them together. Binnacle's
  * calculation from the Graphify graph (ADR-0036), never a fact a tool reported (ADR-0007).
+ * Beside it, the roles Binnacle suggests for a Task, from the same touched modules.
  */
+import type { Role, TrackerTask } from './tracker.ts';
 
 /**
  * The graph as the analysis reads it. A module is a file of the graph: the `source_file` its
@@ -109,4 +111,56 @@ export function pairRisk(impact: Impact, a: string, b: string): ConflictRisk {
 function named(modules: string[], text: string): string[] {
   const words = new Set(text.split(/[^\w./-]+/).map((word) => word.replace(/^\.\//, '').replace(/\.+$/, '')));
   return modules.filter((module) => words.has(module) || words.has(module.slice(module.lastIndexOf('/') + 1)));
+}
+
+/**
+ * The roles a Task needs: those its `Roles:` line names, or Developer and Reviewer without one,
+ * and beside them the roles Binnacle suggests, each with its reason, as its calculation. A
+ * suggestion never changes the line (ADR-0032).
+ */
+export type TaskRoles = {
+  required: Role[];
+  source: 'ticket' | 'default';
+  suggested: { role: Role; reason: string; provenance: 'calculated' }[];
+};
+
+export const DEFAULT_ROLES: Role[] = ['Developer', 'Reviewer'];
+/** ponytail: a fixed threshold; make it a manifest setting if it proves noisy. */
+export const ARCHITECT_MODULES = 8;
+const SECURITY_WORDS = ['auth', 'token', 'secret', 'credential', 'password', 'permission', 'oauth'];
+
+/**
+ * `task`'s roles, with the suggestions read from `touched`, its modules as the conflict risk
+ * reads them (`Impact['tasks']`), or null without a graph: an Architect when it touches at least
+ * `ARCHITECT_MODULES` modules; Security when a touched module's path or the ticket's title and
+ * body hold one of `SECURITY_WORDS`, or its plural, or `.env`, as a word or path segment. A role
+ * the line names is not suggested.
+ */
+export function taskRoles(
+  task: Pick<TrackerTask, 'roles' | 'title' | 'body'>,
+  touched: Pick<Impact['tasks'][number], 'modules' | 'from'> | null,
+): TaskRoles {
+  const required = task.roles ?? DEFAULT_ROLES;
+  const suggested: TaskRoles['suggested'] = [];
+  const suggest = (role: Role, reason: string): void => {
+    if (!required.includes(role)) suggested.push({ role, reason, provenance: 'calculated' });
+  };
+
+  if (touched !== null && touched.modules.length >= ARCHITECT_MODULES) {
+    const by = touched.from === 'branch' ? 'Its branch changes' : 'Its ticket names';
+    suggest('Architect', `${by} ${touched.modules.length} modules of the graph; ${ARCHITECT_MODULES} or more call for an Architect.`);
+  }
+  const matched = [
+    ...(touched?.modules ?? []).flatMap((module) => securityWords(module).map((word) => `${word} in ${module}`)),
+    ...securityWords(`${task.title ?? ''}\n${task.body}`).map((word) => `${word} in the ticket's text`),
+  ];
+  if (matched.length > 0) suggest('Security', `It touches secrets or authentication: ${matched.join('; ')}.`);
+  return { required, source: task.roles === null ? 'default' : 'ticket', suggested };
+}
+
+/** The security words `text` holds as words, each once, in `SECURITY_WORDS`' order, then `.env`. */
+function securityWords(text: string): string[] {
+  const words = new Set(text.toLowerCase().split(/[^a-z0-9]+/));
+  const found = SECURITY_WORDS.filter((word) => words.has(word) || words.has(`${word}s`));
+  return /(?:^|[^\w.])\.env(?!\w)/i.test(text) ? [...found, '.env'] : found;
 }

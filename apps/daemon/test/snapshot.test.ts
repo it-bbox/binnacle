@@ -123,6 +123,7 @@ describe('Tasks in the Product Snapshot', () => {
             unmetDependencies: [],
             ticket: 'docs/specs/epic/issues/03-build-the-thing.md',
             start: null,
+            roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] },
           },
         ],
         remainder: 0,

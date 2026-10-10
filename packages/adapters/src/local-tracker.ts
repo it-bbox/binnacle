@@ -1,5 +1,5 @@
 import { posix } from 'node:path';
-import { blockedByNumbers, isTaskState, parseTicketHeader, ticketBody, unquote, type Diagnostic, type Question, type TaskReading, type TrackerTask } from '@binnacle/core';
+import { blockedByNumbers, headerRoles, isTaskState, parseTicketHeader, ticketBody, unquote, type Diagnostic, type Question, type TaskReading, type TrackerTask } from '@binnacle/core';
 import type { Tree } from './tree.ts';
 
 /**
@@ -8,7 +8,7 @@ import type { Tree } from './tree.ts';
  * the next answer, and it only ever reads.
  *
  * The ticket header is read through the parser every tracker shares — `Status:`, `Triage:`,
- * `Blocked by:`, `Spec:` — and the body after it up to `## Comments`. Of the comments, which
+ * `Blocked by:`, `Spec:`, `Roles:` — and the body after it up to `## Comments`. Of the comments, which
  * are for the session to read, only the Review and the questions are read (`ticketComments`).
  *
  * `issues` is relative to the tree, as the manifest declares it. The tree is the working
@@ -49,7 +49,7 @@ const ticketNumber = (file: string): number => Number(TICKET_FILE.exec(file)![1]
 const identity = (spec: string, number: string): string => `${spec}/${String(Number(number)).padStart(2, '0')}`;
 
 function parseTicket(spec: string, file: string, ticket: string, text: string, diagnostics: Diagnostic[]): TrackerTask {
-  const { heading, status, blockedBy, spec: specLine, triage } = parseTicketHeader(text);
+  const { heading, status, blockedBy, spec: specLine, triage, roles } = parseTicketHeader(text);
   const id = identity(spec, TICKET_FILE.exec(file)![1]!);
   if (status === null || !isTaskState(status)) {
     diagnostics.push({
@@ -72,6 +72,7 @@ function parseTicket(spec: string, file: string, ticket: string, text: string, d
     ticket,
     body: ticketBody(text.split(COMMENTS)[0]!),
     ...ticketComments(text),
+    roles: headerRoles(roles, `${id} (${ticket})`, diagnostics),
   };
 }
 

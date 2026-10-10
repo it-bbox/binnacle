@@ -1,5 +1,5 @@
 import { commitTree, isAncestor, isGitUnavailable, readBranchCommit, ticketComments, type Tree } from '@binnacle/adapters';
-import { sharedBranch, startCommand, taskBranch, type Diagnostic, type ProjectManifest, type Question, type TaskRole, type TaskState, type TrackerTask } from '@binnacle/core';
+import { sharedBranch, startCommand, taskBranch, type Diagnostic, type ProjectManifest, type Question, type TaskRole, type TaskRoles, type TaskState, type TrackerTask } from '@binnacle/core';
 import { OperationError } from './errors.ts';
 import { defaultCommit } from './graph.ts';
 import { resolveGitTimeout } from './home.ts';
@@ -46,6 +46,8 @@ export type TaskBrief = Pick<TrackerTask, 'id' | 'title' | 'state' | 'triage' | 
    * were read from, null for the caller's checkout. Unavailable on a remote tracker.
    */
   questions: { branch: string | null; items: Question[] } | Unavailable;
+  /** The roles it needs, and beside them Binnacle's suggestions, read against the graph (`taskRoles`). */
+  roles: TaskRoles;
   /** `task.shared_branch` when another Task has the same branch, which then credits neither. */
   diagnostics: Diagnostic[];
   /** Its usage by role over everything ingested, as `usage.get` gives it for the Task. */
@@ -54,11 +56,11 @@ export type TaskBrief = Pick<TrackerTask, 'id' | 'title' | 'state' | 'triage' | 
   reworkUnread: string | null;
 };
 
-/** The brief of `task`, one of `tasks`, the tracker's, which `findTask` read, with its usage by role. */
+/** The brief of `task`, one of `tasks`, the tracker's, which `findTask` read, with its usage by role and its roles. */
 export function taskBrief(
   { tasks, task }: { tasks: TrackerTask[]; task: TrackerTask },
   manifest: ProjectManifest | null,
-  { byRole, reworkUnread, questions }: Pick<TaskBrief, 'byRole' | 'reworkUnread' | 'questions'>,
+  { byRole, reworkUnread, questions, roles }: Pick<TaskBrief, 'byRole' | 'reworkUnread' | 'questions' | 'roles'>,
 ): TaskBrief {
   const byId = new Map(tasks.map((known) => [known.id, known]));
   const remote = manifest?.tracker.provider !== 'local';
@@ -82,6 +84,7 @@ export function taskBrief(
     start: startCommand(task, manifest?.workflow.provider ?? null),
     review: remote ? REVIEW_UNAVAILABLE : task.review === null ? null : cut(task.review, BODY_LIMIT),
     questions,
+    roles,
     diagnostics: shared ? [shared] : [],
     byRole,
     reworkUnread,

@@ -247,6 +247,10 @@ export async function impactSection(
   return conflictRisk(modules, touches);
 }
 
+/** The modules `impact` read for the Task `id`, and where from; null without a graph. */
+export const touchedBy = (impact: Impact | Unavailable, id: string): Impact['tasks'][number] | null =>
+  impact.available ? (impact.tasks.find((task) => task.id === id) ?? null) : null;
+
 /** The last successful run of the project at `path`, and whether a failed one came after it; null when none succeeded. */
 export function lastBuild(store: Store, path: string): { id: number; commit: string; failedSince: boolean } | null {
   const built = store.latestEvent(path, [BUILT]);

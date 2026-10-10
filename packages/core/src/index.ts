@@ -12,10 +12,12 @@ export {
   boardColumn,
   forgeRemote,
   branchTask,
+  headerRoles,
   BRANCH_SLUG_LIMIT,
   parseTicketHeader,
   remoteLocation,
   resolveDependencies,
+  ROLES,
   sharedBranch,
   startCommand,
   taskBranch,
@@ -26,6 +28,7 @@ export {
   type BoardColumn,
   type Diagnostic,
   type ResolvedTask,
+  type Role,
   type TaskReading,
   type TicketHeader,
   type Question,
@@ -43,7 +46,7 @@ export {
   type Roadmap,
   type RoadmapStatus,
 } from './roadmap.ts';
-export { conflictRisk, moduleGraph, pairRisk, type ConflictRisk, type Impact, type ModuleGraph, type TaskTouch } from './impact.ts';
+export { conflictRisk, moduleGraph, pairRisk, taskRoles, type ConflictRisk, type Impact, type ModuleGraph, type TaskRoles, type TaskTouch } from './impact.ts';
 export { instructionSets } from './instructions.ts';
 export {
   isTaskState,

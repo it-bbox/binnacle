@@ -18,6 +18,7 @@ type Brief = {
   start: string | null;
   review: { text: string; truncated: boolean } | Unavailable | null;
   questions: { branch: string | null; items: { text: string; answer: string | null }[] } | Unavailable;
+  roles: { required: string[]; source: 'ticket' | 'default'; suggested: { role: string; reason: string; provenance: 'calculated' }[] };
   diagnostics: Failure[];
 };
 
@@ -80,6 +81,17 @@ const dependency = (item: Brief['dependencies'][number]): string =>
       <dl class="m-0 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-5 gap-y-1.5 text-[12.5px]">
         <dt class="text-muted">{{ t.triage }}</dt>
         <dd class="m-0 font-mono text-xs">{{ data.triage ?? t.none }}</dd>
+        <dt class="text-muted">{{ t.roles }}</dt>
+        <dd class="m-0">
+          <span class="font-mono text-xs">{{ data.roles.required.join(', ') }}</span>
+          <span v-if="data.roles.source === 'default'" class="text-muted"> ({{ t.rolesDefault }})</span>
+          <div v-for="item in data.roles.suggested" :key="item.role" class="flex flex-wrap items-baseline gap-x-1.5" :title="t.suggestedReading">
+            <span class="text-muted">{{ t.suggestedRoles }}</span>
+            <span class="font-mono text-xs">{{ item.role }}</span>
+            <UBadge :label="t.calculated" color="neutral" variant="outline" size="sm" />
+            <span lang="en" class="text-dimmed">{{ item.reason }}</span>
+          </div>
+        </dd>
         <dt class="text-muted">{{ t.blockedBy }}</dt>
         <dd class="m-0">
           <span v-if="data.dependencies.length === 0" class="text-dimmed">{{ t.none }}</span>

@@ -1,5 +1,6 @@
 import {
   blockedByNumbers,
+  headerRoles,
   isTaskState,
   parseTicketHeader,
   ticketBody,
@@ -160,7 +161,7 @@ function closedState(reason: string | null, status: string | null): 'DONE' | 'CA
 function toTask(issue: RemoteIssue, diagnostics: Diagnostic[]): TrackerTask {
   const id = `#${issue.number}`;
   const named = `${id} (${issue.url})`;
-  const { status, blockedBy, spec: specLine } = parseTicketHeader(issue.body ?? '');
+  const { status, blockedBy, spec: specLine, roles } = parseTicketHeader(issue.body ?? '');
   const mismatch = (message: string): void => {
     diagnostics.push({ code: 'tracker.state_mismatch', message: `${named} ${message}` });
   };
@@ -194,5 +195,6 @@ function toTask(issue: RemoteIssue, diagnostics: Diagnostic[]): TrackerTask {
     body: ticketBody(issue.body ?? ''),
     review: null,
     questions: [],
+    roles: headerRoles(roles, named, diagnostics),
   };
 }

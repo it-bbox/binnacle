@@ -108,6 +108,8 @@ export type TrackerTask = {
    * Always empty on a remote tracker, whose comments are not read yet.
    */
   questions: Question[];
+  /** The roles its `Roles:` line names, in the vocabulary's form (`headerRoles`); null when it names none. */
+  roles: Role[] | null;
 };
 
 /** A question recorded in a ticket, with its answer's text, or null while it is unanswered. */
@@ -129,9 +131,10 @@ export type TicketHeader = {
   triage: string | null;
   blockedBy: string | null;
   spec: string | null;
+  roles: string | null;
 };
 
-const HEADER_FIELDS = { Status: 'status', Triage: 'triage', 'Blocked by': 'blockedBy', Spec: 'spec' } as const;
+const HEADER_FIELDS = { Status: 'status', Triage: 'triage', 'Blocked by': 'blockedBy', Spec: 'spec', Roles: 'roles' } as const;
 const HEADER_LINE = /^([^:]+):\s*(.*)$/;
 const HEADING = /^#{1,6}\s+/;
 
@@ -158,7 +161,7 @@ export function ticketBody(text: string): string {
 /** The header, whether its block holds any header field, the text's lines, and the line the block ends before. */
 function readHeader(text: string): { header: TicketHeader; fielded: boolean; lines: string[]; end: number } {
   const lines = text.split(/\r?\n/);
-  const header: TicketHeader = { heading: null, status: null, triage: null, blockedBy: null, spec: null };
+  const header: TicketHeader = { heading: null, status: null, triage: null, blockedBy: null, spec: null, roles: null };
   let fielded = false;
   let line = 0;
   const skipBlank = (): void => {
@@ -179,6 +182,27 @@ function readHeader(text: string): { header: TicketHeader; fielded: boolean; lin
     if (header[field] === null) header[field] = match[2]!.trim();
   }
   return { header, fielded, lines, end: line };
+}
+
+/** The baseline's roles (`docs/00-scope.md`), in the form a `Roles:` line is written back in. */
+export const ROLES = ['Developer', 'Reviewer', 'Architect', 'QA', 'Security', 'DevOps', 'Analyst'] as const;
+export type Role = (typeof ROLES)[number];
+
+/**
+ * The roles a `Roles:` value names, comma-separated, matched case-insensitively against `ROLES`
+ * and written in its form, once each, in the order written; null when it names none, which needs
+ * the default roles. Each other word is `task.unknown_role`, pushed to `diagnostics` for the Task
+ * `named`, and left out.
+ */
+export function headerRoles(value: string | null, named: string, diagnostics: Diagnostic[]): Role[] | null {
+  const roles: Role[] = [];
+  for (const word of (value ?? '').split(',').map((item) => item.trim()).filter(Boolean)) {
+    const role = ROLES.find((known) => known.toLowerCase() === word.toLowerCase());
+    if (role === undefined) {
+      diagnostics.push({ code: 'task.unknown_role', message: `${named} has Roles: ${JSON.stringify(word)}, which is not one of ${ROLES.join(', ')}, and is left out.` });
+    } else if (!roles.includes(role)) roles.push(role);
+  }
+  return roles.length > 0 ? roles : null;
 }
 
 /** In characters of a remote Task's slug, after `feat/<number>-`. */
