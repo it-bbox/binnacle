@@ -1,7 +1,24 @@
 <script setup lang="ts">
 import { call, usePolling } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
-import { count, gitLine, isUnavailable, projectName, SELECTED_VIEW, statusBadge, type Board, type Card, type LatestRun, type Section, type Snapshot, type Unavailable } from '~/composables/projects';
+import {
+  CI_TONE,
+  count,
+  forgeName,
+  gitLine,
+  isUnavailable,
+  projectName,
+  SELECTED_VIEW,
+  statusBadge,
+  type Board,
+  type Card,
+  type CiForge,
+  type CiState,
+  type LatestRun,
+  type Section,
+  type Snapshot,
+  type Unavailable,
+} from '~/composables/projects';
 import type { ProjectUsage } from '~/composables/usage';
 
 type WaitingTask = { id: string; title: string | null; state: string | null; ticket: string };
@@ -12,11 +29,9 @@ type PendingDecisions = {
   owner: Section<WaitingTask>;
 };
 
-/** A commit's CI state, as the forge reports it. */
-type CiState = { value: 'passing' | 'failing' | 'running' | 'none'; provenance: 'provider_reported' };
 /** The snapshot's `ci`: the default branch's latest commit and the open pull requests, with the Task each maps to. */
 type Ci = {
-  forge: { provider: 'github' | 'gitlab'; host: string; repository: string; from: 'tracker' | 'remote' };
+  forge: CiForge;
   defaultBranch: { branch: string; commit: string; state: CiState; url: string; at: string | null };
   requests: Section<{ number: number; title: string; branch: string; taskId: string | null; draft: boolean; state: CiState; url: string }>;
 };
@@ -26,10 +41,6 @@ type ProjectSnapshot = Snapshot & {
   pendingDecisions: PendingDecisions | Unavailable;
   ci: Ci | Unavailable;
 };
-
-/** How each CI state is coloured: a failing one warns. */
-const CI_TONE: Record<CiState['value'], string> = { passing: 'text-success', failing: 'text-error', running: 'text-warning', none: 'text-dimmed' };
-const forgeName = (ci: Ci): string => (ci.forge.provider === 'github' ? 'GitHub' : 'GitLab');
 
 type ColumnKey = keyof Board['columns'];
 
@@ -427,7 +438,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
               · <span :class="CI_TONE[item.state.value]">{{ t.ciStates[item.state.value] }}</span>
             </div>
             <div v-if="snapshot.ci.requests.remainder > 0" class="text-xs text-dimmed">{{ t.more(number(snapshot.ci.requests.remainder)) }}</div>
-            <div class="text-[11.5px] leading-snug text-dimmed">{{ t.ciReported(forgeName(snapshot.ci)) }}</div>
+            <div class="text-[11.5px] leading-snug text-dimmed">{{ t.ciReported(forgeName(snapshot.ci.forge)) }}</div>
           </template>
         </section>
       </div>

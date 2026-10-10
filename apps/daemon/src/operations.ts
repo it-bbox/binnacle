@@ -8,6 +8,7 @@ import { readManifest } from './manifest.ts';
 import { projectRegistry, reproject, type Projected } from './projection.ts';
 import { containingEntry, readRegistry, writeRegistry, type RegistryEntry } from './registry.ts';
 import { promotedItems, promotionDiagnostics, promotionTargets } from './checkpoint.ts';
+import { taskRequest } from './ci.ts';
 import { BASELINE_EVENTS, committedHead, daily, isRemoteTracker, taskStates, type Baseline, type BaselineEvent, type TaskStates } from './daily.ts';
 import { graphSection, impactSection, touchedBy } from './graph.ts';
 import { readTasks, snapshot, type CallerCheckout } from './snapshot.ts';
@@ -187,12 +188,13 @@ export const operations: Record<string, Operation> = {
     const found = await findTask(context.home, workingTree(caller.project), projected.manifest, id);
     // Its roles read against the graph as the snapshot reads them, so that both suggest the same.
     const { graph } = await graphSection(context.store, context.searchPath, projected.row.path, projected.manifest);
-    const [usage, questions, impact] = await Promise.all([
+    const [usage, questions, impact, request] = await Promise.all([
       taskByRole(context, projected.row.path, projected.manifest, found.tasks, found.task),
       taskQuestions(projected.row.path, projected.manifest, found.task),
       impactSection(projected.row.path, graph, [found.task], projected.manifest?.tracker.provider !== 'local'),
+      taskRequest(context.home, projected.manifest, caller.git, found.tasks, found.task),
     ]);
-    return taskBrief(found, projected.manifest, { ...usage, questions, roles: taskRoles(found.task, touchedBy(impact, found.task.id)) });
+    return taskBrief(found, projected.manifest, { ...usage, questions, request, roles: taskRoles(found.task, touchedBy(impact, found.task.id)) });
   },
 
   // The board: one epic's Tasks in their columns, In progress read from runs where the ticket still says READY (ADR-0032).

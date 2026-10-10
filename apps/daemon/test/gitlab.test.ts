@@ -512,6 +512,7 @@ describe('the task brief on a GitLab tracker', () => {
         diagnostics: [],
         byRole: NO_ROLES,
         reworkUnread: null,
+        request: { available: false, reason: `The forge is GitLab (${REPOSITORY}), and this version of Binnacle reads CI from GitHub only.` },
       });
       assert.equal((await taskGet(daemon, root, '3')).body.id, '#3');
       assert.equal((await taskGet(daemon, root, '#9')).body.error.code, 'task.not_found');

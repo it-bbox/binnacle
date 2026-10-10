@@ -123,10 +123,17 @@ function commitState(runs: CheckRun[], statuses: { state?: string }[]): CiState 
 /**
  * A GitHub repository's CI (`CiReading`), read with `token` or anonymously from the declared
  * host only: its default branch, that branch's latest commit and the commit's state, and the open
- * pull requests through every page, the first `limit` with their head commits' states.
+ * pull requests through every page whose head branch `keep` keeps, the first `limit` with their
+ * head commits' states.
  * ponytail: one page of 100 check runs per commit; follow the pages once a commit has more.
  */
-export async function readGitHubCi(repository: string, host: string | null, token: string | null, limit: number): Promise<CiReading> {
+export async function readGitHubCi(
+  repository: string,
+  host: string | null,
+  token: string | null,
+  limit: number,
+  keep: (branch: string) => boolean = () => true,
+): Promise<CiReading> {
   const root = githubApiRoot(host);
   const repo = `${root}/repos/${repository.split('/').map(encodeURIComponent).join('/')}`;
   const where = `${repository} at ${root}`;
@@ -150,7 +157,8 @@ export async function readGitHubCi(repository: string, host: string | null, toke
   const { sha, html_url: url } = commit.entry;
   if (typeof sha !== 'string') return missing(`commit of ${branch}`);
   if (!isWebLink(url)) return missing(`link to the commit of ${branch}`);
-  const listed = (pulls as Pull[]).slice(0, limit);
+  const kept = (pulls as Pull[]).filter((pull) => keep(pull.head.ref));
+  const listed = kept.slice(0, limit);
   const unlinked = listed.find((pull) => !isWebLink(pull.html_url));
   if (unlinked !== undefined) return missing(`link to pull request #${unlinked.number}`);
   const states = await Promise.all([state(sha), ...listed.map((pull) => state(pull.head.sha))]);
@@ -165,7 +173,7 @@ export async function readGitHubCi(repository: string, host: string | null, toke
       items: listed.map(
         (pull, index): CiRequest => ({ number: pull.number, title: pull.title, branch: pull.head.ref, draft: pull.draft ?? false, state: reported(index + 1), url: pull.html_url }),
       ),
-      remainder: Math.max(0, pulls.length - limit),
+      remainder: Math.max(0, kept.length - limit),
     },
   };
 }

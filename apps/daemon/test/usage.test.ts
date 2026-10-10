@@ -1634,7 +1634,8 @@ describe('Rework after a review on GitHub or GitLab', () => {
           const { derived } = await usageGet<ProjectUsage>(daemon, root);
           assert.deepEqual(available(derived.reworkShare), { provenance: 'calculated', items: [{ id: '#7', title: 'Seven', share: null }], remainder: 0, mean: null });
           assert.deepEqual(available(derived.firstPassAcceptance), { provenance: 'calculated', items: [], remainder: 0, share: null });
-          assert.deepEqual(github.requests.filter(({ url }) => url.pathname.includes('/pulls')), []);
+          // The brief's CI lists the open pull requests; rework asks for none, nor for any review.
+          assert.deepEqual(github.requests.filter(({ url }) => url.pathname.includes('/pulls') && url.searchParams.get('state') !== 'open'), []);
         }),
       );
     } finally {

@@ -1,6 +1,6 @@
 ---
 name: task
-description: Load the compact brief for one Task, its fields, roles, dependencies, spec path, ticket body, Review, questions with their answers and branch name, ending with the command that starts it. Changes nothing.
+description: Load the compact brief for one Task, its fields, roles, dependencies, spec path, ticket body, Review, questions with their answers, pull or merge request with its CI state and branch name, ending with the command that starts it. Changes nothing.
 argument-hint: "<task id: spec-slug/NN, or #number>"
 disable-model-invocation: true
 ---
@@ -22,6 +22,7 @@ disable-model-invocation: true
    - **Body**: the text as given. If `truncated` is true, say that the brief cut it, and that the full ticket is at the ticket path or URL.
    - **Review**: the text as given, cut like the body when `truncated` is true. When `review` is null, say that the ticket records none; when it is not available, quote its reason.
    - **Questions and answers**: each of `questions.items` in order, its `text` as given, then its `answer` as given, or "Unanswered" when `answer` is null. When `questions.branch` is not null, say they were read from the ticket on that branch, which is not merged yet. When `items` is empty, say the ticket records no question; when `questions` is not available, quote its reason.
+   - **Pull request**: from `request`, as the forge reports it, never Binnacle's reading: its number, title, branch, whether it is a draft, its CI `state` (`passing`, `failing`, `running`, or `none`: no check at all) and its link, naming the forge, `forge.provider`. When `request` is null, say the Task has no open pull or merge request; when it is not available, quote its reason.
 4. State the branch name: "The branch for this Task is `<branch>`." Then quote each of the brief's `diagnostics`, if any, with its code and message.
 5. End with the brief's `start`, the same command the dashboard shows for this Task: "To start it, in a fresh session:", then the command on its own line, as code. When `start` is null, say why instead: the Task is `DONE` or `CANCELLED`, when its state is one of them, and otherwise the project's workflow is not Matt Pocock's (`workflow.provider` is not `matt-pocock`), so Binnacle offers no command for it.
 

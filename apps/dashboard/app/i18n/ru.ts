@@ -259,6 +259,8 @@ export const ru: Dictionary = {
   noQuestions: 'В тикете нет вопросов.',
   unanswered: 'Без ответа',
   questionsFromBranch: (branch) => `Прочитаны из тикета на ветке ${branch}, она ещё не слита.`,
+  pullRequest: 'Pull request',
+  noRequest: 'Открытого pull или merge request нет.',
 
   // Страница расхода.
   usageNote: 'Токены прочитаны из артефактов агентов. Вид, о котором не сообщает ни одна запись, — «не сообщается», а не ноль.',

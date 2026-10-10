@@ -33,11 +33,17 @@ function forgeOf(manifest: ProjectManifest | null, git: GitFacts): CiForge | nul
 /**
  * The forge's CI as it is now, read on request and uncached (`ponytail:` until a forge's rate
  * limit is reached in practice), with the token Binnacle holds for the forge's host or none;
- * `limit` requests listed. Unavailable with the reason when there is no forge or it cannot be read.
- * `tasks` maps a request to the Task its branch names (`branchTask`); read later, so that the
- * forge and the tracker are read at once.
+ * `limit` requests listed of those whose branch `keep` keeps. Unavailable with the reason when there
+ * is no forge or it cannot be read. `tasks` maps a request to the Task its branch names
+ * (`branchTask`); read later, so that the forge and the tracker are read at once.
  */
-export async function readCi(home: string, manifest: ProjectManifest | null, git: GitFacts, limit: number): Promise<(tasks: TrackerTask[] | null) => Ci | Unavailable> {
+export async function readCi(
+  home: string,
+  manifest: ProjectManifest | null,
+  git: GitFacts,
+  limit: number,
+  keep?: (branch: string) => boolean,
+): Promise<(tasks: TrackerTask[] | null) => Ci | Unavailable> {
   const forge = forgeOf(manifest, git);
   const unavailable = (reason: string) => (): Unavailable => ({ available: false, reason });
   if (forge === null) return unavailable(NO_FORGE);
@@ -47,7 +53,7 @@ export async function readCi(home: string, manifest: ProjectManifest | null, git
   // credentials file's entry for that host is sent there, never the environment's token.
   const credential = trackerToken(home, forge.provider, forge.host, forge.from === 'remote' && forge.host !== null ? {} : process.env);
   if ('failure' in credential) return unavailable(credential.failure.message);
-  const reading = await readGitHubCi(forge.repository, forge.host, credential.token, limit);
+  const reading = await readGitHubCi(forge.repository, forge.host, credential.token, limit, keep);
   if ('reason' in reading) return unavailable(reading.reason);
 
   const remote = manifest?.tracker.provider !== 'local';
@@ -59,6 +65,30 @@ export async function readCi(home: string, manifest: ProjectManifest | null, git
       remainder: reading.requests.remainder,
     },
   });
+}
+
+/** A Task's pull or merge request, with its CI state and the forge that reports it. */
+export type TaskRequest = Omit<Ci['requests']['items'][number], 'taskId'> & { forge: Ci['forge'] };
+
+/**
+ * The open request whose branch maps to `task`, one of `tasks` (`branchTask`), the first the forge
+ * lists when several do; null when none does; unavailable, with the reason, as the `ci` section is.
+ * Only its state is read, wherever it falls in the forge's list.
+ */
+export async function taskRequest(
+  home: string,
+  manifest: ProjectManifest | null,
+  git: GitFacts,
+  tasks: TrackerTask[],
+  task: TrackerTask,
+): Promise<TaskRequest | null | Unavailable> {
+  const remote = manifest?.tracker.provider !== 'local';
+  const ci = (await readCi(home, manifest, git, 1, (branch) => branchTask(branch, tasks, remote) === task))(tasks);
+  if ('available' in ci) return ci;
+  const [request] = ci.requests.items;
+  if (request === undefined) return null;
+  const { taskId: _, ...listed } = request;
+  return { forge: ci.forge, ...listed };
 }
 
 /** `ci.failing` when the default branch's latest commit is failing. */

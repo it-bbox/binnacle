@@ -117,7 +117,8 @@ A roadmap that cannot be read, and a project or epic with no Tasks, each show th
 - the ticket's body and its Review, as plain text, or "no Review yet";
 - AgentRun timeline;
 - usage by role: implementation, review and rework side by side, labelled as Binnacle's calculation from the Task branch's commits (*Run roles*), with the reason when the Task's rework cannot be read on GitHub or GitLab;
-- questions/answers — not available: they are not yet explicit artifacts;
+- questions/answers, each question with its answer or as unanswered, and the branch they were read from;
+- the Task's pull or merge request, from `task.get`'s `request`: its number linked to the forge, its title, whether it is a draft, its branch and its CI state as the forge reports it; none when it has no open one, or not available, with the reason;
 - branch/worktree.
 
 ### Usage

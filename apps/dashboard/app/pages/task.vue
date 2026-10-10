@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { call, usePolling, type Failure } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
-import { isUnavailable, type Unavailable } from '~/composables/projects';
+import { CI_TONE, forgeName, isUnavailable, type CiForge, type CiState, type Unavailable } from '~/composables/projects';
 import { tokensLine, type TaskUsage } from '~/composables/usage';
 
 /** `task.get`'s brief, as the Task page renders it. */
@@ -19,6 +19,8 @@ type Brief = {
   review: { text: string; truncated: boolean } | Unavailable | null;
   questions: { branch: string | null; items: { text: string; answer: string | null }[] } | Unavailable;
   roles: { required: string[]; source: 'ticket' | 'default'; suggested: { role: string; reason: string; provenance: 'calculated' }[] };
+  /** Its open pull or merge request with its CI state, as the forge reports it. */
+  request: { forge: CiForge; number: number; title: string; branch: string; draft: boolean; state: CiState; url: string } | Unavailable | null;
   diagnostics: Failure[];
 };
 
@@ -111,6 +113,21 @@ const dependency = (item: Brief['dependencies'][number]): string =>
         <dd class="m-0 font-mono text-xs break-all">{{ data.ticket }}</dd>
         <dt class="text-muted">{{ t.branch }}</dt>
         <dd class="m-0 font-mono text-xs break-all">{{ data.branch }}</dd>
+        <dt class="text-muted">{{ t.pullRequest }}</dt>
+        <dd class="m-0">
+          <span v-if="data.request === null" class="text-dimmed">{{ t.noRequest }}</span>
+          <template v-else-if="isUnavailable(data.request)">
+            <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="data.request.reason" /></span>
+          </template>
+          <div v-else class="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
+            <a :href="data.request.url" target="_blank" rel="noopener noreferrer" class="font-mono text-xs text-default underline">#{{ data.request.number }}</a>
+            <span lang="en">{{ data.request.title }}</span>
+            <span v-if="data.request.draft" class="text-dimmed">({{ t.draft }})</span>
+            · <code class="font-mono text-xs text-dimmed">{{ data.request.branch }}</code>
+            · <span class="font-medium" :class="CI_TONE[data.request.state.value]">{{ t.ciStates[data.request.state.value] }}</span>
+            <span class="text-[11.5px] text-dimmed">{{ t.ciReported(forgeName(data.request.forge)) }}</span>
+          </div>
+        </dd>
       </dl>
       <div v-for="(item, index) in data.diagnostics" :key="index" lang="en" class="text-warning">
         <code class="font-mono">{{ item.code }}</code> {{ item.message }}

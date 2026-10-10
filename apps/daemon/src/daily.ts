@@ -1,5 +1,6 @@
 import { commitTree, EMPTY_TREE, isAncestor, isGitUnavailable, readCommit, readCommitBefore, readLog, type Commit, type Tree } from '@binnacle/adapters';
 import type { Diagnostic, ProjectManifest, ResolvedTask, RoadmapStatus, TaskState } from '@binnacle/core';
+import { ciAttention, readCi, type Ci } from './ci.ts';
 import { OperationError } from './errors.ts';
 import { resolveGitTimeout } from './home.ts';
 import type { Projected } from './projection.ts';
@@ -10,6 +11,7 @@ import {
   readQuestions,
   readState,
   section,
+  SECTION_LIMIT,
   taskSections,
   trackerUnavailable,
   type CallerCheckout,
@@ -95,7 +97,9 @@ export type Daily = {
    * from an unmerged branch as the snapshot reads them, and so not only what changed.
    */
   pendingDecisions: PendingDecisions | Unavailable;
-  /** As the snapshot computes it, at HEAD. */
+  /** The snapshot's `ci`, as of now, its requests mapped to the Tasks at HEAD. */
+  ci: Ci | Unavailable;
+  /** As the snapshot computes it, at HEAD, `ci.failing` included. */
   attention: Diagnostic[];
 };
 
@@ -125,12 +129,14 @@ export async function daily(
     const { from, fallback } = await startingPoint(cwd, head, baseline, recorded, timeout);
     const beforeTree = from.commit === null ? EMPTY_TREE : commitTree(cwd, from.commit, timeout);
     const afterTree = commitTree(cwd, head, timeout);
-    const [commits, before, after] = await Promise.all([
+    const [commits, before, after, forge] = await Promise.all([
       readLog(cwd, from.commit, head, timeout),
       // The baseline's own attention items are not news. A remote tracker has no past to read here.
       readState(home, beforeTree, projected, [], { readRemoteTracker: false }),
       readState(home, afterTree, projected, diagnostics),
+      readCi(home, projected.manifest, caller.git, SECTION_LIMIT),
     ]);
+    const ci = forge(after.tasks);
 
     const remote = isRemoteTracker(projected.manifest);
     const was = remote ? recordedStates(baseline, fallback, recorded) : before.tasks && taskStates(before.tasks);
@@ -149,7 +155,8 @@ export async function daily(
       pendingDecisions: after.tasks
         ? pendingDecisions(after.tasks, attributed, await readQuestions(projected.row.path, projected.manifest, after.tasks))
         : trackerUnavailable(after.unreadable),
-      attention: after.attention,
+      ci,
+      attention: [...after.attention, ...ciAttention(ci)],
     };
     // An unreadable tracker records no states, so that the next delta says so instead of guessing.
     return { delta, states: remote && after.tasks ? taskStates(after.tasks) : null };

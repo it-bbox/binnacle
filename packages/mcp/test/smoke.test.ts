@@ -113,6 +113,7 @@ test('binn mcp lists its tools, explains a stopped daemon, and proxies the snaps
     roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] },
     diagnostics: [],
     reworkUnread: null,
+    request: { available: false, reason: 'There is no forge to read CI from: the tracker is not GitHub or GitLab, and there is no Git remote on GitHub or GitLab.' },
   });
 
   // binn call prints exactly what the tools return, for the working directory.

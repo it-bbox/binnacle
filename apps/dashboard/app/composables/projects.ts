@@ -151,3 +151,11 @@ export const statusBadge = (status: string) =>
     : status === 'in progress'
       ? { color: 'primary' as const, variant: 'soft' as const }
       : { color: status === 'not started' ? ('neutral' as const) : ('primary' as const), variant: 'outline' as const };
+
+/** A commit's CI state, as the forge reports it. */
+export type CiState = { value: 'passing' | 'failing' | 'running' | 'none'; provenance: 'provider_reported' };
+/** Where CI is read from, as the snapshot's `ci` and the brief's `request` name it. */
+export type CiForge = { provider: 'github' | 'gitlab'; host: string; repository: string; from: 'tracker' | 'remote' };
+/** How each CI state is coloured: a failing one warns. */
+export const CI_TONE: Record<CiState['value'], string> = { passing: 'text-success', failing: 'text-error', running: 'text-warning', none: 'text-dimmed' };
+export const forgeName = (forge: CiForge): string => (forge.provider === 'github' ? 'GitHub' : 'GitLab');

@@ -966,7 +966,10 @@ describe('the task brief on a GitHub tracker', () => {
       const root = makeProject(manifest(fake.base));
       const result = await taskGet(daemon, root, '#5');
       assert.equal(result.status, 200, JSON.stringify(result.body));
-      assert.deepEqual(result.body, {
+      // This fake serves no repository, so CI cannot be read: ci.test.ts reads the request.
+      const { request, ...brief } = result.body as Brief & Envelope & { request: { available: false; reason: string } };
+      assert.match(request.reason, /\(404\)/);
+      assert.deepEqual(brief, {
         id: '#5',
         title: 'Add a task brief: `task.get` & friends!',
         state: 'READY',
@@ -992,8 +995,9 @@ describe('the task brief on a GitHub tracker', () => {
       const other = (await taskGet(daemon, root, '#6')).body;
       assert.equal(other.triage, null, 'a label is a triage role only verbatim');
       assert.equal(other.spec, 'docs/specs/second/spec.md');
-      // Besides the issues, only the repository's issue comments are read.
-      assert.ok(fake.requests.every((url) => [`/repos/${REPOSITORY}/issues`, `/repos/${REPOSITORY}/issues/comments`].includes(url.pathname)));
+      // Besides the issues, only the repository's issue comments are read, and CI: the repository and its pull requests.
+      const read = [`/repos/${REPOSITORY}/issues`, `/repos/${REPOSITORY}/issues/comments`, `/repos/${REPOSITORY}`, `/repos/${REPOSITORY}/pulls`];
+      assert.ok(fake.requests.every((url) => read.includes(url.pathname)));
     });
   });
 

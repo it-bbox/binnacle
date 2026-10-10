@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { after, describe, it } from 'node:test';
@@ -21,6 +23,7 @@ type Daily = {
   decisions: Section<{ title: string | null; path: string; change: string }> | null;
   readyToStart: Section<SnapshotTask> | null;
   pendingDecisions: unknown;
+  ci: unknown;
   attention: { code: string; message: string }[];
 };
 type Event = { type: string; projectPath: string | null; payload: Record<string, unknown> };
@@ -222,6 +225,57 @@ describe('the daily delta', () => {
         available: false,
         reason: 'tracker.provider is local, and this project declares no tracker.local.issues.',
       });
+    });
+  });
+
+  it('carries CI as of now, from the forge: the default branch, the open pull requests with their Tasks, and ci.failing', async () => {
+    const sha = 'a'.repeat(40);
+    const repo = '/repos/octo/daily';
+    const routes: Record<string, unknown> = {
+      [repo]: { default_branch: 'main' },
+      [`${repo}/issues`]: [{ number: 2, title: 'Second', state: 'open', body: 'Status: ACTIVE', labels: [], html_url: 'https://github.com/octo/daily/issues/2' }],
+      [`${repo}/issues/comments`]: [],
+      [`${repo}/pulls`]: [{ number: 7, title: 'Second step', draft: false, html_url: 'https://github.com/octo/daily/pull/7', head: { ref: 'feat/2-second', sha } }],
+      [`${repo}/commits/main`]: { sha, html_url: `https://github.com/octo/daily/commit/${sha}` },
+      [`${repo}/commits/${sha}/check-runs`]: { check_runs: [{ status: 'completed', conclusion: 'failure' }] },
+      [`${repo}/commits/${sha}/status`]: { statuses: [] },
+    };
+    const forge = createServer((request, response) => {
+      const body = routes[new URL(request.url ?? '/', 'http://forge').pathname];
+      response.writeHead(body === undefined ? 404 : 200, { 'content-type': 'application/json' });
+      response.end(JSON.stringify(body ?? { message: 'Not Found' }));
+    });
+    await new Promise<void>((resolve) => forge.listen(0, '127.0.0.1', resolve));
+    try {
+      await withDaemon(async (daemon) => {
+        const root = makeRepository();
+        const host = `http://127.0.0.1:${(forge.address() as AddressInfo).port}`;
+        write(root, '.binnacle/project.yaml', `version: 1\n\nproject:\n  id: daily-forge\n\ntracker:\n  provider: github\n  repository: octo/daily\n  host: ${host}\n`);
+        commitAll(root, 'The tracker is GitHub');
+        await register(daemon, root);
+        const { ci, attention } = await daily(daemon, root);
+        assert.deepEqual(ci, {
+          forge: { provider: 'github', host, repository: 'octo/daily', from: 'tracker' },
+          defaultBranch: { branch: 'main', commit: sha, state: { value: 'failing', provenance: 'provider_reported' }, url: `https://github.com/octo/daily/commit/${sha}`, at: null },
+          requests: {
+            items: [{ number: 7, title: 'Second step', branch: 'feat/2-second', taskId: '#2', draft: false, state: { value: 'failing', provenance: 'provider_reported' }, url: 'https://github.com/octo/daily/pull/7' }],
+            remainder: 0,
+          },
+        });
+        assert.deepEqual(attention.filter((item) => item.code === 'ci.failing').length, 1);
+      });
+    } finally {
+      await new Promise((resolve) => forge.close(resolve));
+    }
+  });
+
+  it('says CI is unavailable, with the reason, when there is no forge to read it from', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeRepository();
+      await register(daemon, root);
+      const { ci } = await daily(daemon, root);
+      assert.equal((ci as { available: false }).available, false);
+      assert.match((ci as { reason: string }).reason, /no forge to read CI from/);
     });
   });
 

@@ -436,7 +436,7 @@ function snapshotNote(name: string, snapshot: Snapshot, link: Link): string {
   return `${parts.join('\n\n')}\n`;
 }
 
-/** The daily delta as a note: its range, the commits, the Task changes, what waits for the owner, the roadmap changes, the ADRs and the attention. */
+/** The daily delta as a note: its range, the commits, the Task changes, what waits for the owner, CI, the roadmap changes, the ADRs and the attention. */
 function dailyNote(name: string, daily: Daily, link: Link): string {
   const tasks = <T>(value: { items: T[]; remainder: number } | Unavailable | null, line: (item: T) => string): string =>
     value === null ? 'The tracker cannot be read now; the attention says why.' : unavailable(value) ? `Not available: ${value.reason}` : list(value.items, line, value.remainder);
@@ -452,6 +452,7 @@ function dailyNote(name: string, daily: Daily, link: Link): string {
     '## Ready to start',
     tasks(daily.readyToStart, task(link)),
     ...waiting(daily.pendingDecisions, link),
+    ...ciNote(daily.ci),
     '## Roadmap',
     daily.roadmap === null ? 'There is no roadmap.' : list(daily.roadmap, (epic) => `Epic ${epic.number}, ${epic.title}: ${epic.from ?? 'new'} → ${epic.to}`),
     '## Decisions',

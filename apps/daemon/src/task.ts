@@ -1,5 +1,6 @@
 import type { Tree } from '@binnacle/adapters';
 import { sharedBranch, startCommand, taskBranch, type Diagnostic, type ProjectManifest, type TaskRole, type TaskRoles, type TaskState, type TrackerTask } from '@binnacle/core';
+import type { TaskRequest } from './ci.ts';
 import { OperationError } from './errors.ts';
 import type { Totals } from '@binnacle/telemetry';
 import { cut, readQuestions, readTracker, type TaskQuestions, type Unavailable } from './snapshot.ts';
@@ -41,6 +42,11 @@ export type TaskBrief = Pick<TrackerTask, 'id' | 'title' | 'state' | 'triage' | 
   questions: TaskQuestions | Unavailable;
   /** The roles it needs, and beside them Binnacle's suggestions, read against the graph (`taskRoles`). */
   roles: TaskRoles;
+  /**
+   * Its pull or merge request, mapped by its branch (`taskRequest`), with its CI state as the forge
+   * reports it; null when it has none open; unavailable with the reason, as the snapshot's `ci` is.
+   */
+  request: TaskRequest | null | Unavailable;
   /** `task.shared_branch` when another Task has the same branch, which then credits neither. */
   diagnostics: Diagnostic[];
   /** Its usage by role over everything ingested, as `usage.get` gives it for the Task. */
@@ -53,7 +59,7 @@ export type TaskBrief = Pick<TrackerTask, 'id' | 'title' | 'state' | 'triage' | 
 export function taskBrief(
   { tasks, task }: { tasks: TrackerTask[]; task: TrackerTask },
   manifest: ProjectManifest | null,
-  { byRole, reworkUnread, questions, roles }: Pick<TaskBrief, 'byRole' | 'reworkUnread' | 'questions' | 'roles'>,
+  { byRole, reworkUnread, questions, roles, request }: Pick<TaskBrief, 'byRole' | 'reworkUnread' | 'questions' | 'roles' | 'request'>,
 ): TaskBrief {
   const byId = new Map(tasks.map((known) => [known.id, known]));
   const remote = manifest?.tracker.provider !== 'local';
@@ -78,6 +84,7 @@ export function taskBrief(
     review: remote ? REVIEW_UNAVAILABLE : task.review === null ? null : cut(task.review, BODY_LIMIT),
     questions,
     roles,
+    request,
     diagnostics: shared ? [shared] : [],
     byRole,
     reworkUnread,

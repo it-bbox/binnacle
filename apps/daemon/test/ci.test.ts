@@ -449,3 +449,109 @@ describe('the vault’s snapshot note', () => {
     });
   });
 });
+
+type TaskRequest = { forge: Exclude<Ci, { available: false }>['forge']; number: number; title: string; branch: string; draft: boolean; state: State; url: string };
+type Unread = { available: false; reason: string };
+
+async function requestOf(daemon: TestDaemon, root: string, id: string): Promise<TaskRequest | Unread | null> {
+  await daemon.call('project.register', { path: root });
+  const { status, body } = await daemon.call<{ request: TaskRequest | Unread | null }>('task.get', { path: root, id });
+  assert.equal(status, 200, JSON.stringify(body));
+  return body.request;
+}
+
+/** Issues #2 and #3, open, which pull requests' branches map to by number. */
+const issues = (url: URL): Reply | null =>
+  url.pathname === `/repos/${REPOSITORY}/issues`
+    ? {
+        status: 200,
+        body: [2, 3].map((number) => ({ number, title: `Step ${number}`, state: 'open', body: 'Status: ACTIVE', labels: [], html_url: `https://github.com/${REPOSITORY}/issues/${number}` })),
+      }
+    : null;
+
+describe('the Task’s request on task_get', () => {
+  it('is the open pull request its branch maps to, with its CI state, found past the snapshot’s limit, no other request’s state read', async () => {
+    await withForge(async (daemon, fake) => {
+      fake.reply = issues;
+      fake.pulls = [
+        ...Array.from({ length: 11 }, (_, index) => ({ number: 20 + index, title: `More ${index}`, branch: `more-${index}`, sha: String(index).repeat(40) })),
+        { number: 7, title: 'Second step', branch: 'feat/2-second', sha: 'b'.repeat(40), draft: true },
+      ];
+      fake.checks['b'.repeat(40)] = [run('completed', 'failure')];
+      const request = await requestOf(daemon, githubProject(fake), '#2');
+      assert.deepEqual(request, {
+        forge: { provider: 'github', host: fake.base, repository: REPOSITORY, from: 'tracker' },
+        number: 7,
+        title: 'Second step',
+        branch: 'feat/2-second',
+        draft: true,
+        state: reported('failing'),
+        url: `https://github.com/${REPOSITORY}/pull/7`,
+      });
+      assert.ok(!fake.requests.some((url) => /\/commits\/[0-9]{40}\//.test(url.pathname)));
+    });
+  });
+
+  it('is null for a Task with no open pull request', async () => {
+    await withForge(async (daemon, fake) => {
+      fake.reply = issues;
+      fake.pulls = [{ number: 7, title: 'Second step', branch: 'feat/2-second', sha: 'b'.repeat(40) }];
+      assert.equal(await requestOf(daemon, githubProject(fake), '#3'), null);
+    });
+  });
+
+  it('maps a pull request to a local ticket by the branch its Task names, the forge read from the Git remote', async () => {
+    await withForge(async (daemon, fake) => {
+      redirect = fake.base;
+      fake.pulls = [{ number: 3, title: 'First step', branch: 'feat/first-step', sha: 'b'.repeat(40) }];
+      fake.statuses['b'.repeat(40)] = ['success'];
+      const request = (await requestOf(daemon, localProject(`https://github.com/${REPOSITORY}.git`), 'alpha/01')) as TaskRequest;
+      assert.equal(request.number, 3);
+      assert.deepEqual(request.state, reported('passing'));
+      assert.equal(request.forge.from, 'remote');
+    });
+  });
+
+  for (const status of [401, 403, 429]) {
+    it(`is unavailable with the forge’s reason on a ${status}, the brief still served`, async () => {
+      await withForge(async (daemon, fake) => {
+        fake.reply = (url) => issues(url) ?? (url.pathname.includes('/issues') ? null : { status, body: { message: 'No' } });
+        const request = (await requestOf(daemon, githubProject(fake), '#2')) as Unread;
+        assert.equal(request.available, false);
+        assert.match(request.reason, new RegExp(`\\(${status}\\)`));
+      });
+    });
+  }
+
+  it('is unavailable, saying so, without a forge', async () => {
+    await withForge(async (daemon) => {
+      const request = (await requestOf(daemon, localProject(null), 'alpha/01')) as Unread;
+      assert.match(request.reason, /no Git remote on GitHub or GitLab/);
+      assert.deepEqual(outbound, []);
+    });
+  });
+});
+
+describe('the daily’s ci section', () => {
+  it('is CI as of now, its requests mapped to the Tasks at HEAD, a failing default branch ci.failing, and the vault’s daily note carries it', async () => {
+    await withForge(async (daemon, fake) => {
+      redirect = fake.base;
+      const vault = temporary('binnacle-ci-daily-vault-');
+      writeFileSync(join(daemon.home, 'settings.json'), JSON.stringify({ obsidian: { vaultPath: vault } }), { mode: 0o600 });
+      fake.checks[MAIN_SHA] = [run('completed', 'failure')];
+      fake.pulls = [{ number: 3, title: 'First step', branch: 'feat/first-step', sha: 'b'.repeat(40) }];
+      const root = localProject(`https://github.com/${REPOSITORY}.git`);
+      await daemon.call('project.register', { path: root });
+      const { status, body } = await daemon.call<Snapshot>('daily.get', { path: root });
+      assert.equal(status, 200, JSON.stringify(body));
+      const ci = available(body.ci);
+      assert.deepEqual(ci.defaultBranch.state, reported('failing'));
+      assert.equal(ci.requests.items[0]!.taskId, 'alpha/01');
+      assert.equal(body.attention.filter((item) => item.code === 'ci.failing').length, 1);
+
+      const note = readFileSync(join(vault, 'Projects/CI Local/Product/daily.md'), 'utf8');
+      assert.ok(note.includes(`## CI\n\n\`main\` on GitHub (${REPOSITORY}): failing at \`${MAIN_SHA.slice(0, 7)}\``), note);
+      assert.ok(note.includes('- #3 First step, `feat/first-step`, alpha/01: none (provider reported).'), note);
+    });
+  });
+});

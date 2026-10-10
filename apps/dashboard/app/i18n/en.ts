@@ -274,6 +274,8 @@ export const en = {
   noQuestions: 'The ticket records no question.',
   unanswered: 'Unanswered',
   questionsFromBranch: (branch: string) => `Read from the ticket on ${branch}, which is not merged yet.`,
+  pullRequest: 'Pull request',
+  noRequest: 'No open pull or merge request.',
 
   // The Usage page.
   usageNote: "Tokens read from the harnesses' artifacts. A kind no record reports is not reported, never zero.",
