@@ -36,23 +36,26 @@ On the local tracker (`provider` is `local`):
    When `questions.branch` is null, the directory is this session's checkout, on whatever branch it has.
 
    Then `git -C <directory> status --porcelain -- <ticket>` must print nothing. If it prints anything, the ticket has changes not committed there: say so, and where, remove the temporary worktree if you added one, and stop.
-6. Edit `<directory>/<ticket>`. Under its `## Comments`, find the `### Question` whose text is the one shown in step 4, and put an `### Answer` heading right after the question's text, before the next heading of level three or above, or at the end of the file when none follows: a blank line, `### Answer`, a blank line, today's date as `YYYY-MM-DD` on a line of its own, a blank line, and the answer as given. A heading inside a code fence is not a heading. Change nothing else in the ticket, and no other file.
+6. Edit `<directory>/<ticket>`. Under its `## Comments`, find the `### Question` at the chosen question's position in `questions.items`, counting the ticket's Questions in order, check that its text is the one shown in step 4, and put an `### Answer` heading right after the question's text, before the next heading of level three or above, or at the end of the file when none follows: a blank line, `### Answer`, a blank line, today's date as `YYYY-MM-DD` on a line of its own, a blank line, and the answer as given. A heading inside a code fence is not a heading. Change nothing else in the ticket, and no other file.
 7. Commit the ticket alone, with `git -C <directory> commit -m "<message>" -- <ticket>`, which commits that path and nothing else, whatever else is staged, so that the commit changes the ticket and nothing else. The message says that the owner answered the question of that Task in its ticket, naming the Task id. No `Co-Authored-By` or "Generated with" line, and no assistant, model or tool named in it, whatever this harness's own guidance for commits adds. Then check that `git -C <directory> show --stat --format= HEAD` lists the ticket alone.
 8. If step 5 added a temporary worktree, remove it with `git worktree remove <temporary directory>`. The branch stays.
 
 On GitHub or GitLab (`provider` is `github` or `gitlab`):
 
-9. Post the answer as a comment on the Task's issue, its number from the Task id (`#<number>`), with a body that starts with `### Answer`, then a blank line and the answer as given:
-   - GitHub: `gh issue comment <number> --repo <repository> --body-file <file>`, with the body in a temporary file outside the repository, deleted afterwards;
-   - GitLab: `glab issue note <number> --repo <repository> --message <body>`, with `GITLAB_HOST` set to the `host` when the manifest names one.
+9. A comment answers only the issue's latest question, the last of `questions.items`, and only while it has no answer. When the human chose another question, say so before posting anything. If the latest question is unanswered too, quote it and say that the comment will be read as answering it, and post only on the human's yes. If the latest question is answered, no comment can answer it: say so, and post nothing.
+10. Post the answer as a comment on the Task's issue, its number from the Task id (`#<number>`). Its body starts with `### Answer`, then a blank line and the answer as given, and goes in a temporary file outside the repository, deleted afterwards, never typed into the command itself, where the shell would read the owner's quotes, backticks or `$`:
+   - GitHub: `gh issue comment <number> --repo <repository> --body-file <file>`, with `GH_HOST` set to the host name of `host` when the manifest names one;
+   - GitLab: `glab issue note <number> --repo <repository> --message "$(cat <file>)"`, with `GITLAB_HOST` set to the host name of `host` when the manifest names one.
 
-   A comment answers the issue's latest question while it has no answer. When the human chose an earlier question and a later one is unanswered too, say before posting that the comment will be read as answering the later one, quote it, and post only on the human's yes. If `gh` or `glab` is not on PATH, or it fails, quote its error and stop: show the body, for the human to post it themselves.
+   If `gh` or `glab` is not on PATH, or it fails, quote its error and stop: show the body, for the human to post it themselves.
 
-10. Call `task_get` again, with the Task id, and check that the question now shows the answer. If it does not, say so, and what it shows.
+## Check
+
+11. On every tracker, call `task_get` again, with the Task id, and check that the question now shows the answer. If it does not, say so, and what it shows.
 
 ## Resume
 
-11. Say how the work resumes. The Task's epic is the snapshot's `roadmap.epics` item whose `spec` is the slug in the brief's `spec` path (`specs/<slug>/spec.md`). When that epic is at `tickets` or `in progress`, it is a planned epic: say that autopilot, started again on it, resumes the ticket on its branch once every question of the ticket is answered, and end with `/binnacle:autopilot <epic>`, the epic's number in place of `<epic>`, on a line of its own, as code. Otherwise end with the brief's `start`: "To resume it, in a fresh session:", then the command on its own line, as code; when `start` is null, say why, as `/binnacle:task` does.
+12. Say how the work resumes. The Task's epic is the snapshot's `roadmap.epics` item whose `spec` is the Task's spec slug: on the local tracker, the Task id's part before `/`; on GitHub or GitLab, the slug in the brief's `spec` path (`specs/<slug>/spec.md`). When that epic is at `tickets` or `in progress`, it is a planned epic: say that autopilot, started again on it, resumes the ticket on its branch once every question of the ticket is answered, and end with `/binnacle:autopilot <epic>`, the epic's number in place of `<epic>`, on a line of its own, as code. Otherwise end with the brief's `start`: "To resume it, in a fresh session:", then the command on its own line, as code; when `start` is null, say why, as `/binnacle:task` does.
 
     When the Task still has an unanswered question, say how many, and that `/binnacle:answer <task>` answers the next one, before the resume line.
 

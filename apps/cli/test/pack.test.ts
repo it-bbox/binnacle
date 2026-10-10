@@ -425,8 +425,16 @@ test('/binnacle:answer lists the open questions or the named Task\'s, and writes
   assert.match(skill, /No `Co-Authored-By` or "Generated with" line, and no assistant, model or tool named/);
   // A remote tracker: the harness's own tooling, with a body starting ### Answer.
   assert.match(skill, /`gh issue comment <number> --repo <repository> --body-file <file>`/);
-  assert.match(skill, /`glab issue note <number> --repo <repository> --message <body>`/);
+  assert.match(skill, /`glab issue note <number> --repo <repository> --message "\$\(cat <file>\)"`/);
+  assert.match(skill, /never typed into the command itself/);
+  assert.match(skill, /`GH_HOST` set to the host name of `host`/);
+  assert.match(skill, /`GITLAB_HOST` set to the host name of `host`/);
   assert.match(skill, /starts with `### Answer`/);
+  // A comment answers only the issue's latest question, and only while it has no answer (ticket 06's Review).
+  assert.match(skill, /no comment can answer it: say so, and post nothing/);
+  // The question by its position, never its text, and the check through task_get on every tracker.
+  assert.match(skill, /at the chosen question's position in `questions\.items`/);
+  assert.match(skill, /## Check\n\n11\. On every tracker, call `task_get` again/);
   // Never pushes.
   assert.match(skill, /Never push/);
   assert.doesNotMatch(skill, /`git push/);
@@ -439,5 +447,7 @@ test('/binnacle:answer ends with autopilot for a Task of a planned epic, and the
   assert.ok(skill.includes('## Resume'));
   assert.match(end, /`\/binnacle:autopilot <epic>`/);
   assert.match(end, /at `tickets` or `in progress`/);
+  // The roadmap matches a Task to its epic by its spec slug, a local Task's id prefix (ticket 06's Review).
+  assert.match(end, /on the local tracker, the Task id's part before `\/`/);
   assert.match(end, /the brief's `start`/);
 });
