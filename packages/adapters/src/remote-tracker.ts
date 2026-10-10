@@ -213,7 +213,7 @@ export type CiReading =
 type StateRead = Promise<CiState | { reason: string }>;
 
 /** What differs between the forges' CI, past how their APIs are spoken to. */
-export type CiSource = {
+type CiSource = {
   /** The repository, whose `default_branch` names the default branch. */
   repository: string;
   /** A branch's latest commit. */
