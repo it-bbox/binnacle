@@ -206,6 +206,49 @@ describe('the Next action', () => {
       assert.deepEqual(nextCodes(await snapshot(daemon, root)), []);
     });
   });
+
+  it('is stale when it runs autopilot on an epic, by number or spec slug, whose tickets are all DONE, CANCELLED or ready-for-human, and says why', async () => {
+    await withDaemon(async (daemon) => {
+      const rows = [row(1, 'Old', 'done', 'old'), row(2, 'First', 'in progress', 'first')];
+      for (const command of ['`/binnacle:autopilot 2`', '`binnacle-autopilot first`']) {
+        const root = makeProject(rows, `Next action: run the epic. ${command}`);
+        ticket(root, 'first', '01-done.md', 'Status: DONE');
+        ticket(root, 'first', '02-cancelled.md', 'Status: CANCELLED');
+        ticket(root, 'first', '03-demo.md', 'Status: READY', 'Triage: ready-for-human');
+
+        const body = await snapshot(daemon, root);
+        assert.deepEqual(nextCodes(body), ['next_action.stale'], command);
+        const message = body.attention.find((item) => item.code === 'next_action.stale')!.message;
+        assert.match(message, /Epic 2 \(First\)/, command);
+        assert.match(message, /no ticket .*left for an agent/, command);
+        assert.match(message, /first\/03 is ready-for-human/, command);
+      }
+    });
+  });
+
+  it('is not stale while one Task of the epic is left for an agent, one with an unanswered question included, nor for an epic with no tickets', async () => {
+    await withDaemon(async (daemon) => {
+      const rows = [row(1, 'First', 'in progress', 'first'), row(2, 'Second', 'tickets', 'second')];
+      const setUp = (command: string): string => {
+        const root = makeProject(rows, `Next action: run the epic. \`${command}\``);
+        ticket(root, 'first', '01-done.md', 'Status: DONE');
+        ticket(root, 'first', '02-demo.md', 'Status: READY', 'Triage: ready-for-human');
+        return root;
+      };
+
+      const ready = setUp('/binnacle:autopilot 1');
+      ticket(ready, 'first', '03-agent.md', 'Status: READY', 'Triage: ready-for-agent');
+      assert.deepEqual(nextCodes(await snapshot(daemon, ready)), []);
+
+      const asked = setUp('/binnacle:autopilot first');
+      const path = ticket(asked, 'first', '03-asked.md', 'Status: ACTIVE');
+      write(asked, path, `${readFileSync(join(asked, path), 'utf8')}\n## Comments\n\n### Question\n\nWhich one?\n`);
+      assert.deepEqual(nextCodes(await snapshot(daemon, asked)), []);
+
+      assert.deepEqual(nextCodes(await snapshot(daemon, setUp('/binnacle:autopilot 2'))), []);
+      assert.deepEqual(nextCodes(await snapshot(daemon, setUp('binnacle-autopilot second'))), []);
+    });
+  });
 });
 
 describe("the Suggested step's alternatives", () => {

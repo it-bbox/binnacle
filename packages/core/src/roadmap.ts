@@ -139,6 +139,9 @@ export type NextAction = { description: string; command: string };
 
 const NEXT_ACTION = /^Next action:([\s\S]*?)(?<!`)`([^`]+)`$/;
 
+/** Autopilot's command: the plugin's skill, or the package's copy as another harness names it, with or without its prefix. */
+const AUTOPILOT = /^(\/binnacle:autopilot|[$/]?binnacle-autopilot)$/;
+
 /**
  * The Next action, read from the focus's last paragraph when that paragraph starts with
  * `Next action:` and ends with an inline code span: the span is the command, and the text
@@ -156,7 +159,10 @@ export function nextAction(focus: string | null): NextAction | null {
  * `next_action.missing` when the roadmap has no focus or its focus does not end with a Next
  * action, and `next_action.stale` when the Next action's command names a `DONE` or `CANCELLED`
  * Task: one of its words is the Task's ticket path, issue URL or id, which is `#<number>` on a
- * remote tracker. Only a roadmap that was read is checked; `tasks` null checks no staleness.
+ * remote tracker. It is stale too when the command runs autopilot (`/binnacle:autopilot` or
+ * `binnacle-autopilot`) on an epic, by number or spec slug, whose spec has tickets and none left
+ * for an agent: every one `DONE`, `CANCELLED` or `ready-for-human`. Only a roadmap that was read
+ * is checked; `tasks` null checks no staleness.
  */
 export function nextActionAttention(roadmap: Roadmap, tasks: TrackerTask[] | null): Diagnostic[] {
   const next = nextAction(roadmap.focus);
@@ -173,14 +179,25 @@ export function nextActionAttention(roadmap: Roadmap, tasks: TrackerTask[] | nul
   // is not matched; the start command writes the ticket as the tracker gives it. Normalise words if
   // hand-written commands miss a stale focus in practice.
   const words = next.command.split(/\s+/);
-  const named = (tasks ?? []).filter((task) => (task.state === 'DONE' || task.state === 'CANCELLED') && words.some((word) => word === task.id || word === task.ticket));
-  if (named.length === 0) return [];
-  return [
-    {
+  const finished = (task: TrackerTask): boolean => task.state === 'DONE' || task.state === 'CANCELLED';
+  const stale: Diagnostic[] = [];
+  const named = (tasks ?? []).filter((task) => finished(task) && words.some((word) => word === task.id || word === task.ticket));
+  if (named.length > 0) {
+    stale.push({
       code: 'next_action.stale',
       message: `The Next action's command, ${next.command}, names finished work: ${named.map((task) => `${task.id} (${task.ticket}) is ${task.state}`).join(', ')}.`,
-    },
-  ];
+    });
+  }
+  const epic = AUTOPILOT.test(words[0]!) ? roadmap.epics.find((row) => row.spec !== null && (String(row.number) === words[1] || row.spec === words[1])) : undefined;
+  const own = epic === undefined ? [] : (tasks ?? []).filter((task) => task.specSlug === epic.spec);
+  if (own.length > 0 && own.every((task) => finished(task) || task.triage === 'ready-for-human')) {
+    const human = own.filter((task) => !finished(task)).map((task) => `${task.id} is ready-for-human`);
+    stale.push({
+      code: 'next_action.stale',
+      message: `The Next action's command, ${next.command}, runs Epic ${epic!.number} (${epic!.title}), but no ticket of ${epic!.spec} is left for an agent: every one is DONE, CANCELLED or ready-for-human${human.length > 0 ? `, and ${human.join(', ')}` : ''}.`,
+    });
+  }
+  return stale;
 }
 
 /** The Suggested step's alternatives, at most this many. */

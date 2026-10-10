@@ -61,7 +61,7 @@ export const en = {
   whatsNext: "What's next",
   fromRoadmap: 'From the roadmap',
   nextActionMissing: 'The roadmap gives no Next action with a command. Check its current focus.',
-  nextActionStale: 'The Next action names a Task already Done. Check the roadmap before running it.',
+  nextActionStale: 'The Next action names finished work, or an epic with no ticket left for an agent. Check the roadmap before running it.',
   or: 'or',
   calculation: "Binnacle's calculation",
   /** An alternative's title and reason, from its kind and the Task ids it names (`ids`, as a list, and how many). */

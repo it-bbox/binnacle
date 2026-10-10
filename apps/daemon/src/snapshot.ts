@@ -270,9 +270,10 @@ export async function readState(
   if (roadmap && tasks) attention.push(...roadmapAttention(roadmap.epics, tasks));
   if (roadmap) attention.push(...nextActionAttention(roadmap, tasks));
   // Only the local tracker reads a Review; a remote one never reads the comments that would hold it.
+  // A ready-for-human Task is the owner's to do, such as a demonstration, which no review follows.
   if (tasks && manifest?.tracker.provider === 'local') {
     for (const task of tasks) {
-      if (task.state === 'DONE' && task.review === null) {
+      if (task.state === 'DONE' && task.review === null && task.triage !== 'ready-for-human') {
         attention.push({ code: 'review.missing', message: `${task.id} (${task.ticket}) is DONE, and its ticket records no Review under ## Comments.` });
       }
     }

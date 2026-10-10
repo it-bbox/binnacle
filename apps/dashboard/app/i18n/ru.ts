@@ -47,7 +47,7 @@ export const ru: Dictionary = {
   whatsNext: 'Что дальше',
   fromRoadmap: 'По плану',
   nextActionMissing: 'В roadmap нет Next action с командой. Проверьте текущий фокус.',
-  nextActionStale: 'Next action называет Task, который уже Done. Сверьтесь с roadmap перед запуском.',
+  nextActionStale: 'Next action называет законченную работу или эпик, где агенту не осталось тикетов. Сверьтесь с roadmap перед запуском.',
   or: 'или',
   calculation: 'расчёт Binnacle',
   alternatives: {

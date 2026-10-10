@@ -258,6 +258,20 @@ describe('Tasks in the Product Snapshot', () => {
     });
   });
 
+  it('raises review.missing for a DONE ticket without a Review unless it is triaged ready-for-human, the owner\'s to do', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject();
+      const dir = join(root, 'docs', 'specs', 'epic', 'issues');
+      mkdirSync(dir, { recursive: true });
+      for (const triage of ['ready-for-agent', 'ready-for-human']) {
+        writeFileSync(join(dir, `${triage === 'ready-for-agent' ? '01' : '02'}-${triage}.md`), `# ${triage}\n\nStatus: DONE\nTriage: ${triage}\n\n**What to build:** it.\n`);
+      }
+
+      const missing = (await snapshot(daemon, root)).attention.filter((item) => item.code === 'review.missing');
+      assert.deepEqual(missing.map((item) => item.message), ['epic/01 (docs/specs/epic/issues/01-ready-for-agent.md) is DONE, and its ticket records no Review under ## Comments.']);
+    });
+  });
+
   it('says so when a remote tracker declares no repository to read Tasks from', async () => {
     await withDaemon(async (daemon) => {
       const root = makeProject('version: 1\n\nproject:\n  id: remote-tracker\n\ntracker:\n  provider: github\n');
