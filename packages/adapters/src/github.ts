@@ -127,7 +127,7 @@ export async function readGitHubCi(repository: string, host: string | null, toke
   const root = githubApiRoot(host);
   const repo = `${root}/repos/${repository.split('/').map(encodeURIComponent).join('/')}`;
   const where = `${repository} at ${root}`;
-  const object = (url: string, what: 'commits' | 'check runs' | 'statuses') => readObject(GITHUB, url, where, token, what);
+  const object = (url: string, what: 'repository' | 'commits' | 'check runs' | 'statuses') => readObject(GITHUB, url, where, token, what);
   const state = async (sha: string): Promise<CiState | { reason: string }> => {
     const [runs, status] = await Promise.all([object(`${repo}/commits/${sha}/check-runs?per_page=100`, 'check runs'), object(`${repo}/commits/${sha}/status?per_page=100`, 'statuses')]);
     if ('failure' in runs) return { reason: runs.failure.message };
@@ -135,7 +135,7 @@ export async function readGitHubCi(repository: string, host: string | null, toke
     return commitState((runs.entry.check_runs ?? []) as CheckRun[], (status.entry.statuses ?? []) as { state?: string }[]);
   };
 
-  const [about, pulls] = await Promise.all([object(repo, 'commits'), readPages(GITHUB, `${repo}/pulls?state=open&per_page=100`, where, token, 'pull requests')]);
+  const [about, pulls] = await Promise.all([object(repo, 'repository'), readPages(GITHUB, `${repo}/pulls?state=open&per_page=100`, where, token, 'pull requests')]);
   if ('failure' in about) return { reason: about.failure.message };
   if (!Array.isArray(pulls)) return { reason: pulls.message };
   // What GitHub does not give is said, never written as a value it did not report (ADR-0007).

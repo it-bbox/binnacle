@@ -178,7 +178,7 @@ async function readResponse(forge: Forge, url: URL, where: string, token: string
 }
 
 /** What a forge's pages list, or what one of its objects is. */
-type Listed = 'issues' | 'comments' | 'pull requests' | 'merge requests' | 'reviews' | 'commits' | 'check runs' | 'statuses';
+type Listed = 'issues' | 'comments' | 'pull requests' | 'merge requests' | 'reviews' | 'repository' | 'commits' | 'check runs' | 'statuses';
 
 /**
  * When changes were first requested on a pull or merge request of one branch, in

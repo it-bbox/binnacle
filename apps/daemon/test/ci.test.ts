@@ -346,6 +346,14 @@ describe('the ci section on GitHub', () => {
     });
   });
 
+  it('says a refusal of the repository is of the repository', async () => {
+    await withForge(async (daemon, fake) => {
+      fake.reply = (url) => (url.pathname === `/repos/${REPOSITORY}` ? { status: 403, body: { message: 'No' } } : null);
+      const ci = (await snapshotOf(daemon, githubProject(fake))).ci;
+      assert.match((ci as { reason: string }).reason, /no read access to the repository of /);
+    });
+  });
+
   it('makes the section unavailable when one pull request’s state cannot be read', async () => {
     await withForge(async (daemon, fake) => {
       fake.pulls = [{ number: 7, title: 'Second step', branch: 'feat/2-second', sha: 'b'.repeat(40) }];
