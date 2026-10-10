@@ -329,6 +329,23 @@ describe('the ci section on GitHub', () => {
     });
   }
 
+  it('makes the section unavailable, never "undefined", when GitHub gives no default branch, commit or link', async () => {
+    await withForge(async (daemon, fake) => {
+      const root = githubProject(fake);
+      for (const [path, body, missing] of [
+        [`/repos/${REPOSITORY}`, { full_name: REPOSITORY }, /default branch/],
+        [`/repos/${REPOSITORY}/commits/main`, { html_url: 'https://github.com/x' }, /commit/],
+        [`/repos/${REPOSITORY}/commits/main`, { sha: MAIN_SHA }, /link/],
+      ] as const) {
+        fake.reply = (url) => (url.pathname === path ? { status: 200, body } : null);
+        const ci = (await snapshotOf(daemon, root)).ci;
+        assert.equal('available' in ci && ci.available, false, JSON.stringify(ci));
+        assert.match((ci as { reason: string }).reason, missing);
+        assert.doesNotMatch(JSON.stringify(ci), /undefined/);
+      }
+    });
+  });
+
   it('makes the section unavailable when one pull request’s state cannot be read', async () => {
     await withForge(async (daemon, fake) => {
       fake.pulls = [{ number: 7, title: 'Second step', branch: 'feat/2-second', sha: 'b'.repeat(40) }];

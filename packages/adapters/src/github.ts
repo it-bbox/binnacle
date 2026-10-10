@@ -125,7 +125,7 @@ function commitState(runs: CheckRun[], statuses: { state?: string }[]): CiState 
  */
 export async function readGitHubCi(repository: string, host: string | null, token: string | null, limit: number): Promise<CiReading> {
   const root = githubApiRoot(host);
-  const repo =`${root}/repos/${repository.split('/').map(encodeURIComponent).join('/')}`;
+  const repo = `${root}/repos/${repository.split('/').map(encodeURIComponent).join('/')}`;
   const where = `${repository} at ${root}`;
   const object = (url: string, what: 'commits' | 'check runs' | 'statuses') => readObject(GITHUB, url, where, token, what);
   const state = async (sha: string): Promise<CiState | { reason: string }> => {
@@ -138,10 +138,15 @@ export async function readGitHubCi(repository: string, host: string | null, toke
   const [about, pulls] = await Promise.all([object(repo, 'commits'), readPages(GITHUB, `${repo}/pulls?state=open&per_page=100`, where, token, 'pull requests')]);
   if ('failure' in about) return { reason: about.failure.message };
   if (!Array.isArray(pulls)) return { reason: pulls.message };
-  const branch = String(about.entry.default_branch);
+  // What GitHub does not give is said, never written as a value it did not report (ADR-0007).
+  const missing = (what: string): { reason: string } => ({ reason: `GitHub gave no ${what} for ${where}.` });
+  const branch = about.entry.default_branch;
+  if (typeof branch !== 'string') return missing('default branch');
   const commit = await object(`${repo}/commits/${encodeURIComponent(branch)}`, 'commits');
   if ('failure' in commit) return { reason: commit.failure.message };
-  const sha = String(commit.entry.sha);
+  const { sha, html_url: url } = commit.entry;
+  if (typeof sha !== 'string') return missing(`commit of ${branch}`);
+  if (typeof url !== 'string') return missing(`link to the commit of ${branch}`);
   const listed = (pulls as Pull[]).slice(0, limit);
   const states = await Promise.all([state(sha), ...listed.map((pull) => state(pull.head.sha))]);
   const unread = states.find((read): read is { reason: string } => typeof read !== 'string');
@@ -150,7 +155,7 @@ export async function readGitHubCi(repository: string, host: string | null, toke
   const reported = (index: number) => ({ value: states[index] as CiState, provenance: 'provider_reported' as const });
   const at = (commit.entry.commit as { committer?: { date?: string } } | undefined)?.committer?.date ?? null;
   return {
-    defaultBranch: { branch, commit: sha, state: reported(0), url: String(commit.entry.html_url), at },
+    defaultBranch: { branch, commit: sha, state: reported(0), url, at },
     requests: {
       items: listed.map(
         (pull, index): CiRequest => ({ number: pull.number, title: pull.title, branch: pull.head.ref, draft: pull.draft ?? false, state: reported(index + 1), url: pull.html_url }),
