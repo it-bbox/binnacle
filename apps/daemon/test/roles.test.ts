@@ -120,16 +120,23 @@ describe("a Task's roles", () => {
       ticket(root, '01-named.md', 'something.', 'developer, REVIEWER,  qa , devops, Analyst');
       ticket(root, '02-unnamed.md', 'something.');
       ticket(root, '03-typo.md', 'something.', 'Developer, Reviwer, Developer');
+      ticket(root, '04-nobody.md', 'something.', 'Wizard');
 
       const roles = await rolesOf(daemon, root);
       assert.deepEqual(roles['first/01'], { required: ['Developer', 'Reviewer', 'QA', 'DevOps', 'Analyst'], source: 'ticket', suggested: [] });
       assert.deepEqual(roles['first/02'], { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] });
       assert.deepEqual(roles['first/03'], { required: ['Developer'], source: 'ticket', suggested: [] });
+      // A line that names no role of the vocabulary needs the default roles.
+      assert.deepEqual(roles['first/04'], { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] });
 
       const unknown = (await snapshot(daemon, root)).attention.filter((item) => item.code === 'task.unknown_role');
-      assert.equal(unknown.length, 1, JSON.stringify(unknown));
-      assert.match(unknown[0]!.message, /first\/03/);
-      assert.match(unknown[0]!.message, /"Reviwer"/);
+      assert.deepEqual(
+        unknown.map((item) => /^(\S+) .*"(\w+)"/.exec(item.message)?.slice(1)),
+        [
+          ['first/03', 'Reviwer'],
+          ['first/04', 'Wizard'],
+        ],
+      );
     });
   });
 
