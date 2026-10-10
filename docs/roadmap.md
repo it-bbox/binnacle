@@ -36,9 +36,9 @@ Epics 1 to 10 and 14 are done. On 2026-10-10 the owner set a date: on the evenin
 
 Three epics were added for it. 15, Daemon autostart: `binn init` sets the daemon up to start at login, which narrows ADR-0016's documented manual step (`docs/product-inbox.md`). 16, Dashboard redesign: the dashboard reads too small and too crowded, so it is redesigned with the Impeccable and UI UX Pro Max skills. 17, Release: npm and open source, which takes publishing `@binnacle/cli` out of *Later*: the build step that turns its TypeScript into JavaScript with the dashboard generated into it (`ADR-0031`), the README's install from npm, and the repository made public under Apache-2.0 (`ADR-0010`).
 
-Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own, several at a time. 15, 16, 11 and 12 can be grilled side by side; 13 rewrites every skill's output and still comes after them; 17 publishes what the others merged and comes last.
+Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own. On 2026-10-10 the owner set the order: 11, the largest and the one that needs the owner least, is grilled that night and run by autopilot overnight; it also comes before 16, so that the redesign covers the questions, roles and CI state 11 adds to the dashboard. 16 follows on 2026-10-11 with the owner watching, beside 15 and 12; 13 rewrites every skill's output and comes after them; 17 publishes what the others merged and comes last.
 
-Next action: grill epic 15, the daemon's autostart, how `binn init` sets it up, into an ADR that narrows ADR-0016. `/grill-with-docs`
+Next action: grill epic 11, The state of work (`docs/05-mvp-plan.md`, *Phase 11*), into its spec and tickets, then run it overnight. `/grill-with-docs`
 
 ## Later
 
