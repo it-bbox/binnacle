@@ -351,6 +351,16 @@ describe('the ci section on GitHub', () => {
     });
   });
 
+  it('gives no time, rather than one GitHub did not give, when the commit’s date is not a string', async () => {
+    await withForge(async (daemon, fake) => {
+      fake.reply = (url) =>
+        url.pathname === `/repos/${REPOSITORY}/commits/main`
+          ? { status: 200, body: { sha: MAIN_SHA, html_url: `https://github.com/${REPOSITORY}/commit/${MAIN_SHA}`, commit: { committer: { date: 42 } } } }
+          : null;
+      assert.equal(available((await snapshotOf(daemon, githubProject(fake))).ci).defaultBranch.at, null);
+    });
+  });
+
   it('says a refusal of the repository is of the repository', async () => {
     await withForge(async (daemon, fake) => {
       fake.reply = (url) => (url.pathname === `/repos/${REPOSITORY}` ? { status: 403, body: { message: 'No' } } : null);

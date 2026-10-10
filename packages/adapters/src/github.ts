@@ -145,7 +145,10 @@ export async function readGitHubCi(
     {
       repository: repo,
       commit: (branch) => `${repo}/commits/${encodeURIComponent(branch)}`,
-      toCommit: (entry) => ({ sha: entry.sha, url: entry.html_url, at: (entry.commit as { committer?: { date?: string } } | undefined)?.committer?.date ?? null }),
+      toCommit(entry) {
+        const date = (entry.commit as { committer?: { date?: unknown } } | undefined)?.committer?.date;
+        return { sha: entry.sha, url: entry.html_url, at: typeof date === 'string' ? date : null };
+      },
       requests: `${repo}/pulls?state=open&per_page=100`,
       what: 'pull requests',
       toRequest(entry) {
