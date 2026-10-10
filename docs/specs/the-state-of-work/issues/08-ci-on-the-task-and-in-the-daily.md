@@ -1,6 +1,6 @@
 # 08: CI on the Task and in the daily
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 07
 Spec: `docs/specs/the-state-of-work/spec.md`
@@ -8,10 +8,10 @@ Roles: Developer, Reviewer
 
 **What to build:** `task_get` gains `request`: the Task's pull or merge request, mapped by its branch, with its CI state, or null, or unavailable with the forge's reason; `/binnacle:task` and the Task page show it. The daily carries the `ci` section as of now; `/binnacle:daily` presents it and the vault's daily note carries it (spec, *`task_get`* and *The `ci` section*).
 
-- [ ] Loopback-forge tests: a Task with a request and its state, one without, and the forge unreadable.
-- [ ] `daily_get` carries the `ci` section; `daily.test.ts` covers it; the vault's daily note carries it.
-- [ ] `/binnacle:task` and `/binnacle:daily` (plugin and copy) present it.
-- [ ] The Task page shows the request and its CI state, strings in English and Russian, checked in a browser.
+- [x] Loopback-forge tests: a Task with a request and its state, one without, and the forge unreadable.
+- [x] `daily_get` carries the `ci` section; `daily.test.ts` covers it; the vault's daily note carries it.
+- [x] `/binnacle:task` and `/binnacle:daily` (plugin and copy) present it.
+- [x] The Task page shows the request and its CI state, strings in English and Russian, checked in a browser.
 
 ## Comments
 
@@ -31,17 +31,19 @@ Roles: Developer, Reviewer
 
 **Standards.** No documented standard is broken: what is missing is null or unavailable with its reason, every state `provider_reported`, the token goes to the declared host only through `trackerToken`, no dependency is added. Judgement calls:
 
-1. **A brief reads more than its request** (Ponytail, AGENTS.md 6): `taskRequest` goes through `readCi`, which also reads the default branch, its commit and that commit's state, on every poll of the Task page; and its comment says "Only its state is read", which is true only among the requests. **To fix**: the comment says what is read, with a `ponytail:` note naming the cost and the way out. Reading the default branch stays, decided under *Comments*.
-2. **The Task is found by object identity**: `branchTask(branch, tasks, remote) === task` holds only because `findTask` takes `task` from the same array; a copy would silently give `null`. **To fix**: compare ids.
+1. **A brief reads more than its request** (Ponytail, AGENTS.md 6): `taskRequest` goes through `readCi`, which also reads the default branch, its commit and that commit's state, on every poll of the Task page; and its comment says "Only its state is read", which is true only among the requests. **Fixed**: the comment says what is read, with a `ponytail:` note naming the cost and the way out. Reading the default branch stays, decided under *Comments*.
+2. **The Task is found by object identity**: `branchTask(branch, tasks, remote) === task` holds only because `findTask` takes `task` from the same array; a copy would silently give `null`. **Fixed**: the request is the one whose branch maps to the Task's id.
 3. **Duplicated Code**: `taskRequest` repeats `readCi`'s `remote` line, and maps `taskId` only to drop it. **Kept**: one line, and the mapping is `readCi`'s own, shared with the snapshot and the daily; a second path to skip it would be more code than it saves.
-4. **Data Clumps**: the Task page's `request` type repeats the project page's request fields by hand, though `CiState` and `CiForge` already moved to `composables/projects.ts`. **To fix**: a `CiRequest` type there, which both pages use.
+4. **Data Clumps**: the Task page's `request` type repeats the project page's request fields by hand, though `CiState` and `CiForge` already moved to `composables/projects.ts`. **Fixed**: a `CiRequest` type there, which both pages use, checked by `nuxt typecheck`.
 5. **Divergent Change**: `docs/04-telemetry-dashboard.md`'s questions line, "not yet explicit artifacts", is corrected in passing. **Kept**: it is the line beside the one this ticket adds, about the same page, and was stale since ticket 02.
 6. **`keep` on `readCi` and `readGitHubCi`** is not Speculative Generality: it has two callers. Nothing to fix.
 7. **`pullRequest` is "Pull request" in Russian.** **Kept**: the project page already says «Открытые pull requests»; the term is not translated.
 
 **Spec.** Every criterion is implemented. Findings:
 
-8. **The ticket is still `Status: READY` with its criteria unticked.** Nothing to fix here: the last commit of the process sets them.
+8. **The ticket is still `Status: READY` with its criteria unticked.** Nothing to fix in the code: the ticket's last commit sets them, and did.
 9. **`checkpoint.prepare` carries `ci`, and `ci.failing` in its attention**, though the spec reads CI "when a snapshot, a daily or a brief is served". **Kept**: `checkpoint_prepare` is documented as returning the daily's fields, and its skill drafts fixes only for attention items the canonical sources can resolve, which `ci.failing` is not; the cost is one forge read per checkpoint, decided under *Comments*.
 10. **The Task page labels the row "Pull request" on any forge**, where the spec says "pull or merge request". **Kept**: GitLab's CI is unavailable until ticket 09, so no merge request reaches the page before then; ticket 09, which reads them, names them.
 11. **Three more requests per brief** for the default branch's state, as finding 1. **Kept** as decided under *Comments*; its comment is finding 1's fix.
+
+**In all**: three findings fixed, 1, 2 and 4; six kept with their reasons, 3, 5, 7, 9, 10 and 11; 8, which this ticket's last commit settles; and 6, which finds nothing. The full suite, 680 tests, the typecheck and the dashboard's `nuxt typecheck` pass after the fixes.
