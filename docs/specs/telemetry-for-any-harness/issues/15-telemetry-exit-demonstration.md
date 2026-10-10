@@ -1,6 +1,6 @@
 # 15: The exit demonstration of epic 10
 
-Status: READY
+Status: DONE
 Triage: ready-for-human
 Blocked by: 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 14, 16, 17
 Spec: `docs/specs/telemetry-for-any-harness/spec.md`
@@ -9,7 +9,7 @@ Spec: `docs/specs/telemetry-for-any-harness/spec.md`
 
 - [x] `binn init` with one yes configures the export in Claude Code, Codex and Gemini CLI.
 - [x] One session in each of Claude Code, Codex, Gemini CLI, opencode, Antigravity, ZCode and pi on one repository appears with its level; one shows as running before its artifact is written, and counts once afterwards.
-- [ ] A Task taken through a Review and a fix shows implementation, review and rework apart.
+- [x] A Task taken through a Review and a fix shows implementation, review and rework apart.
 - [x] A long Product session raises `context.pressure`.
 - [x] The usage page shows Ponytail's before and after.
 
@@ -37,3 +37,6 @@ On the owner's machine, on this repository, with the owner:
 - **Ponytail**: the usage page shows after, 49 765 output tokens per Task over 88 Tasks, and for before the reason: no Task with runs was completed before 2026-09-19, so this repository can never show both. Counted as shown, by the owner's decision.
 - Not shown: that Claude Code's and Codex's desktop apps export too (spec, *Further Notes*), since no desktop session started after `binn init`.
 
+### Demonstrated on 2026-10-10
+
+- **Review and rework**: shown on the dashboard's page for epic 10's 17, which committed its Review before its fixes. Usage by role, apart: implementation 18 records and 8 767 output tokens, review 20 and 8 246, rework 18 and 12 468, as `task_get` reads them. Every criterion now holds, Gemini CLI and Antigravity left not verified as decided.

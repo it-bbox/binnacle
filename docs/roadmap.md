@@ -19,7 +19,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 7 | Audit and adopt | done | [`audit-and-adopt`](specs/audit-and-adopt/spec.md) |
 | 8 | Project Brain: tools, Graphify, Obsidian | done | [`project-brain-tools-graphify-obsidian`](specs/project-brain-tools-graphify-obsidian/spec.md) |
 | 9 | Everything from the chat | done | [`everything-from-the-chat`](specs/everything-from-the-chat/spec.md) |
-| 10 | Telemetry for any harness | in progress | [`telemetry-for-any-harness`](specs/telemetry-for-any-harness/spec.md) |
+| 10 | Telemetry for any harness | done | [`telemetry-for-any-harness`](specs/telemetry-for-any-harness/spec.md) |
 | 11 | The state of work | not started | — |
 | 12 | Audit, completed | not started | — |
 | 13 | Human output | not started | — |
@@ -33,11 +33,11 @@ Epics 1 to 9 are done. Epic 13, Human output, is grilled last, since it rewrites
 
 Epic 14, Skills in any harness (`specs/skills-in-any-harness/spec.md`), is done. On 2026-10-10 the owner finished 08, its exit demonstration, with Antigravity left unverified as agreed: ZCode's `binnacle-product` showed the Product Snapshot, ZCode's `binnacle-autopilot 14` refused at its first step after 11, and Claude Code lists each `/binnacle:<action>` once.
 
-Epic 10, Telemetry for any harness (`specs/telemetry-for-any-harness/spec.md`), has every ticket done but 15. On 2026-10-08 the owner demonstrated 15 on their machine: `binn init`'s export, Claude Code and Codex live and counted once, opencode, ZCode and pi from their files, context pressure and Ponytail; Gemini CLI and Antigravity not verified. Review and rework did not show, since sessions committed their fixes before their Review: the per-ticket flow now commits the Review first, and 17, done, brings autopilot to it and was itself run in that order. 15's last criterion can now be demonstrated on 17's branch.
+Epic 10, Telemetry for any harness (`specs/telemetry-for-any-harness/spec.md`), is done. On 2026-10-08 the owner demonstrated 15 on their machine, Gemini CLI and Antigravity not verified as decided; on 2026-10-10 the dashboard's page for 17 showed its implementation, review and rework apart, the last criterion.
 
-The daemon's autostart left *Later* on 2026-10-09: a daemon that does not come back after a reboot is the first thing a user meets, so `binn init` sets it up and it is done right after these two demonstrations (`docs/product-inbox.md`; it narrows ADR-0016).
+The daemon's autostart left *Later* on 2026-10-09: a daemon that does not come back after a reboot is the first thing a user meets, so `binn init` sets it up, and with epics 10 and 14 demonstrated it is next (`docs/product-inbox.md`; it narrows ADR-0016).
 
-Next action: the owner demonstrates epic 10's 15; the daemon's autostart is grilled after it. `/binnacle:task telemetry-for-any-harness/15`
+Next action: grill the daemon's autostart, how `binn init` sets it up, into an ADR that narrows ADR-0016. `/grill-with-docs`
 
 ## Later
 
