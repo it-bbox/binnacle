@@ -31,7 +31,7 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 Epics 1 to 9 are done. Epic 13, Human output, is grilled last, since it rewrites every skill's output; epics 11 and 12 need `to-spec` before it.
 
-Epic 14, Skills in any harness (`specs/skills-in-any-harness/spec.md`), has every ticket done but 08 and 11. On 2026-10-09 the owner showed 08's first and third criteria. 11, found there, makes autopilot's first step read the harness's worktree parameter, since ZCode passed it on its model's word. 08's fourth criterion waits on it; its second and fifth still need ZCode's `binnacle-product` and Claude Code's `/` list.
+Epic 14, Skills in any harness (`specs/skills-in-any-harness/spec.md`), has every ticket done but 08. On 2026-10-09 the owner showed 08's first and third criteria. 11, found there and now done, makes autopilot's first step read the harness's worktree parameter, since ZCode passed it on its model's word. 08's fourth criterion can be shown again once 11 is merged and the skills refreshed; its second and fifth still need ZCode's `binnacle-product` and Claude Code's `/` list.
 
 Epic 10, Telemetry for any harness (`specs/telemetry-for-any-harness/spec.md`), has every ticket done but 15. On 2026-10-08 the owner demonstrated 15 on their machine: `binn init`'s export, Claude Code and Codex live and counted once, opencode, ZCode and pi from their files, context pressure and Ponytail; Gemini CLI and Antigravity not verified. Review and rework did not show, since sessions committed their fixes before their Review: the per-ticket flow now commits the Review first, and 17, done, brings autopilot to it and was itself run in that order. 15's last criterion can now be demonstrated on 17's branch.
 
