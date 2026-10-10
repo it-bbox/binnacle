@@ -110,9 +110,8 @@ export type CallerCheckout = {
   project: string;
 };
 
-/** A section Binnacle cannot fill yet. It is present and says so, and is never filled with a guess (ADR-0007). */
+/** A section Binnacle cannot fill. It is present and says why, and is never filled with a guess (ADR-0007). */
 export type Unavailable = { available: false; reason: string };
-export const UNAVAILABLE: Unavailable = { available: false, reason: 'Not available in this version of Binnacle.' };
 
 export type Snapshot = {
   project: ProjectRow;

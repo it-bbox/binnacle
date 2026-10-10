@@ -97,7 +97,6 @@ export const ru: Dictionary = {
     modulesOf: (modules, id) => `${modules} у ${id}`,
   },
   daemonReasons: {
-    notInThisVersion: 'Недоступно в этой версии Binnacle.',
     trackerUnreadable: 'Трекер не читается.',
     noManifest: 'Без читаемого манифеста Task не прочитать.',
     noTrackerProvider: 'Проект не задаёт tracker.provider.',

@@ -111,7 +111,6 @@ export const en = {
    * which the page matches to show the reason in its language; a reason not here stays as the daemon wrote it.
    */
   daemonReasons: {
-    notInThisVersion: 'Not available in this version of Binnacle.',
     trackerUnreadable: 'The tracker cannot be read.',
     noManifest: 'Tasks cannot be read without a readable manifest.',
     noTrackerProvider: 'This project declares no tracker.provider.',

@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { compactNumber, daemonReason, LANGUAGES, pairReason, plural, secondsAgo, startingLanguage } from '../app/i18n/index.ts';
 import { parseRoadmap } from '../../../packages/core/src/roadmap.ts';
 import { NO_FORGE } from '../../daemon/src/ci.ts';
-import { trackerUnavailable, UNAVAILABLE } from '../../daemon/src/snapshot.ts';
+import { trackerUnavailable } from '../../daemon/src/snapshot.ts';
 import { ANTIGRAVITY_NO_TOKENS, OPENCODE_NO_EXPORT, PI_NO_EXPORT, PONYTAIL_REASONS, ZCODE_NO_EXPORT } from '../../daemon/src/usage.ts';
 
 /**
@@ -83,11 +83,11 @@ describe('a compact number', () => {
 });
 
 describe("the daemon's reasons", () => {
-  const notInThisVersion = 'Not available in this version of Binnacle.';
+  const noForge = NO_FORGE;
 
   it('are in the language when the page knows them, and as the daemon wrote them when it does not', () => {
-    assert.equal(daemonReason('en', notInThisVersion), notInThisVersion);
-    assert.equal(daemonReason('ru', notInThisVersion), 'Недоступно в этой версии Binnacle.');
+    assert.equal(daemonReason('en', noForge), noForge);
+    assert.equal(daemonReason('ru', noForge), 'CI читать неоткуда: трекер — не GitHub и не GitLab, и Git remote на GitHub или GitLab нет.');
     assert.equal(daemonReason('ru', 'There is no roadmap at docs/roadmap.md.'), 'There is no roadmap at docs/roadmap.md.');
     assert.match(daemonReason('ru', `${OPENCODE_NO_EXPORT}.`), /^Экспорт OpenTelemetry у opencode/);
     assert.match(daemonReason('ru', `${ZCODE_NO_EXPORT}.`), /^Экспорт OpenTelemetry у ZCode/);
@@ -123,7 +123,7 @@ describe("the daemon's reasons", () => {
   });
 
   it('the page knows are the texts the daemon writes, so a reworded one is caught here rather than shown in English', () => {
-    const written = [UNAVAILABLE.reason, NO_FORGE, trackerUnavailable([]).reason, ...parseRoadmap('').diagnostics.map((item) => item.message), ...Object.values(PONYTAIL_REASONS)];
+    const written = [NO_FORGE, trackerUnavailable([]).reason, ...parseRoadmap('').diagnostics.map((item) => item.message), ...Object.values(PONYTAIL_REASONS)];
     for (const reason of written) assert.notEqual(daemonReason('ru', reason), reason, reason);
   });
 });
