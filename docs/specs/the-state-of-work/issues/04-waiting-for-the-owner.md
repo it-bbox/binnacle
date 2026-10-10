@@ -27,3 +27,23 @@ Roles: Developer, Reviewer
   - **The dashboard's *Pending decisions* title becomes *Waiting for the owner*** («Ждёт владельца»), the section moves above the board, and the reason `questions` is unavailable on a remote tracker is translated, as the page's other known reasons are.
 - **Test-first, as read here.** `apps/daemon/test/pending.test.ts` drives the snapshot against real repositories: the three lists filled from a branch and the checkout, a merged branch read from the checkout, the lists empty, cut at the limit with their remainders, and unavailable with the tracker's reason; `daily.test.ts` the daily's section on an empty delta and unavailable; `vault.test.ts` both notes; `board.test.ts` a card's count from its branch; `github.test.ts` the remote tracker; `i18n.test.ts` the new reason.
 - **Verified in a browser.** The generated dashboard ran against a daemon on a temporary `BINNACLE_HOME` under this worktree's `.scratch/`, with `BINNACLE_PORT=0`, and a scratch repository there with three tickets: one `READY` whose unmerged `feat/asked` branch asks a two-line question, one `READY_FOR_REVIEW`, one `ready-for-human`. The project page showed *Waiting for the owner* with each in its list, the question with its branch, and the board marked the first card "1 unanswered question"; the same in Russian: «Ждёт владельца», «Вопросы без ответа», «Ждут одобрения», «Начать вам», «1 вопрос без ответа». The daemon was stopped, and the owner's daemon was not touched.
+
+### Review
+
+`mattpocock-skills:code-review` ran against `main` on both axes, with its sub-agents in the foreground.
+
+**Standards: no hard violation.** The Git adapter's read-only contract holds (`readBranches` runs `for-each-ref` over the constant `refs/heads/`, added to the commands its header lists), ADR-0007 holds (`questions: null` and the unavailable section with its reason), and so do the authorship and the documentation's language. Findings, all judgement calls:
+
+1. **Divergent Change**: `snapshot.ts` now reads Git for the questions (`readQuestions`), and `task.ts`, `board.ts` and `daily.ts` take them from it. **Kept**: `snapshot.ts` already holds the tracker's reading every one of them shares (`readTracker`, `readState`); `task.ts`, where `taskQuestions` lived, imports `snapshot.ts`, so the snapshot could not take it from there without a cycle, and a module of its own would be a fourth for one function.
+2. **Duplicated Code**: the unanswered filter, `item.answer === null`, is written in `questionCount` and in `pendingDecisions`. **Kept**: one comparison each; a helper would be a third name for it.
+3. **Duplicated Code**: the project page's questions column repeats the markup of the two Task columns. **Kept**: a question shows its text, its branch and an unavailable reason the Task columns have not; epic 16's redesign restyles the section.
+4. **Duplicated Code / Primitive Obsession**: the page spells `PendingDecisions` and the card's question count by hand, as the daemon's types are. **Kept**: the dashboard spells the daemon's answers locally throughout, as ticket 03's Review kept for the brief.
+5. **Mysterious Name**: `owner` for the `ready-for-human` Tasks ready to start, worded "The owner’s to start" in the vault, "Yours to start" on the page and "the human's to start" in the skills. **Kept**: `owner` is the spec's name for the list, and each surface words it for its reader.
+6. **Speculative Generality**: the approvals' and the owner's items carry `questions`, which no surface reads. **Kept**: the ticket asks it of each Task item of the snapshot, and autopilot (ticket 11) reads the counts.
+7. **A redundant check**: `questions &&` before `withStartAndParallel`, never falsy once `tasks` is read. **Kept**: TypeScript does not narrow `questions` from `listed`, and the check is what tells it.
+
+**Spec: every criterion is implemented, with no scope creep beyond what *Comments* records.** Findings:
+
+8. **The project page does not name an item's ticket**, where story 18 asks each item to name "its Task, its title and its ticket". **To fix**: the page shows the ticket's path beside each item.
+9. **`/binnacle:daily`'s description does not say it presents what waits for the owner**, though its text does. **To fix**: the description says so.
+10. **An unanswered question of a `DONE` or `CANCELLED` Task is listed**, and stays listed for good. **To fix**: a closed Task's question waits for no one, since no answer moves it; the list leaves out `DONE` and `CANCELLED` Tasks, while their counts and `task_get` still show the question. Decided here, under *Comments*.
