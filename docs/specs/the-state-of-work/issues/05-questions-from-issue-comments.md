@@ -1,6 +1,6 @@
 # 05: Questions and answers from GitHub and GitLab issue comments
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 02
 Spec: `docs/specs/the-state-of-work/spec.md`
@@ -8,10 +8,10 @@ Roles: Developer, Reviewer, Security
 
 **What to build:** on a GitHub or GitLab tracker, an issue comment whose body starts with `### Question` or `### Answer` is one, in creation order, read with the tracker's read-only token, so that a remote Task shows its questions as a local one does (ADR-0040; spec, *Read from issue comments*). GitHub: the repository's issue comments through every page, matched to issues by number. GitLab: the notes of each open issue, system notes left out.
 
-- [ ] Loopback-forge tests, as `github.test.ts` and `gitlab.test.ts` serve the issues: questions answered and unanswered, comments on several pages, a comment not starting with a heading ignored, GitLab's system notes ignored.
-- [ ] A failure to read comments (401, 403, 429, unreachable) leaves the Tasks readable and their questions unavailable with the reason; the token never appears in what is returned.
-- [ ] Requests go to the declared host only, as the issues' do.
-- [ ] `task_get` and the snapshot's `pendingDecisions` show the remote questions.
+- [x] Loopback-forge tests, as `github.test.ts` and `gitlab.test.ts` serve the issues: questions answered and unanswered, comments on several pages, a comment not starting with a heading ignored, GitLab's system notes ignored.
+- [x] A failure to read comments (401, 403, 429, unreachable) leaves the Tasks readable and their questions unavailable with the reason; the token never appears in what is returned.
+- [x] Requests go to the declared host only, as the issues' do.
+- [x] `task_get` and the snapshot's `pendingDecisions` show the remote questions.
 
 ## Comments
 
@@ -23,6 +23,7 @@ Roles: Developer, Reviewer, Security
   - **A failure to read comments is no attention item**: the Tasks are read, and the questions carry the reason where they are shown.
   - **The Review's reason on a remote tracker** no longer says comments are never read: "Binnacle reads only questions and answers from an issue's comments", in English and Russian on the dashboard.
 - **Test-first, as read here.** `github.test.ts` and `gitlab.test.ts` serve the comments and notes from their loopback forges; the existing tests that counted requests or tokens now count the comments' too, and `init.test.ts`, whose tracker check reads the tracker, sees the comments read.
+- **The snapshot and the board, after ticket 04.** Ticket 04 merged first, its `pendingDecisions` and question counts saying nothing was read on GitHub or GitLab; this branch, rebased onto it, reads them from `TrackerTask.questions` in `readQuestions` (`apps/daemon/src/snapshot.ts`), each Task's questions or why they could not be read. *Waiting for the owner*'s `questions` is unavailable with the reason when an open Task's could not be, the approvals and the owner's Tasks still listed; a Task's count is null where its own could not be, a closed GitLab issue's included.
 
 ### Review
 
@@ -40,9 +41,9 @@ Roles: Developer, Reviewer, Security
 
 **Spec: the criteria hold but one, half of which waits on ticket 04.** Findings:
 
-8. **GitLab's failures are tested on a 403 only, without a token.** **To fix**: 401, 403, 429 and a dropped connection on GitLab's notes, with a token, which is in nothing returned.
-9. **The declared host only is tested for GitHub's comments, not GitLab's notes.** **To fix**: a test that a next page of notes on another host is not read.
-10. **`pendingDecisions` does not show the remote questions**: it is still the placeholder ticket 04 replaces, on its own branch. **Left**: the questions reach every reader through `TrackerTask.questions` and `taskQuestions`; once 04 is merged, its section shows them if it reads them there. The core type now says a remote Task's questions may be unavailable while the Tasks are read, which 04's section has to show, as its Task items' `questions: { asked, unanswered }` have to.
+8. **GitLab's failures are tested on a 403 only, without a token.** **Fixed**: `gitlab.test.ts` fails one issue's notes on a 401, a 403, a 429 and a dropped connection, with a token, which is in nothing returned, and the Tasks are read.
+9. **The declared host only is tested for GitHub's comments, not GitLab's notes.** **Fixed**: `gitlab.test.ts` points a next page of notes at another host, which is not read, and the questions are unavailable saying so.
+10. **`pendingDecisions` does not show the remote questions**: it is still the placeholder ticket 04 replaces, on its own branch. **Fixed**: once 04 merged, this branch was rebased onto it, and `readQuestions` gives each remote Task's questions from its issue's comments, or why they could not be read, to `pendingDecisions`, the snapshot's Task items and the board's cards; `github.test.ts` and `gitlab.test.ts` cover the section, the counts and the cards, read and unavailable.
 11. **Comments are read on every tracker reading**, the board's and `binn init`'s too, not only the snapshot's, the daily's and the brief's. **Kept**: the spec reads them "as the tracker's issues are", and the board is to mark an unanswered question (ticket 04).
 12. **A closed GitLab issue's questions are unavailable, not empty.** **Kept**: decided under *Comments*.
 13. **GitLab's notes are read all at once**, so one 429 makes every question unavailable. **Kept**: the spec's "uncached, `ponytail:` until a forge's rate limit is reached in practice", marked in the code.
