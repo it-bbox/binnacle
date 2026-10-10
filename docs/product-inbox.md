@@ -37,13 +37,6 @@ Antigravity's agent did not answer in this repository because its Git library re
 1. **Requirements traced end to end.** The brief is split into numbered requirements, recorded word for word. Every requirement has a section of the spec and a task, every task a requirement, which catches work nobody asked for, and only the owner can drop a requirement. Here a story of a spec could carry a number that its tickets and their criteria name, and the snapshot or `binn audit` could report a story with no ticket and a ticket with no story.
 2. **Blind acceptance.** At the end, a separate agent checks the result against the owner's original words only, without the spec, so that what was lost on the way from brief to spec to tickets shows. Here an epic's exit demonstration could start from such a check against the grilling's record.
 
-## A Next action nobody moves (2026-10-09)
-
-After epic 14's autopilot run the roadmap's Next action still read `/binnacle:autopilot 10`, with epic 10's 17 and epic 14's 10 both done, and every report since epic 8 has said so without anything changing. Two gaps:
-
-1. **The stale Next action is not detected.** ADR-0032 makes a Next action that names finished work an attention item, but only a command naming a `DONE` Task is caught. `/binnacle:autopilot <epic>` for an epic with no ticket left for an agent, only `ready-for-human` ones, passed with no attention item.
-2. **Nothing proposes the next course.** Implementation sessions and autopilot's agents leave the paragraph to a Product session (2026-10-02), which is right, but neither `/binnacle:product`, autopilot's end nor `/binnacle:checkpoint` proposes a new one, so it lags behind every merge until the owner asks. Autopilot's report or the checkpoint could propose the new paragraph, written once the owner confirms it in the chat (ADR-0037).
-
 ## A daemon that does not come back after a reboot (2026-10-09)
 
 **Decided by the owner on 2026-10-09: v1, right after epics 10 and 14's demonstrations, set up automatically, not a documented manual step.** It left *Later* in the roadmap. What is still open is how, below, and an ADR narrowing ADR-0016's "autostart is a documented manual step".
@@ -53,10 +46,6 @@ After a reboot the owner found the daemon down: nothing starts it. ADR-0016 make
 1. **The documented step ADR-0016 promises**: a unit for systemd, an agent for launchd, a Task Scheduler entry for Windows, each a few lines.
 2. **`binn init` asking for it**, as it asks for the import window, so that a new user is not left with the same gap.
 3. **Who restarts it**: `binn daemon stop` then `binn daemon start`, as autopilot runs after a merge that changes the daemon, leaves a daemon outside the service manager; `systemctl --user restart binnacle` is the restart there. Node's path is pinned to one nvm version and breaks when Node is upgraded.
-
-## A demonstration ticket flagged for its missing Review (2026-10-10)
-
-Once epic 14's 08 was `DONE`, the dashboard's Attention page showed `review.missing` for it. The rule that a `DONE` Task without `### Review` is an attention item (`specs/minimal-dashboard/spec.md`) assumes code to review, and a `ready-for-human` demonstration has none. Either the check leaves out `ready-for-human` tickets, or a demonstration records a short `### Review` saying there is no code. Epic 10's 15 will meet the same item.
 
 ## A scratchpad project in the owner's daemon (2026-10-10)
 

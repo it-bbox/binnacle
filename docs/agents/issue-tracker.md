@@ -15,6 +15,7 @@ Specs and issues for this repo live in Git under `docs/specs/`, not in `.scratch
   - `Triage:` — role string from `triage-labels.md`
 - Comments and conversation history append to the bottom of the file under a `## Comments` heading
 - The Task's Review goes under a `### Review` heading inside `## Comments`, and runs to the next heading of that level or above, so its own sub-headings are `####`. Binnacle reads it there, and a `DONE` ticket without one is the attention item `review.missing`
+- A question only the owner can answer goes under a `### Question` heading inside `## Comments`, in a commit that changes only the ticket, on the branch where the work is; the owner's reply goes right after it under `### Answer`, written by the owner or `/binnacle:answer`, never by an agent. Binnacle reads them from the Task's branch while it is unmerged (`ADR-0040`)
 
 `.scratch/` keeps only genuinely disposable working material: intermediate output, throwaway experiments, anything nobody needs after the task closes.
 
@@ -25,6 +26,7 @@ Binnacle reads a ticket's state, dependencies and spec from its header: these li
 - `Status:` — the ticket's state, one of `BACKLOG`, `READY`, `ACTIVE`, `BLOCKED`, `READY_FOR_REVIEW`, `APPROVED`, `MERGE_READY`, `MERGED`, `DONE`, `CANCELLED`.
 - `Blocked by:` — the numbers of the tickets in the same spec it waits for, such as `01, 03`, or `None`.
 - `Spec:` — the spec it implements, as its path, such as `docs/specs/<slug>/spec.md`.
+- `Roles:` — the roles the Task needs, comma-separated, from Developer, Reviewer, Architect, QA, Security, DevOps and Analyst, such as `Developer, Reviewer, Security`. Optional: without it a Task needs a Developer and a Reviewer. Binnacle shows its own suggested roles beside the line and never changes it.
 
 A ticket's slug, its file name without the number, is unique across every spec's tickets: it names the ticket's branch, `feat/<slug>`, and Binnacle credits the work on a branch two tickets share to neither.
 
@@ -34,6 +36,7 @@ For example:
 Status: READY
 Blocked by: 01, 03
 Spec: `docs/specs/<slug>/spec.md`
+Roles: Developer, Reviewer, Security
 ```
 
 ## When a skill says "publish to the issue tracker"
@@ -57,4 +60,4 @@ Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
 
 ## Projects using a remote tracker
 
-In a project whose tracker is GitHub or GitLab, tickets are issues there and only the spec stays in Git. Each issue body starts with the same ticket header as a local ticket — `Status:`, `Blocked by:` with issue numbers, and `Spec:` — and closing the issue outranks its `Status:` line (`ADR-0024`). Binnacle reads that tracker and never writes to it (`ADR-0013`). The roadmap stays in `docs/roadmap.md` (`ADR-0025`).
+In a project whose tracker is GitHub or GitLab, tickets are issues there and only the spec stays in Git. Each issue body starts with the same ticket header as a local ticket — `Status:`, `Blocked by:` with issue numbers, `Spec:` and, optionally, `Roles:` — and closing the issue outranks its `Status:` line (`ADR-0024`). A question and its answer are issue comments that start with `### Question` and `### Answer`. Binnacle reads that tracker and never writes to it (`ADR-0013`). The roadmap stays in `docs/roadmap.md` (`ADR-0025`).

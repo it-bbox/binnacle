@@ -81,13 +81,13 @@ A durable document describing intended behaviour. It lives in Git, next to the c
 A unit of work. It lives in the project's tracker, and references its Spec. A Spec is not a Ticket and a Ticket is not a Spec.
 
 ### Ticket header
-The `Status:`, `Blocked by:` and `Spec:` lines at the top of a ticket, whether it is a Markdown file or the body of a GitHub or GitLab issue. It is where a Task's state, dependencies and spec are read from on every tracker. On a remote tracker, closing the issue outranks the `Status:` line (ADR-0024).
+The `Status:`, `Blocked by:` and `Spec:` lines at the top of a ticket, with an optional `Roles:` line, whether it is a Markdown file or the body of a GitHub or GitLab issue. It is where a Task's state, dependencies and spec are read from on every tracker. On a remote tracker, closing the issue outranks the `Status:` line (ADR-0024).
 
 ### Task
 Binnacle's view of a Ticket: its identity, title, lifecycle state and dependencies. The Ticket is canonical; a Task has no existence of its own and is always re-read from the tracker. On the local Markdown tracker its identity is `<spec-slug>/<NN>`, because ticket numbers are unique only within one Spec.
 
 ### Task brief
-What a session needs to start one Task: its fields, its dependencies with their titles and states, its spec's path, the ticket body without comments, and the branch name that maps to it. It is compact by construction; the comments and the spec are read separately, when needed.
+What a session needs to start one Task: its fields, its dependencies with their titles and states, its spec's path, the ticket body without comments, its roles, its questions and answers, its pull or merge request with its CI state, and the branch name that maps to it. It is compact by construction; the comments and the spec are read separately, when needed.
 
 ### BLOCKED
 A Task state: work started and now waits on something. It is not the same as an Unmet dependency, and a snapshot reports the two separately.
@@ -100,6 +100,21 @@ A Task in flight by its state (`ACTIVE`, `BLOCKED`, `READY_FOR_REVIEW`, `APPROVE
 
 ### Review
 One review of a Task's work: its findings, and what was fixed or kept. It is recorded in the ticket, under a `### Review` heading.
+
+### Question
+A question about a Task that only the owner can answer, recorded in its ticket under a `### Question` heading in `## Comments`, or as an issue comment that starts with one. It is unanswered until an Answer follows it. On the local tracker it is read from the Task's branch while that branch is unmerged, since the session that asks works there (ADR-0040).
+
+### Answer
+The owner's reply to a Question, recorded right after it under a `### Answer` heading, or as the next issue comment that starts with one. A human writes it, from the chat through `/binnacle:answer` or by hand; an agent never does.
+
+### Waiting for the owner
+What only the owner can move: the unanswered Questions, the Tasks waiting for an approval — `READY_FOR_REVIEW`, which the owner moves to `APPROVED` or back — and the `ready-for-human` Tasks ready to start. An approval is a status change the owner makes, never Binnacle.
+
+### Roles
+The roles a Task needs, from the `Roles:` line of its ticket header, written by `/to-tickets` or the owner: Developer, Reviewer, Architect, QA, Security, DevOps or Analyst. A ticket without the line needs a Developer and a Reviewer. Beside them Binnacle gives its suggested roles, each with its reason and labelled as its calculation; a suggestion never changes the line, and Binnacle starts no one.
+
+### CI state
+The outcome of the checks a forge reports for a commit, read from GitHub or GitLab with the read-only token: passing, failing, running, or none reported. Binnacle reads it for the default branch and for each open pull or merge request, and never runs CI itself.
 
 ### Audit
 A read-only reading of a Git repository, run by `binn audit`, that says what is in place, what is missing and what cannot be told, and recommends the next step for each. It needs no registration, no daemon and no manifest; it writes nothing, uses no network and gives no overall score. Applying a recommendation is the human's, and `binn init` stays the only writer.
