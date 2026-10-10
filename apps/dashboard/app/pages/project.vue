@@ -4,9 +4,17 @@ import { useLanguage } from '~/composables/language';
 import { count, gitLine, isUnavailable, projectName, SELECTED_VIEW, statusBadge, type Board, type Card, type LatestRun, type Section, type Snapshot, type Unavailable } from '~/composables/projects';
 import type { ProjectUsage } from '~/composables/usage';
 
+type WaitingTask = { id: string; title: string | null; state: string | null };
+/** *Waiting for the owner*, the snapshot's `pendingDecisions`. */
+type PendingDecisions = {
+  questions: Section<{ id: string; title: string | null; question: string; branch: string | null }> | Unavailable;
+  approvals: Section<WaitingTask>;
+  owner: Section<WaitingTask>;
+};
+
 type ProjectSnapshot = Snapshot & {
   decisions: Section<{ title: string | null; path: string }> | null;
-  pendingDecisions: Unavailable;
+  pendingDecisions: PendingDecisions | Unavailable;
   ci: Unavailable;
 };
 
@@ -33,7 +41,7 @@ const group = (): { spec?: string | null } => {
 };
 
 const view = inject(SELECTED_VIEW, ref(null));
-/** The shell's snapshot of the selected project, whose answer also carries the decisions, pending decisions and CI. */
+/** The shell's snapshot of the selected project, whose answer also carries the decisions, what waits for the owner and CI. */
 const snapshot = computed(() => (view.value?.snapshot ?? null) as ProjectSnapshot | null);
 const board = usePolling(async () => (project === null ? null : call<Board>('task.list', { path: project, ...group() })));
 const usage = usePolling(async () => (project === null ? null : call<ProjectUsage>('usage.get', { path: project })));
@@ -69,6 +77,16 @@ const runLabel = (latest: LatestRun): string => [latest.harness, latest.model ??
 const graphFreshness = computed(() => {
   const behind = snapshot.value?.graph.behind;
   return behind === true ? t.value.behind : behind === false ? t.value.current : t.value.behindUnknown;
+});
+
+/** The two lists of Tasks waiting for the owner, each with its title and note. */
+const waitingTasks = computed(() => {
+  const pending = snapshot.value?.pendingDecisions;
+  if (!pending || isUnavailable(pending)) return [];
+  return [
+    { key: 'approvals', title: t.value.waitingApprovals, note: t.value.approvalsNote, list: pending.approvals },
+    { key: 'owner', title: t.value.waitingOwner, note: t.value.ownerNote, list: pending.owner },
+  ];
 });
 
 const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) => item.code.startsWith('roadmap.')) ?? []);
@@ -128,6 +146,54 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
                 </tr>
               </tbody>
             </table>
+          </div>
+        </section>
+
+        <section class="flex flex-col gap-2.5">
+          <h2 class="m-0 text-[13px] font-semibold">{{ t.pendingDecisions }}</h2>
+          <p v-if="isUnavailable(snapshot.pendingDecisions)" class="m-0 rounded-lg border border-dashed border-accented px-3.5 py-2.5">
+            <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="snapshot.pendingDecisions.reason" /></span>
+          </p>
+          <div v-else class="grid grid-cols-3 items-start gap-2.5">
+            <section class="flex flex-col gap-2 rounded-lg border border-default bg-default px-3.5 py-2.5">
+              <div class="flex items-center justify-between gap-2">
+                <h3 class="m-0 text-xs font-semibold">{{ t.waitingQuestions }}</h3>
+                <span v-if="!isUnavailable(snapshot.pendingDecisions.questions)" class="font-mono text-[11.5px] text-dimmed">
+                  {{ number(count(snapshot.pendingDecisions.questions)) }}
+                </span>
+              </div>
+              <p v-if="isUnavailable(snapshot.pendingDecisions.questions)" class="m-0 text-xs">
+                <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="snapshot.pendingDecisions.questions.reason" /></span>
+              </p>
+              <template v-else>
+                <div v-if="snapshot.pendingDecisions.questions.items.length === 0" class="text-xs text-dimmed">{{ t.none }}</div>
+                <div v-for="(item, index) in snapshot.pendingDecisions.questions.items" :key="index" class="flex flex-col gap-0.5 text-xs">
+                  <div class="flex flex-wrap items-baseline gap-x-1.5">
+                    <UIcon name="i-lucide-circle-help" class="size-3 shrink-0 self-center text-(--warn)" />
+                    <NuxtLink :to="{ path: '/task', query: { project, id: item.id } }" class="font-mono text-primary hover:underline">{{ item.id }}</NuxtLink>
+                    <span lang="en">{{ item.title ?? t.untitled }}</span>
+                    <code v-if="item.branch !== null" class="font-mono text-[11px] text-dimmed">{{ item.branch }}</code>
+                  </div>
+                  <div lang="en" class="line-clamp-3 break-words whitespace-pre-wrap text-muted">{{ item.question }}</div>
+                </div>
+                <div v-if="snapshot.pendingDecisions.questions.remainder > 0" class="text-xs text-dimmed">
+                  {{ t.more(number(snapshot.pendingDecisions.questions.remainder)) }}
+                </div>
+              </template>
+            </section>
+            <section v-for="group in waitingTasks" :key="group.key" class="flex flex-col gap-2 rounded-lg border border-default bg-default px-3.5 py-2.5">
+              <div class="flex items-center justify-between gap-2">
+                <h3 class="m-0 text-xs font-semibold">{{ group.title }}</h3>
+                <span class="font-mono text-[11.5px] text-dimmed">{{ number(count(group.list)) }}</span>
+              </div>
+              <div class="text-[11.5px] leading-snug text-dimmed">{{ group.note }}</div>
+              <div v-if="group.list.items.length === 0" class="text-xs text-dimmed">{{ t.none }}</div>
+              <div v-for="item in group.list.items" :key="item.id" class="flex flex-wrap items-baseline gap-x-1.5 text-xs">
+                <NuxtLink :to="{ path: '/task', query: { project, id: item.id } }" class="font-mono text-primary hover:underline">{{ item.id }}</NuxtLink>
+                <span lang="en">{{ item.title ?? t.untitled }}</span>
+              </div>
+              <div v-if="group.list.remainder > 0" class="text-xs text-dimmed">{{ t.more(number(group.list.remainder)) }}</div>
+            </section>
           </div>
         </section>
       </template>
@@ -196,6 +262,9 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
                   </template>
                 </div>
                 <div lang="en" class="text-[12.5px] leading-snug text-highlighted">{{ card.title ?? t.untitled }}</div>
+                <div v-if="card.questions !== null && card.questions.unanswered > 0" class="flex items-center gap-1 text-[11px] text-warning">
+                  <UIcon name="i-lucide-circle-help" class="size-3 shrink-0 text-(--warn)" />{{ plural(card.questions.unanswered, t.unansweredQuestions) }}
+                </div>
                 <div v-if="card.unmetDependencies.length > 0" class="text-[11px] text-muted">
                   {{ t.unmetDependency }} <span class="font-mono">{{ card.unmetDependencies.join(', ') }}</span>
                 </div>
@@ -316,19 +385,12 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
             <div v-if="snapshot.decisions.remainder > 0" class="text-xs text-dimmed">{{ t.more(number(snapshot.decisions.remainder)) }}</div>
           </template>
         </section>
-        <section
-          v-for="{ title, element } in [
-            { title: t.pendingDecisions, element: snapshot.pendingDecisions },
-            { title: t.ci, element: snapshot.ci },
-          ]"
-          :key="title"
-          class="flex flex-col gap-0.5 rounded-lg border border-default bg-default px-3.5 py-2.5"
-        >
+        <section class="flex flex-col gap-0.5 rounded-lg border border-default bg-default px-3.5 py-2.5">
           <div class="flex justify-between gap-2">
-            <h2 class="m-0 text-[13px] font-semibold">{{ title }}</h2>
+            <h2 class="m-0 text-[13px] font-semibold">{{ t.ci }}</h2>
             <span class="text-xs text-muted">{{ t.notAvailable }}</span>
           </div>
-          <DaemonReason class="block text-[11.5px] leading-snug text-dimmed" :reason="element.reason" />
+          <DaemonReason class="block text-[11.5px] leading-snug text-dimmed" :reason="snapshot.ci.reason" />
         </section>
       </div>
     </template>

@@ -3,7 +3,7 @@ import { boardColumn, startCommand, type BoardColumn, type Diagnostic, type Epic
 import { OperationError } from './errors.ts';
 import type { OperationContext } from './operations.ts';
 import type { Projected } from './projection.ts';
-import { limited, readState } from './snapshot.ts';
+import { limited, questionCount, readQuestions, readState, type QuestionCount } from './snapshot.ts';
 import { latestRuns } from './usage.ts';
 
 /** A Task on the board, with its column and what the column is read from; both null for one listed apart. */
@@ -14,6 +14,8 @@ export type Card = Pick<ResolvedTask, 'id' | 'title' | 'state' | 'unmetDependenc
   start: string | null;
   /** Whether its ticket records a Review; null on a remote tracker, whose comments are never read. */
   review: boolean | null;
+  /** Its questions counted, as the snapshot counts them (`questionCount`), its branch's while it is unmerged. */
+  questions: QuestionCount;
   /** Who works on it: its latest attributed run, or null when it has none. */
   latestRun: Pick<ObservedRun, 'harness' | 'model' | 'role' | 'lastActivityAt' | 'active'> | null;
 };
@@ -53,7 +55,7 @@ export async function taskList(context: OperationContext, projected: Projected, 
   // The current epic without a spec has no Tasks; only `spec: null` asks for the Tasks without one.
   const group = spec === undefined && slug === null ? [] : tasks.filter((task) => task.specSlug === slug);
 
-  const runs = await latestRuns(context, projected.row.path, projected.manifest, tasks);
+  const [runs, questions] = await Promise.all([latestRuns(context, projected.row.path, projected.manifest, tasks), readQuestions(projected.row.path, projected.manifest, group)]);
   const workflow = projected.manifest?.workflow.provider ?? null;
   const remote = projected.manifest?.tracker.provider !== 'local';
   const columns: Record<BoardColumn, Card[]> = { backlog: [], ready: [], inProgress: [], done: [] };
@@ -72,6 +74,7 @@ export async function taskList(context: OperationContext, projected: Projected, 
       ticket: task.ticket,
       start: startCommand(task, workflow),
       review: remote ? null : task.review !== null,
+      questions: questionCount(questions, task.id),
       latestRun: run ? { harness: run.harness, model: run.model, role: run.role, lastActivityAt: run.lastActivityAt, active: run.active } : null,
     };
     if (placed) columns[placed.column].push(card);

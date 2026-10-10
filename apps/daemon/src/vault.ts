@@ -6,7 +6,7 @@ import type { Daily } from './daily.ts';
 import { defaultCommit, GRAPH_DIRECTORY, lastBuild, manifestOf } from './graph.ts';
 import { resolveGitTimeout, settingsPath } from './home.ts';
 import { readRegistry } from './registry.ts';
-import type { Snapshot, Unavailable } from './snapshot.ts';
+import type { PendingDecisions, Snapshot, Unavailable } from './snapshot.ts';
 import type { Store } from './store.ts';
 
 /**
@@ -350,8 +350,25 @@ const task =
     `${ticket(link, item)} — ${item.state ?? 'unknown'}`;
 const attention = (items: { code: string; message: string }[]): string => list(items, (item) => `\`${item.code}\`: ${item.message}`);
 
+/** *Waiting for the owner*, each question under its Task, with the branch it was read from, its later lines indented into the item. */
+function waiting(pending: PendingDecisions | Unavailable, link: Link): string[] {
+  if (unavailable(pending)) return ['## Waiting for the owner', `Not available: ${pending.reason}`];
+  const { questions, approvals, owner } = pending;
+  return [
+    '## Waiting for the owner',
+    '### Questions',
+    unavailable(questions)
+      ? `Not available: ${questions.reason}`
+      : list(questions.items, (item) => `${ticket(link, item)}${item.branch ? ` on \`${item.branch}\`` : ''}: ${item.question.replace(/\n/g, '\n  ')}`, questions.remainder),
+    '### Approvals',
+    list(approvals.items, task(link), approvals.remainder),
+    '### The owner’s to start',
+    list(owner.items, task(link), owner.remainder),
+  ];
+}
+
 /**
- * The snapshot as a note: where it was served from, the next step, the Tasks, the parallel limit
+ * The snapshot as a note: where it was served from, the next step, what waits for the owner, the Tasks, the parallel limit
  * and its conflict risk, the ADRs, the graph and the attention. Usage and activity are left to
  * the dashboard.
  */
@@ -367,6 +384,7 @@ function snapshotNote(name: string, snapshot: Snapshot, link: Link): string {
     unavailable(next.alternatives)
       ? `Suggested step not available: ${next.alternatives.reason}`
       : list(next.alternatives, (item) => `${item.description}${item.command ? ` \`${item.command}\`` : ''}`),
+    ...waiting(snapshot.pendingDecisions, link),
   ];
   if (tasks === null) parts.push('## Tasks', 'The tracker cannot be read; the attention says why.');
   else {
@@ -400,7 +418,7 @@ function snapshotNote(name: string, snapshot: Snapshot, link: Link): string {
   return `${parts.join('\n\n')}\n`;
 }
 
-/** The daily delta as a note: its range, the commits, the Task and roadmap changes, the ADRs and the attention. */
+/** The daily delta as a note: its range, the commits, the Task changes, what waits for the owner, the roadmap changes, the ADRs and the attention. */
 function dailyNote(name: string, daily: Daily, link: Link): string {
   const tasks = <T>(value: { items: T[]; remainder: number } | Unavailable | null, line: (item: T) => string): string =>
     value === null ? 'The tracker cannot be read now; the attention says why.' : unavailable(value) ? `Not available: ${value.reason}` : list(value.items, line, value.remainder);
@@ -415,6 +433,7 @@ function dailyNote(name: string, daily: Daily, link: Link): string {
     tasks(daily.newTickets, task(link)),
     '## Ready to start',
     tasks(daily.readyToStart, task(link)),
+    ...waiting(daily.pendingDecisions, link),
     '## Roadmap',
     daily.roadmap === null ? 'There is no roadmap.' : list(daily.roadmap, (epic) => `Epic ${epic.number}, ${epic.title}: ${epic.from ?? 'new'} → ${epic.to}`),
     '## Decisions',

@@ -1,10 +1,8 @@
-import { commitTree, isAncestor, isGitUnavailable, readBranchCommit, ticketComments, type Tree } from '@binnacle/adapters';
-import { sharedBranch, startCommand, taskBranch, type Diagnostic, type ProjectManifest, type Question, type TaskRole, type TaskRoles, type TaskState, type TrackerTask } from '@binnacle/core';
+import type { Tree } from '@binnacle/adapters';
+import { sharedBranch, startCommand, taskBranch, type Diagnostic, type ProjectManifest, type TaskRole, type TaskRoles, type TaskState, type TrackerTask } from '@binnacle/core';
 import { OperationError } from './errors.ts';
-import { defaultCommit } from './graph.ts';
-import { resolveGitTimeout } from './home.ts';
 import type { Totals } from '@binnacle/telemetry';
-import { cut, readTracker, type Unavailable } from './snapshot.ts';
+import { cut, readQuestions, readTracker, type TaskQuestions, type Unavailable } from './snapshot.ts';
 
 /** In characters: Unicode code points. */
 export const BODY_LIMIT = 8000;
@@ -12,12 +10,6 @@ export const BODY_LIMIT = 8000;
 const REVIEW_UNAVAILABLE: Unavailable = {
   available: false,
   reason: 'Binnacle reads an issue’s body and never its comments, so no Review is read on GitHub or GitLab.',
-};
-
-// Until epic 11's ticket 05 reads the issues' comments.
-const QUESTIONS_UNAVAILABLE: Unavailable = {
-  available: false,
-  reason: 'Binnacle does not read an issue’s comments yet, so no question or answer is read on GitHub or GitLab.',
 };
 
 /**
@@ -45,7 +37,7 @@ export type TaskBrief = Pick<TrackerTask, 'id' | 'title' | 'state' | 'triage' | 
    * The ticket's questions, each with its answer or null (`taskQuestions`), and the branch they
    * were read from, null for the caller's checkout. Unavailable on a remote tracker.
    */
-  questions: { branch: string | null; items: Question[] } | Unavailable;
+  questions: TaskQuestions | Unavailable;
   /** The roles it needs, and beside them Binnacle's suggestions, read against the graph (`taskRoles`). */
   roles: TaskRoles;
   /** `task.shared_branch` when another Task has the same branch, which then credits neither. */
@@ -91,27 +83,10 @@ export function taskBrief(
   };
 }
 
-/**
- * A Task's questions and answers (ADR-0040). On the local tracker, from its ticket at the tip of
- * its branch (`taskBranch`) while that is a local branch of the registered repository at
- * `projectPath` and not merged into the default branch, `origin/HEAD`'s or else `main`, as usage
- * reads it; otherwise `task`'s own, as the caller's checkout has them. A repository with no such
- * default branch, a branch without the ticket, or a Git that cannot say reads the checkout's.
- */
+/** A Task's questions and answers, read as the snapshot reads every Task's (`readQuestions`). */
 export async function taskQuestions(projectPath: string, manifest: ProjectManifest | null, task: TrackerTask): Promise<TaskBrief['questions']> {
-  if (manifest?.tracker.provider !== 'local') return QUESTIONS_UNAVAILABLE;
-  const branch = taskBranch(task, false);
-  const timeout = resolveGitTimeout();
-  try {
-    const [tip, base] = await Promise.all([readBranchCommit(projectPath, branch, timeout), defaultCommit(projectPath)]);
-    if (tip !== null && base !== null && !(await isAncestor(projectPath, tip, base, timeout))) {
-      const text = await commitTree(projectPath, tip, timeout).read(task.ticket);
-      if (text !== null) return { branch, items: ticketComments(text).questions };
-    }
-  } catch (error) {
-    if (!isGitUnavailable(error)) throw error;
-  }
-  return { branch: null, items: task.questions };
+  const read = await readQuestions(projectPath, manifest, [task]);
+  return read instanceof Map ? read.get(task.id)! : read;
 }
 
 /**

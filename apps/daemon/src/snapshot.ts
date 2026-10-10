@@ -1,5 +1,18 @@
 import { posix } from 'node:path';
-import { readGitHubTasks, readGitLabTasks, readLastCommitTimes, readLocalTasks, workingTree, type GitFacts, type Tree } from '@binnacle/adapters';
+import {
+  commitTree,
+  isAncestor,
+  isGitUnavailable,
+  readBranches,
+  readGitHubTasks,
+  readGitLabTasks,
+  readLastCommitTimes,
+  readLocalTasks,
+  ticketComments,
+  workingTree,
+  type GitFacts,
+  type Tree,
+} from '@binnacle/adapters';
 import {
   boardColumn,
   nextAction,
@@ -9,6 +22,7 @@ import {
   roadmapAttention,
   startCommand,
   suggestedStep,
+  taskBranch,
   taskRoles,
   type Alternative,
   type Diagnostic,
@@ -17,6 +31,7 @@ import {
   type NextAction,
   type ObservedRun,
   type ProjectManifest,
+  type Question,
   type ResolvedTask,
   type Roadmap,
   type TaskReading,
@@ -25,7 +40,7 @@ import {
   type TrackerTask,
 } from '@binnacle/core';
 import { resolveGitTimeout, trackerToken } from './home.ts';
-import { impactSection, touchedBy, type GraphSection } from './graph.ts';
+import { defaultCommit, impactSection, touchedBy, type GraphSection } from './graph.ts';
 import { vaultAttention } from './vault.ts';
 import type { Projected } from './projection.ts';
 import type { ProjectRow } from './store.ts';
@@ -50,10 +65,35 @@ type InFlight = 'ACTIVE' | 'BLOCKED' | 'READY_FOR_REVIEW' | 'APPROVED' | 'MERGE_
 export type SnapshotTask = Pick<ResolvedTask, 'id' | 'title' | 'state' | 'unmetDependencies' | 'ticket'>;
 export type Section = { items: SnapshotTask[]; remainder: number };
 /**
+ * How many questions a Task's ticket asks (`readQuestions`), and how many of them are unanswered;
+ * null where its questions are not read, on a remote tracker.
+ */
+export type QuestionCount = { asked: number; unanswered: number } | null;
+/** A Task item of the snapshot, which counts its questions. */
+export type CountedTask = SnapshotTask & { questions: QuestionCount };
+/**
  * A section whose Tasks each carry the command that starts them (`startCommand`), or null when
  * there is none, and their roles with Binnacle's suggestions (`taskRoles`).
  */
-export type SectionWithStart = { items: (SnapshotTask & { start: string | null; roles: TaskRoles })[]; remainder: number };
+export type SectionWithStart = { items: (CountedTask & { start: string | null; roles: TaskRoles })[]; remainder: number };
+
+/** A Task's questions, each with its answer or null, and the branch they were read from, null for the checkout's ticket. */
+export type TaskQuestions = { branch: string | null; items: Question[] };
+
+/** An unanswered question, with its Task and the branch it was read from, null for the checkout's ticket. */
+export type PendingQuestion = Pick<SnapshotTask, 'id' | 'title' | 'ticket'> & { question: string; branch: string | null };
+
+/**
+ * *Waiting for the owner*: what only the owner can move. `questions`, every unanswered question, in
+ * tracker order and then the ticket's, unavailable where questions are not read; `approvals`, the
+ * Tasks in `READY_FOR_REVIEW`, which the owner approves by changing their status; `owner`, the
+ * Tasks triaged `ready-for-human` and ready to start, as the snapshot's Ready to start reads it.
+ */
+export type PendingDecisions = {
+  questions: { items: PendingQuestion[]; remainder: number } | Unavailable;
+  approvals: { items: CountedTask[]; remainder: number };
+  owner: { items: CountedTask[]; remainder: number };
+};
 
 export type TaskCounts = Record<Exclude<TaskState, InFlight> | 'unknown', number>;
 
@@ -121,7 +161,8 @@ export type Snapshot = {
   decisions: { items: { title: string | null; path: string }[]; remainder: number } | null;
   /** How fresh the Graphify graph is, read from the daemon's recorded runs (ADR-0036). */
   graph: GraphSection;
-  pendingDecisions: Unavailable;
+  /** *Waiting for the owner*; unavailable, with the tracker's reason, when the Tasks cannot be read. */
+  pendingDecisions: PendingDecisions | Unavailable;
   ci: Unavailable;
   usage: Usage;
   /**
@@ -154,9 +195,11 @@ export async function snapshot(
   for (const { level, reason } of usageSection.harnesses) if (level === 1 && reason !== null) attention.push({ code: 'telemetry.unreadable', message: reason });
   attention.push(...pressure, ...graph.attention, ...vaultAttention(home));
   const limit = projected.manifest?.automation.maxParallelDevelopmentTasks ?? PARALLEL_LIMIT;
-  const listed = tasks && taskSections(tasks, new Set(runs.flatMap((run) => run.taskId ?? [])));
+  const attributed = new Set(runs.flatMap((run) => run.taskId ?? []));
+  const questions = tasks && (await readQuestions(projected.row.path, projected.manifest, tasks));
+  const listed = tasks && taskSections(tasks, attributed);
   const impact = listed && (await impactSection(projected.row.path, graph.graph, listed.inFlightAndReady, projected.manifest?.tracker.provider !== 'local'));
-  const sections = listed && impact && withStartAndParallel(listed, workflow, limit, impact);
+  const sections = listed && impact && questions && withStartAndParallel(listed, workflow, limit, impact, questions);
   const action = nextAction(roadmap?.focus ?? null);
 
   return {
@@ -172,7 +215,7 @@ export async function snapshot(
     tasks: sections,
     decisions: adrs && (await recentDecisions(tree, caller.project, adrs)),
     graph: graph.graph,
-    pendingDecisions: UNAVAILABLE,
+    pendingDecisions: tasks && questions ? pendingDecisions(tasks, attributed, questions) : trackerUnavailable(unreadable),
     ci: UNAVAILABLE,
     usage: usageSection,
     activity,
@@ -308,10 +351,16 @@ function withStartAndParallel(
   workflow: string | null,
   limit: number,
   impact: Impact | Unavailable,
+  questions: ReadQuestions,
 ): NonNullable<Snapshot['tasks']> {
   const byId = new Map(inFlightAndReady.map((task) => [task.id, task]));
   const startable = ({ items, remainder }: Section): SectionWithStart => ({
-    items: items.map((task) => ({ ...task, start: startCommand(task, workflow), roles: taskRoles(byId.get(task.id)!, touchedBy(impact, task.id)) })),
+    items: items.map((task) => ({
+      ...task,
+      questions: questionCount(questions, task.id),
+      start: startCommand(task, workflow),
+      roles: taskRoles(byId.get(task.id)!, touchedBy(impact, task.id)),
+    })),
     remainder,
   });
   const inProgress = inFlight.items.length + inFlight.remainder;
@@ -325,7 +374,77 @@ function withStartAndParallel(
 
 /** In tracker order, which the adapter makes stable. */
 export function section(tasks: ResolvedTask[]): Section {
-  return limited(tasks.map(({ id, title, state, unmetDependencies, ticket }) => ({ id, title, state, unmetDependencies, ticket })));
+  return limited(tasks.map(snapshotTask));
+}
+
+const snapshotTask = ({ id, title, state, unmetDependencies, ticket }: ResolvedTask): SnapshotTask => ({ id, title, state, unmetDependencies, ticket });
+
+/** Every Task's questions by id (`readQuestions`), or why they are not read. */
+export type ReadQuestions = Map<string, TaskQuestions> | Unavailable;
+
+// Until epic 11's ticket 05 reads the issues' comments.
+export const QUESTIONS_UNAVAILABLE: Unavailable = {
+  available: false,
+  reason: 'Binnacle does not read an issue’s comments yet, so no question or answer is read on GitHub or GitLab.',
+};
+
+/**
+ * Each Task's questions and answers (ADR-0040). On the local tracker, from its ticket at the tip of
+ * its branch (`taskBranch`) while that is a local branch of the registered repository at
+ * `projectPath` and not merged into the default branch, `origin/HEAD`'s or else `main`, as usage
+ * reads it; otherwise the Task's own, as `tasks` were read. A repository with no such default
+ * branch, a branch without the ticket, or a Git that cannot say gives the Task's own. The branches
+ * and the default branch are read once, whatever the number of Tasks.
+ */
+export async function readQuestions(projectPath: string, manifest: ProjectManifest | null, tasks: TrackerTask[]): Promise<ReadQuestions> {
+  if (manifest?.tracker.provider !== 'local') return QUESTIONS_UNAVAILABLE;
+  const read = new Map<string, TaskQuestions>(tasks.map((task) => [task.id, { branch: null, items: task.questions }]));
+  const timeout = resolveGitTimeout();
+  try {
+    const [branches, base] = await Promise.all([readBranches(projectPath, timeout), defaultCommit(projectPath)]);
+    if (branches === null || base === null) return read;
+    await Promise.all(
+      tasks.map(async (task) => {
+        const branch = taskBranch(task, false);
+        const tip = branches.get(branch);
+        if (tip === undefined || (await isAncestor(projectPath, tip, base, timeout))) return;
+        const text = await commitTree(projectPath, tip, timeout).read(task.ticket);
+        if (text !== null) read.set(task.id, { branch, items: ticketComments(text).questions });
+      }),
+    );
+  } catch (error) {
+    if (!isGitUnavailable(error)) throw error;
+  }
+  return read;
+}
+
+/** How many questions the Task `id` has, and how many are unanswered; null where they are not read. */
+export function questionCount(questions: ReadQuestions, id: string): QuestionCount {
+  if (!(questions instanceof Map)) return null;
+  const items = questions.get(id)?.items ?? [];
+  return { asked: items.length, unanswered: items.filter((item) => item.answer === null).length };
+}
+
+/**
+ * *Waiting for the owner* over `tasks`; `attributed` holds the ids of the Tasks with AgentRuns
+ * attributed to them, which a `ready-for-human` Task has none of when it is ready to start.
+ */
+export function pendingDecisions(tasks: ResolvedTask[], attributed: ReadonlySet<string>, questions: ReadQuestions): PendingDecisions {
+  const counted = (task: ResolvedTask): CountedTask => ({ ...snapshotTask(task), questions: questionCount(questions, task.id) });
+  const ready = (task: ResolvedTask): boolean => boardColumn(task.state, attributed.has(task.id))?.column === 'ready' && task.unmetDependencies.length === 0;
+  return {
+    questions:
+      questions instanceof Map
+        ? limited(
+            tasks.flatMap(({ id, title, ticket }) => {
+              const { branch, items } = questions.get(id)!;
+              return items.filter((item) => item.answer === null).map((item) => ({ id, title, ticket, question: item.text, branch }));
+            }),
+          )
+        : questions,
+    approvals: limited(tasks.filter((task) => task.state === 'READY_FOR_REVIEW').map(counted)),
+    owner: limited(tasks.filter((task) => task.triage === 'ready-for-human' && ready(task)).map(counted)),
+  };
 }
 
 /** The first `limit` items, and how many were left out. */

@@ -9,7 +9,7 @@ import type { Tree } from './tree.ts';
  *
  * - only inspecting commands run — `rev-parse`, `symbolic-ref` without a new value,
  *   `worktree list`, `status`, `remote -v`, `log` (the reflog's too), `show`, `ls-tree`,
- *   `merge-base --is-ancestor`, `check-ignore`, `diff --name-only` — and nothing that fetches, writes, or changes config or refs;
+ *   `merge-base --is-ancestor`, `check-ignore`, `diff --name-only`, `for-each-ref` — and nothing that fetches, writes, or changes config or refs;
  * - a revision is only ever passed as a commit hash, never as caller text that git could
  *   read as an option, and a caller's path only after `--` as a `:(literal)` pathspec;
  *   the two exceptions cannot be read as options either: a branch name only under
@@ -149,6 +149,24 @@ export async function readBranchCommit(cwd: string, branch: string, timeoutMs: n
     // Under `refs/heads/`, the name can never be read as an option.
     const run = await git(cwd, timeoutMs, ['rev-parse', '--verify', '--quiet', `refs/heads/${branch}^{commit}`]);
     return run.code === 0 ? run.stdout.trim() || null : null;
+  } catch (error) {
+    if (isGitUnavailable(error)) return null;
+    throw error;
+  }
+}
+
+/** Every local branch, by its name under `refs/heads/`, and the commit it points at; null when Git cannot say. */
+export async function readBranches(cwd: string, timeoutMs: number): Promise<Map<string, string> | null> {
+  if (!statSync(cwd, { throwIfNoEntry: false })?.isDirectory()) return null;
+  try {
+    const run = await git(cwd, timeoutMs, ['for-each-ref', '--format=%(objectname) %(refname)', 'refs/heads/']);
+    if (run.code !== 0) return null;
+    const branches = new Map<string, string>();
+    for (const line of run.stdout.split('\n')) {
+      const match = /^([0-9a-f]+) refs\/heads\/(.+)$/.exec(line);
+      if (match) branches.set(match[2]!, match[1]!);
+    }
+    return branches;
   } catch (error) {
     if (isGitUnavailable(error)) return null;
     throw error;

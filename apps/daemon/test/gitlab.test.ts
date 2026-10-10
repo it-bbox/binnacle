@@ -145,11 +145,11 @@ describe('GitLab issues as Tasks in the Product Snapshot', () => {
 
       assert.deepEqual(body.tasks, {
         inFlight: {
-          items: [{ id: '#3', title: 'Third', state: 'ACTIVE', unmetDependencies: [], ticket: `https://gitlab.com/${REPOSITORY}/-/issues/3`, start: null, roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] } }],
+          items: [{ id: '#3', title: 'Third', state: 'ACTIVE', unmetDependencies: [], ticket: `https://gitlab.com/${REPOSITORY}/-/issues/3`, questions: null, start: null, roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] } }],
           remainder: 0,
         },
         readyToStart: {
-          items: [{ id: '#2', title: 'Second', state: 'READY', unmetDependencies: [], ticket: `https://gitlab.com/${REPOSITORY}/-/issues/2`, start: null, roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] } }],
+          items: [{ id: '#2', title: 'Second', state: 'READY', unmetDependencies: [], ticket: `https://gitlab.com/${REPOSITORY}/-/issues/2`, questions: null, start: null, roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] } }],
           remainder: 0,
         },
         counts: { BACKLOG: 0, READY: 0, MERGED: 0, DONE: 1, CANCELLED: 0, unknown: 0 },

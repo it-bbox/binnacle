@@ -270,6 +270,33 @@ describe('the vault projection', () => {
     });
   });
 
+  it('writes Waiting for the owner into the snapshot and daily notes: the questions, the approvals and the owner’s Tasks', async () => {
+    const { root } = makeRepository();
+    write(root, 'docs/specs/alpha/issues/02-asked.md', '# 02: Asked\n\nStatus: ACTIVE\n\n## Comments\n\n### Question\n\nWhich way?\n');
+    write(root, 'docs/specs/alpha/issues/03-review.md', '# 03: Review\n\nStatus: READY_FOR_REVIEW\n');
+    write(root, 'docs/specs/alpha/issues/04-human.md', '# 04: Human\n\nStatus: READY\nTriage: ready-for-human\n');
+    commitAll(root, 'Waiting for the owner');
+    const vault = temporary('binnacle-vault-');
+    await withDaemon(async (daemon) => {
+      setVault(daemon, vault);
+      await register(daemon, root);
+      const expected = [
+        '## Waiting for the owner',
+        '### Questions',
+        '- [[Projects/Vault Test/Specs/alpha/02-asked|alpha/02: Asked]]: Which way?',
+        '### Approvals',
+        '- [[Projects/Vault Test/Specs/alpha/03-review|alpha/03: Review]] — READY_FOR_REVIEW',
+        '### The owner’s to start',
+        '- [[Projects/Vault Test/Specs/alpha/04-human|alpha/04: Human]] — READY',
+      ].join('\n\n');
+
+      assert.equal((await daemon.call('project.snapshot', { path: root })).status, 200);
+      assert.ok(read(vault, 'Product/snapshot.md').includes(expected), read(vault, 'Product/snapshot.md'));
+      assert.equal((await daemon.call('daily.get', { path: root })).status, 200);
+      assert.ok(read(vault, 'Product/daily.md').includes(expected), read(vault, 'Product/daily.md'));
+    });
+  });
+
   it('refreshes the roadmap note when main moves, and removes it with the roadmap', async () => {
     const { root } = makeRepository();
     const vault = temporary('binnacle-vault-');

@@ -24,6 +24,7 @@ type Card = {
   ticket: string;
   start: string | null;
   review: boolean | null;
+  questions: { asked: number; unanswered: number } | null;
   latestRun: Run | null;
 };
 type Column = { items: Card[]; remainder: number };
@@ -193,6 +194,7 @@ describe('the board', () => {
             ticket: backlog,
             start: `/mattpocock-skills:implement ${backlog}`,
             review: false,
+            questions: { asked: 0, unanswered: 0 },
             latestRun: null,
           },
         ],
@@ -208,6 +210,7 @@ describe('the board', () => {
         ticket: ready,
         start: `/mattpocock-skills:implement ${ready}`,
         review: false,
+        questions: { asked: 0, unanswered: 0 },
         latestRun: null,
       });
       assert.deepEqual(ids(board.columns.ready), ['second/02']);
@@ -224,6 +227,7 @@ describe('the board', () => {
         ticket: worked,
         start: `/mattpocock-skills:implement ${worked}`,
         review: false,
+        questions: { asked: 0, unanswered: 0 },
         latestRun: { harness: 'claude-code', model: 'claude-opus-5-5', role: 'implementation', lastActivityAt: latest, active: { value: true, provenance: 'calculated' } },
       });
       assert.deepEqual(
@@ -256,6 +260,7 @@ describe('the board', () => {
             ticket: unknown,
             start: `/mattpocock-skills:implement ${unknown}`,
             review: false,
+            questions: { asked: 0, unanswered: 0 },
             latestRun: null,
             diagnostic: { code: 'task.unknown_state', message: `second/09 (${unknown}) has Status: "WIP", which is not a Task state.` },
           },
@@ -302,6 +307,28 @@ describe('the board', () => {
       assert.equal(board.columns.backlog.remainder, 2);
       assert.deepEqual(ids(board.columns.done), Array.from({ length: 10 }, (_, index) => `second/${32 - index}`));
       assert.equal(board.columns.done.remainder, 2);
+    });
+  });
+
+  it('counts a card’s questions, from its unmerged branch, so that one with an unanswered question can be marked', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject();
+      const asked = ticket(root, 'second', '01-asked.md', 'Asked', 'Status: READY');
+      ticket(root, 'second', '02-quiet.md', 'Quiet', 'Status: READY');
+      repository(root, minutesAgo(60));
+      const worktree = join(temporary('binnacle-board-worktree-'), 'asked');
+      gitAt(minutesAgo(5), root, 'worktree', 'add', '--quiet', '-b', 'feat/asked', worktree);
+      write(worktree, asked, `${readFileSync(join(root, asked), 'utf8')}\n## Comments\n\n### Question\n\nWhich way?\n`);
+      gitAt(minutesAgo(4), worktree, 'commit', '--quiet', '-am', 'A question');
+
+      const board = await taskList(daemon, root);
+      assert.deepEqual(
+        board.columns.ready.items.map((card) => [card.id, card.questions]),
+        [
+          ['second/01', { asked: 1, unanswered: 1 }],
+          ['second/02', { asked: 0, unanswered: 0 }],
+        ],
+      );
     });
   });
 

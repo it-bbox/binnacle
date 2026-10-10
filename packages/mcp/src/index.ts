@@ -26,12 +26,12 @@ const TOOLS = {
   },
   project_snapshot: {
     operation: 'project.snapshot',
-    description: "The compact Product Snapshot: roadmap, the roadmap's Next action with its command and Binnacle's alternatives beside it (the Suggested step), Tasks in flight and ready to start with the command that starts each and their roles (`roles`: `required`, from the ticket's `Roles:` line or Developer and Reviewer by `default`, and `suggested`, Binnacle's `calculated` suggestions, each with its reason), the runs running now and recently, recent decisions, usage, Git and attention items.",
+    description: "The compact Product Snapshot: roadmap, the roadmap's Next action with its command and Binnacle's alternatives beside it (the Suggested step), Tasks in flight and ready to start with the command that starts each and their roles (`roles`: `required`, from the ticket's `Roles:` line or Developer and Reviewer by `default`, and `suggested`, Binnacle's `calculated` suggestions, each with its reason) and their `questions` (`asked`, `unanswered`), what waits for the owner (`pendingDecisions`: the unanswered `questions`, each with its Task and the branch it was read from, the `approvals` in READY_FOR_REVIEW and the `owner`'s ready-for-human Tasks ready to start), the runs running now and recently, recent decisions, usage, Git and attention items.",
   },
   daily_get: {
     operation: 'daily.get',
     description:
-      'What changed since the previous daily on this machine: commits, Task transitions, new tickets, roadmap and ADR changes, what can start and attention items. Records this HEAD as the next baseline, unless `since` is given.',
+      'What changed since the previous daily on this machine: commits, Task transitions, new tickets, roadmap and ADR changes, what can start, what waits for the owner as of now (`pendingDecisions`, as the snapshot gives it) and attention items. Records this HEAD as the next baseline, unless `since` is given.',
     inputSchema: {
       since: z.string().optional().describe('A commit hash to look back from instead of the recorded baseline; records nothing.'),
     },

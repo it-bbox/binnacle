@@ -31,7 +31,6 @@ type Snapshot = {
     parallel: { limit: number; inProgress: number; free: number; provenance: string; impact: unknown };
   } | null;
   decisions: { items: { title: string | null; path: string }[]; remainder: number } | null;
-  pendingDecisions: Unavailable;
   ci: Unavailable;
   attention: { code: string; message: string }[];
 };
@@ -122,6 +121,7 @@ describe('Tasks in the Product Snapshot', () => {
             state: 'ACTIVE',
             unmetDependencies: [],
             ticket: 'docs/specs/epic/issues/03-build-the-thing.md',
+            questions: { asked: 0, unanswered: 0 },
             start: null,
             roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] },
           },
@@ -521,13 +521,12 @@ describe('recent decisions, Git and the unavailable sections', () => {
   });
 
   // Usage has its own tests, in usage.test.ts.
-  it('marks pending decisions and CI state as unavailable, with no content', async () => {
+  // Waiting for the owner has its own tests, in pending.test.ts.
+  it('marks CI state as unavailable, with no content', async () => {
     await withDaemon(async (daemon) => {
       const body = await snapshot(daemon, makeRepository());
-      for (const section of [body.pendingDecisions, body.ci]) {
-        assert.deepEqual(Object.keys(section).sort(), ['available', 'reason']);
-        assert.equal(section.available, false);
-      }
+      assert.deepEqual(Object.keys(body.ci).sort(), ['available', 'reason']);
+      assert.equal(body.ci.available, false);
     });
   });
 

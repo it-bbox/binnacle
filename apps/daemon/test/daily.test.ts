@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { after, describe, it } from 'node:test';
 import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
 
@@ -20,6 +20,7 @@ type Daily = {
   roadmap: { number: number; title: string; from: string | null; to: string }[] | null;
   decisions: Section<{ title: string | null; path: string; change: string }> | null;
   readyToStart: Section<SnapshotTask> | null;
+  pendingDecisions: unknown;
   attention: { code: string; message: string }[];
 };
 type Event = { type: string; projectPath: string | null; payload: Record<string, unknown> };
@@ -183,6 +184,44 @@ describe('the daily delta', () => {
       assertEmpty(second);
       assert.deepEqual(second.readyToStart?.items.map((task) => task.id), ['first/01']);
       assert.equal((await dailies(daemon)).length, 2);
+    });
+  });
+
+  it('carries Waiting for the owner as of now, on a delta with nothing new too, its questions read from an unmerged branch', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeRepository();
+      write(root, 'docs/specs/first/issues/03-review.md', ticketText('03: Review', 'READY_FOR_REVIEW'));
+      write(root, 'docs/specs/first/issues/04-human.md', ticketText('04: Human', 'READY').replace('ready-for-agent', 'ready-for-human'));
+      commitAll(root, 'Two waiting for the owner');
+      const worktree = join(realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-daily-worktree-'))), 'start');
+      roots.push(dirname(worktree));
+      git(root, ['worktree', 'add', '--quiet', '-b', 'feat/start', worktree]);
+      write(worktree, 'docs/specs/first/issues/01-start.md', `${ticketText('01: Start', 'ACTIVE')}\n## Comments\n\n### Question\n\nWhich way?\n`);
+      commitAll(worktree, 'A question');
+      await register(daemon, root);
+      await daily(daemon, root);
+
+      const body = await daily(daemon, root);
+      assertEmpty(body);
+      const item = (id: string, title: string, state: string, file: string) => ({ id, title, state, unmetDependencies: [], ticket: `docs/specs/first/issues/${file}`, questions: { asked: 0, unanswered: 0 } });
+      assert.deepEqual(body.pendingDecisions, {
+        questions: { items: [{ id: 'first/01', title: 'Start', ticket: 'docs/specs/first/issues/01-start.md', question: 'Which way?', branch: 'feat/start' }], remainder: 0 },
+        approvals: { items: [item('first/03', 'Review', 'READY_FOR_REVIEW', '03-review.md')], remainder: 0 },
+        owner: { items: [item('first/04', 'Human', 'READY', '04-human.md')], remainder: 0 },
+      });
+    });
+  });
+
+  it('says Waiting for the owner is unavailable, with the tracker’s reason, when the Tasks cannot be read', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeRepository();
+      write(root, '.binnacle/project.yaml', MANIFEST.replace('  local:\n    issues: docs/specs\n', ''));
+      commitAll(root, 'No issues directory');
+      await register(daemon, root);
+      assert.deepEqual((await daily(daemon, root)).pendingDecisions, {
+        available: false,
+        reason: 'tracker.provider is local, and this project declares no tracker.local.issues.',
+      });
     });
   });
 

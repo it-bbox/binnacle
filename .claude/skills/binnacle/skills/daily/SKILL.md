@@ -20,9 +20,10 @@ disable-model-invocation: true
    - If `dirty` is true, say that uncommitted edits are not in the delta.
    - **Commits**: the count, then the subjects, with "and N more" for any remainder.
    - **Task transitions** (`from` → `to`), **new tickets**, **roadmap status changes** and **decisions**, each with its ticket or ADR path. Leave out a list that is empty or null. A null list means its source could not be read, and the attention items say why. A list with `available: false` could not be computed, as on a remote tracker's first daily or with a commit passed: quote its `reason` instead, so that it is not read as "nothing changed".
+   - **Waiting for the owner**, from `pendingDecisions`, as of now and not only what changed: the unanswered **questions**, each with its Task id, title, ticket path, its text and the branch it was read from when `branch` is set; the **approvals**, the Tasks in `READY_FOR_REVIEW` waiting for the human's review; and the human's **to start**, the Tasks triaged `ready-for-human` and ready to start, each with id, title and ticket path. Give every remainder as "and N more", and say "none" for an empty list. A list or the section marked `available: false`: quote its `reason`.
    - **Attention**: every item with its code. If there are none, say "none".
    - **Can start next**: the `readyToStart` Tasks, with id, title and ticket path.
-   - If nothing changed, say "nothing changed since `<from.commit>`" in one line instead of the empty lists, and still give the attention items and what can start next.
+   - If nothing changed, say "nothing changed since `<from.commit>`" in one line instead of the empty lists, and still give what waits for the owner, the attention items and what can start next.
 4. End with a recommendation for what to do next. Do not act on it until the human asks.
 
 Change nothing else: no files, no commits, and no Binnacle calls other than the two above.

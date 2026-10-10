@@ -286,7 +286,7 @@ With a vault set, the daemon keeps a one-way projection of each registered proje
 
 Once a minute it reads each project's default branch, and when the branch has moved, the vault setting changed or the graph was built again, it renders the project again from that commit, read through Git: an uncommitted change in the checkout never reaches the vault. Relative Markdown links between projected files become Obsidian links.
 
-The snapshot and daily notes are written each time a snapshot or a daily is served, from what was served, with no further call to the tracker: their `source` is `project.snapshot` or `daily.get`, their `commit` the caller's HEAD, and a `served:` line gives the time. Their tickets and ADRs link to the projected notes. With no vault set, serving one writes nothing.
+The snapshot and daily notes are written each time a snapshot or a daily is served, from what was served, with no further call to the tracker: their `source` is `project.snapshot` or `daily.get`, their `commit` the caller's HEAD, and a `served:` line gives the time. Both carry *Waiting for the owner*: the unanswered questions, the Tasks waiting for an approval and the `ready-for-human` Tasks ready to start. Their tickets and ADRs link to the projected notes. With no vault set, serving one writes nothing.
 
 `90-Graphify/GRAPH_REPORT.md` is `graphify-out/GRAPH_REPORT.md` in the registered checkout, with the commit of the last successful run. It is rewritten only after a newer successful run, so a failed run leaves it as it was, and a vault set after a failed run gets no report until the next successful one. Without a successful run recorded, without the report, or with `capabilities.graphify: false`, there is no note, and no attention item for it.
 

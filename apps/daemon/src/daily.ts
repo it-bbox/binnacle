@@ -3,7 +3,21 @@ import type { Diagnostic, ProjectManifest, ResolvedTask, RoadmapStatus, TaskStat
 import { OperationError } from './errors.ts';
 import { resolveGitTimeout } from './home.ts';
 import type { Projected } from './projection.ts';
-import { firstHeading, limited, readState, section, taskSections, type CallerCheckout, type Section, type State, type Unavailable } from './snapshot.ts';
+import {
+  firstHeading,
+  limited,
+  pendingDecisions,
+  readQuestions,
+  readState,
+  section,
+  taskSections,
+  trackerUnavailable,
+  type CallerCheckout,
+  type PendingDecisions,
+  type Section,
+  type State,
+  type Unavailable,
+} from './snapshot.ts';
 import type { ProjectRow } from './store.ts';
 
 /**
@@ -76,6 +90,11 @@ export type Daily = {
   roadmap: { number: number; title: string; from: RoadmapStatus | null; to: RoadmapStatus }[] | null;
   /** ADRs added or changed. Null when there is no ADR directory at HEAD. */
   decisions: { items: { title: string | null; path: string; change: 'added' | 'changed' }[]; remainder: number } | null;
+  /**
+   * The snapshot's *Waiting for the owner*, as of now: over the Tasks at HEAD, their questions read
+   * from an unmerged branch as the snapshot reads them, and so not only what changed.
+   */
+  pendingDecisions: PendingDecisions | Unavailable;
   /** As the snapshot computes it, at HEAD. */
   attention: Diagnostic[];
 };
@@ -115,6 +134,7 @@ export async function daily(
 
     const remote = isRemoteTracker(projected.manifest);
     const was = remote ? recordedStates(baseline, fallback, recorded) : before.tasks && taskStates(before.tasks);
+    const attributed = after.tasks ? await readAttributed(after.tasks) : new Set<string>();
     const delta: Daily = {
       project: projected.row,
       checkout: caller.checkout,
@@ -123,9 +143,12 @@ export async function daily(
       from,
       fallback,
       commits: { count: commits.length, ...limited(commits) },
-      ...taskChanges(was, after, after.tasks ? await readAttributed(after.tasks) : new Set()),
+      ...taskChanges(was, after, attributed),
       roadmap: roadmapChanges(before, after),
       decisions: await decisionChanges(before, after, beforeTree, afterTree),
+      pendingDecisions: after.tasks
+        ? pendingDecisions(after.tasks, attributed, await readQuestions(projected.row.path, projected.manifest, after.tasks))
+        : trackerUnavailable(after.unreadable),
       attention: after.attention,
     };
     // An unreadable tracker records no states, so that the next delta says so instead of guessing.

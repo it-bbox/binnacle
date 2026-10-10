@@ -105,10 +105,11 @@ A roadmap that cannot be read, and a project or epic with no Tasks, each show th
 ### Project
 
 - the roadmap's epics, with their status and spec;
-- tasks, on a mini kanban for one epic, the current one unless another is picked: Backlog, Ready, In progress, Done. A card shows its Unmet dependencies and `BLOCKED`. A `READY` Task with AgentRuns attributed to it stands In progress, marked as read from runs, and a card names who works on it, with a live dot while its run is active. Done shows its count and its latest cards until opened;
+- *Waiting for the owner*, the snapshot's `pendingDecisions`: the unanswered questions, each with its Task, its text and the branch it was read from; the Tasks waiting for an approval, in `READY_FOR_REVIEW`; and the `ready-for-human` Tasks ready to start; or not available, with the tracker's reason;
+- tasks, on a mini kanban for one epic, the current one unless another is picked: Backlog, Ready, In progress, Done. A card shows its Unmet dependencies, `BLOCKED` and how many of its questions are unanswered. A `READY` Task with AgentRuns attributed to it stands In progress, marked as read from runs, and a card names who works on it, with a live dot while its run is active. Done shows its count and its latest cards until opened;
 - reviews: whether a `DONE` Task's ticket records a Review, and never a review state the ticket does not;
 - usage by role;
-- the registered checkout; the graph, from the snapshot's `graph` section: the commit it was built from and when, whether the default branch has moved past it, and the last run's outcome, commit, time and Graphify's reason when it failed, or why there is no graph; recent decisions; and pending decisions and CI, not available.
+- the registered checkout; the graph, from the snapshot's `graph` section: the commit it was built from and when, whether the default branch has moved past it, and the last run's outcome, commit, time and Graphify's reason when it failed, or why there is no graph; recent decisions; and CI, not available.
 
 ### Task
 

@@ -14,6 +14,7 @@ export {
   isGitUnavailable,
   isIgnored,
   readBranchCommit,
+  readBranches,
   readChangedFiles,
   readCommit,
   readCommitBefore,

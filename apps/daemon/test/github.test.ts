@@ -18,10 +18,11 @@ import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
 const NO_ROLES = { implementation: sum([]), review: sum([]), rework: sum([]) };
 
 type Roles = { required: string[]; source: 'ticket' | 'default'; suggested: { role: string; reason: string; provenance: string }[] };
-type SnapshotTask = { id: string; title: string | null; state: string | null; unmetDependencies: string[]; ticket: string; start: string | null; roles: Roles };
+type SnapshotTask = { id: string; title: string | null; state: string | null; unmetDependencies: string[]; ticket: string; start: string | null; roles: Roles; questions: unknown };
 type Section = { items: SnapshotTask[]; remainder: number };
 type Snapshot = {
   roadmap: { epics: unknown[] } | null;
+  pendingDecisions: unknown;
   tasks: { inFlight: Section; readyToStart: Section; counts: Record<string, number> } | null;
   attention: { code: string; message: string }[];
 };
@@ -155,11 +156,11 @@ describe('GitHub issues as Tasks in the Product Snapshot', () => {
 
       assert.deepEqual(body.tasks, {
         inFlight: {
-          items: [{ id: '#3', title: 'Third', state: 'ACTIVE', unmetDependencies: [], ticket: `https://github.com/${REPOSITORY}/issues/3`, start: null, roles: DEFAULT_ROLES }],
+          items: [{ id: '#3', title: 'Third', state: 'ACTIVE', unmetDependencies: [], ticket: `https://github.com/${REPOSITORY}/issues/3`, questions: null, start: null, roles: DEFAULT_ROLES }],
           remainder: 0,
         },
         readyToStart: {
-          items: [{ id: '#2', title: 'Second', state: 'READY', unmetDependencies: [], ticket: `https://github.com/${REPOSITORY}/issues/2`, start: null, roles: DEFAULT_ROLES }],
+          items: [{ id: '#2', title: 'Second', state: 'READY', unmetDependencies: [], ticket: `https://github.com/${REPOSITORY}/issues/2`, questions: null, start: null, roles: DEFAULT_ROLES }],
           remainder: 0,
         },
         counts: { BACKLOG: 0, READY: 0, MERGED: 0, DONE: 1, CANCELLED: 0, unknown: 0 },
@@ -186,6 +187,33 @@ describe('GitHub issues as Tasks in the Product Snapshot', () => {
       const body = await snapshot(daemon, root);
       assert.deepEqual(ids(body.tasks!.inFlight), []);
       assert.equal(body.tasks!.counts.DONE, 1);
+    });
+  });
+
+  it('lists the approvals and the ready-for-human issues waiting for the owner, and says why no question is read', async () => {
+    const pages = [
+      [
+        issue(1, 'In review', { body: header({ Status: 'READY_FOR_REVIEW' }) }),
+        issue(2, 'The owner’s', { body: header({ Status: 'READY' }), labels: [{ name: 'ready-for-human' }] }),
+        issue(3, 'An agent’s', { body: header({ Status: 'READY' }), labels: [{ name: 'ready-for-agent' }] }),
+      ],
+    ];
+    await withGitHub(pages, async (daemon, fake) => {
+      const body = await snapshot(daemon, makeProject(manifest(fake.base)));
+      const item = (number: number, title: string, state: string) => ({
+        id: `#${number}`,
+        title,
+        state,
+        unmetDependencies: [],
+        ticket: `https://github.com/${REPOSITORY}/issues/${number}`,
+        questions: null,
+      });
+      assert.deepEqual(body.pendingDecisions, {
+        questions: { available: false, reason: 'Binnacle does not read an issue’s comments yet, so no question or answer is read on GitHub or GitLab.' },
+        approvals: { items: [item(1, 'In review', 'READY_FOR_REVIEW')], remainder: 0 },
+        owner: { items: [item(2, 'The owner’s', 'READY')], remainder: 0 },
+      });
+      assert.deepEqual(body.tasks!.readyToStart.items.map((task) => task.questions), [null, null], 'no count where no question is read');
     });
   });
 
