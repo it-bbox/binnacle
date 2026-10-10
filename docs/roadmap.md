@@ -24,20 +24,21 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 12 | Audit, completed | not started | — |
 | 13 | Human output | not started | — |
 | 14 | Skills in any harness | done | [`skills-in-any-harness`](specs/skills-in-any-harness/spec.md) |
+| 15 | Daemon autostart | not started | — |
+| 16 | Dashboard redesign | not started | — |
+| 17 | Release: npm and open source | not started | — |
 
 Epics are ordered by dependency, not by preference. Epic 1 is the foundation; epics 5 to 7 are only meaningful once 1 to 4 exist. Audit and adopt is epic 6 in the specs of epics 1 to 3, written before epic 6 was inserted on 2026-09-26. Epic 14 was added on 2026-10-06 and comes before epic 10, which reuses its list of harnesses.
 
 ## Current focus
 
-Epics 1 to 9 are done. Epic 13, Human output, is grilled last, since it rewrites every skill's output; epics 11 and 12 need `to-spec` before it.
+Epics 1 to 10 and 14 are done. On 2026-10-10 the owner set a date: on 2026-10-12 a video presents Binnacle, published to npm and open source, and every remaining v1 epic is in it, 11, 12 and 13 included, not left for after the release.
 
-Epic 14, Skills in any harness (`specs/skills-in-any-harness/spec.md`), is done. On 2026-10-10 the owner finished 08, its exit demonstration, with Antigravity left unverified as agreed: ZCode's `binnacle-product` showed the Product Snapshot, ZCode's `binnacle-autopilot 14` refused at its first step after 11, and Claude Code lists each `/binnacle:<action>` once.
+Three epics were added for it. 15, Daemon autostart: `binn init` sets the daemon up to start at login, which narrows ADR-0016's documented manual step (`docs/product-inbox.md`). 16, Dashboard redesign: the dashboard reads too small and too crowded, so it is redesigned with the Impeccable and UI UX Pro Max skills. 17, Release: npm and open source, which takes publishing `@binnacle/cli` out of *Later*: the build step that turns its TypeScript into JavaScript with the dashboard generated into it (`ADR-0031`), the README's install from npm, and the repository made public under Apache-2.0 (`ADR-0010`).
 
-Epic 10, Telemetry for any harness (`specs/telemetry-for-any-harness/spec.md`), is done. On 2026-10-08 the owner demonstrated 15 on their machine, Gemini CLI and Antigravity not verified as decided; on 2026-10-10 the dashboard's page for 17 showed its implementation, review and rework apart, the last criterion.
+Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own, several at a time. 15, 16, 11 and 12 can be grilled side by side; 13 rewrites every skill's output and still comes after them; 17 publishes what the others merged and comes last.
 
-The daemon's autostart left *Later* on 2026-10-09: a daemon that does not come back after a reboot is the first thing a user meets, so `binn init` sets it up, and with epics 10 and 14 demonstrated it is next (`docs/product-inbox.md`; it narrows ADR-0016).
-
-Next action: grill the daemon's autostart, how `binn init` sets it up, into an ADR that narrows ADR-0016. `/grill-with-docs`
+Next action: grill epic 15, the daemon's autostart, how `binn init` sets it up, into an ADR that narrows ADR-0016. `/grill-with-docs`
 
 ## Later
 
@@ -49,7 +50,6 @@ Deferred deliberately, each with the decision that deferred it:
 - cost computed from a price table — `specs/telemetry/spec.md`: a subscription makes such a number conditional;
 - changing a local ticket's `Status:` from the dashboard — a separate ADR narrowing `ADR-0020`, only if working with the read-only dashboard shows it is needed;
 - forking the Matt Pocock skills into the `binnacle` plugin — only if a skill's procedure, not just its conventions in `docs/agents/`, has to change;
-- publishing `@binnacle/cli` to npm, with the build step that turns its TypeScript into JavaScript and the dashboard generated into it (`ADR-0031`): Node does not strip types under `node_modules`, so until then `binn` runs from the linked workspace — `specs/tracker-and-matt-pocock-integration/spec.md`, *Out of Scope*;
 - reading a record's branch again when its checkout's reflog can still give one: a record stored with the harness's branch before ADR-0029's order, or whose reflog lookup failed or timed out — `ADR-0030`, only if it matters in practice;
 - autopilot resuming by itself once a usage limit resets: on 2026-09-25 a Product session did it by hand, with a script that waited for the reset and a message to the autopilot session — `ADR-0022`, when limits interrupt runs often;
 - fewer rebases in a parallel autopilot run: every ticket's last commit rewrites the same current-focus paragraph, so the second of two parallel branches always rebased (five of eight merges on 2026-09-26) — `ADR-0022`, if rebasing slows runs;
