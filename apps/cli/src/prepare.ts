@@ -42,7 +42,12 @@ export function prepareSkills(source: string, target: string, version: string): 
       .filter((line) => !/^(disable-model-invocation|argument-hint):/.test(line))
       .map((line) => (line.startsWith('name: ') ? `name: binnacle-${action}` : line))
       // The `skills` CLI reads frontmatter as strict YAML and skips a skill whose plain description holds `: `; JSON's string is a YAML double-quoted scalar.
-      .map((line) => line.replace(/^description: (?!["'])(.*)$/, (_, text: string) => `description: ${JSON.stringify(text)}`))
+      .map((line) => {
+        const [, value] = /^description:\s*(.*)$/.exec(line) ?? [];
+        if (value === undefined || /^["']/.test(value)) return line;
+        if (!value || /^[>|]/.test(value)) throw new Error(`${action}/SKILL.md: the description is not on one line`);
+        return `description: ${JSON.stringify(value)}`;
+      })
       .join('\n');
     const copy = `${frontmatter}\nmetadata:\n  version: "${version}"${text.slice(end)}`.replaceAll(/\/binnacle:([a-z-]+)/g, 'binnacle-$1');
     mkdirSync(join(target, `binnacle-${action}`), { recursive: true });

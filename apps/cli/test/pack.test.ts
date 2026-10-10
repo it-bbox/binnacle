@@ -106,12 +106,14 @@ test('the skills copy has one binnacle-<action> folder per plugin skill, renamed
     assert.match(frontmatter, new RegExp(`^metadata:\n  version: "${version}"$`, 'm'), action);
     assert.doesNotMatch(frontmatter, /^(disable-model-invocation|argument-hint):/m, action);
     assert.doesNotMatch(text, /\/binnacle:/, action);
+    const renamed = (plugin: string): string => plugin.replaceAll(/\/binnacle:([a-z-]+)/g, 'binnacle-$1');
     // Strict YAML, as the `skills` CLI reads it, which skips a skill whose plain description holds `: ` (ticket 12).
     const [, description] = /^description: (.*)$/m.exec(skillText(action)) ?? [];
-    assert.equal((parseYaml(frontmatter) as { description?: unknown }).description, description?.replaceAll(/\/binnacle:([a-z-]+)/g, 'binnacle-$1'), action);
+    assert.ok(description, action);
+    assert.equal((parseYaml(frontmatter) as { description?: unknown }).description, renamed(description), action);
     // Nothing else changes: the body is the plugin's with each skill renamed.
     const body = (skill: string): string => skill.slice(skill.indexOf('\n---\n', 4));
-    assert.equal(body(text), body(skillText(action)).replaceAll(/\/binnacle:([a-z-]+)/g, 'binnacle-$1'), action);
+    assert.equal(body(text), renamed(body(skillText(action))), action);
   }
 
   const help = readFileSync(join(target, 'binnacle-help', 'SKILL.md'), 'utf8');
@@ -123,6 +125,11 @@ test('the skills copy has one binnacle-<action> folder per plugin skill, renamed
   cpSync(PLUGIN_SOURCE, broken, { recursive: true });
   writeFileSync(join(broken, 'skills', 'status', 'SKILL.md'), 'No frontmatter.\n');
   assert.throws(() => prepareSkills(broken, join(dir, 'broken-skills'), version), /status\/SKILL\.md: no frontmatter/);
+  // Nor does a description on lines of its own, which quoting its first line would empty.
+  for (const description of ['>', '|', '']) {
+    writeFileSync(join(broken, 'skills', 'status', 'SKILL.md'), `---\nname: status\ndescription:${description && ` ${description}`}\n  Show this project.\n---\n`);
+    assert.throws(() => prepareSkills(broken, join(dir, 'broken-skills'), version), /status\/SKILL\.md: the description is not on one line/, description);
+  }
 
   // A skill the plugin no longer has leaves the copy on the next build.
   mkdirSync(join(target, 'binnacle-gone'));
