@@ -4,10 +4,10 @@ import { useLanguage } from '~/composables/language';
 import { count, gitLine, isUnavailable, projectName, SELECTED_VIEW, statusBadge, type Board, type Card, type LatestRun, type Section, type Snapshot, type Unavailable } from '~/composables/projects';
 import type { ProjectUsage } from '~/composables/usage';
 
-type WaitingTask = { id: string; title: string | null; state: string | null };
+type WaitingTask = { id: string; title: string | null; state: string | null; ticket: string };
 /** *Waiting for the owner*, the snapshot's `pendingDecisions`. */
 type PendingDecisions = {
-  questions: Section<{ id: string; title: string | null; question: string; branch: string | null }> | Unavailable;
+  questions: Section<{ id: string; title: string | null; ticket: string; question: string; branch: string | null }> | Unavailable;
   approvals: Section<WaitingTask>;
   owner: Section<WaitingTask>;
 };
@@ -167,13 +167,14 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
               </p>
               <template v-else>
                 <div v-if="snapshot.pendingDecisions.questions.items.length === 0" class="text-xs text-dimmed">{{ t.none }}</div>
-                <div v-for="(item, index) in snapshot.pendingDecisions.questions.items" :key="index" class="flex flex-col gap-0.5 text-xs">
+                <div v-for="(item, index) in snapshot.pendingDecisions.questions.items" :key="index" class="flex min-w-0 flex-col gap-0.5 text-xs">
                   <div class="flex flex-wrap items-baseline gap-x-1.5">
                     <UIcon name="i-lucide-circle-help" class="size-3 shrink-0 self-center text-(--warn)" />
                     <NuxtLink :to="{ path: '/task', query: { project, id: item.id } }" class="font-mono text-primary hover:underline">{{ item.id }}</NuxtLink>
                     <span lang="en">{{ item.title ?? t.untitled }}</span>
                     <code v-if="item.branch !== null" class="font-mono text-[11px] text-dimmed">{{ item.branch }}</code>
                   </div>
+                  <code class="truncate font-mono text-[11px] text-dimmed" :title="item.ticket">{{ item.ticket }}</code>
                   <div lang="en" class="line-clamp-3 break-words whitespace-pre-wrap text-muted">{{ item.question }}</div>
                 </div>
                 <div v-if="snapshot.pendingDecisions.questions.remainder > 0" class="text-xs text-dimmed">
@@ -188,9 +189,12 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
               </div>
               <div class="text-[11.5px] leading-snug text-dimmed">{{ group.note }}</div>
               <div v-if="group.list.items.length === 0" class="text-xs text-dimmed">{{ t.none }}</div>
-              <div v-for="item in group.list.items" :key="item.id" class="flex flex-wrap items-baseline gap-x-1.5 text-xs">
-                <NuxtLink :to="{ path: '/task', query: { project, id: item.id } }" class="font-mono text-primary hover:underline">{{ item.id }}</NuxtLink>
-                <span lang="en">{{ item.title ?? t.untitled }}</span>
+              <div v-for="item in group.list.items" :key="item.id" class="flex min-w-0 flex-col gap-0.5 text-xs">
+                <div class="flex flex-wrap items-baseline gap-x-1.5">
+                  <NuxtLink :to="{ path: '/task', query: { project, id: item.id } }" class="font-mono text-primary hover:underline">{{ item.id }}</NuxtLink>
+                  <span lang="en">{{ item.title ?? t.untitled }}</span>
+                </div>
+                <code class="truncate font-mono text-[11px] text-dimmed" :title="item.ticket">{{ item.ticket }}</code>
               </div>
               <div v-if="group.list.remainder > 0" class="text-xs text-dimmed">{{ t.more(number(group.list.remainder)) }}</div>
             </section>
