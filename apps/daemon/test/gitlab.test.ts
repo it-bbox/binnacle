@@ -59,13 +59,14 @@ type Reply = { status: number; headers?: Record<string, string>; body: unknown }
 
 /**
  * A loopback stand-in for GitLab at the network boundary: it serves `pages` of issues for
- * `REPOSITORY` with GitLab's `Link` pagination header, or whatever `reply` says instead.
- * Every request path it receives is kept as sent, still encoded, with the `private-token`
- * header it carried.
+ * `REPOSITORY`, and `notes`, pages of each issue's notes by iid, none when it has no entry,
+ * with GitLab's `Link` pagination header, or whatever `reply` says instead. Every request path
+ * it receives is kept as sent, still encoded, with the `private-token` header it carried.
  */
 type FakeGitLab = {
   base: string;
   pages: unknown[][];
+  notes: Record<number, unknown[][]>;
   reply: ((request: URL) => Reply | null) | null;
   requests: string[];
   tokens: (string | undefined)[];
@@ -73,7 +74,7 @@ type FakeGitLab = {
 };
 
 async function fakeGitLab(pages: unknown[][]): Promise<FakeGitLab> {
-  const fake: FakeGitLab = { base: '', pages, reply: null, requests: [], tokens: [], close: async () => {} };
+  const fake: FakeGitLab = { base: '', pages, notes: {}, reply: null, requests: [], tokens: [], close: async () => {} };
   const server: Server = createServer((request, response) => {
     fake.requests.push(request.url ?? '/');
     fake.tokens.push(request.headers['private-token'] as string | undefined);
@@ -89,7 +90,9 @@ async function fakeGitLab(pages: unknown[][]): Promise<FakeGitLab> {
 }
 
 function pageReply(fake: FakeGitLab, url: URL): Reply {
-  if (url.pathname !== `/api/v4${ISSUES_PATH}`) return { status: 404, body: { message: '404 Project Not Found' } };
+  const notes = new RegExp(`^/api/v4${ISSUES_PATH}/(\\d+)/notes$`).exec(url.pathname)?.[1];
+  const pages = url.pathname === `/api/v4${ISSUES_PATH}` ? fake.pages : notes !== undefined ? (fake.notes[Number(notes)] ?? [[]]) : undefined;
+  if (pages === undefined) return { status: 404, body: { message: '404 Project Not Found' } };
   const page = Number(url.searchParams.get('page') ?? '1');
   const link = (n: number): string => {
     const next = new URL(url);
@@ -97,9 +100,12 @@ function pageReply(fake: FakeGitLab, url: URL): Reply {
     return next.toString();
   };
   const headers: Record<string, string> =
-    page < fake.pages.length ? { link: `<${link(page + 1)}>; rel="next", <${link(1)}>; rel="first", <${link(fake.pages.length)}>; rel="last"` } : {};
-  return { status: 200, headers, body: fake.pages[page - 1] ?? [] };
+    page < pages.length ? { link: `<${link(page + 1)}>; rel="next", <${link(1)}>; rel="first", <${link(pages.length)}>; rel="last"` } : {};
+  return { status: 200, headers, body: pages[page - 1] ?? [] };
 }
+
+/** A note in the shape GitLab's REST API lists an issue's, with only the fields the adapter reads. */
+const note = (body: string, system = false): Record<string, unknown> => ({ body, system, created_at: '2026-10-11T08:00:00.000Z' });
 
 function manifest(host: string, extra = ''): string {
   return `version: 1\n\nproject:\n  id: gitlab-project\n\ntracker:\n  provider: gitlab\n  repository: ${REPOSITORY}\n  host: ${host}\n${extra}`;
@@ -156,14 +162,17 @@ describe('GitLab issues as Tasks in the Product Snapshot', () => {
         parallel: { limit: 2, inProgress: 1, free: 1, provenance: 'calculated', impact: { available: false, reason: "graphify is not on the daemon's PATH, so no graph is built or read." } },
       });
       assert.deepEqual(codes(body), []);
-      assert.deepEqual(
-        fake.requests.map((path) => [path.split('?')[0], new URL(path, fake.base).searchParams.get('page') ?? '1']),
-        [
-          [`/api/v4${ISSUES_PATH}`, '1'],
-          [`/api/v4${ISSUES_PATH}`, '2'],
-          [`/api/v4${ISSUES_PATH}`, '3'],
-        ],
-      );
+      const requested = fake.requests.map((path) => [path.split('?')[0], new URL(path, fake.base).searchParams.get('page') ?? '1']);
+      assert.deepEqual(requested.slice(0, 3), [
+        [`/api/v4${ISSUES_PATH}`, '1'],
+        [`/api/v4${ISSUES_PATH}`, '2'],
+        [`/api/v4${ISSUES_PATH}`, '3'],
+      ]);
+      // Then, at once, the notes of each open issue.
+      assert.deepEqual(requested.slice(3).sort(), [
+        [`/api/v4${ISSUES_PATH}/2/notes`, '1'],
+        [`/api/v4${ISSUES_PATH}/3/notes`, '1'],
+      ]);
     });
   });
 
@@ -341,7 +350,7 @@ describe('the credentials a GitLab tracker is read with', () => {
         delete process.env.BINNACLE_GITLAB_TOKEN;
         delete process.env.BINNACLE_GITHUB_TOKEN;
       }
-      assert.deepEqual(fake.tokens, ['glpat-fromTheEnvironment', 'glpat-fromTheFile']);
+      assert.deepEqual(fake.tokens, ['glpat-fromTheEnvironment', 'glpat-fromTheEnvironment', 'glpat-fromTheFile', 'glpat-fromTheFile']);
     });
   });
 
@@ -495,8 +504,8 @@ describe('the task brief on a GitLab tracker', () => {
         body: { text: '**What to build:** GitLab.\n\nStatus: DONE', truncated: false },
         branch: 'feat/3-read-gitlab-issues-by-iid',
         start: null,
-        review: { available: false, reason: 'Binnacle reads an issue’s body and never its comments, so no Review is read on GitHub or GitLab.' },
-        questions: { available: false, reason: 'Binnacle does not read an issue’s comments yet, so no question or answer is read on GitHub or GitLab.' },
+        review: { available: false, reason: 'Binnacle reads only questions and answers from an issue’s comments, so no Review is read on GitHub or GitLab.' },
+        questions: { branch: null, items: [] },
         roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] },
         diagnostics: [],
         byRole: NO_ROLES,
@@ -504,8 +513,66 @@ describe('the task brief on a GitLab tracker', () => {
       });
       assert.equal((await taskGet(daemon, root, '3')).body.id, '#3');
       assert.equal((await taskGet(daemon, root, '#9')).body.error.code, 'task.not_found');
-      // Issue notes are never read: every request is for the issue list.
-      assert.ok(fake.requests.every((path) => path.startsWith(`/api/v4${ISSUES_PATH}?`)));
+      // Besides the issues, only the open issue's notes are read.
+      assert.ok(fake.requests.every((path) => path.startsWith(`/api/v4${ISSUES_PATH}?`) || path.startsWith(`/api/v4${ISSUES_PATH}/3/notes?`)));
+    });
+  });
+});
+
+describe('questions and answers from GitLab issue notes', () => {
+  type Questions = { branch: string | null; items: { text: string; answer: string | null }[] } | { available: false; reason: string };
+
+  async function questions(daemon: TestDaemon, root: string, id: string): Promise<Questions> {
+    assert.equal((await daemon.call('project.register', { path: root })).status, 200);
+    const result = await daemon.call<{ questions: Questions }>('task.get', { path: root, id });
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    return result.body.questions;
+  }
+
+  it('reads each open issue’s notes through every page, oldest first, system notes left out, and a closed issue’s not at all', async () => {
+    const pages = [[issue(1, 'Asked', { description: header({ Status: 'READY' }) }), issue(2, 'Never asked'), issue(3, 'Closed', { state: 'closed' })]];
+    await withGitLab(pages, async (daemon, fake) => {
+      fake.notes = {
+        1: [
+          [note('### Question\nWhich database?'), note('### Answer\nchanged the description', true)],
+          [note('Just a note.'), note('### Answer\n\nSQLite.\n'), note('### Question\nAnd the port?')],
+        ],
+        3: [[note('### Question\nNever read.')]],
+      };
+      const root = makeProject(manifest(fake.base));
+      assert.deepEqual(await questions(daemon, root, '#1'), {
+        branch: null,
+        items: [
+          { text: 'Which database?', answer: 'SQLite.' },
+          { text: 'And the port?', answer: null },
+        ],
+      });
+      assert.deepEqual(await questions(daemon, root, '#2'), { branch: null, items: [] });
+      assert.deepEqual(await questions(daemon, root, '#3'), {
+        available: false,
+        reason: 'Binnacle reads the comments of open issues only on GitLab, and #3 is closed.',
+      });
+      const listed = fake.requests.filter((path) => path.includes('/notes'));
+      assert.ok(listed.every((path) => /\/issues\/[12]\/notes\?/.test(path)), listed.join(' '));
+      for (const path of listed) {
+        const query = new URL(path, fake.base).searchParams;
+        assert.deepEqual([query.get('sort'), query.get('order_by')], ['asc', 'created_at']);
+      }
+      // Three reads, each of #1's two pages and #2's one.
+      assert.equal(listed.length, 9);
+    });
+  });
+
+  it('leaves the Tasks readable and their questions unavailable with the reason when a note cannot be read', async () => {
+    await withGitLab([[issue(1, 'One', { description: header({ Status: 'ACTIVE' }) }), issue(2, 'Two', { description: header({ Status: 'READY' }) })]], async (daemon, fake) => {
+      fake.reply = (url) => (url.pathname.endsWith('/2/notes') ? { status: 403, body: { message: '403 Forbidden' } } : null);
+      const root = makeProject(manifest(fake.base));
+      const body = await snapshot(daemon, root);
+      assert.deepEqual(ids(body.tasks!.inFlight), ['#1']);
+      assert.deepEqual(codes(body), []);
+      const unavailable = await questions(daemon, root, '#1');
+      assert.ok('available' in unavailable && !unavailable.available, JSON.stringify(unavailable));
+      assert.match(unavailable.reason, /^GitLab gave no read access to the comments of .*\(403\); no token was used\.$/);
     });
   });
 });

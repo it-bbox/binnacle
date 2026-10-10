@@ -12,7 +12,7 @@ export type Card = Pick<ResolvedTask, 'id' | 'title' | 'state' | 'unmetDependenc
   source: 'state' | 'runs' | null;
   /** The command that starts it (`startCommand`), or null when there is none. */
   start: string | null;
-  /** Whether its ticket records a Review; null on a remote tracker, whose comments are never read. */
+  /** Whether its ticket records a Review; null on a remote tracker, whose comments are read for questions only. */
   review: boolean | null;
   /** Its questions counted, as the snapshot counts them (`questionCount`), its branch's while it is unmerged. */
   questions: QuestionCount;

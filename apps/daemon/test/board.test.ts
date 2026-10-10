@@ -409,7 +409,7 @@ describe('the board on a remote tracker', () => {
           message: '#4 (https://github.com/octo/repo/issues/4) has Status: "WIP", which is not a Task state.',
         });
         assert.deepEqual(without.columns.ready.items[0]!.start, '/mattpocock-skills:implement https://github.com/octo/repo/issues/2');
-        // Unavailable, since an issue's comments are never read.
+        // Unavailable, since an issue's comments are read for questions only.
         assert.equal(without.columns.ready.items[0]!.review, null);
       });
     } finally {

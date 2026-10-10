@@ -9,7 +9,7 @@ export const BODY_LIMIT = 8000;
 
 const REVIEW_UNAVAILABLE: Unavailable = {
   available: false,
-  reason: 'Binnacle reads an issue’s body and never its comments, so no Review is read on GitHub or GitLab.',
+  reason: 'Binnacle reads only questions and answers from an issue’s comments, so no Review is read on GitHub or GitLab.',
 };
 
 /**
@@ -30,12 +30,13 @@ export type TaskBrief = Pick<TrackerTask, 'id' | 'title' | 'state' | 'triage' | 
   start: string | null;
   /**
    * The ticket's Review, cut at `BODY_LIMIT` as the body is; null when the ticket records none.
-   * Unavailable on a remote tracker, whose comments are never read.
+   * Unavailable on a remote tracker, whose comments are read for questions only.
    */
   review: { text: string; truncated: boolean } | Unavailable | null;
   /**
    * The ticket's questions, each with its answer or null (`taskQuestions`), and the branch they
-   * were read from, null for the caller's checkout. Unavailable on a remote tracker.
+   * were read from, null for the caller's checkout or the issue's comments. Unavailable, with the
+   * reason, when a remote tracker's comments cannot be read.
    */
   questions: TaskQuestions | Unavailable;
   /** The roles it needs, and beside them Binnacle's suggestions, read against the graph (`taskRoles`). */
@@ -83,8 +84,13 @@ export function taskBrief(
   };
 }
 
-/** A Task's questions and answers, read as the snapshot reads every Task's (`readQuestions`). */
+/**
+ * A Task's questions and answers, read as the snapshot reads every Task's (`readQuestions`). On
+ * GitHub or GitLab, `task`'s own, read from its issue's comments, or why they could not be.
+ */
 export async function taskQuestions(projectPath: string, manifest: ProjectManifest | null, task: TrackerTask): Promise<TaskBrief['questions']> {
+  if (!Array.isArray(task.questions)) return task.questions;
+  if (manifest?.tracker.provider !== 'local') return { branch: null, items: task.questions };
   const read = await readQuestions(projectPath, manifest, [task]);
   return read instanceof Map ? read.get(task.id)! : read;
 }

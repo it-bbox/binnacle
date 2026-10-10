@@ -35,10 +35,20 @@ const GITLAB: Forge = {
  * A GitLab project's issues as Tasks, read through `readRemoteTasks`. The project is its
  * full path, subgroups included, which the API takes URL-encoded as one segment. GitLab
  * lists issues in every state unless asked for one. `token` and `perPage` as for GitHub.
+ * Their questions come from the notes of each open issue, oldest first, system notes left out;
+ * a closed issue's are not read.
  */
 export function readGitLabTasks(repository: string, host: string | null, token: string | null, perPage = 100): Promise<TaskReading> {
   const root = gitlabApiRoot(host);
-  return readRemoteTasks(GITLAB, `${root}/projects/${encodeURIComponent(repository)}/issues?per_page=${perPage}`, `${repository} at ${root}`, token);
+  const issues = `${root}/projects/${encodeURIComponent(repository)}/issues`;
+  return readRemoteTasks(GITLAB, `${issues}?per_page=${perPage}`, `${repository} at ${root}`, token, {
+    lists: (read) =>
+      read.filter((issue) => issue.open).map((issue) => ({ url: `${issues}/${issue.number}/notes?sort=asc&order_by=created_at&per_page=${perPage}`, issue: issue.number })),
+    toComment(entry, issue) {
+      const note = entry as Note;
+      return note.system === true || issue === null ? null : { issue, body: note.body ?? '' };
+    },
+  });
 }
 
 type Note = { system?: boolean; body?: string; created_at?: string };

@@ -63,14 +63,16 @@ const header = (lines: Record<string, string>): string =>
 type Reply = { status: number; headers?: Record<string, string>; body: unknown };
 
 /**
- * A loopback stand-in for GitHub at the network boundary: it serves `pages` of issues for
- * `REPOSITORY` with GitHub's `Link` pagination header, or whatever `reply` says instead.
- * Every request it receives is kept, with the `authorization` header it carried, so a test
- * can see what Binnacle asked for and with which token.
+ * A loopback stand-in for GitHub at the network boundary: it serves `pages` of issues and
+ * `comments`, pages of the repository's issue comments, for `REPOSITORY` with GitHub's `Link`
+ * pagination header, or whatever `reply` says instead; a reply with status 0 drops the
+ * connection. Every request it receives is kept, with the `authorization` header it carried,
+ * so a test can see what Binnacle asked for and with which token.
  */
 type FakeGitHub = {
   base: string;
   pages: unknown[][];
+  comments: unknown[][];
   reply: ((request: URL) => Reply | null) | null;
   requests: URL[];
   authorizations: (string | undefined)[];
@@ -78,12 +80,13 @@ type FakeGitHub = {
 };
 
 async function fakeGitHub(pages: unknown[][]): Promise<FakeGitHub> {
-  const fake: FakeGitHub = { base: '', pages, reply: null, requests: [], authorizations: [], close: async () => {} };
+  const fake: FakeGitHub = { base: '', pages, comments: [[]], reply: null, requests: [], authorizations: [], close: async () => {} };
   const server: Server = createServer((request: IncomingMessage, response) => {
     const url = new URL(request.url ?? '/', fake.base);
     fake.requests.push(url);
     fake.authorizations.push(request.headers.authorization);
     const reply = fake.reply?.(url) ?? pageReply(fake, url);
+    if (reply.status === 0) return void request.socket.destroy();
     response.writeHead(reply.status, { 'content-type': 'application/json', ...reply.headers });
     response.end(JSON.stringify(reply.body));
   });
@@ -94,7 +97,8 @@ async function fakeGitHub(pages: unknown[][]): Promise<FakeGitHub> {
 }
 
 function pageReply(fake: FakeGitHub, url: URL): Reply {
-  if (url.pathname !== `/repos/${REPOSITORY}/issues`) return { status: 404, body: { message: 'Not Found' } };
+  const pages = { [`/repos/${REPOSITORY}/issues`]: fake.pages, [`/repos/${REPOSITORY}/issues/comments`]: fake.comments }[url.pathname];
+  if (pages === undefined) return { status: 404, body: { message: 'Not Found' } };
   const page = Number(url.searchParams.get('page') ?? '1');
   const link = (n: number): string => {
     const next = new URL(url);
@@ -102,9 +106,16 @@ function pageReply(fake: FakeGitHub, url: URL): Reply {
     return next.toString();
   };
   const headers: Record<string, string> =
-    page < fake.pages.length ? { link: `<${link(page + 1)}>; rel="next", <${link(fake.pages.length)}>; rel="last"` } : {};
-  return { status: 200, headers, body: fake.pages[page - 1] ?? [] };
+    page < pages.length ? { link: `<${link(page + 1)}>; rel="next", <${link(pages.length)}>; rel="last"` } : {};
+  return { status: 200, headers, body: pages[page - 1] ?? [] };
 }
+
+/** An issue comment in the shape GitHub's REST API lists a repository's, with only the fields the adapter reads. */
+const comment = (number: number, body: string): Record<string, unknown> => ({
+  issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${number}`,
+  body,
+  created_at: '2026-10-11T08:00:00Z',
+});
 
 function manifest(host: string, extra = ''): string {
   return `version: 1\n\nproject:\n  id: github-project\n\ntracker:\n  provider: github\n  repository: ${REPOSITORY}\n  host: ${host}\n${extra}`;
@@ -173,6 +184,7 @@ describe('GitHub issues as Tasks in the Product Snapshot', () => {
           [`/repos/${REPOSITORY}/issues`, 'all', '1'],
           [`/repos/${REPOSITORY}/issues`, 'all', '2'],
           [`/repos/${REPOSITORY}/issues`, 'all', '3'],
+          [`/repos/${REPOSITORY}/issues/comments`, null, '1'],
         ],
       );
     });
@@ -448,7 +460,7 @@ describe('the credentials a GitHub tracker is read with', () => {
         credentials(daemon, { [fake.base]: FILE_TOKEN });
         const body = await snapshot(daemon, makeProject(manifest(fake.base)));
         assert.deepEqual(ids(body.tasks!.inFlight), ['#1']);
-        assert.deepEqual(fake.authorizations, [`Bearer ${ENV_TOKEN}`]);
+        assert.deepEqual(fake.authorizations, [`Bearer ${ENV_TOKEN}`, `Bearer ${ENV_TOKEN}`]);
       }),
     );
   });
@@ -459,7 +471,7 @@ describe('the credentials a GitHub tracker is read with', () => {
         credentials(daemon, { 'github.com': 'ghp_anotherHost', [fake.base]: FILE_TOKEN });
         const body = await snapshot(daemon, makeProject(manifest(fake.base)));
         assert.equal(body.tasks!.counts.unknown, 2);
-        assert.deepEqual(fake.authorizations, [`Bearer ${FILE_TOKEN}`, `Bearer ${FILE_TOKEN}`]);
+        assert.deepEqual(fake.authorizations, Array(3).fill(`Bearer ${FILE_TOKEN}`));
       }),
     );
   });
@@ -474,7 +486,7 @@ describe('the credentials a GitHub tracker is read with', () => {
         const body = await snapshot(daemon, root);
         assert.deepEqual(ids(body.tasks!.inFlight), ['#1']);
         assert.deepEqual(codes(body), []);
-        assert.deepEqual(fake.authorizations, [undefined, undefined]);
+        assert.deepEqual(fake.authorizations, Array(4).fill(undefined));
       }),
     );
   });
@@ -486,7 +498,7 @@ describe('the credentials a GitHub tracker is read with', () => {
         await snapshot(daemon, root);
         credentials(daemon, { [fake.base]: FILE_TOKEN });
         await snapshot(daemon, root);
-        assert.deepEqual(fake.authorizations, [undefined, `Bearer ${FILE_TOKEN}`]);
+        assert.deepEqual(fake.authorizations, [undefined, undefined, `Bearer ${FILE_TOKEN}`, `Bearer ${FILE_TOKEN}`]);
       }),
     );
   });
@@ -511,7 +523,7 @@ describe('the credentials a GitHub tracker is read with', () => {
         await withEnv({ BINNACLE_GITHUB_TOKEN: ENV_TOKEN }, async () => {
           assert.deepEqual(codes(await snapshot(daemon, root)), []);
         });
-        assert.deepEqual(fake.authorizations, [`Bearer ${ENV_TOKEN}`]);
+        assert.deepEqual(fake.authorizations, [`Bearer ${ENV_TOKEN}`, `Bearer ${ENV_TOKEN}`]);
       }),
     );
   });
@@ -920,8 +932,8 @@ describe('the task brief on a GitHub tracker', () => {
         body: { text: '**What to build:** a brief.\n\nStatus: DONE', truncated: false },
         branch: 'feat/5-add-a-task-brief-task-get-friends',
         start: null,
-        review: { available: false, reason: 'Binnacle reads an issue’s body and never its comments, so no Review is read on GitHub or GitLab.' },
-        questions: { available: false, reason: 'Binnacle does not read an issue’s comments yet, so no question or answer is read on GitHub or GitLab.' },
+        review: { available: false, reason: 'Binnacle reads only questions and answers from an issue’s comments, so no Review is read on GitHub or GitLab.' },
+        questions: { branch: null, items: [] },
         roles: DEFAULT_ROLES,
         diagnostics: [],
         byRole: NO_ROLES,
@@ -931,8 +943,8 @@ describe('the task brief on a GitHub tracker', () => {
       const other = (await taskGet(daemon, root, '#6')).body;
       assert.equal(other.triage, null, 'a label is a triage role only verbatim');
       assert.equal(other.spec, 'docs/specs/second/spec.md');
-      // Issue comments are never read: every request is for the issue list.
-      assert.ok(fake.requests.every((url) => url.pathname === `/repos/${REPOSITORY}/issues`));
+      // Besides the issues, only the repository's issue comments are read.
+      assert.ok(fake.requests.every((url) => [`/repos/${REPOSITORY}/issues`, `/repos/${REPOSITORY}/issues/comments`].includes(url.pathname)));
     });
   });
 
@@ -1000,6 +1012,104 @@ describe('the task brief on a GitHub tracker', () => {
       fake.reply = () => ({ status: 404, body: { message: 'Not Found' } });
       const result = await taskGet(daemon, makeProject(manifest(fake.base)), '#1');
       assert.equal(result.body.error.code, 'tracker.not_found');
+    });
+  });
+});
+
+describe('questions and answers from GitHub issue comments', () => {
+  type Questions = { branch: string | null; items: { text: string; answer: string | null }[] } | { available: false; reason: string };
+
+  async function questions(daemon: TestDaemon, root: string, id: string): Promise<Questions> {
+    assert.equal((await daemon.call('project.register', { path: root })).status, 200);
+    const result = await daemon.call<{ questions: Questions }>('task.get', { path: root, id });
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    return result.body.questions;
+  }
+
+  it('reads a comment starting with ### Question or ### Answer as one, in order, through every page, matched to its issue by number', async () => {
+    const pages = [[issue(1, 'Asked twice', { body: header({ Status: 'READY' }) }), issue(2, 'Never asked'), issue(3, 'A pull request', { pull_request: { url: 'x' } })]];
+    await withGitHub(pages, async (daemon, fake) => {
+      fake.comments = [
+        [
+          comment(1, '### Question\n\nWhich database?\n'),
+          comment(2, 'Looks good to me.'),
+          comment(3, '### Question\nOn the pull request, which is no Task.'),
+          comment(1, '### Answer\nSQLite.'),
+        ],
+        [
+          comment(2, '### Answer\nNothing was asked.'),
+          comment(1, '### Question\r\nAnd the port?\r\n\r\nAny free one?'),
+          comment(1, 'Quoting it:\n### Answer\nnot one'),
+          comment(1, '### Answers\nnot one either'),
+          comment(1, '### Answer'),
+        ],
+      ];
+      const root = makeProject(manifest(fake.base));
+      assert.deepEqual(await questions(daemon, root, '#1'), {
+        branch: null,
+        items: [
+          { text: 'Which database?', answer: 'SQLite.' },
+          { text: 'And the port?\n\nAny free one?', answer: null },
+        ],
+      });
+      assert.deepEqual(await questions(daemon, root, '#2'), { branch: null, items: [] });
+      const listed = fake.requests.filter((url) => url.pathname === `/repos/${REPOSITORY}/issues/comments`);
+      assert.deepEqual(
+        listed.map((url) => [url.searchParams.get('sort'), url.searchParams.get('direction'), url.searchParams.get('page') ?? '1']),
+        [
+          ['created', 'asc', '1'],
+          ['created', 'asc', '2'],
+          ['created', 'asc', '1'],
+          ['created', 'asc', '2'],
+        ],
+      );
+    });
+  });
+
+  const failures: [string, Reply, RegExp][] = [
+    ['a token refused', { status: 401, body: { message: 'Bad credentials' } }, /refused the request .*\(401\); a token was used\.$/],
+    ['no read access', { status: 403, body: { message: 'Resource not accessible' } }, /gave no read access to the comments of .*\(403\)/],
+    ['the rate limit', { status: 429, headers: { 'retry-after': '60' }, body: { message: 'slow down' } }, /rate-limited the reading of .*\(429\)/],
+    ['a dropped connection', { status: 0, body: null }, /^GitHub could not be read for /],
+  ];
+
+  for (const [name, reply, reason] of failures) {
+    it(`leaves the Tasks readable and their questions unavailable with the reason, never the token, on ${name}`, async () => {
+      const token = 'ghp_readingTheComments0001';
+      process.env.BINNACLE_GITHUB_TOKEN = token;
+      try {
+        await withGitHub([[issue(1, 'One', { body: header({ Status: 'ACTIVE' }) })]], async (daemon, fake) => {
+          fake.comments = [[comment(1, '### Question\nAsked.')]];
+          fake.reply = (url) => (url.pathname.endsWith('/issues/comments') ? reply : null);
+          const root = makeProject(manifest(fake.base));
+          const body = await snapshot(daemon, root);
+          assert.deepEqual(ids(body.tasks!.inFlight), ['#1']);
+          assert.deepEqual(codes(body), []);
+          const unavailable = await questions(daemon, root, '#1');
+          assert.ok('available' in unavailable && !unavailable.available, JSON.stringify(unavailable));
+          assert.match(unavailable.reason, reason);
+          assert.equal(JSON.stringify([body, unavailable]).includes(token), false);
+          assert.ok(fake.authorizations.every((sent) => sent === `Bearer ${token}`));
+        });
+      } finally {
+        delete process.env.BINNACLE_GITHUB_TOKEN;
+      }
+    });
+  }
+
+  it('never follows a next page of comments to another host', async () => {
+    await withGitHub([[issue(1, 'One')]], async (daemon, fake) => {
+      fake.reply = (url) =>
+        url.pathname.endsWith('/issues/comments') ? { status: 200, headers: { link: '<http://elsewhere.invalid/comments?page=2>; rel="next"' }, body: [] } : null;
+      const unavailable = await questions(daemon, makeProject(manifest(fake.base)), '#1');
+      assert.deepEqual(unavailable, {
+        available: false,
+        reason: `GitHub pointed the next page of ${REPOSITORY} at ${fake.base} at another host, http://elsewhere.invalid, which is not read.`,
+      });
+      assert.deepEqual(
+        fake.requests.map((url) => url.pathname),
+        [`/repos/${REPOSITORY}/issues`, `/repos/${REPOSITORY}/issues/comments`],
+      );
     });
   });
 });

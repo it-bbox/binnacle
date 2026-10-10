@@ -94,20 +94,21 @@ export type TrackerTask = {
   ticket: string;
   /**
    * The text after the header block (`ticketBody`), without comments: on the local tracker it
-   * stops at the first `## Comments` heading, and a remote tracker's comments are never read.
+   * stops at the first `## Comments` heading, and a remote tracker's comments are not part of the body.
    */
   body: string;
   /**
    * The ticket's Review: on the local tracker, the text under `### Review` inside `## Comments`;
-   * null when it records none. Always null on a remote tracker, whose comments are never read.
+   * null when it records none. Always null on a remote tracker, whose comments are read for questions only.
    */
   review: string | null;
   /**
    * The ticket's questions, in order (ADR-0040): on the local tracker, each `### Question` inside
-   * `## Comments` with the first `### Answer` after it and before the next Question, or null.
-   * Always empty on a remote tracker, whose comments are not read yet.
+   * `## Comments` with the first `### Answer` after it and before the next Question, or null; on
+   * GitHub or GitLab, from the issue's comments that start with those headings, in the order they
+   * were made, or unavailable with the reason when they cannot be read.
    */
-  questions: Question[];
+  questions: Question[] | { available: false; reason: string };
   /** The roles its `Roles:` line names, in the vocabulary's form (`headerRoles`); null when it names none. */
   roles: Role[] | null;
 };

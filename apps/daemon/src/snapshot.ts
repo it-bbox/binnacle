@@ -397,8 +397,9 @@ export const QUESTIONS_UNAVAILABLE: Unavailable = {
  * and the default branch are read once, whatever the number of Tasks.
  */
 export async function readQuestions(projectPath: string, manifest: ProjectManifest | null, tasks: TrackerTask[]): Promise<ReadQuestions> {
+  // A local ticket's questions are always read; until the snapshot reads the remote ones, they are not.
   if (manifest?.tracker.provider !== 'local') return QUESTIONS_UNAVAILABLE;
-  const read = new Map<string, TaskQuestions>(tasks.map((task) => [task.id, { branch: null, items: task.questions }]));
+  const read = new Map<string, TaskQuestions>(tasks.map((task) => [task.id, { branch: null, items: task.questions as Question[] }]));
   const timeout = resolveGitTimeout();
   try {
     const [branches, base] = await Promise.all([readBranches(projectPath, timeout), defaultCommit(projectPath)]);

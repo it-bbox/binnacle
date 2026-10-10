@@ -102,7 +102,7 @@ export const ru: Dictionary = {
     noManifest: 'Без читаемого манифеста Task не прочитать.',
     noTrackerProvider: 'Проект не задаёт tracker.provider.',
     noLocalIssues: 'tracker.provider — local, а tracker.local.issues проект не задаёт.',
-    reviewOnRemote: 'Binnacle читает текст issue, но не комментарии к нему, поэтому Review на GitHub и GitLab не читается.',
+    reviewOnRemote: 'Из комментариев к issue Binnacle читает только вопросы и ответы, поэтому Review на GitHub и GitLab не читается.',
     questionsOnRemote: 'Binnacle пока не читает комментарии к issue, поэтому вопросы и ответы на GitHub и GitLab не читаются.',
     noGraph: 'Графа нет.',
     graphifyOff: 'Проект не использует Graphify: в его манифесте capabilities.graphify — false.',

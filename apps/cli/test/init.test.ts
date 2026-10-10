@@ -668,7 +668,7 @@ test('a readable remote tracker is reported readable, and its section says issue
 
   assert.match(stdout, /Reading octo-org\/octo-repo\.\.\.\n.*octo-org\/octo-repo is readable/);
   assert.match(stdout, /checked\s+tracker: readable/);
-  assert.deepEqual([...new Set(github.requests.map((url) => url.split('?')[0]))], ['/repos/octo-org/octo-repo/issues']);
+  assert.deepEqual([...new Set(github.requests.map((url) => url.split('?')[0]))], ['/repos/octo-org/octo-repo/issues', '/repos/octo-org/octo-repo/issues/comments']);
   const section = readFileSync(join(root, TRACKER_FILE), 'utf8');
   assert.match(section, /issue numbers/);
   assert.match(section, /#12/);

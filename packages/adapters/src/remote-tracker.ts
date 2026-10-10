@@ -7,10 +7,12 @@ import {
   TRIAGE_ROLES,
   unquote,
   type Diagnostic,
+  type Question,
   type TaskReading,
   type TaskState,
   type TrackerTask,
 } from '@binnacle/core';
+import { addQuestionOrAnswer, sectionText } from './local-tracker.ts';
 
 /** Per request, in milliseconds. A tracker slower than this is `tracker.unreachable`. */
 const TRACKER_TIMEOUT_MS = 10_000;
@@ -44,15 +46,74 @@ export type Forge = {
  * page elsewhere is refused. A failure on any page gives no Tasks at all, never a partial
  * list, and one diagnostic that says why. `where` names the repository and API root.
  * `token`, when there is one, is sent with every request and appears in nothing this
- * returns; null reads anonymously.
+ * returns; null reads anonymously. Each Task's questions are read from its issue's
+ * `comments` (`readQuestions`).
  */
-export async function readRemoteTasks(forge: Forge, firstPage: string, where: string, token: string | null): Promise<TaskReading> {
+export async function readRemoteTasks(forge: Forge, firstPage: string, where: string, token: string | null, comments: IssueComments): Promise<TaskReading> {
   const entries = await readPages(forge, firstPage, where, token, 'issues');
   if (!Array.isArray(entries)) return { tasks: null, diagnostics: [entries] };
-  const issues = entries.flatMap((entry) => forge.toIssue(entry) ?? []);
+  const issues = entries.flatMap((entry) => forge.toIssue(entry) ?? []).sort((a, b) => a.number - b.number);
+  const questions = await readQuestions(forge, issues, where, token, comments);
   const diagnostics: Diagnostic[] = [];
-  const tasks = issues.sort((a, b) => a.number - b.number).map((issue) => toTask(issue, diagnostics));
+  const tasks = issues.map((issue) => toTask(issue, questions(issue), diagnostics));
   return { tasks, diagnostics };
+}
+
+/** A comment on an issue, by the issue's number. */
+type RemoteComment = { issue: number; body: string };
+
+/** Where a forge lists its issues' comments, oldest first. */
+export type IssueComments = {
+  /**
+   * The first page of each list to read for `issues`: the repository's, `issue` null, whose
+   * entries name their issue, or one per issue. An issue no list covers has its comments unread.
+   */
+  lists(issues: RemoteIssue[]): { url: string; issue: number | null }[];
+  /** One entry of a list, of `issue` when the list is one issue's, as a comment; null for one that is not, such as a system note. */
+  toComment(entry: unknown, issue: number | null): RemoteComment | null;
+};
+
+/** A comment that is a Question or an Answer starts with its heading, and its text is the rest. */
+const COMMENT_HEADING = /^### +(Question|Answer)[ \t]*(?:\n|$)/;
+
+/**
+ * Each issue's questions (ADR-0040): its comments that start with `### Question` or
+ * `### Answer`, in the order they were made, paired as a ticket's are (`addQuestionOrAnswer`).
+ * The lists are read as issues are, through every page on the declared host only, with
+ * `token`; a failure on any of them leaves every issue's questions unavailable with the reason.
+ */
+async function readQuestions(
+  forge: Forge,
+  issues: RemoteIssue[],
+  where: string,
+  token: string | null,
+  comments: IssueComments,
+): Promise<(issue: RemoteIssue) => TrackerTask['questions']> {
+  const lists = comments.lists(issues);
+  // ponytail: every list at once and uncached, one per open issue on GitLab; bound or cache them once a forge's rate limit is reached in practice.
+  const read = await Promise.all(
+    lists.map(async ({ url, issue }) => {
+      const entries = await readPages(forge, url, where, token, 'comments');
+      return Array.isArray(entries) ? entries.flatMap((entry) => comments.toComment(entry, issue) ?? []) : entries;
+    }),
+  );
+  const failure = read.find((result): result is Diagnostic => !Array.isArray(result));
+  if (failure !== undefined) return () => ({ available: false, reason: failure.message });
+
+  const byIssue = new Map<number, Question[]>();
+  for (const { issue, body } of read.flat() as RemoteComment[]) {
+    const text = body.replace(/\r\n?/g, '\n');
+    const heading = COMMENT_HEADING.exec(text);
+    if (heading === null) continue;
+    const questions = byIssue.get(issue) ?? [];
+    byIssue.set(issue, questions);
+    addQuestionOrAnswer(questions, heading[1] as 'Question' | 'Answer', sectionText(text.slice(heading[0].length)));
+  }
+  const covered = lists.some((list) => list.issue === null) ? null : new Set(lists.map((list) => list.issue));
+  return (issue) =>
+    covered === null || covered.has(issue.number)
+      ? (byIssue.get(issue.number) ?? [])
+      : { available: false, reason: `Binnacle reads the comments of open issues only on ${forge.name}, and #${issue.number} is closed.` };
 }
 
 /**
@@ -92,7 +153,7 @@ async function readPages(forge: Forge, firstPage: string, where: string, token: 
 }
 
 /** What a forge's pages list. */
-type Listed = 'issues' | 'pull requests' | 'merge requests' | 'reviews';
+type Listed = 'issues' | 'comments' | 'pull requests' | 'merge requests' | 'reviews';
 
 /**
  * When changes were first requested on a pull or merge request of one branch, in
@@ -158,7 +219,7 @@ function closedState(reason: string | null, status: string | null): 'DONE' | 'CA
   return status === 'CANCELLED' ? 'CANCELLED' : 'DONE';
 }
 
-function toTask(issue: RemoteIssue, diagnostics: Diagnostic[]): TrackerTask {
+function toTask(issue: RemoteIssue, questions: TrackerTask['questions'], diagnostics: Diagnostic[]): TrackerTask {
   const id = `#${issue.number}`;
   const named = `${id} (${issue.url})`;
   const { status, blockedBy, spec: specLine, roles } = parseTicketHeader(issue.body ?? '');
@@ -194,7 +255,7 @@ function toTask(issue: RemoteIssue, diagnostics: Diagnostic[]): TrackerTask {
     ticket: issue.url,
     body: ticketBody(issue.body ?? ''),
     review: null,
-    questions: [],
+    questions,
     roles: headerRoles(roles, named, diagnostics),
   };
 }

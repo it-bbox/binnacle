@@ -90,7 +90,7 @@ const FENCE = /^ {0,3}(`{3,}|~{3,})/;
  * heading: a fence closes only with a run of its own character at least as long as the one that
  * opened it.
  */
-export function ticketComments(text: string): Pick<TrackerTask, 'review' | 'questions'> {
+export function ticketComments(text: string): { review: string | null; questions: Question[] } {
   let comments = false;
   let fence: string | null = null;
   // Undefined until the first Review, which alone is read.
@@ -99,11 +99,9 @@ export function ticketComments(text: string): Pick<TrackerTask, 'review' | 'ques
   let section: { kind: string; lines: string[] } | null = null;
   const close = (): void => {
     if (section === null) return;
-    const body = section.lines.join('\n').replace(/^(?:[ \t]*\n)+/, '').trimEnd();
-    const last = questions.at(-1);
-    if (section.kind === 'Question') questions.push({ text: body, answer: null });
-    else if (section.kind === 'Answer' && last !== undefined && last.answer === null) last.answer = body || null;
-    else if (section.kind === 'Review' && review === undefined) review = body || null;
+    const body = sectionText(section.lines.join('\n'));
+    if (section.kind !== 'Review') addQuestionOrAnswer(questions, section.kind as 'Question' | 'Answer', body);
+    else if (review === undefined) review = body || null;
     section = null;
   };
   for (const line of text.split(/\r?\n/)) {
@@ -121,4 +119,17 @@ export function ticketComments(text: string): Pick<TrackerTask, 'review' | 'ques
   }
   close();
   return { review: review ?? null, questions };
+}
+
+/** A section's text without the blank lines around it. */
+export const sectionText = (text: string): string => text.replace(/^(?:[ \t]*\n)+/, '').trimEnd();
+
+/**
+ * Adds a section to `questions`, in order: a Question, or an Answer to the last Question while it
+ * has none. An empty Answer answers nothing, and an Answer with no Question before it is left out.
+ */
+export function addQuestionOrAnswer(questions: Question[], kind: 'Question' | 'Answer', text: string): void {
+  const last = questions.at(-1);
+  if (kind === 'Question') questions.push({ text, answer: null });
+  else if (last !== undefined && last.answer === null) last.answer = text || null;
 }
