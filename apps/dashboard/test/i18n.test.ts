@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { compactNumber, daemonReason, LANGUAGES, pairReason, plural, secondsAgo, startingLanguage } from '../app/i18n/index.ts';
 import { parseRoadmap } from '../../../packages/core/src/roadmap.ts';
-import { QUESTIONS_UNAVAILABLE, trackerUnavailable, UNAVAILABLE } from '../../daemon/src/snapshot.ts';
+import { trackerUnavailable, UNAVAILABLE } from '../../daemon/src/snapshot.ts';
 import { ANTIGRAVITY_NO_TOKENS, OPENCODE_NO_EXPORT, PI_NO_EXPORT, PONYTAIL_REASONS, ZCODE_NO_EXPORT } from '../../daemon/src/usage.ts';
 
 /**
@@ -122,7 +122,7 @@ describe("the daemon's reasons", () => {
   });
 
   it('the page knows are the texts the daemon writes, so a reworded one is caught here rather than shown in English', () => {
-    const written = [UNAVAILABLE.reason, trackerUnavailable([]).reason, QUESTIONS_UNAVAILABLE.reason, ...parseRoadmap('').diagnostics.map((item) => item.message), ...Object.values(PONYTAIL_REASONS)];
+    const written = [UNAVAILABLE.reason, trackerUnavailable([]).reason, ...parseRoadmap('').diagnostics.map((item) => item.message), ...Object.values(PONYTAIL_REASONS)];
     for (const reason of written) assert.notEqual(daemonReason('ru', reason), reason, reason);
   });
 });

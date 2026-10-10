@@ -117,7 +117,6 @@ export const en = {
     noTrackerProvider: 'This project declares no tracker.provider.',
     noLocalIssues: 'tracker.provider is local, and this project declares no tracker.local.issues.',
     reviewOnRemote: 'Binnacle reads only questions and answers from an issue’s comments, so no Review is read on GitHub or GitLab.',
-    questionsOnRemote: 'Binnacle does not read an issue’s comments yet, so no question or answer is read on GitHub or GitLab.',
     noGraph: 'There is no graph.',
     graphifyOff: 'This project does not use Graphify: capabilities.graphify is false in its manifest.',
     graphifyMissing: "graphify is not on the daemon's PATH, so no graph is built or read.",

@@ -103,7 +103,6 @@ export const ru: Dictionary = {
     noTrackerProvider: 'Проект не задаёт tracker.provider.',
     noLocalIssues: 'tracker.provider — local, а tracker.local.issues проект не задаёт.',
     reviewOnRemote: 'Из комментариев к issue Binnacle читает только вопросы и ответы, поэтому Review на GitHub и GitLab не читается.',
-    questionsOnRemote: 'Binnacle пока не читает комментарии к issue, поэтому вопросы и ответы на GitHub и GitLab не читаются.',
     noGraph: 'Графа нет.',
     graphifyOff: 'Проект не использует Graphify: в его манифесте capabilities.graphify — false.',
     graphifyMissing: 'graphify нет в PATH демона, поэтому граф не строится и не читается.',

@@ -167,11 +167,11 @@ describe('GitHub issues as Tasks in the Product Snapshot', () => {
 
       assert.deepEqual(body.tasks, {
         inFlight: {
-          items: [{ id: '#3', title: 'Third', state: 'ACTIVE', unmetDependencies: [], ticket: `https://github.com/${REPOSITORY}/issues/3`, questions: null, start: null, roles: DEFAULT_ROLES }],
+          items: [{ id: '#3', title: 'Third', state: 'ACTIVE', unmetDependencies: [], ticket: `https://github.com/${REPOSITORY}/issues/3`, questions: { asked: 0, unanswered: 0 }, start: null, roles: DEFAULT_ROLES }],
           remainder: 0,
         },
         readyToStart: {
-          items: [{ id: '#2', title: 'Second', state: 'READY', unmetDependencies: [], ticket: `https://github.com/${REPOSITORY}/issues/2`, questions: null, start: null, roles: DEFAULT_ROLES }],
+          items: [{ id: '#2', title: 'Second', state: 'READY', unmetDependencies: [], ticket: `https://github.com/${REPOSITORY}/issues/2`, questions: { asked: 0, unanswered: 0 }, start: null, roles: DEFAULT_ROLES }],
           remainder: 0,
         },
         counts: { BACKLOG: 0, READY: 0, MERGED: 0, DONE: 1, CANCELLED: 0, unknown: 0 },
@@ -202,30 +202,75 @@ describe('GitHub issues as Tasks in the Product Snapshot', () => {
     });
   });
 
-  it('lists the approvals and the ready-for-human issues waiting for the owner, and says why no question is read', async () => {
-    const pages = [
-      [
-        issue(1, 'In review', { body: header({ Status: 'READY_FOR_REVIEW' }) }),
-        issue(2, 'The owner’s', { body: header({ Status: 'READY' }), labels: [{ name: 'ready-for-human' }] }),
-        issue(3, 'An agent’s', { body: header({ Status: 'READY' }), labels: [{ name: 'ready-for-agent' }] }),
-      ],
-    ];
-    await withGitHub(pages, async (daemon, fake) => {
-      const body = await snapshot(daemon, makeProject(manifest(fake.base)));
-      const item = (number: number, title: string, state: string) => ({
-        id: `#${number}`,
-        title,
-        state,
-        unmetDependencies: [],
-        ticket: `https://github.com/${REPOSITORY}/issues/${number}`,
-        questions: null,
-      });
+  const waiting = [
+    issue(1, 'In review', { body: header({ Status: 'READY_FOR_REVIEW' }) }),
+    issue(2, 'The owner’s', { body: header({ Status: 'READY' }), labels: [{ name: 'ready-for-human' }] }),
+    issue(3, 'An agent’s', { body: header({ Status: 'READY' }), labels: [{ name: 'ready-for-agent' }] }),
+    issue(4, 'Closed', { state: 'closed', state_reason: 'completed' }),
+  ];
+  const waitingComments = [
+    comment(3, '### Question\nWhich port?'),
+    comment(1, '### Question\nShip it?'),
+    comment(1, '### Answer\nYes.'),
+    comment(4, '### Question\nAsked of a closed issue, which no answer moves.'),
+    comment(1, '### Question\nAnd the changelog?'),
+  ];
+  const waitingItem = (number: number, title: string, state: string, questions: unknown) => ({
+    id: `#${number}`,
+    title,
+    state,
+    unmetDependencies: [],
+    ticket: `https://github.com/${REPOSITORY}/issues/${number}`,
+    questions,
+  });
+
+  it('lists the unanswered questions of its issue comments, the approvals and the ready-for-human issues waiting for the owner, and counts each Task’s questions', async () => {
+    await withGitHub([waiting], async (daemon, fake) => {
+      fake.comments = [waitingComments];
+      const root = makeProject(manifest(fake.base));
+      const body = await snapshot(daemon, root);
+      const question = (number: number, title: string, text: string) => ({ id: `#${number}`, title, ticket: `https://github.com/${REPOSITORY}/issues/${number}`, question: text, branch: null });
       assert.deepEqual(body.pendingDecisions, {
-        questions: { available: false, reason: 'Binnacle does not read an issue’s comments yet, so no question or answer is read on GitHub or GitLab.' },
-        approvals: { items: [item(1, 'In review', 'READY_FOR_REVIEW')], remainder: 0 },
-        owner: { items: [item(2, 'The owner’s', 'READY')], remainder: 0 },
+        questions: { items: [question(1, 'In review', 'And the changelog?'), question(3, 'An agent’s', 'Which port?')], remainder: 0 },
+        approvals: { items: [waitingItem(1, 'In review', 'READY_FOR_REVIEW', { asked: 2, unanswered: 1 })], remainder: 0 },
+        owner: { items: [waitingItem(2, 'The owner’s', 'READY', { asked: 0, unanswered: 0 })], remainder: 0 },
       });
+      assert.deepEqual(
+        body.tasks!.readyToStart.items.map((task) => [task.id, task.questions]),
+        [
+          ['#2', { asked: 0, unanswered: 0 }],
+          ['#3', { asked: 1, unanswered: 1 }],
+        ],
+      );
+      const board = await daemon.call<{ columns: Record<string, { items: { id: string; questions: unknown }[] }> }>('task.list', { path: root, spec: null });
+      assert.equal(board.status, 200, JSON.stringify(board.body));
+      const cards = Object.values(board.body.columns).flatMap((column) => column.items);
+      assert.deepEqual(
+        cards.map((card) => [card.id, card.questions]),
+        [
+          ['#2', { asked: 0, unanswered: 0 }],
+          ['#3', { asked: 1, unanswered: 1 }],
+          ['#1', { asked: 2, unanswered: 1 }],
+          ['#4', { asked: 1, unanswered: 1 }],
+        ],
+      );
+    });
+  });
+
+  it('leaves the issues waiting for the owner listed, and the questions and their counts unavailable with the reason, when the comments cannot be read', async () => {
+    await withGitHub([waiting], async (daemon, fake) => {
+      fake.comments = [waitingComments];
+      fake.reply = (url) => (url.pathname.endsWith('/issues/comments') ? { status: 403, body: { message: 'Resource not accessible' } } : null);
+      const root = makeProject(manifest(fake.base));
+      const body = await snapshot(daemon, root);
+      const pending = body.pendingDecisions as { questions: { available: false; reason: string }; approvals: unknown; owner: unknown };
+      assert.equal(pending.questions.available, false);
+      assert.match(pending.questions.reason, /^GitHub gave no read access to the comments of .*\(403\); no token was used\.$/);
+      assert.deepEqual(pending.approvals, { items: [waitingItem(1, 'In review', 'READY_FOR_REVIEW', null)], remainder: 0 });
+      assert.deepEqual(pending.owner, { items: [waitingItem(2, 'The owner’s', 'READY', null)], remainder: 0 });
       assert.deepEqual(body.tasks!.readyToStart.items.map((task) => task.questions), [null, null], 'no count where no question is read');
+      const board = await daemon.call<{ columns: Record<string, { items: { questions: unknown }[] }> }>('task.list', { path: root, spec: null });
+      assert.ok(Object.values(board.body.columns).flatMap((column) => column.items).every((card) => card.questions === null));
     });
   });
 

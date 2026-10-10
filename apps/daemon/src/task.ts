@@ -84,15 +84,9 @@ export function taskBrief(
   };
 }
 
-/**
- * A Task's questions and answers, read as the snapshot reads every Task's (`readQuestions`). On
- * GitHub or GitLab, `task`'s own, read from its issue's comments, or why they could not be.
- */
+/** A Task's questions and answers, read as the snapshot reads every Task's (`readQuestions`). */
 export async function taskQuestions(projectPath: string, manifest: ProjectManifest | null, task: TrackerTask): Promise<TaskBrief['questions']> {
-  if (!Array.isArray(task.questions)) return task.questions;
-  if (manifest?.tracker.provider !== 'local') return { branch: null, items: task.questions };
-  const read = await readQuestions(projectPath, manifest, [task]);
-  return read instanceof Map ? read.get(task.id)! : read;
+  return (await readQuestions(projectPath, manifest, [task])).get(task.id)!;
 }
 
 /**

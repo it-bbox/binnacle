@@ -66,7 +66,8 @@ export type SnapshotTask = Pick<ResolvedTask, 'id' | 'title' | 'state' | 'unmetD
 export type Section = { items: SnapshotTask[]; remainder: number };
 /**
  * How many questions a Task's ticket asks (`readQuestions`), and how many of them are unanswered;
- * null where its questions are not read, on a remote tracker.
+ * null where its questions could not be read: a GitHub or GitLab issue whose comments failed, or a
+ * closed GitLab issue, whose notes are not read.
  */
 export type QuestionCount = { asked: number; unanswered: number } | null;
 /** A Task item of the snapshot, which counts its questions. */
@@ -85,7 +86,7 @@ export type PendingQuestion = Pick<SnapshotTask, 'id' | 'title' | 'ticket'> & { 
 
 /**
  * *Waiting for the owner*: what only the owner can move. `questions`, every unanswered question of a Task neither `DONE` nor `CANCELLED`, in
- * tracker order and then the ticket's, unavailable where questions are not read; `approvals`, the
+ * tracker order and then the ticket's, unavailable with the reason when such a Task's questions could not be read; `approvals`, the
  * Tasks in `READY_FOR_REVIEW`, which the owner approves by changing their status; `owner`, the
  * Tasks triaged `ready-for-human` and ready to start, as the snapshot's Ready to start reads it.
  */
@@ -379,27 +380,21 @@ export function section(tasks: ResolvedTask[]): Section {
 
 const snapshotTask = ({ id, title, state, unmetDependencies, ticket }: ResolvedTask): SnapshotTask => ({ id, title, state, unmetDependencies, ticket });
 
-/** Every Task's questions by id (`readQuestions`), or why they are not read. */
-export type ReadQuestions = Map<string, TaskQuestions> | Unavailable;
-
-// Until epic 11's ticket 05 reads the issues' comments.
-export const QUESTIONS_UNAVAILABLE: Unavailable = {
-  available: false,
-  reason: 'Binnacle does not read an issue’s comments yet, so no question or answer is read on GitHub or GitLab.',
-};
+/** Every Task's questions by id (`readQuestions`), or why its own could not be read. */
+export type ReadQuestions = Map<string, TaskQuestions | Unavailable>;
 
 /**
  * Each Task's questions and answers (ADR-0040). On the local tracker, from its ticket at the tip of
  * its branch (`taskBranch`) while that is a local branch of the registered repository at
  * `projectPath` and not merged into the default branch, `origin/HEAD`'s or else `main`, as usage
- * reads it; otherwise the Task's own, as `tasks` were read. A repository with no such default
- * branch, a branch without the ticket, or a Git that cannot say gives the Task's own. The branches
- * and the default branch are read once, whatever the number of Tasks.
+ * reads it; otherwise the Task's own, as `tasks` were read: on GitHub or GitLab, from its issue's
+ * comments, or why they could not be. A repository with no such default branch, a branch without
+ * the ticket, or a Git that cannot say gives the Task's own. The branches and the default branch
+ * are read once, whatever the number of Tasks.
  */
 export async function readQuestions(projectPath: string, manifest: ProjectManifest | null, tasks: TrackerTask[]): Promise<ReadQuestions> {
-  // A local ticket's questions are always read; until the snapshot reads the remote ones, they are not.
-  if (manifest?.tracker.provider !== 'local') return QUESTIONS_UNAVAILABLE;
-  const read = new Map<string, TaskQuestions>(tasks.map((task) => [task.id, { branch: null, items: task.questions as Question[] }]));
+  const read: ReadQuestions = new Map(tasks.map((task) => [task.id, Array.isArray(task.questions) ? { branch: null, items: task.questions } : task.questions]));
+  if (manifest?.tracker.provider !== 'local') return read;
   const timeout = resolveGitTimeout();
   try {
     const [branches, base] = await Promise.all([readBranches(projectPath, timeout), defaultCommit(projectPath)]);
@@ -419,11 +414,11 @@ export async function readQuestions(projectPath: string, manifest: ProjectManife
   return read;
 }
 
-/** How many questions the Task `id` has, and how many are unanswered; null where they are not read. */
+/** How many questions the Task `id` has, and how many are unanswered; null where they could not be read. */
 export function questionCount(questions: ReadQuestions, id: string): QuestionCount {
-  if (!(questions instanceof Map)) return null;
-  const items = questions.get(id)?.items ?? [];
-  return { asked: items.length, unanswered: items.filter((item) => item.answer === null).length };
+  const read = questions.get(id) ?? { branch: null, items: [] };
+  if (!('items' in read)) return null;
+  return { asked: read.items.length, unanswered: read.items.filter((item) => item.answer === null).length };
 }
 
 /**
@@ -433,18 +428,18 @@ export function questionCount(questions: ReadQuestions, id: string): QuestionCou
 export function pendingDecisions(tasks: ResolvedTask[], attributed: ReadonlySet<string>, questions: ReadQuestions): PendingDecisions {
   const counted = (task: ResolvedTask): CountedTask => ({ ...snapshotTask(task), questions: questionCount(questions, task.id) });
   const ready = (task: ResolvedTask): boolean => boardColumn(task.state, attributed.has(task.id))?.column === 'ready' && task.unmetDependencies.length === 0;
+  // A closed Task's question waits for no one: no answer moves it.
+  const open = tasks.filter((task) => task.state !== 'DONE' && task.state !== 'CANCELLED').map((task) => ({ task, read: questions.get(task.id)! }));
+  const unread = open.find(({ read }) => !('items' in read))?.read as Unavailable | undefined;
   return {
     questions:
-      questions instanceof Map
-        ? limited(
-            // A closed Task's question waits for no one: no answer moves it.
-            tasks.flatMap(({ id, title, ticket, state }) => {
-              if (state === 'DONE' || state === 'CANCELLED') return [];
-              const { branch, items } = questions.get(id)!;
-              return items.filter((item) => item.answer === null).map((item) => ({ id, title, ticket, question: item.text, branch }));
-            }),
-          )
-        : questions,
+      unread ??
+      limited(
+        open.flatMap(({ task: { id, title, ticket }, read }) => {
+          const { branch, items } = read as TaskQuestions;
+          return items.filter((item) => item.answer === null).map((item) => ({ id, title, ticket, question: item.text, branch }));
+        }),
+      ),
     approvals: limited(tasks.filter((task) => task.state === 'READY_FOR_REVIEW').map(counted)),
     owner: limited(tasks.filter((task) => task.triage === 'ready-for-human' && ready(task)).map(counted)),
   };

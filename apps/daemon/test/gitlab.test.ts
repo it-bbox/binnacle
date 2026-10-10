@@ -153,11 +153,11 @@ describe('GitLab issues as Tasks in the Product Snapshot', () => {
 
       assert.deepEqual(body.tasks, {
         inFlight: {
-          items: [{ id: '#3', title: 'Third', state: 'ACTIVE', unmetDependencies: [], ticket: `https://gitlab.com/${REPOSITORY}/-/issues/3`, questions: null, start: null, roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] } }],
+          items: [{ id: '#3', title: 'Third', state: 'ACTIVE', unmetDependencies: [], ticket: `https://gitlab.com/${REPOSITORY}/-/issues/3`, questions: { asked: 0, unanswered: 0 }, start: null, roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] } }],
           remainder: 0,
         },
         readyToStart: {
-          items: [{ id: '#2', title: 'Second', state: 'READY', unmetDependencies: [], ticket: `https://gitlab.com/${REPOSITORY}/-/issues/2`, questions: null, start: null, roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] } }],
+          items: [{ id: '#2', title: 'Second', state: 'READY', unmetDependencies: [], ticket: `https://gitlab.com/${REPOSITORY}/-/issues/2`, questions: { asked: 0, unanswered: 0 }, start: null, roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] } }],
           remainder: 0,
         },
         counts: { BACKLOG: 0, READY: 0, MERGED: 0, DONE: 1, CANCELLED: 0, unknown: 0 },
@@ -565,6 +565,28 @@ describe('questions and answers from GitLab issue notes', () => {
     });
   });
 
+  it('lists an open issue’s unanswered questions waiting for the owner, counts them, and counts none for a closed issue, whose notes are not read', async () => {
+    const pages = [[issue(1, 'Asked', { description: header({ Status: 'ACTIVE' }) }), issue(2, 'Closed', { state: 'closed' })]];
+    await withGitLab(pages, async (daemon, fake) => {
+      fake.notes = { 1: [[note('### Question\nWhich database?'), note('### Answer\nSQLite.'), note('### Question\nAnd the port?')]] };
+      const root = makeProject(manifest(fake.base));
+      const body = (await snapshot(daemon, root)) as Snapshot & { pendingDecisions: { questions: unknown } };
+      assert.deepEqual(body.pendingDecisions.questions, {
+        items: [{ id: '#1', title: 'Asked', ticket: `https://gitlab.com/${REPOSITORY}/-/issues/1`, question: 'And the port?', branch: null }],
+        remainder: 0,
+      });
+      assert.deepEqual((body.tasks!.inFlight.items[0] as SnapshotTask & { questions: unknown }).questions, { asked: 2, unanswered: 1 });
+      const board = await daemon.call<{ columns: Record<string, { items: { id: string; questions: unknown }[] }> }>('task.list', { path: root, spec: null });
+      assert.deepEqual(
+        Object.values(board.body.columns).flatMap((column) => column.items.map((card) => [card.id, card.questions])),
+        [
+          ['#1', { asked: 2, unanswered: 1 }],
+          ['#2', null],
+        ],
+      );
+    });
+  });
+
   const failures: [string, Reply, RegExp][] = [
     ['a token refused', { status: 401, body: { message: '401 Unauthorized' } }, /^GitLab refused the request for .*\(401\); a token was used\.$/],
     ['no read access', { status: 403, body: { message: '403 Forbidden' } }, /^GitLab gave no read access to the comments of .*\(403\); a token was used\.$/],
@@ -587,6 +609,7 @@ describe('questions and answers from GitLab issue notes', () => {
           const unavailable = await questions(daemon, root, '#1');
           assert.ok('available' in unavailable && !unavailable.available, JSON.stringify(unavailable));
           assert.match(unavailable.reason, reason);
+          assert.deepEqual((body as Snapshot & { pendingDecisions: { questions: unknown } }).pendingDecisions.questions, unavailable);
           assert.equal(JSON.stringify([body, unavailable]).includes(token), false);
           assert.ok(fake.tokens.every((sent) => sent === token));
         });
