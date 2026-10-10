@@ -119,9 +119,10 @@ async function readQuestions(
 /**
  * Every entry of every page from `firstPage` on, `what` naming them, read as `readRemoteTasks`
  * reads issues: the `Link` header followed on the declared host only, and a failure on any
- * page giving nothing but the diagnostic that says why.
+ * page giving nothing but the diagnostic that says why. No page is read past the one that
+ * brings the entries to `until`.
  */
-export async function readPages(forge: Forge, firstPage: string, where: string, token: string | null, what: Listed): Promise<unknown[] | Diagnostic> {
+export async function readPages(forge: Forge, firstPage: string, where: string, token: string | null, what: Listed, until = Infinity): Promise<unknown[] | Diagnostic> {
   let url: URL;
   try {
     url = new URL(firstPage);
@@ -138,7 +139,7 @@ export async function readPages(forge: Forge, firstPage: string, where: string, 
     entries.push(...page);
 
     const next = /<([^>]*)>\s*;\s*rel="next"/.exec(response.headers.get('link') ?? '')?.[1];
-    if (next === undefined) return entries;
+    if (next === undefined || entries.length >= until) return entries;
     url = new URL(next, url);
     if (url.origin !== origin) return failed('tracker.unreachable', `${forge.name} pointed the next page of ${where} at another host, ${url.origin}, which is not read.`);
   }
@@ -178,7 +179,7 @@ async function readResponse(forge: Forge, url: URL, where: string, token: string
 }
 
 /** What a forge's pages list, or what one of its objects is. */
-type Listed = 'issues' | 'comments' | 'pull requests' | 'merge requests' | 'reviews' | 'repository' | 'commits' | 'check runs' | 'statuses';
+type Listed = 'issues' | 'comments' | 'pull requests' | 'merge requests' | 'reviews' | 'repository' | 'commits' | 'check runs' | 'statuses' | 'pipelines';
 
 /**
  * When changes were first requested on a pull or merge request of one branch, in
@@ -207,6 +208,71 @@ export type CiReading =
       requests: { items: CiRequest[]; remainder: number };
     }
   | { reason: string };
+
+/** What differs between the forges' CI, past how their APIs are spoken to. */
+export type CiSource = {
+  /** The repository, whose `default_branch` names the default branch. */
+  repository: string;
+  /** A branch's latest commit. */
+  commit(branch: string): string;
+  /** That commit's id, its link and when it was made, as the forge gives them. */
+  toCommit(entry: Record<string, unknown>): { sha: unknown; url: unknown; at: string | null };
+  /** The first page of the open requests, and what the forge calls them. */
+  requests: string;
+  what: 'pull requests' | 'merge requests';
+  /** One entry of `requests` as a request, its head commit `sha` and its link as given. */
+  toRequest(entry: unknown): Omit<CiRequest, 'state' | 'url'> & { sha: string; url: unknown };
+  /** How the forge refers to request `number`, as `pull request #7` or `merge request !7`. */
+  named(number: number): string;
+  /** A commit's state, or the reason it cannot be read. */
+  state(sha: string): Promise<CiState | { reason: string }>;
+};
+
+/** A link a page may bind to `href`: `http:` or `https:` only, so that a forge cannot hand the dashboard a `javascript:` URL. */
+const isWebLink = (url: unknown): url is string => typeof url === 'string' && /^https?:\/\//i.test(url);
+
+/**
+ * A forge's CI (`CiReading`), read with `token` or anonymously from the declared host only: its
+ * default branch, that branch's latest commit and the commit's state, and the open requests
+ * through every page whose branch `keep` keeps, the first `limit` with their head commits'
+ * states. What the forge does not give is said, never written as a value it did not report (ADR-0007).
+ */
+export async function readRemoteCi(
+  forge: Forge,
+  where: string,
+  token: string | null,
+  source: CiSource,
+  limit: number,
+  keep: (branch: string) => boolean,
+): Promise<CiReading> {
+  const [about, entries] = await Promise.all([readObject(forge, source.repository, where, token, 'repository'), readPages(forge, source.requests, where, token, source.what)]);
+  if ('failure' in about) return { reason: about.failure.message };
+  if (!Array.isArray(entries)) return { reason: entries.message };
+  const missing = (what: string): { reason: string } => ({ reason: `${forge.name} gave no ${what} for ${where}.` });
+  const branch = about.entry.default_branch;
+  if (typeof branch !== 'string') return missing('default branch');
+  const read = await readObject(forge, source.commit(branch), where, token, 'commits');
+  if ('failure' in read) return { reason: read.failure.message };
+  const { sha, url, at } = source.toCommit(read.entry);
+  if (typeof sha !== 'string') return missing(`commit of ${branch}`);
+  if (!isWebLink(url)) return missing(`link to the commit of ${branch}`);
+  const kept = entries.map((entry) => source.toRequest(entry)).filter((request) => keep(request.branch));
+  const listed = kept.slice(0, limit);
+  const unlinked = listed.find((request) => !isWebLink(request.url));
+  if (unlinked !== undefined) return missing(`link to ${source.named(unlinked.number)}`);
+  const states = await Promise.all([source.state(sha), ...listed.map((request) => source.state(request.sha))]);
+  const unread = states.find((state): state is { reason: string } => typeof state !== 'string');
+  if (unread !== undefined) return unread;
+
+  const reported = (index: number): ReportedState => ({ value: states[index] as CiState, provenance: 'provider_reported' });
+  return {
+    defaultBranch: { branch, commit: sha, state: reported(0), url, at },
+    requests: {
+      items: listed.map(({ sha: _, ...request }, index): CiRequest => ({ ...request, state: reported(index + 1), url: request.url as string })),
+      remainder: Math.max(0, kept.length - limit),
+    },
+  };
+}
 
 /** Where a forge lists a branch's requests, and how it tells when one had changes requested. */
 type RequestReviews = {

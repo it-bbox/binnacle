@@ -1,4 +1,4 @@
-import { readGitHubCi, type CiReading, type CiRequest, type GitFacts } from '@binnacle/adapters';
+import { readGitHubCi, readGitLabCi, type CiReading, type CiRequest, type GitFacts } from '@binnacle/adapters';
 import { branchTask, forgeRemote, type Diagnostic, type ProjectManifest, type TrackerTask } from '@binnacle/core';
 import { trackerToken } from './home.ts';
 import type { Unavailable } from './snapshot.ts';
@@ -47,13 +47,12 @@ export async function readCi(
   const forge = forgeOf(manifest, git);
   const unavailable = (reason: string) => (): Unavailable => ({ available: false, reason });
   if (forge === null) return unavailable(NO_FORGE);
-  // ponytail: GitLab's pipelines and merge requests are ticket 09 of the state of work.
-  if (forge.provider === 'gitlab') return unavailable(`The forge is GitLab (${forge.repository}), and this version of Binnacle reads CI from GitHub only.`);
   // A remote names its own host, which no one declared: on any but the provider's own, only the
   // credentials file's entry for that host is sent there, never the environment's token.
   const credential = trackerToken(home, forge.provider, forge.host, forge.from === 'remote' && forge.host !== null ? {} : process.env);
   if ('failure' in credential) return unavailable(credential.failure.message);
-  const reading = await readGitHubCi(forge.repository, forge.host, credential.token, limit, keep);
+  const read = forge.provider === 'github' ? readGitHubCi : readGitLabCi;
+  const reading = await read(forge.repository, forge.host, credential.token, limit, keep);
   if ('reason' in reading) return unavailable(reading.reason);
 
   const remote = manifest?.tracker.provider !== 'local';

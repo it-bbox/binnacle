@@ -36,7 +36,7 @@ export {
   type HeadHistory,
 } from './git.ts';
 export { githubApiRoot, readGitHubChangesRequested, readGitHubCi, readGitHubTasks } from './github.ts';
-export { gitlabApiRoot, readGitLabChangesRequested, readGitLabTasks } from './gitlab.ts';
+export { gitlabApiRoot, readGitLabChangesRequested, readGitLabCi, readGitLabTasks } from './gitlab.ts';
 export type { ChangesRequested, CiReading, CiRequest, CiState, ReportedState } from './remote-tracker.ts';
 export { readLocalTasks, ticketComments } from './local-tracker.ts';
 export { readOtlpLogs, type TelemetryRecord } from './opentelemetry.ts';

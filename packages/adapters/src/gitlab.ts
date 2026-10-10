@@ -1,5 +1,5 @@
 import type { TaskReading } from '@binnacle/core';
-import { readChangesRequested, readRemoteTasks, type ChangesRequested, type Forge } from './remote-tracker.ts';
+import { readChangesRequested, readPages, readRemoteCi, readRemoteTasks, type ChangesRequested, type CiReading, type CiState, type Forge } from './remote-tracker.ts';
 
 /**
  * The API root for a declared `tracker.host`: a hostname, `gitlab.com` by default, is
@@ -71,4 +71,60 @@ export function readGitLabChangesRequested(repository: string, host: string | nu
       return note.system === true && note.body === 'requested changes' && note.created_at ? Date.parse(note.created_at) : null;
     },
   });
+}
+
+type MergeRequest = { iid: number; title: string; draft?: boolean; source_branch: string; sha: string; web_url: unknown };
+
+/** A pipeline still to finish, waiting on a runner, a schedule or a person. */
+const UNFINISHED = new Set(['created', 'waiting_for_resource', 'preparing', 'pending', 'running', 'scheduled', 'manual']);
+
+/**
+ * A pipeline's status as a state: passing on `success` or `skipped`, as a skipped check run
+ * passes on GitHub; running while it is to finish; failing on `failed`, `canceled` and any
+ * other status, a red the owner looks at rather than a green that hides one.
+ */
+const pipelineState = (status: unknown): CiState => (status === 'success' || status === 'skipped' ? 'passing' : UNFINISHED.has(status as string) ? 'running' : 'failing');
+
+/**
+ * A GitLab project's CI, read through `readRemoteCi`: the open merge requests, and a commit's
+ * state from its latest pipeline, `none` when it has none. The head pipeline of a merge request
+ * is the latest of its head commit; the default branch's state is that of its latest commit,
+ * as on GitHub.
+ */
+export function readGitLabCi(
+  repository: string,
+  host: string | null,
+  token: string | null,
+  limit: number,
+  keep: (branch: string) => boolean = () => true,
+): Promise<CiReading> {
+  const root = gitlabApiRoot(host);
+  const project = `${root}/projects/${encodeURIComponent(repository)}`;
+  const where = `${repository} at ${root}`;
+  return readRemoteCi(
+    GITLAB,
+    where,
+    token,
+    {
+      repository: project,
+      commit: (branch) => `${project}/repository/commits/${encodeURIComponent(branch)}`,
+      toCommit: (entry) => ({ sha: entry.id, url: entry.web_url, at: typeof entry.committed_date === 'string' ? entry.committed_date : null }),
+      requests: `${project}/merge_requests?state=opened&per_page=100`,
+      what: 'merge requests',
+      toRequest(entry) {
+        const request = entry as MergeRequest;
+        return { number: request.iid, title: request.title, branch: request.source_branch, draft: request.draft ?? false, sha: request.sha, url: request.web_url };
+      },
+      named: (number) => `merge request !${number}`,
+      async state(sha) {
+        const latest = `${project}/pipelines?sha=${encodeURIComponent(sha)}&order_by=id&sort=desc&per_page=1`;
+        const pipelines = await readPages(GITLAB, latest, where, token, 'pipelines', 1);
+        if (!Array.isArray(pipelines)) return { reason: pipelines.message };
+        const [pipeline] = pipelines as { status?: unknown }[];
+        return pipeline === undefined ? 'none' : pipelineState(pipeline.status);
+      },
+    },
+    limit,
+    keep,
+  );
 }

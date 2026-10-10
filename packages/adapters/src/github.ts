@@ -2,11 +2,10 @@ import type { TaskReading } from '@binnacle/core';
 import {
   readChangesRequested,
   readObject,
-  readPages,
+  readRemoteCi,
   readRemoteTasks,
   type ChangesRequested,
   type CiReading,
-  type CiRequest,
   type CiState,
   type Forge,
 } from './remote-tracker.ts';
@@ -98,10 +97,7 @@ export function readGitHubChangesRequested(repository: string, host: string | nu
 }
 
 type CheckRun = { status?: string; conclusion?: string | null };
-type Pull = { number: number; title: string; draft?: boolean; html_url: string; head: { ref: string; sha: string } };
-
-/** A link a page may bind to `href`: `http:` or `https:` only, so that a forge cannot hand the dashboard a `javascript:` URL. */
-const isWebLink = (url: unknown): url is string => typeof url === 'string' && /^https?:\/\//i.test(url);
+type Pull = { number: number; title: string; draft?: boolean; html_url: unknown; head: { ref: string; sha: string } };
 
 /** A completed check run that counts as passed; any other conclusion, a failure, a cancellation or a timeout among them, fails. */
 const PASSED = new Set(['success', 'skipped', 'neutral']);
@@ -121,10 +117,8 @@ function commitState(runs: CheckRun[], statuses: { state?: string }[]): CiState 
 }
 
 /**
- * A GitHub repository's CI (`CiReading`), read with `token` or anonymously from the declared
- * host only: its default branch, that branch's latest commit and the commit's state, and the open
- * pull requests through every page whose head branch `keep` keeps, the first `limit` with their
- * head commits' states.
+ * A GitHub repository's CI, read through `readRemoteCi`: the open pull requests, and a commit's
+ * state from its check runs and combined status together (`commitState`).
  * ponytail: one page of 100 check runs per commit; follow the pages once a commit has more.
  */
 export async function readGitHubCi(
@@ -137,43 +131,30 @@ export async function readGitHubCi(
   const root = githubApiRoot(host);
   const repo = `${root}/repos/${repository.split('/').map(encodeURIComponent).join('/')}`;
   const where = `${repository} at ${root}`;
-  const object = (url: string, what: 'repository' | 'commits' | 'check runs' | 'statuses') => readObject(GITHUB, url, where, token, what);
-  const state = async (sha: string): Promise<CiState | { reason: string }> => {
-    const [runs, status] = await Promise.all([object(`${repo}/commits/${sha}/check-runs?per_page=100`, 'check runs'), object(`${repo}/commits/${sha}/status?per_page=100`, 'statuses')]);
-    if ('failure' in runs) return { reason: runs.failure.message };
-    if ('failure' in status) return { reason: status.failure.message };
-    return commitState((runs.entry.check_runs ?? []) as CheckRun[], (status.entry.statuses ?? []) as { state?: string }[]);
-  };
-
-  const [about, pulls] = await Promise.all([object(repo, 'repository'), readPages(GITHUB, `${repo}/pulls?state=open&per_page=100`, where, token, 'pull requests')]);
-  if ('failure' in about) return { reason: about.failure.message };
-  if (!Array.isArray(pulls)) return { reason: pulls.message };
-  // What GitHub does not give is said, never written as a value it did not report (ADR-0007).
-  const missing = (what: string): { reason: string } => ({ reason: `GitHub gave no ${what} for ${where}.` });
-  const branch = about.entry.default_branch;
-  if (typeof branch !== 'string') return missing('default branch');
-  const commit = await object(`${repo}/commits/${encodeURIComponent(branch)}`, 'commits');
-  if ('failure' in commit) return { reason: commit.failure.message };
-  const { sha, html_url: url } = commit.entry;
-  if (typeof sha !== 'string') return missing(`commit of ${branch}`);
-  if (!isWebLink(url)) return missing(`link to the commit of ${branch}`);
-  const kept = (pulls as Pull[]).filter((pull) => keep(pull.head.ref));
-  const listed = kept.slice(0, limit);
-  const unlinked = listed.find((pull) => !isWebLink(pull.html_url));
-  if (unlinked !== undefined) return missing(`link to pull request #${unlinked.number}`);
-  const states = await Promise.all([state(sha), ...listed.map((pull) => state(pull.head.sha))]);
-  const unread = states.find((read): read is { reason: string } => typeof read !== 'string');
-  if (unread !== undefined) return unread;
-
-  const reported = (index: number) => ({ value: states[index] as CiState, provenance: 'provider_reported' as const });
-  const at = (commit.entry.commit as { committer?: { date?: string } } | undefined)?.committer?.date ?? null;
-  return {
-    defaultBranch: { branch, commit: sha, state: reported(0), url, at },
-    requests: {
-      items: listed.map(
-        (pull, index): CiRequest => ({ number: pull.number, title: pull.title, branch: pull.head.ref, draft: pull.draft ?? false, state: reported(index + 1), url: pull.html_url }),
-      ),
-      remainder: Math.max(0, kept.length - limit),
+  const object = (url: string, what: 'check runs' | 'statuses') => readObject(GITHUB, url, where, token, what);
+  return readRemoteCi(
+    GITHUB,
+    where,
+    token,
+    {
+      repository: repo,
+      commit: (branch) => `${repo}/commits/${encodeURIComponent(branch)}`,
+      toCommit: (entry) => ({ sha: entry.sha, url: entry.html_url, at: (entry.commit as { committer?: { date?: string } } | undefined)?.committer?.date ?? null }),
+      requests: `${repo}/pulls?state=open&per_page=100`,
+      what: 'pull requests',
+      toRequest(entry) {
+        const pull = entry as Pull;
+        return { number: pull.number, title: pull.title, branch: pull.head.ref, draft: pull.draft ?? false, sha: pull.head.sha, url: pull.html_url };
+      },
+      named: (number) => `pull request #${number}`,
+      async state(sha) {
+        const [runs, status] = await Promise.all([object(`${repo}/commits/${sha}/check-runs?per_page=100`, 'check runs'), object(`${repo}/commits/${sha}/status?per_page=100`, 'statuses')]);
+        if ('failure' in runs) return { reason: runs.failure.message };
+        if ('failure' in status) return { reason: status.failure.message };
+        return commitState((runs.entry.check_runs ?? []) as CheckRun[], (status.entry.statuses ?? []) as { state?: string }[]);
+      },
     },
-  };
+    limit,
+    keep,
+  );
 }

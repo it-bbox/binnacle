@@ -61,8 +61,9 @@ type Reply = { status: number; headers?: Record<string, string>; body: unknown }
  * A loopback stand-in for GitLab at the network boundary: it serves `pages` of issues for
  * `REPOSITORY`, and `notes`, pages of each issue's notes by iid, none when it has no entry,
  * with GitLab's `Link` pagination header, or whatever `reply` says instead; a reply with status
- * 0 drops the connection. Every request path it receives is kept as sent, still encoded, with the
- * `private-token` header it carried.
+ * 0 drops the connection. Every request path for the issues it receives is kept as sent, still
+ * encoded, with the `private-token` header it carried. The snapshot's CI reads go to the same
+ * host, answered 404 and not kept: `ci.test.ts` covers them.
  */
 type FakeGitLab = {
   base: string;
@@ -77,10 +78,13 @@ type FakeGitLab = {
 async function fakeGitLab(pages: unknown[][]): Promise<FakeGitLab> {
   const fake: FakeGitLab = { base: '', pages, notes: {}, reply: null, requests: [], tokens: [], close: async () => {} };
   const server: Server = createServer((request, response) => {
-    fake.requests.push(request.url ?? '/');
-    fake.tokens.push(request.headers['private-token'] as string | undefined);
     const url = new URL(request.url ?? '/', fake.base);
-    const reply = fake.reply?.(url) ?? pageReply(fake, url);
+    const issues = url.pathname.startsWith(`/api/v4${ISSUES_PATH}`);
+    if (issues) {
+      fake.requests.push(request.url ?? '/');
+      fake.tokens.push(request.headers['private-token'] as string | undefined);
+    }
+    const reply = (issues ? fake.reply?.(url) : null) ?? pageReply(fake, url);
     if (reply.status === 0) return void request.socket.destroy();
     response.writeHead(reply.status, { 'content-type': 'application/json', ...reply.headers });
     response.end(JSON.stringify(reply.body));
@@ -512,7 +516,8 @@ describe('the task brief on a GitLab tracker', () => {
         diagnostics: [],
         byRole: NO_ROLES,
         reworkUnread: null,
-        request: { available: false, reason: `The forge is GitLab (${REPOSITORY}), and this version of Binnacle reads CI from GitHub only.` },
+        // This fake serves no project, so CI cannot be read: ci.test.ts reads the request.
+        request: { available: false, reason: `GitLab has nothing at ${REPOSITORY} at ${fake.base} with repository visible to this request (404); no token was used.` },
       });
       assert.equal((await taskGet(daemon, root, '3')).body.id, '#3');
       assert.equal((await taskGet(daemon, root, '#9')).body.error.code, 'task.not_found');

@@ -26,6 +26,7 @@ type Snapshot = { ci: Ci; attention: { code: string; message: string }[] };
 const REPOSITORY = 'octo-org/octo-repo';
 const TOKEN = 'ghp_ci-secret-token';
 delete process.env.BINNACLE_GITHUB_TOKEN;
+delete process.env.BINNACLE_GITLAB_TOKEN;
 
 const roots: string[] = [];
 after(() => {
@@ -178,6 +179,7 @@ async function withForge(body: (daemon: TestDaemon, fake: FakeGitHub) => Promise
   } finally {
     redirect = null;
     delete process.env.BINNACLE_GITHUB_TOKEN;
+    delete process.env.BINNACLE_GITLAB_TOKEN;
     await Promise.all([daemon.stop(), fake.close()]);
   }
 }
@@ -420,13 +422,6 @@ describe('the forge of a project whose tracker is local', () => {
     });
   });
 
-  it('is GitLab, which this version does not read CI from yet, and says so', async () => {
-    await withForge(async (daemon) => {
-      const ci = (await snapshotOf(daemon, localProject('git@gitlab.com:team/project.git'))).ci;
-      assert.match((ci as { reason: string }).reason, /GitLab/);
-      assert.deepEqual(outbound, []);
-    });
-  });
 });
 
 describe('the vault’s snapshot note', () => {
@@ -552,6 +547,332 @@ describe('the daily’s ci section', () => {
       const note = readFileSync(join(vault, 'Projects/CI Local/Product/daily.md'), 'utf8');
       assert.ok(note.includes(`## CI\n\n\`main\` on GitHub (${REPOSITORY}): failing at \`${MAIN_SHA.slice(0, 7)}\``), note);
       assert.ok(note.includes('- #3 First step, `feat/first-step`, alpha/01: none (provider reported).'), note);
+    });
+  });
+});
+
+/** A full project path with a subgroup, which GitLab's API takes URL-encoded as one segment. */
+const PROJECT = 'gitlab-org/sub-group/project';
+const PROJECT_PATH = `/api/v4/projects/${encodeURIComponent(PROJECT)}`;
+const GITLAB_TOKEN = 'glpat-ci-secret-token';
+
+/**
+ * GitLab's API for `PROJECT`, served under `/api/v4`: the project, its default branch's latest
+ * commit, each commit's pipelines newest first, its open merge requests, and `issues`. A
+ * pipeline list follows `per_page` with GitLab's `Link` header, so that reading more than the
+ * latest would show.
+ */
+type FakeGitLab = {
+  origin: string;
+  base: string;
+  defaultBranch: string;
+  head: string;
+  pipelines: Record<string, string[]>;
+  merges: { iid: number; title: string; branch: string; sha: string; draft?: boolean }[];
+  issues: unknown[];
+  reply: ((url: URL) => Reply | null) | null;
+  requests: URL[];
+  tokens: (string | undefined)[];
+  close(): Promise<void>;
+};
+
+async function fakeGitLab(): Promise<FakeGitLab> {
+  const fake: FakeGitLab = {
+    origin: '',
+    base: '',
+    defaultBranch: 'main',
+    head: MAIN_SHA,
+    pipelines: {},
+    merges: [],
+    issues: [],
+    reply: null,
+    requests: [],
+    tokens: [],
+    close: async () => {},
+  };
+  const server: Server = createServer((request, response) => {
+    const url = new URL(request.url ?? '/', fake.origin);
+    fake.requests.push(url);
+    fake.tokens.push(request.headers['private-token'] as string | undefined);
+    const reply = fake.reply?.(url) ?? gitlabRoute(fake, url);
+    response.writeHead(reply.status, { 'content-type': 'application/json', ...reply.headers });
+    response.end(JSON.stringify(reply.body));
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  fake.origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  fake.base = `${fake.origin}/api/v4`;
+  fake.close = () => new Promise((resolve) => server.close(() => resolve()));
+  return fake;
+}
+
+function gitlabRoute(fake: FakeGitLab, url: URL): Reply {
+  const path = url.pathname;
+  if (path === PROJECT_PATH) return { status: 200, body: { path_with_namespace: PROJECT, default_branch: fake.defaultBranch } };
+  if (path === `${PROJECT_PATH}/issues`) return { status: 200, body: fake.issues };
+  if (/\/issues\/\d+\/notes$/.test(path)) return { status: 200, body: [] };
+  if (path === `${PROJECT_PATH}/merge_requests` && url.searchParams.get('state') === 'opened') {
+    return {
+      status: 200,
+      body: fake.merges.map((merge) => ({
+        iid: merge.iid,
+        title: merge.title,
+        draft: merge.draft ?? false,
+        source_branch: merge.branch,
+        sha: merge.sha,
+        web_url: `https://gitlab.com/${PROJECT}/-/merge_requests/${merge.iid}`,
+      })),
+    };
+  }
+  if (path === `${PROJECT_PATH}/repository/commits/${encodeURIComponent(fake.defaultBranch)}`) {
+    return { status: 200, body: { id: fake.head, web_url: `https://gitlab.com/${PROJECT}/-/commit/${fake.head}`, committed_date: '2026-10-11T07:00:00.000Z' } };
+  }
+  if (path === `${PROJECT_PATH}/pipelines`) {
+    const statuses = fake.pipelines[url.searchParams.get('sha') ?? ''] ?? [];
+    const perPage = Number(url.searchParams.get('per_page') ?? '20');
+    const page = Number(url.searchParams.get('page') ?? '1');
+    const next = new URL(url);
+    next.searchParams.set('page', String(page + 1));
+    return {
+      status: 200,
+      headers: page * perPage < statuses.length ? { link: `<${next}>; rel="next"` } : {},
+      body: statuses
+        .slice((page - 1) * perPage, page * perPage)
+        .map((status, index) => ({ id: 100 - index, status, web_url: `https://gitlab.com/${PROJECT}/-/pipelines/${100 - index}` })),
+    };
+  }
+  return { status: 404, body: { message: '404 Not Found' } };
+}
+
+async function withGitLab(body: (daemon: TestDaemon, fake: FakeGitLab) => Promise<void>): Promise<void> {
+  const [daemon, fake] = await Promise.all([startTestDaemon(), fakeGitLab()]);
+  outbound.length = 0;
+  try {
+    await body(daemon, fake);
+  } finally {
+    redirect = null;
+    delete process.env.BINNACLE_GITLAB_TOKEN;
+    await Promise.all([daemon.stop(), fake.close()]);
+  }
+}
+
+/** A project whose tracker is GitLab, at the loopback forge. */
+function gitlabProject(fake: FakeGitLab): string {
+  const root = temporary('binnacle-ci-gitlab-');
+  write(root, '.binnacle/project.yaml', `version: 1\n\nproject:\n  id: ci-gitlab\n\ntracker:\n  provider: gitlab\n  repository: ${PROJECT}\n  host: ${fake.base}\n`);
+  return root;
+}
+
+/** Issues 2 and 3, open, which merge requests' branches map to by number. */
+const gitlabIssues = [2, 3].map((iid) => ({ iid, title: `Step ${iid}`, state: 'opened', description: 'Status: ACTIVE', labels: [], web_url: `https://gitlab.com/${PROJECT}/-/issues/${iid}` }));
+
+describe('the ci section on GitLab', () => {
+  it('gives the default branch’s latest commit with its latest pipeline’s status, its link and when, every state provider_reported', async () => {
+    await withGitLab(async (daemon, fake) => {
+      // Newest first: only the latest pipeline counts.
+      fake.pipelines[MAIN_SHA] = ['success', 'failed'];
+      const ci = available((await snapshotOf(daemon, gitlabProject(fake))).ci);
+      assert.deepEqual(ci.forge, { provider: 'gitlab', host: fake.base, repository: PROJECT, from: 'tracker' });
+      assert.deepEqual(ci.defaultBranch, {
+        branch: 'main',
+        commit: MAIN_SHA,
+        state: reported('passing'),
+        url: `https://gitlab.com/${PROJECT}/-/commit/${MAIN_SHA}`,
+        at: '2026-10-11T07:00:00.000Z',
+      });
+      assert.deepEqual(ci.requests, { items: [], remainder: 0 });
+      const pipelines = fake.requests.filter((url) => url.pathname.endsWith('/pipelines'));
+      assert.ok(pipelines.length > 0 && pipelines.every((url) => (url.searchParams.get('page') ?? '1') === '1'), 'only the latest pipeline is read');
+    });
+  });
+
+  it('maps each pipeline status: success and skipped pass; failed and canceled fail; anything still to finish runs; no pipeline is none; anything else fails', async () => {
+    const cases: [string[], string][] = [
+      [['success'], 'passing'],
+      [['skipped'], 'passing'],
+      [['failed'], 'failing'],
+      [['canceled'], 'failing'],
+      [['canceling'], 'failing'],
+      ...['created', 'waiting_for_resource', 'preparing', 'pending', 'running', 'scheduled', 'manual'].map((status): [string[], string] => [[status], 'running']),
+      [[], 'none'],
+      [['something-new'], 'failing'],
+    ];
+    await withGitLab(async (daemon, fake) => {
+      const root = gitlabProject(fake);
+      for (const [pipelines, expected] of cases) {
+        fake.pipelines[MAIN_SHA] = pipelines;
+        const ci = available((await snapshotOf(daemon, root)).ci);
+        assert.deepEqual(ci.defaultBranch.state, reported(expected), JSON.stringify(pipelines));
+      }
+    });
+  });
+
+  it('makes a failing default branch ci.failing, and only a failing one', async () => {
+    await withGitLab(async (daemon, fake) => {
+      const root = gitlabProject(fake);
+      fake.pipelines[MAIN_SHA] = ['failed'];
+      const items = (await snapshotOf(daemon, root)).attention.filter((item) => item.code === 'ci.failing');
+      assert.equal(items.length, 1);
+      assert.match(items[0]!.message, /as GitLab reports it/);
+      assert.ok(items[0]!.message.includes(`https://gitlab.com/${PROJECT}/-/commit/${MAIN_SHA}`));
+
+      fake.pipelines[MAIN_SHA] = ['running'];
+      assert.equal((await snapshotOf(daemon, root)).attention.filter((item) => item.code === 'ci.failing').length, 0);
+    });
+  });
+
+  it('lists the open merge requests with their head pipelines’ statuses and the Tasks their branches map to, cut at the limit', async () => {
+    await withGitLab(async (daemon, fake) => {
+      fake.issues = gitlabIssues;
+      fake.merges = [
+        { iid: 7, title: 'Second step', branch: 'feat/2-second', sha: 'b'.repeat(40) },
+        { iid: 8, title: 'Draft', branch: 'spike', sha: 'c'.repeat(40), draft: true },
+        ...Array.from({ length: 10 }, (_, index) => ({ iid: 20 + index, title: `More ${index}`, branch: `more-${index}`, sha: String(index).repeat(40) })),
+      ];
+      fake.pipelines['b'.repeat(40)] = ['failed'];
+      fake.pipelines['c'.repeat(40)] = ['pending'];
+      const ci = available((await snapshotOf(daemon, gitlabProject(fake))).ci);
+      assert.equal(ci.requests.items.length, 10);
+      assert.equal(ci.requests.remainder, 2);
+      assert.deepEqual(ci.requests.items[0], {
+        number: 7,
+        title: 'Second step',
+        branch: 'feat/2-second',
+        taskId: '#2',
+        draft: false,
+        state: reported('failing'),
+        url: `https://gitlab.com/${PROJECT}/-/merge_requests/7`,
+      });
+      assert.deepEqual(ci.requests.items[1], {
+        number: 8,
+        title: 'Draft',
+        branch: 'spike',
+        taskId: null,
+        draft: true,
+        state: reported('running'),
+        url: `https://gitlab.com/${PROJECT}/-/merge_requests/8`,
+      });
+      assert.deepEqual(ci.requests.items[2]!.state, reported('none'));
+      // A failing merge request is no attention item: only the default branch's is.
+      assert.equal(ci.defaultBranch.state.value, 'none');
+      // The pipelines of the requests left out are not read.
+      assert.ok(!fake.requests.some((url) => ['8'.repeat(40), '9'.repeat(40)].includes(url.searchParams.get('sha') ?? '')));
+    });
+  });
+
+  it('reads with the token Binnacle holds for the host, which appears in nothing returned, and sends nothing to any other host', async () => {
+    await withGitLab(async (daemon, fake) => {
+      process.env.BINNACLE_GITLAB_TOKEN = GITLAB_TOKEN;
+      fake.pipelines[MAIN_SHA] = ['failed'];
+      fake.merges = [{ iid: 7, title: 'Second step', branch: 'feat/2-second', sha: 'b'.repeat(40) }];
+      const snapshot = await snapshotOf(daemon, gitlabProject(fake));
+      available(snapshot.ci);
+      assert.ok(!JSON.stringify(snapshot).includes(GITLAB_TOKEN));
+      assert.ok(fake.requests.filter((url) => !url.pathname.includes('/issues')).length >= 5);
+      assert.ok(fake.tokens.every((value) => value === GITLAB_TOKEN), JSON.stringify(fake.tokens));
+      assert.deepEqual([...new Set(outbound.map((url) => url.origin))], [fake.origin]);
+    });
+  });
+
+  for (const [status, pattern] of [
+    [401, /GitLab refused the request .*\(401\); a token was used/],
+    [403, /GitLab gave no read access .*\(403\); a token was used/],
+    [429, /GitLab rate-limited .*\(429\)/],
+  ] as const) {
+    it(`makes the section unavailable with the forge’s reason on a ${status}, never empty`, async () => {
+      await withGitLab(async (daemon, fake) => {
+        process.env.BINNACLE_GITLAB_TOKEN = GITLAB_TOKEN;
+        fake.reply = (url) => (url.pathname.includes('/issues') ? null : { status, body: { message: 'No' } });
+        const ci = (await snapshotOf(daemon, gitlabProject(fake))).ci;
+        assert.equal('available' in ci && ci.available, false);
+        assert.match((ci as { reason: string }).reason, pattern);
+        assert.ok(!(ci as { reason: string }).reason.includes(GITLAB_TOKEN));
+      });
+    });
+  }
+
+  it('makes the section unavailable when a pipeline cannot be read, or GitLab gives no default branch or no web link', async () => {
+    await withGitLab(async (daemon, fake) => {
+      const root = gitlabProject(fake);
+      fake.merges = [{ iid: 7, title: 'Second step', branch: 'feat/2-second', sha: 'b'.repeat(40) }];
+      const cases: [(url: URL) => Reply | null, RegExp][] = [
+        [(url) => (url.searchParams.get('sha') === 'b'.repeat(40) ? { status: 403, body: { message: 'No' } } : null), /no read access to the pipelines .*\(403\); no token was used/],
+        [(url) => (url.pathname === PROJECT_PATH ? { status: 200, body: { default_branch: null } } : null), /GitLab gave no default branch/],
+        [(url) => (url.pathname.includes('/repository/commits/') ? { status: 200, body: { id: MAIN_SHA, web_url: 'javascript:alert(1)' } } : null), /GitLab gave no link to the commit of main/],
+        [
+          (url) =>
+            url.pathname.endsWith('/merge_requests')
+              ? { status: 200, body: [{ iid: 7, title: 'T', source_branch: 'b', sha: MAIN_SHA, web_url: 'javascript:alert(1)' }] }
+              : null,
+          /link to merge request !7/,
+        ],
+      ];
+      for (const [reply, reason] of cases) {
+        fake.reply = reply;
+        const ci = (await snapshotOf(daemon, root)).ci;
+        assert.equal('available' in ci && ci.available, false, JSON.stringify(ci));
+        assert.match((ci as { reason: string }).reason, reason);
+        assert.doesNotMatch(JSON.stringify(ci), /undefined/);
+      }
+    });
+  });
+});
+
+describe('the GitLab forge of a project whose tracker is local', () => {
+  it('is its GitLab remote, read anonymously from gitlab.com only, with each merge request mapped to the ticket its branch names', async () => {
+    await withGitLab(async (daemon, fake) => {
+      redirect = fake.origin;
+      fake.pipelines[MAIN_SHA] = ['success'];
+      fake.merges = [{ iid: 3, title: 'First step', branch: 'feat/first-step', sha: 'b'.repeat(40) }];
+      fake.pipelines['b'.repeat(40)] = ['running'];
+      const ci = available((await snapshotOf(daemon, localProject(`https://gitlab.com/${PROJECT}.git`))).ci);
+      assert.deepEqual(ci.forge, { provider: 'gitlab', host: 'gitlab.com', repository: PROJECT, from: 'remote' });
+      assert.deepEqual(ci.defaultBranch.state, reported('passing'));
+      assert.deepEqual(ci.requests.items[0], {
+        number: 3,
+        title: 'First step',
+        branch: 'feat/first-step',
+        taskId: 'alpha/01',
+        draft: false,
+        state: reported('running'),
+        url: `https://gitlab.com/${PROJECT}/-/merge_requests/3`,
+      });
+      assert.ok(fake.tokens.every((value) => value === undefined));
+      assert.deepEqual([...new Set(outbound.map((url) => url.origin))], ['https://gitlab.com']);
+    });
+  });
+});
+
+describe('the Task’s request on task_get on GitLab', () => {
+  it('is the open merge request its branch maps to, with its head pipeline’s status, found past the snapshot’s limit, and null for a Task with none', async () => {
+    await withGitLab(async (daemon, fake) => {
+      fake.issues = gitlabIssues;
+      fake.merges = [
+        ...Array.from({ length: 11 }, (_, index) => ({ iid: 20 + index, title: `More ${index}`, branch: `more-${index}`, sha: String(index).repeat(40) })),
+        { iid: 7, title: 'Second step', branch: 'feat/2-second', sha: 'b'.repeat(40), draft: true },
+      ];
+      fake.pipelines['b'.repeat(40)] = ['failed'];
+      const root = gitlabProject(fake);
+      assert.deepEqual(await requestOf(daemon, root, '#2'), {
+        forge: { provider: 'gitlab', host: fake.base, repository: PROJECT, from: 'tracker' },
+        number: 7,
+        title: 'Second step',
+        branch: 'feat/2-second',
+        draft: true,
+        state: reported('failing'),
+        url: `https://gitlab.com/${PROJECT}/-/merge_requests/7`,
+      });
+      assert.ok(!fake.requests.some((url) => /^[0-9]{40}$/.test(url.searchParams.get('sha') ?? '')));
+      assert.equal(await requestOf(daemon, root, '#3'), null);
+    });
+  });
+
+  it('is unavailable with the forge’s reason when GitLab refuses, the brief still served', async () => {
+    await withGitLab(async (daemon, fake) => {
+      fake.issues = gitlabIssues;
+      fake.reply = (url) => (url.pathname.includes('/issues') ? null : { status: 403, body: { message: 'No' } });
+      const request = (await requestOf(daemon, gitlabProject(fake), '#2')) as Unread;
+      assert.equal(request.available, false);
+      assert.match(request.reason, /GitLab gave no read access .*\(403\)/);
     });
   });
 });
