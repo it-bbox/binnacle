@@ -451,3 +451,112 @@ test('/binnacle:answer ends with autopilot for a Task of a planned epic, and the
   assert.match(end, /on the local tracker, the Task id's part before `\/`/);
   assert.match(end, /the brief's `start`/);
 });
+
+/** A numbered step of a skill, from its number to the next step's: `step(skill, 6)` is step 6. */
+const step = (skill: string, n: number): string => {
+  const start = skill.search(new RegExp(`^ {0,3}${n}\\. `, 'm'));
+  assert.ok(start >= 0, `step ${n}`);
+  const next = skill.slice(start + 1).search(new RegExp(`^ {0,3}${n + 1}\\. `, 'm'));
+  return next < 0 ? skill.slice(start) : skill.slice(start, start + 1 + next);
+};
+
+/** Epic 11, ADR-0040: a genuine question outlives the agent's session, in the ticket on its branch. */
+test('autopilot\'s brief records a genuine product question as ### Question in a commit of the ticket alone, after what is sound, and never answers it', () => {
+  const brief = step(skillText('autopilot'), 6);
+  assert.match(brief, /commit what is sound without `DONE`, then record the question in the ticket, under `## Comments`, as a `### Question` heading with the question below it, in a commit of its own that changes only the ticket, and put the question at the top of your report/);
+  assert.match(brief, /never write an `### Answer`/);
+  // An answer autopilot draws from the spec withdraws the question rather than answering it.
+  assert.match(brief, /take it out with `git revert --no-edit <its commit>`/);
+});
+
+/** Epic 11: autopilot started again on the epic resumes an answered ticket on its branch, and leaves one still waiting to the owner. */
+test('autopilot resumes a ticket whose branch exists unmerged and whose questions are all answered, and never starts one with an unanswered question', () => {
+  const skill = skillText('autopilot');
+  const six = step(skill, 6);
+  assert.match(six, /`questions`, `\{ asked, unanswered \}`/);
+  assert.match(six, /`git rev-parse --verify --quiet refs\/heads\/<branch>` prints a commit and `git merge-base --is-ancestor <branch> main` fails/);
+  assert.match(six, /never started afresh/);
+  assert.match(six, /With `unanswered` above zero, or `questions` null, which cannot tell, start no agent for it and list it in the report under \*Waiting for the owner\*/);
+  assert.match(six, /`activity\.running`/);
+  // The earlier worktree goes only when clean and no daemon runs from it; the branch stays.
+  assert.match(six, /Remove it only when `git -C <path> status --porcelain` prints nothing and no daemon runs from it, checked as step 8 checks/);
+  assert.match(six, /keeping the ticket's branch/);
+  assert.match(six, /A worktree with changes, or with a daemon running from it, stays/);
+  // The new agent checks the branch out, rebases it and reads the Answer.
+  assert.match(six, /Do not create the branch: check it out in your worktree, rebase it onto the local `main`, read each `### Question` and its `### Answer`/);
+  assert.match(six, /A resumed ticket counts toward the parallel limit and the conflict risk/);
+  const nine = step(skill, 9);
+  assert.match(nine, /autopilot started again on the epic resumes the ticket on its branch \(step 6\)/);
+  assert.match(nine, /`\/binnacle:answer`/);
+});
+
+/** Epic 11: the roles the owner sets in the ticket are acted on overnight, and verified. */
+test('autopilot\'s review covers each role of Roles: beyond the Developer and the Reviewer under its own #### heading, and step 8 checks the headings', () => {
+  const skill = skillText('autopilot');
+  assert.match(step(skill, 6), /When the ticket's `Roles:` line names a role beyond the Developer and the Reviewer[^.]* the review also covers that role's concerns, each under a `#### <role>` heading of its own in the Review/);
+  assert.match(step(skill, 8), /for each role the ticket's `Roles:` line names beyond the Developer and the Reviewer, the Review has a `#### <role>` heading of its own/);
+});
+
+/** Epic 11: a run that broke CI does not look finished. */
+test('autopilot reads main\'s CI after the last push and puts a failing or running one under Waiting for the owner, without waiting for it', () => {
+  const skill = skillText('autopilot');
+  const ten = step(skill, 10);
+  assert.match(ten, /`main`'s CI after the last push: `ci\.defaultBranch`/);
+  assert.match(ten, /Do not wait for CI/);
+  assert.match(ten, /A `failing` or `running` state goes under \*Waiting for the owner\*/);
+  assert.match(ten, /when `ci` is marked `available: false`, give its reason/);
+  const eleven = step(skill, 11);
+  assert.match(eleven, /\*\*CI\*\*: `main`'s/);
+  assert.match(eleven, /`main`'s CI failing or still running/);
+});
+
+/** Epic 11, ADR-0037: the course moves with the work, on the owner's yes. */
+test('autopilot\'s report ends with a proposed Next action paragraph, written and committed only on the owner\'s yes after the run', () => {
+  const skill = skillText('autopilot');
+  const items = step(skill, 11).split('\n').filter((line) => /^ {4}- \*\*/.test(line));
+  const last = items.at(-1) ?? '';
+  assert.match(last, /^ {4}- \*\*Next action\*\*, last:/);
+  assert.match(last, /starts with `Next action:` and ends with exactly one command in backticks/);
+  assert.match(last, /Once the run has ended, and only on the owner's yes in this chat, write it into the roadmap/);
+  assert.match(last, /commit the roadmap alone to `main`, as a Product session would/);
+  assert.match(last, /do not push it/);
+  // Nothing is written during the run.
+  assert.match(skill, /During the run you write no file and make no commit of your own/);
+});
+
+/** Epic 11: a Product session moves a stale course as part of its delta. */
+test('/binnacle:checkpoint offers a stale or missing Next action paragraph with its proposed text, written only after the human\'s yes', () => {
+  const three = step(skillText('checkpoint'), 3);
+  assert.match(three, /`next_action\.stale` or `next_action\.missing`/);
+  assert.match(three, /the roadmap's `Next action:` paragraph as a `position` item/);
+  assert.match(three, /starting with `Next action:` and ending with exactly one command in backticks/);
+  assert.match(three, /with the text you propose/);
+  assert.match(three, /written only once the human says yes/);
+});
+
+/** Epic 11: the workflow says how a session records a question and how the owner answers it. */
+test('the development workflow describes recording a question and /binnacle:answer, naming ADR-0040', () => {
+  const workflow = workflowText();
+  const section = workflow.slice(workflow.indexOf('## Questions and answers'));
+  assert.match(section, /records the question in the ticket on its branch: a `### Question` heading under `## Comments`/);
+  assert.match(section, /in a commit of its own that changes only the ticket/);
+  assert.match(section, /`\/binnacle:answer`/);
+  assert.match(section, /ADR-0040/);
+  assert.match(workflow, /resumes it once the owner has answered \(ADR-0040\)/);
+});
+
+/** Epic 11: what autopilot and the checkpoint now do reaches every harness. */
+test('the skills copy carries autopilot\'s resume, roles, CI and Next action, and the checkpoint\'s Next action candidate', (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'binnacle-skills-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const target = join(dir, 'skills');
+  prepareSkills(PLUGIN_SOURCE, target, preparePlugin(PLUGIN_SOURCE, join(dir, 'plugin')));
+  const autopilot = readFileSync(join(target, 'binnacle-autopilot', 'SKILL.md'), 'utf8');
+  assert.match(autopilot, /never started afresh/);
+  assert.match(autopilot, /`#### <role>` heading/);
+  assert.match(autopilot, /`ci\.defaultBranch`/);
+  assert.match(autopilot, /- \*\*Next action\*\*, last:/);
+  assert.match(autopilot, /`binnacle-answer`/);
+  const checkpoint = readFileSync(join(target, 'binnacle-checkpoint', 'SKILL.md'), 'utf8');
+  assert.match(checkpoint, /`next_action\.stale` or `next_action\.missing`/);
+});
