@@ -8,11 +8,11 @@ import type { Unavailable } from './snapshot.ts';
  * otherwise its first GitHub or GitLab Git remote (`forgeRemote`), `origin` first. `host` is the
  * one its token is kept under, the tracker's `tracker.host` or the remote's, null for the provider's default.
  */
-type Forge = { provider: 'github' | 'gitlab'; host: string | null; repository: string; from: 'tracker' | 'remote' };
+type CiForge = { provider: 'github' | 'gitlab'; host: string | null; repository: string; from: 'tracker' | 'remote' };
 
 /** The snapshot's `ci` section: the forge, the default branch's latest commit and the open requests, each with the Task its branch maps to. */
 export type Ci = {
-  forge: Omit<Forge, 'host'> & { host: string };
+  forge: Omit<CiForge, 'host'> & { host: string };
   defaultBranch: Extract<CiReading, { defaultBranch: unknown }>['defaultBranch'];
   requests: { items: (CiRequest & { taskId: string | null })[]; remainder: number };
 };
@@ -20,7 +20,7 @@ export type Ci = {
 /** Why there is no CI to read, which the dashboard knows by its text. */
 export const NO_FORGE = 'There is no forge to read CI from: the tracker is not GitHub or GitLab, and there is no Git remote on GitHub or GitLab.';
 
-function forgeOf(manifest: ProjectManifest | null, git: GitFacts): Forge | null {
+function forgeOf(manifest: ProjectManifest | null, git: GitFacts): CiForge | null {
   const tracker = manifest?.tracker;
   if ((tracker?.provider === 'github' || tracker?.provider === 'gitlab') && tracker.repository !== null) {
     return { provider: tracker.provider, host: tracker.host, repository: tracker.repository, from: 'tracker' };
