@@ -17,6 +17,7 @@ type Brief = {
   branch: string;
   start: string | null;
   review: { text: string; truncated: boolean } | Unavailable | null;
+  questions: { branch: string | null; items: { text: string; answer: string | null }[] } | Unavailable;
   diagnostics: Failure[];
 };
 
@@ -56,8 +57,6 @@ function stateBadge(state: string | null) {
 
 const dependency = (item: Brief['dependencies'][number]): string =>
   item.dangling ? t.value.dangling : `${item.state ?? t.value.noState}, ${item.met ? t.value.met : t.value.notMet}`;
-
-const notAvailableRows = computed(() => [{ element: t.value.questions, reason: t.value.questionsReason }]);
 </script>
 
 <template>
@@ -144,6 +143,24 @@ const notAvailableRows = computed(() => [{ element: t.value.questions, reason: t
               </p>
             </template>
           </section>
+          <section class="overflow-hidden rounded-lg border border-default bg-default">
+            <div class="border-b border-default px-3.5 py-2.5"><h2 class="m-0 text-[13px] font-semibold">{{ t.questions }}</h2></div>
+            <div v-if="isUnavailable(data.questions)" class="px-3.5 py-3">
+              <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="data.questions.reason" /></span>
+            </div>
+            <p v-else-if="data.questions.items.length === 0" class="m-0 px-3.5 py-3 text-muted">{{ t.noQuestions }}</p>
+            <template v-else>
+              <p v-if="data.questions.branch !== null" class="m-0 px-3.5 pt-3 text-xs text-muted">{{ t.questionsFromBranch(data.questions.branch) }}</p>
+              <div v-for="(item, index) in data.questions.items" :key="index" class="flex flex-col gap-1.5 border-default px-3.5 py-3" :class="{ 'border-t': index > 0 }">
+                <pre lang="en" class="m-0 max-w-[70ch] font-mono text-xs leading-relaxed break-words whitespace-pre-wrap">{{ item.text }}</pre>
+                <pre v-if="item.answer !== null" lang="en" class="m-0 max-w-[70ch] border-l-2 border-accented pl-2.5 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap">{{ item.answer }}</pre>
+                <div v-else class="flex items-center gap-2 text-warning">
+                  <UIcon name="i-lucide-circle-help" class="size-3.5 shrink-0 text-(--warn)" />
+                  <span>{{ t.unanswered }}</span>
+                </div>
+              </div>
+            </template>
+          </section>
         </div>
 
         <div class="flex min-w-0 flex-col gap-5">
@@ -224,13 +241,6 @@ const notAvailableRows = computed(() => [{ element: t.value.questions, reason: t
                   <span class="font-medium">{{ t.reworkUnread }}</span> <span class="text-muted">· <DaemonReason :reason="usage.reworkUnread" /></span>
                 </p>
               </template>
-            </div>
-            <div v-for="row in notAvailableRows" :key="row.element" class="flex flex-col gap-0.5 border-t border-default px-3.5 py-2.5">
-              <div class="flex justify-between gap-2">
-                <span class="font-medium">{{ row.element }}</span>
-                <span class="text-xs text-muted">{{ t.notAvailable }}</span>
-              </div>
-              <div class="text-[11.5px] leading-snug text-dimmed">{{ row.reason }}</div>
             </div>
           </section>
         </div>

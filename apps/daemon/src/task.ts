@@ -1,6 +1,8 @@
-import type { Tree } from '@binnacle/adapters';
-import { sharedBranch, startCommand, taskBranch, type Diagnostic, type ProjectManifest, type TaskRole, type TaskState, type TrackerTask } from '@binnacle/core';
+import { commitTree, isAncestor, isGitUnavailable, readBranchCommit, ticketComments, type Tree } from '@binnacle/adapters';
+import { sharedBranch, startCommand, taskBranch, type Diagnostic, type ProjectManifest, type Question, type TaskRole, type TaskState, type TrackerTask } from '@binnacle/core';
 import { OperationError } from './errors.ts';
+import { defaultCommit } from './graph.ts';
+import { resolveGitTimeout } from './home.ts';
 import type { Totals } from '@binnacle/telemetry';
 import { cut, readTracker, type Unavailable } from './snapshot.ts';
 
@@ -10,6 +12,12 @@ export const BODY_LIMIT = 8000;
 const REVIEW_UNAVAILABLE: Unavailable = {
   available: false,
   reason: 'Binnacle reads an issue’s body and never its comments, so no Review is read on GitHub or GitLab.',
+};
+
+// Until epic 11's ticket 05 reads the issues' comments.
+const QUESTIONS_UNAVAILABLE: Unavailable = {
+  available: false,
+  reason: 'Binnacle does not read an issue’s comments yet, so no question or answer is read on GitHub or GitLab.',
 };
 
 /**
@@ -33,6 +41,11 @@ export type TaskBrief = Pick<TrackerTask, 'id' | 'title' | 'state' | 'triage' | 
    * Unavailable on a remote tracker, whose comments are never read.
    */
   review: { text: string; truncated: boolean } | Unavailable | null;
+  /**
+   * The ticket's questions, each with its answer or null (`taskQuestions`), and the branch they
+   * were read from, null for the caller's checkout. Unavailable on a remote tracker.
+   */
+  questions: { branch: string | null; items: Question[] } | Unavailable;
   /** `task.shared_branch` when another Task has the same branch, which then credits neither. */
   diagnostics: Diagnostic[];
   /** Its usage by role over everything ingested, as `usage.get` gives it for the Task. */
@@ -45,7 +58,7 @@ export type TaskBrief = Pick<TrackerTask, 'id' | 'title' | 'state' | 'triage' | 
 export function taskBrief(
   { tasks, task }: { tasks: TrackerTask[]; task: TrackerTask },
   manifest: ProjectManifest | null,
-  { byRole, reworkUnread }: Pick<TaskBrief, 'byRole' | 'reworkUnread'>,
+  { byRole, reworkUnread, questions }: Pick<TaskBrief, 'byRole' | 'reworkUnread' | 'questions'>,
 ): TaskBrief {
   const byId = new Map(tasks.map((known) => [known.id, known]));
   const remote = manifest?.tracker.provider !== 'local';
@@ -68,10 +81,34 @@ export function taskBrief(
     branch: taskBranch(task, remote),
     start: startCommand(task, manifest?.workflow.provider ?? null),
     review: remote ? REVIEW_UNAVAILABLE : task.review === null ? null : cut(task.review, BODY_LIMIT),
+    questions,
     diagnostics: shared ? [shared] : [],
     byRole,
     reworkUnread,
   };
+}
+
+/**
+ * A Task's questions and answers (ADR-0040). On the local tracker, from its ticket at the tip of
+ * its branch (`taskBranch`) while that is a local branch of the registered repository at
+ * `projectPath` and not merged into the default branch, `origin/HEAD`'s or else `main`, as usage
+ * reads it; otherwise `task`'s own, as the caller's checkout has them. A repository with no such
+ * default branch, a branch without the ticket, or a Git that cannot say reads the checkout's.
+ */
+export async function taskQuestions(projectPath: string, manifest: ProjectManifest | null, task: TrackerTask): Promise<TaskBrief['questions']> {
+  if (manifest?.tracker.provider !== 'local') return QUESTIONS_UNAVAILABLE;
+  const branch = taskBranch(task, false);
+  const timeout = resolveGitTimeout();
+  try {
+    const [tip, base] = await Promise.all([readBranchCommit(projectPath, branch, timeout), defaultCommit(projectPath)]);
+    if (tip !== null && base !== null && !(await isAncestor(projectPath, tip, base, timeout))) {
+      const text = await commitTree(projectPath, tip, timeout).read(task.ticket);
+      if (text !== null) return { branch, items: ticketComments(text).questions };
+    }
+  } catch (error) {
+    if (!isGitUnavailable(error)) throw error;
+  }
+  return { branch: null, items: task.questions };
 }
 
 /**

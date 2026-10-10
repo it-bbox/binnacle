@@ -28,6 +28,7 @@ export {
   type ResolvedTask,
   type TaskReading,
   type TicketHeader,
+  type Question,
   type TrackerTask,
 } from './tracker.ts';
 export {

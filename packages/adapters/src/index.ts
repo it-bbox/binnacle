@@ -37,6 +37,6 @@ export {
 export { githubApiRoot, readGitHubChangesRequested, readGitHubTasks } from './github.ts';
 export { gitlabApiRoot, readGitLabChangesRequested, readGitLabTasks } from './gitlab.ts';
 export type { ChangesRequested } from './remote-tracker.ts';
-export { readLocalTasks } from './local-tracker.ts';
+export { readLocalTasks, ticketComments } from './local-tracker.ts';
 export { readOtlpLogs, type TelemetryRecord } from './opentelemetry.ts';
 export { EMPTY_TREE, workingTree, type Tree, type TreeEntry } from './tree.ts';

@@ -109,6 +109,7 @@ test('binn mcp lists its tools, explains a stopped daemon, and proxies the snaps
     branch: 'feat/first',
     start: null,
     review: null,
+    questions: { branch: null, items: [] },
     diagnostics: [],
     reworkUnread: null,
   });

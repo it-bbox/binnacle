@@ -102,7 +102,16 @@ export type TrackerTask = {
    * null when it records none. Always null on a remote tracker, whose comments are never read.
    */
   review: string | null;
+  /**
+   * The ticket's questions, in order (ADR-0040): on the local tracker, each `### Question` inside
+   * `## Comments` with the first `### Answer` after it and before the next Question, or null.
+   * Always empty on a remote tracker, whose comments are not read yet.
+   */
+  questions: Question[];
 };
+
+/** A question recorded in a ticket, with its answer's text, or null while it is unanswered. */
+export type Question = { text: string; answer: string | null };
 
 /** `tasks` is null when the tracker cannot be read at all; a diagnostic then says why. */
 export type TaskReading = { tasks: TrackerTask[] | null; diagnostics: Diagnostic[] };

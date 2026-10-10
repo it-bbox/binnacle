@@ -1,5 +1,5 @@
 import { posix } from 'node:path';
-import { blockedByNumbers, isTaskState, parseTicketHeader, ticketBody, unquote, type Diagnostic, type TaskReading, type TrackerTask } from '@binnacle/core';
+import { blockedByNumbers, isTaskState, parseTicketHeader, ticketBody, unquote, type Diagnostic, type Question, type TaskReading, type TrackerTask } from '@binnacle/core';
 import type { Tree } from './tree.ts';
 
 /**
@@ -9,7 +9,7 @@ import type { Tree } from './tree.ts';
  *
  * The ticket header is read through the parser every tracker shares — `Status:`, `Triage:`,
  * `Blocked by:`, `Spec:` — and the body after it up to `## Comments`. Of the comments, which
- * are for the session to read, only the Review is read (`ticketReview`).
+ * are for the session to read, only the Review and the questions are read (`ticketComments`).
  *
  * `issues` is relative to the tree, as the manifest declares it. The tree is the working
  * tree for the snapshot, and a commit for the daily delta.
@@ -71,36 +71,53 @@ function parseTicket(spec: string, file: string, ticket: string, text: string, d
     triage: triage || null,
     ticket,
     body: ticketBody(text.split(COMMENTS)[0]!),
-    review: ticketReview(text),
+    ...ticketComments(text),
   };
 }
 
 const COMMENTS = /^## +Comments[ \t\r]*$/m;
-const REVIEW = /^### +Review[ \t]*$/;
+const SECTION = /^### +(Review|Question|Answer)[ \t]*$/;
 const HEADING = /^ {0,3}(#{1,6})(?:[ \t]|$)/;
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 
 /**
- * The text under the first `### Review` heading inside `## Comments`, up to the next heading of
- * the same level or above, without the blank lines around it; null when there is none, or it is
- * empty. A line inside a code fence is never a heading: a fence closes only with a run of its own
- * character at least as long as the one that opened it.
+ * What the ticket's `## Comments` record. The Review: the text under the first `### Review`;
+ * null when there is none, or it is empty. The questions (ADR-0040): each `### Question`, with
+ * the text of the first `### Answer` after it and before the next Question, or null; an Answer
+ * with no Question before it is left out. Each section runs to the next heading of level three or
+ * above, and its text is without the blank lines around it. A line inside a code fence is never a
+ * heading: a fence closes only with a run of its own character at least as long as the one that
+ * opened it.
  */
-function ticketReview(text: string): string | null {
+export function ticketComments(text: string): Pick<TrackerTask, 'review' | 'questions'> {
   let comments = false;
   let fence: string | null = null;
-  let review: string[] | null = null;
+  // Undefined until the first Review, which alone is read.
+  let review: string | null | undefined;
+  const questions: Question[] = [];
+  let section: { kind: string; lines: string[] } | null = null;
+  const close = (): void => {
+    if (section === null) return;
+    const body = section.lines.join('\n').replace(/^(?:[ \t]*\n)+/, '').trimEnd();
+    const last = questions.at(-1);
+    if (section.kind === 'Question') questions.push({ text: body, answer: null });
+    else if (section.kind === 'Answer' && last !== undefined && last.answer === null) last.answer = body;
+    else if (section.kind === 'Review' && review === undefined) review = body || null;
+    section = null;
+  };
   for (const line of text.split(/\r?\n/)) {
     // A fence line is never a heading either, so the fence can open or close before the test below.
     const run = FENCE.exec(line)?.[1];
     if (run !== undefined && fence === null) fence = run;
     else if (run !== undefined && run[0] === fence![0] && run.length >= fence!.length) fence = null;
     const level = fence !== null ? 0 : (HEADING.exec(line)?.[1]!.length ?? 0);
-    if (review !== null) {
-      if (level >= 1 && level <= 3) break;
-      review.push(line);
-    } else if (level === 1 || level === 2) comments = COMMENTS.test(line);
-    else if (level === 3 && comments && REVIEW.test(line)) review = [];
+    if (level >= 1 && level <= 3) close();
+    if (level === 1 || level === 2) comments = COMMENTS.test(line);
+    else if (level === 3) {
+      const kind = comments ? SECTION.exec(line)?.[1] : undefined;
+      if (kind !== undefined) section = { kind, lines: [] };
+    } else section?.lines.push(line);
   }
-  return review?.join('\n').replace(/^(?:[ \t]*\n)+/, '').trimEnd() || null;
+  close();
+  return { review: review ?? null, questions };
 }

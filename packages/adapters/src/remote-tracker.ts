@@ -193,5 +193,6 @@ function toTask(issue: RemoteIssue, diagnostics: Diagnostic[]): TrackerTask {
     ticket: issue.url,
     body: ticketBody(issue.body ?? ''),
     review: null,
+    questions: [],
   };
 }

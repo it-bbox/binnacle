@@ -23,6 +23,7 @@ type Brief = {
   branch: string;
   start: string | null;
   review: { text: string; truncated: boolean } | { available: false; reason: string } | null;
+  questions: { branch: string | null; items: { text: string; answer: string | null }[] } | { available: false; reason: string };
   diagnostics: { code: string; message: string }[];
 };
 type Envelope = { error: { code: string; message: string } };
@@ -99,6 +100,7 @@ describe('the task brief on the local tracker', () => {
         branch: 'feat/build-the-thing',
         start: null,
         review: { text: 'Nothing found.', truncated: false },
+        questions: { branch: null, items: [] },
         diagnostics: [],
         byRole: NO_ROLES,
         reworkUnread: null,
@@ -348,6 +350,153 @@ describe('the Review', () => {
       assert.equal(board.status, 200, JSON.stringify(board.body));
       const reviews = Object.values(board.body.columns).flatMap((column) => column.items.map((card) => [card.id, card.review]));
       assert.deepEqual(Object.fromEntries(reviews), { 'epic/01': true, 'epic/02': false, 'epic/03': false, 'epic/04': false });
+    });
+  });
+});
+
+describe('questions and answers', () => {
+  const gitIn = (cwd: string, ...args: string[]): void => {
+    execFileSync('git', ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', '-c', 'commit.gpgsign=false', ...args], { cwd, stdio: 'ignore' });
+  };
+  /** The Task's ticket, its Comments holding `comments` after a note. */
+  const asked = (status: string, ...comments: string[]): string =>
+    ['# 01: Asked', '', `Status: ${status}`, '', 'Body.', '', '## Comments', '', '- A note.', '', ...comments.flatMap((comment) => [comment, '']), ''].join('\n');
+  const TICKET = 'docs/specs/epic/issues/01-asked.md';
+
+  /** A repository on `initial` with the ticket committed, its `.claude/worktrees/` left out of Git. */
+  function repository(initial = 'main'): string {
+    const root = makeProject();
+    write(root, TICKET, asked('READY'));
+    gitIn(root, 'init', '--quiet', `--initial-branch=${initial}`);
+    write(root, '.git/info/exclude', '.claude/worktrees/\n');
+    gitIn(root, 'add', '.');
+    gitIn(root, 'commit', '--quiet', '-m', 'Start');
+    return root;
+  }
+
+  /** `feat/asked` in a worktree of its own, with the ticket as `text` committed on it. */
+  function branch(root: string, text: string): string {
+    const worktree = join(root, '.claude', 'worktrees', 'asked');
+    gitIn(root, 'worktree', 'add', '--quiet', '-b', 'feat/asked', worktree);
+    commitTicket(worktree, text);
+    return worktree;
+  }
+
+  function commitTicket(worktree: string, text: string): void {
+    write(worktree, TICKET, text);
+    gitIn(worktree, 'commit', '--quiet', '-am', 'The ticket');
+  }
+
+  it('reads each Question under `## Comments` with the first Answer before the next Question, or null, by the Review’s heading and fence rules', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject();
+      const text = [
+        '# 01: Asked',
+        '',
+        'Status: ACTIVE',
+        '',
+        '### Question',
+        '',
+        'In the body: not a question.',
+        '',
+        '## Comments',
+        '',
+        '### Answer',
+        '',
+        'Before any question: ignored.',
+        '',
+        '### Question',
+        '',
+        '  Which way?',
+        '',
+        '#### Context',
+        '',
+        '```md',
+        '### Answer',
+        'In a fence: not a heading.',
+        '```',
+        '',
+        '### Review',
+        '',
+        'Found nothing.',
+        '',
+        '### Answer',
+        '',
+        'The first way.',
+        '',
+        '### Answer',
+        '',
+        'A second answer, not this question’s.',
+        '',
+        '### Question',
+        '',
+        'And the second?',
+        '',
+        '## Later',
+        '',
+        '### Answer',
+        '',
+        'Outside the comments: not an answer.',
+        '',
+      ].join('\n');
+      write(root, TICKET, text);
+
+      const brief = (await taskGet(daemon, root, 'epic/01')).body;
+      assert.deepEqual(brief.questions, {
+        branch: null,
+        items: [
+          { text: '  Which way?\n\n#### Context\n\n```md\n### Answer\nIn a fence: not a heading.\n```', answer: 'The first way.' },
+          { text: 'And the second?', answer: null },
+        ],
+      });
+      assert.deepEqual(brief.review, { text: 'Found nothing.', truncated: false }, 'the Review is read as before');
+    });
+  });
+
+  it('reads them from the tip of the Task’s branch while it is unmerged, and from the checkout once it is merged; the header stays the checkout’s', async () => {
+    await withDaemon(async (daemon) => {
+      const root = repository();
+      write(root, 'docs/specs/epic/issues/02-planned.md', asked('READY', '### Question', '', 'Asked while planning.'));
+      gitIn(root, 'add', '.');
+      gitIn(root, 'commit', '--quiet', '-m', 'A question while planning');
+
+      // A Task with no branch: from the checkout.
+      assert.deepEqual((await taskGet(daemon, root, 'epic/02')).body.questions, { branch: null, items: [{ text: 'Asked while planning.', answer: null }] });
+      assert.deepEqual((await taskGet(daemon, root, 'epic/01')).body.questions, { branch: null, items: [] });
+
+      // Its unmerged branch adds a Question, then an Answer.
+      const worktree = branch(root, asked('ACTIVE', '### Question', '', 'Which way?'));
+      let brief = (await taskGet(daemon, root, 'epic/01')).body;
+      assert.deepEqual(brief.questions, { branch: 'feat/asked', items: [{ text: 'Which way?', answer: null }] });
+      assert.equal(brief.state, 'READY', 'the header is read from the checkout');
+
+      commitTicket(worktree, asked('ACTIVE', '### Question', '', 'Which way?', '### Answer', '', 'The first way.'));
+      brief = (await taskGet(daemon, root, 'epic/01')).body;
+      assert.deepEqual(brief.questions, { branch: 'feat/asked', items: [{ text: 'Which way?', answer: 'The first way.' }] });
+      assert.deepEqual((await taskGet(daemon, worktree, 'epic/01', root)).body.questions, brief.questions, 'from the branch’s own worktree too');
+
+      // Merged, keeping main's ticket so that what is read tells the two apart: from the checkout.
+      gitIn(root, 'merge', '--quiet', '--no-edit', '-s', 'ours', 'feat/asked');
+      assert.deepEqual((await taskGet(daemon, root, 'epic/01')).body.questions, { branch: null, items: [] });
+    });
+  });
+
+  it('takes the default branch from `origin/HEAD` when there is one', async () => {
+    await withDaemon(async (daemon) => {
+      const root = repository();
+      branch(root, asked('READY', '### Question', '', 'Which way?'));
+      // Merged into `trunk`, which `origin/HEAD` names, and not into `main`.
+      gitIn(root, 'branch', 'trunk', 'feat/asked');
+      gitIn(root, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/trunk');
+      assert.deepEqual((await taskGet(daemon, root, 'epic/01')).body.questions, { branch: null, items: [] });
+    });
+  });
+
+  it('reads from the checkout only in a repository with neither `origin/HEAD` nor `main`', async () => {
+    await withDaemon(async (daemon) => {
+      const root = repository('master');
+      branch(root, asked('READY', '### Question', '', 'Which way?'));
+      assert.deepEqual((await taskGet(daemon, root, 'epic/01')).body.questions, { branch: null, items: [] });
     });
   });
 });

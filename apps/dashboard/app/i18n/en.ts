@@ -256,7 +256,9 @@ export const en = {
   rolesReading:
     "Binnacle's calculation from the Task branch's commits: review is a subagent's work after the last commit changing anything but the ticket and up to the commit that first records its Review, rework all work after that commit or, on GitHub or GitLab, after a review on its pull or merge request requested changes.",
   reworkUnread: 'Rework not read',
-  questionsReason: 'Questions and answers are not yet explicit artifacts.',
+  noQuestions: 'The ticket records no question.',
+  unanswered: 'Unanswered',
+  questionsFromBranch: (branch: string) => `Read from the ticket on ${branch}, which is not merged yet.`,
 
   // The Usage page.
   usageNote: "Tokens read from the harnesses' artifacts. A kind no record reports is not reported, never zero.",

@@ -496,6 +496,7 @@ describe('the task brief on a GitLab tracker', () => {
         branch: 'feat/3-read-gitlab-issues-by-iid',
         start: null,
         review: { available: false, reason: 'Binnacle reads an issue’s body and never its comments, so no Review is read on GitHub or GitLab.' },
+        questions: { available: false, reason: 'Binnacle does not read an issue’s comments yet, so no question or answer is read on GitHub or GitLab.' },
         diagnostics: [],
         byRole: NO_ROLES,
         reworkUnread: null,
