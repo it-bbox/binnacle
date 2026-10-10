@@ -14,7 +14,11 @@ import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
  */
 type Alternative = { kind: string; tasks: string[]; command: string | null; description: string; provenance: string };
 type Next = { action: { description: string; command: string } | null; alternatives: Alternative[] | { available: false; reason: string } };
-type Snapshot = { next: Next; attention: { code: string; message: string }[] };
+type Snapshot = {
+  next: Next;
+  attention: { code: string; message: string }[];
+  tasks: { inFlight: { items: { id: string; questions: { asked: number; unanswered: number } | null }[] } } | null;
+};
 type Line = Record<string, unknown> & { type: string; message?: Record<string, unknown> };
 
 const GRILL = readFileSync(join(import.meta.dirname, 'fixtures', 'claude-code', 'grill-on-main.jsonl'), 'utf8')
@@ -210,7 +214,7 @@ describe('the Next action', () => {
   it('is stale when it runs autopilot on an epic, by number or spec slug, whose tickets are all DONE, CANCELLED or ready-for-human, and says why', async () => {
     await withDaemon(async (daemon) => {
       const rows = [row(1, 'Old', 'done', 'old'), row(2, 'First', 'in progress', 'first')];
-      for (const command of ['`/binnacle:autopilot 2`', '`binnacle-autopilot first`']) {
+      for (const command of ['`/binnacle:autopilot 2`', '`binnacle-autopilot first`', '`$binnacle-autopilot first`']) {
         const root = makeProject(rows, `Next action: run the epic. ${command}`);
         ticket(root, 'first', '01-done.md', 'Status: DONE');
         ticket(root, 'first', '02-cancelled.md', 'Status: CANCELLED');
@@ -223,6 +227,13 @@ describe('the Next action', () => {
         assert.match(message, /no ticket .*left for an agent/, command);
         assert.match(message, /first\/03 is ready-for-human/, command);
       }
+
+      // Both reasons at once are one item, which gives both.
+      const root = makeProject(rows, 'Next action: run the epic. `/binnacle:autopilot first first/01`');
+      ticket(root, 'first', '01-done.md', 'Status: DONE');
+      const both = (await snapshot(daemon, root)).attention.filter((item) => item.code === 'next_action.stale');
+      assert.equal(both.length, 1);
+      assert.match(both[0]!.message, /names finished work: first\/01 .*; it also runs Epic 2 \(First\)/);
     });
   });
 
@@ -243,7 +254,9 @@ describe('the Next action', () => {
       const asked = setUp('/binnacle:autopilot first');
       const path = ticket(asked, 'first', '03-asked.md', 'Status: ACTIVE');
       write(asked, path, `${readFileSync(join(asked, path), 'utf8')}\n## Comments\n\n### Question\n\nWhich one?\n`);
-      assert.deepEqual(nextCodes(await snapshot(daemon, asked)), []);
+      const withQuestion = await snapshot(daemon, asked);
+      assert.deepEqual(withQuestion.tasks?.inFlight.items.map((task) => [task.id, task.questions]), [['first/03', { asked: 1, unanswered: 1 }]]);
+      assert.deepEqual(nextCodes(withQuestion), []);
 
       assert.deepEqual(nextCodes(await snapshot(daemon, setUp('/binnacle:autopilot 2'))), []);
       assert.deepEqual(nextCodes(await snapshot(daemon, setUp('binnacle-autopilot second'))), []);

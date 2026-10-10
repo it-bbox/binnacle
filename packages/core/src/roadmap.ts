@@ -98,6 +98,9 @@ function cells(line: string): string[] | null {
 const sameCells = (row: string[] | null, expected: string[]): boolean =>
   row !== null && row.length === expected.length && row.every((cell, index) => cell === expected[index]);
 
+/** A Task no further work moves. */
+const finished = (task: TrackerTask): boolean => task.state === 'DONE' || task.state === 'CANCELLED';
+
 /**
  * Where the roadmap and the tickets disagree, and where an epic that has been specified
  * cannot be followed to its spec. An epic reaches its Tasks through the spec slug each Task
@@ -109,7 +112,6 @@ const sameCells = (row: string[] | null, expected: string[]): boolean =>
 export function roadmapAttention(epics: Epic[], tasks: TrackerTask[]): Diagnostic[] {
   const attention: Diagnostic[] = [];
   const rank = (status: RoadmapStatus): number => ROADMAP_STATUSES.indexOf(status);
-  const finished = (task: TrackerTask): boolean => task.state === 'DONE' || task.state === 'CANCELLED';
 
   for (const epic of epics) {
     const name = `Epic ${epic.number} (${epic.title})`;
@@ -179,25 +181,19 @@ export function nextActionAttention(roadmap: Roadmap, tasks: TrackerTask[] | nul
   // is not matched; the start command writes the ticket as the tracker gives it. Normalise words if
   // hand-written commands miss a stale focus in practice.
   const words = next.command.split(/\s+/);
-  const finished = (task: TrackerTask): boolean => task.state === 'DONE' || task.state === 'CANCELLED';
-  const stale: Diagnostic[] = [];
+  const why: string[] = [];
   const named = (tasks ?? []).filter((task) => finished(task) && words.some((word) => word === task.id || word === task.ticket));
-  if (named.length > 0) {
-    stale.push({
-      code: 'next_action.stale',
-      message: `The Next action's command, ${next.command}, names finished work: ${named.map((task) => `${task.id} (${task.ticket}) is ${task.state}`).join(', ')}.`,
-    });
-  }
+  if (named.length > 0) why.push(`names finished work: ${named.map((task) => `${task.id} (${task.ticket}) is ${task.state}`).join(', ')}`);
+  // ponytail: the epic is the second word, exactly its number or spec slug as autopilot's argument
+  // takes it; read `02`, `#2` or `epic 2` too if a hand-written Next action ever spells it so.
   const epic = AUTOPILOT.test(words[0]!) ? roadmap.epics.find((row) => row.spec !== null && (String(row.number) === words[1] || row.spec === words[1])) : undefined;
   const own = epic === undefined ? [] : (tasks ?? []).filter((task) => task.specSlug === epic.spec);
-  if (own.length > 0 && own.every((task) => finished(task) || task.triage === 'ready-for-human')) {
+  if (epic !== undefined && own.length > 0 && own.every((task) => finished(task) || task.triage === 'ready-for-human')) {
     const human = own.filter((task) => !finished(task)).map((task) => `${task.id} is ready-for-human`);
-    stale.push({
-      code: 'next_action.stale',
-      message: `The Next action's command, ${next.command}, runs Epic ${epic!.number} (${epic!.title}), but no ticket of ${epic!.spec} is left for an agent: every one is DONE, CANCELLED or ready-for-human${human.length > 0 ? `, and ${human.join(', ')}` : ''}.`,
-    });
+    why.push(`runs Epic ${epic.number} (${epic.title}), but no ticket of ${epic.spec} is left for an agent: every one is DONE, CANCELLED or ready-for-human${human.length > 0 ? `, and ${human.join(', ')}` : ''}`);
   }
-  return stale;
+  if (why.length === 0) return [];
+  return [{ code: 'next_action.stale', message: `The Next action's command, ${next.command}, ${why.join('; it also ')}.` }];
 }
 
 /** The Suggested step's alternatives, at most this many. */
