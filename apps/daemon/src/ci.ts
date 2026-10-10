@@ -87,7 +87,7 @@ export async function taskRequest(
   task: TrackerTask,
 ): Promise<TaskRequest | null | Unavailable> {
   const remote = manifest?.tracker.provider !== 'local';
-  const ci = (await readCi(home, manifest, git, 1, (branch) => branchTask(branch, tasks, remote) === task))(tasks);
+  const ci = (await readCi(home, manifest, git, 1, (branch) => branchTask(branch, tasks, remote)?.id === task.id))(tasks);
   if ('available' in ci) return ci;
   const [request] = ci.requests.items;
   if (request === undefined) return null;
