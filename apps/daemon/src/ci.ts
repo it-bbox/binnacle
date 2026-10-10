@@ -43,7 +43,9 @@ export async function readCi(home: string, manifest: ProjectManifest | null, git
   if (forge === null) return unavailable(NO_FORGE);
   // ponytail: GitLab's pipelines and merge requests are ticket 09 of the state of work.
   if (forge.provider === 'gitlab') return unavailable(`The forge is GitLab (${forge.repository}), and this version of Binnacle reads CI from GitHub only.`);
-  const credential = trackerToken(home, forge.provider, forge.host);
+  // A remote names its own host, which no one declared: on any but the provider's own, only the
+  // credentials file's entry for that host is sent there, never the environment's token.
+  const credential = trackerToken(home, forge.provider, forge.host, forge.from === 'remote' && forge.host !== null ? {} : process.env);
   if ('failure' in credential) return unavailable(credential.failure.message);
   const reading = await readGitHubCi(forge.repository, forge.host, credential.token, limit);
   if ('reason' in reading) return unavailable(reading.reason);

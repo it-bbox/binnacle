@@ -116,8 +116,8 @@ function route(fake: FakeGitHub, url: URL): Reply {
 
 /**
  * Every request the daemon sends outside itself goes through `fetch`; each is recorded, and one
- * for GitHub's public API is sent to the loopback forge instead, so that a forge read from a
- * `github.com` remote can be served here.
+ * over HTTPS, to GitHub's public API or a GitHub Enterprise host's `/api/v3`, is sent to the
+ * loopback forge instead, so that a forge read from a remote can be served here.
  */
 const outbound: URL[] = [];
 let redirect: string | null = null;
@@ -127,7 +127,7 @@ before(() => {
     const url = new URL(input instanceof Request ? input.url : input);
     if (url.hostname === '127.0.0.1' && url.pathname.startsWith('/ops/')) return realFetch(input, init);
     outbound.push(url);
-    if (url.origin === 'https://api.github.com' && redirect !== null) return realFetch(`${redirect}${url.pathname}${url.search}`, init);
+    if (url.protocol === 'https:' && redirect !== null) return realFetch(`${redirect}${url.pathname.replace(/^\/api\/v3/, '')}${url.search}`, init);
     return realFetch(input, init);
   };
 });
@@ -351,6 +351,23 @@ describe('the forge of a project whose tracker is local', () => {
       assert.equal(ci.requests.items[0]!.taskId, 'alpha/01');
       assert.ok(fake.authorizations.every((value) => value === undefined));
       assert.deepEqual([...new Set(outbound.map((url) => url.origin))], ['https://api.github.com']);
+    });
+  });
+
+  it('on a host of its own is read with that host’s entry in the credentials file only, never the environment’s token', async () => {
+    await withForge(async (daemon, fake) => {
+      redirect = fake.base;
+      process.env.BINNACLE_GITHUB_TOKEN = TOKEN;
+      const root = localProject(`git@github.example.org:${REPOSITORY}.git`);
+      const ci = available((await snapshotOf(daemon, root)).ci);
+      assert.deepEqual(ci.forge, { provider: 'github', host: 'github.example.org', repository: REPOSITORY, from: 'remote' });
+      assert.ok(fake.authorizations.every((value) => value === undefined), JSON.stringify(fake.authorizations));
+      assert.deepEqual([...new Set(outbound.map((url) => url.origin))], ['https://github.example.org']);
+
+      writeFileSync(join(daemon.home, 'credentials.json'), JSON.stringify({ 'github.example.org': 'ghp_enterprise-token' }), { mode: 0o600 });
+      fake.authorizations.length = 0;
+      available((await snapshotOf(daemon, root)).ci);
+      assert.ok(fake.authorizations.every((value) => value === 'Bearer ghp_enterprise-token'), JSON.stringify(fake.authorizations));
     });
   });
 
