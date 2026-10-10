@@ -1,6 +1,6 @@
 # 03: Roles in the ticket header, with Binnacle's suggestions
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/the-state-of-work/spec.md`
@@ -8,12 +8,12 @@ Roles: Developer, Reviewer
 
 **What to build:** a ticket header's `Roles:` line is read on every tracker; a ticket without it needs a Developer and a Reviewer; beside the line Binnacle suggests an Architect or Security, each with its reason, labelled as its calculation (spec, *Roles* and *Suggested roles*). `task_get`, the snapshot's Tasks in flight and ready to start, `/binnacle:task` and the Task page show them. The convention reaches `/to-tickets` through `docs/agents/issue-tracker.md` and the issue-tracker section `binn init` offers.
 
-- [ ] The header parser reads `Roles:` on the local and the remote tracker; roles are matched case-insensitively against the baseline's vocabulary and written in its form; another word is `task.unknown_role` and left out.
-- [ ] A Task's roles are `{ required, source: 'ticket' | 'default', suggested }`, `default` being Developer and Reviewer.
-- [ ] Architect is suggested at 8 or more touched modules of the graph, naming how many; Security when a touched path or the ticket's text holds one of the spec's words, naming what matched; a role the line names is not suggested; without a graph, only Security from the text. Daemon tests over a graph fixture cover each.
-- [ ] `task_get` and the snapshot's Task items carry the roles; `/binnacle:task` and `/binnacle:product` present them, suggestions marked as Binnacle's calculation.
-- [ ] The Task page shows the required roles and the suggestions, labelled as calculated; strings in English and Russian; checked in a browser.
-- [ ] The issue-tracker section `binn init` offers to add describes `Roles:` and the Question and Answer headings, as `docs/agents/issue-tracker.md` does; `init.test.ts` covers it.
+- [x] The header parser reads `Roles:` on the local and the remote tracker; roles are matched case-insensitively against the baseline's vocabulary and written in its form; another word is `task.unknown_role` and left out.
+- [x] A Task's roles are `{ required, source: 'ticket' | 'default', suggested }`, `default` being Developer and Reviewer.
+- [x] Architect is suggested at 8 or more touched modules of the graph, naming how many; Security when a touched path or the ticket's text holds one of the spec's words, naming what matched; a role the line names is not suggested; without a graph, only Security from the text. Daemon tests over a graph fixture cover each.
+- [x] `task_get` and the snapshot's Task items carry the roles; `/binnacle:task` and `/binnacle:product` present them, suggestions marked as Binnacle's calculation.
+- [x] The Task page shows the required roles and the suggestions, labelled as calculated; strings in English and Russian; checked in a browser.
+- [x] The issue-tracker section `binn init` offers to add describes `Roles:` and the Question and Answer headings, as `docs/agents/issue-tracker.md` does; `init.test.ts` covers it.
 
 ## Comments
 
@@ -33,7 +33,7 @@ Roles: Developer, Reviewer
 **Standards: no hard violation in the code.** Findings, the code's all judgement calls:
 
 1. **The ticket is still `READY`, its criteria unticked.** **Kept**: the order of commits the workflow sets, which the commits after this one complete.
-2. **Speculative Generality**: `DEFAULT_ROLES` and `ARCHITECT_MODULES` are exported from `impact.ts` and used nowhere else, and `DEFAULT_ROLES` has no JSDoc. **To fix**: not exported, documented.
+2. **Speculative Generality**: `DEFAULT_ROLES` and `ARCHITECT_MODULES` are exported from `impact.ts` and used nowhere else, and `DEFAULT_ROLES` has no JSDoc. **Fixed**: neither is exported, and both are documented.
 3. **Divergent Change**: `impact.ts` now holds the conflict risk and the suggested roles. **Kept**: the spec computes the suggestions "beside the conflict risk, from the same touched modules (`impact`)".
 4. **Duplicated Code**: `task.get` repeats the snapshot's graph-then-impact reading, with the inline `provider !== 'local'`. **Kept**: two calls, written as the snapshot writes them so that both suggest the same; `isRemoteTracker` reads a manifest-less project the other way, and a shared helper would be a third name for two lines.
 5. **`byId.get(task.id)!` in the snapshot**, getting back the Task its section items left out. **Kept**: the impact is read from the sections' Tasks, so the roles can only be computed after them.
@@ -43,9 +43,9 @@ Roles: Developer, Reviewer
 
 **Spec: every criterion holds.** Findings:
 
-9. **Whether the Task page was checked in a browser does not show.** **To fix**: recorded under *Comments*.
+9. **Whether the Task page was checked in a browser does not show.** **Fixed**: recorded under *Comments*, in the Review's own commit.
 10. **GitLab has no test of its own for `Roles:`.** **Kept**: GitHub and GitLab issues become Tasks through the one `toTask` in `remote-tracker.ts`, which `github.test.ts` covers.
 11. **`task.unknown_role` reaches the snapshot's attention, not the brief's `diagnostics`.** **Kept**: the spec asks for a diagnostic, and the tracker's diagnostics are the snapshot's; the brief's are its own Task's branch.
-12. **The Security words match in the plural**, which the spec and `docs/03-mcp-and-skills.md` do not say. **To fix**: kept in the code, as decided under *Comments*, and written into `docs/03-mcp-and-skills.md`.
-13. **A line of only unknown words gives the default roles**, which the spec does not say, and no test pins it. **To fix**: a test pins it; the decision is under *Comments*.
+12. **The Security words match in the plural**, which the spec and `docs/03-mcp-and-skills.md` do not say. **Fixed**: kept in the code, as decided under *Comments*, and written into `docs/03-mcp-and-skills.md`, with `.env.local`.
+13. **A line of only unknown words gives the default roles**, which the spec does not say, and no test pins it. **Fixed**: `roles.test.ts` pins it, with its `task.unknown_role`; the decision is under *Comments*.
 14. **`.env` also matches `.env.local` and `.env.example`.** **Kept**: they are environment files, which is what the word is there for; decided under *Comments*.
