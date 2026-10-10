@@ -73,7 +73,11 @@ export type TaskRequest = Omit<Ci['requests']['items'][number], 'taskId'> & { fo
 /**
  * The open request whose branch maps to `task`, one of `tasks` (`branchTask`), the first the forge
  * lists when several do; null when none does; unavailable, with the reason, as the `ci` section is.
- * Only its state is read, wherever it falls in the forge's list.
+ * Of the requests, only its state is read, wherever it falls in the forge's list; the default
+ * branch, its commit and that commit's state are read as for the section, so that the request is
+ * unavailable whenever the section would be.
+ * ponytail: three forge requests more per brief, on every poll of the Task page; read the
+ * requests alone if a forge's rate limit is reached in practice.
  */
 export async function taskRequest(
   home: string,
