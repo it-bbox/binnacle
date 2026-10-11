@@ -146,6 +146,7 @@ describe('waiting for the owner', () => {
           ['Status: ACTIVE'],
           ...['### Question', '', 'And the port?', '### Answer', '', '2026-10-11', '', 'Any free one.'],
           ...['### Question', '', 'And when?', '### Answer', '', '2026-10-12 at the earliest.'],
+          ...['### Question', '', 'And the user?', '### Answer', '', 'Root.'],
           ...['### Question', '', 'And the host?', '### Answer', '', '2026-10-11'],
           ...['### Question', '', options],
         ),
@@ -159,7 +160,7 @@ describe('waiting for the owner', () => {
         remainder: 0,
       });
       const task = [...body.tasks!.inFlight.items, ...body.tasks!.readyToStart.items].find((item) => item.id === 'epic/01');
-      assert.deepEqual(task?.questions, { asked: 4, unanswered: 2 });
+      assert.deepEqual(task?.questions, { asked: 5, unanswered: 2 });
     });
   });
 
