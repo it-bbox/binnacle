@@ -1,6 +1,6 @@
 # 06: The Parallel limit on the machine
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 01
 Spec: `docs/specs/dashboard-redesign/spec.md`
@@ -67,4 +67,4 @@ Kept:
 
 14. A `binn init` writing the vault at the same instant can lose one of the two changes: the daemon's write is one synchronous step; a `ponytail:` comment names the lock file as the upgrade.
 15. A linked `settings.json` becomes a plain file on a set: the home is the owner's, mode 0700, and the file is documented as a plain one.
-16. Any process of the same user can read the token and call the set, or edit the file: the threat model of ADR-0031, unchanged.
+16. Any process of the same user can read the token and call the set, or edit the file: the token's owner-only file is the boundary ADR-0031 keeps, unchanged.
