@@ -405,14 +405,14 @@ function snapshotNote(name: string, snapshot: Snapshot, link: Link): string {
   ];
   if (tasks === null) parts.push('## Tasks', 'The tracker cannot be read; the attention says why.');
   else {
-    const { limit, inProgress, free, impact } = tasks.parallel;
+    const { limit, mode, source, inProgress, free, impact } = tasks.parallel;
     parts.push(
       '## In flight',
       list(tasks.inFlight.items, task(link), tasks.inFlight.remainder),
       '## Ready to start',
       list(tasks.readyToStart.items, task(link), tasks.readyToStart.remainder),
       '## Parallel',
-      `Limit ${limit}, in progress ${inProgress}, free ${free} (calculated).`,
+      `Limit ${limit}${mode === 'auto' ? ' (auto)' : ''}, from the ${source}, in progress ${inProgress}, free ${free} (calculated).`,
       unavailable(impact)
         ? `Conflict risk not available: ${impact.reason}`
         : list(impact.pairs, (pair) => `${pair.tasks.join(' and ')}: ${pair.risk} — ${pair.reason} (calculated)`),

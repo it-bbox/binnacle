@@ -15,6 +15,7 @@ import { readTasks, snapshot, type CallerCheckout } from './snapshot.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type ProjectRow, type Store } from './store.ts';
 import { findTask, taskBrief, taskQuestions } from './task.ts';
 import { taskList } from './board.ts';
+import { machineParallelLimit, setParallelLimit } from './settings.ts';
 import { writeServed } from './vault.ts';
 import { forgetRead, latestRuns, taskByRole, usageAndActivity, usageGet, type Importer } from './usage.ts';
 
@@ -230,6 +231,11 @@ export const operations: Record<string, Operation> = {
   },
 
   'event.list': (body, context) => ({ events: context.store.events(eventFilter(body)) }),
+
+  // The machine's Parallel limit (ADR-0041): the dashboard's Settings page reads it and sets it,
+  // the one setting the dashboard writes. No MCP tool calls either.
+  'parallel.get': (_body, context) => machineParallelLimit(context.home).parallel,
+  'parallel.set': (body, context) => setParallelLimit(context.home, body),
 };
 
 /**

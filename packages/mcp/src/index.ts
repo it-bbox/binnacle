@@ -13,7 +13,8 @@ export type CallDaemon = (operation: string, body: { path: string } & Record<str
 /**
  * One tool per daemon operation (spec, *MCP server*). Names use underscores because the
  * Anthropic API accepts only `[a-zA-Z0-9_-]` in tool names. Administration —
- * register, unregister, list, events, daemon status — stays with the CLI.
+ * register, unregister, list, events, daemon status — stays with the CLI, and the machine's
+ * Parallel limit with the dashboard's Settings page, the one place that writes it (ADR-0041).
  */
 const TOOLS = {
   project_detect: {

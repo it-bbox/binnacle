@@ -42,6 +42,7 @@ import {
 import { ciAttention, readCi, type Ci } from './ci.ts';
 import { resolveGitTimeout, trackerToken } from './home.ts';
 import { defaultCommit, impactSection, touchedBy, type GraphSection } from './graph.ts';
+import { parallelLimit, type ParallelLimit } from './settings.ts';
 import { vaultAttention } from './vault.ts';
 import type { Projected } from './projection.ts';
 import type { ProjectRow } from './store.ts';
@@ -58,9 +59,6 @@ export const SECTION_LIMIT = 10;
 export const DECISION_LIMIT = 5;
 /** In characters: Unicode code points. */
 export const FOCUS_LIMIT = 2000;
-/** Agents at once where the manifest writes no `automation.max_parallel_development_tasks`, as autopilot reads it. */
-export const PARALLEL_LIMIT = 2;
-
 type InFlight = 'ACTIVE' | 'BLOCKED' | 'READY_FOR_REVIEW' | 'APPROVED' | 'MERGE_READY';
 
 export type SnapshotTask = Pick<ResolvedTask, 'id' | 'title' | 'state' | 'unmetDependencies' | 'ticket'>;
@@ -148,12 +146,13 @@ export type Snapshot = {
      */
     counts: TaskCounts;
     /**
-     * How many Tasks may be worked on at once: the manifest's limit, the Tasks in flight, and
-     * what is left of the limit, never below zero. Binnacle's calculation. `impact` is the
+     * How many Tasks may be worked on at once: the Parallel limit with its mode and its source
+     * (`parallelLimit`), the Tasks in flight, and what is left of the limit, never below zero.
+     * Binnacle's calculation. `impact` is the
      * conflict risk between the Tasks in flight and ready to start, read against the graph,
      * and unavailable, with the graph's reason, without one, or when `graph.json` cannot be read as a graph.
      */
-    parallel: { limit: number; inProgress: number; free: number; provenance: 'calculated'; impact: Impact | Unavailable };
+    parallel: ParallelLimit & { inProgress: number; free: number; provenance: 'calculated'; impact: Impact | Unavailable };
   } | null;
   /**
    * The most recently committed ADRs; one never committed counts as the most recent, and
@@ -203,13 +202,13 @@ export async function snapshot(
   const workflow = projected.manifest?.workflow.provider ?? null;
   // A harness whose artifacts cannot be read is at level 1, and says why.
   for (const { level, reason } of usageSection.harnesses) if (level === 1 && reason !== null) attention.push({ code: 'telemetry.unreadable', message: reason });
-  attention.push(...pressure, ...graph.attention, ...vaultAttention(home));
-  const limit = projected.manifest?.automation.maxParallelDevelopmentTasks ?? PARALLEL_LIMIT;
+  const limit = parallelLimit(home, projected.manifest);
+  attention.push(...pressure, ...graph.attention, ...vaultAttention(home), ...limit.attention);
   const attributed = new Set(runs.flatMap((run) => run.taskId ?? []));
   const questions = tasks && (await readQuestions(projected.row.path, projected.manifest, tasks));
   const listed = tasks && taskSections(tasks, attributed);
   const impact = listed && (await impactSection(projected.row.path, graph.graph, listed.inFlightAndReady, projected.manifest?.tracker.provider !== 'local'));
-  const sections = listed && impact && questions && withStartAndParallel(listed, workflow, limit, impact, questions);
+  const sections = listed && impact && questions && withStartAndParallel(listed, workflow, limit.parallel, impact, questions);
   const action = nextAction(roadmap?.focus ?? null);
 
   return {
@@ -360,7 +359,7 @@ export function taskSections(
 function withStartAndParallel(
   { inFlight, readyToStart, counts, inFlightAndReady }: ReturnType<typeof taskSections>,
   workflow: string | null,
-  limit: number,
+  limit: ParallelLimit,
   impact: Impact | Unavailable,
   questions: ReadQuestions,
 ): NonNullable<Snapshot['tasks']> {
@@ -379,7 +378,7 @@ function withStartAndParallel(
     inFlight: startable(inFlight),
     readyToStart: startable(readyToStart),
     counts,
-    parallel: { limit, inProgress, free: Math.max(0, limit - inProgress), provenance: 'calculated', impact },
+    parallel: { ...limit, inProgress, free: Math.max(0, limit.limit - inProgress), provenance: 'calculated', impact },
   };
 }
 

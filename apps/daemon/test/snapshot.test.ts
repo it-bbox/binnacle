@@ -28,7 +28,7 @@ type Snapshot = {
     inFlight: Section;
     readyToStart: Section;
     counts: Record<string, number>;
-    parallel: { limit: number; inProgress: number; free: number; provenance: string; impact: unknown };
+    parallel: { limit: number; mode: string; source: string; inProgress: number; free: number; provenance: string; impact: unknown };
   } | null;
   decisions: { items: { title: string | null; path: string }[]; remainder: number } | null;
   ci: Unavailable;
@@ -243,7 +243,7 @@ describe('Tasks in the Product Snapshot', () => {
 
       const body = await snapshot(daemon, root);
       assert.equal(body.tasks!.inFlight.remainder, 2);
-      assert.deepEqual(body.tasks!.parallel, { limit: 14, inProgress: 12, free: 2, provenance: 'calculated', impact: NO_GRAPH });
+      assert.deepEqual(body.tasks!.parallel, { limit: 14, mode: 'number', source: 'manifest', inProgress: 12, free: 2, provenance: 'calculated', impact: NO_GRAPH });
     });
   });
 
@@ -251,10 +251,10 @@ describe('Tasks in the Product Snapshot', () => {
     await withDaemon(async (daemon) => {
       const root = makeProject();
       ticket(root, 'epic', '01-ready.md', { title: '01: Ready', status: 'READY' });
-      assert.deepEqual((await snapshot(daemon, root)).tasks!.parallel, { limit: 2, inProgress: 0, free: 2, provenance: 'calculated', impact: NO_GRAPH });
+      assert.deepEqual((await snapshot(daemon, root)).tasks!.parallel, { limit: 2, mode: 'number', source: 'default', inProgress: 0, free: 2, provenance: 'calculated', impact: NO_GRAPH });
 
       for (const nn of ['02', '03', '04']) ticket(root, 'epic', `${nn}-busy.md`, { title: `${nn}: Busy`, status: 'READY_FOR_REVIEW' });
-      assert.deepEqual((await snapshot(daemon, root)).tasks!.parallel, { limit: 2, inProgress: 3, free: 0, provenance: 'calculated', impact: NO_GRAPH });
+      assert.deepEqual((await snapshot(daemon, root)).tasks!.parallel, { limit: 2, mode: 'number', source: 'default', inProgress: 3, free: 0, provenance: 'calculated', impact: NO_GRAPH });
     });
   });
 

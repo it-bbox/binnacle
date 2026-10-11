@@ -25,6 +25,7 @@ const INPUT: Record<string, object> = {
   'checkpoint.record': { promoted: [] },
   'task.get': { id: 'first/01' },
   'usage.get': { task: 'first/01' },
+  'parallel.set': { limit: 3 },
 };
 
 const MANIFEST = `version: 1
