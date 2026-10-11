@@ -367,8 +367,10 @@ export const en = {
   parallelAuto: 'Auto',
   parallelSave: 'Save',
   parallelSaved: 'Saved.',
-  parallelNow: (limit: string, mode: 'number' | 'auto', source: 'manifest' | 'machine' | 'default') =>
-    `Now ${mode === 'auto' ? `auto, up to ${limit}` : limit}${source === 'default' ? ', the default' : ''}.`,
+  /** A limit as the page reads it: a number, or auto up to its ceiling. */
+  limitValue: (limit: string, mode: 'number' | 'auto') => (mode === 'auto' ? `auto, up to ${limit}` : limit),
+  /** `limit` as `limitValue` reads it. */
+  parallelNow: (limit: string, source: 'manifest' | 'machine' | 'default') => `Now ${limit}${source === 'default' ? ', the default' : ''}.`,
   parallelOverride: (limit: string) => `This project's manifest sets ${limit} in automation.max_parallel_development_tasks, which wins for it.`,
   daemon: 'Daemon',
   version: 'Version',

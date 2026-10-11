@@ -147,7 +147,8 @@ export type Snapshot = {
     counts: TaskCounts;
     /**
      * How many Tasks may be worked on at once: the Parallel limit with its mode and its source
-     * (`parallelLimit`), the Tasks in flight, and what is left of the limit, never below zero.
+     * (`parallelLimit`), the Tasks in flight, and what is left of the limit, never below zero: of one
+     * under *auto* while `impact` is unavailable.
      * Binnacle's calculation. `impact` is the
      * conflict risk between the Tasks in flight and ready to start, read against the graph,
      * and unavailable, with the graph's reason, without one, or when `graph.json` cannot be read as a graph.
@@ -374,11 +375,13 @@ function withStartAndParallel(
     remainder,
   });
   const inProgress = inFlight.items.length + inFlight.remainder;
+  // *auto* runs one Task at a time while no graph assesses the conflict risk (ADR-0041).
+  const room = limit.mode === 'auto' && !impact.available ? 1 : limit.limit;
   return {
     inFlight: startable(inFlight),
     readyToStart: startable(readyToStart),
     counts,
-    parallel: { ...limit, inProgress, free: Math.max(0, limit.limit - inProgress), provenance: 'calculated', impact },
+    parallel: { ...limit, inProgress, free: Math.max(0, room - inProgress), provenance: 'calculated', impact },
   };
 }
 

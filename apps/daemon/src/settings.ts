@@ -1,4 +1,4 @@
-import { readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import type { Diagnostic, ProjectManifest } from '@binnacle/core';
 import { OperationError } from './errors.ts';
 import { OWNER_ONLY_FILE, settingsPath } from './home.ts';
@@ -10,7 +10,7 @@ import { OWNER_ONLY_FILE, settingsPath } from './home.ts';
  * `automation.max_parallel_development_tasks` wins for its project. The dashboard's Settings
  * page sets it through the daemon, the one setting it writes.
  */
-export const PARALLEL_LIMIT = 2;
+export const DEFAULT_PARALLEL_LIMIT = 2;
 /** *auto*'s ceiling: it never starts more agents than this. */
 export const AUTO_CEILING = 4;
 /** The largest number the machine's setting takes. */
@@ -51,10 +51,10 @@ export function machineParallelLimit(home: string): { parallel: ParallelLimit; a
   const settings = readSettings(file);
   const value = settings?.[KEY];
   if (usable(value)) return { parallel: limitOf(value, 'machine'), attention: [] };
-  const fallback: ParallelLimit = { limit: PARALLEL_LIMIT, mode: 'number', source: 'default' };
+  const fallback: ParallelLimit = { limit: DEFAULT_PARALLEL_LIMIT, mode: 'number', source: 'default' };
   if (settings !== null && value === undefined) return { parallel: fallback, attention: [] };
   const why = settings === null ? `${file} cannot be read as a JSON object` : `${RULE}, and ${KEY} in ${file} is not one`;
-  return { parallel: fallback, attention: [{ code: 'parallel_limit.invalid', message: `${why}, so the limit is ${PARALLEL_LIMIT}.` }] };
+  return { parallel: fallback, attention: [{ code: 'parallel_limit.invalid', message: `${why}, so the limit is ${DEFAULT_PARALLEL_LIMIT}.` }] };
 }
 
 /** The limit a project works under: its manifest's, or else the machine's. */
@@ -74,8 +74,12 @@ export function setParallelLimit(home: string, body: unknown): ParallelLimit {
   const file = settingsPath(home);
   const settings = readSettings(file);
   if (settings === null) throw new OperationError('settings.unreadable', `${file} cannot be read as a JSON object, so it is not rewritten. Fix it by hand.`, 409);
+  // A fresh temporary file, so that one left behind, or a link in its place, never decides the mode or the target.
   const temporary = `${file}.tmp`;
-  writeFileSync(temporary, `${JSON.stringify({ ...settings, [KEY]: value }, null, 2)}\n`, { mode: OWNER_ONLY_FILE });
+  rmSync(temporary, { force: true });
+  writeFileSync(temporary, `${JSON.stringify({ ...settings, [KEY]: value }, null, 2)}\n`, { mode: OWNER_ONLY_FILE, flag: 'wx' });
+  // ponytail: read and rewritten in one synchronous step, so the daemon never races itself; a `binn init` writing
+  // the vault at the same instant can still lose one of the two changes. A lock file if that ever happens.
   renameSync(temporary, file);
   return limitOf(value, 'machine');
 }

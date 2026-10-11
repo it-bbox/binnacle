@@ -77,7 +77,7 @@ const sections = computed((): { name: string; settings: Setting[] }[] | null => 
   if (!manifest) return null;
   // An unwritten limit is the one Binnacle uses, as the snapshot calculates it.
   const parallel = view.value?.snapshot?.tasks?.parallel;
-  const limit = parallel === undefined ? undefined : t.value.limitUsed(number(parallel.limit));
+  const limit = parallel === undefined ? undefined : t.value.limitUsed(t.value.limitValue(number(parallel.limit), parallel.mode));
   return [
     {
       name: 'tracker',
@@ -133,7 +133,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
     <UCard :ui="card">
       <template #header>
         <h2 id="parallel" class="text-base font-semibold">{{ t.parallelLimit }}</h2>
-        <span v-if="machine.data.value" class="text-sm text-dimmed">{{ t.parallelNow(number(machine.data.value.limit), machine.data.value.mode, machine.data.value.source) }}</span>
+        <span v-if="machine.data.value" class="text-sm text-dimmed">{{ t.parallelNow(t.limitValue(number(machine.data.value.limit), machine.data.value.mode), machine.data.value.source) }}</span>
       </template>
       <div class="flex flex-col gap-3">
         <p v-if="machine.error.value" class="text-warning">

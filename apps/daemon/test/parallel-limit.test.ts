@@ -38,6 +38,12 @@ function makeProject(manifest = MANIFEST): string {
   return root;
 }
 
+function ticket(root: string, file: string, status: string): void {
+  const dir = join(root, 'docs', 'specs', 'epic', 'issues');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, file), `# ${file.slice(0, 2)}: Thing\n\nStatus: ${status}\nBlocked by: None\n`);
+}
+
 async function withDaemon(body: (daemon: TestDaemon) => Promise<void>): Promise<void> {
   const daemon = await startTestDaemon();
   try {
@@ -85,11 +91,17 @@ describe('the Parallel limit read from the machine', () => {
     });
   });
 
-  it('is auto with its ceiling, 4', async () => {
+  it('is auto with its ceiling, 4, leaving room for one Task at a time while no graph assesses the risk', async () => {
     await withDaemon(async (daemon) => {
       writeSettings(daemon, { parallelLimit: 'auto' });
       assert.deepEqual(await get(daemon), { limit: 4, mode: 'auto', source: 'machine' });
-      assert.deepEqual(await parallel(daemon, makeProject()), { limit: 4, mode: 'auto', source: 'machine', inProgress: 0, free: 4, attention: [] });
+      const root = makeProject();
+      assert.deepEqual(await parallel(daemon, root), { limit: 4, mode: 'auto', source: 'machine', inProgress: 0, free: 1, attention: [] });
+      ticket(root, '01-busy.md', 'ACTIVE');
+      ticket(root, '02-ready.md', 'READY');
+      assert.deepEqual(await parallel(daemon, root), { limit: 4, mode: 'auto', source: 'machine', inProgress: 1, free: 0, attention: [] });
+      const kinds = (await daemon.call<{ next: { alternatives: { kind: string }[] } }>('project.snapshot', { path: root })).body.next.alternatives.map((item) => item.kind);
+      assert.ok(!kinds.includes('parallel'), JSON.stringify(kinds));
     });
   });
 
@@ -98,7 +110,7 @@ describe('the Parallel limit read from the machine', () => {
       writeSettings(daemon, { parallelLimit: 'auto' });
       const own = makeProject(`${MANIFEST}\nautomation:\n  max_parallel_development_tasks: 5\n`);
       assert.deepEqual(await parallel(daemon, own), { limit: 5, mode: 'number', source: 'manifest', inProgress: 0, free: 5, attention: [] });
-      assert.deepEqual(await parallel(daemon, makeProject()), { limit: 4, mode: 'auto', source: 'machine', inProgress: 0, free: 4, attention: [] });
+      assert.deepEqual(await parallel(daemon, makeProject()), { limit: 4, mode: 'auto', source: 'machine', inProgress: 0, free: 1, attention: [] });
       assert.deepEqual(await get(daemon), { limit: 4, mode: 'auto', source: 'machine' });
     });
   });
