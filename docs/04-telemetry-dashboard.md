@@ -139,9 +139,10 @@ A roadmap that cannot be read, and a project or epic with no Tasks, each show th
 
 ### Settings
 
-Settings are shown, never written (ADR-0020): each says where it is changed.
+The page writes the machine's Parallel limit, through the daemon, and nothing else (ADR-0041); every other setting is shown, never written (ADR-0020), and says where it is changed.
 
 - the language, a choice among the dashboard's dictionaries, kept in the browser;
+- the Parallel limit on this machine, from `parallel.get`, with whether it is set or the default: a number or *auto*, set with `parallel.set`. A value the daemon refuses is shown with its code and reason. When the selected project's manifest sets `max_parallel_development_tasks`, the page says that value wins for it;
 - the selected project's settings from `project.status`'s manifest: tracker, workflow, capabilities, automation with `max_parallel_development_tasks` (where the manifest writes none, the limit the snapshot uses) and telemetry, under the keys `.binnacle/project.yaml` spells them with. The page names that file as the one to edit, and says the daemon reads a change on its next refresh. The status's diagnostics follow with their codes. A project whose manifest cannot be read says so with the daemon's reason, and `binn init` to copy;
 - the daemon's version and address, from `daemon.status`, with `binn daemon stop` and `binn daemon start` to copy; its port is `BINNACLE_PORT`, read when it starts.
 

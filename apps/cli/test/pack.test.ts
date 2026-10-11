@@ -173,6 +173,11 @@ test('autopilot starts a second ticket only for a low pair, and says when the ri
   assert.match(skill, /only when the pair's `risk` is `low`/);
   assert.match(skill, /`medium`, `high` or `unknown`/);
   assert.match(skill, /risk was not assessed/);
+  // The Parallel limit from the snapshot (ADR-0041): auto up to its ceiling, one at a time unassessed, the manifest's or two without Binnacle.
+  assert.match(skill, /never more agents at once than the Parallel limit\. Read it from the snapshot's `tasks\.parallel`/);
+  assert.match(skill, /With `mode` `auto`, start every ticket whose pairs with every ticket in flight are at low conflict risk, as the next paragraph reads them, up to `limit`, the ceiling, 4/);
+  assert.match(skill, /Without Binnacle, the limit is the manifest's `automation\.max_parallel_development_tasks` \(`\.binnacle\/project\.yaml`\), or two where it writes none/);
+  assert.match(skill, /with `mode` `auto` run one ticket at a time/);
 });
 
 /** Epic 8's exit demonstration: the snapshot carried the graph and the conflict risk, and the Product session never said either. */

@@ -31,7 +31,6 @@ capabilities:
 
 automation:
   mode: manual
-  max_parallel_development_tasks: 2
 
 telemetry:
   privacy: metadata

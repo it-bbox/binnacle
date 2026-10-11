@@ -274,6 +274,8 @@ The vault is named in `settings.json` in the Binnacle home (`~/.binnacle/setting
 
 The path is absolute, and is the vault's own directory. The daemon reads the file on every poll and every snapshot, so a change takes effect without a restart. No file, or no `obsidian.vaultPath`, means no projection and no attention item.
 
+The same file holds the Parallel limit (ADR-0041), `parallelLimit`: a whole number from 1 to 16, or `"auto"`; 2 when unset. The dashboard's Settings page writes it through the daemon, keeping every other key; a project manifest's `automation.max_parallel_development_tasks` wins for its project.
+
 ### The vault projection
 
 With a vault set, the daemon keeps a one-way projection of each registered project under `<Vault>/Projects/<Project>/`, `<Project>` being the manifest's `project.name`, or its id (ADR-0036):
