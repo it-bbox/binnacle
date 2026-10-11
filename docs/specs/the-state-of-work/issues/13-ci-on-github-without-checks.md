@@ -1,6 +1,6 @@
 # 13: CI on GitHub read without check runs
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/the-state-of-work/spec.md`
@@ -8,9 +8,9 @@ Roles: Developer, Reviewer, Security
 
 **What to build:** a follow-up of 07, found before the exit demonstration. GitHub serves a commit's check runs (`/commits/{sha}/check-runs`) to GitHub Apps only: a fine-grained personal access token gets 403 there, "Resource not accessible by personal access token", and no permission can be granted to it for them. A branch's latest commit (`/commits/{ref}`) needs Contents read access, which the documents never asked for. Either 403 makes the whole `ci` section unavailable, as it is on this repository with the owner's token (Actions, Commit statuses, Issues, Metadata and Pull requests, read-only). On GitHub, a commit's CI state is read instead from the GitHub Actions workflow runs of that head commit (`/actions/runs?head_sha=`) and its combined status together, with the same four states: failing when any run or status failed, was cancelled or timed out; running when any is queued, in progress or pending; passing when all passed; `none` when it has neither. The default branch's latest commit is read from that branch's combined status (`/commits/{branch}/status`), which names it, and its link is the repository's page with `/commit/<sha>`. A fine-grained token with Actions, Commit statuses and Pull requests read access is then enough, beside Issues for the tracker. What cannot be read still leaves the section unavailable with the forge's reason. Every document that asks for a Checks permission, or describes GitHub's CI as read from check runs, names Actions and workflow runs instead. GitLab is unchanged.
 
-- [ ] Loopback-forge tests: workflow runs and statuses combined into the four states as above; the default branch's commit and link from its combined status and the repository; the open pull requests' heads read the same way; no request to `check-runs` or to `/commits/{ref}` itself; 401, 403 and 429 still give the section unavailable with the reason, a refused workflow-run read naming the workflow runs.
-- [ ] Every state is `provider_reported`; the token appears in nothing returned; requests go to the forge's host only.
-- [ ] `docs/operations/04-security-resilience.md`, `docs/operations/05-installation-checklist.md`, `docs/03-mcp-and-skills.md` and the spec name Actions, Commit statuses and Pull requests read access and workflow runs; no document asks for Checks.
+- [x] Loopback-forge tests: workflow runs and statuses combined into the four states as above; the default branch's commit and link from its combined status and the repository; the open pull requests' heads read the same way; no request to `check-runs` or to `/commits/{ref}` itself; 401, 403 and 429 still give the section unavailable with the reason, a refused workflow-run read naming the workflow runs.
+- [x] Every state is `provider_reported`; the token appears in nothing returned; requests go to the forge's host only.
+- [x] `docs/operations/04-security-resilience.md`, `docs/operations/05-installation-checklist.md`, `docs/03-mcp-and-skills.md` and the spec name Actions, Commit statuses and Pull requests read access and workflow runs; no document asks for Checks.
 - [ ] On this repository, with the owner's token as it is, the snapshot's `ci` section and the project page show `main`'s state as GitHub Actions reports it.
 
 ## Comments
@@ -42,18 +42,18 @@ Roles: Developer, Reviewer, Security
 
 **Standards: no hard violation.** Findings, all judgement calls:
 
-1. **The ticket is still `READY` with nothing ticked.** **To fix**: the last commit's work, as the workflow says.
+1. **The ticket is still `READY` with nothing ticked.** **Fixed**: this commit sets `DONE` and ticks every criterion but the owner's.
 2. **Mysterious Name / Data Clumps**: `commitWhat` beside `commit` makes a second URL-and-name pair in `CiSource`, beside `requests` and `what`, and the bare `what` no longer says which. **Kept**: the new pair follows the existing one; renaming `what` changes GitLab's source for no behaviour.
-3. **Duplicated Code**: `toCommit` checks `typeof entry.sha === 'string'`, which `readRemoteCi` already checks before it reads the link. **To fix**: the check goes.
-4. **The `ponytail:` ceiling of a workflow started anew on the same commit** is in the ticket's *Comments* only, not in the code beside the one on pages. **To fix**: the JSDoc of `readGitHubCi` names it.
+3. **Duplicated Code**: `toCommit` checks `typeof entry.sha === 'string'`, which `readRemoteCi` already checks before it reads the link. **Fixed**: the check goes.
+4. **The `ponytail:` ceiling of a workflow started anew on the same commit** is in the ticket's *Comments* only, not in the code beside the one on pages. **Fixed**: the JSDoc of `readGitHubCi` names it.
 5. **The default branch's combined status is read twice.** **Kept**: decided under *Comments*; the read replaces the commit's, so a snapshot sends as many requests as before.
 
 **Spec: every criterion but the owner's is implemented; every request is covered by Metadata, Pull requests, Actions and Commit statuses read access, as GitHub's table of fine-grained permissions gives them.** Findings:
 
-6. **`docs/03-mcp-and-skills.md` names the workflow runs but not the permissions**, which the third criterion asks of it. **To fix.**
+6. **`docs/03-mcp-and-skills.md` names the workflow runs but not the permissions**, which the third criterion asks of it. **Fixed**: it names them.
 7. **That a run's state is its latest attempt's** is not said outright by GitHub's documentation, which gives `run_attempt` on the run and a separate endpoint for earlier attempts, nor tested. **Kept**: the loopback forge can only serve what GitHub is said to; the owner's run on this repository reads what GitHub gives.
 8. **A run concluded `stale` fails**, not decided here. **Kept**: as 07 decided for check runs, every conclusion but success, skipped and neutral fails, a red the owner looks at rather than a green that hides one.
-9. **`binn init`'s advice on a GitHub token asks for Issues alone** (`apps/cli/src/init.ts`), so a token made by it leaves the `ci` section unavailable. Not named by the ticket, but it is the advice the third criterion is about. **To fix**: it names Actions, Commit statuses and Pull requests for the snapshot's CI as well.
+9. **`binn init`'s advice on a GitHub token asks for Issues alone** (`apps/cli/src/init.ts`), so a token made by it leaves the `ci` section unavailable. Not named by the ticket, but it is the advice the third criterion is about. **Fixed**, and `init.test.ts` pins it: it names Actions, Commit statuses and Pull requests for the snapshot's CI as well.
 
 #### Security
 
@@ -63,3 +63,5 @@ The ticket's `Roles:` names Security beyond the Developer and the Reviewer, so t
 11. **The commit's link is built from the forge's `html_url` and the SHA it gives, the SHA unchecked.** **Kept**: the link stays on whatever origin the forge's own `html_url` names, its scheme checked by `isWebLink` as every link is, and the dashboard opens it with `rel="noopener noreferrer"`; the forge gave the commit's link outright before.
 12. **The SHA goes into the workflow runs' query encoded, and into the status path as before.** **Kept**: as 07's finding 16; the request stays on the forge's origin.
 13. **The token reaches nothing returned and no other host**: `ci.test.ts` still checks both, a refused workflow-run read included. Nothing to fix.
+
+**In all**: five findings fixed, six kept with their reasons, and two that find nothing. The full suite, 702 tests, and the typecheck pass after the fixes.
