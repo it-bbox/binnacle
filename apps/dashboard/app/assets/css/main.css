@@ -113,3 +113,65 @@
     background-color: var(--bg);
   }
 }
+
+/*
+ * A ticket's body and its Review, rendered from Markdown on the Task page (`app/markdown.ts`),
+ * at the scale's sizes and the prose measure.
+ */
+@layer components {
+  .markdown {
+    @apply max-w-[70ch] leading-relaxed break-words;
+  }
+  .markdown > * + * {
+    @apply mt-3;
+  }
+  .markdown :is(h1, h2, h3, h4, h5, h6) {
+    @apply mt-5 leading-snug font-semibold text-highlighted;
+  }
+  .markdown > :first-child {
+    @apply mt-0;
+  }
+  .markdown :is(h1, h2) {
+    @apply text-lg;
+  }
+  .markdown :is(h3, h4, h5, h6) {
+    @apply text-base;
+  }
+  .markdown ul {
+    @apply list-disc pl-6;
+  }
+  .markdown ol {
+    @apply list-decimal pl-6;
+  }
+  .markdown li + li,
+  .markdown li > :is(ul, ol) {
+    @apply mt-1;
+  }
+  .markdown li:has(> input[type='checkbox']) {
+    @apply list-none;
+  }
+  .markdown input[type='checkbox'] {
+    @apply mr-1.5 -ml-6 align-middle;
+  }
+  .markdown :not(pre) > code {
+    @apply rounded bg-muted px-1 font-mono text-sm;
+  }
+  .markdown pre {
+    @apply overflow-x-auto rounded-md border border-default bg-muted px-3.5 py-2.5 font-mono text-sm leading-relaxed;
+  }
+  .markdown a {
+    @apply text-primary underline;
+  }
+  .markdown blockquote {
+    @apply border-l-2 border-accented pl-3 text-muted;
+  }
+  .markdown hr {
+    @apply border-default;
+  }
+  .markdown table {
+    @apply block overflow-x-auto text-sm;
+  }
+  .markdown :is(th, td) {
+    @apply border border-default px-2 py-1 text-left;
+  }
+}

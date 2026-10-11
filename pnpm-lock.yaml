@@ -53,6 +53,9 @@ importers:
       '@nuxt/ui':
         specifier: ^4.11.2
         version: 4.11.2(56cc7ff12260fe5f0be14fb8cd7393b8)
+      marked:
+        specifier: ^17.0.6
+        version: 17.0.6
     devDependencies:
       nuxt:
         specifier: ^4.5.2

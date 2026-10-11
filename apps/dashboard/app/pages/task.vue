@@ -3,6 +3,8 @@ import { call, usePolling, type Failure } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
 import { CI_TONE, forgeName, isUnavailable, type CiForge, type CiRequest, type Unavailable } from '~/composables/projects';
 import { tokensLine, type TaskUsage } from '~/composables/usage';
+import { markdown } from '~/markdown';
+import { BRIEF_ROWS, LIST_FOLD } from '~/widget';
 
 /** `task.get`'s brief, as the Task page renders it. */
 type Brief = {
@@ -57,6 +59,17 @@ function stateBadge(state: string | null) {
       return { color: 'neutral' as const, variant: 'outline' as const };
   }
 }
+
+// Raw HTML stays text and only web or mail links survive (`markdown.ts`), so `v-html` injects nothing.
+const body = computed(() => (data.value === null ? '' : markdown(data.value.body.text)));
+const review = computed(() => {
+  const value = data.value?.review;
+  return value == null || isUnavailable(value) ? '' : markdown(value.text);
+});
+
+/** *Brief* shows the unanswered questions; the answered ones wait for *Full*. */
+const unanswered = computed(() => (data.value === null || isUnavailable(data.value.questions) ? [] : data.value.questions.items.filter((item) => item.answer === null)));
+const answered = computed(() => (data.value === null || isUnavailable(data.value.questions) ? 0 : data.value.questions.items.length - unanswered.value.length));
 
 const dependency = (item: Brief['dependencies'][number]): string =>
   item.dangling ? t.value.dangling : `${item.state ?? t.value.noState}, ${item.met ? t.value.met : t.value.notMet}`;
@@ -147,11 +160,8 @@ const dependency = (item: Brief['dependencies'][number]): string =>
       <div class="grid grid-cols-[repeat(auto-fit,minmax(380px,1fr))] items-start gap-5">
         <div class="flex min-w-0 flex-col gap-5">
           <section class="overflow-hidden rounded-lg border border-default bg-default">
-            <div class="flex items-center justify-between border-b border-default px-3.5 py-2.5">
-              <h2 class="m-0 text-base font-semibold">{{ t.ticket }}</h2>
-              <span class="text-xs text-dimmed">{{ t.plainText }}</span>
-            </div>
-            <pre lang="en" class="m-0 max-w-[70ch] p-3.5 font-mono text-sm leading-relaxed break-words whitespace-pre-wrap">{{ data.body.text }}</pre>
+            <div class="border-b border-default px-3.5 py-2.5"><h2 class="m-0 text-base font-semibold">{{ t.ticket }}</h2></div>
+            <div lang="en" class="markdown p-3.5" v-html="body" />
             <p v-if="data.body.truncated" class="m-0 border-t border-default px-3.5 py-2 text-sm text-muted">
               {{ t.bodyCut }} <code class="font-mono">{{ data.ticket }}</code>
             </p>
@@ -166,83 +176,99 @@ const dependency = (item: Brief['dependencies'][number]): string =>
               <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="data.review.reason" /></span>
             </div>
             <template v-else>
-              <pre lang="en" class="m-0 max-w-[70ch] p-3.5 font-mono text-sm leading-relaxed break-words whitespace-pre-wrap">{{ data.review.text }}</pre>
+              <div lang="en" class="markdown p-3.5" v-html="review" />
               <p v-if="data.review.truncated" class="m-0 border-t border-default px-3.5 py-2 text-sm text-muted">
                 {{ t.reviewCut }} <code class="font-mono">{{ data.ticket }}</code>
               </p>
             </template>
           </section>
-          <section class="overflow-hidden rounded-lg border border-default bg-default">
-            <div class="border-b border-default px-3.5 py-2.5"><h2 class="m-0 text-base font-semibold">{{ t.questions }}</h2></div>
-            <div v-if="isUnavailable(data.questions)" class="px-3.5 py-3">
-              <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="data.questions.reason" /></span>
-            </div>
-            <p v-else-if="data.questions.items.length === 0" class="m-0 px-3.5 py-3 text-muted">{{ t.noQuestions }}</p>
-            <template v-else>
-              <p v-if="data.questions.branch !== null" class="m-0 px-3.5 pt-3 text-sm text-muted">{{ t.questionsFromBranch(data.questions.branch) }}</p>
-              <div v-for="(item, index) in data.questions.items" :key="index" class="flex flex-col gap-1.5 border-default px-3.5 py-3" :class="{ 'border-t': index > 0 }">
-                <pre lang="en" class="m-0 max-w-[70ch] font-mono text-sm leading-relaxed break-words whitespace-pre-wrap">{{ item.text }}</pre>
-                <pre v-if="item.answer !== null" lang="en" class="m-0 max-w-[70ch] border-l-2 border-accented pl-2.5 font-mono text-sm leading-relaxed break-words whitespace-pre-wrap">{{ item.answer }}</pre>
-                <div v-else class="flex items-center gap-2 text-warning">
-                  <UIcon name="i-lucide-circle-help" class="size-3.5 shrink-0 text-(--warn)" />
-                  <span>{{ t.unanswered }}</span>
-                </div>
+          <Widget page="task" widget="questions" :title="t.questions">
+            <template #default="{ full }">
+              <div v-if="isUnavailable(data.questions)" class="px-3.5 py-3">
+                <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="data.questions.reason" /></span>
               </div>
+              <p v-else-if="data.questions.items.length === 0" class="m-0 px-3.5 py-3 text-muted">{{ t.noQuestions }}</p>
+              <template v-else>
+                <p v-if="data.questions.branch !== null" class="m-0 px-3.5 pt-3 text-sm text-muted">{{ t.questionsFromBranch(data.questions.branch) }}</p>
+                <p v-if="!full && unanswered.length === 0" class="m-0 px-3.5 py-3 text-muted">{{ t.allAnswered }}</p>
+                <ul v-else class="m-0 list-none divide-y divide-default p-0">
+                  <FoldedList :items="full ? data.questions.items : unanswered" :by="(item) => item.text" :limit="full ? LIST_FOLD : BRIEF_ROWS">
+                    <template #default="{ item }">
+                      <li class="flex flex-col gap-1.5 px-3.5 py-3">
+                        <FoldedText lang="en" class="font-mono text-sm leading-relaxed break-words whitespace-pre-wrap">{{ item.text }}</FoldedText>
+                        <FoldedText v-if="item.answer !== null" lang="en" class="border-l-2 border-accented pl-2.5 font-mono text-sm leading-relaxed break-words whitespace-pre-wrap">{{ item.answer }}</FoldedText>
+                        <div v-else class="flex items-center gap-2 text-warning">
+                          <UIcon name="i-lucide-circle-help" class="size-3.5 shrink-0 text-(--warn)" />
+                          <span>{{ t.unanswered }}</span>
+                        </div>
+                      </li>
+                    </template>
+                  </FoldedList>
+                </ul>
+                <p v-if="!full && answered > 0" class="m-0 px-3.5 pb-3 text-sm text-dimmed">{{ plural(answered, t.answeredInFull) }}</p>
+              </template>
             </template>
-          </section>
+          </Widget>
         </div>
 
         <div class="flex min-w-0 flex-col gap-5">
-          <section class="overflow-hidden rounded-lg border border-default bg-default">
-            <div class="flex items-center justify-between border-b border-default px-3.5 py-2.5">
-              <h2 class="m-0 text-base font-semibold">{{ t.runs }}</h2>
+          <Widget page="task" widget="runs" :title="t.runs">
+            <template #aside>
               <span v-if="usage" class="font-mono text-sm text-dimmed">{{ number(usage.runs.items.length + usage.runs.remainder) }}</span>
-            </div>
-            <p v-if="usageError" class="m-0 px-3.5 py-3 text-warning"><code>{{ usageError.code }}</code> {{ usageError.message }}</p>
-            <USkeleton v-else-if="usage === null" class="m-3.5 h-24" />
-            <template v-else>
-              <p v-if="usage.importing.incomplete" class="m-0 px-3.5 pt-3 text-warning">{{ t.importing }}</p>
-              <p v-if="usage.runs.items.length === 0" class="m-0 px-3.5 py-3 text-muted">{{ t.noRuns }}</p>
-              <ol v-else class="m-0 list-none px-3.5 py-1">
-                <li v-for="(run, index) in usage.runs.items" :key="run.id" class="grid grid-cols-[14px_minmax(0,1fr)] gap-2.5">
-                  <div class="flex flex-col items-center">
-                    <span
-                      class="mt-3.5 size-2.5 shrink-0 rounded-full border-2"
-                      :class="run.active.value ? 'border-success bg-success motion-safe:animate-pulse' : 'border-accented bg-default'"
-                    />
-                    <span class="w-px flex-1" :class="index < usage.runs.items.length - 1 ? 'bg-(--ui-border)' : ''" />
-                  </div>
-                  <div class="flex min-w-0 flex-col gap-1.5 pt-2.5 pb-3">
-                    <div class="flex flex-wrap items-center gap-2">
-                      <span class="font-mono text-sm font-medium">{{ run.harness }} · {{ run.model ?? t.modelNotReported }} · {{ run.role }}</span>
-                      <span class="text-sm" :class="run.active.value ? 'text-success' : 'text-dimmed'" :title="t.runningReading">
-                        {{ run.active.value ? t.activeNow : t.notActiveNow }}
-                      </span>
-                    </div>
-                    <dl class="m-0 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3.5 gap-y-0.5 text-sm">
-                      <dt class="text-dimmed">{{ t.branch }}</dt>
-                      <dd class="m-0 font-mono break-all">
-                        <template v-if="run.branch !== null">{{ run.branch }}</template>
-                        <span v-else class="font-sans text-muted">{{ t.noBranch }}</span>
-                      </dd>
-                      <dt class="text-dimmed">{{ t.checkout }}</dt>
-                      <dd class="m-0 font-mono break-all">
-                        <template v-if="run.checkout !== null">{{ run.checkout }}</template>
-                        <span v-else class="font-sans text-muted">{{ t.unnamedCheckout }}</span>
-                      </dd>
-                      <dt class="text-dimmed">{{ t.started }}</dt>
-                      <dd class="m-0">{{ dateTime(run.startedAt) }}</dd>
-                      <dt class="text-dimmed">{{ t.latestActivity }}</dt>
-                      <dd class="m-0" :title="dateTime(run.lastActivityAt)">{{ since(run.lastActivityAt) }}</dd>
-                      <dt class="text-dimmed">{{ t.tokens }}</dt>
-                      <dd class="m-0 font-mono">{{ tokensLine(run.totals, t, number) }}</dd>
-                    </dl>
-                  </div>
-                </li>
-              </ol>
-              <p v-if="usage.runs.remainder > 0" class="m-0 px-3.5 pb-3 text-sm text-dimmed">{{ plural(usage.runs.remainder, t.earlierRuns) }}</p>
             </template>
-          </section>
+            <template #default="{ full }">
+              <p v-if="usageError" class="m-0 px-3.5 py-3 text-warning"><code>{{ usageError.code }}</code> {{ usageError.message }}</p>
+              <USkeleton v-else-if="usage === null" class="m-3.5 h-24" />
+              <template v-else>
+                <p v-if="usage.importing.incomplete" class="m-0 px-3.5 pt-3 text-warning">{{ t.importing }}</p>
+                <p v-if="usage.runs.items.length === 0" class="m-0 px-3.5 py-3 text-muted">{{ t.noRuns }}</p>
+                <ol v-else class="m-0 list-none px-3.5 py-1">
+                  <FoldedList :items="usage.runs.items" :by="(run) => run.id" :limit="full ? LIST_FOLD : BRIEF_ROWS">
+                    <template #default="{ item: run }">
+                      <li class="grid grid-cols-[14px_minmax(0,1fr)] gap-2.5">
+                        <div class="flex flex-col items-center">
+                          <span
+                            class="mt-3.5 size-2.5 shrink-0 rounded-full border-2"
+                            :class="run.active.value ? 'border-success bg-success motion-safe:animate-pulse' : 'border-accented bg-default'"
+                          />
+                          <span class="w-px flex-1" :class="run !== usage.runs.items.at(-1) ? 'bg-(--ui-border)' : ''" />
+                        </div>
+                        <div class="flex min-w-0 flex-col gap-1.5 pt-2.5 pb-3">
+                          <div class="flex flex-wrap items-center gap-2">
+                            <span class="font-mono text-sm font-medium">{{ run.harness }} · {{ run.model ?? t.modelNotReported }} · {{ run.role }}</span>
+                            <span class="text-sm" :class="run.active.value ? 'text-success' : 'text-dimmed'" :title="t.runningReading">
+                              {{ run.active.value ? t.activeNow : t.notActiveNow }}
+                            </span>
+                          </div>
+                          <dl class="m-0 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3.5 gap-y-0.5 text-sm">
+                            <template v-if="full">
+                              <dt class="text-dimmed">{{ t.branch }}</dt>
+                              <dd class="m-0 font-mono break-all">
+                                <template v-if="run.branch !== null">{{ run.branch }}</template>
+                                <span v-else class="font-sans text-muted">{{ t.noBranch }}</span>
+                              </dd>
+                              <dt class="text-dimmed">{{ t.checkout }}</dt>
+                              <dd class="m-0 font-mono break-all">
+                                <template v-if="run.checkout !== null">{{ run.checkout }}</template>
+                                <span v-else class="font-sans text-muted">{{ t.unnamedCheckout }}</span>
+                              </dd>
+                              <dt class="text-dimmed">{{ t.started }}</dt>
+                              <dd class="m-0">{{ dateTime(run.startedAt) }}</dd>
+                            </template>
+                            <dt class="text-dimmed">{{ t.latestActivity }}</dt>
+                            <dd class="m-0" :title="dateTime(run.lastActivityAt)">{{ since(run.lastActivityAt) }}</dd>
+                            <dt class="text-dimmed">{{ t.tokens }}</dt>
+                            <dd class="m-0 font-mono">{{ tokensLine(run.totals, t, number) }}</dd>
+                          </dl>
+                        </div>
+                      </li>
+                    </template>
+                  </FoldedList>
+                </ol>
+                <p v-if="usage.runs.remainder > 0" class="m-0 px-3.5 pb-3 text-sm text-dimmed">{{ plural(usage.runs.remainder, t.earlierRuns) }}</p>
+              </template>
+            </template>
+          </Widget>
 
           <section class="overflow-hidden rounded-lg border border-default bg-default">
             <div class="border-b border-default px-3.5 py-2.5"><h2 class="m-0 text-base font-semibold">{{ t.usage }}</h2></div>
