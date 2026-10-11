@@ -13,3 +13,23 @@ Spec: `docs/specs/the-state-of-work/spec.md`
 - [ ] `/binnacle:answer` writes the answer on the branch, and `/binnacle:autopilot` resumes that ticket and merges it.
 - [ ] A ticket with `Roles: Developer, Reviewer, Security` has a Security section in its Review; `/binnacle:task` shows roles and Binnacle's suggestions.
 - [ ] At the run's end autopilot reported `main`'s CI and proposed a Next action.
+
+## Comments
+
+### Demonstration, 2026-10-11
+
+Run with the owner in a Product session, on ticket 14 as the carrier. Criteria are not ticked yet: the owner still looks at the dashboard.
+
+1. `main` pushed; the workflow ran green on `d80ec9d`; the snapshot's `ci.defaultBranch` read `passing`, `provider_reported`, with its commit link, once ticket 13 was merged and the daemon restarted. The dashboard's project page is the owner's to see.
+2. `feat/graph-that-shrinks` pushed with pull request #1: the snapshot's `ci.requests` and `task_get`'s `request` showed it, mapped to the-state-of-work/14, with its CI `running`, then `passing`.
+3. A question committed to that branch by hand showed under *Waiting for the owner* in the snapshot, the daily and the vault's `Product/snapshot.md`. The dashboard is the owner's to see.
+4. `/binnacle:answer` committed the owner's answer on the branch; `/binnacle:autopilot 11` resumed the ticket on its branch and merged it as `64a9a5d`.
+5. Ticket 14's `Roles: Developer, Reviewer, Security` gave its Review a `#### Security` section; `task_get` showed the roles from the ticket.
+6. Autopilot's report gave `main`'s CI (`running` on `64a9a5d`) and proposed a Next action.
+
+Found on the way:
+
+- A Product session's commit on a Task's branch counted as an implementation run of that Task, so the snapshot said 14 "is being worked on" until it went stale.
+- The answer Binnacle reads includes the date line `/binnacle:answer` writes above it (`docs/product-inbox.md`).
+- Autopilot's resumed agent rebased a branch that had an open pull request, so the pull request kept the older commits after the merge and was closed by hand; updating it would have needed a force push.
+- After the merge, the graph was built from `64a9a5d`, `behind: false`; whether that merge shrank it is not known, so ticket 14's last criterion stays open.
