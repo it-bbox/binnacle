@@ -43,7 +43,7 @@ Epic 11 is done (ADR-0040): autopilot merged 01 to 11, then 13, GitHub's CI read
 
 Epic 18 is done: rework read from runs, questions with options, the audit test without its race and the lean per-ticket process; the owner ran its exit demonstration (05) on 2026-10-11. Whether the flow got cheaper is read after epic 16's autopilot run.
 
-Next action: grill epic 16, Dashboard redesign, with the owner watching; ticket lean-flow/05 records what the owner found unreadable. `/mattpocock-skills:grill-with-docs`
+Next action: specify epic 16, Dashboard redesign, from *Phase 16* in `docs/05-mvp-plan.md` and ADR-0041. `/mattpocock-skills:to-spec`
 
 ## Later
 
