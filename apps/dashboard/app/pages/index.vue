@@ -227,9 +227,9 @@ function outputTokens(totals: Totals): string {
           <template #default="{ full }">
             <div v-if="snapshot.tasks === null" class="flex flex-col gap-1 px-3.5 py-4">
               <div class="font-medium">{{ t.notAvailable }} · {{ t.trackerUnreadable }}</div>
-              <p v-for="item in trackerReasons" :key="item.code + item.message" class="leading-snug text-muted">
+              <FoldedText v-for="item in trackerReasons" :key="item.code + item.message" class="leading-snug break-words text-muted">
                 <DaemonReason :reason="item.message" /> <code class="font-mono text-xs text-dimmed">{{ item.code }}</code>
-              </p>
+              </FoldedText>
             </div>
             <template v-else>
               <template v-if="full">
@@ -268,9 +268,9 @@ function outputTokens(totals: Totals): string {
                 <div v-if="noTasks" class="flex flex-col gap-1 px-3.5 py-4">
                   <div class="font-medium">{{ t.noTasks }}</div>
                   <div class="leading-snug text-muted">{{ t.noTasksBody }}</div>
-                  <p v-for="item in trackerReasons" :key="item.code + item.message" class="leading-snug text-muted">
+                  <FoldedText v-for="item in trackerReasons" :key="item.code + item.message" class="leading-snug break-words text-muted">
                     <DaemonReason :reason="item.message" /> <code class="font-mono text-xs text-dimmed">{{ item.code }}</code>
-                  </p>
+                  </FoldedText>
                 </div>
                 <p v-else class="px-3.5 py-4 text-muted">{{ t.nothing }}</p>
               </template>

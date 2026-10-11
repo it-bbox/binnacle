@@ -19,14 +19,14 @@ const choose = (value: Level): void => {
 };
 const full = computed(() => level.value === 'full');
 
-const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-between gap-2 px-3.5 py-2.5 sm:px-3.5', body: 'p-0 sm:p-0', footer: 'px-3.5 py-2 sm:px-3.5' };
+const panel = { root: 'rounded-[10px]', header: 'flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 px-3.5 py-2.5 sm:px-3.5', body: 'p-0 sm:p-0', footer: 'px-3.5 py-2 sm:px-3.5' };
 </script>
 
 <template>
   <UCard :ui="panel">
     <template #header>
       <slot name="title"><h2 class="text-base font-semibold">{{ title }}</h2></slot>
-      <div class="flex flex-none items-center gap-3">
+      <div class="ml-auto flex flex-none items-center gap-3">
         <slot name="aside" />
         <UFieldGroup role="group" :aria-label="t.level" size="xs">
           <UButton
