@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 This skill needs no daemon and no `binnacle` MCP server: it runs the CLI command `binn daemon <action>` in this harness's shell, so it works while the daemon is stopped.
 
-Give the human each command you offer them alone in a fenced block, which copies in one click: a slash command in a plain fence, a shell command such as `binn daemon start` in a `bash` fence.
+Give the human each command you offer them alone in a fenced block, which copies in one click: a skill such as `/binnacle:daemon start` in a plain fence, a shell command such as `binn daemon start` in a `bash` fence.
 
 1. The action is `$ARGUMENTS`: `start`, `stop` or `status`, and `status` when no action was passed. For anything else, stop and say these are the three actions; run nothing.
 2. Run `binn daemon <action>` once.

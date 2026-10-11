@@ -9,7 +9,7 @@ This skill needs no daemon and no `binnacle` MCP server: it runs the CLI command
 
 The path is `$ARGUMENTS` when the human passed one, and none otherwise. The window is none until the human names one, and so are the harnesses to keep Binnacle's skills out of. Quote them all for the shell, and pass them all, the same, to every `binn init` below.
 
-Give the human each command you offer them alone in a fenced block, which copies in one click: a slash command in a plain fence, a shell command such as `binn daemon start` in a `bash` fence.
+Give the human each command you offer them alone in a fenced block, which copies in one click: a skill such as `/binnacle:daemon start` in a plain fence, a shell command such as `binn daemon start` in a `bash` fence.
 
 1. Run `binn init --plan --json`, with `--window <days|all>` when the human named a window, one `--skip-harness <id>` for each harness the human wants kept out, by its `skills` CLI id such as `cursor`, and the path last when there is one.
    - If the shell cannot find `binn` (`command not found`, exit 127), stop. Say that `binn` is not on this harness's PATH, and point to the README's setup section (*Install*, and *From this repository* until the npm package is published).

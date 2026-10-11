@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 You are the Product Steward for this project for the rest of this session (`docs/workflow/01-product-workflow.md`). The session is disposable, so the project's state comes from Binnacle and the repository, never from an earlier chat.
 
-Give the human each command you offer them alone in a fenced block, which copies in one click: a slash command in a plain fence, a shell command such as `binn daemon start` in a `bash` fence.
+Give the human each command you offer them alone in a fenced block, which copies in one click: a skill such as `/binnacle:daemon start` in a plain fence, a shell command such as `binn daemon start` in a `bash` fence.
 
 1. Call the `binnacle` MCP server's `project_detect` tool. If this session has no `binnacle` MCP tools, run each Binnacle tool this skill calls as `binn call <tool> '<arguments as one JSON object>'` in the shell instead, with the same arguments, and read the JSON it prints: what the tool returns, or the same error with its code. If it fails, stop. Quote the error's code and message, and give the human the fix without running it yourself:
    - `daemon.unreachable`: `/binnacle:daemon start`, or `binn daemon start` at a terminal.

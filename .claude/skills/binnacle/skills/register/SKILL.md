@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 This skill needs no daemon to be started and no `binnacle` MCP server: it runs the CLI command `binn project register` in this harness's shell. Registering itself is done by the daemon, so it fails while the daemon is stopped, and says so.
 
-Give the human each command you offer them alone in a fenced block, which copies in one click: a slash command in a plain fence, a shell command such as `binn daemon start` in a `bash` fence.
+Give the human each command you offer them alone in a fenced block, which copies in one click: a skill such as `/binnacle:daemon start` in a plain fence, a shell command such as `binn daemon start` in a `bash` fence.
 
 1. Choose the path:
    - If the human passed one (`$ARGUMENTS`), use it.

@@ -11,7 +11,7 @@ The human who started this skill approved, for this one epic, spawning an agent 
 
 Rules for the whole run. Never force-push, change settings, touch another repository, or stop, restart or reconfigure a daemon the human is running, except as step 10 allows. Never simulate a human step: a hand check, a confirmation, a demonstration is prepared by the agent and left for the human. Never set anything `DONE` yourself.
 
-Give the human each command you offer them alone in a fenced block, which copies in one click: a slash command in a plain fence, a shell command such as `binn daemon start` in a `bash` fence. A file's text you draft, such as the roadmap's `Next action:` paragraph, keeps its command in backticks, as the file writes it.
+Give the human each command you offer them alone in a fenced block, which copies in one click: a skill such as `/binnacle:daemon start` in a plain fence, a shell command such as `binn daemon start` in a `bash` fence. A file's text you draft, such as the roadmap's `Next action:` paragraph, keeps its command in backticks, as the file writes it.
 
 ## Start
 

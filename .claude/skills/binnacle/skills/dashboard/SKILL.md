@@ -8,7 +8,7 @@ This skill needs no daemon to be started and no `binnacle` MCP server: it runs t
 
 The dashboard's token authorises the daemon's local API, and this shell's output reaches the model's provider and the session's transcript (ADR-0031). So `binn dashboard` hands the token to the browser itself, which opens already authorised, and prints the address alone, which carries no token: nothing in it was masked, cut or hidden, and nothing is missing from it. Never run `binn dashboard --print`, which prints the token, and never show, read or ask for the token in any other way.
 
-Give the human each command you offer them alone in a fenced block, which copies in one click: a slash command in a plain fence, a shell command such as `binn daemon start` in a `bash` fence.
+Give the human each command you offer them alone in a fenced block, which copies in one click: a skill such as `/binnacle:daemon start` in a plain fence, a shell command such as `binn daemon start` in a `bash` fence.
 
 1. Run `binn dashboard` once, with no option.
    - If the shell cannot find `binn` (`command not found`, exit 127), stop. Say that `binn` is not on this harness's PATH, and point to the README's setup section (*Install*, and *From this repository* until the npm package is published).
