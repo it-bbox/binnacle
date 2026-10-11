@@ -144,6 +144,8 @@ npx skills remove -g -a claude-code -s $(ls apps/cli/skills) -y
 
 Новая сессия затем загружает изменённые skills. `/binnacle:autopilot` делает это сам после каждого своего merge, который их изменил.
 
+`pnpm typecheck` и `pnpm test` проверяют изменение. `pnpm test` работает без сети; живые тесты адаптеров, которым нужны токены только для чтения, запускаются отдельно командой `pnpm test:live`. CI запускает typecheck и тесты в GitHub Actions на каждый push в `main` и на каждый pull request (`.github/workflows/ci.yml`), без живых тестов и без каких-либо секретов.
+
 `pnpm setup` добавляет свой глобальный каталог для исполняемых файлов в PATH в файле запуска shell, например `~/.bashrc`, а desktop-приложение Claude Code этот файл не читает, поэтому в нём `.mcp.json` не находит `binn`. Сделайте `binn` видимым там скриптом-обёрткой с именем `binn`, исполняемым, в каталоге, который уже есть в PATH приложения, — в Linux это `~/.local/bin`:
 
 ```sh
