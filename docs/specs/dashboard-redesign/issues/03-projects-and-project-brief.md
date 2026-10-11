@@ -1,6 +1,6 @@
 # 03: Projects and Project, brief or full, and the board card
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 02
 Spec: `docs/specs/dashboard-redesign/spec.md`
