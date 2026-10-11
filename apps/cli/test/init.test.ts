@@ -721,6 +721,20 @@ test('an unreadable remote tracker gives the failure code and how to make a read
   assert.equal(existsSync(join(home.binnacleHome, 'credentials.json')), false);
 });
 
+test('the advice on a GitHub token names the access the snapshot’s CI needs beside the issues', async (t) => {
+  const home = makeHome(t);
+  const github = await trackerStandIn(t, 401, { message: 'Bad credentials' });
+  const root = makeRepository(t, 'remote', {
+    '.binnacle/project.yaml': remoteManifest('github', 'octo-org/octo-repo', github.base),
+    [TRACKER_FILE]: '# Issue tracker: GitHub\n',
+  });
+
+  const { stdout } = await binnInit(home, root, '\ny\n', { BINNACLE_GITHUB_TOKEN: 'ghp_never-printed' });
+
+  assert.match(stdout, /Issues: Read-only\), and Actions, Commit statuses and Pull requests: Read-only for the snapshot's CI\./);
+  assert.doesNotMatch(stdout, /Checks/);
+});
+
 test('Claude Code on PATH gets a new .mcp.json, and only the detected harness is offered', (t) => {
   const home = makeHome(t);
   fakeClaude(home);

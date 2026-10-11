@@ -1012,7 +1012,8 @@ async function trackerStep(session: Session, home: string, manifest: ProjectMani
   const how =
     provider === 'github'
       ? `On GitHub, create a fine-grained personal access token with read-only access to the issues of ${repository} ` +
-        '(Settings, Developer settings, Personal access tokens, Fine-grained tokens; Repository permissions, Issues: Read-only).'
+        '(Settings, Developer settings, Personal access tokens, Fine-grained tokens; Repository permissions, Issues: Read-only), ' +
+        "and Actions, Commit statuses and Pull requests: Read-only for the snapshot's CI."
       : "On GitLab, create a personal, group or project access token with the read_api scope and nothing else (User settings, or the project's Settings, then Access tokens).";
   session.say(
     `\n${how} A public repository needs none.\n` +
