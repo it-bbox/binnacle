@@ -179,7 +179,7 @@ async function readResponse(forge: Forge, url: URL, where: string, token: string
 }
 
 /** What a forge's pages list, or what one of its objects is. */
-type Listed = 'issues' | 'comments' | 'pull requests' | 'merge requests' | 'reviews' | 'repository' | 'commits' | 'check runs' | 'statuses' | 'pipelines';
+type Listed = 'issues' | 'comments' | 'pull requests' | 'merge requests' | 'reviews' | 'repository' | 'commits' | 'workflow runs' | 'statuses' | 'pipelines';
 
 /**
  * When changes were first requested on a pull or merge request of one branch, in
@@ -216,10 +216,11 @@ type StateRead = Promise<CiState | { reason: string }>;
 type CiSource = {
   /** The repository, whose `default_branch` names the default branch. */
   repository: string;
-  /** A branch's latest commit. */
+  /** What names a branch's latest commit, and what the forge calls it. */
   commit(branch: string): string;
-  /** That commit's id, its link and when it was made, as the forge gives them. */
-  toCommit(entry: Record<string, unknown>): { sha: unknown; url: unknown; at: string | null };
+  commitWhat: 'commits' | 'statuses';
+  /** That commit's id, its link and when it was made, from what `commit` read and the repository. */
+  toCommit(entry: Record<string, unknown>, repository: Record<string, unknown>): { sha: unknown; url: unknown; at: string | null };
   /** The first page of the open requests, and what the forge calls them. */
   requests: string;
   what: 'pull requests' | 'merge requests';
@@ -253,9 +254,9 @@ export async function readRemoteCi(
   const missing = (what: string): { reason: string } => ({ reason: `${forge.name} gave no ${what} for ${where}.` });
   const branch = about.entry.default_branch;
   if (typeof branch !== 'string') return missing('default branch');
-  const read = await readObject(forge, source.commit(branch), where, token, 'commits');
+  const read = await readObject(forge, source.commit(branch), where, token, source.commitWhat);
   if ('failure' in read) return { reason: read.failure.message };
-  const { sha, url, at } = source.toCommit(read.entry);
+  const { sha, url, at } = source.toCommit(read.entry, about.entry);
   if (typeof sha !== 'string') return missing(`commit of ${branch}`);
   if (!isWebLink(url)) return missing(`link to the commit of ${branch}`);
   const kept = entries.map((entry) => source.toRequest(entry)).filter((request) => keep(request.branch));

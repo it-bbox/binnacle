@@ -232,13 +232,13 @@ describe('the daily delta', () => {
     const sha = 'a'.repeat(40);
     const repo = '/repos/octo/daily';
     const routes: Record<string, unknown> = {
-      [repo]: { default_branch: 'main' },
+      [repo]: { default_branch: 'main', html_url: 'https://github.com/octo/daily' },
       [`${repo}/issues`]: [{ number: 2, title: 'Second', state: 'open', body: 'Status: ACTIVE', labels: [], html_url: 'https://github.com/octo/daily/issues/2' }],
       [`${repo}/issues/comments`]: [],
       [`${repo}/pulls`]: [{ number: 7, title: 'Second step', draft: false, html_url: 'https://github.com/octo/daily/pull/7', head: { ref: 'feat/2-second', sha } }],
-      [`${repo}/commits/main`]: { sha, html_url: `https://github.com/octo/daily/commit/${sha}` },
-      [`${repo}/commits/${sha}/check-runs`]: { check_runs: [{ status: 'completed', conclusion: 'failure' }] },
-      [`${repo}/commits/${sha}/status`]: { statuses: [] },
+      [`${repo}/commits/main/status`]: { sha, statuses: [] },
+      [`${repo}/actions/runs`]: { workflow_runs: [{ status: 'completed', conclusion: 'failure' }] },
+      [`${repo}/commits/${sha}/status`]: { sha, statuses: [] },
     };
     const forge = createServer((request, response) => {
       const body = routes[new URL(request.url ?? '/', 'http://forge').pathname];

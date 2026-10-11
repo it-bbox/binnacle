@@ -96,18 +96,18 @@ export function readGitHubChangesRequested(repository: string, host: string | nu
   });
 }
 
-type CheckRun = { status?: string; conclusion?: string | null };
+type WorkflowRun = { status?: string; conclusion?: string | null };
 type Pull = { number: number; title: string; draft?: boolean; html_url: unknown; head: { ref: string; sha: string } };
 
-/** A completed check run that counts as passed; any other conclusion, a failure, a cancellation or a timeout among them, fails. */
+/** A completed workflow run that counts as passed; any other conclusion, a failure, a cancellation or a timeout among them, fails. */
 const PASSED = new Set(['success', 'skipped', 'neutral']);
 
 /**
- * A commit's state from its check runs and the statuses of its combined status together:
- * failing when any failed, was cancelled or timed out; running when any is queued or in
- * progress; passing when every one passed; `none` when it has neither.
+ * A commit's state from its GitHub Actions workflow runs and the statuses of its combined status
+ * together: failing when any failed, was cancelled or timed out; running when any is queued,
+ * waiting, in progress or pending; passing when every one passed; `none` when it has neither.
  */
-function commitState(runs: CheckRun[], statuses: { state?: string }[]): CiState {
+function commitState(runs: WorkflowRun[], statuses: { state?: string }[]): CiState {
   const states = [
     ...runs.map((run) => (run.status !== 'completed' ? 'running' : PASSED.has(run.conclusion ?? '') ? 'passing' : 'failing')),
     ...statuses.map((status) => (status.state === 'success' ? 'passing' : status.state === 'pending' ? 'running' : 'failing')),
@@ -118,8 +118,12 @@ function commitState(runs: CheckRun[], statuses: { state?: string }[]): CiState 
 
 /**
  * A GitHub repository's CI, read through `readRemoteCi`: the open pull requests, and a commit's
- * state from its check runs and combined status together (`commitState`).
- * ponytail: one page of 100 check runs per commit; follow the pages once a commit has more.
+ * state from its workflow runs and combined status together (`commitState`). Nothing is read
+ * that a fine-grained token with Actions, Commit statuses and Pull requests read access cannot
+ * read: not check runs, which GitHub serves to GitHub Apps only, and not a branch's commit,
+ * which needs Contents access. The default branch's commit is the one its combined status
+ * names, its link the repository's page, and when it was made is not known.
+ * ponytail: one page of 100 workflow runs per commit; follow the pages once a commit has more.
  */
 export async function readGitHubCi(
   repository: string,
@@ -131,12 +135,15 @@ export async function readGitHubCi(
   const root = githubApiRoot(host);
   const repo = `${root}/repos/${repository.split('/').map(encodeURIComponent).join('/')}`;
   const where = `${repository} at ${root}`;
-  const object = (url: string, what: 'check runs' | 'statuses') => readObject(GITHUB, url, where, token, what);
+  const object = (url: string, what: 'workflow runs' | 'statuses') => readObject(GITHUB, url, where, token, what);
   const state = async (sha: string): Promise<CiState | { reason: string }> => {
-    const [runs, status] = await Promise.all([object(`${repo}/commits/${sha}/check-runs?per_page=100`, 'check runs'), object(`${repo}/commits/${sha}/status?per_page=100`, 'statuses')]);
+    const [runs, status] = await Promise.all([
+      object(`${repo}/actions/runs?head_sha=${encodeURIComponent(sha)}&per_page=100`, 'workflow runs'),
+      object(`${repo}/commits/${sha}/status?per_page=100`, 'statuses'),
+    ]);
     if ('failure' in runs) return { reason: runs.failure.message };
     if ('failure' in status) return { reason: status.failure.message };
-    return commitState((runs.entry.check_runs ?? []) as CheckRun[], (status.entry.statuses ?? []) as { state?: string }[]);
+    return commitState((runs.entry.workflow_runs ?? []) as WorkflowRun[], (status.entry.statuses ?? []) as { state?: string }[]);
   };
   return readRemoteCi(
     GITHUB,
@@ -144,11 +151,13 @@ export async function readGitHubCi(
     token,
     {
       repository: repo,
-      commit: (branch) => `${repo}/commits/${encodeURIComponent(branch)}`,
-      toCommit(entry) {
-        const date = (entry.commit as { committer?: { date?: unknown } } | undefined)?.committer?.date;
-        return { sha: entry.sha, url: entry.html_url, at: typeof date === 'string' ? date : null };
-      },
+      commit: (branch) => `${repo}/commits/${encodeURIComponent(branch)}/status?per_page=1`,
+      commitWhat: 'statuses',
+      toCommit: (entry, repository) => ({
+        sha: entry.sha,
+        url: typeof repository.html_url === 'string' && typeof entry.sha === 'string' ? `${repository.html_url}/commit/${entry.sha}` : undefined,
+        at: null,
+      }),
       requests: `${repo}/pulls?state=open&per_page=100`,
       what: 'pull requests',
       toRequest(entry) {

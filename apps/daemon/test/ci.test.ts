@@ -10,15 +10,15 @@ import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
 
 /**
  * The snapshot's `ci` section, read from a loopback stand-in for GitHub: the default branch's
- * latest commit with its CI state from its check runs and combined status, and the open pull
- * requests with their heads' states and the Tasks their branches map to.
+ * latest commit with its CI state from its Actions workflow runs and combined status, and the
+ * open pull requests with their heads' states and the Tasks their branches map to.
  */
 type State = { value: string; provenance: string };
 type Ci =
   | { available: false; reason: string }
   | {
       forge: { provider: string; host: string; repository: string; from: string };
-      defaultBranch: { branch: string; commit: string; state: State; url: string; at: string };
+      defaultBranch: { branch: string; commit: string; state: State; url: string; at: string | null };
       requests: { items: { number: number; title: string; branch: string; taskId: string | null; draft: boolean; state: State; url: string }[]; remainder: number };
     };
 type Snapshot = { ci: Ci; attention: { code: string; message: string }[] };
@@ -33,15 +33,19 @@ after(() => {
   for (const root of roots) rmSync(root, { recursive: true, force: true });
 });
 
-type Check = { status: string; conclusion: string | null };
+type Run = { status: string; conclusion: string | null };
 type Reply = { status: number; headers?: Record<string, string>; body: unknown };
 
-/** GitHub's API for `REPOSITORY`: the repository, its commits' check runs and statuses, its open pull requests, and no issues. */
+/**
+ * GitHub's API for `REPOSITORY`: the repository, its commits' workflow runs and combined
+ * statuses, the default branch's by its name too, its open pull requests, and no issues. What
+ * a fine-grained token cannot read, a commit's check runs and a branch's commit, is not served.
+ */
 type FakeGitHub = {
   base: string;
   defaultBranch: string;
   head: string;
-  checks: Record<string, Check[]>;
+  runs: Record<string, Run[]>;
   statuses: Record<string, string[]>;
   pulls: { number: number; title: string; branch: string; sha: string; draft?: boolean }[];
   reply: ((url: URL) => Reply | null) | null;
@@ -57,7 +61,7 @@ async function fakeGitHub(): Promise<FakeGitHub> {
     base: '',
     defaultBranch: 'main',
     head: MAIN_SHA,
-    checks: {},
+    runs: {},
     statuses: {},
     pulls: [],
     reply: null,
@@ -82,7 +86,7 @@ async function fakeGitHub(): Promise<FakeGitHub> {
 function route(fake: FakeGitHub, url: URL): Reply {
   const repo = `/repos/${REPOSITORY}`;
   const path = url.pathname;
-  if (path === repo) return { status: 200, body: { full_name: REPOSITORY, default_branch: fake.defaultBranch } };
+  if (path === repo) return { status: 200, body: { full_name: REPOSITORY, default_branch: fake.defaultBranch, html_url: `https://github.com/${REPOSITORY}` } };
   if (path === `${repo}/issues` || path === `${repo}/issues/comments`) return { status: 200, body: [] };
   if (path === `${repo}/pulls`) {
     return {
@@ -96,21 +100,15 @@ function route(fake: FakeGitHub, url: URL): Reply {
       })),
     };
   }
-  if (path === `${repo}/commits/${fake.defaultBranch}`) {
-    return {
-      status: 200,
-      body: { sha: fake.head, html_url: `https://github.com/${REPOSITORY}/commit/${fake.head}`, commit: { committer: { date: '2026-10-11T07:00:00Z' } } },
-    };
+  if (path === `${repo}/actions/runs`) {
+    const runs = fake.runs[url.searchParams.get('head_sha') ?? ''] ?? [];
+    return { status: 200, body: { total_count: runs.length, workflow_runs: runs } };
   }
-  const checks = new RegExp(`^${repo}/commits/([0-9a-f]+)/check-runs$`).exec(path);
-  if (checks) {
-    const runs = fake.checks[checks[1]!] ?? [];
-    return { status: 200, body: { total_count: runs.length, check_runs: runs } };
-  }
-  const status = new RegExp(`^${repo}/commits/([0-9a-f]+)/status$`).exec(path);
+  const status = new RegExp(`^${repo}/commits/([^/]+)/status$`).exec(path);
   if (status) {
-    const states = fake.statuses[status[1]!] ?? [];
-    return { status: 200, body: { state: states.length === 0 ? 'pending' : states[0], total_count: states.length, statuses: states.map((state) => ({ state })) } };
+    const sha = status[1] === fake.defaultBranch ? fake.head : status[1]!;
+    const states = fake.statuses[sha] ?? [];
+    return { status: 200, body: { sha, state: states.length === 0 ? 'pending' : states[0], total_count: states.length, statuses: states.map((state) => ({ state })) } };
   }
   return { status: 404, body: { message: 'Not Found' } };
 }
@@ -197,12 +195,12 @@ function available(ci: Ci): Exclude<Ci, { available: false }> {
 }
 
 const reported = (value: string): State => ({ value, provenance: 'provider_reported' });
-const run = (status: string, conclusion: string | null = null): Check => ({ status, conclusion });
+const run = (status: string, conclusion: string | null = null): Run => ({ status, conclusion });
 
 describe('the ci section on GitHub', () => {
-  it('gives the default branch passing, with its commit, its link and when, every state provider_reported', async () => {
+  it('gives the default branch passing, with its commit and its link, every state provider_reported, and no time, which only Contents access gives', async () => {
     await withForge(async (daemon, fake) => {
-      fake.checks[MAIN_SHA] = [run('completed', 'success'), run('completed', 'skipped')];
+      fake.runs[MAIN_SHA] = [run('completed', 'success'), run('completed', 'skipped')];
       fake.statuses[MAIN_SHA] = ['success'];
       const ci = available((await snapshotOf(daemon, githubProject(fake))).ci);
       assert.deepEqual(ci.forge, { provider: 'github', host: fake.base, repository: REPOSITORY, from: 'tracker' });
@@ -211,14 +209,16 @@ describe('the ci section on GitHub', () => {
         commit: MAIN_SHA,
         state: reported('passing'),
         url: `https://github.com/${REPOSITORY}/commit/${MAIN_SHA}`,
-        at: '2026-10-11T07:00:00Z',
+        at: null,
       });
       assert.deepEqual(ci.requests, { items: [], remainder: 0 });
+      // Neither what GitHub serves to Apps only nor what needs Contents access is asked for.
+      assert.ok(!fake.requests.some((url) => url.pathname.endsWith('/check-runs') || /\/commits\/[^/]+$/.test(url.pathname)), fake.requests.join(' '));
     });
   });
 
-  it('combines check runs and statuses: any failure, cancellation or timeout fails; anything queued or in progress runs; neither is none', async () => {
-    const cases: [Check[], string[], string][] = [
+  it('combines workflow runs and statuses: any failure, cancellation or timeout fails; anything queued, waiting or in progress runs; neither is none', async () => {
+    const cases: [Run[], string[], string][] = [
       [[run('completed', 'success')], ['failure'], 'failing'],
       [[run('completed', 'success')], ['error'], 'failing'],
       [[run('completed', 'cancelled')], ['success'], 'failing'],
@@ -227,17 +227,19 @@ describe('the ci section on GitHub', () => {
       [[run('queued')], ['success'], 'running'],
       [[run('completed', 'success')], ['pending'], 'running'],
       [[run('in_progress')], [], 'running'],
+      [[run('waiting'), run('completed', 'success')], [], 'running'],
+      [[run('completed', 'action_required')], [], 'failing'],
       [[], ['success'], 'passing'],
       [[run('completed', 'skipped')], [], 'passing'],
       [[], [], 'none'],
     ];
     await withForge(async (daemon, fake) => {
       const root = githubProject(fake);
-      for (const [checks, statuses, expected] of cases) {
-        fake.checks[MAIN_SHA] = checks;
+      for (const [runs, statuses, expected] of cases) {
+        fake.runs[MAIN_SHA] = runs;
         fake.statuses[MAIN_SHA] = statuses;
         const ci = available((await snapshotOf(daemon, root)).ci);
-        assert.deepEqual(ci.defaultBranch.state, reported(expected), JSON.stringify({ checks, statuses }));
+        assert.deepEqual(ci.defaultBranch.state, reported(expected), JSON.stringify({ runs, statuses }));
       }
     });
   });
@@ -245,14 +247,14 @@ describe('the ci section on GitHub', () => {
   it('makes a failing default branch ci.failing, and only a failing one', async () => {
     await withForge(async (daemon, fake) => {
       const root = githubProject(fake);
-      fake.checks[MAIN_SHA] = [run('completed', 'failure')];
+      fake.runs[MAIN_SHA] = [run('completed', 'failure')];
       const failing = await snapshotOf(daemon, root);
       const items = failing.attention.filter((item) => item.code === 'ci.failing');
       assert.equal(items.length, 1);
       assert.match(items[0]!.message, /main/);
       assert.ok(items[0]!.message.includes(`https://github.com/${REPOSITORY}/commit/${MAIN_SHA}`));
 
-      fake.checks[MAIN_SHA] = [run('in_progress')];
+      fake.runs[MAIN_SHA] = [run('in_progress')];
       assert.equal((await snapshotOf(daemon, root)).attention.filter((item) => item.code === 'ci.failing').length, 0);
     });
   });
@@ -268,7 +270,7 @@ describe('the ci section on GitHub', () => {
         { number: 8, title: 'Draft', branch: 'spike', sha: 'c'.repeat(40), draft: true },
         ...Array.from({ length: 10 }, (_, index) => ({ number: 20 + index, title: `More ${index}`, branch: `more-${index}`, sha: String(index).repeat(40) })),
       ];
-      fake.checks['b'.repeat(40)] = [run('completed', 'failure')];
+      fake.runs['b'.repeat(40)] = [run('completed', 'failure')];
       fake.statuses['c'.repeat(40)] = ['pending'];
       const ci = available((await snapshotOf(daemon, githubProject(fake))).ci);
       assert.equal(ci.requests.items.length, 10);
@@ -295,14 +297,14 @@ describe('the ci section on GitHub', () => {
       // A failing pull request is no attention item: only the default branch's is.
       assert.equal(ci.defaultBranch.state.value, 'none');
       // The states of the requests left out are not read.
-      assert.ok(!fake.requests.some((url) => url.pathname.includes('8'.repeat(40)) || url.pathname.includes('9'.repeat(40))));
+      assert.ok(!fake.requests.some((url) => url.href.includes('8'.repeat(40)) || url.href.includes('9'.repeat(40))));
     });
   });
 
   it('reads with the token Binnacle holds for the host, which appears in nothing returned, and sends nothing to any other host', async () => {
     await withForge(async (daemon, fake) => {
       process.env.BINNACLE_GITHUB_TOKEN = TOKEN;
-      fake.checks[MAIN_SHA] = [run('completed', 'failure')];
+      fake.runs[MAIN_SHA] = [run('completed', 'failure')];
       fake.pulls = [{ number: 7, title: 'Second step', branch: 'feat/2-second', sha: 'b'.repeat(40) }];
       const snapshot = await snapshotOf(daemon, githubProject(fake));
       available(snapshot.ci);
@@ -335,11 +337,11 @@ describe('the ci section on GitHub', () => {
     await withForge(async (daemon, fake) => {
       const root = githubProject(fake);
       for (const [path, body, missing] of [
-        [`/repos/${REPOSITORY}`, { full_name: REPOSITORY }, /default branch/],
-        [`/repos/${REPOSITORY}/commits/main`, { html_url: 'https://github.com/x' }, /commit/],
-        [`/repos/${REPOSITORY}/commits/main`, { sha: MAIN_SHA }, /link/],
+        [`/repos/${REPOSITORY}`, { full_name: REPOSITORY, html_url: `https://github.com/${REPOSITORY}` }, /default branch/],
+        [`/repos/${REPOSITORY}/commits/main/status`, { state: 'pending', statuses: [] }, /commit of main/],
+        [`/repos/${REPOSITORY}`, { full_name: REPOSITORY, default_branch: 'main' }, /link to the commit of main/],
         // A link the dashboard would bind to href is a web link, or none.
-        [`/repos/${REPOSITORY}/commits/main`, { sha: MAIN_SHA, html_url: 'javascript:alert(1)' }, /link/],
+        [`/repos/${REPOSITORY}`, { full_name: REPOSITORY, default_branch: 'main', html_url: 'javascript:alert(1)' }, /link to the commit of main/],
         [`/repos/${REPOSITORY}/pulls`, [{ number: 7, title: 'T', html_url: 'javascript:alert(1)', head: { ref: 'b', sha: MAIN_SHA } }], /link to pull request #7/],
       ] as const) {
         fake.reply = (url) => (url.pathname === path ? { status: 200, body } : null);
@@ -351,13 +353,12 @@ describe('the ci section on GitHub', () => {
     });
   });
 
-  it('gives no time, rather than one GitHub did not give, when the commit’s date is not a string', async () => {
+  it('says a refusal of the workflow runs is of the workflow runs, the Actions access a token needs', async () => {
     await withForge(async (daemon, fake) => {
-      fake.reply = (url) =>
-        url.pathname === `/repos/${REPOSITORY}/commits/main`
-          ? { status: 200, body: { sha: MAIN_SHA, html_url: `https://github.com/${REPOSITORY}/commit/${MAIN_SHA}`, commit: { committer: { date: 42 } } } }
-          : null;
-      assert.equal(available((await snapshotOf(daemon, githubProject(fake))).ci).defaultBranch.at, null);
+      process.env.BINNACLE_GITHUB_TOKEN = TOKEN;
+      fake.reply = (url) => (url.pathname === `/repos/${REPOSITORY}/actions/runs` ? { status: 403, body: { message: 'Resource not accessible by personal access token' } } : null);
+      const ci = (await snapshotOf(daemon, githubProject(fake))).ci;
+      assert.match((ci as { reason: string }).reason, /no read access to the workflow runs of .*\(403\); a token was used/);
     });
   });
 
@@ -383,7 +384,7 @@ describe('the forge of a project whose tracker is local', () => {
   it('is its GitHub remote, read anonymously, with each pull request mapped to the ticket its branch names', async () => {
     await withForge(async (daemon, fake) => {
       redirect = fake.base;
-      fake.checks[MAIN_SHA] = [run('completed', 'success')];
+      fake.runs[MAIN_SHA] = [run('completed', 'success')];
       fake.pulls = [{ number: 3, title: 'First step', branch: 'feat/first-step', sha: 'b'.repeat(40) }];
       const ci = available((await snapshotOf(daemon, localProject(`https://github.com/${REPOSITORY}.git`))).ci);
       assert.deepEqual(ci.forge, { provider: 'github', host: 'github.com', repository: REPOSITORY, from: 'remote' });
@@ -440,13 +441,13 @@ describe('the vault’s snapshot note', () => {
       redirect = fake.base;
       const vault = temporary('binnacle-ci-vault-');
       writeFileSync(join(daemon.home, 'settings.json'), JSON.stringify({ obsidian: { vaultPath: vault } }), { mode: 0o600 });
-      fake.checks[MAIN_SHA] = [run('completed', 'failure')];
+      fake.runs[MAIN_SHA] = [run('completed', 'failure')];
       fake.pulls = [{ number: 3, title: 'First step', branch: 'feat/first-step', sha: 'b'.repeat(40) }];
       await snapshotOf(daemon, localProject(`https://github.com/${REPOSITORY}.git`));
       const note = readFileSync(join(vault, 'Projects/CI Local/Product/snapshot.md'), 'utf8');
       const expected = [
         '## CI',
-        `\`main\` on GitHub (${REPOSITORY}): failing at \`${MAIN_SHA.slice(0, 7)}\`, 2026-10-11T07:00:00Z (provider reported). https://github.com/${REPOSITORY}/commit/${MAIN_SHA}`,
+        `\`main\` on GitHub (${REPOSITORY}): failing at \`${MAIN_SHA.slice(0, 7)}\` (provider reported). https://github.com/${REPOSITORY}/commit/${MAIN_SHA}`,
         '### Open pull requests',
         `- #3 First step, \`feat/first-step\`, alpha/01: none (provider reported). https://github.com/${REPOSITORY}/pull/3`,
       ].join('\n\n');
@@ -482,7 +483,7 @@ describe('the Task’s request on task_get', () => {
         ...Array.from({ length: 11 }, (_, index) => ({ number: 20 + index, title: `More ${index}`, branch: `more-${index}`, sha: String(index).repeat(40) })),
         { number: 7, title: 'Second step', branch: 'feat/2-second', sha: 'b'.repeat(40), draft: true },
       ];
-      fake.checks['b'.repeat(40)] = [run('completed', 'failure')];
+      fake.runs['b'.repeat(40)] = [run('completed', 'failure')];
       const request = await requestOf(daemon, githubProject(fake), '#2');
       assert.deepEqual(request, {
         forge: { provider: 'github', host: fake.base, repository: REPOSITORY, from: 'tracker' },
@@ -493,7 +494,7 @@ describe('the Task’s request on task_get', () => {
         state: reported('failing'),
         url: `https://github.com/${REPOSITORY}/pull/7`,
       });
-      assert.ok(!fake.requests.some((url) => /\/commits\/[0-9]{40}\//.test(url.pathname)));
+      assert.ok(!fake.requests.some((url) => /[0-9]{40}/.test(url.href)));
     });
   });
 
@@ -543,7 +544,7 @@ describe('the daily’s ci section', () => {
       redirect = fake.base;
       const vault = temporary('binnacle-ci-daily-vault-');
       writeFileSync(join(daemon.home, 'settings.json'), JSON.stringify({ obsidian: { vaultPath: vault } }), { mode: 0o600 });
-      fake.checks[MAIN_SHA] = [run('completed', 'failure')];
+      fake.runs[MAIN_SHA] = [run('completed', 'failure')];
       fake.pulls = [{ number: 3, title: 'First step', branch: 'feat/first-step', sha: 'b'.repeat(40) }];
       const root = localProject(`https://github.com/${REPOSITORY}.git`);
       await daemon.call('project.register', { path: root });

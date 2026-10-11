@@ -115,6 +115,7 @@ export function readGitLabCi(
     {
       repository: project,
       commit: (branch) => `${project}/repository/commits/${encodeURIComponent(branch)}`,
+      commitWhat: 'commits',
       toCommit: (entry) => ({ sha: entry.id, url: entry.web_url, at: typeof entry.committed_date === 'string' ? entry.committed_date : null }),
       requests: `${project}/merge_requests?state=opened&per_page=100`,
       what: 'merge requests',
