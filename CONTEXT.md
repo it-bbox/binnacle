@@ -69,7 +69,7 @@ An AgentRun observed in a session artifact is one unbroken stretch of a session 
 An AgentRun in the reviewer's role: a subagent run on a Task's branch that starts after the branch's first commit changing anything but its ticket. A forge's review leaves no such run, so a Task reviewed on GitHub or GitLab has none. It is Binnacle's calculation.
 
 ### Rework run
-Implementation work on a Task's branch after its first Review run ends, together with the Review runs started before it ended, as reviewers started side by side are; for a Task with no Review run, after the commit that first records its Review; on GitHub or GitLab, after the first review on the Task's pull or merge request that requested changes. It is what a review cost in fixes, and the rework share and first-pass review acceptance are read from it. It is Binnacle's calculation.
+Implementation work on a Task's branch after its first Review run ends; for a Task with no Review run, after the commit that first records its Review; on GitHub or GitLab, after the first review on the Task's pull or merge request that requested changes. It is what a review cost in fixes, and the rework share and first-pass review acceptance are read from it. It is Binnacle's calculation.
 
 ### Unassigned
 Usage attributed to a Project but to no Task, because no branch mapping to a Task can be proven for it. It is a first-class outcome, never a guess.

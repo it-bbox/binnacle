@@ -156,11 +156,9 @@ export type ReviewPoints = { firstChange: number | null; review: number | null }
  * branch maps back to (`branchTask`), none being unassigned. Its role is each of its records':
  * `product` on the default branch, `unknown` on a branch no Task has, and on a Task's branch
  * `review` for a subagent that started after the branch's first commit changing anything but
- * the ticket, `rework` for any other record after the Task's first review ends, or, with none,
- * after its Review commit, and `implementation` otherwise. The first review is its first review
- * subagent's run and every other one that started before it ended, as reviewers started side
- * by side are, and it ends with the last record of any of them. Runs come in the order they
- * started.
+ * the ticket, `rework` for any other record after the last record of the Task's first review
+ * subagent, or, with none, after its Review commit, and `implementation` otherwise. Runs come
+ * in the order they started.
  *
  * A subagent's runs name their parent run: the run of the parent session that had started
  * by the subagent's first record. None does when that session has no run among `records`.
@@ -179,8 +177,8 @@ export function observedRuns<R extends RunRecord, T extends Pick<TrackerTask, 'i
   // Records come session by session in time order, so a subagent's first one is when it started.
   const started = new Map<string, number>();
   const role = new Map<R, RunRole>();
-  // Per Task id, per review subagent, its start and its last record on the Task's branch.
-  const reviewRuns = new Map<string, Map<string, { start: number; end: number }>>();
+  // Per Task id, its first review subagent, its start and its last record on the Task's branch.
+  const firstReview = new Map<string, { subagent: string; start: number; end: number }>();
   for (const record of sorted) {
     const subagent = [record.harness, record.sessionId, record.subagentId ?? ''].join('\0');
     if (!started.has(subagent)) started.set(subagent, Date.parse(record.timestamp));
@@ -191,22 +189,17 @@ export function observedRuns<R extends RunRecord, T extends Pick<TrackerTask, 'i
     else if (task === null) role.set(record, 'unknown');
     else if (record.subagentId !== null && firstChange !== null && start > firstChange) {
       role.set(record, 'review');
-      if (!reviewRuns.has(task.id)) reviewRuns.set(task.id, new Map());
-      reviewRuns.get(task.id)!.set(subagent, { start, end: Date.parse(record.timestamp) });
+      // A subagent's records come together and in time order: its last one is its end.
+      const first = firstReview.get(task.id);
+      const end = Date.parse(record.timestamp);
+      if (first === undefined || start < first.start) firstReview.set(task.id, { subagent, start, end });
+      else if (subagent === first.subagent) first.end = end;
     }
-  }
-  // The first review ends with the last of the review runs started before it ended: reviewers started side by side are one review.
-  const reviewEnd = new Map<string, number>();
-  for (const [id, own] of reviewRuns) {
-    const [first, ...rest] = [...own.values()].sort((a, b) => a.start - b.start);
-    let end = first!.end;
-    for (const run of rest) if (run.start <= end) end = Math.max(end, run.end);
-    reviewEnd.set(id, end);
   }
   for (const record of sorted) {
     if (role.has(record)) continue;
     const id = taskOf(record)!.id;
-    const boundary = reviewEnd.get(id) ?? reviews.get(id)?.review ?? null;
+    const boundary = firstReview.get(id)?.end ?? reviews.get(id)?.review ?? null;
     role.set(record, boundary !== null && Date.parse(record.timestamp) > boundary ? 'rework' : 'implementation');
   }
 

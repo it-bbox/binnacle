@@ -1572,33 +1572,6 @@ describe('Implementation, review and rework', () => {
     });
   }
 
-  it('reads reviewers started side by side as one review, rework starting when the last of them ends', async () => {
-    await withDaemon(async (daemon, artifacts) => {
-      const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
-      ticket(root, 'epic', '01-first.md', 'First');
-      repository(root, at(1, 0), [at(1, 10), 'feat/first']);
-      commitAt(root, at(0, 10), 'work.txt', 'the change\n');
-      commitAt(root, at(0, 40), TICKET, REVIEW);
-      // The first reviewer ends at 16; the second, started before that, at 25, while the implementer's record at 20 waits.
-      session(artifacts, root, 'parent', [...lines(GRILL, at(0, 0), '-before'), ...lines(GRILL, at(0, 20), '-waiting'), ...lines(ABORTED, at(0, 30), '-after')]);
-      subagent(artifacts, root, 'parent', root, [...lines(SUBAGENT, at(0, 14)), ...lines(SUBAGENT, at(0, 16), '-end')]);
-      subagent(artifacts, root, 'second', root, [...lines(SUBAGENT, at(0, 15), '-second'), ...lines(SUBAGENT, at(0, 25), '-second-last')]);
-      await register(daemon, root);
-
-      const task = await usageGet<TaskUsage>(daemon, root, 'epic/01');
-      assert.deepEqual(
-        task.runs.items.map((run) => [run.id, run.role]),
-        [
-          [AFTER, 'rework'],
-          [`${SUBAGENT_RUN}-second`, 'review'],
-          [SUBAGENT_RUN, 'review'],
-          [BEFORE, 'implementation'],
-        ],
-      );
-      assert.deepEqual(task.byRole.rework, ABORTED_TOTALS);
-    });
-  });
-
   it('reads rework after the Review commit for a Task with no review subagent, a subagent started before the first change being implementation', async () => {
     await withDaemon(async (daemon, artifacts) => {
       const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
