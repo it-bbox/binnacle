@@ -18,3 +18,25 @@ And in the documents: *Per ticket* in `docs/workflow/02-development-workflow.md`
 - [ ] No document or skill still tells a ticket to edit the roadmap or to commit its Review before its fixes (a search over the repository finds none outside specs and tickets of past epics).
 - [ ] `AGENTS.md`, the workflow, the roadmap's rules and the issue-tracker conventions say the same rules as autopilot's brief.
 - [ ] The checkpoint skill offers the current focus as a candidate.
+
+## Comments
+
+### Review
+
+`mattpocock-skills:code-review` ran against `main` on both axes, its sub-agents in the foreground. The ticket names no role beyond the Developer and the Reviewer. Neither axis found a hard violation or a missing requirement; the criterion 2 search finds nothing outside the specs.
+
+To fix:
+
+1. **"The one write you make besides a merge"** (`autopilot/SKILL.md`, opening): the upkeep, the worktree removal and the roadmap commit on the owner's yes write too. Fix: the one change to a branch besides a merge is step 8's rebase.
+2. **Whether a conflict sent back spends the one return** (`autopilot/SKILL.md`, step 8; both axes): only a failure after a clean rebase is called the one return, so an agent could come back twice. Fix: sending a branch back for a conflict is that one return too, as before.
+3. **The brief no longer asks to mark findings** (`autopilot/SKILL.md`, step 6): it says "fix or keep each", while the workflow and step 8 read each finding fixed, kept or left. Fix: the brief asks to mark each one so.
+4. **"Nothing is left to edit afterwards"** (`02-development-workflow.md`, step 4): the current focus now lags until a Product session or a checkpoint. Fix: say nothing is left for the merge to edit, and who catches the focus up.
+5. **Duplicated reader in the test** (`pack.test.ts`): the new `doc` helper repeats the README reader and `workflowText`. Fix: one `docText` beside `workflowText`, used by all three.
+
+Kept:
+
+6. The short-Review and commit wording repeats in `AGENTS.md`, the workflow, the conventions and the brief: each reader reads its own document, and the test pins them alike (criterion 3).
+7. The conventions say `/to-tickets` writes the browser criterion only for dashboard tickets: the spec's story 27 asks the conventions to say so.
+8. The checkpoint also offers the epic's status: the roadmap's rule has the checkpoint write it.
+9. The workflow's paragraph on parallel branches says autopilot rebases itself: that paragraph says who rebases.
+10. `CLAUDE.md`'s line is rewritten, not removed: it holds the durable rule that a ticket touches nothing in the roadmap.
