@@ -16,6 +16,16 @@ Specs and issues for this repo live in Git under `docs/specs/`, not in `.scratch
 - Comments and conversation history append to the bottom of the file under a `## Comments` heading
 - The Task's Review goes under a `### Review` heading inside `## Comments`, and runs to the next heading of that level or above, so its own sub-headings are `####`. Binnacle reads it there, and a `DONE` ticket without one is the attention item `review.missing`, unless its `Triage:` is `ready-for-human`: the owner's own work, such as a demonstration, has no review
 - A question only the owner can answer goes under a `### Question` heading inside `## Comments`, in a commit that changes only the ticket, on the branch where the work is; the owner's reply goes right after it under `### Answer`, written by the owner or `/binnacle:answer`, never by an agent. Binnacle reads them from the Task's branch while it is unmerged (`ADR-0040`)
+- After its text, a question lists its options, each with its cost, the recommended one first and marked "(recommended)"; the owner chooses one or writes their own answer. The options are part of the question's text: the asker writes them, and only the owner answers. `/binnacle:answer` writes the date above the answer, `YYYY-MM-DD` on a line of its own, and Binnacle reads the answer without it. For example:
+
+  ```text
+  ### Question
+
+  Which store should the cache use?
+
+  - SQLite (recommended): one file and no server; slower when many processes write at once.
+  - PostgreSQL: fast under many writers; a server to install, run and back up.
+  ```
 
 `.scratch/` keeps only genuinely disposable working material: intermediate output, throwaway experiments, anything nobody needs after the task closes.
 
@@ -60,4 +70,4 @@ Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
 
 ## Projects using a remote tracker
 
-In a project whose tracker is GitHub or GitLab, tickets are issues there and only the spec stays in Git. Each issue body starts with the same ticket header as a local ticket — `Status:`, `Blocked by:` with issue numbers, `Spec:` and, optionally, `Roles:` — and closing the issue outranks its `Status:` line (`ADR-0024`). A question and its answer are issue comments that start with `### Question` and `### Answer`. Binnacle reads that tracker and never writes to it (`ADR-0013`). The roadmap stays in `docs/roadmap.md` (`ADR-0025`).
+In a project whose tracker is GitHub or GitLab, tickets are issues there and only the spec stays in Git. Each issue body starts with the same ticket header as a local ticket — `Status:`, `Blocked by:` with issue numbers, `Spec:` and, optionally, `Roles:` — and closing the issue outranks its `Status:` line (`ADR-0024`). A question and its answer are issue comments that start with `### Question` and `### Answer`, the question with its options as in a ticket. Binnacle reads that tracker and never writes to it (`ADR-0013`). The roadmap stays in `docs/roadmap.md` (`ADR-0025`).

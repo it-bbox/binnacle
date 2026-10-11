@@ -499,6 +499,32 @@ describe('questions and answers', () => {
     });
   });
 
+  it('reads an answer without the date line `/binnacle:answer` writes above it, and a question with its options whole, on the Task’s branch', async () => {
+    await withDaemon(async (daemon) => {
+      const root = repository();
+      const options = 'Which store?\n\n- SQLite (recommended): one file, no server; slower under many writers.\n- PostgreSQL: a server to run and back up.';
+      branch(
+        root,
+        asked(
+          'ACTIVE',
+          ...['### Question', '', options, '### Answer', '', '2026-10-11', '', 'SQLite.'],
+          ...['### Question', '', 'And the port?', '### Answer', '', 'Any free one.'],
+          ...['### Question', '', 'And when?', '### Answer', '', '2026-10-12 at the earliest.'],
+          ...['### Question', '', 'And the host?', '### Answer', '', '2026-10-11'],
+        ),
+      );
+      assert.deepEqual((await taskGet(daemon, root, 'epic/01')).body.questions, {
+        branch: 'feat/asked',
+        items: [
+          { text: options, answer: 'SQLite.' },
+          { text: 'And the port?', answer: 'Any free one.' },
+          { text: 'And when?', answer: '2026-10-12 at the earliest.' },
+          { text: 'And the host?', answer: null },
+        ],
+      });
+    });
+  });
+
   it('takes the default branch from `origin/HEAD` when there is one', async () => {
     await withDaemon(async (daemon) => {
       const root = repository();

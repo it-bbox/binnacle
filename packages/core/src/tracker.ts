@@ -113,7 +113,10 @@ export type TrackerTask = {
   roles: Role[] | null;
 };
 
-/** A question recorded in a ticket, with its answer's text, or null while it is unanswered. */
+/**
+ * A question recorded in a ticket, its options part of its text, with its answer's text, without a
+ * first line that is a date alone, or null while it is unanswered.
+ */
 export type Question = { text: string; answer: string | null };
 
 /** `tasks` is null when the tracker cannot be read at all; a diagnostic then says why. */

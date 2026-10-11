@@ -1119,6 +1119,14 @@ describe('questions and answers from GitHub issue comments', () => {
     });
   });
 
+  it('reads a question’s options as part of its text, and an answer without a date line alone above it', async () => {
+    await withGitHub([[issue(1, 'Asked', { body: header({ Status: 'READY' }) })]], async (daemon, fake) => {
+      const options = 'Which database?\n\n- SQLite (recommended): one file, no server.\n- PostgreSQL: a server to run.';
+      fake.comments = [[comment(1, `### Question\n\n${options}\n`), comment(1, '### Answer\n\n2026-10-11\n\nSQLite.')]];
+      assert.deepEqual(await questions(daemon, makeProject(manifest(fake.base)), '#1'), { branch: null, items: [{ text: options, answer: 'SQLite.' }] });
+    });
+  });
+
   const failures: [string, Reply, RegExp][] = [
     ['a token refused', { status: 401, body: { message: 'Bad credentials' } }, /refused the request .*\(401\); a token was used\.$/],
     ['no read access', { status: 403, body: { message: 'Resource not accessible' } }, /gave no read access to the comments of .*\(403\)/],

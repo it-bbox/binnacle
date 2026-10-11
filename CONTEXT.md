@@ -102,10 +102,10 @@ A Task in flight by its state (`ACTIVE`, `BLOCKED`, `READY_FOR_REVIEW`, `APPROVE
 One review of a Task's work: its findings, and what was fixed or kept. It is recorded in the ticket, under a `### Review` heading.
 
 ### Question
-A question about a Task that only the owner can answer, recorded in its ticket under a `### Question` heading in `## Comments`, or as an issue comment that starts with one. It is unanswered until an Answer follows it. On the local tracker it is read from the Task's branch while that branch is unmerged, since the session that asks works there (ADR-0040).
+A question about a Task that only the owner can answer, recorded in its ticket under a `### Question` heading in `## Comments`, or as an issue comment that starts with one. After its text it lists its options, each with its cost, the recommended one first; the asker writes them. It is unanswered until an Answer follows it. On the local tracker it is read from the Task's branch while that branch is unmerged, since the session that asks works there (ADR-0040).
 
 ### Answer
-The owner's reply to a Question, recorded right after it under a `### Answer` heading, or as the next issue comment that starts with one. A human writes it, from the chat through `/binnacle:answer` or by hand; an agent never does.
+The owner's reply to a Question, one of its options or the owner's own words, recorded right after it under a `### Answer` heading, or as the next issue comment that starts with one. A human writes it, from the chat through `/binnacle:answer` or by hand; an agent never does.
 
 ### Waiting for the owner
 What only the owner can move: the unanswered Questions, the Tasks waiting for an approval — `READY_FOR_REVIEW`, which the owner moves to `APPROVED` or back — and the `ready-for-human` Tasks ready to start. An approval is a status change the owner makes, never Binnacle.

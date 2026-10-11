@@ -127,6 +127,9 @@ test('the skills copy has one binnacle-<action> folder per plugin skill, renamed
   const answer = readFileSync(join(target, 'binnacle-answer', 'SKILL.md'), 'utf8');
   assert.match(answer, /`binnacle-autopilot <epic>`/);
   assert.match(answer, /Only a human starts this skill/);
+  // Epic 18: and shows a question's options in the owner's language, never choosing one.
+  assert.match(answer, /in the human's language/);
+  assert.match(answer, /never choose one/);
 
   const help = readFileSync(join(target, 'binnacle-help', 'SKILL.md'), 'utf8');
   const named = new Set([...help.matchAll(/`(binnacle-[a-z-]+)`/g)].map(([, name]) => name));
@@ -445,6 +448,21 @@ test('/binnacle:answer lists the open questions or the named Task\'s, and writes
   // Never pushes.
   assert.match(skill, /Never push/);
   assert.doesNotMatch(skill, /`git push/);
+});
+
+/** Epic 18: the owner chooses among a question's options rather than composing an answer, and the skill never chooses. */
+test('/binnacle:answer shows a question and its options in the owner\'s language, explains them on request, and never chooses one', () => {
+  const skill = skillText('answer');
+  const show = step(skill, 4);
+  assert.match(show, /its text and its options, in the human's language/);
+  assert.match(show, /the recommended one first, as the question marks it/);
+  assert.match(show, /When the human asks about the options, explain them: what each costs and what it leads to/);
+  assert.match(show, /never choose one, recommend one of your own, or take the recommended one as the answer unless the human chooses it/);
+  assert.match(show, /the option the human chooses, as the question words it, or the human's own words/);
+  // The question's text is translated to be shown; the answer written stays as given.
+  assert.match(skill, /the human's own words, as given: never write, complete, reword or translate it/);
+  // The date line stays, and Binnacle reads the answer without it.
+  assert.match(step(skill, 6), /today's date as `YYYY-MM-DD` on a line of its own, a blank line, and the answer/);
 });
 
 /** Epic 11: the answer ends by saying how the work resumes. */

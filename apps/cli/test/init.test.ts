@@ -609,6 +609,8 @@ test('the ticket-header section is appended to the issue tracker file once, and 
   assert.match(section, /^Roles: Developer, Reviewer, Security$/m);
   assert.match(section, /`### Question` heading inside `## Comments`, in a commit that changes only the ticket, on the branch where the work is/);
   assert.match(section, /under `### Answer`, written by the owner or `\/binnacle:answer`, never by an agent/);
+  assert.match(section, /After its text, a question lists its options, each with its cost, the recommended one first and marked "\(recommended\)"/);
+  assert.match(section, /the owner chooses one or writes their own answer/);
   // The exact addition is shown before the question.
   assert.ok(first.stdout.includes(section.trim()), first.stdout);
   assert.match(first.stdout, /extended\s+docs\/agents\/issue-tracker\.md/);
@@ -676,6 +678,7 @@ test('a readable remote tracker is reported readable, and its section says issue
   assert.match(section, /closed as not planned or as a duplicate is cancelled/);
   assert.match(section, /`Roles:` — the roles the Task needs/);
   assert.match(section, /issue comments that start with `### Question` and `### Answer`/);
+  assert.match(section, /After its text, a question lists its options, each with its cost, the recommended one first and marked "\(recommended\)"/);
   assert.doesNotMatch(section, /## Comments/);
   // A remote Task's branch carries its issue number, so its title need not be unique.
   assert.doesNotMatch(section, /slug, its file name/);

@@ -133,6 +133,36 @@ describe('waiting for the owner', () => {
     });
   });
 
+  it('lists a question with its options whole, and reads an answer as given without its date line, a date alone answering nothing', async () => {
+    await withDaemon(async (daemon) => {
+      const root = repository({ '01-asked.md': ticket('01: Asked', ['Status: READY']) });
+      const options = 'Which store?\n\n- SQLite (recommended): one file, no server.\n- PostgreSQL: a server to run.';
+      branch(
+        root,
+        'asked',
+        '01-asked.md',
+        ticket(
+          '01: Asked',
+          ['Status: ACTIVE'],
+          ...['### Question', '', 'And the port?', '### Answer', '', '2026-10-11', '', 'Any free one.'],
+          ...['### Question', '', 'And when?', '### Answer', '', '2026-10-12 at the earliest.'],
+          ...['### Question', '', 'And the host?', '### Answer', '', '2026-10-11'],
+          ...['### Question', '', options],
+        ),
+      );
+      const body = await snapshot(daemon, root);
+      assert.deepEqual(pending(body).questions, {
+        items: [
+          { id: 'epic/01', title: 'Asked', ticket: path('01-asked.md'), question: 'And the host?', branch: 'feat/asked' },
+          { id: 'epic/01', title: 'Asked', ticket: path('01-asked.md'), question: options, branch: 'feat/asked' },
+        ],
+        remainder: 0,
+      });
+      const task = [...body.tasks!.inFlight.items, ...body.tasks!.readyToStart.items].find((item) => item.id === 'epic/01');
+      assert.deepEqual(task?.questions, { asked: 4, unanswered: 2 });
+    });
+  });
+
   it('reads a question from the checkout once its branch is merged', async () => {
     await withDaemon(async (daemon) => {
       const root = repository({ '01-asked.md': ticket('01: Asked', ['Status: READY']) });

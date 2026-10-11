@@ -84,7 +84,8 @@ const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 /**
  * What the ticket's `## Comments` record. The Review: the text under the first `### Review`;
  * null when there is none, or it is empty. The questions (ADR-0040): each `### Question`, with
- * the text of the first non-empty `### Answer` after it and before the next Question, or null; an Answer
+ * the text of the first non-empty `### Answer` after it and before the next Question
+ * (`addQuestionOrAnswer`), or null; an Answer
  * with no Question before it is left out. Each section runs to the next heading of level three or
  * above, and its text is without the blank lines around it. A line inside a code fence is never a
  * heading: a fence closes only with a run of its own character at least as long as the one that
@@ -124,12 +125,16 @@ export function ticketComments(text: string): { review: string | null; questions
 /** A section's text without the blank lines around it. */
 export const sectionText = (text: string): string => text.replace(/^(?:[ \t]*\n)+/, '').trimEnd();
 
+/** A first line that is a date alone, as `/binnacle:answer` writes above the owner's answer. */
+const DATE_LINE = /^\d{4}-\d{2}-\d{2}[ \t]*(?:\n|$)/;
+
 /**
- * Adds a section to `questions`, in order: a Question, or an Answer to the last Question while it
- * has none. An empty Answer answers nothing, and an Answer with no Question before it is left out.
+ * Adds a section to `questions`, in order: a Question, its options part of its text, or an Answer
+ * to the last Question while it has none, without a first line that is a date alone. An empty
+ * Answer, or one that is a date alone, answers nothing, and an Answer with no Question before it is left out.
  */
 export function addQuestionOrAnswer(questions: Question[], kind: 'Question' | 'Answer', text: string): void {
   const last = questions.at(-1);
   if (kind === 'Question') questions.push({ text, answer: null });
-  else if (last !== undefined && last.answer === null) last.answer = text || null;
+  else if (last !== undefined && last.answer === null) last.answer = sectionText(text.replace(DATE_LINE, '')) || null;
 }
