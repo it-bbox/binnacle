@@ -17,3 +17,9 @@ Roles: Developer, Reviewer, Security
 ### Question
 
 Should the daemon pass `--allow-dedup-shrink` on every extraction, or try without it first and pass it only when graphify refuses a shrinking graph? Always passing it is one constant and one run; retrying keeps graphify's guard for a shrink that dedup did not cause, at the cost of a second run and of matching graphify's refusal text.
+
+### Answer
+
+2026-10-11
+
+Always pass the flag
