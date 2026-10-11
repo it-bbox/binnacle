@@ -25,7 +25,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 13 | Human output | not started | — |
 | 14 | Skills in any harness | done | [`skills-in-any-harness`](specs/skills-in-any-harness/spec.md) |
 | 15 | Daemon autostart | not started | — |
-| 16 | Dashboard redesign | not started | — |
+| 16 | Dashboard redesign | spec | [`dashboard-redesign`](specs/dashboard-redesign/spec.md) |
 | 17 | Release: npm and open source | not started | — |
 | 18 | Lean flow | done | [`lean-flow`](specs/lean-flow/spec.md) |
 

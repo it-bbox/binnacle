@@ -37,6 +37,9 @@ Binnacle's own reading of what comes next, computed from the Tasks, their AgentR
 ### Conflict risk
 Binnacle's calculation, from the Graphify graph, of how likely two ready or in-flight Tasks are to collide if run together: high when they touch a module in common, medium when their modules are neighbours in the graph, low otherwise, and unknown when either touches no module of the graph — never guessed low. A module is a file of the graph. A Task on a branch touches what its branch changed; one without, what its ticket names. The Suggested step offers a second Task in parallel only at low risk, and autopilot starts two Tasks together only at low risk, running any other pair one after the other; Binnacle itself blocks nothing.
 
+### Parallel limit
+How many Tasks autopilot works on at once: a number, or *auto*, which runs side by side every Task whose pairs are all at low Conflict risk, up to four, and one at a time when the risk cannot be assessed. A property of the machine, 2 unless set; a project's manifest may set its own, which wins for that project (ADR-0041).
+
 ### Vault projection
 The daemon's one-way rendering of a project's Project Brain into the owner's Obsidian vault, under `Projects/<Project>/`, from the default branch as committed, with the last snapshot and daily served and Graphify's report beside it (ADR-0036). The vault is a per-machine setting, never committed. Every note it writes is marked as generated, with its source file and commit, and it writes, rewrites and deletes only notes so marked; a note the human wrote is never touched, and an edit to a generated note is overwritten, never synced back. It is derived: deleting it loses nothing.
 
