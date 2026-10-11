@@ -37,11 +37,13 @@ Epics 1 to 11, 14 and 18 are done. On 2026-10-10 the owner set a date: on the ev
 
 Four epics were added for it. 15, Daemon autostart: `binn init` sets the daemon up to start at login, narrowing ADR-0016's manual step. 16, Dashboard redesign with the Impeccable and UI UX Pro Max skills: it reads too small and too crowded. 17, Release: npm and open source: the build step (`ADR-0031`), the README's install from npm, the repository public under Apache-2.0 (`ADR-0010`). 18, Lean flow: the per-ticket rituals that cost autopilot tokens and time, and a flaky test of epic 11's run (`docs/05-mvp-plan.md`).
 
-Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own. The owner's order: 11; 18, so that every later run is cheaper (2026-10-11); 16 with the owner watching, beside 15 and 12; 13, which rewrites every skill's output; 17, which publishes the rest, last.
+Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own. The owner's order: 11; 18, so that every later run is cheaper (2026-10-11); 16 by autopilot, the owner judging at its exit demonstration (2026-10-11), beside 15 and 12; 13, which rewrites every skill's output; 17, which publishes the rest, last.
 
 Epic 11 is done (ADR-0040): autopilot merged 01 to 11, then 13, GitHub's CI read from Actions runs and commit statuses, and 14, graphify's flag; the owner ran its exit demonstration (12) on 2026-10-11, on ticket 14. Ticket 14's last criterion, a merge that shrinks the graph, waits for one.
 
 Epic 18 is done: rework read from runs, questions with options, the audit test without its race and the lean per-ticket process; the owner ran its exit demonstration (05) on 2026-10-11. Whether the flow got cheaper is read after epic 16's autopilot run.
+
+Epic 16 is specified and sliced (ADR-0041): 01, the type scale, can start; 09 is the owner's exit demonstration.
 
 Next action: run epic 16, Dashboard redesign, with autopilot; the owner demonstrates its exit in ticket 09. `/binnacle:autopilot`
 
