@@ -43,7 +43,7 @@ Epic 11 is done (ADR-0040): autopilot merged 01 to 11, then 13, GitHub's CI read
 
 Epic 18 is under way: 01, rework read from runs, 02, questions with options, 03, the audit test without its race, and 04, the lean per-ticket process, are done; 05, the exit demonstration, can start.
 
-Next action: run epic 18, Lean flow, with autopilot; its exit demonstration (05) is the owner's. `/binnacle:autopilot 18`
+Next action: run epic 18's exit demonstration (05) on this repository: the usage page and `usage_get` showing epic 11's review and rework read from runs, a question with options answered in Russian through `/binnacle:answer`, and `pnpm test` passing several times in a row. `/mattpocock-skills:implement docs/specs/lean-flow/issues/05-lean-flow-exit-demonstration.md`
 
 ## Later
 
