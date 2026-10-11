@@ -275,7 +275,7 @@ function outputTokens(totals: Totals): string {
                 <p v-else class="px-3.5 py-4 text-muted">{{ t.nothing }}</p>
               </template>
               <ul class="divide-y divide-default">
-                <FoldedList :items="snapshot.tasks.readyToStart.items">
+                <FoldedList :items="snapshot.tasks.readyToStart.items" :by="(task) => task.id">
                   <template #default="{ item: task }">
                     <li class="flex flex-col gap-2 px-3.5 py-3">
                       <div class="flex min-w-0 flex-col gap-0.5">
@@ -287,7 +287,7 @@ function outputTokens(totals: Totals): string {
                   </template>
                 </FoldedList>
                 <li v-if="snapshot.tasks.readyToStart.remainder > 0" class="px-3.5 py-2.5 text-muted">{{ t.more(number(snapshot.tasks.readyToStart.remainder)) }}</li>
-                <FoldedList v-if="full" :items="waiting">
+                <FoldedList v-if="full" :items="waiting" :by="(card) => card.id">
                   <template #default="{ item: card }">
                     <li class="flex items-start gap-2.5 px-3.5 py-3 opacity-55">
                       <div class="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -318,7 +318,7 @@ function outputTokens(totals: Totals): string {
               </p>
               <p v-else-if="snapshot.activity.running.items.length === 0" class="px-3.5 py-4 text-muted">{{ t.nothing }}</p>
               <ul v-else class="divide-y divide-default">
-                <FoldedList :items="snapshot.activity.running.items">
+                <FoldedList :items="snapshot.activity.running.items" :by="(run) => run.id">
                   <template #default="{ item: run }">
                     <li class="flex flex-col gap-1 px-3.5 py-2.5">
                       <div class="flex min-w-0 items-center gap-2">

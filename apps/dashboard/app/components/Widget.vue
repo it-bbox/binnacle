@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useLanguage } from '~/composables/language';
-import { readLevel, storeLevel, type Level } from '~/widget';
+import { LEVELS, readLevel, storeLevel, type Level } from '~/widget';
 
 /**
  * The shared widget frame (spec, *A widget with two levels*): a panel with its title and the
@@ -11,7 +11,6 @@ import { readLevel, storeLevel, type Level } from '~/widget';
 const props = defineProps<{ page: string; widget: string; title?: string }>();
 const { t } = useLanguage();
 
-const LEVELS = ['brief', 'full'] as const;
 const level = ref<Level>(readLevel(props.page, props.widget));
 const choose = (value: Level): void => {
   level.value = value;

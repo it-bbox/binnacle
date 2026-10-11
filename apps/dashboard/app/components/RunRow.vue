@@ -2,7 +2,7 @@
 import { useLanguage } from '~/composables/language';
 import { projectName, type ProjectView, type Run } from '~/composables/projects';
 
-/** A run on the Attention page: its Task or role and its latest activity, and in *Full* its project, who ran it and where. */
+/** A run on the Attention page: its Task or role, its project and its latest activity, and in *Full* who ran it and where. */
 const props = defineProps<{ view: ProjectView; run: Run; live: boolean; full: boolean }>();
 const { t, since } = useLanguage();
 
@@ -29,8 +29,8 @@ const meta = computed(() =>
         <span class="flex-none text-sm whitespace-nowrap text-muted">{{ since(run.lastActivityAt) }}</span>
       </div>
       <span v-if="run.taskId !== null && run.taskTitle !== null" class="truncate" lang="en">{{ run.taskTitle }}</span>
-      <div v-if="full" class="text-xs text-dimmed">
-        <span class="text-muted">{{ projectName(view.project) }}</span> · <span class="font-mono break-all">{{ meta }}</span>
+      <div class="text-xs text-dimmed">
+        <span class="text-muted">{{ projectName(view.project) }}</span><template v-if="full"> · <span class="font-mono break-all">{{ meta }}</span></template>
       </div>
     </div>
   </li>

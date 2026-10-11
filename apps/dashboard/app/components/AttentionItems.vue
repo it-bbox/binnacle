@@ -8,7 +8,7 @@ defineProps<{ items: Failure[]; full: boolean }>();
 
 <template>
   <ul class="divide-y divide-default">
-    <FoldedList :items="items" :limit="full ? LIST_FOLD : BRIEF_ROWS">
+    <FoldedList :items="items" :by="(item) => item.code + item.message" :limit="full ? LIST_FOLD : BRIEF_ROWS">
       <template #default="{ item }">
         <li class="flex items-start gap-2 px-3.5 py-2.5">
           <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 flex-none text-(--warn)" />

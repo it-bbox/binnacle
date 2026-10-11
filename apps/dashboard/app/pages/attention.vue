@@ -72,7 +72,7 @@ const overview = (view: ProjectView) => ({ path: '/', query: { project: view.pro
           <template #default="{ full }">
             <p v-if="running.length === 0 && unread.length === 0" class="px-3.5 py-3 text-muted">{{ t.nothing }}</p>
             <ul class="divide-y divide-default">
-              <FoldedList :items="running">
+              <FoldedList :items="running" :by="({ view, run }) => view.project.path + run.id">
                 <template #default="{ item: { view, run } }">
                   <RunRow :view="view" :run="run" live :full="full" />
                 </template>
@@ -93,7 +93,7 @@ const overview = (view: ProjectView) => ({ path: '/', query: { project: view.pro
           <template #default="{ full }">
             <p v-if="recent.length === 0" class="px-3.5 py-3 text-muted">{{ t.nothing }}</p>
             <ul v-else class="divide-y divide-default">
-              <FoldedList :items="recent">
+              <FoldedList :items="recent" :by="({ view, run }) => view.project.path + run.id">
                 <template #default="{ item: { view, run } }">
                   <RunRow :view="view" :run="run" :live="false" :full="full" />
                 </template>

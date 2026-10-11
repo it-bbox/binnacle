@@ -3,7 +3,8 @@
  * shows its essentials, *Full* everything it has. Kept in the browser per page and widget, and
  * *Brief* when nothing is stored or the storage refuses. Free of Nuxt, for the tests.
  */
-export type Level = 'brief' | 'full';
+export const LEVELS = ['brief', 'full'] as const;
+export type Level = (typeof LEVELS)[number];
 
 /** A list folds after this many rows (a text after six lines, `FoldedText.vue`), and unfolds in place. */
 export const LIST_FOLD = 6;
