@@ -30,7 +30,12 @@ const usage = usePolling(async () =>
 );
 watch(scope, () => {
   usage.data.value = null;
+  usage.error.value = null;
   void usage.refresh();
+});
+// An epic the roadmap no longer lists with a spec falls back to the whole project, rather than being refused on every poll.
+watch(epics, (listed) => {
+  if (epic.value !== null && !listed.some((row) => row.number === epic.value)) scope.value = 'project';
 });
 
 /** CONTEXT.md's names for the harness support levels, the same in both languages. */

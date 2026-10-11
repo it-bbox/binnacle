@@ -374,10 +374,10 @@ const runUsage = ({ records, projectPath: _project, ...run }: ObservedRun & { re
   contextPressure: pressureOf(records[0]!),
 });
 
-/** `usage.get` without a Task: the project's totals over everything ingested, by Task and unassigned, by role, and derived. */
 /**
- * `usage.get` without a Task: the project's, or with `epic` only its Tasks' runs, those of the spec
- * the roadmap names for it, every per-Task list whole, with no remainder, and nothing unassigned.
+ * `usage.get` without a Task: the project's totals over everything ingested, by Task and unassigned,
+ * by role, and derived. With `epic`, the same over its Tasks' runs only, those of the spec the
+ * roadmap names for it, so none is unassigned, and every per-Task list is whole, with no remainder.
  */
 export type ProjectUsage = Pick<Usage, 'importing' | 'tasks' | 'unassigned' | 'byRole'> & { epic: Epic | null; totals: Totals; derived: Derived };
 
@@ -513,11 +513,11 @@ export async function usageGet(
   const { runs: every, reworkUnread, reviewed } = await runs(records, projectPath, tasks, context.home, manifest, checkouts);
   if (!found) {
     // Runs are attributed against every Task first, so that an epic's are the ones they are in the project's.
-    const own = epic === null ? null : new Set(tasks.filter((task) => task.specSlug === epic.spec).map((task) => task.id));
-    const attributed = own === null ? every : every.filter((run) => run.taskId !== null && own.has(run.taskId));
-    const scoped = own === null ? tasks : tasks.filter((task) => own.has(task.id));
-    const counted = own === null ? records : attributed.flatMap((run) => run.records);
-    const limit = own === null ? SECTION_LIMIT : Infinity;
+    const epicTasks = epic === null ? null : new Set(tasks.filter((task) => task.specSlug === epic.spec).map((task) => task.id));
+    const attributed = epicTasks === null ? every : every.filter((run) => run.taskId !== null && epicTasks.has(run.taskId));
+    const scoped = epicTasks === null ? tasks : tasks.filter((task) => epicTasks.has(task.id));
+    const counted = epicTasks === null ? records : attributed.flatMap((run) => run.records);
+    const limit = epicTasks === null ? SECTION_LIMIT : Infinity;
     const derived = {
       ...(await perTask(projectPath, manifest?.tracker?.provider !== 'local', attributed, scoped, reworkUnread, reviewed, limit)),
       weekly: weekly(counted),
