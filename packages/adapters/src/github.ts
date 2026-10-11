@@ -124,6 +124,8 @@ function commitState(runs: WorkflowRun[], statuses: { state?: string }[]): CiSta
  * which needs Contents access. The default branch's commit is the one its combined status
  * names, its link the repository's page, and when it was made is not known.
  * ponytail: one page of 100 workflow runs per commit; follow the pages once a commit has more.
+ * ponytail: every run of the commit counts, so a workflow started anew by another event keeps its
+ * earlier run's failure; keep the latest run of each workflow once that is seen.
  */
 export async function readGitHubCi(
   repository: string,
@@ -155,7 +157,7 @@ export async function readGitHubCi(
       commitWhat: 'statuses',
       toCommit: (entry, repository) => ({
         sha: entry.sha,
-        url: typeof repository.html_url === 'string' && typeof entry.sha === 'string' ? `${repository.html_url}/commit/${entry.sha}` : undefined,
+        url: typeof repository.html_url === 'string' ? `${repository.html_url}/commit/${String(entry.sha)}` : undefined,
         at: null,
       }),
       requests: `${repo}/pulls?state=open&per_page=100`,
