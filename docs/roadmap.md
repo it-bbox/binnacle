@@ -27,13 +27,13 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 15 | Daemon autostart | not started | — |
 | 16 | Dashboard redesign | not started | — |
 | 17 | Release: npm and open source | not started | — |
-| 18 | Lean flow | in progress | [`lean-flow`](specs/lean-flow/spec.md) |
+| 18 | Lean flow | done | [`lean-flow`](specs/lean-flow/spec.md) |
 
 Epics are ordered by dependency, not by preference. Epic 1 is the foundation; epics 5 to 7 are only meaningful once 1 to 4 exist. Audit and adopt is epic 6 in the specs of epics 1 to 3, written before epic 6 was inserted on 2026-09-26. Epic 14 was added on 2026-10-06 and comes before epic 10, which reuses its list of harnesses.
 
 ## Current focus
 
-Epics 1 to 11 and 14 are done. On 2026-10-10 the owner set a date: on the evening of 2026-10-13 a video presents Binnacle, published to npm and open source, with every remaining v1 epic in it, 11, 12 and 13 included.
+Epics 1 to 11, 14 and 18 are done. On 2026-10-10 the owner set a date: on the evening of 2026-10-13 a video presents Binnacle, published to npm and open source, with every remaining v1 epic in it, 11, 12 and 13 included.
 
 Four epics were added for it. 15, Daemon autostart: `binn init` sets the daemon up to start at login, narrowing ADR-0016's manual step. 16, Dashboard redesign with the Impeccable and UI UX Pro Max skills: it reads too small and too crowded. 17, Release: npm and open source: the build step (`ADR-0031`), the README's install from npm, the repository public under Apache-2.0 (`ADR-0010`). 18, Lean flow: the per-ticket rituals that cost autopilot tokens and time, and a flaky test of epic 11's run (`docs/05-mvp-plan.md`).
 
@@ -41,9 +41,9 @@ Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then au
 
 Epic 11 is done (ADR-0040): autopilot merged 01 to 11, then 13, GitHub's CI read from Actions runs and commit statuses, and 14, graphify's flag; the owner ran its exit demonstration (12) on 2026-10-11, on ticket 14. Ticket 14's last criterion, a merge that shrinks the graph, waits for one.
 
-Epic 18 is under way: 01, rework read from runs, 02, questions with options, 03, the audit test without its race, and 04, the lean per-ticket process, are done; 05, the exit demonstration, can start.
+Epic 18 is done: rework read from runs, questions with options, the audit test without its race and the lean per-ticket process; the owner ran its exit demonstration (05) on 2026-10-11. Whether the flow got cheaper is read after epic 16's autopilot run.
 
-Next action: run epic 18's exit demonstration (05) on this repository: the usage page and `usage_get` showing epic 11's review and rework read from runs, a question with options answered in Russian through `/binnacle:answer`, and `pnpm test` passing several times in a row. `/mattpocock-skills:implement docs/specs/lean-flow/issues/05-lean-flow-exit-demonstration.md`
+Next action: grill epic 16, Dashboard redesign, with the owner watching; ticket lean-flow/05 records what the owner found unreadable. `/mattpocock-skills:grill-with-docs`
 
 ## Later
 
