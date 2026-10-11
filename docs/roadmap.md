@@ -33,13 +33,13 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 ## Current focus
 
-Epics 1 to 10 and 14 are done. On 2026-10-10 the owner set a date: on the evening of 2026-10-13 a video presents Binnacle, published to npm and open source, and every remaining v1 epic is in it, 11, 12 and 13 included, not left for after the release.
+Epics 1 to 10 and 14 are done. On 2026-10-10 the owner set a date: on the evening of 2026-10-13 a video presents Binnacle, published to npm and open source, with every remaining v1 epic in it, 11, 12 and 13 included.
 
-Three epics were added for it. 15, Daemon autostart: `binn init` sets the daemon up to start at login, which narrows ADR-0016's documented manual step (`docs/product-inbox.md`). 16, Dashboard redesign: the dashboard reads too small and too crowded, so it is redesigned with the Impeccable and UI UX Pro Max skills. 17, Release: npm and open source, which takes publishing `@binnacle/cli` out of *Later*: the build step that turns its TypeScript into JavaScript with the dashboard generated into it (`ADR-0031`), the README's install from npm, and the repository made public under Apache-2.0 (`ADR-0010`).
+Four epics were added for it. 15, Daemon autostart: `binn init` sets the daemon up to start at login, narrowing ADR-0016's manual step. 16, Dashboard redesign with the Impeccable and UI UX Pro Max skills: it reads too small and too crowded. 17, Release: npm and open source: the build step (`ADR-0031`), the README's install from npm, the repository public under Apache-2.0 (`ADR-0010`). 18, Lean flow: the per-ticket rituals that cost autopilot tokens and time, and two defects of epic 11's run (`docs/05-mvp-plan.md`).
 
-Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own. The owner's order, set on 2026-10-10: 11 before 16, so that the redesign covers the questions, roles and CI state 11 adds to the dashboard; 16 with the owner watching, beside 15 and 12; 13, which rewrites every skill's output, after them; 17, which publishes what the others merged, last.
+Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own. The owner's order: 11; 18, so that every later run is cheaper (2026-10-11); 16 with the owner watching, beside 15 and 12; 13, which rewrites every skill's output; 17, which publishes the rest, last.
 
-Epic 11 is in progress (ADR-0040). Autopilot merged 01 to 11 on 2026-10-11: this repository's CI workflow; a Task's questions from its ticket, branch or issue, answered with `/binnacle:answer`; roles; what waits for the owner; GitHub's and GitLab's CI; attention matching the work; autopilot on all three. GitHub serves check runs only to GitHub Apps, so 13 reads CI from Actions runs and commit statuses: built on its branch, not yet merged. 12, the owner's exit demonstration, follows it.
+Epic 11 is in progress (ADR-0040): autopilot merged 01 to 11 on 2026-10-11. GitHub serves check runs only to GitHub Apps, so 13 reads CI from Actions runs and commit statuses: built on its branch, not yet merged. 12, the owner's exit demonstration, follows it.
 
 Next action: verify and merge ticket 13's branch, feat/ci-on-github-without-checks, then run epic 11's exit demonstration with the owner. `/mattpocock-skills:implement docs/specs/the-state-of-work/issues/12-state-of-work-exit-demonstration.md`
 
@@ -55,7 +55,7 @@ Deferred deliberately, each with the decision that deferred it:
 - forking the Matt Pocock skills into the `binnacle` plugin — only if a skill's procedure, not just its conventions in `docs/agents/`, has to change;
 - reading a record's branch again when its checkout's reflog can still give one: a record stored with the harness's branch before ADR-0029's order, or whose reflog lookup failed or timed out — `ADR-0030`, only if it matters in practice;
 - autopilot resuming by itself once a usage limit resets: on 2026-09-25 a Product session did it by hand, with a script that waited for the reset and a message to the autopilot session — `ADR-0022`, when limits interrupt runs often;
-- fewer rebases in a parallel autopilot run: every ticket's last commit rewrites the same current-focus paragraph, so the second of two parallel branches always rebased (five of eight merges on 2026-09-26) — `ADR-0022`, if rebasing slows runs;
+- an optional Binnacle mod for Claude Code: a status line, a *Waiting for you* band, a pane and toasts, read-only, off by default — the owner, 2026-10-11, after the release; a new surface, so an ADR first (`docs/product-inbox.md`);
 - advanced optimisation rules — only after real measurement. Graphify, Obsidian, worktree conflict analysis, further harnesses, OpenTelemetry, CI state, context pressure and everything from the chat left this list on 2026-10-02: they are baseline items, epics 8 to 12 (`docs/baseline.md`).
 
 Items excluded from the product altogether are not listed here. See the non-goals in `docs/00-scope.md`.

@@ -51,17 +51,6 @@ After a reboot the owner found the daemon down: nothing starts it. ADR-0016 make
 
 The owner's daemon had a project registered at `/tmp/claude-1000/…/aeb63b29-…/scratchpad/demo-init`, a session's scratchpad, shown on every page as unavailable once the directory was gone; the owner had it unregistered on 2026-10-10. Some session ran `binn init` or `binn project register` there against the owner's `BINNACLE_HOME` rather than a temporary one, which `dashboard-design-and-languages/12` asks of agents. Two things to weigh: whether skills and briefs that try a CLI on a throwaway repository say to use a temporary home, and whether a registration whose directory is gone should drop out of the dashboard or be offered for removal rather than shown on every page.
 
-## A Binnacle mod for Claude Code (2026-10-11)
-
-Claude Code's mods (plugins of function hooks, 2.1.295) can draw a pane, a band above the prompt, the status line and toasts, add slash commands, and call the `binnacle` MCP server's tools themselves. The owner wants an optional Binnacle mod, off by default and switched on and off by the user, **after the release**:
-
-- the status line per chat: the session's Task and role, its tokens and context;
-- a *Waiting for you* band, shown only when there is something: unanswered questions, `main`'s CI failing, a stale Next action;
-- a pane with a compact snapshot and buttons that put a command (`/binnacle:answer`, `/binnacle:autopilot`, `/binnacle:checkpoint`) in the prompt for the human to send;
-- toasts on a change: CI failed, a question answered, context pressure.
-
-Read-only and silent without the daemon; Claude Code only, beside the skills (ADR-0039); likely inside the `binnacle` plugin (ADR-0023, ADR-0027). A new surface, so an ADR first.
-
 ## For epic 16: the parallel limit, and two labels on the board (2026-10-11)
 
 The owner decided during epic 11's autopilot run that the parallel agent limit (`automation.max_parallel_development_tasks`, 2 in `.binnacle/project.yaml`) belongs to epic 16:
@@ -75,12 +64,14 @@ On the board's card, the Russian `fromRuns: 'по runs'` reads as English "no ru
 
 ## Two defects found in epic 11's run (2026-10-11)
 
+**Decided by the owner on 2026-10-11: part of epic 18, Lean flow** (`docs/05-mvp-plan.md`).
+
 - **graphify refuses a graph that shrinks.** graphify 0.9.76's guard refused the daemon's `graphify extract . --code-only` when dedup merged 4 nodes and the graph would shrink, so the graph stayed at an older commit and conflict risk read a stale graph. Worked around by hand with `--allow-dedup-shrink`; it recurs on the next merge. The daemon's `GRAPH_EXTRACT` (`apps/daemon/src/graph.ts`) should pass the flag, checking that the graphify version `binn init` installs accepts it; the graph is rebuildable (ADR-0036).
 - **A flaky audit test.** `apps/cli/test/audit.test.ts`, "Binnacle's skills current, or not installed at all, are not reported", failed now and then in agents' full runs and passed alone, likely racing `pack.test.ts` rebuilding the skills copy.
 
 ## Lean flow: rituals that cost agents tokens and time (2026-10-11)
 
-Epic 11's autopilot run showed where the per-ticket process spends tokens and time for little return. The owner wants all of it done **before the release** (epic 18 in `docs/roadmap.md`):
+Epic 11's autopilot run showed where the per-ticket process spends tokens and time for little return. The owner wants all of it done **before the release**, right after epic 11 (epic 18 in `docs/roadmap.md` and `docs/05-mvp-plan.md`):
 
 1. **Tickets stop editing the roadmap's current focus.** Every ticket's last commit rewrote it, so a second ticket run in parallel always conflicted: 03, 05, 10 and 08 went back to their agents to rebase, each a reload of 100 to 300 thousand tokens, and agents cut each other's wording to stay under 2000 characters. What is done and what can start, the snapshot already derives from the tickets' statuses; the current focus and the Next action are a Product session's or a checkpoint's alone.
 2. **Autopilot rebases mechanically itself.** When `main` moved on, it runs `git rebase main` and the checks on the branch, and sends the branch back to its agent only on a real conflict.

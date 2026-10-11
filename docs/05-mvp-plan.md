@@ -151,6 +151,18 @@ Added on 2026-10-06, after the owner linked Binnacle's skills into `~/.codex/ski
 - `binn audit` reports installed skills that differ from the package's, and `binn init`'s plan reinstalls them; without `npx` or the network, init prints the command.
 - `docs/03-mcp-and-skills.md` no longer says that no skill format exists for another harness.
 
+### Phase 18 — Lean flow
+
+Added on 2026-10-11, after epic 11's autopilot run showed where the per-ticket process spends tokens and time for little return. It comes right after epic 11, before the release's other epics, so that their runs are cheaper (the owner, 2026-10-11). The points, from `docs/product-inbox.md`, go to `/grill-with-docs` first; measured before and after with Binnacle itself, rework share and tokens per completed Task, epic 11 as the baseline:
+
+- Tickets stop editing the roadmap's current focus; the current focus and the Next action are a Product session's or a checkpoint's alone.
+- Autopilot rebases a branch on `main` itself and runs the checks, sending it back to its agent only on a real conflict.
+- The Review's commit order is no longer required: runs already tell review from rework.
+- A short Review and short commit messages.
+- Upkeep once per run: the plugin, the skills copy, the dashboard and the daemon's restart, unless the next ticket needs them.
+- Browser checks only for tickets that change the dashboard.
+- Two defects of epic 11's run: the daemon's graph update passes graphify's `--allow-dedup-shrink`, so that a graph that shrinks is not left at an older commit; and `apps/cli/test/audit.test.ts` stops failing now and then beside `pack.test.ts` in a full run.
+
 ## Explicit stop conditions
 
 Do not add autonomous agent orchestration, Release/SRE platform, Kubernetes management, multi-user server mode or auto model routing during MVP implementation.
