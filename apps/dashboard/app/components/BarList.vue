@@ -34,7 +34,7 @@ const largest = computed(() => Math.max(0, ...all.value.map((row) => row.value ?
       <!-- The remainder counts the rows, so it goes before `last`. -->
       <li v-if="remainder && index === rows.length" class="px-3.5 py-1.5 text-sm text-muted">{{ t.more(number(remainder)) }}</li>
       <li
-        class="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_max-content] items-center gap-3 px-3.5 py-[7px]"
+        class="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_max-content] items-center gap-3 px-3.5 py-1.5"
         :class="{ 'border-t border-dashed border-default': row.muted }"
         :title="[row.title, row.note].filter(Boolean).join(' · ') || undefined"
       >

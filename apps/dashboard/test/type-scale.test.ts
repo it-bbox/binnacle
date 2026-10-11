@@ -19,11 +19,12 @@ const stylesheet = sources.find((source) => source.path.endsWith('main.css'))?.t
 /** A length in pixels; `rem` and `em` against the browser's 16 px. */
 const pixels = (value: string, unit: string): number => (unit === 'px' ? Number(value) : Number(value) * 16);
 
-/** Every literal text size written in the sources: Tailwind's arbitrary sizes, CSS `font-size` and the theme's `--text-*`. */
+/** Every literal text size written in the sources: Tailwind's arbitrary sizes, CSS `font-size` and `font`, a style binding's `fontSize`, and the theme's `--text-*`. */
 const sizes = sources.flatMap(({ path, text }) =>
   [
     ...text.matchAll(/text-\[(?:length:)?([\d.]+)(px|rem|em)\]/g),
-    ...text.matchAll(/font-size:\s*([\d.]+)(px|rem|em)/g),
+    ...text.matchAll(/(?:font-size|fontSize):\s*['"]?([\d.]+)(px|rem|em)/g),
+    ...text.matchAll(/\bfont:\s*(?:[\w-]+\s+)*([\d.]+)(px|rem|em)/g),
     ...text.matchAll(/--text-[a-z0-9]+:\s*([\d.]+)(px|rem|em)/g),
   ].map((match) => ({ path, written: match[0], px: pixels(match[1]!, match[2]!) })),
 );
@@ -53,7 +54,8 @@ describe("the dashboard's type scale", () => {
 
   it("lifts Nuxt UI's small badges, 8 and 10 px of its own, to the floor", () => {
     const config = sources.find((source) => source.path === 'app.config.ts')?.text ?? '';
-    const badge = /\bbadge:\s*\{([\s\S]*?)\n {4}\},/.exec(config)?.[1] ?? '';
-    for (const size of ['xs', 'sm']) assert.match(badge, new RegExp(`\\b${size}:\\s*\\{\\s*base:\\s*'[^']*\\btext-xs\\b`), `badge size ${size}`);
+    for (const size of ['xs', 'sm']) {
+      assert.match(config, new RegExp(`\\bbadge:[\\s\\S]*?\\bsize:\\s*\\{[\\s\\S]*?\\b${size}:\\s*\\{\\s*base:\\s*'[^']*\\btext-xs\\b`), `badge size ${size}`);
+    }
   });
 });
