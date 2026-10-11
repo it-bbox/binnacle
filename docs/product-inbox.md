@@ -74,3 +74,9 @@ The owner decided during epic 11's autopilot run that the parallel agent limit (
 - a machine setting the dashboard writes needs an ADR beside ADR-0020's read-only dashboard.
 
 On the board's card, the Russian `fromRuns: 'по runs'` reads as English "no runs" on a card that has runs; and "7 сек. назад" is the time since the run's latest activity, where Claude Code shows the agent's elapsed time: show both, such as "идёт 15 мин · активность 7 с назад".
+
+## Binnacle's own planning skills (2026-10-11)
+
+Planning runs on Matt Pocock Skills today: `/grill-with-docs`, `/to-spec` and `/to-tickets`, which `binn init` installs and the workflow depends on (ADR-0035). They are good and maintained, but the owner hears from developers that not all of them like these skills. After the release, Binnacle could ship its own skills for the same chain, written for its formats: grilling against the Project Brain, a spec, tickets with `Roles:`, dependencies and criteria, and whatever else planning needs. Not now: Matt Pocock Skills stay for v1.
+
+The course "Один как команда" already tells participants that planning uses Matt Pocock Skills for now and that Binnacle's own skills will come later, without a date. Its prompts and templates do not depend on either, so the switch would not break it.
