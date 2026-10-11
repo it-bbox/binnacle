@@ -1445,19 +1445,26 @@ describe('Subagent runs', () => {
 });
 
 describe('Implementation, review and rework', () => {
+  /** Appends `text` to `file` under `root` and commits it at `time`. */
+  const commitAt = (root: string, time: string, file: string, text: string): void => {
+    appendFileSync(join(root, file), text);
+    gitAt(time, root, 'add', '.');
+    gitAt(time, root, 'commit', '--quiet', '-m', file);
+  };
+  const REVIEW = '\n## Comments\n\n### Review\n\nOne finding.\n';
+  const TICKET = 'docs/specs/epic/issues/01-first.md';
+  const AFTER = `claude-code:${String(ABORTED.find((line) => line.type === 'assistant')!.message!.id)}-after`;
+  const BEFORE = 'claude-code:msg_011CfLMEGjvuTXtzfiK6XfsV-before';
+
   it('reads review and rework runs from the Task branch’s runs and commits, splits a run that crosses the review run’s end there, and reads the same once merged', async () => {
     await withDaemon(async (daemon, artifacts) => {
       const root = makeProject(temporary('binnacle-usage-'), LOCAL_TRACKER);
       ticket(root, 'epic', '01-first.md', 'First');
       repository(root, at(1, 0), [at(1, 10), 'feat/first']);
-      const commit = (time: string, file: string, text: string): void => {
-        appendFileSync(join(root, file), text);
-        gitAt(time, root, 'add', '.');
-        gitAt(time, root, 'commit', '--quiet', '-m', file);
-      };
+      const commit = (time: string, file: string, text: string): void => commitAt(root, time, file, text);
       commit(at(0, 10), 'work.txt', 'the change\n');
       // The Review is recorded in a commit of its own, and a fix follows it.
-      commit(at(0, 20), 'docs/specs/epic/issues/01-first.md', '\n## Comments\n\n### Review\n\nOne finding.\n');
+      commit(at(0, 20), TICKET, REVIEW);
       commit(at(0, 40), 'work.txt', 'the fix\n');
 
       // One session from before the review run to after its end, which is split there.
@@ -1469,14 +1476,13 @@ describe('Implementation, review and rework', () => {
       await register(daemon, root);
 
       const task = await usageGet<TaskUsage>(daemon, root, 'epic/01');
-      const after = `claude-code:${String(ABORTED.find((line) => line.type === 'assistant')!.message!.id)}-after`;
       assert.deepEqual(
         task.runs.items.map((run) => [run.id, run.role, run.parentRunId, run.startedAt]),
         [
-          [after, 'rework', null, at(0, 30)],
-          [SUBAGENT_RUN, 'review', 'claude-code:msg_011CfLMEGjvuTXtzfiK6XfsV-before', at(0, 15)],
+          [AFTER, 'rework', null, at(0, 30)],
+          [SUBAGENT_RUN, 'review', BEFORE, at(0, 15)],
           [`${SUBAGENT_RUN}-early`, 'implementation', null, at(0, 5)],
-          ['claude-code:msg_011CfLMEGjvuTXtzfiK6XfsV-before', 'implementation', null, at(0, 0)],
+          [BEFORE, 'implementation', null, at(0, 0)],
         ],
       );
       const byRole = {
@@ -1504,7 +1510,7 @@ describe('Implementation, review and rework', () => {
 
       // Then a Product commit on the default branch, and the ticket set DONE there: the merge still holds the branch's commits.
       commit(at(0, 55), 'docs/roadmap.md', 'the focus\n');
-      const ticketFile = join(root, 'docs/specs/epic/issues/01-first.md');
+      const ticketFile = join(root, TICKET);
       writeFileSync(ticketFile, readFileSync(ticketFile, 'utf8').replace('Status: READY', 'Status: DONE'));
       gitAt(at(0, 60), root, 'commit', '--quiet', '-am', 'done');
       assert.deepEqual((await usageGet<TaskUsage>(daemon, root, 'epic/01')).byRole, byRole);
@@ -1527,17 +1533,6 @@ describe('Implementation, review and rework', () => {
       assert.equal(task.reworkUnread, null);
     });
   });
-
-  /** Appends `text` to `file` under `root` and commits it at `time`. */
-  const commitAt = (root: string, time: string, file: string, text: string): void => {
-    appendFileSync(join(root, file), text);
-    gitAt(time, root, 'add', '.');
-    gitAt(time, root, 'commit', '--quiet', '-m', file);
-  };
-  const REVIEW = '\n## Comments\n\n### Review\n\nOne finding.\n';
-  const TICKET = 'docs/specs/epic/issues/01-first.md';
-  const AFTER = `claude-code:${String(ABORTED.find((line) => line.type === 'assistant')!.message!.id)}-after`;
-  const BEFORE = 'claude-code:msg_011CfLMEGjvuTXtzfiK6XfsV-before';
 
   for (const [order, reviewAt] of [
     ['before the fixes', 20],
