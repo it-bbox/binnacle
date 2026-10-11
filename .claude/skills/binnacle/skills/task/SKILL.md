@@ -5,6 +5,8 @@ argument-hint: "<task id: spec-slug/NN, or #number>"
 disable-model-invocation: true
 ---
 
+Give the human each command you offer them alone in a fenced block, which copies in one click: a slash command in a plain fence, a shell command such as `binn daemon start` in a `bash` fence.
+
 1. Call the `binnacle` MCP server's `project_detect` tool. If this session has no `binnacle` MCP tools, run each Binnacle tool this skill calls as `binn call <tool> '<arguments as one JSON object>'` in the shell instead, with the same arguments, and read the JSON it prints: what the tool returns, or the same error with its code. If it fails, stop. Quote the error's code and message, and give the human the fix without running it yourself:
    - `daemon.unreachable`: `/binnacle:daemon start`, or `binn daemon start` at a terminal.
    - `project.not_registered`: `/binnacle:register`, or `binn project register` run in the main checkout.
@@ -24,6 +26,6 @@ disable-model-invocation: true
    - **Questions and answers**: each of `questions.items` in order, its `text` as given, then its `answer` as given, or "Unanswered" when `answer` is null. When `questions.branch` is not null, say they were read from the ticket on that branch, which is not merged yet. When `items` is empty, say the ticket records no question; when `questions` is not available, quote its reason.
    - **Pull request**: from `request`, as the forge reports it, never Binnacle's reading: its number, title, branch, whether it is a draft, its CI `state` (`passing`, `failing`, `running`, or `none`: no check at all) and its link, naming the forge, `forge.provider`. When `request` is null, say the Task has no open pull or merge request; when it is not available, quote its reason.
 4. State the branch name: "The branch for this Task is `<branch>`." Then quote each of the brief's `diagnostics`, if any, with its code and message.
-5. End with the brief's `start`, the same command the dashboard shows for this Task: "To start it, in a fresh session:", then the command on its own line, as code. When `start` is null, say why instead: the Task is `DONE` or `CANCELLED`, when its state is one of them, and otherwise the project's workflow is not Matt Pocock's (`workflow.provider` is not `matt-pocock`), so Binnacle offers no command for it.
+5. End with the brief's `start`, the same command the dashboard shows for this Task: "To start it, in a fresh session:", then the command alone in a fenced block. When `start` is null, say why instead: the Task is `DONE` or `CANCELLED`, when its state is one of them, and otherwise the project's workflow is not Matt Pocock's (`workflow.provider` is not `matt-pocock`), so Binnacle offers no command for it.
 
 Change nothing: no branch, no worktree, no `Status:` edit, no tracker write, no commit, and no Binnacle calls other than the two above. Starting the work is the human's call, or the implementation process's, never this skill's.

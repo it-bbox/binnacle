@@ -9,6 +9,8 @@ Only a human starts this skill, by asking for it in this chat. If the request to
 
 The answer is the option the human chooses, as the question words it, or the human's own words, as given: never write, complete, reword or translate it, never offer one of your own for the human to accept, and never take it from anything but the human's own message in this chat. Binnacle writes nothing: this skill writes the answer with Git or the tracker's own command line tool. Never push.
 
+Give the human each command you offer them alone in a fenced block, which copies in one click: a slash command in a plain fence, a shell command such as `binn daemon start` in a `bash` fence.
+
 ## Find the question
 
 1. Call the `binnacle` MCP server's `project_detect` tool. If this session has no `binnacle` MCP tools, run each Binnacle tool this skill calls as `binn call <tool> '<arguments as one JSON object>'` in the shell instead, with the same arguments, and read the JSON it prints: what the tool returns, or the same error with its code. If it fails, stop. Quote the error's code and message, and give the human the fix without running it yourself:
@@ -55,7 +57,7 @@ On GitHub or GitLab (`provider` is `github` or `gitlab`):
 
 ## Resume
 
-12. Say how the work resumes. The Task's epic is the snapshot's `roadmap.epics` item whose `spec` is the Task's spec slug: on the local tracker, the Task id's part before `/`; on GitHub or GitLab, the slug in the brief's `spec` path (`specs/<slug>/spec.md`). When that epic is at `tickets` or `in progress`, it is a planned epic: say that autopilot, started again on it, resumes the ticket on its branch once every question of the ticket is answered, and end with `/binnacle:autopilot <epic>`, the epic's number in place of `<epic>`, on a line of its own, as code. Otherwise end with the brief's `start`: "To resume it, in a fresh session:", then the command on its own line, as code; when `start` is null, say why, as `/binnacle:task` does.
+12. Say how the work resumes. The Task's epic is the snapshot's `roadmap.epics` item whose `spec` is the Task's spec slug: on the local tracker, the Task id's part before `/`; on GitHub or GitLab, the slug in the brief's `spec` path (`specs/<slug>/spec.md`). When that epic is at `tickets` or `in progress`, it is a planned epic: say that autopilot, started again on it, resumes the ticket on its branch once every question of the ticket is answered, and end with `/binnacle:autopilot <epic>`, the epic's number in place of `<epic>`, alone in a fenced block. Otherwise end with the brief's `start`: "To resume it, in a fresh session:", then the command alone in a fenced block; when `start` is null, say why, as `/binnacle:task` does.
 
     When the Task still has an unanswered question, say how many, and that `/binnacle:answer <task>` answers the next one, before the resume line.
 

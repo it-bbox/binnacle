@@ -7,6 +7,8 @@ disable-model-invocation: true
 
 This skill needs no daemon and no `binnacle` MCP server: it runs the CLI command `binn audit` (`docs/specs/audit-and-adopt/spec.md`) and reads its JSON.
 
+Give the human each command you offer them alone in a fenced block, which copies in one click: a slash command in a plain fence, a shell command such as `binn daemon start` in a `bash` fence.
+
 1. Run `binn audit --json` in the current directory, or, if the human passed a path (`$ARGUMENTS`), `binn audit <path> --json`. Quote the path for the shell. Run it once.
    - If the shell cannot find `binn` (`command not found`, exit 127), stop. Say that `binn` is not on this harness's PATH, and point to the README's setup section (*Install*, and *From this repository* until the npm package is published).
    - Any other non-zero exit means the audit could not run, for example a missing path or one that is not a Git repository. Stop, give the exit code and quote what it printed on stderr as the reason. Gaps never cause a non-zero exit.

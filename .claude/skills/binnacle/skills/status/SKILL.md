@@ -4,6 +4,8 @@ description: Show this project and this session's checkout in a few lines, from 
 disable-model-invocation: true
 ---
 
+Give the human each command you offer them alone in a fenced block, which copies in one click: a slash command in a plain fence, a shell command such as `binn daemon start` in a `bash` fence.
+
 1. Call the `binnacle` MCP server's `project_status` tool once, with no arguments. If this session has no `binnacle` MCP tools, run each Binnacle tool this skill calls as `binn call <tool> '<arguments as one JSON object>'` in the shell instead, with the same arguments, and read the JSON it prints: what the tool returns, or the same error with its code. If it fails, stop. Quote the error's code and message, and give the human the fix without running it yourself:
    - `daemon.unreachable`: `/binnacle:daemon start`, or `binn daemon start` at a terminal.
    - `project.not_registered`: `/binnacle:register`, or `binn project register` run in the main checkout.

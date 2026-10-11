@@ -4,7 +4,7 @@ description: Explain in plain words, in the language the user writes in, what Bi
 disable-model-invocation: true
 ---
 
-Answer in the language the user writes in, in plain words: translate the guide below, but keep the skill names and commands as they are. Call no tool and run no command: the guide is all here, and it needs no daemon. Give it whole, then stop.
+Answer in the language the user writes in, in plain words: translate the guide below, but keep the skill names and commands as they are. Give each command a list below offers, and `/binnacle:help` in the last line, alone in a plain fenced block, which copies in one click, with what it does after it. Call no tool and run no command: the guide is all here, and it needs no daemon. Give it whole, then stop.
 
 ## What Binnacle is
 
