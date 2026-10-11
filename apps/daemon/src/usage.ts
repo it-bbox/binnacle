@@ -757,10 +757,10 @@ const ownChanges = new Map<string, number[]>();
 /**
  * On the local tracker, per Task whose branch `records` were on, when its branch's first commit
  * changing anything but its ticket was made, and when its ticket's first Review was committed.
- * The branch's commits are read from its tips that still exist, its Review commit and the
- * commit on `defaultBranch` that set it `DONE`, leaving out `defaultBranch`'s own and those
- * authored before the Task's first record on its branch. A Task with neither, or whose history
- * Git cannot read, has none: its runs are implementation.
+ * The branch's commits are read from its tips that still exist or that `defaultBranch` merged,
+ * its Review commit and the commit on `defaultBranch` that set it `DONE`, leaving out
+ * `defaultBranch`'s own and those authored before the Task's first record on its branch. A Task
+ * with neither, or whose history Git cannot read, has none: its runs are implementation.
  */
 async function reviewPoints(
   projectPath: string,
@@ -791,13 +791,17 @@ async function reviewPoints(
     const review = first?.get(task.ticket) ?? null;
     const tips = await Promise.all([...branches].map((branch) => readBranchCommit(projectPath, branch, timeout)));
     const anchors = [...new Set([...tips, review?.commit, done?.get(task.ticket)?.commit])].filter((commit) => typeof commit === 'string').sort();
-    const key = `${anchors.join(' ')}\0${task.ticket}`;
-    if (!ownChanges.has(key)) {
-      const times = await readOwnChangeTimes(projectPath, anchors, task.ticket, defaultBranch, timeout);
-      if (times !== null) ownChanges.set(key, times);
+    const key = `${anchors.join(' ')}\0${[...branches].sort().join(' ')}\0${task.ticket}`;
+    let times = ownChanges.get(key) ?? null;
+    if (times === null) {
+      times = await readOwnChangeTimes(projectPath, anchors, task.ticket, defaultBranch, [...branches], timeout);
+      // With no anchor, only a later merge of the branch, in the default branch's reflog, can give it commits.
+      if (times !== null && anchors.length > 0) ownChanges.set(key, times);
     }
+    // Author times are whole seconds, so a commit in the first record's own second counts.
+    const from = Math.floor(since / 1000) * 1000;
     // Git lists commits by commit time, which a rebase gives them all alike: the first is the earliest author time.
-    const firstChange = (ownChanges.get(key) ?? []).reduce<number | null>((earliest, time) => (time >= since && (earliest === null || time < earliest) ? time : earliest), null);
+    const firstChange = (times ?? []).reduce<number | null>((earliest, time) => (time >= from && (earliest === null || time < earliest) ? time : earliest), null);
     if (firstChange !== null || review !== null) points.set(task.id, { firstChange, review: review?.at ?? null });
   }
   return points;

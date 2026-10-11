@@ -332,34 +332,53 @@ function firstPerFile(changes: { commit: string; at: number; files: string[] }[]
 }
 
 /**
- * The author times, in milliseconds, which a rebase keeps, of the commits reachable from `commits`,
- * hashes, that changed anything but `path`, relative to the repository root, leaving out every
- * commit reachable from one that `defaultBranch` pointed at, by its reflog, other than
- * `commits` themselves: a branch's own commits, without the default branch's work it started
- * from or was rebased onto, other branches merged there and commits made there meanwhile
- * included. A default branch with no reflog leaves nothing out. Null whenever Git cannot say.
+ * The author times, in milliseconds, which a rebase keeps, of a branch's own commits that
+ * changed anything but `path`, relative to the repository root. They are read from `commits`,
+ * hashes, and from each commit `defaultBranch`'s reflog says merged one of `branches` there,
+ * and leave out every commit the default branch's other reflog entries reach without passing
+ * through those: the default branch's work the branch started from or was rebased onto,
+ * other branches merged there and commits made there meanwhile. A default branch with no
+ * reflog leaves nothing out. Null whenever Git cannot say.
  *
- * ponytail: a branch merged into the default branch and worked on after it reads only the
- * commits after that merge as its own; tell its merges apart if a branch is ever merged twice.
+ * ponytail: the reflog is this clone's and expires, after 90 days by default, and a branch
+ * that reached the default branch other than by `git merge` there, by a pull or a rebase, is
+ * left out with it; record each Task's first change where it is read if older Tasks must keep
+ * their reading.
  */
-export async function readOwnChangeTimes(cwd: string, commits: string[], path: string, defaultBranch: string, timeoutMs: number): Promise<number[] | null> {
-  if (commits.length === 0) return [];
+export async function readOwnChangeTimes(cwd: string, commits: string[], path: string, defaultBranch: string, branches: string[], timeoutMs: number): Promise<number[] | null> {
   try {
     // Under `refs/heads/`, the name can never be read as an option.
-    const [reflog, reachable] = await Promise.all([
-      git(cwd, timeoutMs, ['log', '--walk-reflogs', '--format=%H', `refs/heads/${defaultBranch}`]),
-      git(cwd, timeoutMs, ['rev-list', ...commits]),
-    ]);
-    if (reachable.code !== 0) return null;
-    // A value the branch never reached, a later one, would leave out the branch's own commits too.
-    const history = new Set(reachable.stdout.split('\n').filter((commit) => commit !== ''));
-    const excluded = reflog.code !== 0 ? [] : [...new Set(reflog.stdout.split('\n'))].filter((commit) => history.has(commit) && !commits.includes(commit));
-    const run = await git(cwd, timeoutMs, ['log', '--format=%at', ...commits, '--not', ...excluded, '--', ':(top)', `:(top,exclude,literal)${path}`]);
+    const reflog = await git(cwd, timeoutMs, ['log', '--walk-reflogs', '--format=%H%x00%gs', `refs/heads/${defaultBranch}`]);
+    const values = (reflog.code === 0 ? reflog.stdout.split('\n') : []).filter((line) => line !== '').map((line) => line.split('\0') as [string, string]);
+    const tips = new Set([...commits, ...values.flatMap(([commit, subject]) => (branches.some((branch) => subject.startsWith(`merge ${branch}:`)) ? [commit] : []))]);
+    if (tips.size === 0) return [];
+    const graph = await git(cwd, timeoutMs, ['rev-list', '--parents', ...tips]);
+    if (graph.code !== 0) return null;
+    const parents = new Map(
+      graph.stdout
+        .split('\n')
+        .filter((line) => line !== '')
+        .map((line) => {
+          const [commit, ...rest] = line.split(' ');
+          return [commit!, rest];
+        }),
+    );
+    // Walked in the code rather than passed to `--not`, which would grow the command line with the reflog.
+    const theirs = new Set<string>();
+    const stack = values.map(([commit]) => commit).filter((commit) => parents.has(commit));
+    while (stack.length > 0) {
+      const commit = stack.pop()!;
+      if (tips.has(commit) || theirs.has(commit)) continue;
+      theirs.add(commit);
+      stack.push(...parents.get(commit)!);
+    }
+    const run = await git(cwd, timeoutMs, ['log', '--full-history', '--format=%H %at', ...tips, '--', ':(top)', `:(top,exclude,literal)${path}`]);
     if (run.code !== 0) return null;
     return run.stdout
       .split('\n')
-      .filter((line) => line !== '')
-      .map((time) => Number(time) * 1000);
+      .map((line) => line.split(' '))
+      .filter(([commit = '']) => commit !== '' && !theirs.has(commit))
+      .map(([, time]) => Number(time) * 1000);
   } catch (error) {
     if (isGitUnavailable(error)) return null;
     throw error;

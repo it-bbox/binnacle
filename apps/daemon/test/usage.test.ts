@@ -1501,6 +1501,13 @@ describe('Implementation, review and rework', () => {
       gitAt(at(0, 50), root, 'merge', '--quiet', '--no-ff', '-m', 'merge', 'feat/first');
       gitAt(at(0, 50), root, 'branch', '--quiet', '-d', 'feat/first');
       assert.deepEqual((await usageGet<TaskUsage>(daemon, root, 'epic/01')).byRole, byRole);
+
+      // Then a Product commit on the default branch, and the ticket set DONE there: the merge still holds the branch's commits.
+      commit(at(0, 55), 'docs/roadmap.md', 'the focus\n');
+      const ticketFile = join(root, 'docs/specs/epic/issues/01-first.md');
+      writeFileSync(ticketFile, readFileSync(ticketFile, 'utf8').replace('Status: READY', 'Status: DONE'));
+      gitAt(at(0, 60), root, 'commit', '--quiet', '-am', 'done');
+      assert.deepEqual((await usageGet<TaskUsage>(daemon, root, 'epic/01')).byRole, byRole);
     });
   });
 
