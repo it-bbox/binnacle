@@ -77,3 +77,16 @@ On the board's card, the Russian `fromRuns: 'по runs'` reads as English "no ru
 
 - **graphify refuses a graph that shrinks.** graphify 0.9.76's guard refused the daemon's `graphify extract . --code-only` when dedup merged 4 nodes and the graph would shrink, so the graph stayed at an older commit and conflict risk read a stale graph. Worked around by hand with `--allow-dedup-shrink`; it recurs on the next merge. The daemon's `GRAPH_EXTRACT` (`apps/daemon/src/graph.ts`) should pass the flag, checking that the graphify version `binn init` installs accepts it; the graph is rebuildable (ADR-0036).
 - **A flaky audit test.** `apps/cli/test/audit.test.ts`, "Binnacle's skills current, or not installed at all, are not reported", failed now and then in agents' full runs and passed alone, likely racing `pack.test.ts` rebuilding the skills copy.
+
+## Lean flow: rituals that cost agents tokens and time (2026-10-11)
+
+Epic 11's autopilot run showed where the per-ticket process spends tokens and time for little return. The owner wants all of it done **before the release** (epic 18 in `docs/roadmap.md`):
+
+1. **Tickets stop editing the roadmap's current focus.** Every ticket's last commit rewrote it, so a second ticket run in parallel always conflicted: 03, 05, 10 and 08 went back to their agents to rebase, each a reload of 100 to 300 thousand tokens, and agents cut each other's wording to stay under 2000 characters. What is done and what can start, the snapshot already derives from the tickets' statuses; the current focus and the Next action are a Product session's or a checkpoint's alone.
+2. **Autopilot rebases mechanically itself.** When `main` moved on, it runs `git rebase main` and the checks on the branch, and sends the branch back to its agent only on a real conflict.
+3. **The Review's commit order is no longer required.** Review is told from rework by the runs: review sub-agents already come in as `role: review` through `parentRunId`. The ticket still records `### Review`.
+4. **A short Review and short commit messages.** Findings to fix in full; findings kept one line each. A commit is a short subject and, when needed, a body, not a one-sentence paragraph (`AGENTS.md`).
+5. **Upkeep once per run.** Refreshing the plugin and the skills copy, regenerating the dashboard and restarting the daemon happen once at the run's end, unless the next ticket needs them.
+6. **Browser checks only for tickets that change the dashboard.**
+
+Measure before and after with Binnacle itself: rework share and tokens per completed Task, with epic 11 as the baseline.

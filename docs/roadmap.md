@@ -27,6 +27,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 15 | Daemon autostart | not started | — |
 | 16 | Dashboard redesign | not started | — |
 | 17 | Release: npm and open source | not started | — |
+| 18 | Lean flow | not started | — |
 
 Epics are ordered by dependency, not by preference. Epic 1 is the foundation; epics 5 to 7 are only meaningful once 1 to 4 exist. Audit and adopt is epic 6 in the specs of epics 1 to 3, written before epic 6 was inserted on 2026-09-26. Epic 14 was added on 2026-10-06 and comes before epic 10, which reuses its list of harnesses.
 
