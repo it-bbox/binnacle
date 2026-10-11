@@ -151,6 +151,19 @@ Added on 2026-10-06, after the owner linked Binnacle's skills into `~/.codex/ski
 - `binn audit` reports installed skills that differ from the package's, and `binn init`'s plan reinstalls them; without `npx` or the network, init prints the command.
 - `docs/03-mcp-and-skills.md` no longer says that no skill format exists for another harness.
 
+### Phase 16 — Dashboard redesign
+
+Added on 2026-10-10 for the release video: the dashboard reads too small and too crowded. Grilled on 2026-10-11 from the owner's findings (`specs/lean-flow/issues/05-lean-flow-exit-demonstration.md`, *Found on the way*) and `docs/product-inbox.md`'s points for this epic. Scale and density, not a new structure: the shell, the six pages and what they show stay as epics 5 and 6 decided, and so do Nuxt UI, no chart library, bundled fonts (ADR-0033), the palette, both themes and both languages. Autopilot runs it straight after its tickets; its agents use the Impeccable and UI UX Pro Max skills, and the owner judges at the exit demonstration (the owner, 2026-10-11):
+
+- **Type scale:** body text 16 px, secondary text 14 px, nothing below 13 px, badges and labels included.
+- **Widgets brief or full:** each widget's header switches *Brief* and *Full*, *Brief* by default and remembered in the browser per widget. Long lists and texts fold in place. Nothing is removed: every element of `docs/04-telemetry-dashboard.md` stays reachable, in *Brief* or *Full*; the spec says what each widget's *Brief* shows. "What's next" always shows in full.
+- **Point fixes:** the Task page renders its Review as Markdown, headings, lists and paragraphs, not one block of text; a Task id is never cut short; the board card's Russian `по runs` no longer reads as "no runs", and its time shows both, such as "идёт 15 мин · активность 7 с назад".
+- **Usage by epic:** the usage page and `usage_get` filter by epic, listing every Task of it, its rework share and first-pass acceptance, and the epic's average, labelled as Binnacle's calculation.
+- **The parallel limit on the machine** (ADR-0041): `automation.max_parallel_development_tasks` moves to `~/.binnacle/settings.json`, 2 by default; a project manifest that sets it still wins, and the Settings page says so. The Settings page edits it: a number, or *auto*, which starts every ready Task whose pairs are all at low conflict risk, at most 4. Autopilot reads it from the snapshot as today. Beside it, how many agents ran at once without a usage limit, Binnacle's calculation from Claude Code's `rate_limit` records; not reported for a harness that records none.
+- **Commands that copy in one click:** every command a Binnacle skill offers the human to run stands alone in a fenced block, a slash command in a plain fence and a shell command in a `bash` fence, since the Claude desktop app gives a fenced block a copy button and inline code none. Epic 13 rewrites the skills' output later and keeps this.
+
+Exit criterion: the owner goes through every page on their own screen at 100% zoom and reads it without strain; every element of `docs/04-telemetry-dashboard.md` is reachable; a limit set on the Settings page is the one autopilot reads; the commands in a skill's output copy with the button. After the run a Product session reads epic 18's measurement against epic 11 (*Phase 18*).
+
 ### Phase 18 — Lean flow
 
 Added on 2026-10-11, after epic 11's autopilot run showed where the per-ticket process spends tokens and time for little return. It comes right after epic 11, before the release's other epics, so that their runs are cheaper (the owner, 2026-10-11). Grilled on 2026-10-11, from `docs/product-inbox.md`'s Lean flow points; the per-ticket flow by hand (`docs/workflow/02-development-workflow.md`, *Per ticket*) changes as autopilot's does:

@@ -64,21 +64,6 @@ Claude Code's mods (plugins of function hooks, 2.1.295) can draw a pane, a band 
 
 Read-only and silent without the daemon; Claude Code only, beside the skills (ADR-0039); likely inside the `binnacle` plugin (ADR-0023, ADR-0027). A new surface, so an ADR first.
 
-## For epic 16: the parallel limit, and two labels on the board (2026-10-11)
-
-The owner decided during epic 11's autopilot run that the parallel agent limit (`automation.max_parallel_development_tasks`, 2 in `.binnacle/project.yaml`) belongs to epic 16:
-
-- it moves from the project manifest to the machine's settings (`~/.binnacle/settings.json`), since it depends on the machine and the subscription, not the repository; the manifest may stay as a per-project override;
-- the dashboard's Settings page edits it: a number, or *auto*, where autopilot runs as many agents as low conflict risk allows, under a ceiling such as 4;
-- beside it, an informer from telemetry: how many agents the subscription really sustains, from runs that hit usage limits;
-- a machine setting the dashboard writes needs an ADR beside ADR-0020's read-only dashboard.
-
-On the board's card, the Russian `fromRuns: 'по runs'` reads as English "no runs" on a card that has runs; and "7 сек. назад" is the time since the run's latest activity, where Claude Code shows the agent's elapsed time: show both, such as "идёт 15 мин · активность 7 с назад".
-
-## For epic 16: commands in the chat that copy with one click (2026-10-11)
-
-The owner wants it in epic 16. Binnacle's skills give commands inline in backticks, such as the Next action's `/mattpocock-skills:grill-with-docs` in `/binnacle:product`, `/binnacle:daily` or `/binnacle:checkpoint`, so the owner selects them by hand to copy them. The Claude desktop app gives a fenced code block a copy button, and a `bash` block a Run button too; inline code gets neither. Every command a skill offers the human to run goes on its own in a fenced block: a slash command in a plain fence, a shell command such as `binn daemon start` in a `bash` fence. In a terminal there is no button, but a command on its own line is still easier to select. Epic 13 rewrites every skill's output later and keeps this.
-
 ## Binnacle's own planning skills (2026-10-11)
 
 Planning runs on Matt Pocock Skills today: `/grill-with-docs`, `/to-spec` and `/to-tickets`, which `binn init` installs and the workflow depends on (ADR-0035). They are good and maintained, but the owner hears from developers that not all of them like these skills. After the release, Binnacle could ship its own skills for the same chain, written for its formats: grilling against the Project Brain, a spec, tickets with `Roles:`, dependencies and criteria, and whatever else planning needs. Not now: Matt Pocock Skills stay for v1.
