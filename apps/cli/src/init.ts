@@ -898,12 +898,12 @@ const ISSUE_NUMBERS = 'the issue numbers of the issues it waits for, such as `#1
 const PATH_OR_LINK = 'its path, such as `docs/specs/<slug>/spec.md`, or a link to that file pinned to a commit';
 const KEEP_CURRENT = 'Binnacle reports any disagreement between the two, so keep the line current when you close the issue.';
 /** A question's options, alike on every tracker. */
-const OPTIONS =
+const QUESTION_OPTIONS =
   'After its text, a question lists its options, each with its cost, the recommended one first and marked "(recommended)"; ' +
   'the owner chooses one or writes their own answer.';
 const REMOTE_QUESTIONS =
   'A question only the owner can answer, and its answer, are issue comments that start with `### Question` and `### Answer`; ' +
-  `the answer is written by the owner or \`/binnacle:answer\`, never by an agent. ${OPTIONS}`;
+  `the answer is written by the owner or \`/binnacle:answer\`, never by an agent. ${QUESTION_OPTIONS}`;
 
 /**
  * What the section says differently on each tracker (ADR-0024). `rule` follows the fields: on
@@ -922,7 +922,7 @@ const CONVENTIONS: Record<TrackerProvider, { ticket: string; blockedBy: string; 
     questions:
       'A question only the owner can answer goes under a `### Question` heading inside `## Comments`, in a commit that changes only the ticket, on the branch where the work is; ' +
       "the owner's reply goes right after it under `### Answer`, written by the owner or `/binnacle:answer`, never by an agent. " +
-      `Binnacle reads them from the Task's branch while it is unmerged. ${OPTIONS}`,
+      `Binnacle reads them from the Task's branch while it is unmerged. ${QUESTION_OPTIONS}`,
   },
   github: {
     ticket: 'issue body',

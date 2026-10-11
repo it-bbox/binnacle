@@ -84,9 +84,8 @@ const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 /**
  * What the ticket's `## Comments` record. The Review: the text under the first `### Review`;
  * null when there is none, or it is empty. The questions (ADR-0040): each `### Question`, with
- * the text of the first non-empty `### Answer` after it and before the next Question
- * (`addQuestionOrAnswer`), or null; an Answer
- * with no Question before it is left out. Each section runs to the next heading of level three or
+ * the text of the first non-empty `### Answer` after it and before the next Question, or null, as
+ * `addQuestionOrAnswer` reads them; an Answer with no Question before it is left out. Each section runs to the next heading of level three or
  * above, and its text is without the blank lines around it. A line inside a code fence is never a
  * heading: a fence closes only with a run of its own character at least as long as the one that
  * opened it.
@@ -125,7 +124,7 @@ export function ticketComments(text: string): { review: string | null; questions
 /** A section's text without the blank lines around it. */
 export const sectionText = (text: string): string => text.replace(/^(?:[ \t]*\n)+/, '').trimEnd();
 
-/** A first line that is a date alone, as `/binnacle:answer` writes above the owner's answer. */
+/** An Answer's first line when it is a date alone, as `/binnacle:answer` writes above the owner's words; read off every Answer, on every tracker. */
 const DATE_LINE = /^\d{4}-\d{2}-\d{2}[ \t]*(?:\n|$)/;
 
 /**
