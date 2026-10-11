@@ -88,7 +88,7 @@ Binnacle should verify that Serena is available for supported clients/projects, 
 
 Purpose: build/query a code/docs architecture knowledge graph; support impact/path queries and optional Obsidian export.
 
-Current upstream package name is `graphifyy` (CLI `graphify`). Recommended installation uses `uv tool install graphifyy`, whose graphify (0.9.76 when this was written) accepts `--allow-dedup-shrink`; an older one that refuses a graph that shrinks all the same fails that run with graphify's reason, as any failed run does. Its MCP server needs the `mcp` extra, which init's registration gets through `uv run --with 'graphifyy[mcp]'`.
+Current upstream package name is `graphifyy` (CLI `graphify`). Recommended installation uses `uv tool install graphifyy`, whose graphify (0.9.76 when this was written) accepts `--allow-dedup-shrink`; a graphify that does not know the flag skips it, as it skips any argument it does not know, so one that refuses a graph that shrinks fails that run with graphify's reason, as any failed run does. Its MCP server needs the `mcp` extra, which init's registration gets through `uv run --with 'graphifyy[mcp]'`.
 
 Recommended project behavior:
 

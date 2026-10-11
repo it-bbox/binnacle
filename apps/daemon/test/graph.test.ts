@@ -164,7 +164,7 @@ describe('the daemon keeps the graph current', () => {
       await until(async () => (await snapshot(daemon, root)).graph.builtFrom?.commit === first, 'the first build');
       const graphBefore = readFileSync(join(root, 'graphify-out', 'graph.json'), 'utf8');
 
-      // graphify's own refusal, as an older graphify gives one that does not accept the flag.
+      // graphify's refusal of a graph that shrinks, standing for any failed extract.
       fake.replace(`echo "${REFUSAL}" >&2; exit 1`);
       const second = commit(root, 'a.txt');
       await until(async () => (await snapshot(daemon, root)).graph.lastRun?.commit === second, 'the failed run');

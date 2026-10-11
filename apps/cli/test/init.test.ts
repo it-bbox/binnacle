@@ -1591,8 +1591,9 @@ test('the first graph: an output directory Git already ignores leaves .gitignore
 
 test('the first graph: a failing build is reported in the Summary with its reason, and the rest of the plan has run', (t) => {
   const home = makeHome(t);
-  // graphify's own refusal of a graph that shrinks, as an older graphify that does not accept the flag gives it.
-  const refusal = '[graphify extract] error: dedup merged 4 node(s); writing would shrink the graph from 12 nodes to 8 nodes. Pass --allow-dedup-shrink to write the smaller graph.';
+  // graphify 0.9.76's refusal of a graph that shrinks, standing for any failed extract.
+  const refusal =
+    '[graphify extract] error: dedup merged 4 node(s); writing would shrink the graph from 12 nodes to 8 nodes. Refusing to overwrite graphify-out/graph.json. Pass --allow-dedup-shrink to write the smaller graph.';
   const calls = fakeGraphify(home, { installed: true, exitCode: 1, reason: refusal });
   const npm = fakeTool(home, 'npm');
   const root = makeRepository(t, 'graph-fails');
