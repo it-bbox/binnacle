@@ -458,7 +458,7 @@ test('/binnacle:answer shows a question and its options in the owner\'s language
   assert.match(show, /the recommended one first, as the question marks it/);
   assert.match(show, /When the human asks about the options, explain them: what each costs and what it leads to/);
   assert.match(show, /never choose one, recommend one of your own, or take the recommended one as the answer unless the human chooses it/);
-  assert.match(show, /the option the human chooses, as the question words it, or the human's own words/);
+  assert.match(show, /the option the human chooses, its line as the question words it, cost and mark included, without its list marker, or the human's own words/);
   // The question's text is translated to be shown; the answer written stays as given.
   assert.match(skill, /the human's own words, as given: never write, complete, reword or translate it/);
   // The date line stays, and Binnacle reads the answer without it.
