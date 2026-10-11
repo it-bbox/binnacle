@@ -46,6 +46,9 @@ export type Alternative = {
 
 /** The conflict risk between the Tasks in flight and ready to start, Binnacle's calculation against the graph. */
 export type ConflictRisk = 'high' | 'medium' | 'low' | 'unknown';
+/** The Parallel limit as `parallel.get` and the snapshot's `tasks.parallel` give it (ADR-0041). */
+export type ParallelLimit = { limit: number; mode: 'number' | 'auto'; source: 'manifest' | 'machine' | 'default' };
+
 export type Impact = {
   available: true;
   tasks: { id: string; modules: string[]; from: 'branch' | 'ticket'; provenance: 'calculated' }[];
@@ -72,7 +75,7 @@ export type Snapshot = {
     /** Every Task not listed by name, by state. */
     counts: Record<string, number>;
     /** How many Tasks may be worked on at once, Binnacle's calculation. */
-    parallel: { limit: number; inProgress: number; free: number; provenance: 'calculated'; impact: Impact | Unavailable };
+    parallel: ParallelLimit & { inProgress: number; free: number; provenance: 'calculated'; impact: Impact | Unavailable };
   } | null;
   graph: GraphSection;
   activity: Activity | Unavailable;

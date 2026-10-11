@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { call, usePolling, type Failure } from '~/composables/daemon';
+import { call, DaemonError, usePolling, type Failure } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
-import { projectName, SELECTED_VIEW, type ProjectRow } from '~/composables/projects';
+import { projectName, SELECTED_VIEW, type ParallelLimit, type ProjectRow } from '~/composables/projects';
 import { LANGUAGES, type Language } from '~/i18n';
 
 /**
- * The language, and the selected project's and the daemon's settings to read. The page writes
- * nothing (ADR-0020): its only actions are the language choice, kept in this browser, and
- * copying commands. Each setting says where it is changed instead.
+ * The language, the machine's Parallel limit, and the selected project's and the daemon's
+ * settings to read. The Parallel limit is the one thing the page writes, through the daemon
+ * (ADR-0041); the rest it only shows, each setting saying where it is changed (ADR-0020).
  */
 const view = inject(SELECTED_VIEW, ref(null));
 const route = useRoute();
@@ -26,6 +26,48 @@ type ProjectStatus = { project: ProjectRow; manifest: Manifest | null; diagnosti
 
 const status = usePolling(async () => (project === null ? null : call<ProjectStatus>('project.status', { path: project })));
 const daemon = usePolling(() => call<{ version: string; host: string; port: number }>('daemon.status'));
+
+const machine = usePolling(() => call<ParallelLimit>('parallel.get'));
+/** The form's choice, filled from the machine's limit until the owner edits it. */
+const choice = ref<'number' | 'auto'>('number');
+/** A number, or the input's text when it is not one. */
+const entered = ref<number | string>('');
+const edited = ref(false);
+watch(machine.data, (limit) => {
+  if (limit === null || edited.value) return;
+  choice.value = limit.mode;
+  entered.value = limit.mode === 'number' ? limit.limit : '';
+});
+const saving = ref(false);
+const saved = ref(false);
+const refused = ref<Failure | null>(null);
+
+/** Sends the choice as it stands; the daemon alone decides whether it is a limit, and says why not. */
+async function save(): Promise<void> {
+  saving.value = true;
+  saved.value = false;
+  refused.value = null;
+  try {
+    // Whatever was entered is sent as it is, for the daemon to refuse with its reason.
+    machine.data.value = await call<ParallelLimit>('parallel.set', { limit: choice.value === 'auto' ? 'auto' : entered.value === '' ? null : entered.value });
+    edited.value = false;
+    saved.value = true;
+  } catch (error) {
+    refused.value = error instanceof DaemonError ? { code: error.code, message: error.message } : { code: 'daemon.unreachable', message: 'The Binnacle daemon did not answer.' };
+  } finally {
+    saving.value = false;
+  }
+}
+const edit = (): void => {
+  edited.value = true;
+  saved.value = false;
+};
+/** The selected project's own limit, which wins over the machine's for it. */
+const override = computed(() => status.data.value?.manifest?.automation.maxParallelDevelopmentTasks ?? null);
+const choices = computed(() => [
+  { value: 'number', label: t.value.parallelNumber },
+  { value: 'auto', label: t.value.parallelAuto },
+]);
 
 type Setting = { key: string; value: string | number | boolean | null; unwritten?: string };
 
@@ -85,6 +127,39 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
       <URadioGroup :model-value="language" :items="LANGUAGES" aria-labelledby="language" @update:model-value="(value) => choose(value as Language)" />
       <template #footer>
         <p class="text-sm leading-snug text-dimmed">{{ t.languageNote }}</p>
+      </template>
+    </UCard>
+
+    <UCard :ui="card">
+      <template #header>
+        <h2 id="parallel" class="text-base font-semibold">{{ t.parallelLimit }}</h2>
+        <span v-if="machine.data.value" class="text-sm text-dimmed">{{ t.parallelNow(number(machine.data.value.limit), machine.data.value.mode, machine.data.value.source) }}</span>
+      </template>
+      <div class="flex flex-col gap-3">
+        <p v-if="machine.error.value" class="text-warning">
+          <code>{{ machine.error.value.code }}</code> <span lang="en">{{ machine.error.value.message }}</span>
+        </p>
+        <form class="flex flex-wrap items-center gap-x-4 gap-y-2" aria-labelledby="parallel" @submit.prevent="save">
+          <URadioGroup v-model="choice" :items="choices" orientation="horizontal" aria-labelledby="parallel" @update:model-value="edit" />
+          <UInput
+            v-model.number="entered"
+            type="number"
+            step="1"
+            class="w-24"
+            :disabled="choice === 'auto'"
+            :aria-label="t.parallelNumber"
+            @update:model-value="edit"
+          />
+          <UButton type="submit" :loading="saving" :label="t.parallelSave" />
+          <span v-if="saved" class="text-sm text-success" role="status">{{ t.parallelSaved }}</span>
+        </form>
+        <p v-if="refused" class="text-warning" role="alert">
+          <code>{{ refused.code }}</code> <span lang="en">{{ refused.message }}</span>
+        </p>
+        <p v-if="override !== null" class="text-warning">{{ t.parallelOverride(number(override)) }}</p>
+      </div>
+      <template #footer>
+        <p class="text-sm leading-snug text-dimmed">{{ t.parallelNote }}</p>
       </template>
     </UCard>
 

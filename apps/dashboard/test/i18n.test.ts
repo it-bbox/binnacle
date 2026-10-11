@@ -153,3 +153,16 @@ describe("the daemon's reasons", () => {
     for (const reason of written) assert.notEqual(daemonReason('ru', reason), reason, reason);
   });
 });
+
+describe('the Parallel limit on the Settings page', () => {
+  it('reads the limit with its mode, and says when it is the default, in both languages', () => {
+    const { en, ru } = DICTIONARIES;
+    assert.equal(en.parallelNow('3', 'number', 'machine'), 'Now 3.');
+    assert.equal(en.parallelNow('2', 'number', 'default'), 'Now 2, the default.');
+    assert.equal(en.parallelNow('4', 'auto', 'machine'), 'Now auto, up to 4.');
+    assert.equal(ru.parallelNow('3', 'number', 'machine'), 'Сейчас 3.');
+    assert.equal(ru.parallelNow('2', 'number', 'default'), 'Сейчас 2, по умолчанию.');
+    assert.equal(ru.parallelNow('4', 'auto', 'machine'), 'Сейчас авто, до 4.');
+    for (const dictionary of [en, ru]) assert.match(dictionary.parallelOverride('5'), /5 .*automation\.max_parallel_development_tasks/);
+  });
+});
