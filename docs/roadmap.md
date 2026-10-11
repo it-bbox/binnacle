@@ -41,7 +41,7 @@ Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then au
 
 Epic 11 is in progress (ADR-0040): autopilot merged 01 to 11 on 2026-10-11. 13, merged on 2026-10-11, reads GitHub's CI from Actions runs and commit statuses, since check runs are served only to GitHub Apps. 14, graphify refusing a graph that shrinks, the carrier of 12, the owner's exit demonstration, is done on its branch: its question answered, the ticket resumed by autopilot. 12 can start once 14 is merged.
 
-Next action: run epic 11's exit demonstration (12) on ticket 14: answer the question on `feat/graph-that-shrinks`, then autopilot resumes the ticket and merges it. `/binnacle:answer`
+Next action: record epic 11's exit demonstration (12), run with the owner on 2026-10-11 on ticket 14: tick its criteria, set it DONE and epic 11 done; then grill epic 18, Lean flow, in a fresh session. `/mattpocock-skills:implement docs/specs/the-state-of-work/issues/12-state-of-work-exit-demonstration.md`
 
 ## Later
 
