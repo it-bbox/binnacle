@@ -133,18 +133,20 @@ export type RunAttribution<T extends Pick<TrackerTask, 'id' | 'title' | 'ticket'
   /** The tracker's current Tasks, and whether it is a remote tracker. */
   tasks: T[];
   remote: boolean;
-  /** Per Task id, the points its first Review sets; a Task with none has no Review. */
+  /** Per Task id, the points its review is read from; a Task with none has neither review nor rework. */
   reviews: Map<string, ReviewPoints>;
   now: Date;
 };
 
 /**
- * Where a Task's first Review divides its work, in milliseconds: `review`, when the commit that
- * first recorded it was made, and `lastChange`, when the last commit before that one changing
- * anything but the ticket was, null when none did. On GitHub or GitLab both are when changes
- * were first requested on the Task's pull or merge request, so that no run there is a review run.
+ * Where a Task's review divides its work, in milliseconds: `firstChange`, when its branch's first
+ * commit changing anything but its ticket was made, after which a subagent starting is a review
+ * run; and `review`, when the commit that first recorded its Review was, the rework boundary of a
+ * Task with no review run. Each is null when there is none or Git cannot say. On GitHub or
+ * GitLab `firstChange` is null, so that no run there is a review run, and `review` is when
+ * changes were first requested on the Task's pull or merge request.
  */
-export type ReviewPoints = { lastChange: number | null; review: number };
+export type ReviewPoints = { firstChange: number | null; review: number | null };
 
 /**
  * Records grouped into observed runs: by harness, session and subagent, in time order, a
@@ -153,9 +155,12 @@ export type ReviewPoints = { lastChange: number | null; review: number };
  * id is its first record's key, so more records never change it. Its Task is the one its
  * branch maps back to (`branchTask`), none being unassigned. Its role is each of its records':
  * `product` on the default branch, `unknown` on a branch no Task has, and on a Task's branch
- * `rework` after the Task's first Review, `review` up to it for a subagent that started
- * after the last commit before it changing anything but the ticket, and `implementation`
- * otherwise. Runs come in the order they started.
+ * `review` for a subagent that started after the branch's first commit changing anything but
+ * the ticket, `rework` for any other record after the Task's first review ends, or, with none,
+ * after its Review commit, and `implementation` otherwise. The first review is its first review
+ * subagent's run and every other one that started before it ended, as reviewers started side
+ * by side are, and it ends with the last record of any of them. Runs come in the order they
+ * started.
  *
  * A subagent's runs name their parent run: the run of the parent session that had started
  * by the subagent's first record. None does when that session has no run among `records`.
@@ -171,23 +176,38 @@ export function observedRuns<R extends RunRecord, T extends Pick<TrackerTask, 'i
     const branch = reflogBranch(record);
     return branch === null ? null : branchTask(branch, tasks, remote);
   };
-  /** `start` is when the record's subagent started. */
-  const roleOf = (record: R, start: number): RunRole => {
-    if (reflogBranch(record) === defaultBranch) return 'product';
-    const task = taskOf(record);
-    if (task === null) return 'unknown';
-    const points = reviews.get(task.id);
-    if (points === undefined) return 'implementation';
-    if (Date.parse(record.timestamp) > points.review) return 'rework';
-    return record.subagentId !== null && (points.lastChange === null || start > points.lastChange) ? 'review' : 'implementation';
-  };
   // Records come session by session in time order, so a subagent's first one is when it started.
   const started = new Map<string, number>();
   const role = new Map<R, RunRole>();
+  // Per Task id, per review subagent, its start and its last record on the Task's branch.
+  const reviewRuns = new Map<string, Map<string, { start: number; end: number }>>();
   for (const record of sorted) {
     const subagent = [record.harness, record.sessionId, record.subagentId ?? ''].join('\0');
     if (!started.has(subagent)) started.set(subagent, Date.parse(record.timestamp));
-    role.set(record, roleOf(record, started.get(subagent)!));
+    const start = started.get(subagent)!;
+    const task = taskOf(record);
+    const firstChange = task === null ? null : (reviews.get(task.id)?.firstChange ?? null);
+    if (reflogBranch(record) === defaultBranch) role.set(record, 'product');
+    else if (task === null) role.set(record, 'unknown');
+    else if (record.subagentId !== null && firstChange !== null && start > firstChange) {
+      role.set(record, 'review');
+      if (!reviewRuns.has(task.id)) reviewRuns.set(task.id, new Map());
+      reviewRuns.get(task.id)!.set(subagent, { start, end: Date.parse(record.timestamp) });
+    }
+  }
+  // The first review ends with the last of the review runs started before it ended: reviewers started side by side are one review.
+  const reviewEnd = new Map<string, number>();
+  for (const [id, own] of reviewRuns) {
+    const [first, ...rest] = [...own.values()].sort((a, b) => a.start - b.start);
+    let end = first!.end;
+    for (const run of rest) if (run.start <= end) end = Math.max(end, run.end);
+    reviewEnd.set(id, end);
+  }
+  for (const record of sorted) {
+    if (role.has(record)) continue;
+    const id = taskOf(record)!.id;
+    const boundary = reviewEnd.get(id) ?? reviews.get(id)?.review ?? null;
+    role.set(record, boundary !== null && Date.parse(record.timestamp) > boundary ? 'rework' : 'implementation');
   }
 
   const groups: R[][] = [];

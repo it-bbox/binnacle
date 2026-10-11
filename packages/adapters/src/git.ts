@@ -332,13 +332,34 @@ function firstPerFile(changes: { commit: string; at: number; files: string[] }[]
 }
 
 /**
- * The author time, in milliseconds, of the newest commit before `commit`, a hash, that changed
- * anything but `path`, relative to the repository root; null when none did, or Git cannot say.
+ * The author times, in milliseconds, which a rebase keeps, of the commits reachable from `commits`,
+ * hashes, that changed anything but `path`, relative to the repository root, leaving out every
+ * commit reachable from one that `defaultBranch` pointed at, by its reflog, other than
+ * `commits` themselves: a branch's own commits, without the default branch's work it started
+ * from or was rebased onto, other branches merged there and commits made there meanwhile
+ * included. A default branch with no reflog leaves nothing out. Null whenever Git cannot say.
+ *
+ * ponytail: a branch merged into the default branch and worked on after it reads only the
+ * commits after that merge as its own; tell its merges apart if a branch is ever merged twice.
  */
-export async function readLastChangeBefore(cwd: string, commit: string, path: string, timeoutMs: number): Promise<number | null> {
+export async function readOwnChangeTimes(cwd: string, commits: string[], path: string, defaultBranch: string, timeoutMs: number): Promise<number[] | null> {
+  if (commits.length === 0) return [];
   try {
-    const run = await git(cwd, timeoutMs, ['log', '-1', '--format=%at', `${commit}^`, '--', ':(top)', `:(top,exclude,literal)${path}`]);
-    return run.code === 0 && run.stdout.trim() !== '' ? Number(run.stdout.trim()) * 1000 : null;
+    // Under `refs/heads/`, the name can never be read as an option.
+    const [reflog, reachable] = await Promise.all([
+      git(cwd, timeoutMs, ['log', '--walk-reflogs', '--format=%H', `refs/heads/${defaultBranch}`]),
+      git(cwd, timeoutMs, ['rev-list', ...commits]),
+    ]);
+    if (reachable.code !== 0) return null;
+    // A value the branch never reached, a later one, would leave out the branch's own commits too.
+    const history = new Set(reachable.stdout.split('\n').filter((commit) => commit !== ''));
+    const excluded = reflog.code !== 0 ? [] : [...new Set(reflog.stdout.split('\n'))].filter((commit) => history.has(commit) && !commits.includes(commit));
+    const run = await git(cwd, timeoutMs, ['log', '--format=%at', ...commits, '--not', ...excluded, '--', ':(top)', `:(top,exclude,literal)${path}`]);
+    if (run.code !== 0) return null;
+    return run.stdout
+      .split('\n')
+      .filter((line) => line !== '')
+      .map((time) => Number(time) * 1000);
   } catch (error) {
     if (isGitUnavailable(error)) return null;
     throw error;

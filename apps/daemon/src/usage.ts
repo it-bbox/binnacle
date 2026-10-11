@@ -22,7 +22,7 @@ import {
   readZcode,
   readZcodeCalls,
   readHeadHistory,
-  readLastChangeBefore,
+  readOwnChangeTimes,
   readWorktrees,
   type AntigravityConversation,
   type ArtifactReading,
@@ -667,8 +667,8 @@ async function runs(
   let read: Pick<Attributed, 'reworkUnread' | 'reviewed'> & { reviews: Map<string, ReviewPoints> };
   if ((provider === 'github' || provider === 'gitlab') && repository !== null) read = await forgeReviewPoints(home, { provider, repository, host }, records, tasks);
   else {
-    const reviews = remote ? new Map<string, ReviewPoints>() : await reviewPoints(projectPath, records, tasks);
-    read = { reviews, reworkUnread: new Map(), reviewed: new Set(reviews.keys()) };
+    const reviews = remote ? new Map<string, ReviewPoints>() : await reviewPoints(projectPath, defaultBranch, records, tasks);
+    read = { reviews, reworkUnread: new Map(), reviewed: new Set([...reviews].flatMap(([id, points]) => (points.review === null ? [] : [id]))) };
   }
   const { reviews, reworkUnread, reviewed } = read;
   return { runs: observedRuns(withCheckout, { projectPath, defaultBranch, tasks, remote, reviews, now: new Date() }), reworkUnread, reviewed };
@@ -736,7 +736,7 @@ async function forgeReviewPoints(
       const failures = answers.flatMap((answer) => ('reason' in answer ? [answer.reason] : []));
       const noRequests = answers.flatMap((answer) => ('noRequest' in answer ? [answer.noRequest] : []));
       const at = Math.min(...times);
-      if (times.length > 0) reviews.set(id, { lastChange: at, review: at });
+      if (times.length > 0) reviews.set(id, { firstChange: null, review: at });
       // A branch the forge did not answer for may hold an earlier request; one with no request holds none.
       if (failures.length > 0) unread(id, failures[0]!);
       else if (noRequests.length === answers.length) unread(id, noRequests[0]!);
@@ -748,29 +748,57 @@ async function forgeReviewPoints(
 }
 
 /**
- * The last change before each commit that first recorded a ticket's Review, by commit and
- * ticket: history does not change under a commit, so it is read once per daemon.
- * ponytail: one entry per reviewed ticket, never forgotten; bound it if a daemon ever sees tens of thousands.
+ * A branch's own changes, by the commits it was read from and the ticket: history does not
+ * change under a commit, so it is read once per daemon.
+ * ponytail: one entry per set of branch tips a Task was read at, never forgotten; bound it if a daemon ever sees tens of thousands.
  */
-const lastChangeBeforeReview = new Map<string, number | null>();
+const ownChanges = new Map<string, number[]>();
 
 /**
- * On the local tracker, per Task whose branch `records` were on, when its ticket's first
- * Review was committed and when the last commit before it changed anything but the ticket.
- * A Task with no Review, or whose history Git cannot read, has none: its runs are implementation.
+ * On the local tracker, per Task whose branch `records` were on, when its branch's first commit
+ * changing anything but its ticket was made, and when its ticket's first Review was committed.
+ * The branch's commits are read from its tips that still exist, its Review commit and the
+ * commit on `defaultBranch` that set it `DONE`, leaving out `defaultBranch`'s own and those
+ * authored before the Task's first record on its branch. A Task with neither, or whose history
+ * Git cannot read, has none: its runs are implementation.
  */
-async function reviewPoints(projectPath: string, records: UsageRecord[], tasks: Pick<TrackerTask, 'id' | 'title' | 'ticket'>[]): Promise<Map<string, ReviewPoints>> {
-  const branches = new Set(records.flatMap((record) => (record.branch?.source === 'reflog' ? [record.branch.name] : [])));
-  const worked = [...new Set([...branches].flatMap((branch) => branchTask(branch, tasks, false) ?? []))];
+async function reviewPoints(
+  projectPath: string,
+  defaultBranch: string,
+  records: UsageRecord[],
+  tasks: Pick<TrackerTask, 'id' | 'title' | 'ticket'>[],
+): Promise<Map<string, ReviewPoints>> {
+  // Per Task, its branches and its first record on one of them.
+  const worked = new Map<Pick<TrackerTask, 'id' | 'title' | 'ticket'>, { branches: Set<string>; since: number }>();
+  for (const record of records) {
+    if (record.branch?.source !== 'reflog') continue;
+    const task = branchTask(record.branch.name, tasks, false);
+    if (task === null) continue;
+    const time = Date.parse(record.timestamp);
+    const known = worked.get(task);
+    if (known === undefined) worked.set(task, { branches: new Set([record.branch.name]), since: time });
+    else {
+      known.branches.add(record.branch.name);
+      known.since = Math.min(known.since, time);
+    }
+  }
   const timeout = resolveGitTimeout();
-  const first = await readFirstReviews(projectPath, worked.map((task) => task.ticket), timeout);
+  const tickets = [...worked.keys()].map((task) => task.ticket);
+  const head = await readBranchCommit(projectPath, defaultBranch, timeout);
+  const [first, done] = await Promise.all([readFirstReviews(projectPath, tickets, timeout), head === null ? null : readDoneCommits(projectPath, head, tickets, timeout)]);
   const points = new Map<string, ReviewPoints>();
-  for (const task of worked) {
-    const review = first?.get(task.ticket);
-    if (review === undefined) continue;
-    const key = `${review.commit}\0${task.ticket}`;
-    if (!lastChangeBeforeReview.has(key)) lastChangeBeforeReview.set(key, await readLastChangeBefore(projectPath, review.commit, task.ticket, timeout));
-    points.set(task.id, { lastChange: lastChangeBeforeReview.get(key)!, review: review.at });
+  for (const [task, { branches, since }] of worked) {
+    const review = first?.get(task.ticket) ?? null;
+    const tips = await Promise.all([...branches].map((branch) => readBranchCommit(projectPath, branch, timeout)));
+    const anchors = [...new Set([...tips, review?.commit, done?.get(task.ticket)?.commit])].filter((commit) => typeof commit === 'string').sort();
+    const key = `${anchors.join(' ')}\0${task.ticket}`;
+    if (!ownChanges.has(key)) {
+      const times = await readOwnChangeTimes(projectPath, anchors, task.ticket, defaultBranch, timeout);
+      if (times !== null) ownChanges.set(key, times);
+    }
+    // Git lists commits by commit time, which a rebase gives them all alike: the first is the earliest author time.
+    const firstChange = (ownChanges.get(key) ?? []).reduce<number | null>((earliest, time) => (time >= since && (earliest === null || time < earliest) ? time : earliest), null);
+    if (firstChange !== null || review !== null) points.set(task.id, { firstChange, review: review?.at ?? null });
   }
   return points;
 }

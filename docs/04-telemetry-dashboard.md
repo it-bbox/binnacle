@@ -54,15 +54,15 @@ Do not invent unavailable fields.
 
 ## Run roles
 
-A run's role is read from Git and the forge, never from what an agent wrote, and is labelled as Binnacle's calculation:
+A run's role is read from the runs, Git and the forge, never from what an agent wrote, and is labelled as Binnacle's calculation:
 
 - `product` — on the default branch;
 - `implementation` — on a Task's branch, unless one of the two below applies;
-- `review` — a subagent run on a Task's branch that starts after the branch's last commit changing anything but its ticket, and ends by the commit that first adds a `### Review` heading to the ticket;
-- `rework` — work on a Task's branch after that commit; on GitHub or GitLab, which keep no Review in a ticket, after the first review on the Task's pull or merge request that requested changes, read with the tracker's token. A forge has no Review commit, so no run there is a review run, and where its requests cannot be read — no token, no request, a forge that refused — the Task says why in `reworkUnread`;
+- `review` — a subagent run on a Task's branch that starts after the branch's first commit changing anything but its ticket. The branch's commits are read from its tip while it exists, the commit that first adds a `### Review` heading to the ticket and the commit on the default branch that set it `DONE`, leaving out those authored before the Task's first record on its branch and those the default branch held, by its reflog, before it took the branch: its own commits, and other branches merged there, that the branch started from or was rebased onto;
+- `rework` — the other work on a Task's branch after its first review run ends, whenever the Review was committed. Review runs started before the first one ended, as reviewers started side by side are, end it together, with the last record of any of them. A Task with no review run keeps the commit that first adds `### Review` to its ticket as the boundary. On GitHub or GitLab, which keep no Review in a ticket, it is the work after the first review on the Task's pull or merge request that requested changes, read with the tracker's token. A forge's review leaves no subagent run, so no run there is a review run, and where its requests cannot be read — no token, no request, a forge that refused — the Task says why in `reworkUnread`;
 - `unknown` — any other branch.
 
-A run whose records cross such a point is split there, as a run is split where its branch changes. The rework share and first-pass review acceptance below follow from these roles.
+A run whose records cross such a point is split there, as a run is split where its branch changes. Roles are computed whenever usage is read, so a change of this rule reads every past Task by it, with nothing stored to migrate. The rework share and first-pass review acceptance below follow from these roles; a Task counts as reviewed for the latter when its ticket records a Review.
 
 ## The dashboard is read-only in v1
 
@@ -116,7 +116,7 @@ A roadmap that cannot be read, and a project or epic with no Tasks, each show th
 - the brief, the branch and the command that starts the Task; for a Task In progress from its runs, the same command, labelled as resuming it, and none for a `DONE` or `CANCELLED` one;
 - the ticket's body and its Review, as plain text, or "no Review yet";
 - AgentRun timeline;
-- usage by role: implementation, review and rework side by side, labelled as Binnacle's calculation from the Task branch's commits (*Run roles*), with the reason when the Task's rework cannot be read on GitHub or GitLab;
+- usage by role: implementation, review and rework side by side, labelled as Binnacle's calculation from the Task branch's runs and commits (*Run roles*), with the reason when the Task's rework cannot be read on GitHub or GitLab;
 - questions/answers, each question with its answer or as unanswered, and the branch they were read from;
 - the Task's pull or merge request, from `task.get`'s `request`: its number linked to the forge, its title, whether it is a draft, its branch and its CI state as the forge reports it; none when it has no open one, or not available, with the reason;
 - branch/worktree.

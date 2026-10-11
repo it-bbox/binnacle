@@ -82,7 +82,8 @@ export type AgentRun = {
 
 /**
  * From the run's branch: the default branch is Product work, a Task's branch implementation,
- * review or rework, told apart by when the Task's first Review was committed.
+ * review or rework, told apart by the branch's first commit changing anything but the ticket,
+ * the Task's first review run, or, with none, its first Review's commit.
  */
 export type RunRole = 'product' | 'implementation' | 'review' | 'rework' | 'unknown';
 /** The roles of a run on a Task's branch. */
