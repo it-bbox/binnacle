@@ -125,6 +125,8 @@ describe('the usage-limit informer', () => {
       claudeSession(claudeCode, second, 'two', [...call(minutesAgo(58), 'two-a'), ...call(minutesAgo(50), 'two-b'), synthetic(minutesAgo(49), 'limit-two', 'rate_limit')]);
       claudeSession(claudeCode, second, 'four', call(minutesAgo(61), 'four'));
       claudeSession(claudeCode, first, 'three', [...call(minutesAgo(30), 'three'), synthetic(minutesAgo(29), 'limit-three', 'rate_limit'), synthetic(minutesAgo(28), 'failed', 'server_error')]);
+      // A session whose first prompt hit the limit, with no call before it: active then all the same.
+      claudeSession(claudeCode, first, 'five', [synthetic(minutesAgo(15), 'limit-five', 'rate_limit')]);
 
       // The synthetic records give no record: three calls in the first project, three in the second.
       assert.equal(await imported(daemon, first), 3);
@@ -136,13 +138,14 @@ describe('the usage-limit informer', () => {
       assert.deepEqual(body.usageLimits, [
         { at: minutesAgoOf(body.usageLimits[0]?.at ?? null, 49), harness: 'claude-code', limit: 'five_hour', active: 2, provenance: 'calculated' },
         { at: minutesAgoOf(body.usageLimits[1]?.at ?? null, 29), harness: 'claude-code', limit: 'five_hour', active: 1, provenance: 'calculated' },
+        { at: minutesAgoOf(body.usageLimits[2]?.at ?? null, 15), harness: 'claude-code', limit: 'five_hour', active: 1, provenance: 'calculated' },
       ]);
       assert.deepEqual(body.notReporting, []);
 
       // Only the usage limits are kept as markers, and nothing of their content.
       const db = new DatabaseSync(storePath(daemon.home), { readOnly: true });
       try {
-        assert.equal(db.prepare('select count(*) as n from usage_limit').get()!.n, 2);
+        assert.equal(db.prepare('select count(*) as n from usage_limit').get()!.n, 3);
         assert.equal(db.prepare('select count(*) as n from compaction').get()!.n, 0);
         assert.doesNotMatch(JSON.stringify(db.prepare('select * from usage_limit').all()), new RegExp(CONTENT));
       } finally {

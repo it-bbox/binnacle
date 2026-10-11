@@ -43,24 +43,28 @@ export type UsageRecord = {
   provenance: Provenance;
 };
 
+/** What every marker an artifact shows in a session names: the session, when, and where it ran. */
+export type Marker = {
+  harness: Harness;
+  /** Unique within the harness: Claude Code's record uuid; Codex's session id and record ordinal. */
+  naturalKey: string;
+  sessionId: string;
+  /** The subagent whose session the marker is in; null in a main session. */
+  subagentId: string | null;
+  timestamp: string;
+  cwd: string;
+  provenance: Provenance;
+};
+
 /**
  * A compaction a harness's artifact shows in a session: when it happened and what triggered
  * it, never what was dropped or kept. Claude Code writes a compaction boundary, which it
  * reports; Codex writes none, and a change of its context-window identifier is Binnacle's
  * reading of one, so calculated (ADR-0007).
  */
-export type CompactionMarker = {
-  harness: Harness;
-  /** Unique within the harness: Claude Code's boundary uuid; Codex's session id and record ordinal. */
-  naturalKey: string;
-  sessionId: string;
-  /** The subagent whose session compacted; null in a main session. */
-  subagentId: string | null;
-  timestamp: string;
-  cwd: string;
+export type CompactionMarker = Marker & {
   /** Claude Code's `auto` or `manual`; null where the harness gives none. */
   trigger: string | null;
-  provenance: Provenance;
 };
 
 /**
@@ -68,18 +72,9 @@ export type CompactionMarker = {
  * names, never its message. Claude Code writes one as a synthetic record with
  * `"error":"rate_limit"`, which it reports; no other harness records one yet.
  */
-export type UsageLimitMarker = {
-  harness: Harness;
-  /** Unique within the harness: Claude Code's record uuid. */
-  naturalKey: string;
-  sessionId: string;
-  /** The subagent whose session hit the limit; null in a main session. */
-  subagentId: string | null;
-  timestamp: string;
-  cwd: string;
+export type UsageLimitMarker = Marker & {
   /** Claude Code's `rateLimitType`, such as `five_hour`; null where the harness names none. */
   limit: string | null;
-  provenance: Provenance;
 };
 
 /**

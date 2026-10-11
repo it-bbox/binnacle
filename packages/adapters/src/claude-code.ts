@@ -1,4 +1,4 @@
-import type { CompactionMarker, UsageLimitMarker } from '@binnacle/telemetry';
+import type { CompactionMarker, Marker, UsageLimitMarker } from '@binnacle/telemetry';
 import { count, isObject, readMessages, type ArtifactPosition, type ArtifactReading, type LineReading } from './artifact.ts';
 
 /**
@@ -75,7 +75,7 @@ function readRecord(value: Record<string, unknown>): LineReading {
 
 /** A compaction boundary's marker, or why the boundary cannot be read. */
 function readBoundary(value: Record<string, unknown>): CompactionMarker | string {
-  const place = markerPlace(value, 'a compaction boundary');
+  const place = markerPlace(value, 'compaction boundary');
   if (typeof place === 'string') return place;
   const trigger = isObject(value.compactMetadata) ? value.compactMetadata.trigger : undefined;
   return { ...place, trigger: typeof trigger === 'string' ? trigger : null };
@@ -83,20 +83,20 @@ function readBoundary(value: Record<string, unknown>): CompactionMarker | string
 
 /** A usage limit's marker, or why its record cannot be read. */
 function readUsageLimit(value: Record<string, unknown>): UsageLimitMarker | string {
-  const place = markerPlace(value, 'a usage-limit record');
+  const place = markerPlace(value, 'usage-limit record');
   if (typeof place === 'string') return place;
   const limit = isObject(value.quotaLimits) ? value.quotaLimits.rateLimitType : undefined;
   return { ...place, limit: typeof limit === 'string' ? limit : null };
 }
 
-/** What every marker of a line names, or why `what` cannot be read. */
-function markerPlace(value: Record<string, unknown>, what: string): Omit<CompactionMarker, 'trigger'> | string {
+/** What every marker of a line names, or why a line of its `kind` cannot be read. */
+function markerPlace(value: Record<string, unknown>, kind: string): Marker | string {
   const time = typeof value.timestamp === 'string' ? Date.parse(value.timestamp) : NaN;
-  if (typeof value.uuid !== 'string') return `${what} without a uuid`;
-  if (Number.isNaN(time)) return `${what} without a timestamp`;
-  if (typeof value.cwd !== 'string') return `${what} without a cwd`;
-  if (typeof value.sessionId !== 'string') return `${what} without a session id`;
+  if (typeof value.uuid !== 'string') return `a ${kind} without a uuid`;
+  if (Number.isNaN(time)) return `a ${kind} without a timestamp`;
+  if (typeof value.cwd !== 'string') return `a ${kind} without a cwd`;
+  if (typeof value.sessionId !== 'string') return `a ${kind} without a session id`;
   const subagentId = value.isSidechain === true ? value.agentId : null;
-  if (subagentId !== null && typeof subagentId !== 'string') return `a subagent ${what.slice(2)} without an agent id`;
+  if (subagentId !== null && typeof subagentId !== 'string') return `a subagent ${kind} without an agent id`;
   return { harness: 'claude-code', naturalKey: value.uuid, sessionId: value.sessionId, subagentId, timestamp: new Date(time).toISOString(), cwd: value.cwd, provenance: 'provider_reported' };
 }

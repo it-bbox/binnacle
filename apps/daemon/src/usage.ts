@@ -597,6 +597,9 @@ async function storedRuns(context: OperationContext, projectPath: string, manife
   return runs(context.store.usage(projectPath, ''), projectPath, tasks, context.home, manifest, checkouts);
 }
 
+/** A record's or marker's session, a subagent's its own. */
+const sessionOf = ({ harness, sessionId, subagentId }: Pick<UsageRecord, 'harness' | 'sessionId' | 'subagentId'>): string => [harness, sessionId, subagentId ?? ''].join('\0');
+
 /** The harnesses whose artifacts record a usage limit (`UsageLimitMarker`). */
 const RECORDS_USAGE_LIMITS: Harness[] = ['claude-code'];
 
@@ -614,13 +617,13 @@ export type UsageLimitInformer = {
  * What this machine has carried (ADR-0041), over every registered project's stored records and
  * usage-limit markers within its import window: the most runs active at once, and how many were
  * active at each usage limit. A run is active at a moment when one of its records is at most
- * `ACTIVE_WITHIN_MS` before it, telemetry's recency rule. Runs are grouped as `observedRuns`
+ * `ACTIVE_WITHIN_MS` before it, telemetry's recency rule, and at its own usage limit. Runs are grouped as `observedRuns`
  * groups them, without Tasks: with none, a run's role changes only with its branch, so the
  * default branch named here moves no run's bounds. It reads what is stored and starts no import.
  */
 export function usageLimitInformer(context: OperationContext): UsageLimitInformer {
-  // Each run's spans of activity, from a record to ACTIVE_WITHIN_MS after it, joined where they meet.
-  const spans: [number, number][] = [];
+  // Each run's spans of activity, from a record to ACTIVE_WITHIN_MS after it, joined where they meet, by its session.
+  const spans: { from: number; to: number; session: string }[] = [];
   const limits: UsageLimitMarker[] = [];
   const harnesses = new Set<Harness>();
   for (const { path } of readRegistry(context.home)) {
@@ -634,19 +637,19 @@ export function usageLimitInformer(context: OperationContext): UsageLimitInforme
     const since = window === 'all' ? '' : localMidnight(window - 1).toISOString();
     const records = context.store.usage(path, since).map((record) => ({ ...record, checkout: null }));
     for (const run of observedRuns(records, { projectPath: path, defaultBranch: 'main', tasks: [], remote: false, reviews: new Map(), now: new Date() })) {
-      let span: [number, number] | undefined;
+      let span: (typeof spans)[number] | undefined;
       for (const record of run.records) {
         harnesses.add(record.harness);
         const at = Date.parse(record.timestamp);
-        if (span !== undefined && at <= span[1]) span[1] = at + ACTIVE_WITHIN_MS;
-        else spans.push((span = [at, at + ACTIVE_WITHIN_MS]));
+        if (span !== undefined && at <= span.to) span.to = at + ACTIVE_WITHIN_MS;
+        else spans.push((span = { from: at, to: at + ACTIVE_WITHIN_MS, session: sessionOf(record) }));
       }
     }
     limits.push(...context.store.usageLimits(path, since));
   }
 
   // A span starts before another ends at the same moment, both ends included.
-  const edges = spans.flatMap(([from, to]): [number, number][] => [[from, 1], [to, -1]]).sort((a, b) => a[0] - b[0] || b[1] - a[1]);
+  const edges = spans.flatMap(({ from, to }): [number, number][] => [[from, 1], [to, -1]]).sort((a, b) => a[0] - b[0] || b[1] - a[1]);
   let active = 0;
   let most: { runs: number; at: number | null } = { runs: 0, at: null };
   for (const [at, step] of edges) {
@@ -654,12 +657,17 @@ export function usageLimitInformer(context: OperationContext): UsageLimitInforme
     if (active > most.runs) most = { runs: active, at };
   }
   // ponytail: each usage limit scans every span; sweep them with the edges if limits ever number in the thousands.
-  const activeAt = (at: number): number => spans.filter(([from, to]) => from <= at && at <= to).length;
+  // The session that hit a limit was active then, even with no call in the ten minutes before it.
+  const activeAt = (limit: UsageLimitMarker): number => {
+    const at = Date.parse(limit.timestamp);
+    const active = spans.filter(({ from, to }) => from <= at && at <= to);
+    return active.length + (active.some(({ session }) => session === sessionOf(limit)) ? 0 : 1);
+  };
   return {
     mostActive: { runs: most.runs, at: most.at === null ? null : new Date(most.at).toISOString(), provenance: 'calculated' },
     usageLimits: limits
       .sort((a, b) => (a.timestamp < b.timestamp ? -1 : a.timestamp > b.timestamp ? 1 : 0))
-      .map((limit) => ({ at: limit.timestamp, harness: limit.harness, limit: limit.limit, active: activeAt(Date.parse(limit.timestamp)), provenance: 'calculated' })),
+      .map((limit) => ({ at: limit.timestamp, harness: limit.harness, limit: limit.limit, active: activeAt(limit), provenance: 'calculated' })),
     notReporting: [...harnesses].filter((harness) => !RECORDS_USAGE_LIMITS.includes(harness)).sort(),
   };
 }
