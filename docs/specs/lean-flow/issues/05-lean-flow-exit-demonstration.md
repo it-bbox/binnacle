@@ -10,3 +10,12 @@ Spec: `docs/specs/lean-flow/spec.md`
 - [ ] The usage page and `usage_get` show epic 11's Tasks with review and rework apart by the rule read from runs.
 - [ ] A question with options, committed to a Task branch by hand if no agent asked one, shows in the snapshot; `/binnacle:answer` shows it in Russian with its options, explains them on request, and writes the owner's choice, which `task_get` reads without the date line.
 - [ ] `pnpm test` passes several times in a row.
+
+## Comments
+
+### Question
+
+The usage page opens authorised only in the owner's browser, so this session cannot see it; `usage_get` shows epic 11's Tasks with review and rework apart. Does ticket 05 wait for the owner's look at the usage page before it is marked DONE?
+
+- Wait for the owner's look (recommended): as epic 11's demonstration did; one look at the dashboard before the ticket closes.
+- Close on `usage_get` alone: no wait; the page's half of the first criterion rests on the seam it shares with `usage_get`, unseen.
