@@ -81,3 +81,7 @@ Epic 11's autopilot run showed where the per-ticket process spends tokens and ti
 6. **Browser checks only for tickets that change the dashboard.**
 
 Measure before and after with Binnacle itself: rework share and tokens per completed Task, with epic 11 as the baseline.
+
+## A question offers its options and a recommendation (2026-10-11)
+
+In epic 11's exit demonstration the owner could not answer ticket 14's question as written: a trade-off in English prose, with no options to choose from and no recommendation, and `/binnacle:answer` forbids the agent to suggest an answer. The owner wants every `### Question` to carry its options, each with its cost, the recommended one first and marked, as grilling does, so that the owner picks one or writes their own. The asker writes them, never the answerer, so ADR-0040's "an agent never answers a question" holds; `/binnacle:answer` shows them, in the owner's language, and on the owner's request explains them. Also seen: the answer Binnacle reads includes the date line `/binnacle:answer` writes above it. Fits epic 13, Human output, or 18, Lean flow.
