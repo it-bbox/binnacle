@@ -20,7 +20,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 8 | Project Brain: tools, Graphify, Obsidian | done | [`project-brain-tools-graphify-obsidian`](specs/project-brain-tools-graphify-obsidian/spec.md) |
 | 9 | Everything from the chat | done | [`everything-from-the-chat`](specs/everything-from-the-chat/spec.md) |
 | 10 | Telemetry for any harness | done | [`telemetry-for-any-harness`](specs/telemetry-for-any-harness/spec.md) |
-| 11 | The state of work | tickets | [`the-state-of-work`](specs/the-state-of-work/spec.md) |
+| 11 | The state of work | in progress | [`the-state-of-work`](specs/the-state-of-work/spec.md) |
 | 12 | Audit, completed | not started | — |
 | 13 | Human output | not started | — |
 | 14 | Skills in any harness | done | [`skills-in-any-harness`](specs/skills-in-any-harness/spec.md) |
@@ -36,11 +36,11 @@ Epics 1 to 10 and 14 are done. On 2026-10-10 the owner set a date: on the evenin
 
 Three epics were added for it. 15, Daemon autostart: `binn init` sets the daemon up to start at login, which narrows ADR-0016's documented manual step (`docs/product-inbox.md`). 16, Dashboard redesign: the dashboard reads too small and too crowded, so it is redesigned with the Impeccable and UI UX Pro Max skills. 17, Release: npm and open source, which takes publishing `@binnacle/cli` out of *Later*: the build step that turns its TypeScript into JavaScript with the dashboard generated into it (`ADR-0031`), the README's install from npm, and the repository made public under Apache-2.0 (`ADR-0010`).
 
-Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own. On 2026-10-10 the owner set the order: 11, the largest and the one that needs the owner least, is grilled that night and run by autopilot overnight; it also comes before 16, so that the redesign covers the questions, roles and CI state 11 adds to the dashboard. 16 follows on 2026-10-11 with the owner watching, beside 15 and 12; 13 rewrites every skill's output and comes after them; 17 publishes what the others merged and comes last.
+Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own. The owner's order, set on 2026-10-10: 11 before 16, so that the redesign covers the questions, roles and CI state 11 adds to the dashboard; 16 with the owner watching, beside 15 and 12; 13, which rewrites every skill's output, after them; 17, which publishes what the others merged, last.
 
-Epic 11 was grilled on 2026-10-10 into its spec and twelve tickets (ADR-0040); the last, its exit demonstration, is the owner's. Done, 01 to 11: this repository's CI workflow; a Task's questions, from its ticket, branch or issue, and the owner's answer with `/binnacle:answer`; its roles with Binnacle's suggestions; what waits for the owner; GitHub's and GitLab's CI, on the Task and in the daily; attention matching the work; autopilot on questions, roles, CI. 12, the owner's exit demonstration, can start.
+Epic 11 is in progress (ADR-0040). Autopilot merged 01 to 11 on 2026-10-11: this repository's CI workflow; a Task's questions from its ticket, branch or issue, answered with `/binnacle:answer`; roles; what waits for the owner; GitHub's and GitLab's CI; attention matching the work; autopilot on all three. GitHub serves check runs only to GitHub Apps, so 13 reads CI from Actions runs and commit statuses: built on its branch, not yet merged. 12, the owner's exit demonstration, follows it.
 
-Next action: run epic 11 overnight with autopilot. `/binnacle:autopilot 11`
+Next action: verify and merge ticket 13's branch, feat/ci-on-github-without-checks, then run epic 11's exit demonstration with the owner. `/mattpocock-skills:implement docs/specs/the-state-of-work/issues/12-state-of-work-exit-demonstration.md`
 
 ## Later
 

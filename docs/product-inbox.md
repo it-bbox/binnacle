@@ -50,3 +50,30 @@ After a reboot the owner found the daemon down: nothing starts it. ADR-0016 make
 ## A scratchpad project in the owner's daemon (2026-10-10)
 
 The owner's daemon had a project registered at `/tmp/claude-1000/…/aeb63b29-…/scratchpad/demo-init`, a session's scratchpad, shown on every page as unavailable once the directory was gone; the owner had it unregistered on 2026-10-10. Some session ran `binn init` or `binn project register` there against the owner's `BINNACLE_HOME` rather than a temporary one, which `dashboard-design-and-languages/12` asks of agents. Two things to weigh: whether skills and briefs that try a CLI on a throwaway repository say to use a temporary home, and whether a registration whose directory is gone should drop out of the dashboard or be offered for removal rather than shown on every page.
+
+## A Binnacle mod for Claude Code (2026-10-11)
+
+Claude Code's mods (plugins of function hooks, 2.1.295) can draw a pane, a band above the prompt, the status line and toasts, add slash commands, and call the `binnacle` MCP server's tools themselves. The owner wants an optional Binnacle mod, off by default and switched on and off by the user, **after the release**:
+
+- the status line per chat: the session's Task and role, its tokens and context;
+- a *Waiting for you* band, shown only when there is something: unanswered questions, `main`'s CI failing, a stale Next action;
+- a pane with a compact snapshot and buttons that put a command (`/binnacle:answer`, `/binnacle:autopilot`, `/binnacle:checkpoint`) in the prompt for the human to send;
+- toasts on a change: CI failed, a question answered, context pressure.
+
+Read-only and silent without the daemon; Claude Code only, beside the skills (ADR-0039); likely inside the `binnacle` plugin (ADR-0023, ADR-0027). A new surface, so an ADR first.
+
+## For epic 16: the parallel limit, and two labels on the board (2026-10-11)
+
+The owner decided during epic 11's autopilot run that the parallel agent limit (`automation.max_parallel_development_tasks`, 2 in `.binnacle/project.yaml`) belongs to epic 16:
+
+- it moves from the project manifest to the machine's settings (`~/.binnacle/settings.json`), since it depends on the machine and the subscription, not the repository; the manifest may stay as a per-project override;
+- the dashboard's Settings page edits it: a number, or *auto*, where autopilot runs as many agents as low conflict risk allows, under a ceiling such as 4;
+- beside it, an informer from telemetry: how many agents the subscription really sustains, from runs that hit usage limits;
+- a machine setting the dashboard writes needs an ADR beside ADR-0020's read-only dashboard.
+
+On the board's card, the Russian `fromRuns: 'по runs'` reads as English "no runs" on a card that has runs; and "7 сек. назад" is the time since the run's latest activity, where Claude Code shows the agent's elapsed time: show both, such as "идёт 15 мин · активность 7 с назад".
+
+## Two defects found in epic 11's run (2026-10-11)
+
+- **graphify refuses a graph that shrinks.** graphify 0.9.76's guard refused the daemon's `graphify extract . --code-only` when dedup merged 4 nodes and the graph would shrink, so the graph stayed at an older commit and conflict risk read a stale graph. Worked around by hand with `--allow-dedup-shrink`; it recurs on the next merge. The daemon's `GRAPH_EXTRACT` (`apps/daemon/src/graph.ts`) should pass the flag, checking that the graphify version `binn init` installs accepts it; the graph is rebuildable (ADR-0036).
+- **A flaky audit test.** `apps/cli/test/audit.test.ts`, "Binnacle's skills current, or not installed at all, are not reported", failed now and then in agents' full runs and passed alone, likely racing `pack.test.ts` rebuilding the skills copy.
