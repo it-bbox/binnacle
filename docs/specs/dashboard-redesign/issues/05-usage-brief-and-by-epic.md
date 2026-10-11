@@ -1,6 +1,6 @@
 # 05: Usage brief or full, and by epic
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 02
 Spec: `docs/specs/dashboard-redesign/spec.md`
