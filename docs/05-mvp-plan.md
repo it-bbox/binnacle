@@ -153,15 +153,18 @@ Added on 2026-10-06, after the owner linked Binnacle's skills into `~/.codex/ski
 
 ### Phase 18 — Lean flow
 
-Added on 2026-10-11, after epic 11's autopilot run showed where the per-ticket process spends tokens and time for little return. It comes right after epic 11, before the release's other epics, so that their runs are cheaper (the owner, 2026-10-11). The points, from `docs/product-inbox.md`, go to `/grill-with-docs` first; measured before and after with Binnacle itself, rework share and tokens per completed Task, epic 11 as the baseline:
+Added on 2026-10-11, after epic 11's autopilot run showed where the per-ticket process spends tokens and time for little return. It comes right after epic 11, before the release's other epics, so that their runs are cheaper (the owner, 2026-10-11). Grilled on 2026-10-11, from `docs/product-inbox.md`'s Lean flow points; the per-ticket flow by hand (`docs/workflow/02-development-workflow.md`, *Per ticket*) changes as autopilot's does:
 
-- Tickets stop editing the roadmap's current focus; the current focus and the Next action are a Product session's or a checkpoint's alone.
-- Autopilot rebases a branch on `main` itself and runs the checks, sending it back to its agent only on a real conflict.
-- The Review's commit order is no longer required: runs already tell review from rework.
-- A short Review and short commit messages.
-- Upkeep once per run: the plugin, the skills copy, the dashboard and the daemon's restart, unless the next ticket needs them.
-- Browser checks only for tickets that change the dashboard.
-- A defect of epic 11's run: `apps/cli/test/audit.test.ts` stops failing now and then beside `pack.test.ts` in a full run. Its other defect, graphify refusing a graph that shrinks, went back to epic 11 as ticket 14, the carrier of its exit demonstration.
+- Tickets no longer edit the roadmap at all, neither its current focus nor an epic's status: the snapshot derives what is done and what can start from the tickets' statuses. At its end autopilot proposes the whole current focus, the epic's status and the Next action, written only on the owner's yes; otherwise a Product session or a checkpoint writes them.
+- Autopilot rebases a branch on `main` itself, in the agent's worktree, and runs the checks. A conflict Git reports aborts the rebase and sends the branch back to its agent; checks that fail after a clean rebase are the one return to the agent, with the exact failure.
+- The Review's commit order is no longer required, and autopilot no longer checks it. Rework is read from the runs instead (`CONTEXT.md`, *Review run*, *Rework run*; the owner, 2026-10-11): a review run is a subagent on the Task's branch starting after its first commit changing anything but the ticket, and rework is implementation work after the first review run ends; a Task with no review run keeps the commit that first records its Review as the boundary, and a forge's review stays as it is. This replaces the owner's 2026-10-08 decision (`specs/telemetry-for-any-harness/spec.md`, *Further Notes*). Epic 11 is recalculated by the same rule, so that it stays the baseline.
+- A short Review: findings to fix in full, findings kept one line each. Short commit messages, for every commit, Product's included: an English subject of at most 72 characters and a body only when needed (`AGENTS.md`).
+- Upkeep once per run, at its end: the frozen install, the plugin, the skills copy, the dashboard and the daemon's restart, each only when one of the run's merges touched it, with no exception for the next ticket (the owner, 2026-10-11).
+- Browser checks only for tickets that change `apps/dashboard`; `/to-tickets` writes the criterion for those alone.
+- A question offers its options (the owner, 2026-10-11): every `### Question` an agent records carries its options, each with its cost, the recommended one first and marked; `/binnacle:answer` shows them in the owner's language and explains them on request. The asker writes them, never the answerer, so ADR-0040's "an agent never answers a question" holds. The answer Binnacle reads no longer includes the date line `/binnacle:answer` writes above it.
+- A defect of epic 11's run: `apps/cli/test/audit.test.ts` stops failing now and then beside `pack.test.ts` in a full run, fixed at its cause rather than retried. Its other defect, graphify refusing a graph that shrinks, went back to epic 11 as ticket 14.
+
+Measured with Binnacle itself, rework share and tokens per completed Task, epic 11 as the baseline. The measurement is not epic 18's exit (the owner, 2026-10-11): epic 18 closes on its tickets, and a Product session reads the "after" from `usage_get`, by the Task ids of the next epic run by autopilot (16), and records it in the roadmap.
 
 ## Explicit stop conditions
 

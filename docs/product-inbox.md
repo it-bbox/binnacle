@@ -74,27 +74,3 @@ The owner decided during epic 11's autopilot run that the parallel agent limit (
 - a machine setting the dashboard writes needs an ADR beside ADR-0020's read-only dashboard.
 
 On the board's card, the Russian `fromRuns: 'по runs'` reads as English "no runs" on a card that has runs; and "7 сек. назад" is the time since the run's latest activity, where Claude Code shows the agent's elapsed time: show both, such as "идёт 15 мин · активность 7 с назад".
-
-## Two defects found in epic 11's run (2026-10-11)
-
-**Decided by the owner on 2026-10-11:** the flaky test is part of epic 18, Lean flow (`docs/05-mvp-plan.md`); graphify's refusal is epic 11's ticket 14, the carrier of its exit demonstration.
-
-- **graphify refuses a graph that shrinks.** graphify 0.9.76's guard refused the daemon's `graphify extract . --code-only` when dedup merged 4 nodes and the graph would shrink, so the graph stayed at an older commit and conflict risk read a stale graph. Worked around by hand with `--allow-dedup-shrink`; it recurs on the next merge. The daemon's `GRAPH_EXTRACT` (`apps/daemon/src/graph.ts`) should pass the flag, checking that the graphify version `binn init` installs accepts it; the graph is rebuildable (ADR-0036).
-- **A flaky audit test.** `apps/cli/test/audit.test.ts`, "Binnacle's skills current, or not installed at all, are not reported", failed now and then in agents' full runs and passed alone, likely racing `pack.test.ts` rebuilding the skills copy.
-
-## Lean flow: rituals that cost agents tokens and time (2026-10-11)
-
-Epic 11's autopilot run showed where the per-ticket process spends tokens and time for little return. The owner wants all of it done **before the release**, right after epic 11 (epic 18 in `docs/roadmap.md` and `docs/05-mvp-plan.md`):
-
-1. **Tickets stop editing the roadmap's current focus.** Every ticket's last commit rewrote it, so a second ticket run in parallel always conflicted: 03, 05, 10 and 08 went back to their agents to rebase, each a reload of 100 to 300 thousand tokens, and agents cut each other's wording to stay under 2000 characters. What is done and what can start, the snapshot already derives from the tickets' statuses; the current focus and the Next action are a Product session's or a checkpoint's alone.
-2. **Autopilot rebases mechanically itself.** When `main` moved on, it runs `git rebase main` and the checks on the branch, and sends the branch back to its agent only on a real conflict.
-3. **The Review's commit order is no longer required.** Review is told from rework by the runs: review sub-agents already come in as `role: review` through `parentRunId`. The ticket still records `### Review`.
-4. **A short Review and short commit messages.** Findings to fix in full; findings kept one line each. A commit is a short subject and, when needed, a body, not a one-sentence paragraph (`AGENTS.md`).
-5. **Upkeep once per run.** Refreshing the plugin and the skills copy, regenerating the dashboard and restarting the daemon happen once at the run's end, unless the next ticket needs them.
-6. **Browser checks only for tickets that change the dashboard.**
-
-Measure before and after with Binnacle itself: rework share and tokens per completed Task, with epic 11 as the baseline.
-
-## A question offers its options and a recommendation (2026-10-11)
-
-In epic 11's exit demonstration the owner could not answer ticket 14's question as written: a trade-off in English prose, with no options to choose from and no recommendation, and `/binnacle:answer` forbids the agent to suggest an answer. The owner wants every `### Question` to carry its options, each with its cost, the recommended one first and marked, as grilling does, so that the owner picks one or writes their own. The asker writes them, never the answerer, so ADR-0040's "an agent never answers a question" holds; `/binnacle:answer` shows them, in the owner's language, and on the owner's request explains them. Also seen: the answer Binnacle reads includes the date line `/binnacle:answer` writes above it. Fits epic 13, Human output, or 18, Lean flow.
