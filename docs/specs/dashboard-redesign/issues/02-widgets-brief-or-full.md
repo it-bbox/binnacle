@@ -1,6 +1,6 @@
 # 02: Widgets brief or full, on the Overview and Attention
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 01
 Spec: `docs/specs/dashboard-redesign/spec.md`
