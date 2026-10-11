@@ -1,6 +1,6 @@
 # 04: A lean per-ticket process
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 01, 02
 Spec: `docs/specs/lean-flow/spec.md`
@@ -14,10 +14,10 @@ Spec: `docs/specs/lean-flow/spec.md`
 
 And in the documents: *Per ticket* in `docs/workflow/02-development-workflow.md` (last commit sets `DONE` and nothing in the roadmap, no Review order, the short Review and commits, browser only for dashboard tickets, upkeep by hand still per merge); the roadmap's *Keeping this current* (who writes the current focus and an epic's status); `AGENTS.md` (an English subject of at most 72 characters, a body only when needed, for every commit); `docs/agents/issue-tracker.md` (the short Review, the browser criterion only for dashboard tickets); and the checkpoint skill, which also offers the current focus as a candidate when the tickets' statuses moved past it. `CLAUDE.md`'s line on an implementation session moving the current focus goes too.
 
-- [ ] The package build's test checks autopilot's text: no roadmap edit and no Review order in the brief; the rebase in step 8 and no Review-order check; upkeep at the end of the run; the copy matches the plugin.
-- [ ] No document or skill still tells a ticket to edit the roadmap or to commit its Review before its fixes (a search over the repository finds none outside specs and tickets of past epics).
-- [ ] `AGENTS.md`, the workflow, the roadmap's rules and the issue-tracker conventions say the same rules as autopilot's brief.
-- [ ] The checkpoint skill offers the current focus as a candidate.
+- [x] The package build's test checks autopilot's text: no roadmap edit and no Review order in the brief; the rebase in step 8 and no Review-order check; upkeep at the end of the run; the copy matches the plugin.
+- [x] No document or skill still tells a ticket to edit the roadmap or to commit its Review before its fixes (a search over the repository finds none outside specs and tickets of past epics).
+- [x] `AGENTS.md`, the workflow, the roadmap's rules and the issue-tracker conventions say the same rules as autopilot's brief.
+- [x] The checkpoint skill offers the current focus as a candidate.
 
 ## Comments
 
@@ -25,13 +25,13 @@ And in the documents: *Per ticket* in `docs/workflow/02-development-workflow.md`
 
 `mattpocock-skills:code-review` ran against `main` on both axes, its sub-agents in the foreground. The ticket names no role beyond the Developer and the Reviewer. Neither axis found a hard violation or a missing requirement; the criterion 2 search finds nothing outside the specs.
 
-To fix:
+To fix, all fixed:
 
-1. **"The one write you make besides a merge"** (`autopilot/SKILL.md`, opening): the upkeep, the worktree removal and the roadmap commit on the owner's yes write too. Fix: the one change to a branch besides a merge is step 8's rebase.
-2. **Whether a conflict sent back spends the one return** (`autopilot/SKILL.md`, step 8; both axes): only a failure after a clean rebase is called the one return, so an agent could come back twice. Fix: sending a branch back for a conflict is that one return too, as before.
-3. **The brief no longer asks to mark findings** (`autopilot/SKILL.md`, step 6): it says "fix or keep each", while the workflow and step 8 read each finding fixed, kept or left. Fix: the brief asks to mark each one so.
-4. **"Nothing is left to edit afterwards"** (`02-development-workflow.md`, step 4): the current focus now lags until a Product session or a checkpoint. Fix: say nothing is left for the merge to edit, and who catches the focus up.
-5. **Duplicated reader in the test** (`pack.test.ts`): the new `doc` helper repeats the README reader and `workflowText`. Fix: one `docText` beside `workflowText`, used by all three.
+1. **"The one write you make besides a merge"** **Fixed** in 19959c4. (`autopilot/SKILL.md`, opening): the upkeep, the worktree removal and the roadmap commit on the owner's yes write too. Fix: the one change to a branch besides a merge is step 8's rebase.
+2. **Whether a conflict sent back spends the one return** **Fixed** in 19959c4. (`autopilot/SKILL.md`, step 8; both axes): only a failure after a clean rebase is called the one return, so an agent could come back twice. Fix: sending a branch back for a conflict is that one return too, as before.
+3. **The brief no longer asks to mark findings** **Fixed** in 19959c4. (`autopilot/SKILL.md`, step 6): it says "fix or keep each", while the workflow and step 8 read each finding fixed, kept or left. Fix: the brief asks to mark each one so.
+4. **"Nothing is left to edit afterwards"** **Fixed** in 19959c4. (`02-development-workflow.md`, step 4): the current focus now lags until a Product session or a checkpoint. Fix: say nothing is left for the merge to edit, and who catches the focus up.
+5. **Duplicated reader in the test** **Fixed** in 19959c4. (`pack.test.ts`): the new `doc` helper repeats the README reader and `workflowText`. Fix: one `docText` beside `workflowText`, used by all three.
 
 Kept:
 
@@ -40,3 +40,11 @@ Kept:
 8. The checkpoint also offers the epic's status: the roadmap's rule has the checkpoint write it.
 9. The workflow's paragraph on parallel branches says autopilot rebases itself: that paragraph says who rebases.
 10. `CLAUDE.md`'s line is rewritten, not removed: it holds the durable rule that a ticket touches nothing in the roadmap.
+
+**In all**: five fixed, five kept. The typecheck and the full suite, 714 tests, pass after the fixes.
+
+### Decisions taken without the owner
+
+- **A conflict sent back is the one return** (Review, 2): the spec keeps the rule of one return and sends a conflict back "as today", when it already counted.
+- **The checkpoint offers the epic's status with the focus** (Review, 8): the roadmap's rule has it write both.
+- **This ticket still moved the current focus**: it ran under the brief it replaces, which asked for it; the next ticket's brief does not.
