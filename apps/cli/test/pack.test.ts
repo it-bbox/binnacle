@@ -20,7 +20,9 @@ const step = (skill: string, n: number): string => {
   const next = skill.slice(start + 1).search(new RegExp(`^ {0,3}${n + 1}\\. `, 'm'));
   return next < 0 ? skill.slice(start) : skill.slice(start, start + 1 + next);
 };
-const workflowText = (): string => readFileSync(fileURLToPath(new URL('../../../docs/workflow/02-development-workflow.md', import.meta.url)), 'utf8');
+/** A file of the repository, by its path from the root. */
+const docText = (path: string): string => readFileSync(fileURLToPath(new URL(`../../../${path}`, import.meta.url)), 'utf8');
+const workflowText = (): string => docText('docs/workflow/02-development-workflow.md');
 const ACTIONS = readdirSync(join(PLUGIN_SOURCE, 'skills')).sort();
 const filesUnder = (dir: string): string[] =>
   readdirSync(dir, { recursive: true, withFileTypes: true })
@@ -190,6 +192,7 @@ test('/binnacle:product presents the graph\'s freshness in one line and each pai
 test('autopilot\'s brief asks for no roadmap edit and no Review order, and for a short Review, short commits, a question\'s options and a browser only for the dashboard', () => {
   const brief = step(skillText('autopilot'), 6);
   assert.match(brief, /make the ticket's `Status: DONE` your last commit\. Do not edit the roadmap, neither its current focus nor an epic's status/);
+  assert.match(brief, /mark each finding fixed, kept or left, with its reason/);
   assert.doesNotMatch(brief, /if the frontier moved|keep this order|Before fixing anything|the Review commit|stale `Next action:`/);
   assert.match(brief, /Commit the Review whenever it suits the work, before or after its fixes/);
   assert.match(brief, /a finding to fix in full, with its place and its fix; a finding kept in one line, with its reason/);
@@ -206,7 +209,8 @@ test('autopilot\'s step 8 rebases the branch onto main itself, sends it back onl
   assert.match(eight, /On a conflict, run `git rebase --abort` there and send the agent back/);
   assert.match(eight, /After a clean rebase, the checks below run on the rebased branch, and a failure among them is the one return to the agent/);
   assert.doesNotMatch(skill, /-G'\^### Review'|Review recorded only in the last commit|changes only the ticket, and when the Review marks/);
-  assert.match(skill, /the one write you make besides a merge is step 8's rebase of an agent's branch/);
+  assert.match(eight, /Sending the branch back for a conflict is that one return too/);
+  assert.match(skill, /the one change you make to a branch besides a merge is step 8's rebase of an agent's branch/);
 });
 
 /** Epic 18: the upkeep happens once, after the last merge, for what the run's merges touched (the owner, 2026-10-11). */
@@ -242,7 +246,7 @@ test('autopilot reinstalls the skills CLI\'s copy after the plugin refresh, with
   assert.match(workflow, /Then, if `~\/\.agents\/skills` holds a `binnacle-\*` skill, `npx skills add \.\/apps\/cli\/skills -g -y` then `npx skills remove -g -a claude-code -s \$\(ls apps\/cli\/skills\) -y`/);
   // Without `./` the `skills` CLI reads `apps/cli` as a GitHub repository (ticket 12).
   for (const readme of ['README.md', 'README.ru.md']) {
-    assert.match(readFileSync(fileURLToPath(new URL(`../../../${readme}`, import.meta.url)), 'utf8'), /^npx skills add \.\/apps\/cli\/skills -g -y$/m, readme);
+    assert.match(docText(readme), /^npx skills add \.\/apps\/cli\/skills -g -y$/m, readme);
   }
 });
 
@@ -593,20 +597,20 @@ test('/binnacle:checkpoint offers the current focus as a candidate when the tick
 
 /** Epic 18: by hand as under autopilot, the same short process. */
 test('AGENTS.md, the workflow, the roadmap\'s rules and the issue-tracker conventions say what autopilot\'s brief says', () => {
-  const doc = (path: string): string => readFileSync(fileURLToPath(new URL(`../../../${path}`, import.meta.url)), 'utf8');
-  assert.match(doc('AGENTS.md'), /an English subject of at most 72 characters, and a body only when the subject cannot carry the why/);
+  assert.match(docText('AGENTS.md'), /an English subject of at most 72 characters, and a body only when the subject cannot carry the why/);
   const workflow = workflowText();
   assert.match(workflow, /The session's last commit sets the ticket's `Status:` to `DONE`\*\*, and nothing in the roadmap/);
   assert.match(workflow, /whenever it suits the work, before or after its fixes/);
   assert.match(workflow, /a finding to fix in full, with its place and its fix; a finding kept in one line, with its reason/);
   assert.match(workflow, /in a browser only when it changes the dashboard/);
+  assert.match(workflow, /Nothing is left for the merge to edit: the current focus catches up at the next Product session or checkpoint/);
   assert.match(workflow, /`\/binnacle:autopilot` does the same once, after the last merge of its run/);
-  assert.match(doc('docs/roadmap.md'), /The current focus and an epic's status are written by a Product session, a checkpoint, or autopilot at the end of its run on the owner's yes, never by a ticket/);
-  const tracker = doc('docs/agents/issue-tracker.md');
+  assert.match(docText('docs/roadmap.md'), /The current focus and an epic's status are written by a Product session, a checkpoint, or autopilot at the end of its run on the owner's yes, never by a ticket/);
+  const tracker = docText('docs/agents/issue-tracker.md');
   assert.match(tracker, /a finding to fix in full, with its place and its fix; a finding kept in one line, with its reason/);
   assert.match(tracker, /"checked in a browser" belongs only to a ticket that changes the dashboard/);
   for (const path of ['AGENTS.md', 'CLAUDE.md', 'README.md', 'docs/workflow/02-development-workflow.md']) {
-    assert.doesNotMatch(doc(path), /if the frontier moved|before any fix|after each merge/, path);
+    assert.doesNotMatch(docText(path), /if the frontier moved|before any fix|after each merge/, path);
   }
 });
 
