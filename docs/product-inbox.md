@@ -51,6 +51,19 @@ After a reboot the owner found the daemon down: nothing starts it. ADR-0016 make
 
 The owner's daemon had a project registered at `/tmp/claude-1000/…/aeb63b29-…/scratchpad/demo-init`, a session's scratchpad, shown on every page as unavailable once the directory was gone; the owner had it unregistered on 2026-10-10. Some session ran `binn init` or `binn project register` there against the owner's `BINNACLE_HOME` rather than a temporary one, which `dashboard-design-and-languages/12` asks of agents. Two things to weigh: whether skills and briefs that try a CLI on a throwaway repository say to use a temporary home, and whether a registration whose directory is gone should drop out of the dashboard or be offered for removal rather than shown on every page.
 
+## A Binnacle mod for Claude Code (2026-10-11)
+
+**Decided by the owner on 2026-10-11: after the release**, in the roadmap's *Later*; kept here for its grilling.
+
+Claude Code's mods (plugins of function hooks, 2.1.295) can draw a pane, a band above the prompt, the status line and toasts, add slash commands, and call the `binnacle` MCP server's tools themselves. The owner wants an optional Binnacle mod, off by default and switched on and off by the user, **after the release**:
+
+- the status line per chat: the session's Task and role, its tokens and context;
+- a *Waiting for you* band, shown only when there is something: unanswered questions, `main`'s CI failing, a stale Next action;
+- a pane with a compact snapshot and buttons that put a command (`/binnacle:answer`, `/binnacle:autopilot`, `/binnacle:checkpoint`) in the prompt for the human to send;
+- toasts on a change: CI failed, a question answered, context pressure.
+
+Read-only and silent without the daemon; Claude Code only, beside the skills (ADR-0039); likely inside the `binnacle` plugin (ADR-0023, ADR-0027). A new surface, so an ADR first.
+
 ## For epic 16: the parallel limit, and two labels on the board (2026-10-11)
 
 The owner decided during epic 11's autopilot run that the parallel agent limit (`automation.max_parallel_development_tasks`, 2 in `.binnacle/project.yaml`) belongs to epic 16:

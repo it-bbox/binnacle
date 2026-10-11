@@ -66,10 +66,10 @@ One concrete run of a coding agent in a given role, harness/provider/model/profi
 An AgentRun observed in a session artifact is one unbroken stretch of a session in one checkout on one branch: a session that switches branch becomes two AgentRuns, each attributed on its own. A subagent's session is an AgentRun of its own, linked to the run that started it. Its role comes from its branch and that branch's history, never from what the agent wrote — the default branch is Product work; a ticket's branch is implementation, except for a Review run or a Rework run; anything else is unknown. A run whose records cross the point where its role changes is split there, as at a change of branch. An observed AgentRun has no lifecycle state, because an artifact cannot tell a finished run from an abandoned one; whether it is active is read from its latest activity.
 
 ### Review run
-An AgentRun in the reviewer's role: a subagent run on a Task's branch that starts after the branch's last commit changing anything but its ticket, and ends by the commit that first records the ticket's Review. A forge's review leaves no such commit, so a Task on GitHub or GitLab has none. It is Binnacle's calculation.
+An AgentRun in the reviewer's role: a subagent run on a Task's branch that starts after the branch's first commit changing anything but its ticket. A forge's review leaves no such run, so a Task reviewed on GitHub or GitLab has none. It is Binnacle's calculation.
 
 ### Rework run
-Implementation work on a Task's branch after its first Review, or, on GitHub or GitLab, after the first review on the Task's pull or merge request that requested changes. It is what a review cost in fixes, and the rework share and first-pass review acceptance are read from it. It is Binnacle's calculation.
+Implementation work on a Task's branch after its first Review run ends; for a Task with no Review run, after the commit that first records its Review; on GitHub or GitLab, after the first review on the Task's pull or merge request that requested changes. It is what a review cost in fixes, and the rework share and first-pass review acceptance are read from it. It is Binnacle's calculation.
 
 ### Unassigned
 Usage attributed to a Project but to no Task, because no branch mapping to a Task can be proven for it. It is a first-class outcome, never a guess.
