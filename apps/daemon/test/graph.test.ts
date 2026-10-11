@@ -54,6 +54,9 @@ function makeRepository({ ignored = true, capability = '' } = {}): string {
   return root;
 }
 
+/** The last line graphify 0.9.76 writes when it refuses a graph that dedup would shrink. */
+const REFUSAL =
+  '[graphify extract] error: dedup merged 4 node(s); writing would shrink the graph from 12 nodes to 8 nodes. Refusing to overwrite graphify-out/graph.json. Pass --allow-dedup-shrink to write the smaller graph.';
 const WRITE_GRAPH = 'mkdir -p graphify-out && echo "{\\"nodes\\": []}" > graphify-out/graph.json';
 
 /** A directory holding a fake `graphify` that logs its directory and arguments, then runs `body`. */
@@ -109,8 +112,8 @@ describe('the daemon keeps the graph current', () => {
       await until(async () => (await snapshot(daemon, root)).graph.builtFrom?.commit === second, 'the build of the new commit');
       await settle();
 
-      // Each run extracts code-only, then builds the report with no model naming communities.
-      const run = [`${root} extract . --code-only`, `${root} cluster-only . --no-label`];
+      // Each run extracts code-only, letting the graph shrink when dedup merges nodes, then builds the report with no model naming communities.
+      const run = [`${root} extract . --code-only --allow-dedup-shrink`, `${root} cluster-only . --no-label`];
       assert.deepEqual(calls(fake.log), [...run, ...run]);
       assert.equal(existsSync(join(root, 'graphify-out', 'GRAPH_REPORT.md')), true);
       const { graph, attention } = await snapshot(daemon, root);
@@ -161,18 +164,19 @@ describe('the daemon keeps the graph current', () => {
       await until(async () => (await snapshot(daemon, root)).graph.builtFrom?.commit === first, 'the first build');
       const graphBefore = readFileSync(join(root, 'graphify-out', 'graph.json'), 'utf8');
 
-      fake.replace('echo "tree-sitter grammar missing for .zig" >&2; exit 3');
+      // graphify's own refusal, as an older graphify gives one that does not accept the flag.
+      fake.replace(`echo "${REFUSAL}" >&2; exit 1`);
       const second = commit(root, 'a.txt');
       await until(async () => (await snapshot(daemon, root)).graph.lastRun?.commit === second, 'the failed run');
 
       const body = await snapshot(daemon, root);
       assert.equal(body.graph.lastRun?.outcome, 'failed');
-      assert.match(body.graph.lastRun?.reason ?? '', /tree-sitter grammar missing/);
+      assert.match(body.graph.lastRun?.reason ?? '', /would shrink the graph from 12 nodes to 8 nodes/);
       assert.equal(body.graph.builtFrom?.commit, first);
       assert.equal(body.graph.behind, true);
       assert.equal(body.graph.available, true);
       const failed = body.attention.find((item) => item.code === 'graph.update_failed');
-      assert.match(failed?.message ?? '', /tree-sitter grammar missing/);
+      assert.match(failed?.message ?? '', /would shrink the graph from 12 nodes to 8 nodes/);
       assert.equal(readFileSync(join(root, 'graphify-out', 'graph.json'), 'utf8'), graphBefore);
 
       // A failed commit is not retried every minute: only a new move runs again. A failed extract builds no report.
@@ -190,7 +194,7 @@ describe('the daemon keeps the graph current', () => {
       await until(async () => (await snapshot(daemon, root)).graph.lastRun?.commit === first, 'the failed run');
 
       const body = await snapshot(daemon, root);
-      assert.deepEqual(calls(fake.log), [`${root} extract . --code-only`, `${root} cluster-only . --no-label`]);
+      assert.deepEqual(calls(fake.log), [`${root} extract . --code-only --allow-dedup-shrink`, `${root} cluster-only . --no-label`]);
       assert.equal(body.graph.lastRun?.outcome, 'failed');
       assert.match(body.graph.lastRun?.reason ?? '', /cluster-only.*community detection failed/);
       assert.match(body.attention.find((item) => item.code === 'graph.update_failed')?.message ?? '', /community detection failed/);

@@ -33,8 +33,12 @@ export const GRAPH_DIRECTORY = 'graphify-out';
 export const GRAPH_POLL_MS = 60_000;
 /** ponytail: a fixed ceiling for one Graphify step, the extract or the report; make it a setting if a real project needs longer. */
 export const GRAPH_RUN_TIMEOUT_MS = 10 * 60_000;
-/** Graphify's code-only extraction (ADR-0012), run in the repository root: local syntax trees, no API key, no model. */
-export const GRAPH_EXTRACT = ['extract', '.', '--code-only'];
+/**
+ * Graphify's code-only extraction (ADR-0012), run in the repository root: local syntax trees, no API key, no model.
+ * `--allow-dedup-shrink` lets it write a graph that deduplication made smaller, which graphify otherwise refuses:
+ * the graph is a rebuildable projection (ADR-0036), so a smaller one after a merge is expected, not a loss.
+ */
+export const GRAPH_EXTRACT = ['extract', '.', '--code-only', '--allow-dedup-shrink'];
 /**
  * After a successful extract, the step Graphify names for its `GRAPH_REPORT.md`: clustering of
  * the existing `graph.json`, with `--no-label` so no model names the communities (ADR-0012).

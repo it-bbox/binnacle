@@ -1543,7 +1543,7 @@ function fakeGraphify(home: Home, { installed = false, exitCode = 0, reason = ''
   return () => (existsSync(log) ? readFileSync(log, 'utf8').trimEnd().split('\n') : []);
 }
 
-const EXTRACT = 'extract . --code-only';
+const EXTRACT = 'extract . --code-only --allow-dedup-shrink';
 const CLUSTER = 'cluster-only . --no-label';
 const graphCalls = (calls: string[]): string[] => calls.filter((call) => /graphif/.test(call));
 
@@ -1591,7 +1591,9 @@ test('the first graph: an output directory Git already ignores leaves .gitignore
 
 test('the first graph: a failing build is reported in the Summary with its reason, and the rest of the plan has run', (t) => {
   const home = makeHome(t);
-  const calls = fakeGraphify(home, { installed: true, exitCode: 2, reason: 'no supported source files found' });
+  // graphify's own refusal of a graph that shrinks, as an older graphify that does not accept the flag gives it.
+  const refusal = '[graphify extract] error: dedup merged 4 node(s); writing would shrink the graph from 12 nodes to 8 nodes. Pass --allow-dedup-shrink to write the smaller graph.';
+  const calls = fakeGraphify(home, { installed: true, exitCode: 1, reason: refusal });
   const npm = fakeTool(home, 'npm');
   const root = makeRepository(t, 'graph-fails');
 
@@ -1599,7 +1601,7 @@ test('the first graph: a failing build is reported in the Summary with its reaso
 
   assert.equal(result.status, 0, result.stderr);
   const summary = result.stdout.slice(result.stdout.indexOf('Summary:'));
-  assert.match(summary, new RegExp(`failed\\s+graphify ${EXTRACT}: no supported source files found`));
+  assert.match(summary, new RegExp(`failed\\s+graphify ${EXTRACT}: ${refusal.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}`));
   assert.match(summary, /created\s+\.gitignore/);
   assert.match(summary, /ran\s+npm i @ast-grep\/cli -g/);
   assert.deepEqual(npm(), [AST_GREP]);
