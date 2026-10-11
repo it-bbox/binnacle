@@ -28,8 +28,6 @@ const recent = computed((): ProjectRun[] =>
 const unread = computed(() => activities.value.flatMap(({ view, activity }) => (isUnavailable(activity) ? [{ view, reason: activity.reason }] : [])));
 
 const overview = (view: ProjectView) => ({ path: '/', query: { project: view.project.path } });
-
-const card = { root: 'rounded-[10px]', header: 'flex items-center justify-between gap-2 px-3.5 py-2.5 sm:px-3.5', body: 'p-0 sm:p-0', footer: 'px-3.5 py-2 sm:px-3.5' };
 </script>
 
 <template>
@@ -43,62 +41,66 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
     </div>
     <div v-else class="grid grid-cols-2 items-start gap-5">
       <div class="flex min-w-0 flex-col gap-3.5">
-        <UCard v-for="view in views ?? []" :key="view.project.path" :ui="card">
-          <template #header>
+        <Widget v-for="view in views ?? []" :key="view.project.path" page="attention" :widget="`project:${view.project.path}`">
+          <template #title>
             <div class="flex min-w-0 items-center gap-2.5">
               <span class="flex size-5.5 flex-none items-center justify-center rounded-md bg-accented text-xs font-semibold">{{ initials(view.project) }}</span>
               <ULink :to="overview(view)" class="truncate font-semibold text-default">{{ projectName(view.project) }}</ULink>
             </div>
+          </template>
+          <template #aside>
             <span v-if="view.snapshot" class="font-mono text-sm text-dimmed">{{ number(view.snapshot.attention.length) }}</span>
           </template>
-          <p v-if="view.project.unavailable !== null" class="px-3.5 py-3">
-            <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="text-muted">· {{ view.project.unavailable }}</span>
-          </p>
-          <p v-else-if="view.failure" class="px-3.5 py-3 text-warning"><code>{{ view.failure.code }}</code> <span lang="en">{{ view.failure.message }}</span></p>
-          <template v-else-if="view.snapshot">
-            <p v-if="view.snapshot.attention.length === 0" class="px-3.5 py-3 text-muted">{{ t.nothing }}</p>
-            <ul v-else class="divide-y divide-default">
-              <li v-for="(item, index) in view.snapshot.attention" :key="index" class="flex items-start gap-2 px-3.5 py-2.5">
-                <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 flex-none text-(--warn)" />
-                <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <DaemonReason class="leading-snug break-words" :reason="item.message" />
-                  <code class="font-mono text-xs text-dimmed">{{ item.code }}</code>
-                </div>
-              </li>
-            </ul>
+          <template #default="{ full }">
+            <p v-if="view.project.unavailable !== null" class="px-3.5 py-3">
+              <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="text-muted">· {{ view.project.unavailable }}</span>
+            </p>
+            <p v-else-if="view.failure" class="px-3.5 py-3 text-warning"><code>{{ view.failure.code }}</code> <span lang="en">{{ view.failure.message }}</span></p>
+            <template v-else-if="view.snapshot">
+              <p v-if="view.snapshot.attention.length === 0" class="px-3.5 py-3 text-muted">{{ t.nothing }}</p>
+              <AttentionItems v-else :items="view.snapshot.attention" :full="full" />
+            </template>
           </template>
-        </UCard>
+        </Widget>
       </div>
 
       <div class="flex min-w-0 flex-col gap-3.5">
-        <UCard :ui="card">
-          <template #header>
-            <h2 class="text-base font-semibold">{{ t.runningNow }}</h2>
+        <Widget page="attention" widget="running" :title="t.runningNow">
+          <template #aside>
             <span class="font-mono text-sm text-dimmed">{{ number(running.length + runningRemainder) }}</span>
           </template>
-          <p v-if="running.length === 0 && unread.length === 0" class="px-3.5 py-3 text-muted">{{ t.nothing }}</p>
-          <ul class="divide-y divide-default">
-            <RunRow v-for="{ view, run } in running" :key="view.project.path + run.id" :view="view" :run="run" live />
-            <li v-if="runningRemainder > 0" class="px-3.5 py-2.5 text-muted">{{ t.more(number(runningRemainder)) }}</li>
-            <li v-for="{ view, reason } in unread" :key="view.project.path" class="px-3.5 py-2.5">
-              <span class="text-muted">{{ projectName(view.project) }}</span> · <span class="font-medium">{{ t.notAvailable }}</span>
-              <span class="text-muted"> · <DaemonReason :reason="reason" /></span>
-            </li>
-          </ul>
+          <template #default="{ full }">
+            <p v-if="running.length === 0 && unread.length === 0" class="px-3.5 py-3 text-muted">{{ t.nothing }}</p>
+            <ul class="divide-y divide-default">
+              <FoldedList :items="running">
+                <template #default="{ item: { view, run } }">
+                  <RunRow :view="view" :run="run" live :full="full" />
+                </template>
+              </FoldedList>
+              <li v-if="runningRemainder > 0" class="px-3.5 py-2.5 text-muted">{{ t.more(number(runningRemainder)) }}</li>
+              <li v-for="{ view, reason } in unread" :key="view.project.path" class="px-3.5 py-2.5">
+                <span class="text-muted">{{ projectName(view.project) }}</span> · <span class="font-medium">{{ t.notAvailable }}</span>
+                <span class="text-muted"> · <DaemonReason :reason="reason" /></span>
+              </li>
+            </ul>
+          </template>
           <template #footer>
             <p class="text-sm leading-snug text-dimmed">{{ t.runningReading }}</p>
           </template>
-        </UCard>
+        </Widget>
 
-        <UCard :ui="card">
-          <template #header>
-            <h2 class="text-base font-semibold">{{ t.recentRuns }}</h2>
+        <Widget page="attention" widget="recent" :title="t.recentRuns">
+          <template #default="{ full }">
+            <p v-if="recent.length === 0" class="px-3.5 py-3 text-muted">{{ t.nothing }}</p>
+            <ul v-else class="divide-y divide-default">
+              <FoldedList :items="recent">
+                <template #default="{ item: { view, run } }">
+                  <RunRow :view="view" :run="run" :live="false" :full="full" />
+                </template>
+              </FoldedList>
+            </ul>
           </template>
-          <p v-if="recent.length === 0" class="px-3.5 py-3 text-muted">{{ t.nothing }}</p>
-          <ul v-else class="divide-y divide-default">
-            <RunRow v-for="{ view, run } in recent" :key="view.project.path + run.id" :view="view" :run="run" :live="false" />
-          </ul>
-        </UCard>
+        </Widget>
       </div>
     </div>
   </div>

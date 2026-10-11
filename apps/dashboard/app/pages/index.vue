@@ -103,8 +103,6 @@ function outputTokens(totals: Totals): string {
   if (tokens === null) return t.value.notReported;
   return partial ? `${number(tokens)} (${t.value.partial})` : number(tokens);
 }
-
-const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-between gap-2 px-3.5 py-2.5 sm:px-3.5', body: 'p-0 sm:p-0', footer: 'px-3.5 py-2 sm:px-3.5' };
 </script>
 
 <template>
@@ -177,179 +175,192 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
         </div>
       </UCard>
 
-      <section class="flex flex-col gap-3.5">
-        <div class="flex items-center justify-between gap-3">
-          <h2 class="text-base font-semibold">{{ t.epicProgress }}</h2>
+      <Widget page="overview" widget="epics" :title="t.epicProgress">
+        <template #aside>
           <ULink :to="{ path: '/project', query: { project } }" class="text-sm">{{ t.openBoard }}</ULink>
-        </div>
-        <div v-if="snapshot.roadmap === null" class="rounded-[10px] border border-dashed border-accented px-3.5 py-3 text-sm text-muted">
-          <span class="font-medium text-default">{{ t.notAvailable }}</span> · {{ t.noRoadmap }}
-        </div>
-        <template v-else>
-          <ol v-if="steps.length > 0" class="grid grid-cols-[repeat(auto-fit,minmax(3rem,1fr))] gap-x-1.5 gap-y-3">
-            <li v-for="{ epic, step } in steps" :key="epic.number" :title="`${epic.number} ${epic.title} · ${epic.status}`" class="flex min-w-0 flex-col gap-1.5" lang="en">
-              <div
-                class="h-1 rounded-sm"
-                :class="step === 'done' ? 'bg-(--ui-text-muted)' : step === 'current' ? 'bg-primary' : 'bg-accented'"
-              />
-              <div class="flex min-w-0 items-center gap-1.5">
-                <UIcon v-if="step === 'done'" name="i-lucide-circle-check" class="size-3.5 flex-none text-muted" />
-                <UIcon v-else-if="step === 'current'" name="i-lucide-circle-dot" class="size-3.5 flex-none text-primary" />
-                <UIcon v-else name="i-lucide-circle-dashed" class="size-3.5 flex-none text-dimmed" />
-                <span class="font-mono text-xs text-dimmed">{{ epic.number }}</span>
-                <span class="truncate text-sm" :class="step === 'current' ? 'font-semibold' : step === 'later' ? 'text-dimmed' : ''">{{ epic.title }}</span>
-              </div>
-            </li>
-          </ol>
-          <div class="flex items-center gap-3.5 rounded-[10px] border border-default bg-default px-3.5 py-2.5">
-            <span class="text-sm whitespace-nowrap text-muted">{{ t.currentEpic }}</span>
-            <template v-if="current === null">
-              <span class="text-muted">{{ steps.length === 0 ? t.noEpics : t.everyEpicDone }}</span>
-            </template>
-            <template v-else>
-              <span class="font-medium whitespace-nowrap" lang="en">{{ current.number }} {{ current.title }}</span>
-              <span v-if="snapshot.tasks === null" class="flex-1 text-muted">{{ t.notAvailable }} · {{ t.trackerUnreadable }}</span>
-              <USkeleton v-else-if="progress === null" class="h-1.5 flex-1" />
-              <span v-else-if="progress.all === 0" class="flex-1 text-muted">{{ t.noTasks }}</span>
-              <template v-else>
-                <UProgress :model-value="progress.done" :max="progress.all" size="sm" class="min-w-20 flex-1" />
-                <span class="font-mono text-sm whitespace-nowrap text-muted">{{ t.tasksDone(number(progress.done), number(progress.all)) }}</span>
+        </template>
+        <template #default="{ full }">
+          <p v-if="snapshot.roadmap === null" class="px-3.5 py-3 text-muted">
+            <span class="font-medium text-default">{{ t.notAvailable }}</span> · {{ t.noRoadmap }}
+          </p>
+          <div v-else class="flex flex-col gap-4 px-3.5 py-3">
+            <ol v-if="full && steps.length > 0" class="grid grid-cols-[repeat(auto-fit,minmax(3rem,1fr))] gap-x-1.5 gap-y-3">
+              <li v-for="{ epic, step } in steps" :key="epic.number" :title="`${epic.number} ${epic.title} · ${epic.status}`" class="flex min-w-0 flex-col gap-1.5" lang="en">
+                <div
+                  class="h-1 rounded-sm"
+                  :class="step === 'done' ? 'bg-(--ui-text-muted)' : step === 'current' ? 'bg-primary' : 'bg-accented'"
+                />
+                <div class="flex min-w-0 items-center gap-1.5">
+                  <UIcon v-if="step === 'done'" name="i-lucide-circle-check" class="size-3.5 flex-none text-muted" />
+                  <UIcon v-else-if="step === 'current'" name="i-lucide-circle-dot" class="size-3.5 flex-none text-primary" />
+                  <UIcon v-else name="i-lucide-circle-dashed" class="size-3.5 flex-none text-dimmed" />
+                  <span class="font-mono text-xs text-dimmed">{{ epic.number }}</span>
+                  <span class="truncate text-sm" :class="step === 'current' ? 'font-semibold' : step === 'later' ? 'text-dimmed' : ''">{{ epic.title }}</span>
+                </div>
+              </li>
+            </ol>
+            <div class="flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
+              <span class="text-sm whitespace-nowrap text-muted">{{ t.currentEpic }}</span>
+              <template v-if="current === null">
+                <span class="text-muted">{{ steps.length === 0 ? t.noEpics : t.everyEpicDone }}</span>
               </template>
-            </template>
+              <template v-else>
+                <span class="font-medium" lang="en">{{ current.number }} {{ current.title }}</span>
+                <span v-if="snapshot.tasks === null" class="flex-1 text-muted">{{ t.notAvailable }} · {{ t.trackerUnreadable }}</span>
+                <USkeleton v-else-if="progress === null" class="h-1.5 min-w-20 flex-1" />
+                <span v-else-if="progress.all === 0" class="flex-1 text-muted">{{ t.noTasks }}</span>
+                <span v-else class="flex min-w-48 flex-1 items-center gap-3.5">
+                  <UProgress :model-value="progress.done" :max="progress.all" size="sm" class="min-w-20 flex-1" />
+                  <span class="font-mono text-sm whitespace-nowrap text-muted">{{ t.tasksDone(number(progress.done), number(progress.all)) }}</span>
+                </span>
+              </template>
+            </div>
           </div>
         </template>
-      </section>
+      </Widget>
 
       <div class="grid grid-cols-[repeat(auto-fit,minmax(380px,1fr))] items-start gap-5">
-        <UCard :ui="panel">
-          <template #header>
-            <h2 class="text-base font-semibold">{{ t.readyToStart }}</h2>
+        <Widget page="overview" widget="ready" :title="t.readyToStart">
+          <template #aside>
             <span v-if="snapshot.tasks" class="font-mono text-sm text-dimmed">{{ number(count(snapshot.tasks.readyToStart)) }}</span>
           </template>
-          <div v-if="snapshot.tasks === null" class="flex flex-col gap-1 px-3.5 py-4">
-            <div class="font-medium">{{ t.notAvailable }} · {{ t.trackerUnreadable }}</div>
-            <p v-for="item in trackerReasons" :key="item.code + item.message" class="leading-snug text-muted">
-              <DaemonReason :reason="item.message" /> <code class="font-mono text-xs text-dimmed">{{ item.code }}</code>
-            </p>
-          </div>
-          <template v-else>
-            <div v-if="parallel" class="flex items-center gap-1.5 border-b border-default px-3.5 py-2 text-sm text-primary" :title="t.calculation">
-              <UIcon name="i-lucide-split" class="size-3.5" />
-              {{ parallel }}
-            </div>
-            <div v-if="!snapshot.tasks.parallel.impact.available || snapshot.tasks.parallel.impact.tasks.length > 0" class="flex flex-col gap-1.5 border-b border-default px-3.5 py-2.5 text-sm">
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="font-semibold">{{ t.conflictRisk }}</span>
-                <UBadge :label="t.calculation" color="neutral" variant="outline" icon="i-lucide-calculator" size="sm" class="border-dashed" />
-              </div>
-              <p v-if="isUnavailable(snapshot.tasks.parallel.impact)" class="text-muted">
-                <span class="font-medium text-default">{{ t.notAvailable }}</span> · <DaemonReason :reason="snapshot.tasks.parallel.impact.reason" />
+          <template #default="{ full }">
+            <div v-if="snapshot.tasks === null" class="flex flex-col gap-1 px-3.5 py-4">
+              <div class="font-medium">{{ t.notAvailable }} · {{ t.trackerUnreadable }}</div>
+              <p v-for="item in trackerReasons" :key="item.code + item.message" class="leading-snug text-muted">
+                <DaemonReason :reason="item.message" /> <code class="font-mono text-xs text-dimmed">{{ item.code }}</code>
               </p>
-              <template v-else>
-                <div v-for="task in snapshot.tasks.parallel.impact.tasks" :key="task.id" class="flex min-w-0 flex-wrap gap-x-1.5">
-                  <span class="font-mono text-muted">{{ task.id }}</span>
-                  <span class="text-dimmed">{{ task.from === 'branch' ? t.fromBranch : t.fromTicket }}</span>
-                  <span v-if="task.modules.length > 0" class="font-mono break-all">{{ task.modules.join(', ') }}</span>
-                  <span v-else class="text-dimmed">{{ t.noModules }}</span>
+            </div>
+            <template v-else>
+              <template v-if="full">
+                <div v-if="parallel" class="flex items-center gap-1.5 border-b border-default px-3.5 py-2 text-sm text-primary" :title="t.calculation">
+                  <UIcon name="i-lucide-split" class="size-3.5" />
+                  {{ parallel }}
                 </div>
-                <div v-for="pair in snapshot.tasks.parallel.impact.pairs" :key="pair.tasks.join(' ')" class="flex flex-col gap-0.5 border-t border-default pt-1.5">
-                  <div class="flex flex-wrap items-center gap-1.5">
-                    <span class="font-mono text-muted">{{ pair.tasks.join(' · ') }}</span>
-                    <UBadge :label="t.risks[pair.risk]" :color="RISK_COLORS[pair.risk]" variant="soft" size="sm" />
+                <div v-if="!snapshot.tasks.parallel.impact.available || snapshot.tasks.parallel.impact.tasks.length > 0" class="flex flex-col gap-1.5 border-b border-default px-3.5 py-2.5 text-sm">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="font-semibold">{{ t.conflictRisk }}</span>
+                    <UBadge :label="t.calculation" color="neutral" variant="outline" icon="i-lucide-calculator" size="sm" class="border-dashed" />
                   </div>
-                  <DaemonReason class="leading-snug break-words text-muted" :reason="pair.reason" :translated="pairReason(language, pair, snapshot.tasks.parallel.impact.tasks)" />
+                  <p v-if="isUnavailable(snapshot.tasks.parallel.impact)" class="text-muted">
+                    <span class="font-medium text-default">{{ t.notAvailable }}</span> · <DaemonReason :reason="snapshot.tasks.parallel.impact.reason" />
+                  </p>
+                  <template v-else>
+                    <div v-for="task in snapshot.tasks.parallel.impact.tasks" :key="task.id" class="flex min-w-0 flex-wrap gap-x-1.5">
+                      <span class="font-mono text-muted">{{ task.id }}</span>
+                      <span class="text-dimmed">{{ task.from === 'branch' ? t.fromBranch : t.fromTicket }}</span>
+                      <span v-if="task.modules.length > 0" class="font-mono break-all">{{ task.modules.join(', ') }}</span>
+                      <span v-else class="text-dimmed">{{ t.noModules }}</span>
+                    </div>
+                    <div v-for="pair in snapshot.tasks.parallel.impact.pairs" :key="pair.tasks.join(' ')" class="flex flex-col gap-0.5 border-t border-default pt-1.5">
+                      <div class="flex flex-wrap items-center gap-1.5">
+                        <span class="font-mono text-muted">{{ pair.tasks.join(' · ') }}</span>
+                        <UBadge :label="t.risks[pair.risk]" :color="RISK_COLORS[pair.risk]" variant="soft" size="sm" />
+                      </div>
+                      <FoldedText class="leading-snug break-words text-muted">
+                        <DaemonReason :reason="pair.reason" :translated="pairReason(language, pair, snapshot.tasks.parallel.impact.tasks)" />
+                      </FoldedText>
+                    </div>
+                  </template>
                 </div>
               </template>
-            </div>
-            <template v-if="count(snapshot.tasks.readyToStart) === 0 && waiting.length === 0">
-              <div v-if="noTasks" class="flex flex-col gap-1 px-3.5 py-4">
-                <div class="font-medium">{{ t.noTasks }}</div>
-                <div class="leading-snug text-muted">{{ t.noTasksBody }}</div>
-                <p v-for="item in trackerReasons" :key="item.code + item.message" class="leading-snug text-muted">
-                  <DaemonReason :reason="item.message" /> <code class="font-mono text-xs text-dimmed">{{ item.code }}</code>
-                </p>
-              </div>
-              <p v-else class="px-3.5 py-4 text-muted">{{ t.nothing }}</p>
+              <template v-if="count(snapshot.tasks.readyToStart) === 0 && (!full || waiting.length === 0)">
+                <div v-if="noTasks" class="flex flex-col gap-1 px-3.5 py-4">
+                  <div class="font-medium">{{ t.noTasks }}</div>
+                  <div class="leading-snug text-muted">{{ t.noTasksBody }}</div>
+                  <p v-for="item in trackerReasons" :key="item.code + item.message" class="leading-snug text-muted">
+                    <DaemonReason :reason="item.message" /> <code class="font-mono text-xs text-dimmed">{{ item.code }}</code>
+                  </p>
+                </div>
+                <p v-else class="px-3.5 py-4 text-muted">{{ t.nothing }}</p>
+              </template>
+              <ul class="divide-y divide-default">
+                <FoldedList :items="snapshot.tasks.readyToStart.items">
+                  <template #default="{ item: task }">
+                    <li class="flex flex-col gap-2 px-3.5 py-3">
+                      <div class="flex min-w-0 flex-col gap-0.5">
+                        <ULink :to="{ path: '/task', query: { project, id: task.id } }" class="font-mono text-sm break-all text-muted">{{ task.id }}</ULink>
+                        <span class="leading-snug" lang="en">{{ task.title ?? task.id }}</span>
+                      </div>
+                      <CopyCommand v-if="task.start !== null" :command="task.start" />
+                    </li>
+                  </template>
+                </FoldedList>
+                <li v-if="snapshot.tasks.readyToStart.remainder > 0" class="px-3.5 py-2.5 text-muted">{{ t.more(number(snapshot.tasks.readyToStart.remainder)) }}</li>
+                <FoldedList v-if="full" :items="waiting">
+                  <template #default="{ item: card }">
+                    <li class="flex items-start gap-2.5 px-3.5 py-3 opacity-55">
+                      <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <ULink :to="{ path: '/task', query: { project, id: card.id } }" class="font-mono text-sm break-all text-muted">{{ card.id }}</ULink>
+                        <span class="leading-snug" lang="en">{{ card.title ?? card.id }}</span>
+                      </div>
+                      <UBadge color="neutral" variant="outline" icon="i-lucide-lock" title="Unmet dependency" class="flex-none">
+                        {{ t.waitsOn(card.unmetDependencies.map((id) => dependency(card.id, id)).join(', ')) }}
+                      </UBadge>
+                    </li>
+                  </template>
+                </FoldedList>
+              </ul>
             </template>
-            <ul class="divide-y divide-default">
-              <li v-for="task in snapshot.tasks.readyToStart.items" :key="task.id" class="flex flex-col gap-2 px-3.5 py-3">
-                <div class="flex min-w-0 flex-col gap-0.5">
-                  <ULink :to="{ path: '/task', query: { project, id: task.id } }" class="font-mono text-sm text-muted">{{ task.id }}</ULink>
-                  <span class="leading-snug" lang="en">{{ task.title ?? task.id }}</span>
-                </div>
-                <CopyCommand v-if="task.start !== null" :command="task.start" />
-              </li>
-              <li v-if="snapshot.tasks.readyToStart.remainder > 0" class="px-3.5 py-2.5 text-muted">{{ t.more(number(snapshot.tasks.readyToStart.remainder)) }}</li>
-              <li v-for="card in waiting" :key="card.id" class="flex items-start gap-2.5 px-3.5 py-3 opacity-55">
-                <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <ULink :to="{ path: '/task', query: { project, id: card.id } }" class="font-mono text-sm text-muted">{{ card.id }}</ULink>
-                  <span class="leading-snug" lang="en">{{ card.title ?? card.id }}</span>
-                </div>
-                <UBadge color="neutral" variant="outline" icon="i-lucide-lock" title="Unmet dependency" class="flex-none">
-                  {{ t.waitsOn(card.unmetDependencies.map((id) => dependency(card.id, id)).join(', ')) }}
-                </UBadge>
-              </li>
-            </ul>
           </template>
-        </UCard>
+        </Widget>
 
         <div class="flex min-w-0 flex-col gap-5">
-          <UCard :ui="panel">
-            <template #header>
-              <h2 class="text-base font-semibold">{{ t.runningNow }}</h2>
+          <Widget page="overview" widget="running" :title="t.runningNow">
+            <template #aside>
               <span v-if="!isUnavailable(snapshot.activity) && count(snapshot.activity.running) > 0" class="font-mono text-sm text-dimmed">
                 {{ number(count(snapshot.activity.running)) }}
               </span>
             </template>
-            <p v-if="isUnavailable(snapshot.activity)" class="px-3.5 py-4 text-muted">
-              {{ t.notAvailable }} · <DaemonReason :reason="snapshot.activity.reason" />
-            </p>
-            <p v-else-if="snapshot.activity.running.items.length === 0" class="px-3.5 py-4 text-muted">{{ t.nothing }}</p>
-            <ul v-else class="divide-y divide-default">
-              <li v-for="run in snapshot.activity.running.items" :key="run.id" class="flex flex-col gap-1 px-3.5 py-2.5">
-                <div class="flex min-w-0 items-center gap-2">
-                  <span class="size-1.5 flex-none rounded-full bg-success" />
-                  <template v-if="run.taskId !== null">
-                    <ULink :to="{ path: '/task', query: { project, id: run.taskId } }" class="flex-none font-mono text-sm text-muted">{{ run.taskId }}</ULink>
-                    <span v-if="run.taskTitle !== null" class="truncate" lang="en">{{ run.taskTitle }}</span>
+            <template #default="{ full }">
+              <p v-if="isUnavailable(snapshot.activity)" class="px-3.5 py-4 text-muted">
+                {{ t.notAvailable }} · <DaemonReason :reason="snapshot.activity.reason" />
+              </p>
+              <p v-else-if="snapshot.activity.running.items.length === 0" class="px-3.5 py-4 text-muted">{{ t.nothing }}</p>
+              <ul v-else class="divide-y divide-default">
+                <FoldedList :items="snapshot.activity.running.items">
+                  <template #default="{ item: run }">
+                    <li class="flex flex-col gap-1 px-3.5 py-2.5">
+                      <div class="flex min-w-0 items-center gap-2">
+                        <span class="size-1.5 flex-none rounded-full bg-success" />
+                        <template v-if="run.taskId !== null">
+                          <ULink :to="{ path: '/task', query: { project, id: run.taskId } }" class="flex-none font-mono text-sm text-muted">{{ run.taskId }}</ULink>
+                          <span v-if="run.taskTitle !== null" class="truncate" lang="en">{{ run.taskTitle }}</span>
+                        </template>
+                        <template v-else>
+                          <UBadge :label="run.role" color="neutral" variant="soft" size="sm" class="font-mono" />
+                          <span class="text-sm text-dimmed">{{ t.noTask }}</span>
+                        </template>
+                        <span class="flex-1" />
+                        <span class="flex-none text-sm whitespace-nowrap text-muted">{{ lastActivity(run.lastActivityAt) }}</span>
+                      </div>
+                      <div v-if="full" class="flex flex-wrap gap-x-3 gap-y-1 pl-3.5 font-mono text-xs text-dimmed">
+                        <span>{{ run.harness }}</span>
+                        <span>{{ run.model ?? t.notReported }}</span>
+                        <span v-if="run.taskId !== null">{{ run.role }}</span>
+                        <span v-if="run.branch !== null" class="inline-flex items-center gap-1"><UIcon name="i-lucide-git-branch" class="size-3" />{{ run.branch }}</span>
+                      </div>
+                    </li>
                   </template>
-                  <template v-else>
-                    <UBadge :label="run.role" color="neutral" variant="soft" size="sm" class="font-mono" />
-                    <span class="text-sm text-dimmed">{{ t.noTask }}</span>
-                  </template>
-                  <span class="flex-1" />
-                  <span class="flex-none text-sm whitespace-nowrap text-muted">{{ lastActivity(run.lastActivityAt) }}</span>
-                </div>
-                <div class="flex flex-wrap gap-x-3 gap-y-1 pl-3.5 font-mono text-xs text-dimmed">
-                  <span>{{ run.harness }}</span>
-                  <span>{{ run.model ?? t.notReported }}</span>
-                  <span v-if="run.taskId !== null">{{ run.role }}</span>
-                  <span v-if="run.branch !== null" class="inline-flex items-center gap-1"><UIcon name="i-lucide-git-branch" class="size-3" />{{ run.branch }}</span>
-                </div>
-              </li>
-              <li v-if="snapshot.activity.running.remainder > 0" class="px-3.5 py-2.5 text-muted">{{ t.more(number(snapshot.activity.running.remainder)) }}</li>
-            </ul>
+                </FoldedList>
+                <li v-if="snapshot.activity.running.remainder > 0" class="px-3.5 py-2.5 text-muted">{{ t.more(number(snapshot.activity.running.remainder)) }}</li>
+              </ul>
+            </template>
             <template #footer>
               <p class="text-sm leading-snug text-dimmed">{{ t.runningNote }}</p>
             </template>
-          </UCard>
+          </Widget>
 
-          <UCard :ui="panel">
-            <template #header>
-              <h2 class="text-base font-semibold">{{ t.attention }}</h2>
+          <Widget page="overview" widget="attention" :title="t.attention">
+            <template #aside>
+              <span v-if="snapshot.attention.length > 0" class="font-mono text-sm text-dimmed">{{ number(snapshot.attention.length) }}</span>
               <ULink :to="{ path: '/attention', query: { project } }" class="text-sm">{{ t.allProjects }}</ULink>
             </template>
-            <p v-if="snapshot.attention.length === 0" class="px-3.5 py-4 text-muted">{{ t.nothing }}</p>
-            <ul v-else class="divide-y divide-default">
-              <li v-for="(item, index) in snapshot.attention" :key="index" class="flex items-start gap-2 px-3.5 py-2.5">
-                <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 flex-none text-(--warn)" />
-                <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <DaemonReason class="leading-snug break-words" :reason="item.message" />
-                  <code class="font-mono text-xs text-dimmed">{{ item.code }}</code>
-                </div>
-              </li>
-            </ul>
-          </UCard>
+            <template #default="{ full }">
+              <p v-if="snapshot.attention.length === 0" class="px-3.5 py-4 text-muted">{{ t.nothing }}</p>
+              <AttentionItems v-else :items="snapshot.attention" :full="full" />
+            </template>
+          </Widget>
         </div>
       </div>
 

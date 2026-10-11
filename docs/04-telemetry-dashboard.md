@@ -82,6 +82,8 @@ Every page is built from Nuxt UI's components and Tailwind's utilities, to the m
 
 Every page reads at one type scale, declared once in its stylesheet (`specs/dashboard-redesign/spec.md`): body text at 16 px, secondary text at 14 px, and nothing below 13 px, Nuxt UI's components, badges and figures included; headings and figures take the steps above. Spacing grows with the type, a page still fills the width, and prose keeps its measure of about 70 characters. A test over the dashboard's sources fails on any text size below the floor or outside the scale.
 
+Every widget sits in one shared frame, a panel with its title and a *Brief* / *Full* control in its header. *Brief* shows the widget's essentials, as the redesign's spec decides them (`specs/dashboard-redesign/spec.md`, stories 11 to 24), and *Full* everything the views below list, so nothing is removed, only folded away. The level is kept in the browser per page and widget, and is *Brief* when nothing is stored or the browser's storage refuses. A list longer than six rows folds after them, and a text longer than six lines after them, each with a control that unfolds it in place. "What's next" has no control and is always in full.
+
 It speaks English and Russian, one dictionary of the dashboard's own for each. It starts in the browser's first language when it has a dictionary for it, and in English otherwise; the Settings page's choice is kept in the browser. Adding a language is adding a dictionary, which the Settings page then lists. The page's own text is translated, and so are the daemon's reasons the page knows: a conflict risk's reason, which in another language than English it writes from the pair's risk and its Tasks' modules, and the reasons with no part of their own, such as "There is no graph.", which it matches by their text. File and module names in them stay as they are, and a reason the page has no translation for is shown as the daemon wrote it, marked English. Task, Epic, Next action, Suggested step, Backlog, Ready, In progress, Done, Review and Unmet dependency stay English in both languages, and commands, ids, branches, models, repository text and the daemon's other messages are never translated.
 
 ## Main dashboard views for v1
@@ -91,10 +93,10 @@ It speaks English and Russian, one dictionary of the dashboard's own for each. I
 The main screen, for the selected project. It answers where the project stands and what to type next.
 
 - What's next: the Next action, labelled as the roadmap's, with its command to copy, and a warning inside the block when `next_action.missing` or `next_action.stale` is raised; under "or", labelled as Binnacle's calculation (ADR-0032), the snapshot's `next.alternatives`, each with a title and a reason the page writes in its language from the alternative's `kind` and `tasks`, and its command to copy when it has one. An alternative that agrees with the Next action is already left out, so when they agree only the Next action shows;
-- the roadmap's epics as a compact stepper, and the current epic's Tasks done out of all of them, `CANCELLED` left out;
-- Ready to start, in any order, each Task with the command that starts it; a Task In progress is not one of them. It says how many can run in parallel, from the snapshot's `tasks.parallel`, when at least one place is free and either two Tasks are ready or one is in progress. Beside it, labelled as Binnacle's calculation, the conflict risk from `tasks.parallel.impact`: each Task in flight and ready to start with the modules it touches, read from its branch or its ticket, and each pair's risk and its reason, both in the page's language; without a graph, not available, with the reason. The current epic's `READY` Tasks that wait on an Unmet dependency follow, dimmed, with what they wait on;
-- Running now: each run with its Task or role, harness, model, branch and latest activity, "running" being Binnacle's reading of recent activity;
-- attention items, each with its code;
+- the roadmap's epics as a compact stepper, and the current epic's Tasks done out of all of them, `CANCELLED` left out; *Brief* shows the current epic and its count, the stepper waiting for *Full*;
+- Ready to start, in any order, each Task with the command that starts it; a Task In progress is not one of them. It says how many can run in parallel, from the snapshot's `tasks.parallel`, when at least one place is free and either two Tasks are ready or one is in progress. Beside it, labelled as Binnacle's calculation, the conflict risk from `tasks.parallel.impact`: each Task in flight and ready to start with the modules it touches, read from its branch or its ticket, and each pair's risk and its reason, both in the page's language; without a graph, not available, with the reason. The current epic's `READY` Tasks that wait on an Unmet dependency follow, dimmed, with what they wait on. *Brief* shows each Task's id, title and command; how many can run in parallel, the conflict risk and the Tasks waiting on an Unmet dependency wait for *Full*;
+- Running now: each run with its Task or role, harness, model, branch and latest activity, "running" being Binnacle's reading of recent activity; *Brief* shows each run's Task or role and its latest activity;
+- attention items, each with its code; *Brief* shows how many there are and the first three messages;
 - output tokens today and over the last seven days, linking to Usage.
 
 A roadmap that cannot be read, and a project or epic with no Tasks, each show their state with the attention items that say why.
@@ -133,7 +135,7 @@ A roadmap that cannot be read, and a project or epic with no Tasks, each show th
 
 ### Attention/current activity
 
-- every project's attention items with their codes, grouped by project, beside the runs running now and the recent runs of every project.
+- every project's attention items with their codes, grouped by project, beside the runs running now and the recent runs of every project. Each project's items, in *Brief*, are their count and first three messages, and each run its Task or role and its latest activity; its project, harness, model, role, branch and checkout wait for *Full*.
 
 ### Settings
 

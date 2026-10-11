@@ -155,6 +155,13 @@ export const en = {
   copied: 'Copied',
   copyFailed: 'Copy failed: select the command and copy it by hand.',
 
+  // A widget's level, and the fold of a long list or text.
+  level: 'Detail',
+  brief: 'Brief',
+  full: 'Full',
+  readMore: 'Read more',
+  showLess: 'Show less',
+
   // The Project page.
   noProjectAddress: 'This address names no project. Open one from the rail.',
   epics: 'Epics',
