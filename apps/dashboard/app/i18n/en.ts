@@ -376,6 +376,15 @@ export const en = {
   /** `limit` as `limitValue` reads it. */
   parallelNow: (limit: string, source: 'manifest' | 'machine' | 'default') => `Now ${limit}${source === 'default' ? ', the default' : ''}.`,
   parallelOverride: (limit: string) => `This project's manifest sets ${limit} in automation.max_parallel_development_tasks, which wins for it.`,
+  carried: 'What this machine has carried',
+  mostActive: 'Most runs active at once',
+  noRunsCarried: 'No run is recorded in any registered project yet.',
+  usageLimitsHit: 'Usage limits hit',
+  activeThen: { one: '# run active then', other: '# runs active then' } as Forms,
+  noUsageLimit: 'none recorded',
+  notReporting: (harnesses: string) => `Not reporting usage limits: ${harnesses}.`,
+  carriedNote:
+    "Binnacle's calculation over every registered project's import window: a run is active within ten minutes of its latest call. The usage limits are the ones Claude Code records.",
   daemon: 'Daemon',
   version: 'Version',
   address: 'Address',

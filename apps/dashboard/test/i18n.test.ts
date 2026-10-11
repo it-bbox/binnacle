@@ -168,3 +168,17 @@ describe('the Parallel limit on the Settings page', () => {
     for (const dictionary of [en, ru]) assert.match(dictionary.parallelOverride('5'), /5 .*automation\.max_parallel_development_tasks/);
   });
 });
+
+describe('the informer beside the Parallel limit', () => {
+  it("is labelled as Binnacle's calculation, and counts the runs active at a usage limit, in both languages", () => {
+    const { en, ru } = DICTIONARIES;
+    assert.match(en.carriedNote, /^Binnacle's calculation/);
+    assert.match(ru.carriedNote, /^Расчёт Binnacle/);
+    assert.equal(plural('en', 1, en.activeThen), '1 run active then');
+    assert.equal(plural('en', 3, en.activeThen), '3 runs active then');
+    assert.equal(plural('ru', 1, ru.activeThen), 'тогда был активен 1 run');
+    assert.equal(plural('ru', 3, ru.activeThen), 'тогда были активны 3 run');
+    assert.equal(en.notReporting('gemini-cli'), 'Not reporting usage limits: gemini-cli.');
+    assert.equal(ru.notReporting('gemini-cli'), 'Не сообщают об исчерпании лимитов: gemini-cli.');
+  });
+});

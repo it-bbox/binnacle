@@ -5,14 +5,14 @@ import { projectName, SELECTED_VIEW, type ParallelLimit, type ProjectRow } from 
 import { LANGUAGES, type Language } from '~/i18n';
 
 /**
- * The language, the machine's Parallel limit, and the selected project's and the daemon's
- * settings to read. The Parallel limit is the one thing the page writes, through the daemon
+ * The language, the machine's Parallel limit with what the machine has carried beside it, and
+ * the selected project's and the daemon's settings to read. The Parallel limit is the one thing the page writes, through the daemon
  * (ADR-0041); the rest it only shows, each setting saying where it is changed (ADR-0020).
  */
 const view = inject(SELECTED_VIEW, ref(null));
 const route = useRoute();
 const project = typeof route.query.project === 'string' ? route.query.project : null;
-const { language, choose, t, number } = useLanguage();
+const { language, choose, t, number, plural, dateTime, list } = useLanguage();
 
 /** The parts of `project.status`'s manifest the page shows, as the daemon answers them. */
 type Manifest = {
@@ -27,7 +27,14 @@ type ProjectStatus = { project: ProjectRow; manifest: Manifest | null; diagnosti
 const status = usePolling(async () => (project === null ? null : call<ProjectStatus>('project.status', { path: project })));
 const daemon = usePolling(() => call<{ version: string; host: string; port: number }>('daemon.status'));
 
-const machine = usePolling(() => call<ParallelLimit>('parallel.get'));
+/** What this machine has carried, as `parallel.get` gives it beside the limit: each figure Binnacle's calculation. */
+type Informer = {
+  mostActive: { runs: number; at: string | null; provenance: 'calculated' };
+  usageLimits: { at: string; harness: string; limit: string | null; active: number; provenance: 'calculated' }[];
+  notReporting: string[];
+};
+const machine = usePolling(() => call<ParallelLimit & { informer: Informer }>('parallel.get'));
+const informer = computed(() => machine.data.value?.informer ?? null);
 /** The form's choice, filled from the machine's limit until the owner edits it. */
 const choice = ref<'number' | 'auto'>('number');
 /** A number, or the input's text when it is not one. */
@@ -49,7 +56,8 @@ async function save(): Promise<void> {
   refused.value = null;
   try {
     // Whatever was entered is sent as it is, for the daemon to refuse with its reason.
-    machine.data.value = await call<ParallelLimit>('parallel.set', { limit: choice.value === 'auto' ? 'auto' : entered.value === '' ? null : entered.value });
+    const limit = await call<ParallelLimit>('parallel.set', { limit: choice.value === 'auto' ? 'auto' : entered.value === '' ? null : entered.value });
+    if (machine.data.value) machine.data.value = { ...machine.data.value, ...limit };
     edited.value = false;
     saved.value = true;
   } catch (error) {
@@ -157,9 +165,30 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
           <code>{{ refused.code }}</code> <span lang="en">{{ refused.message }}</span>
         </p>
         <p v-if="override !== null" class="text-warning">{{ t.parallelOverride(number(override)) }}</p>
+        <section v-if="informer" class="flex flex-col gap-1.5 border-t border-default pt-3" aria-labelledby="carried">
+          <h3 id="carried" class="text-sm font-semibold">{{ t.carried }}</h3>
+          <p v-if="informer.mostActive.at === null" class="text-muted">{{ t.noRunsCarried }}</p>
+          <p v-else>
+            <span class="text-muted">{{ t.mostActive }}:</span> <span class="font-semibold">{{ number(informer.mostActive.runs) }}</span>
+            <span class="text-sm text-dimmed"> · {{ dateTime(informer.mostActive.at) }}</span>
+          </p>
+          <p class="text-muted">{{ t.usageLimitsHit }}<template v-if="informer.usageLimits.length === 0">: {{ t.noUsageLimit }}</template></p>
+          <ul v-if="informer.usageLimits.length > 0" class="flex flex-col gap-0.5">
+            <FoldedList :items="informer.usageLimits" :by="(item) => item.harness + item.at">
+              <template #default="{ item }">
+                <li class="text-sm">
+                  {{ dateTime(item.at) }} · <span class="font-semibold">{{ plural(item.active, t.activeThen) }}</span>
+                  <span v-if="item.limit !== null" class="font-mono text-dimmed"> · {{ item.limit }}</span>
+                </li>
+              </template>
+            </FoldedList>
+          </ul>
+          <p v-if="informer.notReporting.length > 0" class="text-sm text-dimmed">{{ t.notReporting(list(informer.notReporting)) }}</p>
+        </section>
       </div>
       <template #footer>
         <p class="text-sm leading-snug text-dimmed">{{ t.parallelNote }}</p>
+        <p v-if="informer" class="mt-1.5 text-sm leading-snug text-dimmed">{{ t.carriedNote }}</p>
       </template>
     </UCard>
 
