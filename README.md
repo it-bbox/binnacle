@@ -142,7 +142,7 @@ npx skills add ./apps/cli/skills -g -y
 npx skills remove -g -a claude-code -s $(ls apps/cli/skills) -y
 ```
 
-A new session then loads the changed skills. `/binnacle:autopilot` does this itself after each merge of its own that changed them.
+A new session then loads the changed skills. `/binnacle:autopilot` does this itself once, after the last merge of a run whose merges changed them.
 
 `pnpm typecheck` and `pnpm test` check a change. `pnpm test` is offline; the adapters' live tests, which need read-only tokens, run apart with `pnpm test:live`. CI runs the typecheck and the tests in GitHub Actions on every push to `main` and every pull request (`.github/workflows/ci.yml`), without the live tests and without any secret.
 

@@ -52,6 +52,10 @@ All project documentation is written in English: `README.md`, `CONTEXT.md`, `AGE
 
 The single exception is `README.ru.md`, a Russian duplicate of `README.md`. It lives next to it and is updated in the same change whenever `README.md` changes.
 
+## Commit messages
+
+Every commit, a ticket's or a Product session's: an English subject of at most 72 characters, and a body only when the subject cannot carry the why.
+
 ## Commit authorship
 
 Every commit and pull request has exactly one author and one contributor: `miker059@gmail.com`.

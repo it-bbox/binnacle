@@ -186,46 +186,60 @@ test('/binnacle:product presents the graph\'s freshness in one line and each pai
   assert.match(skill, /When `impact` is marked `available: false`, say the risk was not assessed, with its reason, here rather than under \*\*Not available\*\*/);
 });
 
-/** The Next action is the owner's (docs/workflow/02-development-workflow.md, step 3): no agent and no run moves it; the report only proposes it. */
-test('autopilot\'s agents leave the Next action as it is, and the run reports a stale one', () => {
-  const skill = skillText('autopilot');
-  assert.match(skill, /never its `Next action:` paragraph/);
-  assert.match(skill, /stale `Next action:`/);
+/** Epic 18: a ticket touches nothing in the roadmap and commits its Review whenever it suits the work; Binnacle reads review and rework from the runs (the owner, 2026-10-11). */
+test('autopilot\'s brief asks for no roadmap edit and no Review order, and for a short Review, short commits, a question\'s options and a browser only for the dashboard', () => {
+  const brief = step(skillText('autopilot'), 6);
+  assert.match(brief, /make the ticket's `Status: DONE` your last commit\. Do not edit the roadmap, neither its current focus nor an epic's status/);
+  assert.doesNotMatch(brief, /if the frontier moved|keep this order|Before fixing anything|the Review commit|stale `Next action:`/);
+  assert.match(brief, /Commit the Review whenever it suits the work, before or after its fixes/);
+  assert.match(brief, /a finding to fix in full, with its place and its fix; a finding kept in one line, with its reason/);
+  assert.match(brief, /an English subject of at most 72 characters, and a body only when the subject cannot carry the why/);
+  assert.match(brief, /in a browser only when the ticket changes the dashboard/);
+  assert.match(brief, /its options after it, each with its cost, the recommended one first and marked "\(recommended\)"/);
 });
 
-/** Epic 10's ticket 17: review and rework are told apart at the commit that first records `### Review`, so the Review is committed before its fixes (the owner, 2026-10-08). */
-test('autopilot asks for the Review\'s commit before its fixes, as the development workflow does, and step 8 sends back a Review recorded only at the end', () => {
+/** Epic 18: autopilot rebases a branch itself; only a conflict, or checks failing after a clean rebase, send it back. */
+test('autopilot\'s step 8 rebases the branch onto main itself, sends it back only on a conflict or failing checks, and no longer checks the Review\'s order', () => {
   const skill = skillText('autopilot');
-  assert.match(workflowText(), /The review's findings go under `### Review` there, each marked to fix or kept with its reason, in a commit of their own before any fix/);
-  assert.match(skill, /commit the ticket's `### Review` with every finding, each marked "to fix" or "kept" with its reason, in a commit of its own that changes only the ticket/);
-  assert.match(skill, /Commit the fixes in commits of their own\. 5\) The last commit marks each finding fixed, kept or left, ticks the criteria and sets `Status: DONE`/);
-  assert.match(skill, /If the review finds nothing to fix, say so in the Review commit, which stays a commit of its own, and the last commit, right after it, may be the DONE one/);
-  assert.match(skill, /Binnacle tells review from rework at the commit that first adds `### Review`, so keep this order/);
-  assert.doesNotMatch(skill, /the development workflow sets under \*Per ticket\*/);
-  assert.match(skill, /the commit that first adds `### Review` to the ticket .+ changes only the ticket, and when the Review marks any finding fixed, a commit after it, before the last, changes more than the ticket \(`git log --format=%H <review>\.\.<branch>~1 -- \. ':\(exclude\)<ticket path>'` prints one\)/);
-  assert.match(skill, /Review recorded only in the last commit, after its fixes/);
-  assert.doesNotMatch(skill, /record its findings under the ticket's `## Comments` → `### Review` as fixed, kept or left, tick/);
+  const eight = step(skill, 8);
+  assert.match(eight, /run `git rebase main` in the agent's worktree/);
+  assert.match(eight, /On a conflict, run `git rebase --abort` there and send the agent back/);
+  assert.match(eight, /After a clean rebase, the checks below run on the rebased branch, and a failure among them is the one return to the agent/);
+  assert.doesNotMatch(skill, /-G'\^### Review'|Review recorded only in the last commit|changes only the ticket, and when the Review marks/);
+  assert.match(skill, /the one write you make besides a merge is step 8's rebase of an agent's branch/);
+});
+
+/** Epic 18: the upkeep happens once, after the last merge, for what the run's merges touched (the owner, 2026-10-11). */
+test('autopilot does its upkeep once after the last merge, in order, each only when the run\'s merges touched what it serves, and reports each', () => {
+  const skill = skillText('autopilot');
+  assert.doesNotMatch(step(skill, 8), /frozen install|refresh the plugin|dashboard:generate|`binn daemon stop` then/);
+  const ten = step(skill, 10);
+  assert.match(ten, /After the last merge/);
+  assert.match(ten, /`git diff --name-only <the run's start> main`/);
+  const order = ['--frozen-lockfile', 'refresh the plugin', 'reinstall the package', 'pnpm dashboard:generate', '`binn daemon stop` then `binn daemon start`'].map((text) => ten.indexOf(text));
+  assert.ok(order.every((at, i) => at >= 0 && at > (order[i - 1] ?? -1)), String(order));
+  assert.match(ten, /A failure here never stops the run/);
+  assert.match(step(skill, 12), /\*\*Upkeep\*\*: each of step 10's, as run, skipped and why, or failed, with the command that failed and the commands run before it/);
+  assert.match(skill, /except as step 10 allows/);
 });
 
 /** Epic 9: the installed binnacle@binnacle shadows the skills-directory plugin here, so a merged skill reaches the owner only once refreshed; epic 14 keeps Claude Code's commands in the development workflow, out of the skill. */
-test('autopilot refreshes the plugin only when a merge changed its skills, with the development workflow\'s commands, and a failure does not stop the run', () => {
+test('autopilot refreshes the plugin only when the run changed its skills, with the development workflow\'s commands, and a failure does not stop the run', () => {
   const skill = skillText('autopilot');
-  assert.match(skill, /changed the `binnacle` plugin's skills \(only when this project is Binnacle itself\)/);
+  assert.match(skill, /the `binnacle` plugin's skills \(only when this project is Binnacle itself\)/);
   assert.match(skill, /refresh the plugin as `docs\/workflow\/02-development-workflow\.md` says under \*Per ticket\* for a merge that changed the plugin's skills/);
-  assert.match(skill, /after any frozen install and before regenerating the dashboard/);
   const workflow = workflowText();
   assert.match(workflow, /run `pnpm --filter @binnacle\/cli run prepare`; then, if `claude plugin list --json` lists `binnacle@binnacle`, `claude plugin marketplace update binnacle` then `claude plugin update binnacle@binnacle`/);
   assert.match(skill, /A failure here never stops the run/);
-  assert.match(skill, /the plugin refreshed and that a new session loads it, or why it was skipped, or which command failed and the commands run before it/);
+  assert.match(step(skill, 12), /when the plugin was refreshed, that a new session loads it/);
 });
 
 /** Epic 14: every other harness runs the package's `binnacle-<action>` copy, which the `skills` CLI installed, so a merged skill reaches it only once reinstalled, right after the plugin refresh and by the same rules. */
-test('autopilot reinstalls the skills CLI\'s copy after the plugin refresh, with the development workflow\'s commands, and reports it', () => {
+test('autopilot reinstalls the skills CLI\'s copy after the plugin refresh, with the development workflow\'s commands', () => {
   const skill = skillText('autopilot');
   assert.match(skill, /then reinstall the package's `binnacle-<action>` copy through the `skills` CLI as the same paragraph says, right after the plugin refresh/);
   const workflow = workflowText();
   assert.match(workflow, /Then, if `~\/\.agents\/skills` holds a `binnacle-\*` skill, `npx skills add \.\/apps\/cli\/skills -g -y` then `npx skills remove -g -a claude-code -s \$\(ls apps\/cli\/skills\) -y`/);
-  assert.match(skill, /the skills CLI's copy reinstalled, or why it was skipped, or which command failed and the commands run before it/);
   // Without `./` the `skills` CLI reads `apps/cli` as a GitHub repository (ticket 12).
   for (const readme of ['README.md', 'README.ru.md']) {
     assert.match(readFileSync(fileURLToPath(new URL(`../../../${readme}`, import.meta.url)), 'utf8'), /^npx skills add \.\/apps\/cli\/skills -g -y$/m, readme);
@@ -492,7 +506,7 @@ test('/binnacle:answer ends with autopilot for a Task of a planned epic, and the
 /** Epic 11, ADR-0040: a genuine question outlives the agent's session, in the ticket on its branch. */
 test('autopilot\'s brief records a genuine product question as ### Question in a commit of the ticket alone, after what is sound, and never answers it', () => {
   const brief = step(skillText('autopilot'), 6);
-  assert.match(brief, /commit what is sound without `DONE`, then record the question in the ticket, under `## Comments`, as a `### Question` heading with the question below it, in a commit of its own that changes only the ticket, and put the question at the top of your report/);
+  assert.match(brief, /commit what is sound without `DONE`, then record the question in the ticket, under `## Comments`, as a `### Question` heading with the question below it and its options after it, [^.]+, in a commit of its own that changes only the ticket, and put the question at the top of your report/);
   assert.match(brief, /never write an `### Answer`/);
   // An answer autopilot draws from the spec withdraws the question rather than answering it.
   assert.match(brief, /take it out with `git revert --no-edit <its commit>`/);
@@ -535,24 +549,26 @@ test('autopilot\'s review covers each role of Roles: beyond the Developer and th
 /** Epic 11: a run that broke CI does not look finished. */
 test('autopilot reads main\'s CI after the last push and puts a failing or running one under Waiting for the owner, without waiting for it', () => {
   const skill = skillText('autopilot');
-  const ten = step(skill, 10);
-  assert.match(ten, /`main`'s CI after the last push: `ci\.defaultBranch`/);
-  assert.match(ten, /Do not wait for CI/);
-  assert.match(ten, /A `failing` or `running` state goes under \*Waiting for the owner\*/);
-  assert.match(ten, /when `ci` is marked `available: false`, give its reason/);
   const eleven = step(skill, 11);
-  assert.match(eleven, /\*\*CI\*\*: `main`'s/);
-  assert.match(eleven, /`main`'s CI failing or still running/);
+  assert.match(eleven, /`main`'s CI after the last push: `ci\.defaultBranch`/);
+  assert.match(eleven, /Do not wait for CI/);
+  assert.match(eleven, /A `failing` or `running` state goes under \*Waiting for the owner\*/);
+  assert.match(eleven, /when `ci` is marked `available: false`, give its reason/);
+  const twelve = step(skill, 12);
+  assert.match(twelve, /\*\*CI\*\*: `main`'s/);
+  assert.match(twelve, /`main`'s CI failing or still running/);
 });
 
-/** Epic 11, ADR-0037: the course moves with the work, on the owner's yes. */
-test('autopilot\'s report ends with a proposed Next action paragraph, written and committed only on the owner\'s yes after the run', () => {
+/** Epic 11, ADR-0037: the course moves with the work, on the owner's yes; epic 18: with the whole current focus and the epic's status, which no ticket writes any more. */
+test('autopilot\'s report ends with the roadmap it proposes, the current focus, the epic\'s status and the Next action, written and committed only on the owner\'s yes after the run', () => {
   const skill = skillText('autopilot');
-  const items = step(skill, 11).split('\n').filter((line) => /^ {4}- \*\*/.test(line));
+  const items = step(skill, 12).split('\n').filter((line) => /^ {4}- \*\*/.test(line));
   const last = items.at(-1) ?? '';
-  assert.match(last, /^ {4}- \*\*Next action\*\*, last:/);
+  assert.match(last, /^ {4}- \*\*Roadmap\*\*, last:/);
+  assert.match(last, /the whole current focus/);
+  assert.match(last, /the epic's status in the table/);
   assert.match(last, /starts with `Next action:` and ends with exactly one command in backticks/);
-  assert.match(last, /Once the run has ended, and only on the owner's yes in this chat, write it into the roadmap/);
+  assert.match(last, /Once the run has ended, and only on the owner's yes in this chat, write them into the roadmap/);
   assert.match(last, /commit the roadmap alone to `main`, as a Product session would/);
   assert.match(last, /do not push it/);
   // Nothing is written during the run.
@@ -567,6 +583,31 @@ test('/binnacle:checkpoint offers a stale or missing Next action paragraph with 
   assert.match(three, /starting with `Next action:` and ending with exactly one command in backticks/);
   assert.match(three, /with the text you propose/);
   assert.match(three, /written only once the human says yes/);
+});
+
+/** Epic 18: no ticket moves the current focus any more, so the checkpoint catches it up. */
+test('/binnacle:checkpoint offers the current focus as a candidate when the tickets\' statuses moved past it', () => {
+  const three = step(skillText('checkpoint'), 3);
+  assert.match(three, /When the tickets' statuses have moved past the current focus[^.]*, draft its sentences on what is done and what can start as a `position` item/);
+});
+
+/** Epic 18: by hand as under autopilot, the same short process. */
+test('AGENTS.md, the workflow, the roadmap\'s rules and the issue-tracker conventions say what autopilot\'s brief says', () => {
+  const doc = (path: string): string => readFileSync(fileURLToPath(new URL(`../../../${path}`, import.meta.url)), 'utf8');
+  assert.match(doc('AGENTS.md'), /an English subject of at most 72 characters, and a body only when the subject cannot carry the why/);
+  const workflow = workflowText();
+  assert.match(workflow, /The session's last commit sets the ticket's `Status:` to `DONE`\*\*, and nothing in the roadmap/);
+  assert.match(workflow, /whenever it suits the work, before or after its fixes/);
+  assert.match(workflow, /a finding to fix in full, with its place and its fix; a finding kept in one line, with its reason/);
+  assert.match(workflow, /in a browser only when it changes the dashboard/);
+  assert.match(workflow, /`\/binnacle:autopilot` does the same once, after the last merge of its run/);
+  assert.match(doc('docs/roadmap.md'), /The current focus and an epic's status are written by a Product session, a checkpoint, or autopilot at the end of its run on the owner's yes, never by a ticket/);
+  const tracker = doc('docs/agents/issue-tracker.md');
+  assert.match(tracker, /a finding to fix in full, with its place and its fix; a finding kept in one line, with its reason/);
+  assert.match(tracker, /"checked in a browser" belongs only to a ticket that changes the dashboard/);
+  for (const path of ['AGENTS.md', 'CLAUDE.md', 'README.md', 'docs/workflow/02-development-workflow.md']) {
+    assert.doesNotMatch(doc(path), /if the frontier moved|before any fix|after each merge/, path);
+  }
 });
 
 /** Epic 11: the workflow says how a session records a question and how the owner answers it. */
@@ -590,8 +631,13 @@ test('the skills copy carries autopilot\'s resume, roles, CI and Next action, an
   assert.match(autopilot, /never started afresh/);
   assert.match(autopilot, /`#### <role>` heading/);
   assert.match(autopilot, /`ci\.defaultBranch`/);
-  assert.match(autopilot, /- \*\*Next action\*\*, last:/);
+  assert.match(autopilot, /- \*\*Roadmap\*\*, last:/);
   assert.match(autopilot, /`binnacle-answer`/);
+  // Epic 18: the rebase, the upkeep at the end, and no roadmap edit in the brief.
+  assert.match(autopilot, /run `git rebase main` in the agent's worktree/);
+  assert.match(autopilot, /\*\*Upkeep, once\.\*\*/);
+  assert.match(autopilot, /Do not edit the roadmap/);
   const checkpoint = readFileSync(join(target, 'binnacle-checkpoint', 'SKILL.md'), 'utf8');
+  assert.match(checkpoint, /moved past the current focus/);
   assert.match(checkpoint, /`next_action\.stale` or `next_action\.missing`/);
 });

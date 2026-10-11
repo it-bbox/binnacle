@@ -64,6 +64,8 @@ Items excluded from the product altogether are not listed here. See the non-goal
 
 ## Keeping this current
 
+The current focus and an epic's status are written by a Product session, a checkpoint, or autopilot at the end of its run on the owner's yes, never by a ticket: a ticket's last commit sets only its own `Status: DONE`, and the snapshot derives what is done and what can start from the tickets' statuses until the focus catches up (the owner, 2026-10-11). The `Next action:` paragraph is the owner's course, so it is written only on the owner's yes (the owner, 2026-10-02).
+
 Update the status column when an epic changes state. An epic moves to `spec` in the change that fills its spec link, when `to-spec` produces the spec: a `spec` row whose Spec cell is `—` is reported as `roadmap.spec_missing`. A stale roadmap is worse than none, because Product Snapshot reads its position from here.
 
 The epic table's header and the `## Current focus` heading are a contract with Binnacle (`specs/mcp-and-product-snapshot/spec.md`). Change them and the snapshot reports a diagnostic instead of a position. Each row's `#` must be a number, its Status one of the vocabulary above, written exactly, and its Spec cell `—` or a link to `specs/<slug>/spec.md`; a row that is not is left out of the snapshot, with a diagnostic. The current focus reaches a fresh session only up to its first 2000 characters, so keep it short.
