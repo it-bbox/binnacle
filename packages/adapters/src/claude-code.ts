@@ -1,4 +1,4 @@
-import type { CompactionMarker, UsageRecord } from '@binnacle/telemetry';
+import type { CompactionMarker, UsageLimitMarker } from '@binnacle/telemetry';
 import { count, isObject, readMessages, type ArtifactPosition, type ArtifactReading, type LineReading } from './artifact.ts';
 
 /**
@@ -18,7 +18,8 @@ import { count, isObject, readMessages, type ArtifactPosition, type ArtifactRead
  * The description in the subagent's `.meta.json` is in another file and is never read.
  *
  * Claude Code's own `<synthetic>` messages, written for an API error, are no call to a
- * model and give no record.
+ * model and give no record. The one written for `"error":"rate_limit"`, where the session hit a
+ * usage limit, gives a usage-limit marker with the limit's type; its message is never read.
  *
  * Each compaction boundary, the `system` record Claude Code writes where it compacted the
  * session, gives a marker with its trigger, `auto` or `manual`; what it dropped and kept is
@@ -28,14 +29,14 @@ export function readClaudeCode(bytes: Buffer, start: ArtifactPosition, settled: 
   return readMessages(bytes, start, settled, readRecord);
 }
 
-/** A record, a compaction marker, null for a line that carries neither, or why the line cannot be read. */
+/** A record, a compaction or usage-limit marker, null for a line that carries none, or why the line cannot be read. */
 function readRecord(value: Record<string, unknown>): LineReading {
   if (value.type === 'system' && value.subtype === 'compact_boundary') return readBoundary(value);
   if (value.type !== 'assistant') return null;
 
   const message = value.message;
   if (!isObject(message)) return 'an assistant record without a message';
-  if (message.model === '<synthetic>') return null;
+  if (message.model === '<synthetic>') return value.error === 'rate_limit' ? readUsageLimit(value) : null;
   const usage = message.usage;
   const time = typeof value.timestamp === 'string' ? Date.parse(value.timestamp) : NaN;
   if (typeof message.id !== 'string') return 'an assistant record without a message id';
@@ -74,22 +75,28 @@ function readRecord(value: Record<string, unknown>): LineReading {
 
 /** A compaction boundary's marker, or why the boundary cannot be read. */
 function readBoundary(value: Record<string, unknown>): CompactionMarker | string {
-  const time = typeof value.timestamp === 'string' ? Date.parse(value.timestamp) : NaN;
-  if (typeof value.uuid !== 'string') return 'a compaction boundary without a uuid';
-  if (Number.isNaN(time)) return 'a compaction boundary without a timestamp';
-  if (typeof value.cwd !== 'string') return 'a compaction boundary without a cwd';
-  if (typeof value.sessionId !== 'string') return 'a compaction boundary without a session id';
-  const subagentId = value.isSidechain === true ? value.agentId : null;
-  if (subagentId !== null && typeof subagentId !== 'string') return 'a subagent compaction boundary without an agent id';
+  const place = markerPlace(value, 'a compaction boundary');
+  if (typeof place === 'string') return place;
   const trigger = isObject(value.compactMetadata) ? value.compactMetadata.trigger : undefined;
-  return {
-    harness: 'claude-code',
-    naturalKey: value.uuid,
-    sessionId: value.sessionId,
-    subagentId,
-    timestamp: new Date(time).toISOString(),
-    cwd: value.cwd,
-    trigger: typeof trigger === 'string' ? trigger : null,
-    provenance: 'provider_reported',
-  };
+  return { ...place, trigger: typeof trigger === 'string' ? trigger : null };
+}
+
+/** A usage limit's marker, or why its record cannot be read. */
+function readUsageLimit(value: Record<string, unknown>): UsageLimitMarker | string {
+  const place = markerPlace(value, 'a usage-limit record');
+  if (typeof place === 'string') return place;
+  const limit = isObject(value.quotaLimits) ? value.quotaLimits.rateLimitType : undefined;
+  return { ...place, limit: typeof limit === 'string' ? limit : null };
+}
+
+/** What every marker of a line names, or why `what` cannot be read. */
+function markerPlace(value: Record<string, unknown>, what: string): Omit<CompactionMarker, 'trigger'> | string {
+  const time = typeof value.timestamp === 'string' ? Date.parse(value.timestamp) : NaN;
+  if (typeof value.uuid !== 'string') return `${what} without a uuid`;
+  if (Number.isNaN(time)) return `${what} without a timestamp`;
+  if (typeof value.cwd !== 'string') return `${what} without a cwd`;
+  if (typeof value.sessionId !== 'string') return `${what} without a session id`;
+  const subagentId = value.isSidechain === true ? value.agentId : null;
+  if (subagentId !== null && typeof subagentId !== 'string') return `a subagent ${what.slice(2)} without an agent id`;
+  return { harness: 'claude-code', naturalKey: value.uuid, sessionId: value.sessionId, subagentId, timestamp: new Date(time).toISOString(), cwd: value.cwd, provenance: 'provider_reported' };
 }

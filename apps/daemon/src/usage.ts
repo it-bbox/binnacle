@@ -47,10 +47,12 @@ import {
   type ReviewPoints,
   type RunRecord,
   type Totals,
+  type UsageLimitMarker,
   type UsageRecord,
 } from '@binnacle/telemetry';
 import { OperationError } from './errors.ts';
 import { resolveGitTimeout, trackerToken, type ArtifactRoots } from './home.ts';
+import { readManifest } from './manifest.ts';
 import type { OperationContext } from './operations.ts';
 import { containingEntry, readRegistry } from './registry.ts';
 import { limited, readRoadmap, readTracker, SECTION_LIMIT, trackerUnavailable, type Unavailable } from './snapshot.ts';
@@ -593,6 +595,73 @@ export async function taskByRole(
 async function storedRuns(context: OperationContext, projectPath: string, manifest: ProjectManifest | null, tasks: TrackerTask[]): Promise<Attributed> {
   const { checkouts } = await ingested(context, projectPath, manifest);
   return runs(context.store.usage(projectPath, ''), projectPath, tasks, context.home, manifest, checkouts);
+}
+
+/** The harnesses whose artifacts record a usage limit (`UsageLimitMarker`). */
+const RECORDS_USAGE_LIMITS: Harness[] = ['claude-code'];
+
+/** The informer beside the Parallel limit (`usageLimitInformer`), each figure Binnacle's calculation. */
+export type UsageLimitInformer = {
+  /** The most runs active at once, and when that was first reached; 0 and null with no run. */
+  mostActive: { runs: number; at: string | null; provenance: 'calculated' };
+  /** Each usage limit a harness recorded, oldest first, with the limit it names and the runs active then. */
+  usageLimits: { at: string; harness: Harness; limit: string | null; active: number; provenance: 'calculated' }[];
+  /** The harnesses among the runs counted that record no usage limit, which is not the same as none hit. */
+  notReporting: Harness[];
+};
+
+/**
+ * What this machine has carried (ADR-0041), over every registered project's stored records and
+ * usage-limit markers within its import window: the most runs active at once, and how many were
+ * active at each usage limit. A run is active at a moment when one of its records is at most
+ * `ACTIVE_WITHIN_MS` before it, telemetry's recency rule. Runs are grouped as `observedRuns`
+ * groups them, without Tasks: with none, a run's role changes only with its branch, so the
+ * default branch named here moves no run's bounds. It reads what is stored and starts no import.
+ */
+export function usageLimitInformer(context: OperationContext): UsageLimitInformer {
+  // Each run's spans of activity, from a record to ACTIVE_WITHIN_MS after it, joined where they meet.
+  const spans: [number, number][] = [];
+  const limits: UsageLimitMarker[] = [];
+  const harnesses = new Set<Harness>();
+  for (const { path } of readRegistry(context.home)) {
+    let manifest: ProjectManifest | null = null;
+    try {
+      manifest = readManifest(path).manifest;
+    } catch {
+      // A project whose manifest cannot be read is counted over the default window.
+    }
+    const window = windowOf(manifest);
+    const since = window === 'all' ? '' : localMidnight(window - 1).toISOString();
+    const records = context.store.usage(path, since).map((record) => ({ ...record, checkout: null }));
+    for (const run of observedRuns(records, { projectPath: path, defaultBranch: 'main', tasks: [], remote: false, reviews: new Map(), now: new Date() })) {
+      let span: [number, number] | undefined;
+      for (const record of run.records) {
+        harnesses.add(record.harness);
+        const at = Date.parse(record.timestamp);
+        if (span !== undefined && at <= span[1]) span[1] = at + ACTIVE_WITHIN_MS;
+        else spans.push((span = [at, at + ACTIVE_WITHIN_MS]));
+      }
+    }
+    limits.push(...context.store.usageLimits(path, since));
+  }
+
+  // A span starts before another ends at the same moment, both ends included.
+  const edges = spans.flatMap(([from, to]): [number, number][] => [[from, 1], [to, -1]]).sort((a, b) => a[0] - b[0] || b[1] - a[1]);
+  let active = 0;
+  let most: { runs: number; at: number | null } = { runs: 0, at: null };
+  for (const [at, step] of edges) {
+    active += step;
+    if (active > most.runs) most = { runs: active, at };
+  }
+  // ponytail: each usage limit scans every span; sweep them with the edges if limits ever number in the thousands.
+  const activeAt = (at: number): number => spans.filter(([from, to]) => from <= at && at <= to).length;
+  return {
+    mostActive: { runs: most.runs, at: most.at === null ? null : new Date(most.at).toISOString(), provenance: 'calculated' },
+    usageLimits: limits
+      .sort((a, b) => (a.timestamp < b.timestamp ? -1 : a.timestamp > b.timestamp ? 1 : 0))
+      .map((limit) => ({ at: limit.timestamp, harness: limit.harness, limit: limit.limit, active: activeAt(Date.parse(limit.timestamp)), provenance: 'calculated' })),
+    notReporting: [...harnesses].filter((harness) => !RECORDS_USAGE_LIMITS.includes(harness)).sort(),
+  };
 }
 
 /**
@@ -1374,7 +1443,7 @@ async function ingestFile(
   }
 
   const reading = read(bytes);
-  await keep(context, { path, size, offset: reading.stop.offset, line: reading.stop.line, windowDays: window }, reading.records, places, histories, reading.markers);
+  await keep(context, { path, size, offset: reading.stop.offset, line: reading.stop.line, windowDays: window }, reading.records, places, histories, reading.markers, reading.limits);
   // Every later reading stops at the same line, a rollout's included, though it is read from its start.
   return reading.failure ? `${path} at line ${reading.failure.line}: ${reading.failure.reason}, and nothing after it is counted, however the file grows, until Binnacle can read that line` : null;
 }
@@ -1527,7 +1596,7 @@ const databaseChanged = (cursor: IngestCursor | null, mark: number, window: Impo
   cursor === null || cursor.size !== mark || wider(window, cursor.windowDays);
 
 /**
- * Stores, with `cursor`, the records and compaction markers of a reading whose `cwd` lies in
+ * Stores, with `cursor`, the records, compaction and usage-limit markers of a reading whose `cwd` lies in
  * one of `places` and that are within the window, and attributes the OpenTelemetry waiting
  * for their sessions.
  */
@@ -1538,6 +1607,7 @@ async function keep(
   places: { path: string; project: string }[],
   histories: Map<string, Promise<HeadHistory | null>>,
   markers: CompactionMarker[] = [],
+  limits: UsageLimitMarker[] = [],
 ): Promise<void> {
   const windowStart = cursor.windowDays === 'all' ? '' : localMidnight(cursor.windowDays - 1).toISOString();
   const projectOf = (item: { cwd: string; timestamp: string }): string | undefined =>
@@ -1551,7 +1621,11 @@ async function keep(
     const project = projectOf(marker);
     return project ? [{ marker, projectPath: project, sourceRef: cursor.path }] : [];
   });
-  context.store.ingest(cursor, records, kept);
+  const keptLimits = limits.flatMap((limit) => {
+    const project = projectOf(limit);
+    return project ? [{ limit, projectPath: project, sourceRef: cursor.path }] : [];
+  });
+  context.store.ingest(cursor, records, kept, keptLimits);
   // A session's OpenTelemetry received before any of its artifact records were stored joins their project now.
   await attributeSessions(context, records.map(({ record }) => record), histories);
 }

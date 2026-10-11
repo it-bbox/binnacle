@@ -59,7 +59,8 @@ const writeSettings = (daemon: TestDaemon, settings: unknown): void => writeFile
 async function get(daemon: TestDaemon): Promise<Limit> {
   const result = await daemon.call<Limit>('parallel.get');
   assert.equal(result.status, 200, JSON.stringify(result.body));
-  return result.body;
+  const { limit, mode, source } = result.body;
+  return { limit, mode, source };
 }
 
 async function parallel(daemon: TestDaemon, root: string): Promise<Snapshot['tasks']['parallel'] & { attention: string[] }> {

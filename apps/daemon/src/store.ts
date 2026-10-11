@@ -2,7 +2,7 @@ import { chmodSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import type { ImportWindow } from '@binnacle/core';
 import type { TelemetryRecord } from '@binnacle/adapters';
-import type { CompactionMarker, Harness, Provenance, TokenField, UsageRecord } from '@binnacle/telemetry';
+import type { CompactionMarker, Harness, Provenance, TokenField, UsageLimitMarker, UsageRecord } from '@binnacle/telemetry';
 import { OWNER_ONLY_FILE, storePath } from './home.ts';
 
 /**
@@ -10,7 +10,7 @@ import { OWNER_ONLY_FILE, storePath } from './home.ts';
  *
  * Two tiers live here. `project` is a **projection**, derived from the registry file
  * and each repository's manifest, and it is rebuilt rather than migrated. The
- * append-only tier — events, the usage records and compaction markers ingested from harness
+ * append-only tier — events, the usage records, compaction and usage-limit markers ingested from harness
  * artifacts with the cursors they were read up to, and the records received through
  * OpenTelemetry — is migrated and
  * never recreated, because it is the only copy of what was observed.
@@ -66,6 +66,8 @@ export type IngestCursor = { path: string; size: number; offset: number; line: n
 export type Ingested = { record: UsageRecord; projectPath: string; sourceRef: string };
 /** A compaction marker to store, as a record is. */
 export type IngestedMarker = { marker: CompactionMarker; projectPath: string; sourceRef: string };
+/** A usage-limit marker to store, as a record is. */
+export type IngestedLimit = { limit: UsageLimitMarker; projectPath: string; sourceRef: string };
 
 /** Where a record comes from: a harness's session artifact, or its OpenTelemetry export. */
 type RecordSource = 'artifact' | 'opentelemetry';
@@ -94,9 +96,11 @@ export type Store = {
   /** Forgets the cursor of every file whose path starts with `prefix`, so that each is read again from the start. */
   forgetCursors(prefix: string): void;
   /** Stores the records and markers a file gave and moves its cursor, together or not at all. One already stored is left as it was. */
-  ingest(cursor: IngestCursor, records: Ingested[], markers?: IngestedMarker[]): void;
+  ingest(cursor: IngestCursor, records: Ingested[], markers?: IngestedMarker[], limits?: IngestedLimit[]): void;
   /** A project's compaction markers, of every harness, oldest first. */
   compactions(projectPath: string): CompactionMarker[];
+  /** A project's usage-limit markers from `since` on, an ISO timestamp, of every harness, oldest first. */
+  usageLimits(projectPath: string, since: string): UsageLimitMarker[];
   /**
    * A project's records, of every harness, from `since` on, an ISO timestamp, each call counted
    * once: an OpenTelemetry record that is the same call as an artifact record of its session is
@@ -145,6 +149,8 @@ export function openStore(home: string): Store {
   db.exec('pragma journal_mode = wal');
   // Before the compaction table, a cursor may be past compaction boundaries never stored.
   const markersNew = db.prepare("select 1 from sqlite_master where type = 'table' and name = 'compaction'").get() === undefined;
+  // Before the usage-limit table, likewise, past usage-limit records.
+  const limitsNew = db.prepare("select 1 from sqlite_master where type = 'table' and name = 'usage_limit'").get() === undefined;
   // The append-only tier first: it is migrated, never dropped, so it exists before any
   // decision about the projections is made — including the event that records one.
   db.exec(`
@@ -217,6 +223,20 @@ export function openStore(home: string): Store {
       primary key (harness, natural_key)
     );
     create index if not exists compaction_project on compaction (project_path, timestamp);
+    create table if not exists usage_limit (
+      harness text not null,
+      natural_key text not null,
+      project_path text not null,
+      session_id text not null,
+      subagent_id text,
+      source_ref text not null,
+      timestamp text not null,
+      cwd text not null,
+      limit_type text,
+      provenance text not null,
+      primary key (harness, natural_key)
+    );
+    create index if not exists usage_limit_project on usage_limit (project_path, timestamp);
     create table if not exists ingest_cursor (
       path text primary key,
       size integer not null,
@@ -232,7 +252,7 @@ export function openStore(home: string): Store {
   if (!columns.has('request_id')) db.exec('alter table ingested_record add column request_id text');
   db.exec('create index if not exists ingested_record_session on ingested_record (harness, session_id)');
   // Every artifact is read again from its start once, for its markers; its records are stored already and stay as they were.
-  if (markersNew) db.exec('delete from ingest_cursor');
+  if (markersNew || limitsNew) db.exec('delete from ingest_cursor');
 
   const insertEvent = db.prepare(
     'insert into event (type, project_path, occurred_at, payload, provenance) values (?, ?, ?, ?, ?)',
@@ -317,6 +337,15 @@ export function openStore(home: string): Store {
   const selectMarkers = db.prepare(`
     select harness, natural_key, session_id, subagent_id, timestamp, cwd, trigger, provenance from compaction
     where project_path = ? order by timestamp, natural_key
+  `);
+  const insertLimit = db.prepare(`
+    insert into usage_limit (harness, natural_key, project_path, session_id, subagent_id, source_ref, timestamp, cwd, limit_type, provenance)
+    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    on conflict (harness, natural_key) do nothing
+  `);
+  const selectLimits = db.prepare(`
+    select harness, natural_key, session_id, subagent_id, timestamp, cwd, limit_type, provenance from usage_limit
+    where project_path = ? and timestamp >= ? order by timestamp, natural_key
   `);
   const insertUnattributed = db.prepare(`
     insert into unattributed_record (harness, natural_key, session_id, request_id, timestamp, provider, model,
@@ -441,13 +470,16 @@ export function openStore(home: string): Store {
     forgetCursors: (prefix) => {
       deleteCursors.run(prefix);
     },
-    ingest: (cursor, records, markers = []) => {
+    ingest: (cursor, records, markers = [], limits = []) => {
       const now = new Date().toISOString();
       transaction(() => {
         for (const { record, projectPath, sourceRef } of records) insertRecordRow(record, projectPath, sourceRef, now, 'artifact');
         for (const { marker, projectPath, sourceRef } of markers) {
           const { harness, naturalKey, sessionId, subagentId, timestamp, cwd, trigger, provenance } = marker;
           insertMarker.run(harness, naturalKey, projectPath, sessionId, subagentId, sourceRef, timestamp, cwd, trigger, provenance);
+        }
+        for (const { limit, projectPath, sourceRef } of limits) {
+          insertLimit.run(limit.harness, limit.naturalKey, projectPath, limit.sessionId, limit.subagentId, sourceRef, limit.timestamp, limit.cwd, limit.limit, limit.provenance);
         }
         upsertCursor.run(cursor.path, cursor.size, cursor.offset, cursor.line, cursor.windowDays);
       });
@@ -477,6 +509,17 @@ export function openStore(home: string): Store {
         timestamp: String(row.timestamp),
         cwd: String(row.cwd),
         trigger: stringOrNull(row.trigger),
+        provenance: String(row.provenance) as Provenance,
+      })),
+    usageLimits: (projectPath, since) =>
+      selectLimits.all(projectPath, since).map((row) => ({
+        harness: String(row.harness) as Harness,
+        naturalKey: String(row.natural_key),
+        sessionId: String(row.session_id),
+        subagentId: stringOrNull(row.subagent_id),
+        timestamp: String(row.timestamp),
+        cwd: String(row.cwd),
+        limit: stringOrNull(row.limit_type),
         provenance: String(row.provenance) as Provenance,
       })),
     usageCounts: (projectPath, harness, liveSince) => {

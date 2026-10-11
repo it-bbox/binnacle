@@ -1,4 +1,4 @@
-import type { CompactionMarker, UsageRecord } from '@binnacle/telemetry';
+import type { CompactionMarker, UsageLimitMarker, UsageRecord } from '@binnacle/telemetry';
 
 /** Where a reading starts or stopped: a byte offset into the file, and the number of lines before it. */
 export type ArtifactPosition = { offset: number; line: number };
@@ -7,6 +7,8 @@ export type ArtifactReading = {
   records: UsageRecord[];
   /** The compactions the lines read show, beside the records; none for a harness that writes none. */
   markers: CompactionMarker[];
+  /** The usage limits the lines read show; none for a harness that records none. */
+  limits: UsageLimitMarker[];
   /** After the last line read; the next reading starts here. */
   stop: ArtifactPosition;
   /** The line the reading stopped at because it could not be read, which `stop` is just before. */
@@ -14,14 +16,15 @@ export type ArtifactReading = {
 };
 
 /**
- * What `read` makes of one line: a record, a compaction marker, null for neither, or why it
- * cannot be read. A marker is told from a record by its `trigger`, which no record has.
+ * What `read` makes of one line: a record, a compaction or usage-limit marker, null for none, or
+ * why it cannot be read. A compaction marker is told by its `trigger` and a usage-limit marker by
+ * its `limit`, which no record has.
  */
-export type LineReading = UsageRecord | CompactionMarker | null | string;
+export type LineReading = UsageRecord | CompactionMarker | UsageLimitMarker | null | string;
 
 /**
  * The complete lines of a JSON Lines artifact, from `start`, each read by `read` into a
- * record or a compaction marker, null for a line that carries neither, or why it cannot be read, which stops the
+ * record or a marker, null for a line that carries none, or why it cannot be read, which stops the
  * reading there. `bytes` are the file's from `start.offset` on; positions are counted in
  * bytes of the file, whatever a line decodes to. A line still being written, with no
  * newline yet, is left for the next reading. `seen`, if given, is told each record with the
@@ -35,13 +38,15 @@ export function readLines(
 ): ArtifactReading {
   const records: UsageRecord[] = [];
   const markers: CompactionMarker[] = [];
+  const limits: UsageLimitMarker[] = [];
   let { offset, line } = start;
   let from = 0;
   for (let end = bytes.indexOf(NEWLINE); end !== -1; from = end + 1, end = bytes.indexOf(NEWLINE, from)) {
     const raw = bytes.subarray(from, end).toString('utf8');
     const result = raw.trim() === '' ? null : readObject(raw, read);
-    if (typeof result === 'string') return { records, markers, stop: { offset, line }, failure: { line: line + 1, reason: result } };
+    if (typeof result === 'string') return { records, markers, limits, stop: { offset, line }, failure: { line: line + 1, reason: result } };
     if (result && 'trigger' in result) markers.push(result);
+    else if (result && 'limit' in result) limits.push(result);
     else if (result) {
       records.push(result);
       seen?.(result, { offset, line });
@@ -49,7 +54,7 @@ export function readLines(
     offset += end - from + 1;
     line += 1;
   }
-  return { records, markers, stop: { offset, line }, failure: null };
+  return { records, markers, limits, stop: { offset, line }, failure: null };
 }
 
 /**

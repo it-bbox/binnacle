@@ -17,7 +17,7 @@ import { findTask, taskBrief, taskQuestions } from './task.ts';
 import { taskList } from './board.ts';
 import { machineParallelLimit, setParallelLimit } from './settings.ts';
 import { writeServed } from './vault.ts';
-import { forgetRead, latestRuns, taskByRole, usageAndActivity, usageGet, type Importer } from './usage.ts';
+import { forgetRead, latestRuns, taskByRole, usageAndActivity, usageGet, usageLimitInformer, type Importer } from './usage.ts';
 
 export type OperationContext = {
   home: string;
@@ -238,7 +238,8 @@ export const operations: Record<string, Operation> = {
 
   // The machine's Parallel limit (ADR-0041): the dashboard's Settings page reads it and sets it,
   // the one setting the dashboard writes. No MCP tool calls either.
-  'parallel.get': (_body, context) => machineParallelLimit(context.home).parallel,
+  // Beside the limit, what this machine has carried: the usage-limit informer.
+  'parallel.get': (_body, context) => ({ ...machineParallelLimit(context.home).parallel, informer: usageLimitInformer(context) }),
   'parallel.set': (body, context) => setParallelLimit(context.home, body),
 };
 

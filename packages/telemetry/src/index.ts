@@ -64,6 +64,25 @@ export type CompactionMarker = {
 };
 
 /**
+ * A usage limit a harness's artifact shows a session hit: when, and which limit the harness
+ * names, never its message. Claude Code writes one as a synthetic record with
+ * `"error":"rate_limit"`, which it reports; no other harness records one yet.
+ */
+export type UsageLimitMarker = {
+  harness: Harness;
+  /** Unique within the harness: Claude Code's record uuid. */
+  naturalKey: string;
+  sessionId: string;
+  /** The subagent whose session hit the limit; null in a main session. */
+  subagentId: string | null;
+  timestamp: string;
+  cwd: string;
+  /** Claude Code's `rateLimitType`, such as `five_hour`; null where the harness names none. */
+  limit: string | null;
+  provenance: Provenance;
+};
+
+/**
  * The context a call read: its input, cached input and cache creation together, the counts
  * it reports of them; null when it reports none.
  */
