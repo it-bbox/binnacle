@@ -64,7 +64,7 @@ On the board's card, the Russian `fromRuns: 'по runs'` reads as English "no ru
 
 ## Two defects found in epic 11's run (2026-10-11)
 
-**Decided by the owner on 2026-10-11: part of epic 18, Lean flow** (`docs/05-mvp-plan.md`).
+**Decided by the owner on 2026-10-11:** the flaky test is part of epic 18, Lean flow (`docs/05-mvp-plan.md`); graphify's refusal is epic 11's ticket 14, the carrier of its exit demonstration.
 
 - **graphify refuses a graph that shrinks.** graphify 0.9.76's guard refused the daemon's `graphify extract . --code-only` when dedup merged 4 nodes and the graph would shrink, so the graph stayed at an older commit and conflict risk read a stale graph. Worked around by hand with `--allow-dedup-shrink`; it recurs on the next merge. The daemon's `GRAPH_EXTRACT` (`apps/daemon/src/graph.ts`) should pass the flag, checking that the graphify version `binn init` installs accepts it; the graph is rebuildable (ADR-0036).
 - **A flaky audit test.** `apps/cli/test/audit.test.ts`, "Binnacle's skills current, or not installed at all, are not reported", failed now and then in agents' full runs and passed alone, likely racing `pack.test.ts` rebuilding the skills copy.

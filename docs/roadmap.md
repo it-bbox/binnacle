@@ -35,13 +35,13 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 Epics 1 to 10 and 14 are done. On 2026-10-10 the owner set a date: on the evening of 2026-10-13 a video presents Binnacle, published to npm and open source, with every remaining v1 epic in it, 11, 12 and 13 included.
 
-Four epics were added for it. 15, Daemon autostart: `binn init` sets the daemon up to start at login, narrowing ADR-0016's manual step. 16, Dashboard redesign with the Impeccable and UI UX Pro Max skills: it reads too small and too crowded. 17, Release: npm and open source: the build step (`ADR-0031`), the README's install from npm, the repository public under Apache-2.0 (`ADR-0010`). 18, Lean flow: the per-ticket rituals that cost autopilot tokens and time, and two defects of epic 11's run (`docs/05-mvp-plan.md`).
+Four epics were added for it. 15, Daemon autostart: `binn init` sets the daemon up to start at login, narrowing ADR-0016's manual step. 16, Dashboard redesign with the Impeccable and UI UX Pro Max skills: it reads too small and too crowded. 17, Release: npm and open source: the build step (`ADR-0031`), the README's install from npm, the repository public under Apache-2.0 (`ADR-0010`). 18, Lean flow: the per-ticket rituals that cost autopilot tokens and time, and a flaky test of epic 11's run (`docs/05-mvp-plan.md`).
 
 Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own. The owner's order: 11; 18, so that every later run is cheaper (2026-10-11); 16 with the owner watching, beside 15 and 12; 13, which rewrites every skill's output; 17, which publishes the rest, last.
 
-Epic 11 is in progress (ADR-0040): autopilot merged 01 to 11 on 2026-10-11. GitHub serves check runs only to GitHub Apps, so 13 reads CI from Actions runs and commit statuses: built on its branch, not yet merged. 12, the owner's exit demonstration, follows it.
+Epic 11 is in progress (ADR-0040): autopilot merged 01 to 11 on 2026-10-11. 13, merged on 2026-10-11, reads GitHub's CI from Actions runs and commit statuses, since check runs are served only to GitHub Apps. 14, graphify refusing a graph that shrinks, is the carrier of 12, the owner's exit demonstration: its branch with a pull request and a question, answered, then resumed by autopilot.
 
-Next action: verify and merge ticket 13's branch, feat/ci-on-github-without-checks, then run epic 11's exit demonstration with the owner. `/mattpocock-skills:implement docs/specs/the-state-of-work/issues/12-state-of-work-exit-demonstration.md`
+Next action: run epic 11's exit demonstration (12) on ticket 14: answer the question on `feat/graph-that-shrinks`, then autopilot resumes the ticket and merges it. `/binnacle:answer`
 
 ## Later
 

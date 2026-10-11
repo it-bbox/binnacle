@@ -161,7 +161,7 @@ Added on 2026-10-11, after epic 11's autopilot run showed where the per-ticket p
 - A short Review and short commit messages.
 - Upkeep once per run: the plugin, the skills copy, the dashboard and the daemon's restart, unless the next ticket needs them.
 - Browser checks only for tickets that change the dashboard.
-- Two defects of epic 11's run: the daemon's graph update passes graphify's `--allow-dedup-shrink`, so that a graph that shrinks is not left at an older commit; and `apps/cli/test/audit.test.ts` stops failing now and then beside `pack.test.ts` in a full run.
+- A defect of epic 11's run: `apps/cli/test/audit.test.ts` stops failing now and then beside `pack.test.ts` in a full run. Its other defect, graphify refusing a graph that shrinks, went back to epic 11 as ticket 14, the carrier of its exit demonstration.
 
 ## Explicit stop conditions
 
