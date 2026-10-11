@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { compactNumber, daemonReason, LANGUAGES, pairReason, plural, secondsAgo, startingLanguage } from '../app/i18n/index.ts';
+import { compactNumber, daemonReason, DICTIONARIES, duration, LANGUAGES, pairReason, plural, secondsAgo, startingLanguage } from '../app/i18n/index.ts';
 import { parseRoadmap } from '../../../packages/core/src/roadmap.ts';
 import { NO_FORGE } from '../../daemon/src/ci.ts';
 import { trackerUnavailable } from '../../daemon/src/snapshot.ts';
@@ -70,6 +70,32 @@ describe('a relative time', () => {
     assert.equal(secondsAgo('en', 5 * 3600), '5 hr. ago');
     assert.equal(secondsAgo('en', 3 * 86_400 + 60), '3 days ago');
     assert.equal(secondsAgo('ru', 3 * 86_400), '3 дн. назад');
+  });
+});
+
+describe('a duration', () => {
+  it('reads in the largest whole unit up to days, in the language, as a run that has been going', () => {
+    assert.equal(duration('en', 7), '7 sec');
+    assert.equal(duration('ru', 7), '7 с');
+    assert.equal(duration('en', 15 * 60 + 40), '15 min');
+    assert.equal(duration('ru', 15 * 60), '15 мин');
+    assert.equal(duration('en', 2 * 3600 + 59 * 60), '2 hr');
+    assert.equal(duration('ru', 3 * 86_400), '3 дн.');
+    assert.equal(duration('en', -3), '0 sec', 'a start a little ahead of this clock reads as none');
+  });
+});
+
+describe('the board card', () => {
+  it('says plainly that a Task is In progress from its runs, never "по runs", which reads as "no runs"', () => {
+    for (const dictionary of Object.values(DICTIONARIES)) assert.match(dictionary.fromRuns, /^In progress/);
+    assert.doesNotMatch(DICTIONARIES.ru.fromRuns, /по runs/);
+    assert.match(DICTIONARIES.ru.fromRunsReading, /Вывод Binnacle/, 'still marked as Binnacle’s reading');
+  });
+
+  it('gives a running card its time and its latest activity', () => {
+    const { ru, en } = DICTIONARIES;
+    assert.equal(`${ru.runningFor(duration('ru', 15 * 60))} · ${ru.activeAgo(secondsAgo('ru', 7))}`, 'идёт 15 мин · активность 7 сек. назад');
+    assert.equal(`${en.runningFor(duration('en', 15 * 60))} · ${en.activeAgo(secondsAgo('en', 7))}`, 'running 15 min · active 7 sec. ago');
   });
 });
 

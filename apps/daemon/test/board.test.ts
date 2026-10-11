@@ -13,7 +13,7 @@ import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
  * real repository, whose reflog puts the Claude Code sessions, cut from real ones, on their
  * Tasks' branches.
  */
-type Run = { harness: string; model: string | null; role: string; lastActivityAt: string; active: { value: boolean; provenance: string } };
+type Run = { harness: string; model: string | null; role: string; startedAt: string; lastActivityAt: string; active: { value: boolean; provenance: string } };
 type Card = {
   id: string;
   title: string | null;
@@ -228,7 +228,7 @@ describe('the board', () => {
         start: `/mattpocock-skills:implement ${worked}`,
         review: false,
         questions: { asked: 0, unanswered: 0 },
-        latestRun: { harness: 'claude-code', model: 'claude-opus-5-5', role: 'implementation', lastActivityAt: latest, active: { value: true, provenance: 'calculated' } },
+        latestRun: { harness: 'claude-code', model: 'claude-opus-5-5', role: 'implementation', startedAt: latest, lastActivityAt: latest, active: { value: true, provenance: 'calculated' } },
       });
       assert.deepEqual(
         board.columns.inProgress.items.slice(1).map((card) => [card.state, card.source]),

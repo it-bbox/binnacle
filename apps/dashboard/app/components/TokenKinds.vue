@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { useLanguage } from '~/composables/language';
-import { FIELDS, marks, type Totals } from '~/composables/usage';
+import { FIELDS, marks, type Field, type Totals } from '~/composables/usage';
 
 /**
  * Totals kind by kind, a row each, beside one another when there are several: no cell adds
  * kinds together, and reasoning is shown as the part of output it is. A total not reported is
  * said so, never zero, and a partial, calculated or estimated one is marked (ADR-0007). The
- * records row can be left out, for a page that gives the counts elsewhere.
+ * records row can be left out, for a page that gives the counts elsewhere, and `fields` narrows
+ * the kinds, for a widget's *Brief*.
  */
-withDefaults(defineProps<{ columns: { key: string; label: string; totals: Totals }[]; records?: boolean }>(), { records: true });
+withDefaults(defineProps<{ columns: { key: string; label: string; totals: Totals }[]; records?: boolean; fields?: readonly Field[] }>(), { records: true, fields: () => FIELDS });
 const { t, number } = useLanguage();
 </script>
 
@@ -25,7 +26,7 @@ const { t, number } = useLanguage();
         <th class="py-1.5 pr-3 text-left font-normal text-muted">{{ t.records }}</th>
         <td v-for="column in columns" :key="column.key" class="py-1.5 pl-3 text-right font-mono">{{ number(column.totals.records) }}</td>
       </tr>
-      <tr v-for="name in FIELDS" :key="name" class="border-t border-default">
+      <tr v-for="name in fields" :key="name" class="border-t border-default">
         <th class="py-1.5 pr-3 text-left font-normal text-muted" :class="{ 'pl-3.5': name === 'reasoning' }">{{ t[name] }}</th>
         <td v-for="column in columns" :key="column.key" class="py-1.5 pl-3 text-right">
           <span class="inline-flex items-center justify-end gap-1.5">

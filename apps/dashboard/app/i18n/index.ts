@@ -48,6 +48,12 @@ export function secondsAgo(language: Language, seconds: number): string {
   return format.format(-Math.floor(seconds / 86_400), 'day');
 }
 
+/** How long something has been going, in its largest whole unit up to days, as a running card's run. */
+export function duration(language: Language, seconds: number): string {
+  const [value, unit] = seconds < 60 ? [seconds, 'second'] : seconds < 3600 ? [seconds / 60, 'minute'] : seconds < 86_400 ? [seconds / 3600, 'hour'] : [seconds / 86_400, 'day'];
+  return new Intl.NumberFormat(language, { style: 'unit', unit, unitDisplay: 'short' }).format(Math.max(0, Math.floor(value)));
+}
+
 type ReasonKey = keyof typeof en.daemonReasons;
 
 /** A reason the daemon wrote, in the language when the page knows it, and as the daemon wrote it otherwise. */

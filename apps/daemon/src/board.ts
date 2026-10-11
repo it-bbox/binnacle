@@ -17,7 +17,7 @@ export type Card = Pick<ResolvedTask, 'id' | 'title' | 'state' | 'unmetDependenc
   /** Its questions counted, as the snapshot counts them (`questionCount`), its branch's while it is unmerged. */
   questions: QuestionCount;
   /** Who works on it: its latest attributed run, or null when it has none. */
-  latestRun: Pick<ObservedRun, 'harness' | 'model' | 'role' | 'lastActivityAt' | 'active'> | null;
+  latestRun: Pick<ObservedRun, 'harness' | 'model' | 'role' | 'startedAt' | 'lastActivityAt' | 'active'> | null;
 };
 
 /** The board (`task.list`): one group of the project's Tasks, in four columns. */
@@ -75,7 +75,7 @@ export async function taskList(context: OperationContext, projected: Projected, 
       start: startCommand(task, workflow),
       review: remote ? null : task.review !== null,
       questions: questionCount(questions, task.id),
-      latestRun: run ? { harness: run.harness, model: run.model, role: run.role, lastActivityAt: run.lastActivityAt, active: run.active } : null,
+      latestRun: run ? { harness: run.harness, model: run.model, role: run.role, startedAt: run.startedAt, lastActivityAt: run.lastActivityAt, active: run.active } : null,
     };
     if (placed) columns[placed.column].push(card);
     else if (task.state === 'CANCELLED') cancelled++;

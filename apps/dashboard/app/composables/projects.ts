@@ -92,7 +92,7 @@ export const PROJECT_VIEWS: InjectionKey<Ref<ProjectView[] | null>> = Symbol('re
 export const SELECTED_VIEW: InjectionKey<Ref<ProjectView | null>> = Symbol('selected project');
 
 /** `task.list`'s board: one epic's Tasks in four columns. */
-export type LatestRun = { harness: string; model: string | null; role: string; lastActivityAt: string; active: { value: boolean } };
+export type LatestRun = { harness: string; model: string | null; role: string; startedAt: string; lastActivityAt: string; active: { value: boolean } };
 export type Card = { id: string; title: string | null; state: string | null; source: 'state' | 'runs' | null; unmetDependencies: string[]; review: boolean | null; questions: { asked: number; unanswered: number } | null; latestRun: LatestRun | null };
 export type Board = {
   epic: Epic | null;
