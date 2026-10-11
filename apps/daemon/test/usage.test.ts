@@ -2290,6 +2290,146 @@ describe('Derived metrics in usage.get', () => {
   });
 });
 
+describe('usage.get by epic', () => {
+  const ROADMAP = `# Roadmap
+
+| # | Epic | Status | Spec |
+| --- | --- | --- | --- |
+| 1 | First | done | [first](specs/first/spec.md) |
+| 2 | Second | in progress | [second](specs/second/spec.md) |
+| 3 | Third | not started | — |
+
+## Current focus
+
+Epic 2.
+`;
+  const KNOWLEDGE = `${LOCAL_TRACKER}\nknowledge:\n  docs: docs\n`;
+  const REVIEW = '\n## Comments\n\n### Review\n\nOne finding.\n';
+  type Refusal = { error: { code: string; message: string } };
+  type EpicUsage = ProjectUsage & { epic: { number: number; title: string; status: string; spec: string } | null };
+  const FIRST = Array.from({ length: 11 }, (_, index) => `first/${String(index + 1).padStart(2, '0')}`);
+
+  /** Epic 1 holds eleven DONE Tasks with a run each, the first reworked after its Review, the second accepted; epic 2 one more; main a Product run. */
+  function project(artifacts: string): string {
+    const root = makeProject(temporary('binnacle-usage-'), KNOWLEDGE);
+    mkdirSync(join(root, 'docs'), { recursive: true });
+    writeFileSync(join(root, 'docs', 'roadmap.md'), ROADMAP);
+    const ids = FIRST.map((id) => id.slice(-2));
+    for (const id of ids) ticket(root, 'first', `${id}-a${id}.md`, `A${id}`, 'DONE');
+    ticket(root, 'second', '01-other.md', 'Other', 'DONE');
+    repository(root, at(1, 0), [at(1, 10), 'feat/a01']);
+    const commit = (time: string, file: string, text: string): void => {
+      appendFileSync(join(root, file), text);
+      gitAt(time, root, 'add', '.');
+      gitAt(time, root, 'commit', '--quiet', '-m', file);
+    };
+    commit(at(0, 10), 'work.txt', 'the change\n');
+    commit(at(0, 20), 'docs/specs/first/issues/01-a01.md', REVIEW);
+    commit(at(0, 40), 'work.txt', 'the fix\n');
+    session(artifacts, root, 'a01', [...lines(GRILL, at(0, 0), '-a01'), ...lines(ABORTED, at(0, 30), '-a01-fix')]);
+    gitAt(at(0, 50), root, 'switch', '--quiet', '-C', 'feat/a02');
+    commit(at(0, 55), 'docs/specs/first/issues/02-a02.md', REVIEW);
+    session(artifacts, root, 'a02', lines(GRILL, at(0, 51), '-a02'));
+    for (const [index, id] of ids.slice(2).entries()) {
+      gitAt(at(0, 60 + index * 5), root, 'switch', '--quiet', '-C', `feat/a${id}`);
+      session(artifacts, root, `a${id}`, lines(GRILL, at(0, 61 + index * 5), `-a${id}`));
+    }
+    gitAt(at(0, 110), root, 'switch', '--quiet', '-C', 'feat/other');
+    session(artifacts, root, 'other', lines(GRILL, at(0, 111), '-other'));
+    gitAt(at(0, 115), root, 'switch', '--quiet', 'main');
+    session(artifacts, root, 'main', lines(GRILL, at(0, 116), '-main'));
+    return root;
+  }
+
+  it('lists every Task of the epic’s spec, with no remainder, and the epic’s averages, each calculated', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = project(artifacts);
+      await register(daemon, root);
+
+      const result = await daemon.call<EpicUsage>('usage.get', { path: root, epic: 1 });
+      assert.equal(result.status, 200, JSON.stringify(result.body));
+      const body = result.body;
+      assert.deepEqual(body.epic, { number: 1, title: 'First', status: 'done', spec: 'first' });
+
+      // Every Task of the epic, and nothing of another epic's or of no Task's.
+      assert.deepEqual(available(body.tasks).items.map((item) => item.id).sort(), FIRST);
+      assert.equal(available(body.tasks).remainder, 0);
+      assert.deepEqual(available(body.unassigned), NO_RECORDS);
+      assert.equal(body.totals.records, 12);
+
+      const perCompleted = available(body.derived.perCompletedTask);
+      assert.equal(perCompleted.provenance, 'calculated');
+      assert.deepEqual(perCompleted.items.map((item) => item.id).sort(), FIRST);
+      assert.equal(perCompleted.remainder, 0);
+      assert.deepEqual(perCompleted.mean?.output, calculated((137 * 11 + 2) / 11));
+
+      const [grill, aborted] = [2 + 39225 + 29831 + 137, 4 + 167306 + 994 + 2];
+      const share = aborted / (grill + aborted);
+      const rework = available(body.derived.reworkShare);
+      assert.equal(rework.provenance, 'calculated');
+      assert.deepEqual(rework.items.map((item) => item.id).sort(), FIRST);
+      assert.equal(rework.remainder, 0);
+      assert.deepEqual(rework.items[0], { id: 'first/01', title: 'A01', share });
+      assert.equal(rework.mean, share / 11);
+
+      assert.deepEqual(available(body.derived.firstPassAcceptance), {
+        provenance: 'calculated',
+        items: [
+          { id: 'first/01', title: 'A01', accepted: false },
+          { id: 'first/02', title: 'A02', accepted: true },
+        ],
+        remainder: 0,
+        share: 0.5,
+      });
+      assert.deepEqual([available(body.derived.runsPerTask).items.length, available(body.derived.runsPerTask).remainder], [11, 0]);
+
+      // Without an epic, the project's: twelve DONE Tasks with runs, ten of them listed.
+      const whole = await usageGet<EpicUsage>(daemon, root);
+      assert.equal(whole.epic, null);
+      assert.equal(available(whole.derived.perCompletedTask).remainder, 2);
+      assert.equal(available(whole.derived.reworkShare).remainder, 2);
+      assert.equal(whole.totals.records, 14);
+    });
+  });
+
+  it('refuses an epic the roadmap does not list, one with no spec, and a malformed one, each with its reason', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = project(artifacts);
+      await register(daemon, root);
+
+      const unknown = await daemon.call<Refusal>('usage.get', { path: root, epic: 9 });
+      assert.equal(unknown.status, 404);
+      assert.equal(unknown.body.error.code, 'epic.unknown');
+      assert.match(unknown.body.error.message, /lists no epic 9/);
+
+      const specless = await daemon.call<Refusal>('usage.get', { path: root, epic: 3 });
+      assert.equal(specless.status, 409);
+      assert.equal(specless.body.error.code, 'epic.no_spec');
+      assert.match(specless.body.error.message, /Epic 3 \(Third\)/);
+
+      for (const body of [{ epic: '1' }, { epic: 0 }, { epic: 1.5 }, { epic: 1, task: 'first/01' }]) {
+        const refused = await daemon.call<Refusal>('usage.get', { path: root, ...body });
+        assert.equal(refused.status, 400, JSON.stringify(body));
+        assert.equal(refused.body.error.code, 'request.invalid');
+      }
+    });
+  });
+
+  it('refuses an epic when the project has no roadmap, with its reason', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject(temporary('binnacle-usage-'), KNOWLEDGE);
+      ticket(root, 'first', '01-a01.md', 'A01');
+      repository(root, at(1, 0));
+      await register(daemon, root);
+
+      const refused = await daemon.call<Refusal>('usage.get', { path: root, epic: 1 });
+      assert.equal(refused.status, 409);
+      assert.equal(refused.body.error.code, 'roadmap.missing');
+      assert.match(refused.body.error.message, /no roadmap at docs\/roadmap\.md/);
+    });
+  });
+});
+
 describe('Ponytail’s effect in usage.get', () => {
   /** Writes `text` to `file` in `root` and commits it at `time` on the branch checked out; the commit's hash. */
   const commitFile = (root: string, time: string, file: string, text: string): string => {

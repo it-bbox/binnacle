@@ -468,7 +468,7 @@ export const limited = <T>(items: T[], limit = SECTION_LIMIT): { items: T[]; rem
  * readable manifest it is simply absent: `tracker.unavailable` already says why, and saying
  * it twice only makes the attention list noisier.
  */
-async function readRoadmap(tree: Tree, manifest: ProjectManifest | null, attention: Diagnostic[]): Promise<Roadmap | null> {
+export async function readRoadmap(tree: Tree, manifest: ProjectManifest | null, attention: Diagnostic[]): Promise<Roadmap | null> {
   if (manifest === null) return null;
   const docs = manifest.knowledge.docs;
   if (docs === null) {

@@ -33,7 +33,7 @@ import {
   type TelemetryRecord,
   type Tree,
 } from '@binnacle/adapters';
-import { branchTask, type Diagnostic, type ImportWindow, type ObservedRun, type ProjectManifest, type RunRole, type TaskRole, type TrackerTask } from '@binnacle/core';
+import { branchTask, type Diagnostic, type Epic, type ImportWindow, type ObservedRun, type ProjectManifest, type RunRole, type TaskRole, type TrackerTask } from '@binnacle/core';
 import {
   ACTIVE_WITHIN_MS,
   callContext,
@@ -49,10 +49,11 @@ import {
   type Totals,
   type UsageRecord,
 } from '@binnacle/telemetry';
+import { OperationError } from './errors.ts';
 import { resolveGitTimeout, trackerToken, type ArtifactRoots } from './home.ts';
 import type { OperationContext } from './operations.ts';
 import { containingEntry, readRegistry } from './registry.ts';
-import { limited, readTracker, SECTION_LIMIT, trackerUnavailable, type Unavailable } from './snapshot.ts';
+import { limited, readRoadmap, readTracker, SECTION_LIMIT, trackerUnavailable, type Unavailable } from './snapshot.ts';
 import { findTask } from './task.ts';
 import type { Ingested, IngestCursor } from './store.ts';
 
@@ -374,7 +375,11 @@ const runUsage = ({ records, projectPath: _project, ...run }: ObservedRun & { re
 });
 
 /** `usage.get` without a Task: the project's totals over everything ingested, by Task and unassigned, by role, and derived. */
-export type ProjectUsage = Pick<Usage, 'importing' | 'tasks' | 'unassigned' | 'byRole'> & { totals: Totals; derived: Derived };
+/**
+ * `usage.get` without a Task: the project's, or with `epic` only its Tasks' runs, those of the spec
+ * the roadmap names for it, every per-Task list whole, with no remainder, and nothing unassigned.
+ */
+export type ProjectUsage = Pick<Usage, 'importing' | 'tasks' | 'unassigned' | 'byRole'> & { epic: Epic | null; totals: Totals; derived: Derived };
 
 /**
  * Binnacle's calculations over the same records, each labelled so. The two that need the
@@ -472,7 +477,8 @@ export type TaskUsage = Pick<Usage, 'importing'> & {
  * `usage.get`: reads what is new first, as the snapshot does, then answers from every stored
  * record, grouped into runs all at once, so that a run's id does not depend on how far back
  * a call looks. `tree` is the caller's checkout, where the tracker is read. With `taskId`, in
- * any form `task.get` takes, the tracker must be readable and hold that Task, as for `task.get`.
+ * any form `task.get` takes, the tracker must be readable and hold that Task, as for `task.get`;
+ * with `epicNumber`, the roadmap must list it with a spec, and the tracker be readable.
  */
 export async function usageGet(
   context: OperationContext,
@@ -480,7 +486,9 @@ export async function usageGet(
   manifest: ProjectManifest | null,
   tree: Tree,
   taskId: string | undefined,
+  epicNumber?: number,
 ): Promise<ProjectUsage | TaskUsage> {
+  const epic = epicNumber === undefined ? null : await roadmapEpic(tree, manifest, epicNumber);
   const { importing, checkouts } = await ingested(context, projectPath, manifest);
   let found: Awaited<ReturnType<typeof findTask>> | null = null;
   let tasks: TrackerTask[] | Unavailable;
@@ -490,23 +498,37 @@ export async function usageGet(
   } else {
     const reading = await readTracker(context.home, tree, manifest);
     tasks = reading.tasks ?? trackerUnavailable(reading.diagnostics);
+    // An epic's Tasks are the tracker's: without it there is nothing to answer, as for a Task.
+    if (epic !== null && reading.tasks === null) {
+      throw new OperationError(reading.diagnostics[0]?.code ?? 'tracker.unavailable', reading.diagnostics[0]?.message ?? 'The tracker cannot be read.', 503);
+    }
   }
 
   // Since the earliest timestamp there is: every record stored, whatever the window is now.
   const records = context.store.usage(projectPath, '');
   if (!Array.isArray(tasks)) {
     const derived = { perCompletedTask: tasks, runsPerTask: tasks, weekly: weekly(records), reworkShare: tasks, firstPassAcceptance: tasks, contextGrowth: tasks, ponytail: tasks };
-    return { importing, totals: sum(records), tasks, unassigned: tasks, byRole: tasks, derived };
+    return { importing, epic, totals: sum(records), tasks, unassigned: tasks, byRole: tasks, derived };
   }
-  const { runs: attributed, reworkUnread, reviewed } = await runs(records, projectPath, tasks, context.home, manifest, checkouts);
+  const { runs: every, reworkUnread, reviewed } = await runs(records, projectPath, tasks, context.home, manifest, checkouts);
   if (!found) {
-    const derived = { ...(await perTask(projectPath, manifest?.tracker?.provider !== 'local', attributed, tasks, reworkUnread, reviewed)), weekly: weekly(records), contextGrowth: contextGrowth(attributed) };
-    return { importing, totals: sum(records), ...byTask(attributed, tasks), byRole: byRole(attributed, ROLES), derived };
+    // Runs are attributed against every Task first, so that an epic's are the ones they are in the project's.
+    const own = epic === null ? null : new Set(tasks.filter((task) => task.specSlug === epic.spec).map((task) => task.id));
+    const attributed = own === null ? every : every.filter((run) => run.taskId !== null && own.has(run.taskId));
+    const scoped = own === null ? tasks : tasks.filter((task) => own.has(task.id));
+    const counted = own === null ? records : attributed.flatMap((run) => run.records);
+    const limit = own === null ? SECTION_LIMIT : Infinity;
+    const derived = {
+      ...(await perTask(projectPath, manifest?.tracker?.provider !== 'local', attributed, scoped, reworkUnread, reviewed, limit)),
+      weekly: weekly(counted),
+      contextGrowth: contextGrowth(attributed),
+    };
+    return { importing, epic, totals: sum(counted), ...byTask(attributed, scoped, limit), byRole: byRole(attributed, ROLES), derived };
   }
 
   const pressureOf = contextPressures(records, context.store.compactions(projectPath));
   // Runs come oldest first.
-  const own = attributed.filter((run) => run.taskId === found.task.id).reverse();
+  const own = every.filter((run) => run.taskId === found.task.id).reverse();
   return {
     importing,
     task: { id: found.task.id, title: found.task.title },
@@ -515,6 +537,22 @@ export async function usageGet(
     reworkUnread: reworkUnread.get(found.task.id) ?? null,
     runs: limited(own.map((run) => runUsage(run, pressureOf))),
   };
+}
+
+/**
+ * The roadmap's epic `number`, read from `tree` as the snapshot reads it, or an error saying why
+ * there is none: no roadmap, no such epic, or no spec to take its Tasks from.
+ */
+async function roadmapEpic(tree: Tree, manifest: ProjectManifest | null, number: number): Promise<Epic> {
+  const unread: Diagnostic[] = [];
+  const roadmap = await readRoadmap(tree, manifest, unread);
+  if (roadmap === null) {
+    throw new OperationError(unread[0]?.code ?? 'roadmap.missing', unread[0]?.message ?? 'Without a readable manifest, the project has no roadmap.', 409);
+  }
+  const epic = roadmap.epics.find((row) => row.number === number);
+  if (epic === undefined) throw new OperationError('epic.unknown', `The roadmap lists no epic ${number}.`, 404);
+  if (epic.spec === null) throw new OperationError('epic.no_spec', `Epic ${number} (${epic.title}) has no spec on the roadmap, so it has no Tasks yet.`, 409);
+  return epic;
 }
 
 /**
@@ -807,7 +845,7 @@ async function reviewPoints(
   return points;
 }
 
-function byTask(attributed: { taskId: string | null; records: RunRecord[] }[], tasks: Pick<TrackerTask, 'id' | 'title'>[]): Pick<Usage, 'tasks' | 'unassigned'> {
+function byTask(attributed: { taskId: string | null; records: RunRecord[] }[], tasks: Pick<TrackerTask, 'id' | 'title'>[], limit = SECTION_LIMIT): Pick<Usage, 'tasks' | 'unassigned'> {
   const records = new Map<string | null, RunRecord[]>();
   for (const run of attributed) records.set(run.taskId, (records.get(run.taskId) ?? []).concat(run.records));
   const titles = new Map(tasks.map((task) => [task.id, task.title]));
@@ -815,7 +853,7 @@ function byTask(attributed: { taskId: string | null; records: RunRecord[] }[], t
     .filter((entry): entry is [string, RunRecord[]] => entry[0] !== null)
     .map(([id, taskRecords]) => ({ id, title: titles.get(id) ?? null, totals: sum(taskRecords) }));
   items.sort((a, b) => magnitude(b.totals) - magnitude(a.totals) || byId(a, b));
-  return { tasks: limited(items), unassigned: sum(records.get(null) ?? []) };
+  return { tasks: limited(items, limit), unassigned: sum(records.get(null) ?? []) };
 }
 
 /** Code-unit order of ids, so the same items come in the same order anywhere. */
@@ -829,6 +867,7 @@ async function perTask(
   tasks: Pick<TrackerTask, 'id' | 'title' | 'state' | 'ticket'>[],
   reworkUnread: Map<string, string>,
   reviewed: Set<string>,
+  limit = SECTION_LIMIT,
 ): Promise<Pick<Derived, 'perCompletedTask' | 'runsPerTask' | 'reworkShare' | 'firstPassAcceptance' | 'ponytail'>> {
   const runsOf = new Map<string, { role: RunRole; records: RunRecord[] }[]>();
   for (const run of attributed) {
@@ -871,19 +910,19 @@ async function perTask(
   return {
     perCompletedTask: {
       provenance: 'calculated',
-      ...limited(completed.map(({ ticket: _ticket, ...item }) => item)),
+      ...limited(completed.map(({ ticket: _ticket, ...item }) => item), limit),
       mean: completed.length === 0 ? null : mean(completed.map((item) => item.totals)),
       withoutRuns: done.length - completed.length,
     },
     runsPerTask: {
       provenance: 'calculated',
-      ...limited(runCounts),
+      ...limited(runCounts, limit),
       mean: runCounts.length === 0 ? null : { runs: average((item) => item.runs), subagentRuns: average((item) => item.subagentRuns) },
     },
-    reworkShare: { provenance: 'calculated', ...limited(shares), mean: known.length === 0 ? null : known.reduce((all, share) => all + share, 0) / known.length },
+    reworkShare: { provenance: 'calculated', ...limited(shares, limit), mean: known.length === 0 ? null : known.reduce((all, share) => all + share, 0) / known.length },
     firstPassAcceptance: {
       provenance: 'calculated',
-      ...limited(firstPass),
+      ...limited(firstPass, limit),
       share: firstPass.length === 0 ? null : firstPass.filter((item) => item.accepted).length / firstPass.length,
     },
     ponytail,

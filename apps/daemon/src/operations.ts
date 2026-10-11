@@ -207,13 +207,17 @@ export const operations: Record<string, Operation> = {
     return taskList(context, projected, workingTree(caller.project), spec);
   },
 
-  // The project's usage, or one Task's with its runs, after the ingest the snapshot also runs.
+  // The project's usage, one epic's, or one Task's with its runs, after the ingest the snapshot also runs.
   'usage.get': async (body, context) => {
     const path = repositoryPath(body, { mustExist: false });
     const task = optionalString((body as { task?: unknown } | null)?.task, 'task');
+    const epic = epicNumber(body);
+    if (task !== undefined && epic !== undefined) {
+      throw new OperationError('request.invalid', 'Give "task" or "epic", not both.', 400, [{ path: 'epic', message: 'not with "task"' }]);
+    }
     const projected = reproject(context.store, await resolveEntry(path, context));
     const caller = await callerCheckout(path, projected.row.path);
-    return usageGet(context, projected.row.path, projected.manifest, workingTree(caller.project), task);
+    return usageGet(context, projected.row.path, projected.manifest, workingTree(caller.project), task, epic);
   },
 
   'project.unregister': (body, context) => {
@@ -334,6 +338,16 @@ function taskId(body: unknown): string {
     throw new OperationError('request.invalid', 'This operation needs an "id".', 400, [{ path: 'id', message: 'expected a non-empty string' }]);
   }
   return id.trim();
+}
+
+/** An epic by its number on the roadmap, or absent for the whole project. */
+function epicNumber(body: unknown): number | undefined {
+  const epic = (body as { epic?: unknown } | null)?.epic;
+  if (epic === undefined || epic === null) return undefined;
+  if (Number.isInteger(epic) && (epic as number) > 0) return epic as number;
+  throw new OperationError('request.invalid', `"epic" must be an epic's number on the roadmap; got ${JSON.stringify(epic)}.`, 400, [
+    { path: 'epic', message: 'expected a positive integer' },
+  ]);
 }
 
 /** A spec slug, `null` for the Tasks that carry none, or absent for the current epic. */

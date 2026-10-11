@@ -128,6 +128,10 @@ test('binn mcp lists its tools, explains a stopped daemon, and proxies the snaps
   assert.equal(usage.isError, undefined, usage.content[0]?.text);
   const task = JSON.parse(usage.content[0]!.text) as { task: { id: string }; totals: { records: number }; runs: { items: unknown[]; remainder: number } };
   assert.deepEqual([task.task.id, task.totals.records, task.runs], ['epic/01', 0, { items: [], remainder: 0 }]);
+  // Its epic reaches the operation too, which reads it on a roadmap this project does not have.
+  const byEpic = (await client.callTool({ name: 'usage_get', arguments: { epic: 1 } })) as ToolResult;
+  assert.equal(byEpic.isError, true);
+  assert.equal((JSON.parse(byEpic.content[0]!.text) as { error: { code: string } }).error.code, 'roadmap.missing');
 
   // A tool's own argument reaches its operation: the daemon, not the server, refuses this one.
   const refused = (await client.callTool({ name: 'daily_get', arguments: { since: 'not-a-commit' } })) as ToolResult;
