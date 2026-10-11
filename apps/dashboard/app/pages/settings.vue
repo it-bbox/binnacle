@@ -35,6 +35,8 @@ type Informer = {
 };
 const machine = usePolling(() => call<ParallelLimit & { informer: Informer }>('parallel.get'));
 const informer = computed(() => machine.data.value?.informer ?? null);
+/** The latest usage limits first, the ones that say most about the subscription now. */
+const latestLimits = computed(() => [...(informer.value?.usageLimits ?? [])].reverse());
 /** The form's choice, filled from the machine's limit until the owner edits it. */
 const choice = ref<'number' | 'auto'>('number');
 /** A number, or the input's text when it is not one. */
@@ -174,7 +176,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
           </p>
           <p class="text-muted">{{ t.usageLimitsHit }}<template v-if="informer.usageLimits.length === 0">: {{ t.noUsageLimit }}</template></p>
           <ul v-if="informer.usageLimits.length > 0" class="flex flex-col gap-0.5">
-            <FoldedList :items="informer.usageLimits" :by="(item) => item.harness + item.at">
+            <FoldedList :items="latestLimits" :by="(item) => item.harness + item.at">
               <template #default="{ item }">
                 <li class="text-sm">
                   {{ dateTime(item.at) }} · <span class="font-semibold">{{ plural(item.active, t.activeThen) }}</span>
