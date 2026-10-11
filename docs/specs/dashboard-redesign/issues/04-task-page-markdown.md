@@ -1,6 +1,6 @@
 # 04: The Task page in Markdown, brief or full
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 02
 Spec: `docs/specs/dashboard-redesign/spec.md`
