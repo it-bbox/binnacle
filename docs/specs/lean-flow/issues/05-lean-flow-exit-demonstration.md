@@ -19,3 +19,9 @@ The usage page opens authorised only in the owner's browser, so this session can
 
 - Wait for the owner's look (recommended): as epic 11's demonstration did; one look at the dashboard before the ticket closes.
 - Close on `usage_get` alone: no wait; the page's half of the first criterion rests on the seam it shares with `usage_get`, unseen.
+
+### Answer
+
+2026-10-11
+
+Wait for the owner's look (recommended): as epic 11's demonstration did; one look at the dashboard before the ticket closes.
