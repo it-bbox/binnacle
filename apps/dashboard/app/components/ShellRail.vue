@@ -45,7 +45,7 @@ const rail = computed(() =>
         :aria-current="item.selected ? 'page' : undefined"
         :color="item.selected ? 'primary' : 'neutral'"
         :variant="item.selected ? 'soft' : 'outline'"
-        class="size-9 justify-center text-xs font-semibold"
+        class="size-9 justify-center text-sm font-semibold"
         :class="item.selected ? 'ring ring-primary' : ''"
       >
         {{ item.initials }}
@@ -58,7 +58,7 @@ const rail = computed(() =>
         <div class="flex flex-col gap-3">
           <p class="text-muted">{{ t.addBody }}</p>
           <CopyCommand command="binn project register" primary />
-          <p class="text-xs text-dimmed">{{ t.addNote }}</p>
+          <p class="text-sm text-dimmed">{{ t.addNote }}</p>
         </div>
       </template>
     </UModal>

@@ -34,8 +34,8 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
 
 <template>
   <div class="flex flex-col gap-4.5 pt-4">
-    <h1 class="text-lg font-semibold text-highlighted">
-      {{ t.attention }} <span class="text-[13px] font-normal text-muted">· {{ t.allProjects }}</span>
+    <h1 class="text-xl font-semibold text-highlighted">
+      {{ t.attention }} <span class="text-base font-normal text-muted">· {{ t.allProjects }}</span>
     </h1>
     <div v-if="views?.length === 0" class="flex flex-col gap-3">
       <p class="text-muted">{{ t.noProject }}</p>
@@ -46,10 +46,10 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
         <UCard v-for="view in views ?? []" :key="view.project.path" :ui="card">
           <template #header>
             <div class="flex min-w-0 items-center gap-2.5">
-              <span class="flex size-5.5 flex-none items-center justify-center rounded-md bg-accented text-[10px] font-semibold">{{ initials(view.project) }}</span>
+              <span class="flex size-5.5 flex-none items-center justify-center rounded-md bg-accented text-xs font-semibold">{{ initials(view.project) }}</span>
               <ULink :to="overview(view)" class="truncate font-semibold text-default">{{ projectName(view.project) }}</ULink>
             </div>
-            <span v-if="view.snapshot" class="font-mono text-[11.5px] text-dimmed">{{ number(view.snapshot.attention.length) }}</span>
+            <span v-if="view.snapshot" class="font-mono text-sm text-dimmed">{{ number(view.snapshot.attention.length) }}</span>
           </template>
           <p v-if="view.project.unavailable !== null" class="px-3.5 py-3">
             <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="text-muted">· {{ view.project.unavailable }}</span>
@@ -62,7 +62,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
                 <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 flex-none text-(--warn)" />
                 <div class="flex min-w-0 flex-1 flex-col gap-0.5">
                   <DaemonReason class="leading-snug break-words" :reason="item.message" />
-                  <code class="font-mono text-[11px] text-dimmed">{{ item.code }}</code>
+                  <code class="font-mono text-xs text-dimmed">{{ item.code }}</code>
                 </div>
               </li>
             </ul>
@@ -73,8 +73,8 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
       <div class="flex min-w-0 flex-col gap-3.5">
         <UCard :ui="card">
           <template #header>
-            <h2 class="text-[13px] font-semibold">{{ t.runningNow }}</h2>
-            <span class="font-mono text-[11.5px] text-dimmed">{{ number(running.length + runningRemainder) }}</span>
+            <h2 class="text-base font-semibold">{{ t.runningNow }}</h2>
+            <span class="font-mono text-sm text-dimmed">{{ number(running.length + runningRemainder) }}</span>
           </template>
           <p v-if="running.length === 0 && unread.length === 0" class="px-3.5 py-3 text-muted">{{ t.nothing }}</p>
           <ul class="divide-y divide-default">
@@ -86,13 +86,13 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
             </li>
           </ul>
           <template #footer>
-            <p class="text-[11.5px] leading-snug text-dimmed">{{ t.runningReading }}</p>
+            <p class="text-sm leading-snug text-dimmed">{{ t.runningReading }}</p>
           </template>
         </UCard>
 
         <UCard :ui="card">
           <template #header>
-            <h2 class="text-[13px] font-semibold">{{ t.recentRuns }}</h2>
+            <h2 class="text-base font-semibold">{{ t.recentRuns }}</h2>
           </template>
           <p v-if="recent.length === 0" class="px-3.5 py-3 text-muted">{{ t.nothing }}</p>
           <ul v-else class="divide-y divide-default">

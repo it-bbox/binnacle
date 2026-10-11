@@ -13,7 +13,7 @@ const { t, number } = useLanguage();
 </script>
 
 <template>
-  <table class="w-full border-collapse text-xs tabular-nums">
+  <table class="w-full border-collapse text-sm tabular-nums">
     <thead v-if="columns.length > 1">
       <tr class="text-left text-muted">
         <th class="py-1.5 pr-3 font-medium" />

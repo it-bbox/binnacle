@@ -76,22 +76,22 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
 
 <template>
   <div class="flex flex-col gap-4.5 pt-4">
-    <h1 class="text-lg font-semibold text-highlighted">{{ t.settings }}</h1>
+    <h1 class="text-xl font-semibold text-highlighted">{{ t.settings }}</h1>
 
     <UCard :ui="card">
       <template #header>
-        <h2 id="language" class="text-[13px] font-semibold">{{ t.language }}</h2>
+        <h2 id="language" class="text-base font-semibold">{{ t.language }}</h2>
       </template>
       <URadioGroup :model-value="language" :items="LANGUAGES" aria-labelledby="language" @update:model-value="(value) => choose(value as Language)" />
       <template #footer>
-        <p class="text-[11.5px] leading-snug text-dimmed">{{ t.languageNote }}</p>
+        <p class="text-sm leading-snug text-dimmed">{{ t.languageNote }}</p>
       </template>
     </UCard>
 
     <UCard :ui="card">
       <template #header>
-        <h2 class="text-[13px] font-semibold">{{ t.projectSettings }}</h2>
-        <span v-if="view" class="truncate text-[11.5px] text-dimmed">{{ projectName(view.project) }}</span>
+        <h2 class="text-base font-semibold">{{ t.projectSettings }}</h2>
+        <span v-if="view" class="truncate text-sm text-dimmed">{{ projectName(view.project) }}</span>
       </template>
       <p v-if="project === null" class="text-muted">{{ t.noProject }}</p>
       <p v-else-if="status.error.value" class="text-warning">
@@ -104,20 +104,20 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
       </div>
       <div v-else-if="sections === null" class="flex flex-col gap-3">
         <p class="font-medium">{{ t.noManifest }}</p>
-        <p v-if="status.data.value.project.unavailable" lang="en" class="font-mono text-xs leading-normal wrap-anywhere text-muted">{{ status.data.value.project.unavailable }}</p>
+        <p v-if="status.data.value.project.unavailable" lang="en" class="font-mono text-sm leading-normal wrap-anywhere text-muted">{{ status.data.value.project.unavailable }}</p>
         <CopyCommand command="binn init" primary />
-        <p class="text-xs text-dimmed">{{ t.initNote }}</p>
+        <p class="text-sm text-dimmed">{{ t.initNote }}</p>
       </div>
       <div v-else class="flex flex-col gap-4">
         <div class="flex flex-col gap-1.5">
           <p class="text-muted">{{ t.manifestFile }}</p>
-          <code class="font-mono text-xs text-highlighted" :title="`${status.data.value.project.path}/.binnacle/project.yaml`">.binnacle/project.yaml</code>
+          <code class="font-mono text-sm text-highlighted" :title="`${status.data.value.project.path}/.binnacle/project.yaml`">.binnacle/project.yaml</code>
         </div>
-        <div class="grid grid-cols-2 gap-x-6 gap-y-4">
+        <div class="grid grid-cols-[repeat(auto-fit,minmax(22rem,1fr))] gap-x-6 gap-y-4">
           <section v-for="section in sections" :key="section.name" class="flex min-w-0 flex-col gap-1">
-            <h3 class="font-mono text-xs font-semibold">{{ section.name }}</h3>
-            <p v-if="section.settings.length === 0" class="text-xs text-dimmed">{{ t.notWritten }}</p>
-            <dl v-else class="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-0.5 font-mono text-xs">
+            <h3 class="font-mono text-sm font-semibold">{{ section.name }}</h3>
+            <p v-if="section.settings.length === 0" class="text-sm text-dimmed">{{ t.notWritten }}</p>
+            <dl v-else class="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-0.5 font-mono text-sm">
               <template v-for="setting in section.settings" :key="setting.key">
                 <dt class="text-muted wrap-anywhere">{{ setting.key }}</dt>
                 <dd v-if="setting.value === null" class="font-sans text-dimmed">{{ setting.unwritten ?? t.notWritten }}</dd>
@@ -128,25 +128,25 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
         </div>
       </div>
       <div v-if="!status.error.value && status.data.value?.diagnostics.length" class="mt-4 flex flex-col gap-1.5 border-t border-default pt-3">
-        <h3 class="text-xs font-semibold">{{ t.diagnostics }}</h3>
-        <p v-for="item in status.data.value.diagnostics" :key="item.code + item.message" class="font-mono text-xs leading-normal text-warning" lang="en">
+        <h3 class="text-sm font-semibold">{{ t.diagnostics }}</h3>
+        <p v-for="item in status.data.value.diagnostics" :key="item.code + item.message" class="font-mono text-sm leading-normal text-warning" lang="en">
           {{ item.message }} <code class="text-dimmed">{{ item.code }}</code>
         </p>
       </div>
       <template v-if="sections" #footer>
-        <p class="text-[11.5px] leading-snug text-dimmed">{{ t.manifestRefresh }}</p>
+        <p class="text-sm leading-snug text-dimmed">{{ t.manifestRefresh }}</p>
       </template>
     </UCard>
 
     <UCard :ui="card">
       <template #header>
-        <h2 class="text-[13px] font-semibold">{{ t.daemon }}</h2>
+        <h2 class="text-base font-semibold">{{ t.daemon }}</h2>
       </template>
       <div class="flex flex-col gap-3">
         <p v-if="daemon.error.value" class="text-warning">
           <code>{{ daemon.error.value.code }}</code> <span lang="en">{{ daemon.error.value.message }}</span>
         </p>
-        <dl v-else-if="daemon.data.value" class="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-xs">
+        <dl v-else-if="daemon.data.value" class="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-sm">
           <dt class="text-muted">{{ t.version }}</dt>
           <dd class="font-mono">{{ daemon.data.value.version }}</dd>
           <dt class="text-muted">{{ t.address }}</dt>
@@ -159,7 +159,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
         </div>
       </div>
       <template #footer>
-        <p class="text-[11.5px] leading-snug text-dimmed">{{ t.daemonNote }}</p>
+        <p class="text-sm leading-snug text-dimmed">{{ t.daemonNote }}</p>
       </template>
     </UCard>
   </div>

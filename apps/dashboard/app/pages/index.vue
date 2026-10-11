@@ -119,23 +119,23 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
     <p v-else-if="view.failure" class="py-10 text-warning"><code>{{ view.failure.code }}</code> <span lang="en">{{ view.failure.message }}</span></p>
     <template v-else-if="snapshot">
       <UCard :ui="{ root: 'rounded-[14px]', body: 'flex flex-col gap-6 px-10 pt-9 pb-8 sm:px-10 sm:pt-9 sm:pb-8' }">
-        <h1 class="text-[22px] font-semibold tracking-tight text-highlighted">{{ t.whatsNext }}</h1>
+        <h1 class="text-2xl font-semibold tracking-tight text-highlighted">{{ t.whatsNext }}</h1>
         <div v-if="snapshot.roadmap === null" class="flex flex-col gap-2.5">
           <div class="flex items-center gap-2">
             <UBadge :label="t.notAvailable" color="neutral" variant="outline" class="border-dashed" />
             <span class="font-medium">{{ t.noRoadmap }}</span>
           </div>
-          <p v-for="item in roadmapReasons" :key="item.code + item.message" class="font-mono text-xs leading-normal text-muted">
+          <p v-for="item in roadmapReasons" :key="item.code + item.message" class="font-mono text-sm leading-normal text-muted">
             <DaemonReason :reason="item.message" /> <code class="text-dimmed">{{ item.code }}</code>
           </p>
         </div>
         <div v-else class="flex flex-col gap-3.5">
           <div class="flex flex-wrap items-center gap-2">
             <UBadge label="Next action" color="primary" variant="soft" />
-            <span class="text-xs text-muted">{{ t.fromRoadmap }}</span>
+            <span class="text-sm text-muted">{{ t.fromRoadmap }}</span>
           </div>
           <template v-if="snapshot.next.action">
-            <p class="max-w-[70ch] text-[17px] leading-normal whitespace-pre-wrap" lang="en">{{ snapshot.next.action.description }}</p>
+            <p class="max-w-[70ch] text-lg leading-normal whitespace-pre-wrap" lang="en">{{ snapshot.next.action.description }}</p>
             <CopyCommand :command="snapshot.next.action.command" primary />
           </template>
           <UAlert
@@ -146,7 +146,7 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
             icon="i-lucide-triangle-alert"
             :title="item.code === 'next_action.stale' ? t.nextActionStale : t.nextActionMissing"
           >
-            <template #description><code class="font-mono text-[11px]">{{ item.code }}</code></template>
+            <template #description><code class="font-mono text-xs">{{ item.code }}</code></template>
           </UAlert>
         </div>
         <p v-if="isUnavailable(snapshot.next.alternatives)" class="text-muted">
@@ -154,7 +154,7 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
         </p>
         <div v-else-if="alternatives.length > 0" class="flex flex-col">
           <div class="mb-1.5 flex items-center gap-2.5">
-            <span class="text-[13px] font-semibold text-muted">{{ t.or }}</span>
+            <span class="text-base font-semibold text-muted">{{ t.or }}</span>
             <UBadge :label="t.calculation" color="neutral" variant="outline" icon="i-lucide-calculator" class="border-dashed" />
             <div class="h-px flex-1 bg-(--ui-border)" />
           </div>
@@ -168,7 +168,7 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
             </div>
             <div class="flex min-w-0 flex-col gap-2">
               <div class="flex flex-col gap-0.5">
-                <div class="text-sm font-medium">{{ alternative.title }}</div>
+                <div class="text-base font-medium">{{ alternative.title }}</div>
                 <div class="leading-snug text-muted">{{ alternative.reason }}</div>
               </div>
               <CopyCommand v-if="alternative.command !== null" :command="alternative.command" />
@@ -179,14 +179,14 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
 
       <section class="flex flex-col gap-3.5">
         <div class="flex items-center justify-between gap-3">
-          <h2 class="text-[13px] font-semibold">{{ t.epicProgress }}</h2>
-          <ULink :to="{ path: '/project', query: { project } }" class="text-xs">{{ t.openBoard }}</ULink>
+          <h2 class="text-base font-semibold">{{ t.epicProgress }}</h2>
+          <ULink :to="{ path: '/project', query: { project } }" class="text-sm">{{ t.openBoard }}</ULink>
         </div>
-        <div v-if="snapshot.roadmap === null" class="rounded-[10px] border border-dashed border-accented px-3.5 py-3 text-[12.5px] text-muted">
+        <div v-if="snapshot.roadmap === null" class="rounded-[10px] border border-dashed border-accented px-3.5 py-3 text-sm text-muted">
           <span class="font-medium text-default">{{ t.notAvailable }}</span> · {{ t.noRoadmap }}
         </div>
         <template v-else>
-          <ol v-if="steps.length > 0" class="grid auto-cols-[minmax(0,1fr)] grid-flow-col gap-1.5">
+          <ol v-if="steps.length > 0" class="grid grid-cols-[repeat(auto-fit,minmax(3rem,1fr))] gap-x-1.5 gap-y-3">
             <li v-for="{ epic, step } in steps" :key="epic.number" :title="`${epic.number} ${epic.title} · ${epic.status}`" class="flex min-w-0 flex-col gap-1.5" lang="en">
               <div
                 class="h-1 rounded-sm"
@@ -196,13 +196,13 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
                 <UIcon v-if="step === 'done'" name="i-lucide-circle-check" class="size-3.5 flex-none text-muted" />
                 <UIcon v-else-if="step === 'current'" name="i-lucide-circle-dot" class="size-3.5 flex-none text-primary" />
                 <UIcon v-else name="i-lucide-circle-dashed" class="size-3.5 flex-none text-dimmed" />
-                <span class="font-mono text-[11px] text-dimmed">{{ epic.number }}</span>
-                <span class="truncate text-xs" :class="step === 'current' ? 'font-semibold' : step === 'later' ? 'text-dimmed' : ''">{{ epic.title }}</span>
+                <span class="font-mono text-xs text-dimmed">{{ epic.number }}</span>
+                <span class="truncate text-sm" :class="step === 'current' ? 'font-semibold' : step === 'later' ? 'text-dimmed' : ''">{{ epic.title }}</span>
               </div>
             </li>
           </ol>
           <div class="flex items-center gap-3.5 rounded-[10px] border border-default bg-default px-3.5 py-2.5">
-            <span class="text-xs whitespace-nowrap text-muted">{{ t.currentEpic }}</span>
+            <span class="text-sm whitespace-nowrap text-muted">{{ t.currentEpic }}</span>
             <template v-if="current === null">
               <span class="text-muted">{{ steps.length === 0 ? t.noEpics : t.everyEpicDone }}</span>
             </template>
@@ -213,7 +213,7 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
               <span v-else-if="progress.all === 0" class="flex-1 text-muted">{{ t.noTasks }}</span>
               <template v-else>
                 <UProgress :model-value="progress.done" :max="progress.all" size="sm" class="min-w-20 flex-1" />
-                <span class="font-mono text-xs whitespace-nowrap text-muted">{{ t.tasksDone(number(progress.done), number(progress.all)) }}</span>
+                <span class="font-mono text-sm whitespace-nowrap text-muted">{{ t.tasksDone(number(progress.done), number(progress.all)) }}</span>
               </template>
             </template>
           </div>
@@ -223,21 +223,21 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
       <div class="grid grid-cols-[repeat(auto-fit,minmax(380px,1fr))] items-start gap-5">
         <UCard :ui="panel">
           <template #header>
-            <h2 class="text-[13px] font-semibold">{{ t.readyToStart }}</h2>
-            <span v-if="snapshot.tasks" class="font-mono text-[11.5px] text-dimmed">{{ number(count(snapshot.tasks.readyToStart)) }}</span>
+            <h2 class="text-base font-semibold">{{ t.readyToStart }}</h2>
+            <span v-if="snapshot.tasks" class="font-mono text-sm text-dimmed">{{ number(count(snapshot.tasks.readyToStart)) }}</span>
           </template>
           <div v-if="snapshot.tasks === null" class="flex flex-col gap-1 px-3.5 py-4">
             <div class="font-medium">{{ t.notAvailable }} · {{ t.trackerUnreadable }}</div>
             <p v-for="item in trackerReasons" :key="item.code + item.message" class="leading-snug text-muted">
-              <DaemonReason :reason="item.message" /> <code class="font-mono text-[11px] text-dimmed">{{ item.code }}</code>
+              <DaemonReason :reason="item.message" /> <code class="font-mono text-xs text-dimmed">{{ item.code }}</code>
             </p>
           </div>
           <template v-else>
-            <div v-if="parallel" class="flex items-center gap-1.5 border-b border-default px-3.5 py-2 text-xs text-primary" :title="t.calculation">
+            <div v-if="parallel" class="flex items-center gap-1.5 border-b border-default px-3.5 py-2 text-sm text-primary" :title="t.calculation">
               <UIcon name="i-lucide-split" class="size-3.5" />
               {{ parallel }}
             </div>
-            <div v-if="!snapshot.tasks.parallel.impact.available || snapshot.tasks.parallel.impact.tasks.length > 0" class="flex flex-col gap-1.5 border-b border-default px-3.5 py-2.5 text-xs">
+            <div v-if="!snapshot.tasks.parallel.impact.available || snapshot.tasks.parallel.impact.tasks.length > 0" class="flex flex-col gap-1.5 border-b border-default px-3.5 py-2.5 text-sm">
               <div class="flex flex-wrap items-center gap-2">
                 <span class="font-semibold">{{ t.conflictRisk }}</span>
                 <UBadge :label="t.calculation" color="neutral" variant="outline" icon="i-lucide-calculator" size="sm" class="border-dashed" />
@@ -266,7 +266,7 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
                 <div class="font-medium">{{ t.noTasks }}</div>
                 <div class="leading-snug text-muted">{{ t.noTasksBody }}</div>
                 <p v-for="item in trackerReasons" :key="item.code + item.message" class="leading-snug text-muted">
-                  <DaemonReason :reason="item.message" /> <code class="font-mono text-[11px] text-dimmed">{{ item.code }}</code>
+                  <DaemonReason :reason="item.message" /> <code class="font-mono text-xs text-dimmed">{{ item.code }}</code>
                 </p>
               </div>
               <p v-else class="px-3.5 py-4 text-muted">{{ t.nothing }}</p>
@@ -274,7 +274,7 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
             <ul class="divide-y divide-default">
               <li v-for="task in snapshot.tasks.readyToStart.items" :key="task.id" class="flex flex-col gap-2 px-3.5 py-3">
                 <div class="flex min-w-0 flex-col gap-0.5">
-                  <ULink :to="{ path: '/task', query: { project, id: task.id } }" class="font-mono text-[11.5px] text-muted">{{ task.id }}</ULink>
+                  <ULink :to="{ path: '/task', query: { project, id: task.id } }" class="font-mono text-sm text-muted">{{ task.id }}</ULink>
                   <span class="leading-snug" lang="en">{{ task.title ?? task.id }}</span>
                 </div>
                 <CopyCommand v-if="task.start !== null" :command="task.start" />
@@ -282,7 +282,7 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
               <li v-if="snapshot.tasks.readyToStart.remainder > 0" class="px-3.5 py-2.5 text-muted">{{ t.more(number(snapshot.tasks.readyToStart.remainder)) }}</li>
               <li v-for="card in waiting" :key="card.id" class="flex items-start gap-2.5 px-3.5 py-3 opacity-55">
                 <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <ULink :to="{ path: '/task', query: { project, id: card.id } }" class="font-mono text-[11.5px] text-muted">{{ card.id }}</ULink>
+                  <ULink :to="{ path: '/task', query: { project, id: card.id } }" class="font-mono text-sm text-muted">{{ card.id }}</ULink>
                   <span class="leading-snug" lang="en">{{ card.title ?? card.id }}</span>
                 </div>
                 <UBadge color="neutral" variant="outline" icon="i-lucide-lock" title="Unmet dependency" class="flex-none">
@@ -296,8 +296,8 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
         <div class="flex min-w-0 flex-col gap-5">
           <UCard :ui="panel">
             <template #header>
-              <h2 class="text-[13px] font-semibold">{{ t.runningNow }}</h2>
-              <span v-if="!isUnavailable(snapshot.activity) && count(snapshot.activity.running) > 0" class="font-mono text-[11.5px] text-dimmed">
+              <h2 class="text-base font-semibold">{{ t.runningNow }}</h2>
+              <span v-if="!isUnavailable(snapshot.activity) && count(snapshot.activity.running) > 0" class="font-mono text-sm text-dimmed">
                 {{ number(count(snapshot.activity.running)) }}
               </span>
             </template>
@@ -310,17 +310,17 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
                 <div class="flex min-w-0 items-center gap-2">
                   <span class="size-1.5 flex-none rounded-full bg-success" />
                   <template v-if="run.taskId !== null">
-                    <ULink :to="{ path: '/task', query: { project, id: run.taskId } }" class="flex-none font-mono text-[11.5px] text-muted">{{ run.taskId }}</ULink>
+                    <ULink :to="{ path: '/task', query: { project, id: run.taskId } }" class="flex-none font-mono text-sm text-muted">{{ run.taskId }}</ULink>
                     <span v-if="run.taskTitle !== null" class="truncate" lang="en">{{ run.taskTitle }}</span>
                   </template>
                   <template v-else>
                     <UBadge :label="run.role" color="neutral" variant="soft" size="sm" class="font-mono" />
-                    <span class="text-xs text-dimmed">{{ t.noTask }}</span>
+                    <span class="text-sm text-dimmed">{{ t.noTask }}</span>
                   </template>
                   <span class="flex-1" />
-                  <span class="flex-none text-[11.5px] whitespace-nowrap text-muted">{{ lastActivity(run.lastActivityAt) }}</span>
+                  <span class="flex-none text-sm whitespace-nowrap text-muted">{{ lastActivity(run.lastActivityAt) }}</span>
                 </div>
-                <div class="flex flex-wrap gap-x-3 gap-y-1 pl-3.5 font-mono text-[11px] text-dimmed">
+                <div class="flex flex-wrap gap-x-3 gap-y-1 pl-3.5 font-mono text-xs text-dimmed">
                   <span>{{ run.harness }}</span>
                   <span>{{ run.model ?? t.notReported }}</span>
                   <span v-if="run.taskId !== null">{{ run.role }}</span>
@@ -330,14 +330,14 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
               <li v-if="snapshot.activity.running.remainder > 0" class="px-3.5 py-2.5 text-muted">{{ t.more(number(snapshot.activity.running.remainder)) }}</li>
             </ul>
             <template #footer>
-              <p class="text-[11.5px] leading-snug text-dimmed">{{ t.runningNote }}</p>
+              <p class="text-sm leading-snug text-dimmed">{{ t.runningNote }}</p>
             </template>
           </UCard>
 
           <UCard :ui="panel">
             <template #header>
-              <h2 class="text-[13px] font-semibold">{{ t.attention }}</h2>
-              <ULink :to="{ path: '/attention', query: { project } }" class="text-xs">{{ t.allProjects }}</ULink>
+              <h2 class="text-base font-semibold">{{ t.attention }}</h2>
+              <ULink :to="{ path: '/attention', query: { project } }" class="text-sm">{{ t.allProjects }}</ULink>
             </template>
             <p v-if="snapshot.attention.length === 0" class="px-3.5 py-4 text-muted">{{ t.nothing }}</p>
             <ul v-else class="divide-y divide-default">
@@ -345,7 +345,7 @@ const panel = { root: 'rounded-[10px]', header: 'flex items-center justify-betwe
                 <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 flex-none text-(--warn)" />
                 <div class="flex min-w-0 flex-1 flex-col gap-0.5">
                   <DaemonReason class="leading-snug break-words" :reason="item.message" />
-                  <code class="font-mono text-[11px] text-dimmed">{{ item.code }}</code>
+                  <code class="font-mono text-xs text-dimmed">{{ item.code }}</code>
                 </div>
               </li>
             </ul>

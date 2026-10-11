@@ -55,11 +55,11 @@ const pageKey = (page: RouteLocationNormalizedLoaded): string => `${page.path}|$
               <UIcon name="i-lucide-triangle-alert" class="size-4.5" />
             </div>
             <div class="flex flex-col gap-1.5">
-              <h1 class="text-[17px] font-semibold text-highlighted">{{ t.daemonTitle }}</h1>
+              <h1 class="text-lg font-semibold text-highlighted">{{ t.daemonTitle }}</h1>
               <p class="leading-normal text-muted">{{ t.daemonBody }}</p>
             </div>
             <CopyCommand command="binn daemon start" primary />
-            <p class="text-[11.5px] text-dimmed">{{ plural(REFRESH_MS / 1000, t.retrying) }}</p>
+            <p class="text-sm text-dimmed">{{ plural(REFRESH_MS / 1000, t.retrying) }}</p>
           </div>
         </div>
         <div v-else-if="data === null && error === null" class="flex flex-col gap-6 px-8 pt-7" :aria-label="t.loading" aria-busy="true">
@@ -74,7 +74,7 @@ const pageKey = (page: RouteLocationNormalizedLoaded): string => `${page.path}|$
             <USkeleton class="h-55" />
             <USkeleton class="h-55" />
           </div>
-          <p class="text-xs text-dimmed">{{ t.loading }}</p>
+          <p class="text-sm text-dimmed">{{ t.loading }}</p>
         </div>
         <div v-else class="px-8 pt-3 pb-14">
           <p v-if="error" class="my-3 text-warning">{{ t.failed }} <code>{{ error.code }}</code> {{ error.message }}</p>

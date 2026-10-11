@@ -2,6 +2,24 @@
 @import "@nuxt/ui";
 
 /*
+ * The type scale, declared once (`docs/specs/dashboard-redesign/spec.md`, *The type scale*):
+ * body text at `base`, 16 px; secondary text at `sm`, 14 px; and `xs`, 13 px, the floor no text
+ * goes below, Nuxt UI's components included, which size their small text in `xs`. Headings and
+ * figures take Tailwind's `lg`, `xl` and `2xl` above. Spacing grows with the type: Tailwind's
+ * unit, which Nuxt UI's paddings and gaps use too, is 4.8 px rather than 4. `test/type-scale.test.ts`
+ * holds the sources to the scale.
+ */
+@theme {
+  --spacing: 0.3rem;
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: calc(1.125 / 0.8125);
+  --text-sm: 0.875rem;
+  --text-sm--line-height: calc(1.25 / 0.875);
+  --text-base: 1rem;
+  --text-base--line-height: 1.5;
+}
+
+/*
  * Nuxt UI's colours. Nuxt UI writes these into an inline <style> at runtime, which the
  * daemon's Content-Security-Policy refuses, so `nuxt.config.ts` drops that plugin and they are
  * declared here instead. Fonts are Tailwind's system sans and monospace stacks: nothing is
@@ -87,10 +105,11 @@
   }
 }
 
-/* A dense tool: the mockup's 13 px body, on the mockup's page background. */
+/* The scale's body, on the mockup's page background. */
 @layer base {
   body {
-    font-size: 13px;
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
     background-color: var(--bg);
   }
 }

@@ -63,18 +63,18 @@ const freshness = computed((): { text: string; dot: string } => {
   <aside class="flex w-55 flex-none flex-col border-r border-default bg-(--sidebar)">
     <div class="flex flex-col gap-2.5 border-b border-default px-3.5 pt-3.5 pb-3">
       <div v-if="view" class="flex min-w-0 flex-col gap-0.5">
-        <div class="truncate text-sm font-semibold text-highlighted">{{ projectName(view.project) }}</div>
-        <div class="truncate font-mono text-[10.5px] text-dimmed" :title="view.project.path">{{ view.project.path }}</div>
+        <div class="truncate text-base font-semibold text-highlighted">{{ projectName(view.project) }}</div>
+        <div class="truncate font-mono text-xs text-dimmed" :title="view.project.path">{{ view.project.path }}</div>
       </div>
       <div v-else class="text-muted">{{ selected ?? t.noProject }}</div>
       <div v-if="epic" class="flex flex-col gap-0.5">
-        <div class="text-[11px] text-dimmed">{{ t.currentEpic }}</div>
-        <div :class="epic.muted ? 'text-xs text-muted' : 'text-[12.5px] leading-snug font-medium'" :title="epic.title" :lang="epic.muted ? undefined : 'en'">{{ epic.text }}</div>
+        <div class="text-xs text-dimmed">{{ t.currentEpic }}</div>
+        <div :class="epic.muted ? 'text-sm text-muted' : 'text-sm leading-snug font-medium'" :title="epic.title" :lang="epic.muted ? undefined : 'en'">{{ epic.text }}</div>
       </div>
     </div>
     <UNavigationMenu :items="menu" orientation="vertical" :aria-label="t.menu" class="p-2" />
     <div class="flex-1" />
-    <div class="flex items-center gap-1.5 border-t border-default px-3.5 py-3 text-[11.5px] text-dimmed">
+    <div class="flex items-center gap-1.5 border-t border-default px-3.5 py-3 text-sm text-dimmed">
       <span class="size-1.5 rounded-full" :class="freshness.dot" />
       <span :class="unreachable ? 'text-warning' : ''">{{ freshness.text }}</span>
     </div>

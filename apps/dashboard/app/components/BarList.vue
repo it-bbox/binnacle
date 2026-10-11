@@ -32,7 +32,7 @@ const largest = computed(() => Math.max(0, ...all.value.map((row) => row.value ?
   <ul>
     <template v-for="(row, index) in all" :key="row.key">
       <!-- The remainder counts the rows, so it goes before `last`. -->
-      <li v-if="remainder && index === rows.length" class="px-3.5 py-1.5 text-xs text-muted">{{ t.more(number(remainder)) }}</li>
+      <li v-if="remainder && index === rows.length" class="px-3.5 py-1.5 text-sm text-muted">{{ t.more(number(remainder)) }}</li>
       <li
         class="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_max-content] items-center gap-3 px-3.5 py-[7px]"
         :class="{ 'border-t border-dashed border-default': row.muted }"
@@ -40,8 +40,8 @@ const largest = computed(() => Math.max(0, ...all.value.map((row) => row.value ?
       >
         <!-- `relative` keeps the screen-reader text inside the scrolled page, not below the document. -->
         <div class="relative flex min-w-0">
-          <ULink v-if="row.to" :to="row.to" class="truncate font-mono text-xs">{{ row.label }}</ULink>
-          <span v-else class="truncate text-xs" :class="row.muted ? 'text-muted italic' : 'font-mono'">{{ row.label }}</span>
+          <ULink v-if="row.to" :to="row.to" class="truncate font-mono text-sm">{{ row.label }}</ULink>
+          <span v-else class="truncate text-sm" :class="row.muted ? 'text-muted italic' : 'font-mono'">{{ row.label }}</span>
           <span v-if="row.title || row.note" class="sr-only">
             · <span v-if="row.title" lang="en">{{ row.title }}</span>
             <template v-if="row.title && row.note"> · </template>
@@ -57,10 +57,10 @@ const largest = computed(() => Math.max(0, ...all.value.map((row) => row.value ?
         <span v-else />
         <span class="inline-flex items-center justify-end gap-1.5">
           <UBadge v-for="mark in row.marks ?? []" :key="mark" :label="mark" color="neutral" variant="outline" size="sm" />
-          <span class="text-xs" :class="row.value === null ? 'text-dimmed' : 'font-mono'">{{ row.text }}</span>
+          <span class="text-sm" :class="row.value === null ? 'text-dimmed' : 'font-mono'">{{ row.text }}</span>
         </span>
       </li>
     </template>
-    <li v-if="remainder && !last" class="px-3.5 py-1.5 text-xs text-muted">{{ t.more(number(remainder)) }}</li>
+    <li v-if="remainder && !last" class="px-3.5 py-1.5 text-sm text-muted">{{ t.more(number(remainder)) }}</li>
   </ul>
 </template>

@@ -17,17 +17,17 @@ const meta = computed(() =>
       <span v-if="live" class="size-1.5 flex-none rounded-full bg-success motion-safe:animate-pulse" />
       <span v-else class="size-1.5 flex-none rounded-full border border-(--ui-text-dimmed)" />
       <template v-if="run.taskId !== null">
-        <ULink :to="{ path: '/task', query: { project: view.project.path, id: run.taskId } }" class="min-w-0 truncate font-mono text-[11.5px] text-muted" :title="run.taskId">{{ run.taskId }}</ULink>
+        <ULink :to="{ path: '/task', query: { project: view.project.path, id: run.taskId } }" class="min-w-0 truncate font-mono text-sm text-muted" :title="run.taskId">{{ run.taskId }}</ULink>
         <span v-if="run.taskTitle !== null" class="truncate" lang="en">{{ run.taskTitle }}</span>
       </template>
       <template v-else>
         <UBadge :label="run.role" color="neutral" variant="soft" size="sm" class="font-mono" />
-        <span class="text-xs text-dimmed">{{ t.noTask }}</span>
+        <span class="text-sm text-dimmed">{{ t.noTask }}</span>
       </template>
       <span class="flex-1" />
-      <span class="flex-none text-[11.5px] whitespace-nowrap text-muted">{{ since(run.lastActivityAt) }}</span>
+      <span class="flex-none text-sm whitespace-nowrap text-muted">{{ since(run.lastActivityAt) }}</span>
     </div>
-    <div class="pl-3.5 text-[11px] text-dimmed">
+    <div class="pl-3.5 text-xs text-dimmed">
       <span class="text-muted">{{ projectName(view.project) }}</span> · <span class="font-mono break-all">{{ meta }}</span>
     </div>
   </li>

@@ -128,23 +128,23 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
       <p v-else-if="view.failure" class="m-0 text-warning"><code>{{ view.failure.code }}</code> <span lang="en">{{ view.failure.message }}</span></p>
       <template v-else-if="snapshot">
         <div class="flex flex-col gap-0.5">
-          <h1 class="m-0 text-lg font-semibold text-highlighted">{{ projectName(view.project) }}</h1>
-          <span class="font-mono text-[11.5px] text-dimmed">{{ view.project.path }}</span>
+          <h1 class="m-0 text-xl font-semibold text-highlighted">{{ projectName(view.project) }}</h1>
+          <span class="font-mono text-sm text-dimmed">{{ view.project.path }}</span>
         </div>
 
         <div v-if="snapshot.roadmap === null" class="flex flex-col gap-1.5 rounded-lg border border-dashed border-accented p-4">
           <div><span class="font-medium">{{ t.notAvailable }}</span> · {{ t.noRoadmap }}</div>
           <div v-if="roadmapAttention.length > 0" class="text-muted">{{ t.roadmapReason }}</div>
-          <div v-for="(item, index) in roadmapAttention" :key="index" class="text-xs">
+          <div v-for="(item, index) in roadmapAttention" :key="index" class="text-sm">
             <code class="font-mono text-muted">{{ item.code }}</code> <DaemonReason :reason="item.message" />
           </div>
         </div>
         <section v-else class="flex flex-col gap-2.5">
-          <h2 class="m-0 text-[13px] font-semibold">{{ t.epics }}</h2>
+          <h2 class="m-0 text-base font-semibold">{{ t.epics }}</h2>
           <div class="overflow-auto rounded-lg border border-default bg-default">
             <table class="w-full border-collapse">
               <thead>
-                <tr class="text-left text-xs text-muted">
+                <tr class="text-left text-sm text-muted">
                   <th class="w-9 border-b border-default px-3.5 py-2 font-medium">#</th>
                   <th class="border-b border-default px-3.5 py-2 font-medium">{{ t.epicColumn }}</th>
                   <th class="border-b border-default px-3.5 py-2 font-medium">{{ t.status }}</th>
@@ -153,7 +153,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
               </thead>
               <tbody>
                 <tr v-for="epic in epics" :key="epic.number" :class="{ 'bg-primary/10': board.data.value?.epic?.number === epic.number }">
-                  <td class="border-b border-default px-3.5 py-2 font-mono text-xs text-dimmed">{{ epic.number }}</td>
+                  <td class="border-b border-default px-3.5 py-2 font-mono text-sm text-dimmed">{{ epic.number }}</td>
                   <td lang="en" class="border-b border-default px-3.5 py-2 font-medium">{{ epic.title }}</td>
                   <td class="border-b border-default px-3.5 py-2">
                     <UBadge :label="epic.status" v-bind="statusBadge(epic.status)" size="sm" lang="en" />
@@ -162,7 +162,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
                     <NuxtLink
                       v-if="epic.spec !== null"
                       :to="{ query: { project, spec: epic.spec } }"
-                      class="inline-flex items-center gap-1.5 font-mono text-[11.5px] text-primary hover:underline"
+                      class="inline-flex items-center gap-1.5 font-mono text-sm text-primary hover:underline"
                     >
                       <UIcon name="i-lucide-file-text" class="size-3 shrink-0" />specs/{{ epic.spec }}/spec.md
                     </NuxtLink>
@@ -175,53 +175,53 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
         </section>
 
         <section class="flex flex-col gap-2.5">
-          <h2 class="m-0 text-[13px] font-semibold">{{ t.pendingDecisions }}</h2>
+          <h2 class="m-0 text-base font-semibold">{{ t.pendingDecisions }}</h2>
           <p v-if="isUnavailable(snapshot.pendingDecisions)" class="m-0 rounded-lg border border-dashed border-accented px-3.5 py-2.5">
             <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="snapshot.pendingDecisions.reason" /></span>
           </p>
           <div v-else class="grid grid-cols-3 items-start gap-2.5">
             <section class="flex flex-col gap-2 rounded-lg border border-default bg-default px-3.5 py-2.5">
               <div class="flex items-center justify-between gap-2">
-                <h3 class="m-0 text-xs font-semibold">{{ t.waitingQuestions }}</h3>
-                <span v-if="!isUnavailable(snapshot.pendingDecisions.questions)" class="font-mono text-[11.5px] text-dimmed">
+                <h3 class="m-0 text-sm font-semibold">{{ t.waitingQuestions }}</h3>
+                <span v-if="!isUnavailable(snapshot.pendingDecisions.questions)" class="font-mono text-sm text-dimmed">
                   {{ number(count(snapshot.pendingDecisions.questions)) }}
                 </span>
               </div>
-              <p v-if="isUnavailable(snapshot.pendingDecisions.questions)" class="m-0 text-xs">
+              <p v-if="isUnavailable(snapshot.pendingDecisions.questions)" class="m-0 text-sm">
                 <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="snapshot.pendingDecisions.questions.reason" /></span>
               </p>
               <template v-else>
-                <div v-if="snapshot.pendingDecisions.questions.items.length === 0" class="text-xs text-dimmed">{{ t.none }}</div>
-                <div v-for="(item, index) in snapshot.pendingDecisions.questions.items" :key="index" class="flex min-w-0 flex-col gap-0.5 text-xs">
+                <div v-if="snapshot.pendingDecisions.questions.items.length === 0" class="text-sm text-dimmed">{{ t.none }}</div>
+                <div v-for="(item, index) in snapshot.pendingDecisions.questions.items" :key="index" class="flex min-w-0 flex-col gap-0.5 text-sm">
                   <div class="flex flex-wrap items-baseline gap-x-1.5">
                     <UIcon name="i-lucide-circle-help" class="size-3 shrink-0 self-center text-(--warn)" />
                     <NuxtLink :to="{ path: '/task', query: { project, id: item.id } }" class="font-mono text-primary hover:underline">{{ item.id }}</NuxtLink>
                     <span lang="en">{{ item.title ?? t.untitled }}</span>
-                    <code v-if="item.branch !== null" class="font-mono text-[11px] text-dimmed">{{ item.branch }}</code>
+                    <code v-if="item.branch !== null" class="font-mono text-xs text-dimmed">{{ item.branch }}</code>
                   </div>
-                  <code class="truncate font-mono text-[11px] text-dimmed" :title="item.ticket">{{ item.ticket }}</code>
+                  <code class="truncate font-mono text-xs text-dimmed" :title="item.ticket">{{ item.ticket }}</code>
                   <div lang="en" class="line-clamp-3 break-words whitespace-pre-wrap text-muted">{{ item.question }}</div>
                 </div>
-                <div v-if="snapshot.pendingDecisions.questions.remainder > 0" class="text-xs text-dimmed">
+                <div v-if="snapshot.pendingDecisions.questions.remainder > 0" class="text-sm text-dimmed">
                   {{ t.more(number(snapshot.pendingDecisions.questions.remainder)) }}
                 </div>
               </template>
             </section>
             <section v-for="group in waitingTasks" :key="group.key" class="flex flex-col gap-2 rounded-lg border border-default bg-default px-3.5 py-2.5">
               <div class="flex items-center justify-between gap-2">
-                <h3 class="m-0 text-xs font-semibold">{{ group.title }}</h3>
-                <span class="font-mono text-[11.5px] text-dimmed">{{ number(count(group.list)) }}</span>
+                <h3 class="m-0 text-sm font-semibold">{{ group.title }}</h3>
+                <span class="font-mono text-sm text-dimmed">{{ number(count(group.list)) }}</span>
               </div>
-              <div class="text-[11.5px] leading-snug text-dimmed">{{ group.note }}</div>
-              <div v-if="group.list.items.length === 0" class="text-xs text-dimmed">{{ t.none }}</div>
-              <div v-for="item in group.list.items" :key="item.id" class="flex min-w-0 flex-col gap-0.5 text-xs">
+              <div class="text-sm leading-snug text-dimmed">{{ group.note }}</div>
+              <div v-if="group.list.items.length === 0" class="text-sm text-dimmed">{{ t.none }}</div>
+              <div v-for="item in group.list.items" :key="item.id" class="flex min-w-0 flex-col gap-0.5 text-sm">
                 <div class="flex flex-wrap items-baseline gap-x-1.5">
                   <NuxtLink :to="{ path: '/task', query: { project, id: item.id } }" class="font-mono text-primary hover:underline">{{ item.id }}</NuxtLink>
                   <span lang="en">{{ item.title ?? t.untitled }}</span>
                 </div>
-                <code class="truncate font-mono text-[11px] text-dimmed" :title="item.ticket">{{ item.ticket }}</code>
+                <code class="truncate font-mono text-xs text-dimmed" :title="item.ticket">{{ item.ticket }}</code>
               </div>
-              <div v-if="group.list.remainder > 0" class="text-xs text-dimmed">{{ t.more(number(group.list.remainder)) }}</div>
+              <div v-if="group.list.remainder > 0" class="text-sm text-dimmed">{{ t.more(number(group.list.remainder)) }}</div>
             </section>
           </div>
         </section>
@@ -229,7 +229,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
 
       <section class="flex flex-col gap-3">
         <div class="flex flex-wrap items-center gap-3">
-          <h2 class="m-0 text-[13px] font-semibold">{{ t.board }}</h2>
+          <h2 class="m-0 text-base font-semibold">{{ t.board }}</h2>
           <UTabs
             v-if="tabs.length > 0"
             :model-value="board.data.value?.epic ? String(board.data.value.epic.number) : undefined"
@@ -245,12 +245,12 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
             <UBadge :label="board.data.value.epic.status" v-bind="statusBadge(board.data.value.epic.status)" size="sm" lang="en" />
           </template>
           <span v-else-if="route.query.withoutSpec !== undefined" class="font-medium">{{ t.tasksWithoutSpec }}</span>
-          <span v-else-if="board.data.value?.spec" class="font-mono text-xs">{{ board.data.value.spec }}</span>
+          <span v-else-if="board.data.value?.spec" class="font-mono text-sm">{{ board.data.value.spec }}</span>
           <span class="flex-1" />
           <NuxtLink
             v-if="board.data.value && board.data.value.withoutSpec > 0 && route.query.withoutSpec === undefined"
             :to="{ query: { project, withoutSpec: null } }"
-            class="text-xs text-primary hover:underline"
+            class="text-sm text-primary hover:underline"
           >
             {{ t.tasksWithoutSpec }} ({{ number(board.data.value.withoutSpec) }})
           </NuxtLink>
@@ -269,10 +269,10 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
           <div v-else class="grid grid-cols-4 items-start gap-2.5">
             <div v-for="[key, label, plain] in COLUMNS" :key="key" class="flex min-w-0 flex-col gap-2 rounded-lg border border-default bg-(--sidebar) p-2">
               <div class="flex items-center justify-between px-1 py-0.5">
-                <span class="text-xs font-semibold">{{ label }}</span>
-                <span class="font-mono text-[11.5px] text-dimmed">{{ number(count(board.data.value.columns[key])) }}</span>
+                <span class="text-sm font-semibold">{{ label }}</span>
+                <span class="font-mono text-sm text-dimmed">{{ number(count(board.data.value.columns[key])) }}</span>
               </div>
-              <div v-if="board.data.value.columns[key].items.length === 0" class="px-1.5 py-2.5 text-xs text-dimmed">{{ t.empty }}</div>
+              <div v-if="board.data.value.columns[key].items.length === 0" class="px-1.5 py-2.5 text-sm text-dimmed">{{ t.empty }}</div>
               <NuxtLink
                 v-for="card in shown(key, board.data.value.columns[key].items)"
                 :key="card.id"
@@ -281,23 +281,23 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
                 :class="{ 'opacity-60': card.unmetDependencies.length > 0 }"
               >
                 <div class="flex flex-wrap items-center gap-1.5">
-                  <span class="font-mono text-[11px] text-muted">{{ card.id }}</span>
+                  <span class="font-mono text-xs text-muted">{{ card.id }}</span>
                   <span class="flex-1" />
                   <UBadge v-if="card.state === 'BLOCKED'" label="BLOCKED" color="error" variant="soft" size="sm" class="font-mono" />
-                  <span v-else-if="card.state !== plain && card.source !== 'runs'" class="font-mono text-[10.5px] text-dimmed">{{ card.state }}</span>
+                  <span v-else-if="card.state !== plain && card.source !== 'runs'" class="font-mono text-xs text-dimmed">{{ card.state }}</span>
                   <template v-if="card.state === 'DONE' && card.review !== null">
                     <UBadge v-if="card.review" label="Review" color="neutral" variant="soft" size="sm" :title="t.reviewRecorded" />
                     <UBadge v-else :label="t.noReview" color="warning" variant="soft" size="sm" />
                   </template>
                 </div>
-                <div lang="en" class="text-[12.5px] leading-snug text-highlighted">{{ card.title ?? t.untitled }}</div>
-                <div v-if="card.questions !== null && card.questions.unanswered > 0" class="flex items-center gap-1 text-[11px] text-warning">
+                <div lang="en" class="text-sm leading-snug text-highlighted">{{ card.title ?? t.untitled }}</div>
+                <div v-if="card.questions !== null && card.questions.unanswered > 0" class="flex items-center gap-1 text-xs text-warning">
                   <UIcon name="i-lucide-circle-help" class="size-3 shrink-0 text-(--warn)" />{{ plural(card.questions.unanswered, t.unansweredQuestions) }}
                 </div>
-                <div v-if="card.unmetDependencies.length > 0" class="text-[11px] text-muted">
+                <div v-if="card.unmetDependencies.length > 0" class="text-xs text-muted">
                   {{ t.unmetDependency }} <span class="font-mono">{{ card.unmetDependencies.join(', ') }}</span>
                 </div>
-                <div v-if="card.latestRun" class="flex flex-col gap-0.5 rounded bg-muted px-1.5 py-1 text-[11px]">
+                <div v-if="card.latestRun" class="flex flex-col gap-0.5 rounded bg-muted px-1.5 py-1 text-xs">
                   <div class="flex flex-wrap items-center gap-1.5">
                     <span
                       class="size-1.5 shrink-0 rounded-full"
@@ -322,37 +322,37 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
               />
               <div
                 v-if="board.data.value.columns[key].remainder > 0 && (key !== 'done' || doneOpen)"
-                class="px-1.5 text-xs text-dimmed"
+                class="px-1.5 text-sm text-dimmed"
               >
                 {{ t.more(number(board.data.value.columns[key].remainder)) }}
               </div>
             </div>
           </div>
-          <p v-if="board.data.value.cancelled > 0" class="m-0 text-xs text-muted">{{ plural(board.data.value.cancelled, t.cancelled) }}</p>
+          <p v-if="board.data.value.cancelled > 0" class="m-0 text-sm text-muted">{{ plural(board.data.value.cancelled, t.cancelled) }}</p>
           <div v-if="count(board.data.value.unknown) > 0" class="flex flex-col gap-1.5">
-            <h3 class="m-0 text-xs font-semibold text-muted">{{ t.unknownState }}</h3>
-            <div v-for="card in board.data.value.unknown.items" :key="card.id" class="flex flex-wrap items-baseline gap-x-1.5 text-xs">
+            <h3 class="m-0 text-sm font-semibold text-muted">{{ t.unknownState }}</h3>
+            <div v-for="card in board.data.value.unknown.items" :key="card.id" class="flex flex-wrap items-baseline gap-x-1.5 text-sm">
               <NuxtLink :to="{ path: '/task', query: { project, id: card.id } }" class="font-mono text-primary hover:underline">{{ card.id }}</NuxtLink>
               <span lang="en">{{ card.title ?? t.untitled }}</span>
               <span v-if="card.diagnostic" lang="en" class="text-warning"><code>{{ card.diagnostic.code }}</code> {{ card.diagnostic.message }}</span>
             </div>
-            <div v-if="board.data.value.unknown.remainder > 0" class="text-xs text-dimmed">{{ t.more(number(board.data.value.unknown.remainder)) }}</div>
+            <div v-if="board.data.value.unknown.remainder > 0" class="text-sm text-dimmed">{{ t.more(number(board.data.value.unknown.remainder)) }}</div>
           </div>
         </template>
       </section>
 
       <section class="flex flex-col gap-2.5">
         <div class="flex items-center gap-3">
-          <h2 class="m-0 text-[13px] font-semibold">{{ t.usageByRole }}</h2>
-          <span v-if="usage.data.value" class="text-xs text-dimmed">
+          <h2 class="m-0 text-base font-semibold">{{ t.usageByRole }}</h2>
+          <span v-if="usage.data.value" class="text-sm text-dimmed">
             {{ usage.data.value.importing.windowStart === null ? t.wholeWindow : t.sinceWindow(usage.data.value.importing.windowStart) }}
           </span>
           <span class="flex-1" />
-          <NuxtLink :to="{ path: '/usage', query: { project } }" class="text-xs text-primary hover:underline">{{ t.usagePage }}</NuxtLink>
+          <NuxtLink :to="{ path: '/usage', query: { project } }" class="text-sm text-primary hover:underline">{{ t.usagePage }}</NuxtLink>
         </div>
         <p v-if="usage.error.value" class="m-0 text-warning"><code>{{ usage.error.value.code }}</code> {{ usage.error.value.message }}</p>
         <USkeleton v-else-if="usage.data.value === null" class="h-40 w-full" />
-        <div v-else class="flex flex-col gap-2 rounded-lg border border-default bg-default px-3.5 py-2.5">
+        <div v-else class="flex flex-col gap-2 overflow-x-auto rounded-lg border border-default bg-default px-3.5 py-2.5">
           <p v-if="usage.data.value.importing.incomplete" class="m-0 text-warning">{{ t.importing }}</p>
           <p v-if="isUnavailable(usage.data.value.byRole)" class="m-0">
             <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.byRole.reason" /></span>
@@ -371,22 +371,22 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
           <p v-if="isUnavailable(usage.data.value.unassigned)" class="m-0">
             {{ t.unassigned }}: <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.unassigned.reason" /></span>
           </p>
-          <p v-else class="m-0 text-xs text-dimmed">{{ t.unassignedNote }}</p>
+          <p v-else class="m-0 text-sm text-dimmed">{{ t.unassignedNote }}</p>
         </div>
       </section>
 
       <div v-if="snapshot" class="grid grid-cols-2 gap-2.5">
         <section class="flex flex-col gap-1.5 rounded-lg border border-default bg-default px-3.5 py-2.5">
-          <h2 class="m-0 text-[13px] font-semibold">{{ t.registeredCheckout }}</h2>
-          <div class="font-mono text-xs">{{ gitLine(snapshot.git, t) }}</div>
+          <h2 class="m-0 text-base font-semibold">{{ t.registeredCheckout }}</h2>
+          <div class="font-mono text-sm">{{ gitLine(snapshot.git, t) }}</div>
         </section>
         <section class="flex flex-col gap-1.5 rounded-lg border border-default bg-default px-3.5 py-2.5">
           <div class="flex justify-between gap-2">
-            <h2 class="m-0 text-[13px] font-semibold">{{ t.graph }}</h2>
-            <span v-if="!snapshot.graph.available" class="text-xs text-muted">{{ t.notAvailable }}</span>
+            <h2 class="m-0 text-base font-semibold">{{ t.graph }}</h2>
+            <span v-if="!snapshot.graph.available" class="text-sm text-muted">{{ t.notAvailable }}</span>
           </div>
-          <DaemonReason v-if="snapshot.graph.reason !== null" class="block text-[11.5px] leading-snug text-dimmed" :reason="snapshot.graph.reason" />
-          <div class="text-xs">
+          <DaemonReason v-if="snapshot.graph.reason !== null" class="block text-sm leading-snug text-dimmed" :reason="snapshot.graph.reason" />
+          <div class="text-sm">
             <span class="me-1.5 text-muted">{{ t.builtFrom }}</span>
             <template v-if="snapshot.graph.builtFrom">
               <code class="font-mono">{{ snapshot.graph.builtFrom.commit.slice(0, 12) }}</code> · {{ since(snapshot.graph.builtFrom.at) }} ·
@@ -394,43 +394,43 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
             </template>
             <span v-else class="text-dimmed">{{ t.notBuilt }}</span>
           </div>
-          <div class="text-xs">
+          <div class="text-sm">
             <span class="me-1.5 text-muted">{{ t.lastRun }}</span>
             <template v-if="snapshot.graph.lastRun">
               <span :class="{ 'text-warning': snapshot.graph.lastRun.outcome === 'failed' }">{{ t.runOutcomes[snapshot.graph.lastRun.outcome] }}</span>
               · <code class="font-mono">{{ snapshot.graph.lastRun.commit.slice(0, 12) }}</code> · {{ since(snapshot.graph.lastRun.at) }}
-              <DaemonReason v-if="snapshot.graph.lastRun.reason !== null" class="block text-[11.5px] leading-snug text-dimmed" :reason="snapshot.graph.lastRun.reason" />
+              <DaemonReason v-if="snapshot.graph.lastRun.reason !== null" class="block text-sm leading-snug text-dimmed" :reason="snapshot.graph.lastRun.reason" />
             </template>
             <span v-else class="text-dimmed">{{ t.noRunYet }}</span>
           </div>
         </section>
         <section class="flex flex-col gap-1.5 rounded-lg border border-default bg-default px-3.5 py-2.5">
-          <h2 class="m-0 text-[13px] font-semibold">{{ t.recentDecisions }}</h2>
+          <h2 class="m-0 text-base font-semibold">{{ t.recentDecisions }}</h2>
           <div v-if="snapshot.decisions === null" class="text-muted">{{ t.noAdrDirectory }}</div>
           <template v-else>
-            <div v-for="item in snapshot.decisions.items" :key="item.path" class="text-xs">
+            <div v-for="item in snapshot.decisions.items" :key="item.path" class="text-sm">
               <span lang="en">{{ item.title ?? t.untitled }}</span> <code class="font-mono text-dimmed">{{ item.path }}</code>
             </div>
-            <div v-if="snapshot.decisions.remainder > 0" class="text-xs text-dimmed">{{ t.more(number(snapshot.decisions.remainder)) }}</div>
+            <div v-if="snapshot.decisions.remainder > 0" class="text-sm text-dimmed">{{ t.more(number(snapshot.decisions.remainder)) }}</div>
           </template>
         </section>
         <section class="flex flex-col gap-0.5 rounded-lg border border-default bg-default px-3.5 py-2.5">
           <div class="flex justify-between gap-2">
-            <h2 class="m-0 text-[13px] font-semibold">{{ t.ci }}</h2>
-            <span v-if="isUnavailable(snapshot.ci)" class="text-xs text-muted">{{ t.notAvailable }}</span>
-            <span v-else class="font-mono text-[11.5px] text-dimmed">{{ snapshot.ci.forge.repository }}</span>
+            <h2 class="m-0 text-base font-semibold">{{ t.ci }}</h2>
+            <span v-if="isUnavailable(snapshot.ci)" class="text-sm text-muted">{{ t.notAvailable }}</span>
+            <span v-else class="font-mono text-sm text-dimmed">{{ snapshot.ci.forge.repository }}</span>
           </div>
-          <DaemonReason v-if="isUnavailable(snapshot.ci)" class="block text-[11.5px] leading-snug text-dimmed" :reason="snapshot.ci.reason" />
+          <DaemonReason v-if="isUnavailable(snapshot.ci)" class="block text-sm leading-snug text-dimmed" :reason="snapshot.ci.reason" />
           <template v-else>
-            <div class="text-xs">
+            <div class="text-sm">
               <code class="font-mono">{{ snapshot.ci.defaultBranch.branch }}</code> ·
               <span class="font-medium" :class="CI_TONE[snapshot.ci.defaultBranch.state.value]">{{ t.ciStates[snapshot.ci.defaultBranch.state.value] }}</span> ·
               <a :href="snapshot.ci.defaultBranch.url" target="_blank" rel="noopener noreferrer" class="font-mono text-default underline">{{ snapshot.ci.defaultBranch.commit.slice(0, 12) }}</a>
               <template v-if="snapshot.ci.defaultBranch.at"> · {{ since(snapshot.ci.defaultBranch.at) }}</template>
             </div>
-            <div class="mt-1 text-xs text-muted">{{ t.openRequests }}</div>
-            <div v-if="snapshot.ci.requests.items.length === 0" class="text-xs text-dimmed">{{ t.none }}</div>
-            <div v-for="item in snapshot.ci.requests.items" :key="item.number" class="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-xs">
+            <div class="mt-1 text-sm text-muted">{{ t.openRequests }}</div>
+            <div v-if="snapshot.ci.requests.items.length === 0" class="text-sm text-dimmed">{{ t.none }}</div>
+            <div v-for="item in snapshot.ci.requests.items" :key="item.number" class="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-sm">
               <a :href="item.url" target="_blank" rel="noopener noreferrer" class="font-mono text-default underline">#{{ item.number }}</a>
               <span lang="en" class="min-w-0 truncate">{{ item.title }}</span>
               <span v-if="item.draft" class="text-dimmed">({{ t.draft }})</span>
@@ -438,8 +438,8 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
               <NuxtLink v-if="item.taskId" :to="{ path: '/task', query: { project, id: item.taskId } }" class="font-mono text-primary hover:underline">{{ item.taskId }}</NuxtLink>
               · <span :class="CI_TONE[item.state.value]">{{ t.ciStates[item.state.value] }}</span>
             </div>
-            <div v-if="snapshot.ci.requests.remainder > 0" class="text-xs text-dimmed">{{ t.more(number(snapshot.ci.requests.remainder)) }}</div>
-            <div class="text-[11.5px] leading-snug text-dimmed">{{ t.ciReported(forgeName(snapshot.ci.forge)) }}</div>
+            <div v-if="snapshot.ci.requests.remainder > 0" class="text-sm text-dimmed">{{ t.more(number(snapshot.ci.requests.remainder)) }}</div>
+            <div class="text-sm leading-snug text-dimmed">{{ t.ciReported(forgeName(snapshot.ci.forge)) }}</div>
           </template>
         </section>
       </div>

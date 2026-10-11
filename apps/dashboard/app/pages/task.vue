@@ -70,26 +70,26 @@ const dependency = (item: Brief['dependencies'][number]): string =>
     <template v-else>
       <div class="flex flex-col gap-2">
         <div class="flex flex-wrap items-center gap-2">
-          <span class="font-mono text-[12.5px] text-muted">{{ data.id }}</span>
+          <span class="font-mono text-sm text-muted">{{ data.id }}</span>
           <UBadge :label="data.state ?? t.noState" v-bind="stateBadge(data.state)" class="font-mono" />
           <template v-if="fromRuns">
             <UBadge label="In progress" color="primary" variant="soft" />
-            <span class="text-xs text-muted" :title="t.fromRunsReading">{{ t.fromRuns }}, {{ t.ticketSays(data.state ?? t.noState) }}</span>
+            <span class="text-sm text-muted" :title="t.fromRunsReading">{{ t.fromRuns }}, {{ t.ticketSays(data.state ?? t.noState) }}</span>
           </template>
         </div>
-        <h1 lang="en" class="m-0 text-xl leading-snug font-semibold text-highlighted">{{ data.title ?? t.untitled }}</h1>
+        <h1 lang="en" class="m-0 text-2xl leading-snug font-semibold text-highlighted">{{ data.title ?? t.untitled }}</h1>
       </div>
 
-      <dl class="m-0 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-5 gap-y-1.5 text-[12.5px]">
+      <dl class="m-0 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-5 gap-y-1.5 text-sm">
         <dt class="text-muted">{{ t.triage }}</dt>
-        <dd class="m-0 font-mono text-xs">{{ data.triage ?? t.none }}</dd>
+        <dd class="m-0 font-mono text-sm">{{ data.triage ?? t.none }}</dd>
         <dt class="text-muted">{{ t.roles }}</dt>
         <dd class="m-0">
-          <span class="font-mono text-xs">{{ data.roles.required.join(', ') }}</span>
+          <span class="font-mono text-sm">{{ data.roles.required.join(', ') }}</span>
           <span v-if="data.roles.source === 'default'" class="text-muted"> ({{ t.rolesDefault }})</span>
           <div v-for="item in data.roles.suggested" :key="item.role" class="flex flex-wrap items-baseline gap-x-1.5" :title="t.suggestedReading">
             <span class="text-muted">{{ t.suggestedRoles }}</span>
-            <span class="font-mono text-xs">{{ item.role }}</span>
+            <span class="font-mono text-sm">{{ item.role }}</span>
             <UBadge :label="t.calculated" color="neutral" variant="outline" size="sm" />
             <span lang="en" class="text-dimmed">{{ item.reason }}</span>
           </div>
@@ -98,21 +98,21 @@ const dependency = (item: Brief['dependencies'][number]): string =>
         <dd class="m-0">
           <span v-if="data.dependencies.length === 0" class="text-dimmed">{{ t.none }}</span>
           <div v-for="item in data.dependencies" :key="item.id" class="flex flex-wrap items-baseline gap-x-1.5" :class="{ 'text-warning': item.met === false }">
-            <NuxtLink v-if="!item.dangling" :to="{ query: { project, id: item.id } }" class="font-mono text-xs text-primary hover:underline">{{ item.id }}</NuxtLink>
-            <span v-else class="font-mono text-xs">{{ item.id }}</span>
+            <NuxtLink v-if="!item.dangling" :to="{ query: { project, id: item.id } }" class="font-mono text-sm text-primary hover:underline">{{ item.id }}</NuxtLink>
+            <span v-else class="font-mono text-sm">{{ item.id }}</span>
             <span v-if="item.title !== null" lang="en">{{ item.title }}</span>
             <span class="text-muted">({{ dependency(item) }})</span>
           </div>
         </dd>
         <dt class="text-muted">{{ t.spec }}</dt>
-        <dd class="m-0 font-mono text-xs break-all">
+        <dd class="m-0 font-mono text-sm break-all">
           <template v-if="data.spec !== null">{{ data.spec }}</template>
           <span v-else class="font-sans text-dimmed">{{ t.none }}</span>
         </dd>
         <dt class="text-muted">{{ t.ticket }}</dt>
-        <dd class="m-0 font-mono text-xs break-all">{{ data.ticket }}</dd>
+        <dd class="m-0 font-mono text-sm break-all">{{ data.ticket }}</dd>
         <dt class="text-muted">{{ t.branch }}</dt>
-        <dd class="m-0 font-mono text-xs break-all">{{ data.branch }}</dd>
+        <dd class="m-0 font-mono text-sm break-all">{{ data.branch }}</dd>
         <dt class="text-muted">{{ t.pullRequest }}</dt>
         <dd class="m-0">
           <span v-if="data.request === null" class="text-dimmed">{{ t.noRequest }}</span>
@@ -120,12 +120,12 @@ const dependency = (item: Brief['dependencies'][number]): string =>
             <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="data.request.reason" /></span>
           </template>
           <div v-else class="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
-            <a :href="data.request.url" target="_blank" rel="noopener noreferrer" class="font-mono text-xs text-default underline">#{{ data.request.number }}</a>
+            <a :href="data.request.url" target="_blank" rel="noopener noreferrer" class="font-mono text-sm text-default underline">#{{ data.request.number }}</a>
             <span lang="en">{{ data.request.title }}</span>
             <span v-if="data.request.draft" class="text-dimmed">({{ t.draft }})</span>
-            · <code class="font-mono text-xs text-dimmed">{{ data.request.branch }}</code>
+            · <code class="font-mono text-sm text-dimmed">{{ data.request.branch }}</code>
             · <span class="font-medium" :class="CI_TONE[data.request.state.value]">{{ t.ciStates[data.request.state.value] }}</span>
-            <span class="text-[11.5px] text-dimmed">{{ t.ciReported(forgeName(data.request.forge)) }}</span>
+            <span class="text-sm text-dimmed">{{ t.ciReported(forgeName(data.request.forge)) }}</span>
           </div>
         </dd>
       </dl>
@@ -134,7 +134,7 @@ const dependency = (item: Brief['dependencies'][number]): string =>
       </div>
 
       <section class="flex flex-col gap-2 rounded-xl border border-default bg-default px-5 py-4">
-        <h2 class="m-0 text-[13px] font-semibold">{{ fromRuns ? t.resumeCommand : t.startCommand }}</h2>
+        <h2 class="m-0 text-base font-semibold">{{ fromRuns ? t.resumeCommand : t.startCommand }}</h2>
         <template v-if="data.start !== null">
           <div class="text-muted">{{ fromRuns ? t.resumeNote : t.startNote }}</div>
           <CopyCommand :command="data.start" primary />
@@ -148,16 +148,16 @@ const dependency = (item: Brief['dependencies'][number]): string =>
         <div class="flex min-w-0 flex-col gap-5">
           <section class="overflow-hidden rounded-lg border border-default bg-default">
             <div class="flex items-center justify-between border-b border-default px-3.5 py-2.5">
-              <h2 class="m-0 text-[13px] font-semibold">{{ t.ticket }}</h2>
-              <span class="text-[11px] text-dimmed">{{ t.plainText }}</span>
+              <h2 class="m-0 text-base font-semibold">{{ t.ticket }}</h2>
+              <span class="text-xs text-dimmed">{{ t.plainText }}</span>
             </div>
-            <pre lang="en" class="m-0 max-w-[70ch] p-3.5 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap">{{ data.body.text }}</pre>
-            <p v-if="data.body.truncated" class="m-0 border-t border-default px-3.5 py-2 text-xs text-muted">
+            <pre lang="en" class="m-0 max-w-[70ch] p-3.5 font-mono text-sm leading-relaxed break-words whitespace-pre-wrap">{{ data.body.text }}</pre>
+            <p v-if="data.body.truncated" class="m-0 border-t border-default px-3.5 py-2 text-sm text-muted">
               {{ t.bodyCut }} <code class="font-mono">{{ data.ticket }}</code>
             </p>
           </section>
           <section class="overflow-hidden rounded-lg border border-default bg-default">
-            <div class="border-b border-default px-3.5 py-2.5"><h2 class="m-0 text-[13px] font-semibold">Review</h2></div>
+            <div class="border-b border-default px-3.5 py-2.5"><h2 class="m-0 text-base font-semibold">Review</h2></div>
             <div v-if="data.review === null" class="flex items-center gap-2 px-3.5 py-3" :class="data.state === 'DONE' ? 'text-warning' : 'text-muted'">
               <UIcon name="i-lucide-triangle-alert" class="size-3.5 shrink-0" :class="data.state === 'DONE' ? 'text-(--warn)' : ''" />
               <span>{{ t.noReview }}</span>
@@ -166,23 +166,23 @@ const dependency = (item: Brief['dependencies'][number]): string =>
               <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="data.review.reason" /></span>
             </div>
             <template v-else>
-              <pre lang="en" class="m-0 max-w-[70ch] p-3.5 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap">{{ data.review.text }}</pre>
-              <p v-if="data.review.truncated" class="m-0 border-t border-default px-3.5 py-2 text-xs text-muted">
+              <pre lang="en" class="m-0 max-w-[70ch] p-3.5 font-mono text-sm leading-relaxed break-words whitespace-pre-wrap">{{ data.review.text }}</pre>
+              <p v-if="data.review.truncated" class="m-0 border-t border-default px-3.5 py-2 text-sm text-muted">
                 {{ t.reviewCut }} <code class="font-mono">{{ data.ticket }}</code>
               </p>
             </template>
           </section>
           <section class="overflow-hidden rounded-lg border border-default bg-default">
-            <div class="border-b border-default px-3.5 py-2.5"><h2 class="m-0 text-[13px] font-semibold">{{ t.questions }}</h2></div>
+            <div class="border-b border-default px-3.5 py-2.5"><h2 class="m-0 text-base font-semibold">{{ t.questions }}</h2></div>
             <div v-if="isUnavailable(data.questions)" class="px-3.5 py-3">
               <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="data.questions.reason" /></span>
             </div>
             <p v-else-if="data.questions.items.length === 0" class="m-0 px-3.5 py-3 text-muted">{{ t.noQuestions }}</p>
             <template v-else>
-              <p v-if="data.questions.branch !== null" class="m-0 px-3.5 pt-3 text-xs text-muted">{{ t.questionsFromBranch(data.questions.branch) }}</p>
+              <p v-if="data.questions.branch !== null" class="m-0 px-3.5 pt-3 text-sm text-muted">{{ t.questionsFromBranch(data.questions.branch) }}</p>
               <div v-for="(item, index) in data.questions.items" :key="index" class="flex flex-col gap-1.5 border-default px-3.5 py-3" :class="{ 'border-t': index > 0 }">
-                <pre lang="en" class="m-0 max-w-[70ch] font-mono text-xs leading-relaxed break-words whitespace-pre-wrap">{{ item.text }}</pre>
-                <pre v-if="item.answer !== null" lang="en" class="m-0 max-w-[70ch] border-l-2 border-accented pl-2.5 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap">{{ item.answer }}</pre>
+                <pre lang="en" class="m-0 max-w-[70ch] font-mono text-sm leading-relaxed break-words whitespace-pre-wrap">{{ item.text }}</pre>
+                <pre v-if="item.answer !== null" lang="en" class="m-0 max-w-[70ch] border-l-2 border-accented pl-2.5 font-mono text-sm leading-relaxed break-words whitespace-pre-wrap">{{ item.answer }}</pre>
                 <div v-else class="flex items-center gap-2 text-warning">
                   <UIcon name="i-lucide-circle-help" class="size-3.5 shrink-0 text-(--warn)" />
                   <span>{{ t.unanswered }}</span>
@@ -195,8 +195,8 @@ const dependency = (item: Brief['dependencies'][number]): string =>
         <div class="flex min-w-0 flex-col gap-5">
           <section class="overflow-hidden rounded-lg border border-default bg-default">
             <div class="flex items-center justify-between border-b border-default px-3.5 py-2.5">
-              <h2 class="m-0 text-[13px] font-semibold">{{ t.runs }}</h2>
-              <span v-if="usage" class="font-mono text-[11.5px] text-dimmed">{{ number(usage.runs.items.length + usage.runs.remainder) }}</span>
+              <h2 class="m-0 text-base font-semibold">{{ t.runs }}</h2>
+              <span v-if="usage" class="font-mono text-sm text-dimmed">{{ number(usage.runs.items.length + usage.runs.remainder) }}</span>
             </div>
             <p v-if="usageError" class="m-0 px-3.5 py-3 text-warning"><code>{{ usageError.code }}</code> {{ usageError.message }}</p>
             <USkeleton v-else-if="usage === null" class="m-3.5 h-24" />
@@ -214,12 +214,12 @@ const dependency = (item: Brief['dependencies'][number]): string =>
                   </div>
                   <div class="flex min-w-0 flex-col gap-1.5 pt-2.5 pb-3">
                     <div class="flex flex-wrap items-center gap-2">
-                      <span class="font-mono text-xs font-medium">{{ run.harness }} · {{ run.model ?? t.modelNotReported }} · {{ run.role }}</span>
-                      <span class="text-[11.5px]" :class="run.active.value ? 'text-success' : 'text-dimmed'" :title="t.runningReading">
+                      <span class="font-mono text-sm font-medium">{{ run.harness }} · {{ run.model ?? t.modelNotReported }} · {{ run.role }}</span>
+                      <span class="text-sm" :class="run.active.value ? 'text-success' : 'text-dimmed'" :title="t.runningReading">
                         {{ run.active.value ? t.activeNow : t.notActiveNow }}
                       </span>
                     </div>
-                    <dl class="m-0 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3.5 gap-y-0.5 text-[11.5px]">
+                    <dl class="m-0 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3.5 gap-y-0.5 text-sm">
                       <dt class="text-dimmed">{{ t.branch }}</dt>
                       <dd class="m-0 font-mono break-all">
                         <template v-if="run.branch !== null">{{ run.branch }}</template>
@@ -240,18 +240,18 @@ const dependency = (item: Brief['dependencies'][number]): string =>
                   </div>
                 </li>
               </ol>
-              <p v-if="usage.runs.remainder > 0" class="m-0 px-3.5 pb-3 text-xs text-dimmed">{{ plural(usage.runs.remainder, t.earlierRuns) }}</p>
+              <p v-if="usage.runs.remainder > 0" class="m-0 px-3.5 pb-3 text-sm text-dimmed">{{ plural(usage.runs.remainder, t.earlierRuns) }}</p>
             </template>
           </section>
 
           <section class="overflow-hidden rounded-lg border border-default bg-default">
-            <div class="border-b border-default px-3.5 py-2.5"><h2 class="m-0 text-[13px] font-semibold">{{ t.usage }}</h2></div>
+            <div class="border-b border-default px-3.5 py-2.5"><h2 class="m-0 text-base font-semibold">{{ t.usage }}</h2></div>
             <div class="flex flex-col gap-2 px-3.5 py-3">
               <div>
                 <span class="font-medium">{{ t.usageByRole }}</span>
-                <span v-if="usage" class="text-xs text-dimmed">, {{ usage.importing.windowStart === null ? t.wholeWindow : t.sinceWindow(usage.importing.windowStart) }}</span>
+                <span v-if="usage" class="text-sm text-dimmed">, {{ usage.importing.windowStart === null ? t.wholeWindow : t.sinceWindow(usage.importing.windowStart) }}</span>
               </div>
-              <p v-if="usageError" class="m-0 text-xs">
+              <p v-if="usageError" class="m-0 text-sm">
                 <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <code>{{ usageError.code }}</code></span>
               </p>
               <USkeleton v-else-if="usage === null" class="h-24" />
@@ -265,8 +265,8 @@ const dependency = (item: Brief['dependencies'][number]): string =>
                     ]"
                   />
                 </div>
-                <p class="m-0 text-[11.5px] leading-snug text-dimmed">{{ t.rolesReading }}</p>
-                <p v-if="usage.reworkUnread" class="m-0 text-xs">
+                <p class="m-0 text-sm leading-snug text-dimmed">{{ t.rolesReading }}</p>
+                <p v-if="usage.reworkUnread" class="m-0 text-sm">
                   <span class="font-medium">{{ t.reworkUnread }}</span> <span class="text-muted">· <DaemonReason :reason="usage.reworkUnread" /></span>
                 </p>
               </template>

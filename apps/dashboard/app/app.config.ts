@@ -11,6 +11,8 @@ const warningAndError = [
 export default defineAppConfig({
   ui: {
     badge: {
+      // Nuxt UI sets its small badges in 8 and 10 px; the type scale's floor is xs (main.css).
+      variants: { size: { xs: { base: 'text-xs/4' }, sm: { base: 'text-xs/4' } } },
       compoundVariants: [
         ...warningAndError,
         // The mockup's quiet badges sit on --chip; Nuxt UI would put them on the hover shade.
