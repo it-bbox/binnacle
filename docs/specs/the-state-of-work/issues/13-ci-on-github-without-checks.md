@@ -11,7 +11,7 @@ Roles: Developer, Reviewer, Security
 - [x] Loopback-forge tests: workflow runs and statuses combined into the four states as above; the default branch's commit and link from its combined status and the repository; the open pull requests' heads read the same way; no request to `check-runs` or to `/commits/{ref}` itself; 401, 403 and 429 still give the section unavailable with the reason, a refused workflow-run read naming the workflow runs.
 - [x] Every state is `provider_reported`; the token appears in nothing returned; requests go to the forge's host only.
 - [x] `docs/operations/04-security-resilience.md`, `docs/operations/05-installation-checklist.md`, `docs/03-mcp-and-skills.md` and the spec name Actions, Commit statuses and Pull requests read access and workflow runs; no document asks for Checks.
-- [ ] On this repository, with the owner's token as it is, the snapshot's `ci` section and the project page show `main`'s state as GitHub Actions reports it.
+- [x] On this repository, with the owner's token as it is, the snapshot's `ci` section and the project page show `main`'s state as GitHub Actions reports it.
 
 ## Comments
 

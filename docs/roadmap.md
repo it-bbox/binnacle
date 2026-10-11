@@ -20,7 +20,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 8 | Project Brain: tools, Graphify, Obsidian | done | [`project-brain-tools-graphify-obsidian`](specs/project-brain-tools-graphify-obsidian/spec.md) |
 | 9 | Everything from the chat | done | [`everything-from-the-chat`](specs/everything-from-the-chat/spec.md) |
 | 10 | Telemetry for any harness | done | [`telemetry-for-any-harness`](specs/telemetry-for-any-harness/spec.md) |
-| 11 | The state of work | in progress | [`the-state-of-work`](specs/the-state-of-work/spec.md) |
+| 11 | The state of work | done | [`the-state-of-work`](specs/the-state-of-work/spec.md) |
 | 12 | Audit, completed | not started | — |
 | 13 | Human output | not started | — |
 | 14 | Skills in any harness | done | [`skills-in-any-harness`](specs/skills-in-any-harness/spec.md) |
@@ -33,15 +33,15 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 ## Current focus
 
-Epics 1 to 10 and 14 are done. On 2026-10-10 the owner set a date: on the evening of 2026-10-13 a video presents Binnacle, published to npm and open source, with every remaining v1 epic in it, 11, 12 and 13 included.
+Epics 1 to 11 and 14 are done. On 2026-10-10 the owner set a date: on the evening of 2026-10-13 a video presents Binnacle, published to npm and open source, with every remaining v1 epic in it, 11, 12 and 13 included.
 
 Four epics were added for it. 15, Daemon autostart: `binn init` sets the daemon up to start at login, narrowing ADR-0016's manual step. 16, Dashboard redesign with the Impeccable and UI UX Pro Max skills: it reads too small and too crowded. 17, Release: npm and open source: the build step (`ADR-0031`), the README's install from npm, the repository public under Apache-2.0 (`ADR-0010`). 18, Lean flow: the per-ticket rituals that cost autopilot tokens and time, and a flaky test of epic 11's run (`docs/05-mvp-plan.md`).
 
 Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own. The owner's order: 11; 18, so that every later run is cheaper (2026-10-11); 16 with the owner watching, beside 15 and 12; 13, which rewrites every skill's output; 17, which publishes the rest, last.
 
-Epic 11 is in progress (ADR-0040): autopilot merged 01 to 11 on 2026-10-11. 13, merged on 2026-10-11, reads GitHub's CI from Actions runs and commit statuses, since check runs are served only to GitHub Apps. 14, graphify refusing a graph that shrinks, the carrier of 12, the owner's exit demonstration, is done on its branch: its question answered, the ticket resumed by autopilot. 12 can start once 14 is merged.
+Epic 11 is done (ADR-0040): autopilot merged 01 to 11, then 13, GitHub's CI read from Actions runs and commit statuses, and 14, graphify's flag; the owner ran its exit demonstration (12) on 2026-10-11, on ticket 14. Ticket 14's last criterion, a merge that shrinks the graph, waits for one.
 
-Next action: record epic 11's exit demonstration (12), run with the owner on 2026-10-11 on ticket 14: tick its criteria, set it DONE and epic 11 done; then grill epic 18, Lean flow, in a fresh session. `/mattpocock-skills:implement docs/specs/the-state-of-work/issues/12-state-of-work-exit-demonstration.md`
+Next action: grill epic 18, Lean flow, in a fresh session, from `docs/05-mvp-plan.md`'s phase 18 and the product inbox's Lean flow points; then `/to-spec` and `/to-tickets`, and autopilot. `/mattpocock-skills:grill-with-docs`
 
 ## Later
 

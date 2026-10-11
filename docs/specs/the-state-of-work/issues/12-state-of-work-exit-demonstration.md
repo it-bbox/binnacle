@@ -1,24 +1,24 @@
 # 12: The exit demonstration of epic 11
 
-Status: READY
+Status: DONE
 Triage: ready-for-human
 Blocked by: 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11
 Spec: `docs/specs/the-state-of-work/spec.md`
 
 **What to build:** epic 11's exit criterion, demonstrated by the owner on this repository (spec, *Further Notes*). If no agent asked a real question during the run, the owner seeds one by committing a `### Question` to a Task branch by hand.
 
-- [ ] The owner pushes `main`; the workflow runs green on GitHub, and the snapshot and the dashboard show `main`'s CI as passing.
-- [ ] A branch pushed with a pull request shows in the snapshot and on its Task with its CI state.
-- [ ] A question on a Task's branch shows in the snapshot, the daily, the dashboard and the vault under *Waiting for the owner*.
-- [ ] `/binnacle:answer` writes the answer on the branch, and `/binnacle:autopilot` resumes that ticket and merges it.
-- [ ] A ticket with `Roles: Developer, Reviewer, Security` has a Security section in its Review; `/binnacle:task` shows roles and Binnacle's suggestions.
-- [ ] At the run's end autopilot reported `main`'s CI and proposed a Next action.
+- [x] The owner pushes `main`; the workflow runs green on GitHub, and the snapshot and the dashboard show `main`'s CI as passing.
+- [x] A branch pushed with a pull request shows in the snapshot and on its Task with its CI state.
+- [x] A question on a Task's branch shows in the snapshot, the daily, the dashboard and the vault under *Waiting for the owner*.
+- [x] `/binnacle:answer` writes the answer on the branch, and `/binnacle:autopilot` resumes that ticket and merges it.
+- [x] A ticket with `Roles: Developer, Reviewer, Security` has a Security section in its Review; `/binnacle:task` shows roles and Binnacle's suggestions.
+- [x] At the run's end autopilot reported `main`'s CI and proposed a Next action.
 
 ## Comments
 
 ### Demonstration, 2026-10-11
 
-Run with the owner in a Product session, on ticket 14 as the carrier. Criteria are not ticked yet: the owner still looks at the dashboard.
+Run with the owner in a Product session, on ticket 14 as the carrier. The owner looked at the dashboard the same day: its project page showed `main`'s CI and the question under *Waiting for the owner*, so every criterion holds.
 
 1. `main` pushed; the workflow ran green on `d80ec9d`; the snapshot's `ci.defaultBranch` read `passing`, `provider_reported`, with its commit link, once ticket 13 was merged and the daemon restarted. The dashboard's project page is the owner's to see.
 2. `feat/graph-that-shrinks` pushed with pull request #1: the snapshot's `ci.requests` and `task_get`'s `request` showed it, mapped to the-state-of-work/14, with its CI `running`, then `passing`.
