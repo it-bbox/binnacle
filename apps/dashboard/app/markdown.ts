@@ -10,7 +10,7 @@ import { Marked } from 'marked';
 const escape = (text: string): string => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const SAFE_LINK = /^(https?:|mailto:)/i;
 
-const renderer = new Marked({
+const parser = new Marked({
   renderer: {
     html: ({ text }) => escape(text),
     link({ href, tokens }) {
@@ -21,4 +21,4 @@ const renderer = new Marked({
   },
 });
 
-export const markdown = (text: string): string => renderer.parse(text, { async: false });
+export const markdown = (text: string): string => parser.parse(text, { async: false });

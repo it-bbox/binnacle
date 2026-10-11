@@ -67,9 +67,12 @@ const review = computed(() => {
   return value == null || isUnavailable(value) ? '' : markdown(value.text);
 });
 
-/** *Brief* shows the unanswered questions; the answered ones wait for *Full*. */
-const unanswered = computed(() => (data.value === null || isUnavailable(data.value.questions) ? [] : data.value.questions.items.filter((item) => item.answer === null)));
-const answered = computed(() => (data.value === null || isUnavailable(data.value.questions) ? 0 : data.value.questions.items.length - unanswered.value.length));
+/**
+ * *Brief* shows the unanswered questions; the answered ones wait for *Full*. A question is keyed
+ * by its place in the ticket, which only grows, since two may read the same.
+ */
+const questions = computed(() => (data.value === null || isUnavailable(data.value.questions) ? [] : data.value.questions.items));
+const unanswered = computed(() => questions.value.filter((item) => item.answer === null));
 
 const dependency = (item: Brief['dependencies'][number]): string =>
   item.dangling ? t.value.dangling : `${item.state ?? t.value.noState}, ${item.met ? t.value.met : t.value.notMet}`;
@@ -192,7 +195,7 @@ const dependency = (item: Brief['dependencies'][number]): string =>
                 <p v-if="data.questions.branch !== null" class="m-0 px-3.5 pt-3 text-sm text-muted">{{ t.questionsFromBranch(data.questions.branch) }}</p>
                 <p v-if="!full && unanswered.length === 0" class="m-0 px-3.5 py-3 text-muted">{{ t.allAnswered }}</p>
                 <ul v-else class="m-0 list-none divide-y divide-default p-0">
-                  <FoldedList :items="full ? data.questions.items : unanswered" :by="(item) => item.text" :limit="full ? LIST_FOLD : BRIEF_ROWS">
+                  <FoldedList :items="full ? questions : unanswered" :by="(item) => String(questions.indexOf(item))" :limit="full ? LIST_FOLD : BRIEF_ROWS">
                     <template #default="{ item }">
                       <li class="flex flex-col gap-1.5 px-3.5 py-3">
                         <FoldedText lang="en" class="font-mono text-sm leading-relaxed break-words whitespace-pre-wrap">{{ item.text }}</FoldedText>
@@ -205,7 +208,9 @@ const dependency = (item: Brief['dependencies'][number]): string =>
                     </template>
                   </FoldedList>
                 </ul>
-                <p v-if="!full && answered > 0" class="m-0 px-3.5 pb-3 text-sm text-dimmed">{{ plural(answered, t.answeredInFull) }}</p>
+                <p v-if="!full && questions.length > unanswered.length" class="m-0 px-3.5 pb-3 text-sm text-dimmed">
+                  {{ plural(questions.length - unanswered.length, t.answeredInFull) }}
+                </p>
               </template>
             </template>
           </Widget>
