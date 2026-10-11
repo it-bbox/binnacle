@@ -31,3 +31,30 @@ Roles: Developer, Reviewer, DevOps
   It passed, 701 tests of 701, before the workflow too (700 of 700 on `main`).
 - **No test needed the owner's machine.** Every test that commits passes its own `user.name` and `user.email`, every test that reads a home or a manifest makes its own temporary one, and the trackers and forges are loopback fakes, so nothing was fixed or skipped.
 - **The run on GitHub** is left to the exit demonstration (12). After the owner's push, `gh run list --workflow ci.yml --branch main --limit 1` shows it, and `gh run watch` follows it until it is green.
+
+### Review
+
+`mattpocock-skills:code-review` ran against `main` on both axes, with its sub-agents in the foreground.
+
+**Standards.** No documented standard is broken: the commits have one author and name no assistant, the documents are in English, `README.ru.md` changes with `README.md`, and nothing is added as a dependency. Judgement calls:
+
+1. **`any` in the parser's type** in `ci-workflow.test.ts`, where `pack.test.ts`, which the line follows, has `unknown`, and no other test has an `any`. **To fix**: `unknown`, and the result cast once to the workflow's shape.
+2. **Duplicated Code**: borrowing the daemon's `yaml` through `createRequire` repeats `pack.test.ts`'s line. **Kept**: two uses; a shared helper waits for a third.
+3. **Speculative Generality**: the spec's check of the workflow is the clean run, and `ci-workflow.test.ts` repeats the file's commands, so a change to the workflow is a change to two files. **Kept**: the test pins what the spec fixes and a later edit could quietly break, no secret, the live tests out, pnpm's version left to `packageManager`, and an edit to the workflow is meant to meet it.
+4. **The test lives in `apps/cli/test/`**, though the workflow is the repository's, not the CLI's. **Kept**: `pnpm test` reads only `{apps,packages}/*/test/`, and the CLI's tests already check repository files, `pack.test.ts` the development workflow document and the plugin's skills.
+
+#### DevOps
+
+The ticket's `Roles:` names DevOps beyond the Developer and the Reviewer, so the workflow was also read as it would run on a runner. pnpm is set up before `setup-node`'s pnpm cache, as that cache needs; `pnpm/action-setup` with no `version` takes `packageManager`'s; the lockfile has no build scripts for pnpm 10 to block; and no path filter keeps a documentation-only change from running, which `pack.test.ts` needs, since it reads the documents. Findings:
+
+5. **Older major versions**: `actions/checkout@v5`, `actions/setup-node@v5` and `pnpm/action-setup@v4`, where `v7`, `v7` and `v6` are out, with the inputs used here unchanged (`git ls-remote --tags` and their `action.yml`). **To fix**: the latest majors. Pinning by SHA is **kept** out: the job holds no secret and reads the repository only.
+6. **No `concurrency`**, so a new push to a pull request does not cancel the run before it. **Kept**: one owner pushes a few times a day, and the spec does not ask for it.
+7. **No `timeout-minutes`**, so a test that hangs holds the runner for GitHub's six hours. **To fix**: 15 minutes, against a run of about two.
+8. **`node-version: 24` repeats `.nvmrc`'s `24`**. **Kept**: the spec names Node 24, and the test pins it.
+
+**Spec.** Every criterion is implemented; the GitHub run stays unticked for the exit demonstration (12), its command under Comments. Findings:
+
+9. **`permissions: contents: read`** is not asked for. **Kept**: the least the job needs, in keeping with "no secret".
+10. **The Comments say the README's paragraph ends *From this repository***, where the paragraph on the desktop app's wrapper still follows it. **To fix**: the Comments say where it is.
+11. **`snapshot.test.ts` expects `graphify` to be missing from the daemon's search path**, which looked like a test that needs a machine without it. **Kept**: `startTestDaemon` gives the daemon its own empty search path (`<home>/no-tools`, `apps/daemon/src/testing.ts`), so the suite passes with the owner's `PATH`, which has `graphify`, and with the clean run's, which has not.
+12. **The ticket is not yet DONE.** Nothing to fix: its last commit does that, after this Review.
