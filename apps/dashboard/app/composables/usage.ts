@@ -84,6 +84,8 @@ export function marks(field: FieldTotal): ('partial' | 'calculated' | 'estimated
 
 /** The token fields in the order the pages show them; reasoning is a part of output, never added to it. */
 export const FIELDS = ['input', 'cachedInput', 'cacheCreation', 'output', 'reasoning'] as const;
+/** The kinds a widget's *Brief* shows of a token total: input and output (spec, story 21). */
+export const BRIEF_FIELDS = ['input', 'output'] as const satisfies readonly Field[];
 export type Field = (typeof FIELDS)[number];
 
 /** Totals kind by kind as one line of text, never added together, each marked as `TokenKinds` marks it. */
