@@ -33,19 +33,20 @@ test('the packed CLI carries the binnacle plugin, every file of its source, and 
   const out = mkdtempSync(join(tmpdir(), 'binnacle-pack-'));
   t.after(() => rmSync(out, { recursive: true, force: true }));
 
-  // The package's own build output, which the audit's tests read while this one runs: a rebuild makes new directories.
-  const built = (): (bigint | null)[] => ['plugin', 'skills'].map((dir) => statSync(join(PACKAGE, dir), { bigint: true, throwIfNoEntry: false })?.birthtimeNs ?? null);
-  const before = built();
+  // The package's own build output, which the audit's tests read while this one runs: a rebuild makes new directories, with a new status-change time.
+  const output = ['plugin', 'skills'];
+  const outputTimes = (): (bigint | null)[] => output.map((dir) => statSync(join(PACKAGE, dir), { bigint: true, throwIfNoEntry: false })?.ctimeNs ?? null);
+  const before = outputTimes();
   // So it packs a copy of its own, laid out as here: the prepare script builds from `../../../.claude/skills/binnacle`, and `pnpm pack` resolves `workspace:*` through `node_modules`.
   const tree = mkdtempSync(join(tmpdir(), 'binnacle-pack-tree-'));
   t.after(() => rmSync(tree, { recursive: true, force: true }));
   const copy = join(tree, 'apps', 'cli');
   cpSync(PLUGIN_SOURCE, join(tree, '.claude', 'skills', 'binnacle'), { recursive: true });
-  cpSync(PACKAGE, copy, { recursive: true, filter: (path) => !['node_modules', 'plugin', 'skills'].includes(relative(PACKAGE, path)) });
+  cpSync(PACKAGE, copy, { recursive: true, filter: (path) => !['node_modules', ...output].includes(relative(PACKAGE, path)) });
   symlinkSync(join(PACKAGE, 'node_modules'), join(copy, 'node_modules'));
   const pack = spawnSync('pnpm', ['pack', '--pack-destination', out], { cwd: copy, encoding: 'utf8' });
   assert.equal(pack.status, 0, pack.stderr || pack.stdout);
-  assert.deepEqual(built(), before, "packing rebuilt the package's own plugin/ or skills/");
+  assert.deepEqual(outputTimes(), before, "packing rebuilt the package's own plugin/ or skills/");
   const [tarball] = readdirSync(out);
   assert.ok(tarball, pack.stdout);
   const untar = spawnSync('tar', ['-xzf', join(out, tarball), '-C', out]);
