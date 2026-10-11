@@ -41,7 +41,7 @@ Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then au
 
 Epic 11 is done (ADR-0040): autopilot merged 01 to 11, then 13, GitHub's CI read from Actions runs and commit statuses, and 14, graphify's flag; the owner ran its exit demonstration (12) on 2026-10-11, on ticket 14. Ticket 14's last criterion, a merge that shrinks the graph, waits for one.
 
-Next action: grill epic 18, Lean flow, in a fresh session, from `docs/05-mvp-plan.md`'s phase 18 and the product inbox's Lean flow points; then `/to-spec` and `/to-tickets`, and autopilot. `/mattpocock-skills:grill-with-docs`
+Next action: run epic 18, Lean flow, with autopilot; its exit demonstration (05) is the owner's. `/binnacle:autopilot 18`
 
 ## Later
 
