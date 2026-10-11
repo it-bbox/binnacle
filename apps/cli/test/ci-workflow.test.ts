@@ -4,18 +4,21 @@ import { createRequire } from 'node:module';
 import { test } from 'node:test';
 
 // The daemon's `yaml` parser, borrowed as pack.test.ts does rather than adding a dependency.
-const { parse: parseYaml } = createRequire(new URL('../../daemon/package.json', import.meta.url))('yaml') as { parse: (text: string) => any };
+const { parse: parseYaml } = createRequire(new URL('../../daemon/package.json', import.meta.url))('yaml') as { parse: (text: string) => unknown };
 const WORKFLOW = new URL('../../../.github/workflows/ci.yml', import.meta.url);
+
+type Step = { uses?: string; run?: string; with?: Record<string, unknown> };
+type Workflow = { on: { push: { branches: string[] } }; jobs: Record<string, { 'runs-on': string; steps: Step[] }> };
 
 /** The spec's workflow (the-state-of-work, *The workflow*), checked on the file rather than assumed. */
 test('the repository workflow runs the typecheck and the offline tests on push to main and on pull requests, with no secret', () => {
   const text = readFileSync(WORKFLOW, 'utf8');
-  const workflow = parseYaml(text);
+  const workflow = parseYaml(text) as Workflow;
 
   assert.deepEqual(workflow.on.push.branches, ['main']);
   assert.ok('pull_request' in workflow.on);
 
-  const jobs = Object.values(workflow.jobs) as { 'runs-on': string; steps: { uses?: string; run?: string; with?: Record<string, unknown> }[] }[];
+  const jobs = Object.values(workflow.jobs);
   assert.equal(jobs.length, 1);
   const [job] = jobs;
   assert.ok(job);
