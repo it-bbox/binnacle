@@ -39,7 +39,7 @@ Four epics were added for it. 15, Daemon autostart: `binn init` sets the daemon 
 
 Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own. The owner's order: 11; 18, so that every later run is cheaper (2026-10-11); 16 with the owner watching, beside 15 and 12; 13, which rewrites every skill's output; 17, which publishes the rest, last.
 
-Epic 11 is in progress (ADR-0040): autopilot merged 01 to 11 on 2026-10-11. 13, merged on 2026-10-11, reads GitHub's CI from Actions runs and commit statuses, since check runs are served only to GitHub Apps. 14, graphify refusing a graph that shrinks, is the carrier of 12, the owner's exit demonstration: its branch with a pull request and a question, answered, then resumed by autopilot.
+Epic 11 is in progress (ADR-0040): autopilot merged 01 to 11 on 2026-10-11. 13, merged on 2026-10-11, reads GitHub's CI from Actions runs and commit statuses, since check runs are served only to GitHub Apps. 14, graphify refusing a graph that shrinks, the carrier of 12, the owner's exit demonstration, is done on its branch: its question answered, the ticket resumed by autopilot. 12 can start once 14 is merged.
 
 Next action: run epic 11's exit demonstration (12) on ticket 14: answer the question on `feat/graph-that-shrinks`, then autopilot resumes the ticket and merges it. `/binnacle:answer`
 
