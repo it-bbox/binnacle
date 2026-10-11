@@ -1,6 +1,6 @@
 # 07: How many agents the subscription sustains
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 06
 Spec: `docs/specs/dashboard-redesign/spec.md`
