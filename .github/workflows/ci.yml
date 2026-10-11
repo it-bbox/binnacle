@@ -13,6 +13,8 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    # A run takes about two minutes; a hung test stops here, not at GitHub's six hours.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       # No version: pnpm/action-setup takes the one `packageManager` names in package.json.
