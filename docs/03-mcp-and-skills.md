@@ -20,7 +20,7 @@ MCP is the stable contract. Client-specific slash commands/skills are thin UX wr
 - `run.list`
 - `question.list`
 - `review.status`
-- `usage.get` (the tool `usage_get`: the project's token usage by Task and by role, each harness's support level, and derived metrics labelled as Binnacle's calculations; or one Task's, with its runs. The roles are `product`, `implementation`, `review`, `rework` and `unknown`, read from Git and the forge (`04-telemetry-dashboard.md`, *Run roles*). One Task's usage, like `task.get`, also carries its totals by role and `reworkUnread`, why its rework is not read on GitHub or GitLab)
+- `usage.get` (the tool `usage_get`: the project's token usage by Task and by role, each harness's support level, and derived metrics labelled as Binnacle's calculations; or one epic's, by its number on the roadmap (`epic`), over the Tasks of the spec the roadmap names for it, every Task listed with no remainder and the epic's averages, an epic the roadmap does not list or gives no spec refused with the reason; or one Task's, with its runs. The roles are `product`, `implementation`, `review`, `rework` and `unknown`, read from Git and the forge (`04-telemetry-dashboard.md`, *Run roles*). One Task's usage, like `task.get`, also carries its totals by role and `reworkUnread`, why its rework is not read on GitHub or GitLab)
 
 ### Controlled mutations
 
