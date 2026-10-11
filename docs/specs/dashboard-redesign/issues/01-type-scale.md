@@ -1,6 +1,6 @@
 # 01: The type scale across the dashboard
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/dashboard-redesign/spec.md`
