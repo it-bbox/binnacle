@@ -612,7 +612,7 @@ for (const platform of ['linux', 'darwin', 'win32'] satisfies ServicePlatform[])
     process.env.LOCALAPPDATA = join(user, 'AppData', 'Local');
     process.env.BINNACLE_SERVICE_PLATFORM = platform;
     if (!definition) return;
-    writeDefinition(platform, definitionPath(platform), renderDefinition(platform, { ...definition, entry: daemonEntry(), path: '/usr/bin', user: 'someone' }));
+    writeDefinition(platform, definitionPath(platform), renderDefinition(platform, { ...definition, entry: daemonEntry(), path: '/usr/bin' }));
   }
 
   it('reads off, with the command that turns it on, and no attention item', async () => {

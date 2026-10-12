@@ -203,19 +203,16 @@ function managerFor({ platform, path, home }: Autostart): Manager {
   if (platform === 'win32') {
     const task = ['/TN', SERVICE_NAME];
     const create = () => runAll('schtasks', ['/Create', ...task, '/XML', path, '/F']);
+    const registered = () => runManager('schtasks', ['/Query', ...task]).ok;
     const run = () => runAll('schtasks', ['/Run', ...task]);
     // The task's daemon is this home's: whether it runs is read from the home, since schtasks words its status in the system's language.
-    const running = () => {
-      const runtime = readRuntime(home);
-      return runtime !== null && isAlive(runtime.pid);
-    };
-    const end = () => !running() || runAll('schtasks', ['/End', ...task]);
+    const end = () => !daemonAlive(home) || runAll('schtasks', ['/End', ...task]);
     return {
       unavailable() {
         const scheduler = runManager('schtasks', ['/Query']);
         return scheduler.ok ? null : `Task Scheduler does not answer (${scheduler.message})`;
       },
-      isOn: () => runManager('schtasks', ['/Query', ...task]).ok && running(),
+      isOn: () => registered() && daemonAlive(home),
       // Task Scheduler keeps the definition it was given: a rewritten one is created again over it.
       reload: create,
       on: () => create() && run(),
@@ -224,7 +221,8 @@ function managerFor({ platform, path, home }: Autostart): Manager {
         rmSync(path, { force: true });
         return true;
       },
-      start: run,
+      // A task deleted by hand leaves its XML behind, which still reads on: start creates it again.
+      start: () => (registered() || create()) && run(),
       stop: end,
       output: `${logPath(home)} holds its output.`,
     };
@@ -300,8 +298,7 @@ async function autostartOn(current: Autostart): Promise<ExitCode> {
   }
 
   // A daemon of this home started by hand holds the home: the service's could not claim it.
-  const running = readRuntime(home);
-  if (running && isAlive(running.pid)) {
+  if (daemonAlive(home)) {
     const stopped = await stop(home);
     if (stopped !== EXIT.ok) return stopped;
   }
@@ -329,13 +326,17 @@ async function autostartOff(current: Autostart): Promise<ExitCode> {
   if (!managerFor(current).off()) return EXIT.failed;
 
   // A daemon of this home started by hand while the service was on: off leaves none running.
-  const running = readRuntime(home);
-  if (running && isAlive(running.pid)) {
+  if (daemonAlive(home)) {
     const stopped = await stop(home);
     if (stopped !== EXIT.ok) return stopped;
   }
   console.log(`Autostart is off for ${home}: the service's daemon is stopped and ${path} is removed.`);
   return EXIT.ok;
+}
+
+function daemonAlive(home: string): boolean {
+  const runtime = readRuntime(home);
+  return runtime !== null && isAlive(runtime.pid);
 }
 
 function describeAutostart({ state, platform, home, path, serves, missing }: Autostart): string {

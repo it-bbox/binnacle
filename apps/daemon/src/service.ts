@@ -31,15 +31,14 @@ export function servicePlatform(env: NodeJS.ProcessEnv = process.env): ServicePl
 /** The daemon's entry, the one `binn daemon start` spawns. */
 export const daemonEntry = (): string => fileURLToPath(new URL('./bin.ts', import.meta.url));
 
-/** What a definition is rendered from: this Node, the daemon's entry, the home, the shell's PATH, and the user it runs as, which only Windows names. */
-export type ServiceInputs = { node: string; entry: string; home: string; path: string; user: string };
+/** What a definition is rendered from: this Node, the daemon's entry, the home, and the shell's PATH. */
+export type ServiceInputs = { node: string; entry: string; home: string; path: string };
 
 export const serviceInputs = (home: string, env: NodeJS.ProcessEnv = process.env): ServiceInputs => ({
   node: process.execPath,
   entry: daemonEntry(),
   home,
   path: env.PATH ?? '',
-  user: env.USERDOMAIN ? `${env.USERDOMAIN}\\${userInfo().username}` : userInfo().username,
 });
 
 /** Each platform's definition: where it lives, how it is written and read back, and in which encoding. */
@@ -145,7 +144,9 @@ function renderPlist({ node, entry, home, path }: ServiceInputs): string {
  * BINNACLE_HOME and PATH, then runs the daemon with its output in the home's log. UTF-16 with its
  * byte order mark, as schtasks reads a task's XML.
  */
-function renderTask({ node, entry, home, path, user }: ServiceInputs): string {
+function renderTask({ node, entry, home, path }: ServiceInputs): string {
+  // The user whose logon starts it: naming one is what lets a user without administrator rights create the task.
+  const user = xml(process.env.USERDOMAIN ? `${process.env.USERDOMAIN}\\${userInfo().username}` : userInfo().username);
   // ponytail: no Windows path holds a quote, and quotes in PATH entries are dropped, which Windows ignores;
   // a `%NAME%` in a value is expanded by cmd, since its command line has no escape for it.
   const value = (text: string): string => text.replaceAll('"', '');
@@ -160,12 +161,12 @@ function renderTask({ node, entry, home, path, user }: ServiceInputs): string {
     '  <Triggers>',
     '    <LogonTrigger>',
     '      <Enabled>true</Enabled>',
-    `      <UserId>${xml(user)}</UserId>`,
+    `      <UserId>${user}</UserId>`,
     '    </LogonTrigger>',
     '  </Triggers>',
     '  <Principals>',
     '    <Principal id="Author">',
-    `      <UserId>${xml(user)}</UserId>`,
+    `      <UserId>${user}</UserId>`,
     '      <LogonType>InteractiveToken</LogonType>',
     '      <RunLevel>LeastPrivilege</RunLevel>',
     '    </Principal>',

@@ -30,15 +30,16 @@ function setup(t: TestContext, platform = 'linux') {
   const user = join(root, 'user');
   const bin = join(root, 'bin');
   const state = join(root, 'state');
-  const manager = ({ darwin: 'launchctl', win32: 'schtasks' } as Record<string, string>)[platform] ?? 'systemctl';
+  // Each platform's fake manager and where its definition goes; Linux's for a platform the CLI refuses.
+  const platforms: Record<string, { manager: string; unit: string; fake(log: string, unit: string): string }> = {
+    linux: { manager: 'systemctl', unit: join(user, '.config', 'systemd', 'user', 'binnacle.service'), fake: (log, unit) => fakeSystemctl(log, state, unit) },
+    darwin: { manager: 'launchctl', unit: join(user, 'Library', 'LaunchAgents', 'binnacle.plist'), fake: (log, unit) => fakeLaunchctl(log, state, unit) },
+    win32: { manager: 'schtasks', unit: join(user, 'AppData', 'Local', 'binnacle', 'binnacle.xml'), fake: (log) => fakeSchtasks(log, state) },
+  };
+  const { manager, unit, fake } = platforms[platform] ?? platforms.linux!;
   const log = join(root, `${manager}.log`);
-  const unit = {
-    darwin: join(user, 'Library', 'LaunchAgents', 'binnacle.plist'),
-    win32: join(user, 'AppData', 'Local', 'binnacle', 'binnacle.xml'),
-  }[platform] ?? join(user, '.config', 'systemd', 'user', 'binnacle.service');
   for (const dir of [user, bin, state]) mkdirSync(dir);
-  const fake = { launchctl: fakeLaunchctl(log, state, unit), schtasks: fakeSchtasks(log, state) }[manager] ?? fakeSystemctl(log, state, unit);
-  writeFileSync(join(bin, manager), fake, { mode: 0o755 });
+  writeFileSync(join(bin, manager), fake(log, unit), { mode: 0o755 });
 
   const env: NodeJS.ProcessEnv = { ...process.env, HOME: user, BINNACLE_HOME: home, BINNACLE_PORT: '0', BINNACLE_SERVICE_PLATFORM: platform, PATH: bin };
   // Nothing here may reach this machine's own user manager or its configuration.
@@ -56,6 +57,7 @@ function setup(t: TestContext, platform = 'linux') {
   return {
     home,
     bin,
+    state,
     unit,
     binn: (...args: string[]) => spawnSync(process.execPath, [BINN, ...args], { encoding: 'utf8', env }),
     calls: (): string[] => (existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n') : []),
@@ -581,7 +583,7 @@ test('Windows: with autostart on, start and stop go through schtasks, and stop t
   const start = binn('daemon', 'start');
   assert.equal(start.status, 0, start.stderr);
   assert.match(start.stdout, /started through the service manager/);
-  assert.deepEqual(calls().slice(before + 1), [`/Run ${TASK}`]);
+  assert.deepEqual(calls().slice(before + 1), [`/Query ${TASK}`, `/Run ${TASK}`]);
 
   const runtime = readRuntime(home);
   assert.ok(runtime && isAlive(runtime.pid));
@@ -601,6 +603,20 @@ test('Windows: start recreates a task whose Node path no longer exists, then run
   assert.equal(start.status, 0, start.stderr);
   assert.match(start.stdout, /Rewrote .*binnacle\.xml with the current paths/);
   assert.ok(xmlOf(unit).includes(`"${process.execPath}"`));
-  assert.deepEqual(calls().slice(before), [`/Create ${TASK} /XML ${unit} /F`, `/Run ${TASK}`]);
+  assert.deepEqual(calls().slice(before), [`/Create ${TASK} /XML ${unit} /F`, `/Query ${TASK}`, `/Run ${TASK}`]);
+  assert.equal(readRuntime(home)?.pid, supervised());
+});
+
+test('Windows: start creates the task again when it was deleted by hand, its XML left behind', (t) => {
+  const { binn, unit, calls, set, supervised, home, state } = setup(t, 'win32');
+  set('runs');
+  assert.equal(binn('daemon', 'autostart', 'on').status, 0);
+  assert.equal(binn('daemon', 'stop').status, 0);
+  rmSync(join(state, 'task.xml'));
+
+  const before = calls().length;
+  const start = binn('daemon', 'start');
+  assert.equal(start.status, 0, start.stderr);
+  assert.deepEqual(calls().slice(before), [`/Query ${TASK}`, `/Create ${TASK} /XML ${unit} /F`, `/Run ${TASK}`]);
   assert.equal(readRuntime(home)?.pid, supervised());
 });
