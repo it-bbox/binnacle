@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test, type TestContext } from 'node:test';
 import { isAlive, readRuntime } from '@binnacle/daemon';
+import { fakeLaunchctl } from './fake-launchctl.ts';
 import { fakeSystemctl } from './fake-systemctl.ts';
 
 const BINN = fileURLToPath(new URL('../src/bin.ts', import.meta.url));
@@ -28,10 +29,12 @@ function setup(t: TestContext, platform = 'linux') {
   const user = join(root, 'user');
   const bin = join(root, 'bin');
   const state = join(root, 'state');
-  const log = join(root, 'systemctl.log');
-  const unit = join(user, '.config', 'systemd', 'user', 'binnacle.service');
+  const darwin = platform === 'darwin';
+  const log = join(root, darwin ? 'launchctl.log' : 'systemctl.log');
+  const unit = darwin ? join(user, 'Library', 'LaunchAgents', 'binnacle.plist') : join(user, '.config', 'systemd', 'user', 'binnacle.service');
   for (const dir of [user, bin, state]) mkdirSync(dir);
-  writeFileSync(join(bin, 'systemctl'), fakeSystemctl(log, state, unit), { mode: 0o755 });
+  if (darwin) writeFileSync(join(bin, 'launchctl'), fakeLaunchctl(log, state, unit), { mode: 0o755 });
+  else writeFileSync(join(bin, 'systemctl'), fakeSystemctl(log, state, unit), { mode: 0o755 });
 
   const env: NodeJS.ProcessEnv = { ...process.env, HOME: user, BINNACLE_HOME: home, BINNACLE_PORT: '0', BINNACLE_SERVICE_PLATFORM: platform, PATH: bin };
   // Nothing here may reach this machine's own user manager or its configuration.
@@ -208,10 +211,10 @@ test('autostart on rewrites a unit whose paths changed, and says so', (t) => {
 });
 
 test('the platform variable selects the platform', (t) => {
-  const { binn, calls } = setup(t, 'darwin');
+  const { binn, calls } = setup(t, 'win32');
   const on = binn('daemon', 'autostart', 'on');
   assert.equal(on.status, 3);
-  assert.match(on.stderr, /not available on darwin yet/);
+  assert.match(on.stderr, /not available on win32 yet/);
   assert.deepEqual(calls(), []);
 
   const bad = setup(t, 'plan9').binn('daemon', 'autostart');
@@ -334,4 +337,101 @@ test('status says autostart is on, off, or broken with the command that repairs 
   writeFileSync(unit, readFileSync(unit, 'utf8').replace(`"${process.execPath}"`, '"/nowhere/node"'));
   const broken = binn('daemon', 'status');
   assert.match(broken.stdout, /Autostart is broken for .*\/nowhere\/node no longer exists.*binn daemon autostart on/s);
+});
+
+// macOS: a LaunchAgent, loaded into and removed from the user's GUI domain.
+const GUI = `gui/${process.getuid?.()}`;
+
+test('macOS: autostart on writes the property list and loads it into the GUI domain', (t) => {
+  const { binn, unit, calls, home, bin } = setup(t, 'darwin');
+
+  const on = binn('daemon', 'autostart', 'on');
+  assert.equal(on.status, 0, on.stderr);
+  assert.match(on.stdout, /Autostart is on/);
+
+  const text = readFileSync(unit, 'utf8');
+  assert.match(text, /Written by binn daemon autostart/);
+  assert.match(text, /<key>Label<\/key>\s*<string>binnacle<\/string>/);
+  assert.ok(text.includes(`<array>\n    <string>${process.execPath}</string>\n    <string>${DAEMON_ENTRY}</string>\n  </array>`), text);
+  assert.ok(text.includes(`<key>BINNACLE_HOME</key>\n    <string>${home}</string>`), text);
+  assert.ok(text.includes(`<key>PATH</key>\n    <string>${bin}</string>`), text);
+  assert.match(text, /<key>RunAtLoad<\/key>\s*<true\/>/);
+  assert.match(text, /<key>KeepAlive<\/key>\s*<dict>\s*<key>SuccessfulExit<\/key>\s*<false\/>/);
+  assert.deepEqual(calls(), [`print ${GUI}/binnacle`, `bootstrap ${GUI} ${unit}`]);
+
+  const state = binn('daemon', 'autostart');
+  assert.match(state.stdout, new RegExp(`Autostart is on for ${home} \\(darwin`));
+
+  const before = calls().length;
+  const again = binn('daemon', 'autostart', 'on');
+  assert.equal(again.status, 0, again.stderr);
+  assert.match(again.stdout, /already on.*nothing changed/);
+  assert.deepEqual(calls().slice(before), [`print ${GUI}/binnacle`]);
+});
+
+test('macOS: autostart off boots the service out and removes the property list, and again says nothing changed', (t) => {
+  const { binn, unit, calls } = setup(t, 'darwin');
+  assert.equal(binn('daemon', 'autostart', 'on').status, 0);
+
+  const before = calls().length;
+  const off = binn('daemon', 'autostart', 'off');
+  assert.equal(off.status, 0, off.stderr);
+  assert.match(off.stdout, /Autostart is off/);
+  assert.equal(existsSync(unit), false);
+  assert.deepEqual(calls().slice(before), [`print ${GUI}/binnacle`, `bootout ${GUI}/binnacle`]);
+
+  const after = calls().length;
+  const again = binn('daemon', 'autostart', 'off');
+  assert.equal(again.status, 0, again.stderr);
+  assert.match(again.stdout, /already off.*nothing changed/);
+  assert.equal(calls().length, after);
+  assert.match(binn('daemon', 'autostart').stdout, /Autostart is off for .*\(darwin\).*binn daemon autostart on/);
+});
+
+test('macOS: a property list whose Node path no longer exists reads broken, and on reloads it with the current one', (t) => {
+  const { binn, unit, calls } = setup(t, 'darwin');
+  assert.equal(binn('daemon', 'autostart', 'on').status, 0);
+  writeFileSync(unit, readFileSync(unit, 'utf8').replace(`<string>${process.execPath}</string>`, '<string>/nowhere/node</string>'));
+  assert.match(binn('daemon', 'autostart').stdout, /Autostart is broken for .*\/nowhere\/node no longer exists.*binn daemon autostart on/s);
+
+  const before = calls().length;
+  const on = binn('daemon', 'autostart', 'on');
+  assert.equal(on.status, 0, on.stderr);
+  assert.match(on.stdout, /Rewrote .*binnacle\.plist with the current paths/);
+  assert.deepEqual(calls().slice(before), [`print ${GUI}/binnacle`, `bootout ${GUI}/binnacle`, `bootstrap ${GUI} ${unit}`]);
+  assert.match(binn('daemon', 'autostart').stdout, /Autostart is on/);
+});
+
+test('macOS: a refusal of launchctl is reported with its message', (t) => {
+  const { binn, set } = setup(t, 'darwin');
+  set('refuse');
+
+  const on = binn('daemon', 'autostart', 'on');
+  assert.equal(on.status, 3);
+  assert.match(on.stderr, /launchctl bootstrap gui\/\d+ .*binnacle\.plist failed: Bootstrap failed: 5: Input\/output error/);
+});
+
+test('macOS: with autostart on, start and stop go through launchctl, and stop then start leaves one daemon', (t) => {
+  const { binn, calls, set, supervised, home, unit } = setup(t, 'darwin');
+  set('runs');
+  assert.equal(binn('daemon', 'autostart', 'on').status, 0);
+  const first = supervised();
+  assert.ok(first && isAlive(first));
+
+  const before = calls().length;
+  const stop = binn('daemon', 'stop');
+  assert.equal(stop.status, 0, stop.stderr);
+  assert.match(stop.stdout, /stopped through the service manager/);
+  assert.equal(isAlive(first), false);
+  assert.deepEqual(calls().slice(before), [`print ${GUI}/binnacle`, `bootout ${GUI}/binnacle`]);
+
+  const start = binn('daemon', 'start');
+  assert.equal(start.status, 0, start.stderr);
+  assert.match(start.stdout, /started through the service manager/);
+  assert.deepEqual(calls().slice(before + 2), [`print ${GUI}/binnacle`, `bootstrap ${GUI} ${unit}`]);
+
+  const runtime = readRuntime(home);
+  assert.ok(runtime && isAlive(runtime.pid));
+  assert.equal(runtime.pid, supervised());
+  assert.notEqual(runtime.pid, first);
 });

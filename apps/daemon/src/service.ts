@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { resolveHome } from './home.ts';
+import { logPath, resolveHome } from './home.ts';
 
 /**
  * Autostart (ADR-0043): the user's own service manager starting the daemon at login. This
@@ -15,8 +15,8 @@ export const SERVICE_NAME = 'binnacle';
 export type ServicePlatform = 'linux' | 'darwin' | 'win32';
 export type AutostartState = 'on' | 'off' | 'broken';
 
-/** The first line of every definition Binnacle writes: one without it, it did not. */
-export const SERVICE_MARK = '# Written by binn daemon autostart; it rewrites this file, so edit nothing here.';
+/** In a comment of every definition Binnacle writes: one without it, it did not. */
+const SERVICE_MARK = 'Written by binn daemon autostart; it rewrites this file, so edit nothing here.';
 
 /** The operating system's platform, unless `BINNACLE_SERVICE_PLATFORM` names another, so that tests exercise every platform anywhere. */
 export function servicePlatform(env: NodeJS.ProcessEnv = process.env): ServicePlatform {
@@ -43,15 +43,20 @@ export const serviceInputs = (home: string, env: NodeJS.ProcessEnv = process.env
 
 /** Where the definition lives, or null on a platform not supported yet. */
 export function definitionPath(platform: ServicePlatform, env: NodeJS.ProcessEnv = process.env): string | null {
+  if (platform === 'darwin') return join(homedir(), 'Library', 'LaunchAgents', `${SERVICE_NAME}.plist`);
   if (platform !== 'linux') return null;
   const config = env.XDG_CONFIG_HOME?.trim();
   return join(config ? config : join(homedir(), '.config'), 'systemd', 'user', `${SERVICE_NAME}.service`);
 }
 
+/** The definition for `platform`, rendered from the current inputs. */
+export const renderDefinition = (platform: ServicePlatform, inputs: ServiceInputs): string =>
+  platform === 'darwin' ? renderPlist(inputs) : renderUnit(inputs);
+
 /** The systemd user unit: the daemon in the foreground, restarted when it fails, started with the user's manager. */
-export function renderUnit({ node, entry, home, path }: ServiceInputs): string {
+function renderUnit({ node, entry, home, path }: ServiceInputs): string {
   return [
-    SERVICE_MARK,
+    `# ${SERVICE_MARK}`,
     '[Unit]',
     'Description=Binnacle daemon',
     '',
@@ -67,10 +72,53 @@ export function renderUnit({ node, entry, home, path }: ServiceInputs): string {
   ].join('\n');
 }
 
+/**
+ * The LaunchAgent: the daemon run at load, kept alive when it exits unsuccessfully, its output in
+ * the home's log, since launchd keeps none.
+ */
+function renderPlist({ node, entry, home, path }: ServiceInputs): string {
+  const string = (value: string): string => `<string>${xml(value)}</string>`;
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+    `<!-- ${SERVICE_MARK} -->`,
+    '<plist version="1.0">',
+    '<dict>',
+    '  <key>Label</key>',
+    `  ${string(SERVICE_NAME)}`,
+    '  <key>ProgramArguments</key>',
+    '  <array>',
+    `    ${string(node)}`,
+    `    ${string(entry)}`,
+    '  </array>',
+    '  <key>EnvironmentVariables</key>',
+    '  <dict>',
+    '    <key>BINNACLE_HOME</key>',
+    `    ${string(home)}`,
+    '    <key>PATH</key>',
+    `    ${string(path)}`,
+    '  </dict>',
+    '  <key>RunAtLoad</key>',
+    '  <true/>',
+    '  <key>KeepAlive</key>',
+    '  <dict>',
+    '    <key>SuccessfulExit</key>',
+    '    <false/>',
+    '  </dict>',
+    '  <key>StandardOutPath</key>',
+    `  ${string(logPath(home))}`,
+    '  <key>StandardErrorPath</key>',
+    `  ${string(logPath(home))}`,
+    '</dict>',
+    '</plist>',
+    '',
+  ].join('\n');
+}
+
 /** The installed definition, read back: whether Binnacle wrote it, what it starts, and for which home. */
 export type InstalledService = { text: string; ours: boolean; node: string | null; entry: string | null; home: string };
 
-export function readInstalled(path: string): InstalledService | null {
+export function readInstalled(platform: ServicePlatform, path: string): InstalledService | null {
   let text: string;
   try {
     text = readFileSync(path, 'utf8');
@@ -78,13 +126,26 @@ export function readInstalled(path: string): InstalledService | null {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
     throw error;
   }
-  const value = (key: string): string | undefined => text.match(new RegExp(`^${key}=(.*)$`, 'm'))?.[1];
-  const [node = null, entry = null] = words(value('ExecStart') ?? '', true);
-  // A unit written by hand may name no home: the daemon then serves the default one.
+  const { node, entry, named } = platform === 'darwin' ? readPlist(text) : readUnit(text);
+  // A definition written by hand may name no home: the daemon then serves the default one.
+  const home = named ? resolve(named) : resolveHome({});
+  return { text, ours: text.includes(SERVICE_MARK), node, entry, home };
+}
+
+type Read = { node: string | null; entry: string | null; named: string | undefined };
+
+function readUnit(text: string): Read {
+  const [node = null, entry = null] = words(text.match(/^ExecStart=(.*)$/m)?.[1] ?? '', true);
   const environment = [...text.matchAll(/^Environment=(.*)$/gm)].flatMap(([, line]) => words(line ?? ''));
   const named = environment.find((pair) => pair.startsWith('BINNACLE_HOME='))?.slice('BINNACLE_HOME='.length);
-  const home = named ? resolve(named) : resolveHome({});
-  return { text, ours: text.startsWith(SERVICE_MARK), node, entry, home };
+  return { node, entry, named };
+}
+
+function readPlist(text: string): Read {
+  const args = text.match(/<key>ProgramArguments<\/key>\s*<array>([\s\S]*?)<\/array>/)?.[1] ?? '';
+  const [node = null, entry = null] = [...args.matchAll(/<string>([^<]*)<\/string>/g)].map(([, value]) => unxml(value ?? ''));
+  const named = text.match(/<key>BINNACLE_HOME<\/key>\s*<string>([^<]*)<\/string>/)?.[1];
+  return { node, entry, named: named === undefined ? undefined : unxml(named) };
 }
 
 export type Autostart = {
@@ -104,10 +165,10 @@ export type Autostart = {
 export function readAutostart(home: string, env: NodeJS.ProcessEnv = process.env): Autostart {
   const platform = servicePlatform(env);
   const path = definitionPath(platform, env);
-  const installed = path ? readInstalled(path) : null;
+  const installed = path ? readInstalled(platform, path) : null;
   const off: Autostart = { state: 'off', platform, home, path, serves: installed?.home ?? null, missing: [] };
   if (!installed || installed.home !== home) return off;
-  const missing = [installed.node, installed.entry].map((file) => file ?? '(no ExecStart)').filter((file) => !existsSync(file));
+  const missing = [installed.node, installed.entry].map((file) => file ?? '(no command)').filter((file) => !existsSync(file));
   return { ...off, state: missing.length > 0 ? 'broken' : 'on', missing };
 }
 
@@ -136,6 +197,10 @@ function quote(value: string, command = false): string {
   if (command) escaped = escaped.replaceAll('$', '$$$$');
   return `"${escaped}"`;
 }
+
+const xml = (value: string): string => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+const unxml = (value: string): string =>
+  value.replace(/&(lt|gt|quot|apos|amp);/g, (_, name: string) => ({ lt: '<', gt: '>', quot: '"', apos: "'", amp: '&' })[name] ?? '');
 
 /** A systemd line's words, as `quote` writes them or as a human writes them unquoted. */
 function words(line: string, command = false): string[] {

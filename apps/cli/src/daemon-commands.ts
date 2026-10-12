@@ -11,7 +11,7 @@ import {
   readInstalled,
   readRuntime,
   removeRuntime,
-  renderUnit,
+  renderDefinition,
   runManager,
   serviceInputs,
   servicePlatform,
@@ -34,7 +34,7 @@ const STOP_TIMEOUT_MS = 10_000;
 export async function start(home: string): Promise<ExitCode> {
   ensureHome(home);
   const service = serviceFor(home);
-  if (service && rewriteUnit(home, service) && !systemctlAll(['daemon-reload'])) return EXIT.failed;
+  if (service && rewriteDefinition(service) && !managerFor(service).reload()) return EXIT.failed;
 
   // A live pid is a running daemon, exactly as `binn daemon status` reads it. A slow
   // daemon must never look stale here: replacing its runtime file would orphan it and
@@ -46,7 +46,7 @@ export async function start(home: string): Promise<ExitCode> {
   }
   // Under the service it is left to the daemon, which replaces a stale file itself: a daemon the
   // manager restarted meanwhile may already have written its own, which removing would orphan.
-  if (service) return await startService(home);
+  if (service) return await startService(service);
   // Absent, or a runtime file whose pid is gone: stale, not a blocker.
   if (running) removeRuntime(home);
 
@@ -111,8 +111,9 @@ export async function stop(home: string): Promise<ExitCode> {
   const runtime = readRuntime(home);
   // Read before the manager stops it: a pid gone afterwards was the service's daemon, not a stale file.
   const alive = runtime !== null && isAlive(runtime.pid);
-  const supervised = serviceFor(home) !== null;
-  if (supervised && !systemctlAll(['stop', SERVICE_NAME])) return EXIT.failed;
+  const service = serviceFor(home);
+  const supervised = service !== null;
+  if (service && !managerFor(service).stop()) return EXIT.failed;
   if (!runtime) {
     console.log('Binnacle daemon is not running.');
     return EXIT.ok;
@@ -169,41 +170,98 @@ export async function autostart(home: string, action: 'on' | 'off' | undefined):
     console.error(`binn: autostart is not available on ${current.platform} yet.`);
     return EXIT.failed;
   }
-  return action === 'on' ? await autostartOn(current, current.path) : await autostartOff(current);
+  const service = { ...current, path: current.path };
+  return action === 'on' ? await autostartOn(service) : await autostartOff(service);
 }
 
-const systemctl = (...args: string[]) => runManager('systemctl', ['--user', ...args]);
+/** Autostart where the platform has a definition, so a path. */
+type Service = Autostart & { path: string };
 
-/** Runs each manager call in turn, stopping at the first refusal, which it reports as the manager printed it. */
-function systemctlAll(...calls: string[][]): boolean {
+/** One platform's service manager: each step a sequence of calls that reports the first refusal. */
+type Manager = {
+  /** Why autostart cannot be turned on here, or null when it can. */
+  unavailable(): string | null;
+  /** Registered and running, so that `on` has nothing to do once the definition is current. */
+  isOn(): boolean;
+  /** What makes the manager read a rewritten definition. */
+  reload(): boolean;
+  /** Registers the written definition and (re)starts the daemon under it. */
+  on(): boolean;
+  /** Stops the daemon, unregisters the service and removes its definition. */
+  off(): boolean;
+  start(): boolean;
+  stop(): boolean;
+  /** Where to look when the daemon does not answer. */
+  output: string;
+};
+
+/** Runs each call in turn, stopping at the first refusal, which it reports as the manager printed it. */
+function runAll(command: string, ...calls: string[][]): boolean {
   for (const args of calls) {
-    const result = systemctl(...args);
+    const result = runManager(command, args);
     if (!result.ok) {
-      console.error(`binn: systemctl --user ${args.join(' ')} failed: ${result.message}`);
+      console.error(`binn: ${command} ${args.join(' ')} failed: ${result.message}`);
       return false;
     }
   }
   return true;
 }
 
-/** Why autostart cannot be turned on here, or null when it can: a platform not supported yet, or no systemd user manager. */
-export function autostartUnavailable({ platform, path }: Autostart): string | null {
-  if (path === null) return `${platform} is not supported yet`;
-  const manager = systemctl('show-environment');
-  return manager.ok ? null : `no systemd user manager answers (${manager.message})`;
+function managerFor({ platform, path, home }: Service): Manager {
+  if (platform === 'darwin') {
+    // The user's GUI domain, where a LaunchAgent runs; bootstrap starts it, the definition saying RunAtLoad.
+    const domain = `gui/${process.getuid?.() ?? 0}`;
+    const target = `${domain}/${SERVICE_NAME}`;
+    const loaded = () => runManager('launchctl', ['print', target]).ok;
+    const unload = () => !loaded() || runAll('launchctl', ['bootout', target]);
+    // Out first: launchd keeps the definition it loaded, and refuses to bootstrap a loaded one.
+    const load = () => unload() && runAll('launchctl', ['bootstrap', domain, path]);
+    return {
+      unavailable: () => null,
+      isOn: loaded,
+      reload: () => true,
+      on: load,
+      off: () => unload() && (rmSync(path, { force: true }), true),
+      start: load,
+      stop: unload,
+      output: `${logPath(home)} holds its output.`,
+    };
+  }
+  const user = (...args: string[]) => ['--user', ...args];
+  const systemctl = (...calls: string[][]) => runAll('systemctl', ...calls.map((args) => user(...args)));
+  return {
+    unavailable() {
+      const manager = runManager('systemctl', user('show-environment'));
+      return manager.ok ? null : `no systemd user manager answers (${manager.message})`;
+    },
+    isOn: () => runManager('systemctl', user('is-enabled', SERVICE_NAME)).ok && runManager('systemctl', user('is-active', SERVICE_NAME)).ok,
+    reload: () => systemctl(['daemon-reload']),
+    // `restart`, not `enable --now`: a service already running under the old definition must pick up the new one.
+    on: () => systemctl(['daemon-reload'], ['enable', SERVICE_NAME], ['restart', SERVICE_NAME]),
+    off: () => systemctl(['disable', '--now', SERVICE_NAME]) && (rmSync(path, { force: true }), systemctl(['daemon-reload'])),
+    start: () => systemctl(['start', SERVICE_NAME]),
+    stop: () => systemctl(['stop', SERVICE_NAME]),
+    output: `\`journalctl --user -u ${SERVICE_NAME}\` shows its output.`,
+  };
 }
 
-async function autostartOn(current: Autostart, path: string): Promise<ExitCode> {
-  const { home } = current;
+/** Why autostart cannot be turned on here, or null when it can: a platform not supported yet, or no manager answering. */
+export function autostartUnavailable(current: Autostart): string | null {
+  if (current.path === null) return `${current.platform} is not supported yet`;
+  return managerFor({ ...current, path: current.path }).unavailable();
+}
+
+async function autostartOn(current: Service): Promise<ExitCode> {
+  const { home, path } = current;
   const unavailable = autostartUnavailable(current);
   if (unavailable) {
     console.error(`binn: autostart is not available here: ${unavailable}. Nothing was changed.`);
     return EXIT.failed;
   }
 
-  const unit = renderUnit(serviceInputs(home));
-  const installed = readInstalled(path);
-  if (installed?.text === unit && systemctl('is-enabled', SERVICE_NAME).ok && systemctl('is-active', SERVICE_NAME).ok) {
+  const manager = managerFor(current);
+  const installed = readInstalled(current.platform, path);
+  if (installed?.text === renderDefinition(current.platform, serviceInputs(home)) && manager.isOn()) {
     console.log(`Autostart is already on for ${home}; nothing changed.`);
     return EXIT.ok;
   }
@@ -215,10 +273,9 @@ async function autostartOn(current: Autostart, path: string): Promise<ExitCode> 
     if (stopped !== EXIT.ok) return stopped;
   }
 
-  rewriteUnit(home, path, installed);
+  rewriteDefinition(current, installed);
 
-  // `restart`, not `enable --now`: a service already running under the old definition must pick up the new one.
-  if (!systemctlAll(['daemon-reload'], ['enable', SERVICE_NAME], ['restart', SERVICE_NAME])) {
+  if (!manager.on()) {
     console.error(`binn: ${path} is written but autostart may not be on; \`binn daemon autostart off\` removes it.`);
     return EXIT.failed;
   }
@@ -227,15 +284,14 @@ async function autostartOn(current: Autostart, path: string): Promise<ExitCode> 
 }
 
 /** Off for this home only: a service that starts another home's daemon, such as the owner's seen from an agent's temporary home, is left alone. */
-async function autostartOff({ home, path, serves }: Autostart): Promise<ExitCode> {
-  if (serves !== home || path === null) {
+async function autostartOff(current: Service): Promise<ExitCode> {
+  const { home, path, serves } = current;
+  if (serves !== home) {
     const other = serves ? ` The service starts the daemon for ${serves}, and stays.` : '';
     console.log(`Autostart is already off for ${home}; nothing changed.${other}`);
     return EXIT.ok;
   }
-  if (!systemctlAll(['disable', '--now', SERVICE_NAME])) return EXIT.failed;
-  rmSync(path, { force: true });
-  if (!systemctlAll(['daemon-reload'])) return EXIT.failed;
+  if (!managerFor(current).off()) return EXIT.failed;
 
   // A daemon of this home started by hand while the service was on: off leaves none running.
   const running = readRuntime(home);
@@ -255,35 +311,36 @@ function describeAutostart({ state, platform, home, path, serves, missing }: Aut
   return `Autostart is off for ${home} (${platform}).${other} Turn it on with \`${AUTOSTART_ON}\`.`;
 }
 
-/** The definition's path when autostart is on, or broken, for this home: then start and stop go through the manager. Anything unreadable leaves them as they were. */
-function serviceFor(home: string): string | null {
+/** The service when autostart is on, or broken, for this home: then start and stop go through the manager. Anything unreadable leaves them as they were. */
+function serviceFor(home: string): Service | null {
   try {
     const current = readAutostart(home);
-    return current.state === 'off' ? null : current.path;
+    return current.state === 'off' || current.path === null ? null : { ...current, path: current.path };
   } catch {
     return null;
   }
 }
 
 /** Writes the definition with the current paths when the installed one differs, saying what it replaced; true when it wrote. */
-function rewriteUnit(home: string, path: string, installed = readInstalled(path)): boolean {
-  const unit = renderUnit(serviceInputs(home));
-  if (installed?.text === unit) return false;
+function rewriteDefinition({ platform, home, path }: Service, installed = readInstalled(platform, path)): boolean {
+  const definition = renderDefinition(platform, serviceInputs(home));
+  if (installed?.text === definition) return false;
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, unit);
+  writeFileSync(path, definition);
   if (installed && !installed.ours) console.error(`binn: warning: replaced ${path}, which Binnacle did not write.`);
   else if (installed && installed.home !== home) console.log(`Autostart moves from ${installed.home} to ${home}.`);
   else if (installed) console.log(`Rewrote ${path} with the current paths to Node, the daemon and PATH.`);
   return true;
 }
 
-async function startService(home: string): Promise<ExitCode> {
-  if (!systemctlAll(['start', SERVICE_NAME])) return EXIT.failed;
+async function startService(service: Service): Promise<ExitCode> {
+  const manager = managerFor(service);
+  if (!manager.start()) return EXIT.failed;
   try {
-    report('Binnacle daemon started through the service manager.', await waitForStart(home));
+    report('Binnacle daemon started through the service manager.', await waitForStart(service.home));
     return EXIT.ok;
   } catch (error) {
-    console.error(`binn: ${(error as Error).message} \`journalctl --user -u ${SERVICE_NAME}\` shows its output.`);
+    console.error(`binn: ${(error as Error).message} ${manager.output}`);
     return EXIT.failed;
   }
 }
