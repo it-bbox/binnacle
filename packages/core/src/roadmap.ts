@@ -200,7 +200,7 @@ export function nextActionAttention(roadmap: Roadmap, tasks: TrackerTask[] | nul
  * The current epic: the first `in progress`, in the roadmap's order, and the first that is not
  * `done` only when none is in progress; null when there is no epic or every one is done.
  */
-export const currentEpic = (epics: Epic[]): Epic | null =>
+export const currentEpic = <E extends Epic>(epics: E[]): E | null =>
   epics.find((epic) => epic.status === 'in progress') ?? epics.find((epic) => epic.status !== 'done') ?? null;
 
 /** The Suggested step's alternatives, at most this many. */

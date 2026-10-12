@@ -153,6 +153,7 @@ export const ru: Dictionary = {
   epics: 'Epics',
   epicColumn: 'Epic',
   status: 'Статус',
+  tasksColumn: 'Task',
   spec: 'Спецификация',
   roadmapReason: 'Причина — в пунктах внимания проекта:',
   tasksWithoutSpec: 'Task без спецификации',

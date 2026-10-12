@@ -109,6 +109,12 @@ export type CallerCheckout = {
   project: string;
 };
 
+/**
+ * An epic with its Tasks done out of all of them, `CANCELLED` left out: null without a spec,
+ * or when the Tasks cannot be read.
+ */
+export type EpicWithProgress = Epic & { progress: { done: number; all: number } | null };
+
 /** A section Binnacle cannot fill. It is present and says why, and is never filled with a guess (ADR-0007). */
 export type Unavailable = { available: false; reason: string };
 
@@ -119,9 +125,9 @@ export type Snapshot = {
   git: GitFacts;
   /** Null when there is no roadmap to read: without a readable manifest, or with a diagnostic. */
   roadmap: {
-    epics: Epic[];
+    epics: EpicWithProgress[];
     /** The current epic, as `currentEpic` reads it. */
-    current: Epic | null;
+    current: EpicWithProgress | null;
     /** `## Current focus` as written, cut at `FOCUS_LIMIT`; `truncated` says whether it was. */
     focus: { text: string; truncated: boolean } | null;
     /** Every other `##` section, by heading only. */
@@ -214,12 +220,16 @@ export async function snapshot(
   const impact = listed && (await impactSection(projected.row.path, graph.graph, listed.inFlightAndReady, projected.manifest?.tracker.provider !== 'local'));
   const sections = listed && impact && questions && withStartAndParallel(listed, workflow, limit.parallel, impact, questions);
   const action = nextAction(roadmap?.focus ?? null);
+  const epics = roadmap && roadmap.epics.map((epic): EpicWithProgress => {
+    const own = tasks && epic.spec !== null ? tasks.filter((task) => task.specSlug === epic.spec && task.state !== 'CANCELLED') : null;
+    return { ...epic, progress: own && { done: own.filter((task) => task.state === 'DONE').length, all: own.length } };
+  });
 
   return {
     project: projected.row,
     checkout: caller.checkout,
     git: caller.git,
-    roadmap: roadmap && { ...roadmap, current: currentEpic(roadmap.epics), focus: roadmap.focus == null ? null : cut(roadmap.focus, FOCUS_LIMIT) },
+    roadmap: roadmap && epics && { ...roadmap, epics, current: currentEpic(epics), focus: roadmap.focus == null ? null : cut(roadmap.focus, FOCUS_LIMIT) },
     next: {
       action,
       alternatives:

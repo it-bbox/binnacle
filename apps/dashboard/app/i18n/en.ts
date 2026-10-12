@@ -167,6 +167,7 @@ export const en = {
   epics: 'Epics',
   epicColumn: 'Epic',
   status: 'Status',
+  tasksColumn: 'Tasks',
   spec: 'Spec',
   roadmapReason: "The project's attention says why:",
   tasksWithoutSpec: 'Tasks without a spec',

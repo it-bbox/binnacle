@@ -15,7 +15,7 @@ type SnapshotTask = {
   start: string | null;
 };
 type Section = { items: SnapshotTask[]; remainder: number };
-type Epic = { number: number; title: string; status: string; spec: string | null };
+type Epic = { number: number; title: string; status: string; spec: string | null; progress: { done: number; all: number } | null };
 type Unavailable = { available: false; reason: string };
 /** No `graphify` on the test daemon's search path, so no conflict risk is calculated. */
 const NO_GRAPH = { available: false, reason: "graphify is not on the daemon's PATH, so no graph is built or read." };
@@ -367,15 +367,18 @@ describe('the roadmap in the Product Snapshot', () => {
       });
       ticket(root, 'core', '01-store.md', { title: '01: Store', status: 'DONE' });
       ticket(root, 'snapshot', '01-tasks.md', { title: '01: Tasks', status: 'ACTIVE' });
+      ticket(root, 'snapshot', '02-roadmap.md', { title: '02: Roadmap', status: 'DONE' });
+      ticket(root, 'snapshot', '03-dropped.md', { title: '03: Dropped', status: 'CANCELLED' });
 
       const body = await snapshot(daemon, root);
+      // Each epic's Tasks done out of all of them, `CANCELLED` left out, and none without a spec.
       assert.deepEqual(body.roadmap, {
         epics: [
-          { number: 1, title: 'Core and persistence', status: 'done', spec: 'core' },
-          { number: 2, title: 'MCP and Product Snapshot', status: 'in progress', spec: 'snapshot' },
-          { number: 3, title: 'Telemetry', status: 'not started', spec: null },
+          { number: 1, title: 'Core and persistence', status: 'done', spec: 'core', progress: { done: 1, all: 1 } },
+          { number: 2, title: 'MCP and Product Snapshot', status: 'in progress', spec: 'snapshot', progress: { done: 1, all: 2 } },
+          { number: 3, title: 'Telemetry', status: 'not started', spec: null, progress: null },
         ],
-        current: { number: 2, title: 'MCP and Product Snapshot', status: 'in progress', spec: 'snapshot' },
+        current: { number: 2, title: 'MCP and Product Snapshot', status: 'in progress', spec: 'snapshot', progress: { done: 1, all: 2 } },
         focus: { text: 'Tickets 01 and 02 are done.\n\nNext action: implement ticket 03. `/binnacle:autopilot`', truncated: false },
         sections: ['v1', 'Later', 'Keeping this current'],
       });

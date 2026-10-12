@@ -8,6 +8,8 @@ import type { SnapshotUsage } from './usage';
 export type ProjectRow = { id: string | null; name: string | null; path: string; unavailable: string | null };
 
 export type Epic = { number: number; title: string; status: string; spec: string | null };
+/** An epic as the snapshot lists it: with its Tasks done out of all, `CANCELLED` left out; null without a spec or when the Tasks cannot be read. */
+export type EpicWithProgress = Epic & { progress: { done: number; all: number } | null };
 
 type GitFacts =
   | { available: true; branch: string | null; detached: boolean; commit: string | null; dirty: boolean }
@@ -68,7 +70,7 @@ export type GraphSection = {
 export type Snapshot = {
   git: GitFacts;
   /** `current` is the current epic as the daemon names it (`docs/04-telemetry-dashboard.md`). */
-  roadmap: { epics: Epic[]; current: Epic | null } | null;
+  roadmap: { epics: EpicWithProgress[]; current: EpicWithProgress | null } | null;
   next: { action: { description: string; command: string } | null; alternatives: Alternative[] | Unavailable };
   tasks: {
     inFlight: Section<SnapshotTask>;

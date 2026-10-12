@@ -415,7 +415,7 @@ describe('the roadmap on a remote tracker', () => {
 
       type Snapshot = { roadmap: { epics: unknown[] } | null; tasks: unknown; attention: Daily['attention'] };
       const snapshot = (await daemon.call<Snapshot>('project.snapshot', { path: root })).body;
-      assert.deepEqual(snapshot.roadmap?.epics, [{ number: 1, title: 'First epic', status: 'tickets', spec: 'first' }]);
+      assert.deepEqual(snapshot.roadmap?.epics, [{ number: 1, title: 'First epic', status: 'tickets', spec: 'first', progress: null }]);
       assert.equal(snapshot.tasks, null);
       assert.deepEqual(snapshot.attention.map((item) => item.code), ['tracker.unavailable']);
 

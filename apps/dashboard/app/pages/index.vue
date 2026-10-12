@@ -2,13 +2,14 @@
 import { call, usePolling } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
 import { pairReason } from '~/i18n';
-import { count, isUnavailable, SELECTED_VIEW, type Alternative, type Board, type ConflictRisk } from '~/composables/projects';
+import { count, isUnavailable, SELECTED_VIEW, statusBadge, type Alternative, type Board, type ConflictRisk } from '~/composables/projects';
 import type { Totals } from '~/composables/usage';
 
 /**
- * The selected project's Overview: what's next, the epic's progress, Ready to start with the
- * conflict risk beside the parallel limit, what is running, attention and a line of usage. The snapshot is the shell's; the current epic's board
- * is polled here for its progress and its Tasks waiting on an Unmet dependency.
+ * The selected project's Overview: what's next, the epics' progress, Ready to start with the
+ * conflict risk beside the parallel limit, what is running, attention and a line of usage. The
+ * snapshot is the shell's, each epic with its count; the current epic's board is polled here for
+ * its Tasks waiting on an Unmet dependency.
  */
 const view = inject(SELECTED_VIEW, ref(null));
 const snapshot = computed(() => view.value?.snapshot ?? null);
@@ -56,20 +57,15 @@ const steps = computed(() => {
 });
 const current = computed(() => snapshot.value?.roadmap?.current ?? null);
 
-/** The current epic's Tasks done out of all of them, `CANCELLED` left out, as its board counts them. */
-const progress = computed(() => {
-  const value = board.data.value;
-  if (value === null || value.epic === null) return null;
-  const { backlog, ready, inProgress, done } = value.columns;
-  return { done: count(done), all: count(backlog) + count(ready) + count(inProgress) + count(done) + count(value.unknown) };
-});
+/** The current epic's Tasks done out of all of them, `CANCELLED` left out; null without a spec or readable Tasks. */
+const progress = computed(() => current.value?.progress ?? null);
 
 /** No Tasks in the project, or none in its current epic; the tracker's attention items say why, when it has any. */
 const noTasks = computed((): boolean => {
   const tasks = snapshot.value?.tasks;
   if (!tasks) return false;
   const all = count(tasks.inFlight) + count(tasks.readyToStart) + Object.values(tasks.counts).reduce((sum, value) => sum + value, 0);
-  return all === 0 || progress.value?.all === 0;
+  return all === 0 || (current.value !== null && (progress.value?.all ?? 0) === 0);
 });
 
 /** The current epic's `READY` Tasks that wait on an Unmet dependency. */
@@ -115,8 +111,8 @@ function outputTokens(totals: Totals): string {
     </p>
     <p v-else-if="view.failure" class="py-10 text-warning"><code>{{ view.failure.code }}</code> <span lang="en">{{ view.failure.message }}</span></p>
     <template v-else-if="snapshot">
-      <UCard :ui="{ root: 'rounded-[14px]', body: 'flex flex-col gap-6 px-10 pt-9 pb-8 sm:px-10 sm:pt-9 sm:pb-8' }">
-        <h1 class="text-2xl font-semibold tracking-tight text-highlighted">{{ t.whatsNext }}</h1>
+      <UCard :ui="{ root: 'rounded-[10px]', body: 'flex flex-col gap-3 px-3.5 py-3 sm:px-3.5 sm:py-3' }">
+        <h1 class="text-base font-semibold">{{ t.whatsNext }}</h1>
         <div v-if="snapshot.roadmap === null" class="flex flex-col gap-2.5">
           <div class="flex items-center gap-2">
             <UBadge :label="t.notAvailable" color="neutral" variant="outline" class="border-dashed" />
@@ -126,13 +122,13 @@ function outputTokens(totals: Totals): string {
             <DaemonReason :reason="item.message" /> <code class="text-dimmed">{{ item.code }}</code>
           </p>
         </div>
-        <div v-else class="flex flex-col gap-3.5">
+        <div v-else class="flex flex-col gap-2.5">
           <div class="flex flex-wrap items-center gap-2">
             <UBadge label="Next action" color="primary" variant="soft" />
             <span class="text-sm text-muted">{{ t.fromRoadmap }}</span>
           </div>
           <template v-if="snapshot.next.action">
-            <p class="max-w-[70ch] text-lg leading-normal whitespace-pre-wrap" lang="en">{{ snapshot.next.action.description }}</p>
+            <p class="max-w-[70ch] leading-normal whitespace-pre-wrap" lang="en">{{ snapshot.next.action.description }}</p>
             <CopyCommand :command="snapshot.next.action.command" primary />
           </template>
           <UAlert
@@ -151,21 +147,21 @@ function outputTokens(totals: Totals): string {
         </p>
         <div v-else-if="alternatives.length > 0" class="flex flex-col">
           <div class="mb-1.5 flex items-center gap-2.5">
-            <span class="text-base font-semibold text-muted">{{ t.or }}</span>
+            <span class="font-semibold text-muted">{{ t.or }}</span>
             <UBadge :label="t.calculation" color="neutral" variant="outline" icon="i-lucide-calculator" class="border-dashed" />
             <div class="h-px flex-1 bg-(--ui-border)" />
           </div>
           <div
             v-for="alternative in alternatives"
             :key="alternative.kind"
-            class="grid grid-cols-[28px_minmax(0,1fr)] gap-x-2.5 gap-y-1 border-t border-default py-3"
+            class="grid grid-cols-[28px_minmax(0,1fr)] gap-x-2.5 gap-y-1 border-t border-default py-2.5"
           >
             <div class="flex size-[26px] items-center justify-center rounded-[7px] bg-accented text-muted">
               <UIcon :name="ICONS[alternative.kind]" class="size-3.5" />
             </div>
             <div class="flex min-w-0 flex-col gap-2">
               <div class="flex flex-col gap-0.5">
-                <div class="text-base font-medium">{{ alternative.title }}</div>
+                <div class="font-medium">{{ alternative.title }}</div>
                 <div class="leading-snug text-muted">{{ alternative.reason }}</div>
               </div>
               <CopyCommand v-if="alternative.command !== null" :command="alternative.command" />
@@ -182,20 +178,44 @@ function outputTokens(totals: Totals): string {
           <p v-if="snapshot.roadmap === null" class="px-3.5 py-3 text-muted">
             <span class="font-medium text-default">{{ t.notAvailable }}</span> · {{ t.noRoadmap }}
           </p>
-          <div v-else class="flex flex-col gap-4 px-3.5 py-3">
-            <ol v-if="full && steps.length > 0" class="grid grid-cols-[repeat(auto-fit,minmax(3rem,1fr))] gap-x-1.5 gap-y-3">
-              <li v-for="{ epic, step } in steps" :key="epic.number" :title="`${epic.number} ${epic.title} · ${epic.status}`" class="flex min-w-0 flex-col gap-1.5" lang="en">
-                <div
-                  class="h-1 rounded-sm"
-                  :class="step === 'done' ? 'bg-(--ui-text-muted)' : step === 'current' ? 'bg-primary' : 'bg-accented'"
-                />
-                <div class="flex min-w-0 items-center gap-1.5">
-                  <UIcon v-if="step === 'done'" name="i-lucide-circle-check" class="size-3.5 flex-none text-muted" />
-                  <UIcon v-else-if="step === 'current'" name="i-lucide-circle-dot" class="size-3.5 flex-none text-primary" />
-                  <UIcon v-else name="i-lucide-circle-dashed" class="size-3.5 flex-none text-dimmed" />
-                  <span class="font-mono text-xs text-dimmed">{{ epic.number }}</span>
-                  <span class="truncate text-sm" :class="step === 'current' ? 'font-semibold' : step === 'later' ? 'text-dimmed' : ''">{{ epic.title }}</span>
-                </div>
+          <div v-else-if="full" class="overflow-auto">
+            <p v-if="steps.length === 0" class="px-3.5 py-3 text-muted">{{ t.noEpics }}</p>
+            <table v-else class="w-full border-collapse">
+              <thead>
+                <tr class="text-left text-sm text-muted">
+                  <th class="w-9 border-b border-default px-3.5 py-2 font-medium">#</th>
+                  <th class="border-b border-default px-3.5 py-2 font-medium">{{ t.epicColumn }}</th>
+                  <th class="border-b border-default px-3.5 py-2 font-medium">{{ t.status }}</th>
+                  <th class="border-b border-default px-3.5 py-2 font-medium">{{ t.tasksColumn }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="{ epic, step } in steps" :key="epic.number" :aria-current="step === 'current' ? 'step' : undefined" :class="{ 'bg-primary/10': step === 'current' }">
+                  <td class="border-b border-default px-3.5 py-2 font-mono text-sm text-dimmed">{{ epic.number }}</td>
+                  <td lang="en" class="border-b border-default px-3.5 py-2" :class="step === 'current' ? 'font-semibold' : step === 'later' ? 'text-muted' : ''">{{ epic.title }}</td>
+                  <td class="border-b border-default px-3.5 py-2">
+                    <UBadge :label="epic.status" v-bind="statusBadge(epic.status)" size="sm" lang="en" />
+                  </td>
+                  <td class="border-b border-default px-3.5 py-2 font-mono text-sm whitespace-nowrap text-muted">
+                    <span v-if="epic.progress === null" class="text-dimmed">—</span>
+                    <template v-else-if="epic.progress.all === 0">{{ t.noTasks }}</template>
+                    <template v-else>{{ t.tasksDone(number(epic.progress.done), number(epic.progress.all)) }}</template>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="flex flex-col gap-3 px-3.5 py-3">
+            <ol v-if="steps.length > 0" class="flex gap-1" lang="en">
+              <li
+                v-for="{ epic, step } in steps"
+                :key="epic.number"
+                :title="`${epic.number} ${epic.title} · ${epic.status}`"
+                :aria-current="step === 'current' ? 'step' : undefined"
+                class="flex min-w-0 flex-1 flex-col gap-1"
+              >
+                <div class="h-1 rounded-sm" :class="step === 'done' ? 'bg-(--ui-text-muted)' : step === 'current' ? 'bg-primary' : 'bg-accented'" />
+                <span class="font-mono text-xs" :class="step === 'current' ? 'font-semibold text-primary' : step === 'done' ? 'text-muted' : 'text-dimmed'">{{ epic.number }}</span>
               </li>
             </ol>
             <div class="flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
@@ -206,7 +226,7 @@ function outputTokens(totals: Totals): string {
               <template v-else>
                 <span class="font-medium" lang="en">{{ current.number }} {{ current.title }}</span>
                 <span v-if="snapshot.tasks === null" class="flex-1 text-muted">{{ t.notAvailable }} · {{ t.trackerUnreadable }}</span>
-                <USkeleton v-else-if="progress === null" class="h-1.5 min-w-20 flex-1" />
+                <span v-else-if="progress === null" class="flex-1 text-muted">{{ t.noSpecYet }}</span>
                 <span v-else-if="progress.all === 0" class="flex-1 text-muted">{{ t.noTasks }}</span>
                 <span v-else class="flex min-w-48 flex-1 items-center gap-3.5">
                   <UProgress :model-value="progress.done" :max="progress.all" size="sm" class="min-w-20 flex-1" />
