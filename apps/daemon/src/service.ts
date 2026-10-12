@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveHome } from './home.ts';
 
@@ -20,9 +20,12 @@ export const SERVICE_MARK = '# Written by binn daemon autostart; it rewrites thi
 
 /** The operating system's platform, unless `BINNACLE_SERVICE_PLATFORM` names another, so that tests exercise every platform anywhere. */
 export function servicePlatform(env: NodeJS.ProcessEnv = process.env): ServicePlatform {
-  const value = env.BINNACLE_SERVICE_PLATFORM?.trim() || process.platform;
+  const override = env.BINNACLE_SERVICE_PLATFORM?.trim();
+  const value = override || process.platform;
   if (value === 'linux' || value === 'darwin' || value === 'win32') return value;
-  throw new Error(`BINNACLE_SERVICE_PLATFORM must be linux, darwin or win32, got ${JSON.stringify(value)}`);
+  throw new Error(
+    override ? `BINNACLE_SERVICE_PLATFORM must be linux, darwin or win32, got ${JSON.stringify(override)}` : `autostart does not support ${value}`,
+  );
 }
 
 /** The daemon's entry, the one `binn daemon start` spawns. */
@@ -79,7 +82,8 @@ export function readInstalled(path: string): InstalledService | null {
   const [node = null, entry = null] = words(value('ExecStart') ?? '', true);
   // A unit written by hand may name no home: the daemon then serves the default one.
   const environment = [...text.matchAll(/^Environment=(.*)$/gm)].flatMap(([, line]) => words(line ?? ''));
-  const home = environment.find((pair) => pair.startsWith('BINNACLE_HOME='))?.slice('BINNACLE_HOME='.length) ?? resolveHome({});
+  const named = environment.find((pair) => pair.startsWith('BINNACLE_HOME='))?.slice('BINNACLE_HOME='.length);
+  const home = named ? resolve(named) : resolveHome({});
   return { text, ours: text.startsWith(SERVICE_MARK), node, entry, home };
 }
 
@@ -97,7 +101,7 @@ export type Autostart = {
 };
 
 /** On, off or broken for `home`: a service installed for another home is off for this one. */
-export function autostart(home: string, env: NodeJS.ProcessEnv = process.env): Autostart {
+export function readAutostart(home: string, env: NodeJS.ProcessEnv = process.env): Autostart {
   const platform = servicePlatform(env);
   const path = definitionPath(platform, env);
   const installed = path ? readInstalled(path) : null;
@@ -107,17 +111,17 @@ export function autostart(home: string, env: NodeJS.ProcessEnv = process.env): A
   return { ...off, state: missing.length > 0 ? 'broken' : 'on', missing };
 }
 
-export type ManagerResult = { ok: true; output: string } | { ok: false; missing: boolean; message: string };
+export type ManagerResult = { ok: true } | { ok: false; message: string };
 
-/** Runs the service manager once, synchronously; its output and its refusal, as it printed them. */
+/** Runs the service manager once, synchronously; a refusal carries what it printed. */
 export function runManager(command: string, args: string[]): ManagerResult {
   const result = spawnSync(command, args, { encoding: 'utf8' });
   if (result.error) {
     const missing = (result.error as NodeJS.ErrnoException).code === 'ENOENT';
-    return { ok: false, missing, message: missing ? `${command} was not found on PATH` : result.error.message };
+    return { ok: false, message: missing ? `${command} was not found on PATH` : result.error.message };
   }
-  if (result.status === 0) return { ok: true, output: result.stdout.trim() };
-  return { ok: false, missing: false, message: (result.stderr.trim() || result.stdout.trim() || `exit ${result.status ?? result.signal}`) };
+  if (result.status === 0) return { ok: true };
+  return { ok: false, message: result.stderr.trim() || result.stdout.trim() || `exit ${result.status ?? result.signal}` };
 }
 
 /**

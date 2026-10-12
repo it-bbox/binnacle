@@ -2,18 +2,19 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { closeSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
-  autostart as readAutostart,
   daemonEntry,
   ensureHome,
   isAlive,
   logPath,
   OWNER_ONLY_FILE,
+  readAutostart,
   readInstalled,
   readRuntime,
   removeRuntime,
   renderUnit,
   runManager,
   serviceInputs,
+  servicePlatform,
   SERVICE_NAME,
   type Autostart,
   type Runtime,
@@ -124,10 +125,16 @@ const AUTOSTART_ON = 'binn daemon autostart on';
 export async function autostart(home: string, action: 'on' | 'off' | undefined): Promise<ExitCode> {
   let current: Autostart;
   try {
-    current = readAutostart(home);
+    servicePlatform();
   } catch (error) {
     console.error(`binn: ${(error as Error).message}`);
     return EXIT.usage;
+  }
+  try {
+    current = readAutostart(home);
+  } catch (error) {
+    console.error(`binn: ${(error as Error).message}`);
+    return EXIT.failed;
   }
   if (action === undefined) {
     reportAutostart(current);
@@ -137,7 +144,7 @@ export async function autostart(home: string, action: 'on' | 'off' | undefined):
     console.error(`binn: autostart is not available on ${current.platform} yet.`);
     return EXIT.failed;
   }
-  return action === 'on' ? await autostartOn(home, current.path) : autostartOff(current.path);
+  return action === 'on' ? await autostartOn(home, current.path) : await autostartOff(current);
 }
 
 const systemctl = (...args: string[]) => runManager('systemctl', ['--user', ...args]);
@@ -179,6 +186,7 @@ async function autostartOn(home: string, path: string): Promise<ExitCode> {
   writeFileSync(path, unit);
   if (installed && !installed.ours) console.error(`binn: warning: replaced ${path}, which Binnacle did not write.`);
   else if (installed && installed.home !== home) console.log(`Autostart moves from ${installed.home} to ${home}.`);
+  else if (installed && installed.text !== unit) console.log(`Rewrote ${path} with the current paths to Node, the daemon and PATH.`);
 
   // `restart`, not `enable --now`: a service already running under the old definition must pick up the new one.
   if (!systemctlAll(['daemon-reload'], ['enable', SERVICE_NAME], ['restart', SERVICE_NAME])) {
@@ -189,16 +197,24 @@ async function autostartOn(home: string, path: string): Promise<ExitCode> {
   return EXIT.ok;
 }
 
-function autostartOff(path: string): ExitCode {
-  const installed = readInstalled(path);
-  if (!installed) {
-    console.log('Autostart is already off; nothing changed.');
+/** Off for this home only: a service that starts another home's daemon, such as the owner's seen from an agent's temporary home, is left alone. */
+async function autostartOff({ home, path, serves }: Autostart): Promise<ExitCode> {
+  if (serves !== home || path === null) {
+    const other = serves ? ` The service starts the daemon for ${serves}, and stays.` : '';
+    console.log(`Autostart is already off for ${home}; nothing changed.${other}`);
     return EXIT.ok;
   }
   if (!systemctlAll(['disable', '--now', SERVICE_NAME])) return EXIT.failed;
   rmSync(path, { force: true });
   if (!systemctlAll(['daemon-reload'])) return EXIT.failed;
-  console.log(`Autostart is off: the daemon it started for ${installed.home} is stopped and ${path} is removed.`);
+
+  // A daemon of this home started by hand while the service was on: off leaves none running.
+  const running = readRuntime(home);
+  if (running && isAlive(running.pid)) {
+    const stopped = await stop(home);
+    if (stopped !== EXIT.ok) return stopped;
+  }
+  console.log(`Autostart is off for ${home}: the service's daemon is stopped and ${path} is removed.`);
   return EXIT.ok;
 }
 

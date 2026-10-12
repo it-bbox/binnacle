@@ -178,6 +178,39 @@ test('autostart on replaces a running user-process daemon of the same home', (t)
   assert.equal(readRuntime(home), null);
 });
 
+test('autostart off from another home leaves the service alone, and off leaves no daemon of its own home', (t) => {
+  const { binn, unit, calls, env, home } = setup(t);
+  assert.equal(binn('daemon', 'autostart', 'on').status, 0);
+  const before = calls().length;
+
+  const other = spawnSync(process.execPath, [BINN, 'daemon', 'autostart', 'off'], { encoding: 'utf8', env: { ...env, BINNACLE_HOME: `${home}-agent` } });
+  assert.equal(other.status, 0, other.stderr);
+  assert.match(other.stdout, new RegExp(`already off for ${home}-agent; nothing changed\\. The service starts the daemon for ${home}, and stays`));
+  assert.ok(existsSync(unit));
+  assert.equal(calls().length, before);
+
+  // The fake manager starts nothing, so this daemon is a user process of the service's home.
+  assert.equal(binn('daemon', 'start').status, 0);
+  const runtime = readRuntime(home);
+  assert.ok(runtime && isAlive(runtime.pid));
+  const off = binn('daemon', 'autostart', 'off');
+  assert.equal(off.status, 0, off.stderr);
+  assert.equal(isAlive(runtime.pid), false);
+  assert.equal(existsSync(unit), false);
+});
+
+test('autostart on rewrites a unit whose paths changed, and says so', (t) => {
+  const { binn, unit } = setup(t);
+  assert.equal(binn('daemon', 'autostart', 'on').status, 0);
+  writeFileSync(unit, readFileSync(unit, 'utf8').replace(`"${process.execPath}"`, '"/nowhere/node"'));
+
+  const on = binn('daemon', 'autostart', 'on');
+  assert.equal(on.status, 0, on.stderr);
+  assert.match(on.stdout, /Rewrote .*binnacle\.service with the current paths/);
+  assert.ok(readFileSync(unit, 'utf8').includes(`"${process.execPath}"`));
+  assert.match(binn('daemon', 'autostart').stdout, /Autostart is on/);
+});
+
 test('the platform variable selects the platform', (t) => {
   const { binn, calls } = setup(t, 'darwin');
   const on = binn('daemon', 'autostart', 'on');

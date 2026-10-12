@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { closeSync, fstatSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync, writeSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import type { Diagnostic, TrackerProvider } from '@binnacle/core';
 
 /**
@@ -18,7 +18,8 @@ export const DEFAULT_PORT = 7717;
 
 export function resolveHome(env: NodeJS.ProcessEnv = process.env): string {
   const override = env.BINNACLE_HOME?.trim();
-  return override ? override : join(homedir(), '.binnacle');
+  // Absolute, so that a home is one string wherever it is written down, such as in the autostart service.
+  return override ? resolve(override) : join(homedir(), '.binnacle');
 }
 
 export function resolvePort(env: NodeJS.ProcessEnv = process.env): number {
