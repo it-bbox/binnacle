@@ -30,3 +30,7 @@ Kept:
 
 2. The folded strip is a plain card, not the shared widget frame: a 4.5rem strip has no room for a title or *Brief* / *Full*, and has one level.
 3. A title that picks nothing is dimmed, where the tabs dimmed the number: the column is where the epic is picked now.
+
+### After the owner's check, 2026-10-12
+
+The owner clicked epics and saw the board stay as it was. The owner's daemon takes 3 to 10 seconds to read another epic's board, and the page kept the old board, its header and its highlight until the answer came. Now the picked epic is read from the address: its row is highlighted and the board's header names it at once, and the old board gives way to the skeleton until the daemon answers. Checked in a browser: 150 ms after a click the header reads "7 Audit and adopt" over the skeleton. The fold button now stands before the column's title, as the owner asked.
