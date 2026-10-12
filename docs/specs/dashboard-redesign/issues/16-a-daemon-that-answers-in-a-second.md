@@ -16,7 +16,7 @@ Fix the first by mapping branches to Tasks once per Task list, with behaviour un
 - [x] The dashboard no longer computes every registered project's full snapshot every 15 seconds; the rail's dots, Projects and Attention stay right.
 - [x] Before and after, on a temporary daemon with the owner's five projects registered: CPU while idle with the dashboard open, `project.snapshot`, `usage.get` and `task.list` for this repository, recorded here.
 - [x] The docs say what changed where they describe it (`docs/04-telemetry-dashboard.md`, `docs/01-architecture.md`).
-- [ ] The owner restarts the daemon and switches the Project page's board in about a second.
+- [x] The owner restarts the daemon and switches the Project page's board in about a second.
 
 ## Comments
 
@@ -67,3 +67,5 @@ The owner found the daemon much quicker, but a page reload still took about seve
 | CPU, the dashboard open | 19% | 9% |
 
 Left as they are: a reload still starts about a hundred `git` processes, eleven of them `symbolic-ref` for this repository's default branch; and the first call after the daemon starts takes about 5 s, reading each Task branch's own commits once (`readOwnChangeTimes`), which is then kept.
+
+The owner, after restarting the daemon on these changes: accepted ("все принято").
