@@ -93,7 +93,7 @@ test('the roadmap checks reach an epic’s Tasks by spec slug, whatever their id
     task('later/01', null, 'READY'),
   ];
 
-  const attention = roadmapAttention(epics, tasks);
+  const attention = roadmapAttention(epics, tasks, []);
   assert.deepEqual(attention.map((item) => item.code), ['roadmap.status_mismatch']);
   assert.match(attention[0]!.message, /Epic 1 .*#7/);
 });

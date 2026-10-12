@@ -503,16 +503,16 @@ export async function readRoadmap(tree: Tree, manifest: ProjectManifest | null, 
 }
 
 /**
- * Every `<issues>/<slug>/spec.md` of the local tracker, the tracker's specs directory; none on
- * another tracker, whose tickets name no directory of specs.
+ * Every `<knowledge.specs>/<slug>/spec.md`: specs live in Git whatever the tracker (ADR-0017), and
+ * `knowledge.specs` is their directory, the local tracker's own. None when the project declares none.
  */
 async function readSpecs(tree: Tree, manifest: ProjectManifest | null): Promise<{ slug: string; path: string }[]> {
-  const issues = manifest?.tracker.provider === 'local' ? manifest.tracker.local.issues : null;
-  if (issues === null) return [];
-  const slugs = ((await tree.list(issues)) ?? []).filter((entry) => entry.directory).map((entry) => entry.name);
-  const hasSpec = async (slug: string): Promise<boolean> => ((await tree.list(posix.join(issues, slug))) ?? []).some((entry) => !entry.directory && entry.name === 'spec.md');
+  const dir = manifest?.knowledge.specs ?? null;
+  if (dir === null) return [];
+  const slugs = ((await tree.list(dir)) ?? []).filter((entry) => entry.directory).map((entry) => entry.name);
+  const hasSpec = async (slug: string): Promise<boolean> => ((await tree.list(posix.join(dir, slug))) ?? []).some((entry) => !entry.directory && entry.name === 'spec.md');
   const found = await Promise.all(slugs.map(hasSpec));
-  return slugs.filter((_, index) => found[index]).map((slug) => ({ slug, path: posix.join(issues, slug, 'spec.md') }));
+  return slugs.filter((_, index) => found[index]).map((slug) => ({ slug, path: posix.join(dir, slug, 'spec.md') }));
 }
 
 async function readAdrs(tree: Tree, manifest: ProjectManifest | null, attention: Diagnostic[]): Promise<State['adrs']> {

@@ -110,7 +110,7 @@ const finished = (task: TrackerTask): boolean => task.state === 'DONE' || task.s
  * Deterministic only. Nothing here judges how long something has taken or whether a
  * branch was merged; those checks produce false positives, and a noisy list gets ignored.
  */
-export function roadmapAttention(epics: Epic[], tasks: TrackerTask[], specs: { slug: string; path: string }[] = []): Diagnostic[] {
+export function roadmapAttention(epics: Epic[], tasks: TrackerTask[], specs: { slug: string; path: string }[]): Diagnostic[] {
   const attention: Diagnostic[] = [];
   const rank = (status: RoadmapStatus): number => ROADMAP_STATUSES.indexOf(status);
 

@@ -485,7 +485,10 @@ describe('the roadmap in the Product Snapshot', () => {
 
   it('reports a spec no roadmap row links, by its path, and a row without its spec link stays roadmap.spec_missing', async () => {
     await withDaemon(async (daemon) => {
-      const root = makeRepository({ roadmap: roadmapText([row(1, 'Linked', 'tickets', 'linked'), row(2, 'Specified without a link', 'spec', null)]) });
+      const root = makeRepository({
+        manifest: `${REPOSITORY_MANIFEST}  specs: docs/specs\n`,
+        roadmap: roadmapText([row(1, 'Linked', 'tickets', 'linked'), row(2, 'Specified without a link', 'spec', null)]),
+      });
       const spec = (slug: string): void => {
         mkdirSync(join(root, 'docs', 'specs', slug), { recursive: true });
         writeFileSync(join(root, 'docs', 'specs', slug, 'spec.md'), `# ${slug}\n`);
