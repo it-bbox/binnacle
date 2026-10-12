@@ -25,7 +25,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 13 | Human output | not started | — |
 | 14 | Skills in any harness | done | [`skills-in-any-harness`](specs/skills-in-any-harness/spec.md) |
 | 15 | Daemon autostart | not started | — |
-| 16 | Dashboard redesign | in progress | [`dashboard-redesign`](specs/dashboard-redesign/spec.md) |
+| 16 | Dashboard redesign | done | [`dashboard-redesign`](specs/dashboard-redesign/spec.md) |
 | 17 | Release: npm and open source | not started | — |
 | 18 | Lean flow | done | [`lean-flow`](specs/lean-flow/spec.md) |
 | 19 | Starting a project: new and existing | not started | — |
@@ -34,15 +34,15 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 ## Current focus
 
-Epics 1 to 11, 14 and 18 are done. On the evening of 2026-10-13 a video presents Binnacle, published to npm and open source (the owner, 2026-10-10).
+Epics 1 to 11, 14, 16 and 18 are done. On the evening of 2026-10-13 a video presents Binnacle, published to npm and open source (the owner, 2026-10-10).
 
-The owner's order, 2026-10-12: 16, closing at its exit demonstration; then 19, starting a new or an existing project with `/to-roadmap` and the planning chain (`docs/product-inbox.md`), the most important of what is left; then 15, 12 and 13 by importance; 17, npm and open source under Apache-2.0 (`ADR-0010`, `ADR-0031`), at the release. Whatever is not done by then continues after it, in open source. Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own.
+The owner's order, 2026-10-12: 19, starting a new or an existing project with `/to-roadmap` and the planning chain (`docs/product-inbox.md`), the most important of what is left; then 15, 12 and 13 by importance; 17, npm and open source under Apache-2.0 (`ADR-0010`, `ADR-0031`), at the release. Whatever is not done by then continues after it, in open source. Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own.
 
-Epic 11's ticket 14 waits on one criterion: a merge that shrinks the graph. Whether epic 18 made the flow cheaper is read from epic 16's run.
+Epic 11's ticket 14 waits on one criterion: a merge that shrinks the graph. Epic 18 made the flow cheaper, read from epic 16's run against epic 11's: per DONE Task 14% less output, 24% less cached input and half the rework share (`dashboard-redesign/09`).
 
-Epic 16, Dashboard redesign (ADR-0041): autopilot merged 01 to 08 on 2026-10-12, then 10 to 13 after the owner's first demonstration of 09 found places that did not read yet: the current Epic is the first in progress, the Overview shows the epics' stepper and counts with a compact "What's next", the Project page leads with the board, and widgets stand in two column stacks with no hole under them; 14 put the epics' column on the left of the board, and 15 lets it pick the board's epic and fold. The owner finds every page readable now, but picking an epic waits 3 to 10 seconds on the owner's daemon, busy at 70% CPU: ticket 16 makes it answer in about a second. Then 09's other three criteria, with ticket 07's browser check.
+Epic 16, Dashboard redesign (ADR-0041), is done: the owner accepted it on 2026-10-12, after ticket 16 made the daemon answer in about a second (a page reload in 0.8 s, the daemon at 9% CPU with the dashboard open, from 74%).
 
-Next action: make the daemon answer in a second, ticket 16, then demonstrate epic 16's exit in 09 again. `/mattpocock-skills:implement docs/specs/dashboard-redesign/issues/16-a-daemon-that-answers-in-a-second.md`
+Next action: grill epic 19, Starting a project: new and existing, in a fresh session, from the product inbox's *Starting with Binnacle* and its four points; then `/to-spec` and `/to-tickets`, and autopilot. `/mattpocock-skills:grill-with-docs`
 
 ## Later
 

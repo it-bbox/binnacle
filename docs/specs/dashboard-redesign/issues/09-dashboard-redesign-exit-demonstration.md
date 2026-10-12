@@ -1,16 +1,16 @@
 # 09: The exit demonstration of epic 16
 
-Status: READY
+Status: DONE
 Triage: ready-for-human
 Blocked by: 01, 02, 03, 04, 05, 06, 07, 08, 10, 11, 12, 13, 16
 Spec: `docs/specs/dashboard-redesign/spec.md`
 
 **What to build:** epic 16's exit criterion, demonstrated by the owner on this repository (spec, the paragraph under its title). After it, a Product session reads epic 18's measurement against epic 11 with `usage_get` by epic (spec, *Further Notes*).
 
-- [ ] The owner goes through every page on their own screen at 100% zoom and reads it without strain, in both themes and both languages.
-- [ ] Every element of `docs/04-telemetry-dashboard.md` is reachable, in a widget's *Brief* or *Full*, and each widget's *Brief* is what the owner wants first.
-- [ ] A Parallel limit set on the Settings page is the one the snapshot gives and autopilot reads.
-- [ ] The commands in a Binnacle skill's output copy with the Claude desktop app's button.
+- [x] The owner goes through every page on their own screen at 100% zoom and reads it without strain, in both themes and both languages.
+- [x] Every element of `docs/04-telemetry-dashboard.md` is reachable, in a widget's *Brief* or *Full*, and each widget's *Brief* is what the owner wants first.
+- [x] A Parallel limit set on the Settings page is the one the snapshot gives and autopilot reads.
+- [x] The commands in a Binnacle skill's output copy with the Claude desktop app's button.
 
 ## Comments
 
@@ -51,3 +51,22 @@ The other criteria wait for the next demonstration, after 10 to 13 merge.
 ### After tickets 10 to 14, 2026-10-12
 
 The owner, after autopilot merged 10 to 13: the epics belong on the left of the board, not on the right as their lead in 12 said, which ticket 14 did; otherwise every page now reads ("сейчас нормально, более-менее читаем"). The first criterion holds on that word. The other three wait for the owner to confirm them.
+
+### Accepted, 2026-10-12
+
+After ticket 16 made the daemon answer in about a second, the owner accepted the epic as it stands ("все принято"), which ticks the other three criteria on their word.
+
+Epic 18's measurement, `usage_get` by epic, per DONE Task, labelled as Binnacle's calculation (13 Tasks with runs in each; 15 and 16 of this epic had no runs attributed when it was read):
+
+| mean per Task | epic 11 | epic 16 |
+| --- | --- | --- |
+| output | 73 389 | 63 166 (−14%) |
+| cached input | 20.0 M | 15.3 M (−24%) |
+| cache creation | 363 289 | 299 647 (−18%) |
+| records | 114 | 102 |
+| runs | 4.6 | 4.7 |
+| rework share | 0.41 | 0.19 |
+| first-pass acceptance | 0% | 8% |
+
+Epic 16 ran cheaper per Task and with half the rework share, after epic 18's lean flow. The two epics did different work, a dashboard's pages against the daemon's reading of forges, so it reads as a direction, not a proof.
+
