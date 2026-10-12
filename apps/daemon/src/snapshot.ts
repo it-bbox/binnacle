@@ -220,8 +220,8 @@ export async function snapshot(
   // A harness whose artifacts cannot be read is at level 1, and says why.
   for (const { level, reason } of usageSection.harnesses) if (level === 1 && reason !== null) attention.push({ code: 'telemetry.unreadable', message: reason });
   const limit = parallelLimit(home, projected.manifest);
-  const autostart = autostartSection(home, attention);
-  attention.push(...pressure, ...graph.attention, ...vaultAttention(home), ...limit.attention);
+  const autostart = autostartSection(home);
+  attention.push(...pressure, ...graph.attention, ...vaultAttention(home), ...limit.attention, ...autostart.attention);
   const attributed = new Set(runs.flatMap((run) => run.taskId ?? []));
   const questions = tasks && (await readQuestions(projected.row.path, projected.manifest, tasks));
   const listed = tasks && taskSections(tasks, attributed);
@@ -250,22 +250,21 @@ export async function snapshot(
     ci,
     usage: usageSection,
     activity,
-    autostart,
+    autostart: autostart.section,
     attention,
   };
 }
 
-/** Autostart for `home`, a broken one pushed to `attention` with its repair; off is the user's choice, not an attention item. */
-function autostartSection(home: string, attention: Diagnostic[]): Snapshot['autostart'] {
+/** Autostart for `home`, and a broken one's attention item with its repair; off is the user's choice, not an attention item. */
+function autostartSection(home: string): { section: Snapshot['autostart']; attention: Diagnostic[] } {
   try {
     const { state, platform, missing } = readAutostart(home);
     const command = autostartCommand(state);
-    if (state === 'broken') {
-      attention.push({ code: 'daemon.autostart_broken', message: `Autostart is broken for ${home}: ${missing.join(' and ')} no longer exists. Repair it with \`${command}\`.` });
-    }
-    return { state, platform, home, command };
+    const attention =
+      state === 'broken' ? [{ code: 'daemon.autostart_broken', message: `Autostart is broken for ${home}: ${missing.join(' and ')} no longer exists. Repair it with \`${command}\`.` }] : [];
+    return { section: { state, platform, home, command }, attention };
   } catch (error) {
-    return { available: false, reason: `Autostart cannot be read: ${(error as Error).message}` };
+    return { section: { available: false, reason: `Autostart cannot be read: ${(error as Error).message}` }, attention: [] };
   }
 }
 

@@ -272,7 +272,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
           <p v-else-if="!('state' in autostart)" class="text-warning" lang="en">{{ autostart.reason }}</p>
           <template v-else>
             <p :class="autostart.state === 'broken' ? 'text-warning' : ''">
-              <span class="font-semibold">{{ t.autostartState[autostart.state] }}</span> {{ t.autostartMeaning[autostart.state] }}
+              <span class="font-semibold">{{ t.autostartStates[autostart.state] }}</span> {{ t.autostartMeanings[autostart.state] }}
             </p>
             <p class="text-sm text-dimmed">
               {{ t.autostartFor }} <code class="font-mono wrap-anywhere">{{ autostart.home }}</code> · {{ autostart.platform }}
