@@ -44,9 +44,11 @@ export async function start(home: string): Promise<ExitCode> {
     report('Binnacle daemon is already running.', running);
     return EXIT.ok;
   }
+  // Under the service it is left to the daemon, which replaces a stale file itself: a daemon the
+  // manager restarted meanwhile may already have written its own, which removing would orphan.
+  if (service) return await startService(home);
   // Absent, or a runtime file whose pid is gone: stale, not a blocker.
   if (running) removeRuntime(home);
-  if (service) return await startService(home);
 
   const log = openSync(logPath(home), 'a', OWNER_ONLY_FILE);
   let child;
@@ -109,8 +111,8 @@ export async function stop(home: string): Promise<ExitCode> {
   const runtime = readRuntime(home);
   // Read before the manager stops it: a pid gone afterwards was the service's daemon, not a stale file.
   const alive = runtime !== null && isAlive(runtime.pid);
-  const service = serviceFor(home) !== null;
-  if (service && !systemctlAll(['stop', SERVICE_NAME])) return EXIT.failed;
+  const supervised = serviceFor(home) !== null;
+  if (supervised && !systemctlAll(['stop', SERVICE_NAME])) return EXIT.failed;
   if (!runtime) {
     console.log('Binnacle daemon is not running.');
     return EXIT.ok;
@@ -138,7 +140,7 @@ export async function stop(home: string): Promise<ExitCode> {
   // The daemon removes its own runtime file on a clean stop. Windows has no graceful
   // SIGTERM, so the file is removed here too rather than left for the next start.
   removeRuntime(home);
-  console.log(`Binnacle daemon stopped${service ? ' through the service manager' : ''} (pid ${runtime.pid}).`);
+  console.log(`Binnacle daemon stopped${supervised ? ' through the service manager' : ''} (pid ${runtime.pid}).`);
   return EXIT.ok;
 }
 

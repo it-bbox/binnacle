@@ -267,6 +267,19 @@ test('start rewrites a unit whose Node path no longer exists, then starts throug
   assert.equal(readRuntime(home)?.pid, supervised());
 });
 
+test('a refusal of systemctl start is reported with its message, and nothing is spawned', (t) => {
+  const { binn, set, home } = setup(t);
+  set('runs');
+  assert.equal(binn('daemon', 'autostart', 'on').status, 0);
+  assert.equal(binn('daemon', 'stop').status, 0);
+  set('refuse');
+
+  const start = binn('daemon', 'start');
+  assert.equal(start.status, 3);
+  assert.match(start.stderr, /systemctl --user start binnacle failed: Job for binnacle\.service failed/);
+  assert.equal(readRuntime(home), null);
+});
+
 test('with autostart off, or for another home, start and stop run a user process and never call the manager', async (t) => {
   await t.test('autostart off', (t) => {
     const { binn, calls, home } = setup(t);

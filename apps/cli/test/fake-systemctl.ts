@@ -27,14 +27,15 @@ halt() {
   : > '${state}'/pid
   [ -n "$p" ] || return 0
   kill "$p" 2> /dev/null
-  while kill -0 "$p" 2> /dev/null; do :; done
+  n=0
+  while kill -0 "$p" 2> /dev/null; do n=$((n + 1)); [ $n -eq 500000 ] && kill -9 "$p"; done
 }
 case "$*" in
   "--user show-environment") flag no-manager && { echo 'Failed to connect to bus: No medium found' >&2; exit 1; } ;;
   "--user is-enabled binnacle") flag enabled && { echo enabled; exit 0; }; echo disabled; exit 1 ;;
   "--user is-active binnacle") flag active && { echo active; exit 0; }; echo inactive; exit 3 ;;
   "--user enable binnacle") flag refuse && { echo 'Failed to enable unit: Access denied' >&2; exit 1; }; set_flag enabled yes ;;
-  "--user start binnacle") flag active || run; set_flag active yes ;;
+  "--user start binnacle") flag refuse && { echo 'Job for binnacle.service failed' >&2; exit 1; }; flag active || run; set_flag active yes ;;
   "--user restart binnacle") halt; run; set_flag active yes ;;
   "--user stop binnacle") halt; set_flag active no ;;
   "--user disable --now binnacle") halt; set_flag enabled no; set_flag active no ;;
