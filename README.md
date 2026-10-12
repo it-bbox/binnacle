@@ -144,7 +144,7 @@ npx skills remove -g -a claude-code -s $(ls apps/cli/skills) -y
 
 A new session then loads the changed skills. `/binnacle:autopilot` does this itself once, after the last merge of a run whose merges changed them.
 
-`pnpm typecheck` and `pnpm test` check a change. `pnpm test` is offline; the adapters' live tests, which need read-only tokens, run apart with `pnpm test:live`. CI runs the typecheck and the tests in GitHub Actions on every push to `main` and every pull request (`.github/workflows/ci.yml`), without any secret, and the live autostart test with the real service manager on Linux, macOS and Windows runners; that test refuses to run where `CI` is not set, since it installs a real service.
+`pnpm typecheck` and `pnpm test` check a change. `pnpm test` is offline; the live tests run apart with `pnpm test:live`: the adapters', which need read-only tokens, and the autostart one, which installs a real service and so runs only where `CI` is set. CI runs the typecheck and the tests in GitHub Actions on every push to `main` and every pull request (`.github/workflows/ci.yml`), without any secret, so without the adapters' live tests, and the live autostart test with the real service manager on Linux, macOS and Windows runners.
 
 `pnpm setup` puts its global bin directory on PATH in your shell's startup file, such as `~/.bashrc`, which the Claude Code desktop app does not read, so in the desktop app `.mcp.json` cannot find `binn`. Make `binn` visible there with a wrapper script named `binn`, made executable, in a directory already on the app's PATH — `~/.local/bin` on Linux:
 

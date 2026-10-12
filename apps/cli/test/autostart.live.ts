@@ -32,7 +32,7 @@ test(`autostart on ${process.platform} with the real service manager`, { skip, t
   }
 
   /** Polls until a daemon other than `not` answers, or null after `seconds`. */
-  async function answers(seconds: number, not?: number): Promise<number | null> {
+  async function waitForDaemon(seconds: number, not?: number): Promise<number | null> {
     const deadline = Date.now() + seconds * 1000;
     for (;;) {
       const pid = answering();
@@ -66,13 +66,18 @@ test(`autostart on ${process.platform} with the real service manager`, { skip, t
   }
   assert.equal(on.status, 0, on.stderr);
   assert.match(binn('daemon', 'autostart').stdout, /Autostart is on for /);
-  const first = await answers(30);
+  const first = await waitForDaemon(30);
+  // Task Scheduler's own view, for a task that never answers on this runner.
+  if (!first && platform === 'win32') {
+    const query = runManager('schtasks', ['/Query', '/TN', SERVICE_NAME, '/V', '/FO', 'LIST']);
+    t.diagnostic(query.ok ? query.output : query.message);
+  }
   assert.ok(first, 'the service starts a daemon that answers');
 
   // A daemon that dies with a failure is started again by the manager.
   process.kill(first, 'SIGKILL');
   // Task Scheduler restarts a failed task after its one-minute interval, if at all.
-  const restarted = await answers(platform === 'win32' ? 90 : 30, first);
+  const restarted = await waitForDaemon(platform === 'win32' ? 90 : 30, first);
   if (platform === 'win32') {
     // Ticket 04 left it open: Task Scheduler may restart a task that fails to start, not one whose program fails.
     t.diagnostic(`Task Scheduler ${restarted ? 'restarted' : 'did not restart'} a daemon killed with a failure.`);
@@ -81,18 +86,9 @@ test(`autostart on ${process.platform} with the real service manager`, { skip, t
     assert.ok(restarted, 'the service manager restarts a daemon that died with a failure');
   }
 
-  if (platform === 'win32') {
-    // Ticket 04 left it open: whether ending the task ends Node, cmd's child; `binn daemon stop` signals it after.
-    const pid = await answers(30);
-    assert.ok(pid);
-    assert.ok(runManager('schtasks', ['/End', '/TN', SERVICE_NAME]).ok);
-    const deadline = Date.now() + 10_000;
-    while (isAlive(pid) && Date.now() < deadline) await sleep(250);
-    t.diagnostic(`schtasks /End ${isAlive(pid) ? 'left' : 'ended'} the daemon, cmd's child.`);
-  }
-
   const stop = binn('daemon', 'stop');
   assert.equal(stop.status, 0, stop.stderr);
+  assert.match(stop.stdout, /stopped through the service manager/);
   // Stopped through the manager, it is not started again.
   await sleep(3000);
   assert.equal(answering(), null, 'no daemon answers after stop');
@@ -100,7 +96,18 @@ test(`autostart on ${process.platform} with the real service manager`, { skip, t
   const start = binn('daemon', 'start');
   assert.equal(start.status, 0, start.stderr);
   assert.match(start.stdout, /started through the service manager/);
-  assert.ok(answering(), 'the daemon answers after start');
+  const pid = answering();
+  assert.ok(pid, 'the daemon answers after start');
+
+  if (platform === 'win32') {
+    // Ticket 04 left it open: whether ending the task ends Node, cmd's child; `binn daemon stop` signals it after.
+    assert.ok(runManager('schtasks', ['/End', '/TN', SERVICE_NAME]).ok);
+    const deadline = Date.now() + 10_000;
+    while (isAlive(pid) && Date.now() < deadline) await sleep(250);
+    t.diagnostic(`schtasks /End ${isAlive(pid) ? 'left' : 'ended'} the daemon, cmd's child.`);
+    // Left running, it is ended here, so that `off` meets a task already ended, as after a `binn daemon stop`.
+    if (isAlive(pid)) process.kill(pid, 'SIGKILL');
+  }
 
   const off = binn('daemon', 'autostart', 'off');
   assert.equal(off.status, 0, off.stderr);

@@ -42,6 +42,8 @@ jobs:
       - if: runner.os == 'Linux'
         run: |
           sudo loginctl enable-linger "$(id -un)"
+          # Lingering starts the user manager in the background; this waits until it runs.
+          sudo systemctl start "user@$(id -u).service"
           echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
