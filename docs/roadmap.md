@@ -40,9 +40,9 @@ The owner's order, 2026-10-12: 16, closing at its exit demonstration; then 19, s
 
 Epic 11's ticket 14 waits on one criterion: a merge that shrinks the graph. Whether epic 18 made the flow cheaper is read from epic 16's run.
 
-Epic 16, Dashboard redesign (ADR-0041): autopilot merged 01 to 08 on 2026-10-12, then 10 to 13 after the owner's first demonstration of 09 found places that did not read yet: the current Epic is the first in progress, the Overview shows the epics' stepper and counts with a compact "What's next", the Project page leads with the board, and widgets stand in two column stacks with no hole under them; 14 put the epics' column on the left of the board, and 15 lets it pick the board's epic and fold. The owner finds every page readable now; 09's other three criteria wait for the owner, with ticket 07's browser check.
+Epic 16, Dashboard redesign (ADR-0041): autopilot merged 01 to 08 on 2026-10-12, then 10 to 13 after the owner's first demonstration of 09 found places that did not read yet: the current Epic is the first in progress, the Overview shows the epics' stepper and counts with a compact "What's next", the Project page leads with the board, and widgets stand in two column stacks with no hole under them; 14 put the epics' column on the left of the board, and 15 lets it pick the board's epic and fold. The owner finds every page readable now, but picking an epic waits 3 to 10 seconds on the owner's daemon, busy at 70% CPU: ticket 16 makes it answer in about a second. Then 09's other three criteria, with ticket 07's browser check.
 
-Next action: demonstrate epic 16's exit in ticket 09 again, then close the epic. `/mattpocock-skills:implement docs/specs/dashboard-redesign/issues/09-dashboard-redesign-exit-demonstration.md`
+Next action: make the daemon answer in a second, ticket 16, then demonstrate epic 16's exit in 09 again. `/mattpocock-skills:implement docs/specs/dashboard-redesign/issues/16-a-daemon-that-answers-in-a-second.md`
 
 ## Later
 

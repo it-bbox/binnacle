@@ -40,6 +40,9 @@ Binnacle's calculation, from the Graphify graph, of how likely two ready or in-f
 ### Parallel limit
 How many Tasks autopilot works on at once: a number, or *auto*, which runs side by side every Task whose pairs are all at low Conflict risk, up to four, and one at a time when the risk cannot be assessed. A property of the machine, 2 unless set; a project's manifest may set its own, which wins for that project (ADR-0041).
 
+### Current Epic
+The epic the dashboard and the Suggested step treat as the one under way: the roadmap's first epic `in progress`, in its order, or the first that is not `done` when none is in progress. The snapshot names it as `roadmap.current`, and the board shows its Tasks unless another epic is picked.
+
 ### Vault projection
 The daemon's one-way rendering of a project's Project Brain into the owner's Obsidian vault, under `Projects/<Project>/`, from the default branch as committed, with the last snapshot and daily served and Graphify's report beside it (ADR-0036). The vault is a per-machine setting, never committed. Every note it writes is marked as generated, with its source file and commit, and it writes, rewrites and deletes only notes so marked; a note the human wrote is never touched, and an edit to a generated note is overwritten, never synced back. It is derived: deleting it loses nothing.
 
