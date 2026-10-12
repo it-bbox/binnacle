@@ -1,6 +1,6 @@
 # 14: The Project page's epics on the left of the board
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 12
 Spec: `docs/specs/dashboard-redesign/spec.md`
