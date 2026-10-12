@@ -398,6 +398,57 @@ test('/binnacle:help names every skill of the plugin and no other, answers in th
   assert.deepEqual([...named].sort(), readdirSync(join(PLUGIN_SOURCE, 'skills')).sort());
   assert.match(skill, /`\/grill-with-docs` → `\/to-spec` → `\/to-tickets`/);
   assert.match(skill, /`\/binnacle:product`, the work, `\/binnacle:checkpoint`/);
+  // Epic 19: the ticket's run, beside the brief.
+  assert.match(skill, /`\/binnacle:task run <ticket>`/);
+});
+
+/** Epic 19 (ADR-0042): a ticket is worked by Binnacle's own skill, which holds the whole per-ticket process; without `run` it gives the brief, as before. */
+test('/binnacle:task takes run and carries the per-ticket process, is model-invocable, and gives the brief without run', () => {
+  const skill = skillText('task');
+  assert.doesNotMatch(skill, /^disable-model-invocation:/m);
+  assert.match(skill, /^argument-hint: "\[run\] <ticket path or URL, or task id: spec-slug\/NN or #number>"$/m);
+  assert.match(skill, /^description: .*\brun\b/m);
+  // The brief, unchanged without `run`, and still changing nothing.
+  const brief = skill.slice(0, skill.indexOf('## run'));
+  assert.match(brief, /call `task_get` once/);
+  assert.match(brief, /"To start it, in a fresh session:"/);
+  assert.match(brief, /Change nothing: no branch, no worktree, no `Status:` edit/);
+  const run = skill.slice(skill.indexOf('## run'));
+  assert.ok(run.length > 0 && skill.includes('## run'));
+  assert.match(run, /Start it only when a human asks for it in this chat, or an autopilot brief does/);
+  // Reading the Task, and what it refuses.
+  assert.match(run, /through `task_get`/);
+  assert.match(run, /from the ticket file when the daemon is down/);
+  assert.match(run, /`DONE` or `CANCELLED`, or with a dependency not met/);
+  assert.match(run, /saying why/);
+  // The branch: resumed, or new from an up-to-date main.
+  assert.match(run, /exists unmerged [^\n]*never started afresh: check it out and rebase it onto `main`, reading each `### Question` and its `### Answer`/);
+  assert.match(run, /bring `main` up to date where it fast-forwards, saying so when it cannot be fetched, and branch `feat\/<slug>` from it/);
+  // The work and its checks.
+  assert.match(run, /test-first through the seam the spec fixes/);
+  assert.match(run, /typecheck and run the full suite, with the commands the project's instruction files or package manifest name/i);
+  // The review.
+  assert.match(run, /review\*\* the branch against `main` in a sub-agent where the harness can start one/i);
+  assert.match(run, /the project's standards and the ticket's spec/);
+  assert.match(run, /beyond the Developer and the Reviewer[^.]*under a `#### <role>` heading of its own/);
+  assert.match(run, /under `### Review`/);
+  assert.match(run, /a finding to fix in full, with its place and its fix; a finding kept in one line, with its reason/);
+  assert.match(run, /fixed, kept or left, with its reason/);
+  assert.match(run, /whenever it suits the work, before or after its fixes/);
+  // The end.
+  assert.match(run, /Tick every criterion that holds/);
+  assert.match(run, /only a human can check[^.]*a short script for it under `## Comments`/);
+  assert.match(run, /`Status: DONE` the last commit/);
+  assert.match(run, /Leave the roadmap alone/);
+  assert.match(run, /Never merge, push or touch `main`/);
+  // Questions: in the chat when the owner is there, in the ticket when unattended, never answered by the agent.
+  assert.match(run, /ask it in the chat/);
+  assert.match(run, /`### Question` heading[^.]*its options after it, each with its cost, the recommended one first and marked "\(recommended\)"/);
+  assert.match(run, /in a commit of its own that changes only the ticket/);
+  assert.match(run, /ADR-0040/);
+  assert.match(run, /Never write an `### Answer`/);
+  assert.match(run, /every commit follows the project's instruction files for its message and authorship/i);
+  assert.match(run, /in a browser only when the ticket changes a dashboard/);
 });
 
 /** Epic 14, ADR-0039: one text per skill runs in any harness, so none names one harness's mechanism. */
@@ -604,10 +655,13 @@ test('/binnacle:checkpoint offers the current focus as a candidate when the tick
 test('AGENTS.md, the workflow, the roadmap\'s rules and the issue-tracker conventions say what autopilot\'s brief says', () => {
   assert.match(docText('AGENTS.md'), /an English subject of at most 72 characters, and a body only when the subject cannot carry the why/);
   const workflow = workflowText();
-  assert.match(workflow, /The session's last commit sets the ticket's `Status:` to `DONE`\*\*, and nothing in the roadmap/);
-  assert.match(workflow, /whenever it suits the work, before or after its fixes/);
-  assert.match(workflow, /a finding to fix in full, with its place and its fix; a finding kept in one line, with its reason/);
-  assert.match(workflow, /in a browser only when it changes the dashboard/);
+  // Epic 19: *Per ticket* starts from `/binnacle:task run`, which holds the process, and keeps no second copy of it.
+  const perTicket = workflow.slice(workflow.indexOf('**Per ticket.**'), workflow.indexOf('**Product work**'));
+  assert.match(perTicket, /`\/binnacle:task run docs\/specs\/<epic>\/issues\/NN-<slug>\.md`/);
+  assert.doesNotMatch(workflow, /mattpocock-skills:implement/);
+  assert.doesNotMatch(perTicket, /test-first|a finding to fix in full|before or after its fixes|in a browser only/);
+  assert.match(perTicket, /keeps no second copy of it/);
+  assert.match(perTicket, /reaches `main` in the same step as the merge/);
   assert.match(workflow, /Nothing is left for the merge to edit: the current focus catches up at the next Product session or checkpoint/);
   assert.match(workflow, /`\/binnacle:autopilot` does the same once, after the last merge of its run/);
   assert.match(docText('docs/roadmap.md'), /The current focus and an epic's status are written by a Product session, a checkpoint, or autopilot at the end of its run on the owner's yes, never by a ticket/);
@@ -646,6 +700,11 @@ test('the skills copy carries autopilot\'s resume, roles, CI and Next action, an
   assert.match(autopilot, /run `git rebase main` in the agent's worktree/);
   assert.match(autopilot, /\*\*Upkeep, once\.\*\*/);
   assert.match(autopilot, /Do not edit the roadmap/);
+  // Epic 19: the ticket's run reaches every harness, model-invocable as everything in the copy is.
+  const task = readFileSync(join(target, 'binnacle-task', 'SKILL.md'), 'utf8');
+  assert.match(task, /## run/);
+  assert.match(task, /Never merge, push or touch `main`/);
+  assert.match(readFileSync(join(target, 'binnacle-help', 'SKILL.md'), 'utf8'), /`binnacle-task run <ticket>`/);
   const checkpoint = readFileSync(join(target, 'binnacle-checkpoint', 'SKILL.md'), 'utf8');
   assert.match(checkpoint, /moved past the current focus/);
   assert.match(checkpoint, /`next_action\.stale` or `next_action\.missing`/);

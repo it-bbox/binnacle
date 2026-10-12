@@ -24,6 +24,7 @@ Binnacle keeps track of a software project for you and your coding agent: where 
 - `/binnacle:product` — start your session: where the project stands and what comes next.
 - `/binnacle:daily` — what changed since your last daily and what needs your attention.
 - `/binnacle:task` — the brief for one ticket, ending with the command that starts it.
+- `/binnacle:task run <ticket>` — work one ticket, in a fresh session: its own branch, the code test-first, the checks, a review recorded in the ticket, and the ticket marked done. It never merges or pushes: that stays yours.
 - `/binnacle:answer` — answer a question an agent left in a ticket for you: it writes your answer there and says how the work resumes.
 - `/binnacle:checkpoint` — at the end of a `/binnacle:product` session, save the decisions it made into the project's documents.
 
@@ -35,6 +36,6 @@ New or large work goes `/grill-with-docs` → `/to-spec` → `/to-tickets`: talk
 
 ## The usual order of a day
 
-`/binnacle:product`, the work, `/binnacle:checkpoint`. Start with `/binnacle:product` to see where things stand, do the work — each ticket in a session of its own, on its own branch — and close the `/binnacle:product` session with `/binnacle:checkpoint`, so the next one starts from what it decided.
+`/binnacle:product`, the work, `/binnacle:checkpoint`. Start with `/binnacle:product` to see where things stand, do the work — each ticket in a session of its own, with `/binnacle:task run <ticket>` — and close the `/binnacle:product` session with `/binnacle:checkpoint`, so the next one starts from what it decided.
 
 `/binnacle:help` shows this guide again.
