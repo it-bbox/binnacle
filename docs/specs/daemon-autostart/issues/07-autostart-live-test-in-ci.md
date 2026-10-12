@@ -1,6 +1,6 @@
 # 07: A live autostart test in CI on three platforms
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 02, 03, 04
 Spec: `docs/specs/daemon-autostart/spec.md`
