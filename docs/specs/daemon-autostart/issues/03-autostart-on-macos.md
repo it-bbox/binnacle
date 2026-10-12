@@ -16,6 +16,7 @@ Spec: `docs/specs/daemon-autostart/spec.md`
 - `on` and `start` load the service into `gui/<uid>`: `bootout` first when it is loaded, since launchd keeps the definition it loaded, then `bootstrap`. `off` and `stop` boot it out; `off` then removes the file. Booting out, not `launchctl kill`, is what stops it: the daemon exits 0 on SIGTERM, and a stop must not depend on how `KeepAlive` reads that.
 - Decided, as a question that blocks nothing: without a GUI session of this user (`launchctl print gui/<uid>` refused, as over SSH), `on` says autostart is not available and writes nothing, as Linux does without a user manager.
 - The manager's call sequences are now one table per platform in `daemon-commands.ts`, and the definition's path, rendering and reading one per platform in `service.ts`; Windows (ticket 04) adds an entry to each.
+- Rebased on ticket 06: the snapshot's `autostart` section reads on, off and broken on macOS through the same table, tested in `apps/daemon/test/snapshot.test.ts` beside Linux.
 - Tested through `binn` with a fake `launchctl`, `apps/cli/test/fake-launchctl.ts`; the real `launchctl` is ticket 07's live test in CI.
 
 ### Review

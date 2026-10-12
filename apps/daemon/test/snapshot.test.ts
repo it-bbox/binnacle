@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, afterEach, describe, it } from 'node:test';
-import { daemonEntry, renderUnit } from '../src/service.ts';
+import { daemonEntry, renderDefinition, type ServicePlatform } from '../src/service.ts';
 import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
 
 type SnapshotTask = {
@@ -594,8 +594,8 @@ describe('recent decisions, Git and the unavailable sections', () => {
   });
 });
 
-describe('autostart in the Product Snapshot', () => {
-  const saved = { XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME, BINNACLE_SERVICE_PLATFORM: process.env.BINNACLE_SERVICE_PLATFORM };
+for (const platform of ['linux', 'darwin'] satisfies ServicePlatform[]) describe(`autostart in the Product Snapshot, on ${platform}`, () => {
+  const saved = { HOME: process.env.HOME, XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME, BINNACLE_SERVICE_PLATFORM: process.env.BINNACLE_SERVICE_PLATFORM };
   afterEach(() => {
     for (const [key, value] of Object.entries(saved)) {
       if (value === undefined) delete process.env[key];
@@ -603,22 +603,24 @@ describe('autostart in the Product Snapshot', () => {
     }
   });
 
-  /** A Linux user's systemd configuration in a temporary directory, the in-process daemon's own, with `unit` installed when given. */
-  function service(unit?: { node: string; home: string }): void {
-    const config = realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-service-')));
-    roots.push(config);
-    process.env.XDG_CONFIG_HOME = config;
-    process.env.BINNACLE_SERVICE_PLATFORM = 'linux';
-    if (!unit) return;
-    mkdirSync(join(config, 'systemd', 'user'), { recursive: true });
-    writeFileSync(join(config, 'systemd', 'user', 'binnacle.service'), renderUnit({ ...unit, entry: daemonEntry(), path: '/usr/bin' }));
+  /** The user's service configuration in a temporary directory, the in-process daemon's own, with `definition` installed when given. */
+  function service(definition?: { node: string; home: string }): void {
+    const user = realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-service-')));
+    roots.push(user);
+    process.env.HOME = user;
+    process.env.XDG_CONFIG_HOME = join(user, '.config');
+    process.env.BINNACLE_SERVICE_PLATFORM = platform;
+    if (!definition) return;
+    const path = platform === 'darwin' ? join(user, 'Library', 'LaunchAgents', 'binnacle.plist') : join(user, '.config', 'systemd', 'user', 'binnacle.service');
+    mkdirSync(join(path, '..'), { recursive: true });
+    writeFileSync(path, renderDefinition(platform, { ...definition, entry: daemonEntry(), path: '/usr/bin' }));
   }
 
   it('reads off, with the command that turns it on, and no attention item', async () => {
     await withDaemon(async (daemon) => {
       service({ node: process.execPath, home: join(daemon.home, 'another-home') });
       const body = await snapshot(daemon, makeProject());
-      assert.deepEqual(body.autostart, { state: 'off', platform: 'linux', home: daemon.home, command: 'binn daemon autostart on' });
+      assert.deepEqual(body.autostart, { state: 'off', platform, home: daemon.home, command: 'binn daemon autostart on' });
       assert.deepEqual(codes(body, 'daemon.'), []);
     });
   });
@@ -627,7 +629,7 @@ describe('autostart in the Product Snapshot', () => {
     await withDaemon(async (daemon) => {
       service({ node: process.execPath, home: daemon.home });
       const body = await snapshot(daemon, makeProject());
-      assert.deepEqual(body.autostart, { state: 'on', platform: 'linux', home: daemon.home, command: 'binn daemon autostart off' });
+      assert.deepEqual(body.autostart, { state: 'on', platform, home: daemon.home, command: 'binn daemon autostart off' });
       assert.deepEqual(codes(body, 'daemon.'), []);
     });
   });
@@ -637,7 +639,7 @@ describe('autostart in the Product Snapshot', () => {
       const gone = join(daemon.home, 'nvm', 'v20', 'bin', 'node');
       service({ node: gone, home: daemon.home });
       const body = await snapshot(daemon, makeProject());
-      assert.deepEqual(body.autostart, { state: 'broken', platform: 'linux', home: daemon.home, command: 'binn daemon autostart on' });
+      assert.deepEqual(body.autostart, { state: 'broken', platform, home: daemon.home, command: 'binn daemon autostart on' });
       const broken = body.attention.filter((item) => item.code === 'daemon.autostart_broken');
       assert.equal(broken.length, 1);
       assert.ok(broken[0]!.message.includes(gone), broken[0]!.message);
