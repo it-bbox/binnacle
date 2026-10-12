@@ -1,6 +1,6 @@
 # 05: A spec no roadmap row links is an attention item
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 01
 Spec: `docs/specs/starting-a-project/spec.md`
