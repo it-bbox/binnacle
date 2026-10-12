@@ -3,7 +3,8 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { after, describe, it } from 'node:test';
+import { after, afterEach, describe, it } from 'node:test';
+import { daemonEntry, renderUnit } from '../src/service.ts';
 import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
 
 type SnapshotTask = {
@@ -32,6 +33,7 @@ type Snapshot = {
   } | null;
   decisions: { items: { title: string | null; path: string }[]; remainder: number } | null;
   ci: Unavailable;
+  autostart: { state: string; platform: string; home: string; command: string } | Unavailable;
   attention: { code: string; message: string }[];
 };
 
@@ -588,6 +590,58 @@ describe('recent decisions, Git and the unavailable sections', () => {
         'roadmap.missing',
       ]);
       assert.match(body.attention[0]!.message, /project\.colour/);
+    });
+  });
+});
+
+describe('autostart in the Product Snapshot', () => {
+  const saved = { XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME, BINNACLE_SERVICE_PLATFORM: process.env.BINNACLE_SERVICE_PLATFORM };
+  afterEach(() => {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+
+  /** A Linux user's systemd configuration in a temporary directory, the in-process daemon's own, with `unit` installed when given. */
+  function service(unit?: { node: string; home: string }): void {
+    const config = realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-service-')));
+    roots.push(config);
+    process.env.XDG_CONFIG_HOME = config;
+    process.env.BINNACLE_SERVICE_PLATFORM = 'linux';
+    if (!unit) return;
+    mkdirSync(join(config, 'systemd', 'user'), { recursive: true });
+    writeFileSync(join(config, 'systemd', 'user', 'binnacle.service'), renderUnit({ ...unit, entry: daemonEntry(), path: '/usr/bin' }));
+  }
+
+  it('reads off, with the command that turns it on, and no attention item', async () => {
+    await withDaemon(async (daemon) => {
+      service({ node: process.execPath, home: join(daemon.home, 'another-home') });
+      const body = await snapshot(daemon, makeProject());
+      assert.deepEqual(body.autostart, { state: 'off', platform: 'linux', home: daemon.home, command: 'binn daemon autostart on' });
+      assert.deepEqual(codes(body, 'daemon.'), []);
+    });
+  });
+
+  it("reads on for the daemon's own home, with the command that turns it off", async () => {
+    await withDaemon(async (daemon) => {
+      service({ node: process.execPath, home: daemon.home });
+      const body = await snapshot(daemon, makeProject());
+      assert.deepEqual(body.autostart, { state: 'on', platform: 'linux', home: daemon.home, command: 'binn daemon autostart off' });
+      assert.deepEqual(codes(body, 'daemon.'), []);
+    });
+  });
+
+  it('reads broken when the service points at a Node that is gone, naming it and the repair in daemon.autostart_broken', async () => {
+    await withDaemon(async (daemon) => {
+      const gone = join(daemon.home, 'nvm', 'v20', 'bin', 'node');
+      service({ node: gone, home: daemon.home });
+      const body = await snapshot(daemon, makeProject());
+      assert.deepEqual(body.autostart, { state: 'broken', platform: 'linux', home: daemon.home, command: 'binn daemon autostart on' });
+      const broken = body.attention.filter((item) => item.code === 'daemon.autostart_broken');
+      assert.equal(broken.length, 1);
+      assert.ok(broken[0]!.message.includes(gone), broken[0]!.message);
+      assert.ok(broken[0]!.message.includes('`binn daemon autostart on`'), broken[0]!.message);
     });
   });
 });

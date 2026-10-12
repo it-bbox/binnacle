@@ -111,6 +111,9 @@ export function readAutostart(home: string, env: NodeJS.ProcessEnv = process.env
   return { ...off, state: missing.length > 0 ? 'broken' : 'on', missing };
 }
 
+/** The command that changes autostart from `state`: off when on, on when off, and on again to repair a broken one. */
+export const autostartCommand = (state: AutostartState): string => `binn daemon autostart ${state === 'on' ? 'off' : 'on'}`;
+
 export type ManagerResult = { ok: true } | { ok: false; message: string };
 
 /** Runs the service manager once, synchronously; a refusal carries what it printed. */

@@ -392,6 +392,16 @@ export const en = {
   version: 'Version',
   address: 'Address',
   daemonNote: 'To restart the daemon, stop it and start it again. Its port is BINNACLE_PORT, read when it starts.',
+  autostart: 'Autostart',
+  autostartState: { on: 'On.', off: 'Off.', broken: 'Broken.' } as Record<'on' | 'off' | 'broken', string>,
+  autostartMeaning: {
+    on: 'The service manager starts the daemon at login, and again when it fails.',
+    off: 'Nothing starts the daemon at login.',
+    broken: 'The service points at a Node or a daemon that no longer exists, so the daemon will not start at login. The command below repairs it.',
+  } as Record<'on' | 'off' | 'broken', string>,
+  autostartFor: 'For the Binnacle home',
+  autostartUnread: "Read from the selected project's snapshot, which has not been read yet.",
+  autostartNote: 'Autostart is changed at a terminal, with the command above; the dashboard does not switch it.',
 };
 
 export type Dictionary = typeof en;

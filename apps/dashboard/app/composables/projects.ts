@@ -83,6 +83,8 @@ export type Snapshot = {
   graph: GraphSection;
   activity: Activity | Unavailable;
   usage: SnapshotUsage;
+  /** Autostart for the daemon's own home (ADR-0043), with the command that changes it. */
+  autostart: { state: 'on' | 'off' | 'broken'; platform: string; home: string; command: string } | Unavailable;
   attention: Failure[];
 };
 

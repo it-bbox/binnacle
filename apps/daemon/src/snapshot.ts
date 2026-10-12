@@ -43,6 +43,7 @@ import {
 import { ciAttention, fromForge, readCi, type Ci } from './ci.ts';
 import { resolveGitTimeout, trackerToken } from './home.ts';
 import { defaultCommit, impactSection, touchedBy, type GraphSection } from './graph.ts';
+import { autostartCommand, readAutostart, type AutostartState, type ServicePlatform } from './service.ts';
 import { parallelLimit, type ParallelLimit } from './settings.ts';
 import { vaultAttention } from './vault.ts';
 import type { Projected } from './projection.ts';
@@ -185,6 +186,12 @@ export type Snapshot = {
    * with the tracker's reason, when it cannot be read.
    */
   activity: Activity | Unavailable;
+  /**
+   * Autostart for the daemon's own home (ADR-0043), read from the service's definition, and
+   * `command`, the one that turns it off when on, on when off, or repairs it when broken;
+   * unavailable, with the reason, when the definition cannot be read.
+   */
+  autostart: { state: AutostartState; platform: ServicePlatform; home: string; command: string } | Unavailable;
   /** Deterministic checks and diagnostics only; nothing heuristic. */
   attention: Diagnostic[];
 };
@@ -213,6 +220,7 @@ export async function snapshot(
   // A harness whose artifacts cannot be read is at level 1, and says why.
   for (const { level, reason } of usageSection.harnesses) if (level === 1 && reason !== null) attention.push({ code: 'telemetry.unreadable', message: reason });
   const limit = parallelLimit(home, projected.manifest);
+  const autostart = autostartSection(home, attention);
   attention.push(...pressure, ...graph.attention, ...vaultAttention(home), ...limit.attention);
   const attributed = new Set(runs.flatMap((run) => run.taskId ?? []));
   const questions = tasks && (await readQuestions(projected.row.path, projected.manifest, tasks));
@@ -242,8 +250,23 @@ export async function snapshot(
     ci,
     usage: usageSection,
     activity,
+    autostart,
     attention,
   };
+}
+
+/** Autostart for `home`, a broken one pushed to `attention` with its repair; off is the user's choice, not an attention item. */
+function autostartSection(home: string, attention: Diagnostic[]): Snapshot['autostart'] {
+  try {
+    const { state, platform, missing } = readAutostart(home);
+    const command = autostartCommand(state);
+    if (state === 'broken') {
+      attention.push({ code: 'daemon.autostart_broken', message: `Autostart is broken for ${home}: ${missing.join(' and ')} no longer exists. Repair it with \`${command}\`.` });
+    }
+    return { state, platform, home, command };
+  } catch (error) {
+    return { available: false, reason: `Autostart cannot be read: ${(error as Error).message}` };
+  }
 }
 
 /** Attribution to Tasks, unavailable with the tracker's own reasons for being unreadable. */

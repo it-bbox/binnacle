@@ -123,6 +123,9 @@ const sections = computed((): { name: string; settings: Setting[] }[] | null => 
   ];
 });
 
+/** Autostart as the selected project's snapshot reads it for the daemon's home: shown with its command, never switched here. */
+const autostart = computed(() => view.value?.snapshot?.autostart ?? null);
+
 const card = { root: 'rounded-[10px]', header: 'flex items-center justify-between gap-2 px-3.5 py-2.5 sm:px-3.5', body: 'px-3.5 py-3 sm:px-3.5 sm:py-3', footer: 'px-3.5 py-2 sm:px-3.5' };
 </script>
 
@@ -263,9 +266,24 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
           <CopyCommand command="binn daemon stop" />
           <CopyCommand command="binn daemon start" />
         </div>
+        <section class="flex flex-col gap-1.5 border-t border-default pt-3" aria-labelledby="autostart">
+          <h3 id="autostart" class="text-sm font-semibold">{{ t.autostart }}</h3>
+          <p v-if="autostart === null" class="text-muted">{{ t.autostartUnread }}</p>
+          <p v-else-if="!('state' in autostart)" class="text-warning" lang="en">{{ autostart.reason }}</p>
+          <template v-else>
+            <p :class="autostart.state === 'broken' ? 'text-warning' : ''">
+              <span class="font-semibold">{{ t.autostartState[autostart.state] }}</span> {{ t.autostartMeaning[autostart.state] }}
+            </p>
+            <p class="text-sm text-dimmed">
+              {{ t.autostartFor }} <code class="font-mono wrap-anywhere">{{ autostart.home }}</code> · {{ autostart.platform }}
+            </p>
+            <div><CopyCommand :command="autostart.command" :primary="autostart.state === 'broken'" /></div>
+          </template>
+        </section>
       </div>
       <template #footer>
         <p class="text-sm leading-snug text-dimmed">{{ t.daemonNote }}</p>
+        <p class="mt-1.5 text-sm leading-snug text-dimmed">{{ t.autostartNote }}</p>
       </template>
     </UCard>
   </div>
