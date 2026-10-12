@@ -1,6 +1,6 @@
 # 11: The Overview's epics and "What's next", compact
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 10
 Spec: `docs/specs/dashboard-redesign/spec.md`
