@@ -180,7 +180,8 @@ function outputTokens(totals: Totals): string {
           </p>
           <div v-else-if="full" class="overflow-auto">
             <p v-if="steps.length === 0" class="px-3.5 py-3 text-muted">{{ t.noEpics }}</p>
-            <table v-else class="w-full border-collapse">
+            <p v-else-if="snapshot.tasks === null" class="border-b border-default px-3.5 py-2 text-muted">{{ t.notAvailable }} · {{ t.trackerUnreadable }}</p>
+            <table v-if="steps.length > 0" class="w-full border-collapse">
               <thead>
                 <tr class="text-left text-sm text-muted">
                   <th class="w-9 border-b border-default px-3.5 py-2 font-medium">#</th>
