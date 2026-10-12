@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { readLevel, storeLevel } from '../app/widget.ts';
+import { readFolded, readLevel, storeFolded, storeLevel } from '../app/widget.ts';
 
 /**
  * A widget's level, *Brief* or *Full* (`docs/specs/dashboard-redesign/spec.md`, *A widget with
@@ -56,5 +56,22 @@ describe("a widget's level", () => {
     assert.equal(readLevel('overview', 'ready', () => throwing), 'brief');
     assert.doesNotThrow(() => storeLevel('overview', 'ready', 'full', refusing));
     assert.doesNotThrow(() => storeLevel('overview', 'ready', 'full', () => throwing));
+  });
+});
+
+describe("the Project page's epics column, folded or not", () => {
+  it('is unfolded when nothing is stored or the storage refuses', () => {
+    assert.equal(readFolded('project', 'epics', () => memory()), false);
+    assert.equal(readFolded('project', 'epics', refusing), false);
+    assert.doesNotThrow(() => storeFolded('project', 'epics', true, refusing));
+  });
+
+  it('survives a reload, apart from the widget level', () => {
+    const storage = memory();
+    storeFolded('project', 'epics', true, () => storage);
+    assert.equal(readFolded('project', 'epics', () => storage), true);
+    assert.equal(readLevel('project', 'epics', () => storage), 'brief', 'folding leaves the level alone');
+    storeFolded('project', 'epics', false, () => storage);
+    assert.equal(readFolded('project', 'epics', () => storage), false);
   });
 });

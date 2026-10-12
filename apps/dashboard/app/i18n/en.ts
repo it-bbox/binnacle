@@ -159,6 +159,8 @@ export const en = {
   level: 'Detail',
   brief: 'Brief',
   full: 'Full',
+  foldEpics: 'Fold the epics',
+  unfoldEpics: 'Unfold the epics',
   readMore: 'Read more',
   showLess: 'Show less',
 

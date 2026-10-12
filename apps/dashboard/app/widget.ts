@@ -28,3 +28,20 @@ export function storeLevel(page: string, widget: string, level: Level, storage: 
     // Storage refused: the choice holds until the page is reloaded.
   }
 }
+
+/** Whether a widget that folds to a strip, such as the Project page's epics, is folded: kept as its level is, unfolded by default. */
+export function readFolded(page: string, widget: string, storage: () => Storage = () => localStorage): boolean {
+  try {
+    return storage().getItem(`${key(page, widget)}.folded`) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export function storeFolded(page: string, widget: string, folded: boolean, storage: () => Storage = () => localStorage): void {
+  try {
+    storage().setItem(`${key(page, widget)}.folded`, String(folded));
+  } catch {
+    // Storage refused: the choice holds until the page is reloaded.
+  }
+}

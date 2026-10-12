@@ -15,13 +15,14 @@ import {
   type CiForge,
   type CiRequest,
   type CiState,
+  type Epic,
   type LatestRun,
   type Section,
   type Snapshot,
   type Unavailable,
 } from '~/composables/projects';
 import { BRIEF_FIELDS, FIELDS, type ProjectUsage } from '~/composables/usage';
-import { LIST_FOLD } from '~/widget';
+import { LIST_FOLD, readFolded, storeFolded } from '~/widget';
 
 type WaitingTask = { id: string; title: string | null; state: string | null; ticket: string };
 /** *Waiting for the owner*, the snapshot's `pendingDecisions`. */
@@ -83,13 +84,18 @@ watch(
 const epics = computed(() => snapshot.value?.roadmap?.epics ?? []);
 /** The daemon's current epic: the board's default, as `task.list` reads it. */
 const current = computed(() => snapshot.value?.roadmap?.current ?? null);
-const tabs = computed(() =>
-  epics.value.map((epic) => ({ label: String(epic.number), value: String(epic.number), disabled: epic.spec === null && epic.number !== current.value?.number })),
-);
-function pick(value: string | number): void {
-  const epic = epics.value.find((item) => String(item.number) === String(value));
-  if (epic === undefined) return;
+/** An epic picks the board when it has a spec, or is the current one, whose board `task.list` gives by default. */
+const pickable = (epic: Epic): boolean => epic.spec !== null || epic.number === current.value?.number;
+const picked = (epic: Epic): boolean => board.data.value?.epic?.number === epic.number;
+function pick(epic: Epic): void {
+  if (!pickable(epic) || picked(epic)) return;
   void router.push({ query: epic.spec === null ? { project } : { project, spec: epic.spec } });
+}
+/** The epics' column folds to a strip of numbers, so the board gets the width; kept in the browser. */
+const folded = ref(readFolded('project', 'epics'));
+function fold(value: boolean): void {
+  folded.value = value;
+  storeFolded('project', 'epics', value);
 }
 
 const boardEmpty = computed(() => {
@@ -209,22 +215,15 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
         </Widget>
       </template>
 
-      <!-- The board leads, the epics in a narrow column beside it; under 1360 px they follow it, the board's columns too narrow beside them. -->
-      <div class="grid items-start gap-x-2.5 gap-y-6" :class="{ 'min-[85rem]:grid-cols-[20rem_minmax(0,1fr)]': snapshot }">
+      <!-- The epics in a narrow column on the left pick the board's epic and fold to a strip of numbers; under 1360 px they follow the board, its columns too narrow beside them. -->
+      <div
+        class="grid items-start gap-x-2.5 gap-y-6"
+        :class="{ 'min-[85rem]:grid-cols-[20rem_minmax(0,1fr)]': snapshot && !folded, 'min-[85rem]:grid-cols-[4.5rem_minmax(0,1fr)]': snapshot && folded }"
+      >
         <Widget page="project" widget="board">
           <template #title>
             <div class="flex min-w-0 flex-wrap items-center gap-3">
               <h2 class="m-0 text-base font-semibold">{{ t.board }}</h2>
-              <UTabs
-                v-if="tabs.length > 0"
-                :model-value="board.data.value?.epic ? String(board.data.value.epic.number) : undefined"
-                :items="tabs"
-                :content="false"
-                variant="pill"
-                size="xs"
-                :aria-label="t.board"
-                @update:model-value="pick"
-              />
               <template v-if="board.data.value?.epic">
                 <span lang="en" class="font-medium">{{ board.data.value.epic.number }} {{ board.data.value.epic.title }}</span>
                 <UBadge :label="board.data.value.epic.status" v-bind="statusBadge(board.data.value.epic.status)" size="sm" lang="en" />
@@ -361,7 +360,30 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
               <code class="font-mono text-muted">{{ item.code }}</code> <DaemonReason :reason="item.message" />
             </div>
           </div>
+          <UCard v-else-if="folded" :ui="{ root: 'rounded-[10px] min-[85rem]:order-first', header: 'px-2 py-2.5 sm:px-2', body: 'p-1.5 sm:p-1.5' }">
+            <template #header>
+              <UButton icon="i-lucide-panel-left-open" color="neutral" variant="ghost" size="xs" :aria-label="t.unfoldEpics" :title="t.unfoldEpics" @click="fold(false)" />
+            </template>
+            <nav :aria-label="t.epics" class="flex flex-wrap gap-1 min-[85rem]:flex-col">
+              <UButton
+                v-for="epic in epics"
+                :key="epic.number"
+                :label="String(epic.number)"
+                :title="`${epic.number} ${epic.title} · ${epic.status}`"
+                :disabled="!pickable(epic)"
+                :aria-current="picked(epic) ? 'true' : undefined"
+                :color="picked(epic) ? 'primary' : 'neutral'"
+                :variant="picked(epic) ? 'soft' : 'ghost'"
+                size="sm"
+                class="justify-center font-mono"
+                @click="pick(epic)"
+              />
+            </nav>
+          </UCard>
           <Widget v-else page="project" widget="epics" :title="t.epics" class="min-[85rem]:order-first">
+            <template #aside>
+              <UButton icon="i-lucide-panel-left-close" color="neutral" variant="ghost" size="xs" :aria-label="t.foldEpics" :title="t.foldEpics" @click="fold(true)" />
+            </template>
             <template #default="{ full }">
               <table class="w-full border-collapse">
                 <thead>
@@ -374,14 +396,28 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
                 <tbody>
                   <!-- In Full an epic's spec takes a row of its own, under its name and status, where its path has room. -->
                   <template v-for="epic in epics" :key="epic.number">
-                    <tr class="align-baseline" :class="{ 'bg-primary/10': board.data.value?.epic?.number === epic.number }">
+                    <tr
+                      class="align-baseline"
+                      :class="{ 'bg-primary/10': picked(epic), 'cursor-pointer hover:bg-elevated': pickable(epic) && !picked(epic) }"
+                      @click="pick(epic)"
+                    >
                       <td class="border-default py-1.5 ps-3.5 pe-1 font-mono text-sm text-dimmed" :class="{ 'border-b': !full }">{{ epic.number }}</td>
-                      <td lang="en" class="border-default px-2 py-1.5 leading-snug font-medium" :class="{ 'border-b': !full }">{{ epic.title }}</td>
+                      <td lang="en" class="border-default px-2 py-1.5 leading-snug font-medium" :class="{ 'border-b': !full }">
+                        <NuxtLink
+                          v-if="pickable(epic) && !picked(epic)"
+                          :to="{ query: epic.spec === null ? { project } : { project, spec: epic.spec } }"
+                          class="hover:text-primary"
+                          @click.stop
+                        >
+                          {{ epic.title }}
+                        </NuxtLink>
+                        <span v-else :aria-current="picked(epic) ? 'true' : undefined" :class="{ 'text-dimmed': !pickable(epic) }">{{ epic.title }}</span>
+                      </td>
                       <td class="border-default py-1.5 ps-2 pe-3.5 whitespace-nowrap" :class="{ 'border-b': !full }">
                         <UBadge :label="epic.status" v-bind="statusBadge(epic.status)" size="sm" lang="en" />
                       </td>
                     </tr>
-                    <tr v-if="full" :class="{ 'bg-primary/10': board.data.value?.epic?.number === epic.number }">
+                    <tr v-if="full" :class="{ 'bg-primary/10': picked(epic) }">
                       <td class="border-b border-default" />
                       <td colspan="2" class="border-b border-default ps-2 pe-3.5 pb-1.5">
                         <NuxtLink

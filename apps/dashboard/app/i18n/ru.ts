@@ -145,6 +145,8 @@ export const ru: Dictionary = {
   level: 'Подробность',
   brief: 'Кратко',
   full: 'Полностью',
+  foldEpics: 'Свернуть список Epic',
+  unfoldEpics: 'Развернуть список Epic',
   readMore: 'Читать дальше',
   showLess: 'Свернуть',
 
