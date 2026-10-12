@@ -9,6 +9,7 @@ import {
   readClaudeCode,
   readCodex,
   readBranchCommit,
+  readBranches,
   readDefaultBranch,
   readDoneCommits,
   readFirstMention,
@@ -899,12 +900,15 @@ async function reviewPoints(
   }
   const timeout = resolveGitTimeout();
   const tickets = [...worked.keys()].map((task) => task.ticket);
-  const head = await readBranchCommit(projectPath, defaultBranch, timeout);
+  // Every branch's tip in one `git` call rather than one per branch.
+  const tipsByBranch = await readBranches(projectPath, timeout);
+  const tipOf = (branch: string): string | null => tipsByBranch?.get(branch) ?? null;
+  const head = tipOf(defaultBranch);
   const [first, done] = await Promise.all([readFirstReviews(projectPath, tickets, timeout), head === null ? null : readDoneCommits(projectPath, head, tickets, timeout)]);
   const points = new Map<string, ReviewPoints>();
   for (const [task, { branches, since }] of worked) {
     const review = first?.get(task.ticket) ?? null;
-    const tips = await Promise.all([...branches].map((branch) => readBranchCommit(projectPath, branch, timeout)));
+    const tips = [...branches].map(tipOf);
     const anchors = [...new Set([...tips, review?.commit, done?.get(task.ticket)?.commit])].filter((commit) => typeof commit === 'string').sort();
     const key = `${anchors.join(' ')}\0${[...branches].sort().join(' ')}\0${task.ticket}`;
     let times = ownChanges.get(key) ?? null;

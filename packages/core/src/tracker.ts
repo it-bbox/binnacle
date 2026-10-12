@@ -287,11 +287,28 @@ export function branchTask<T extends Pick<TrackerTask, 'id' | 'title' | 'ticket'
 
 /** Every Task `branch` maps back to, by the rules `branchTask` states; it credits one only when it is alone. */
 function tasksOnBranch<T extends Pick<TrackerTask, 'id' | 'title' | 'ticket'>>(branch: string, tasks: T[], remote: boolean): T[] {
-  const number = /^feat\/(\d+)(?:-|$)/.exec(branch)?.[1];
-  return remote
-    ? tasks.filter((task) => number !== undefined && task.id === `#${Number(number)}`)
-    : tasks.filter((task) => taskBranch(task, false) === branch);
+  if (remote) {
+    const number = /^feat\/(\d+)(?:-|$)/.exec(branch)?.[1];
+    return number === undefined ? [] : tasks.filter((task) => task.id === `#${Number(number)}`);
+  }
+  let index = localBranches.get(tasks) as Map<string, T[]> | undefined;
+  if (index === undefined) {
+    index = new Map();
+    for (const task of tasks) {
+      const key = taskBranch(task, false);
+      index.set(key, [...(index.get(key) ?? []), task]);
+    }
+    localBranches.set(tasks, index);
+  }
+  return index.get(branch) ?? [];
 }
+
+/**
+ * Per Task list, its Tasks by local branch, computed once: a snapshot looks a branch up per
+ * record and run, and slugging every ticket on each lookup was most of its time. A list is
+ * never changed once read, so its index never goes stale.
+ */
+const localBranches = new WeakMap<object, Map<string, unknown[]>>();
 
 /**
  * Says when other Tasks have `task`'s branch, and names them: `branchTask` maps that branch to

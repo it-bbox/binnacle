@@ -5,26 +5,36 @@ import { useLanguage } from '~/composables/language';
 import { loadProjects, PROJECT_VIEWS, SELECTED_VIEW } from '~/composables/projects';
 
 /**
- * The shell: the project rail, the sidebar and the page. It polls every registered project's
- * snapshot for the rail and the sidebar, and stands in for the page while the daemon loads or
- * does not answer, polling on until it does.
+ * The shell: the project rail, the sidebar and the page. It polls the registered projects'
+ * snapshots for the rail and the sidebar: the selected project's on every poll, every
+ * project's on the pages that list them all, and the others' every `OTHERS_EVERY` polls, so
+ * that the daemon is not asked for every snapshot every 15 seconds. It stands in for the page
+ * while the daemon loads or does not answer, polling on until it does.
  */
 const authorised = useAuthorised();
 const { language, t, uiLocale, plural } = useLanguage();
 useHead({ htmlAttrs: { lang: language } });
 
-const updatedAt = ref<number | null>(null);
-const { data, error } = usePolling(async () => {
-  const views = await loadProjects();
-  updatedAt.value = Date.now();
-  return views;
-});
-const unreachable = computed(() => error.value?.code === 'daemon.unreachable');
-
 // The selected project is the address's `project`; without one, the first registered project, written into the address.
 const route = useRoute();
 const router = useRouter();
 const selected = computed(() => (typeof route.query.project === 'string' ? route.query.project : null));
+const listsAll = computed(() => route.path === '/projects' || route.path === '/attention');
+
+/** A minute, at 15 seconds a poll. */
+const OTHERS_EVERY = 4;
+let polls = 0;
+const updatedAt = ref<number | null>(null);
+const { data, error, refresh } = usePolling(async () => {
+  const all = polls++ % OTHERS_EVERY === 0 || listsAll.value;
+  const views = await loadProjects(data.value, (path) => all || path === selected.value);
+  updatedAt.value = Date.now();
+  return views;
+});
+// Another project, or a page that lists them all, is read at once rather than at the next poll.
+watch(selected, () => void refresh());
+watch(listsAll, (all) => all && void refresh());
+const unreachable = computed(() => error.value?.code === 'daemon.unreachable');
 const view = computed(() => data.value?.find((item) => item.project.path === selected.value) ?? null);
 provide(SELECTED_VIEW, view);
 provide(PROJECT_VIEWS, data);

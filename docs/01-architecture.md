@@ -35,6 +35,8 @@ It runs as a user process started by `binn daemon start`. Installing it as an au
 
 It is **not** the sole source of truth, and it never calls a language model (ADR-0012).
 
+It computes most of an answer when it is asked, so that work is kept small: a Task list's branches are mapped to its Tasks once, not per run or record looked up, and every branch's tip is read with one `git` call.
+
 ### `binn`
 CLI for setup, diagnostics, scripting and recovery. Human-facing chat workflows should not require frequent CLI use after setup.
 
@@ -45,6 +47,8 @@ Primary agent-facing API. Exposes compact read operations and explicitly control
 Nuxt local UI. Displays project/task/run/usage/attention state. It does not replace conversation with Product.
 
 The daemon serves it at its own address as static files, and `binn dashboard` opens it (ADR-0031). It is read-only: its only action is copying a command, which the human types.
+
+It polls the daemon every 15 seconds while it is visible: the selected project's snapshot and the open page's own operations each time, the other registered projects' snapshots once a minute, or each time on the pages that list them all (`docs/04-telemetry-dashboard.md`).
 
 ### Local storage
 `node:sqlite` from the Node standard library — no native modules. One database per machine under `~/.binnacle/`, overridable with `BINNACLE_HOME`; project directories hold `.binnacle/project.yaml` in Git and a disposable `.binnacle/cache/`.

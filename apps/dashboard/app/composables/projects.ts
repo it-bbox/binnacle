@@ -109,12 +109,17 @@ export type Board = {
   withoutSpec: number;
 };
 
-/** Every registered project, with its snapshot read from its registered checkout. */
-export async function loadProjects(): Promise<ProjectView[]> {
+/**
+ * Every registered project, with its snapshot read from its registered checkout when `read`
+ * says so for its path, and otherwise kept from `previous`; one `previous` does not hold is read.
+ */
+export async function loadProjects(previous: ProjectView[] | null, read: (path: string) => boolean): Promise<ProjectView[]> {
   const { projects } = await call<{ projects: ProjectRow[] }>('project.list');
   return await Promise.all(
     projects.map(async (project): Promise<ProjectView> => {
       if (project.unavailable !== null) return { project, snapshot: null, failure: null };
+      const known = previous?.find((view) => view.project.path === project.path);
+      if (known !== undefined && !read(project.path)) return { ...known, project };
       try {
         return { project, snapshot: await call<Snapshot>('project.snapshot', { path: project.path }), failure: null };
       } catch (error) {

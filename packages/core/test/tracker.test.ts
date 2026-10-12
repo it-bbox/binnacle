@@ -134,6 +134,26 @@ test('a Task’s branch maps back to that Task, and a branch naming none or seve
   assert.equal(branchTask('feat/runs-and-task-attribution', issues, true), null);
 });
 
+test('a Task list’s branches are worked out once, however many branches are looked up in it', () => {
+  let reads = 0;
+  const tickets = ['01-alpha', '02-beta', '03-alpha'].map((name, n) => ({
+    id: `one/0${n + 1}`,
+    title: null,
+    get ticket() {
+      reads += 1;
+      return `docs/specs/one/issues/${name}.md`;
+    },
+  }));
+  for (let round = 0; round < 100; round += 1) {
+    assert.equal(branchTask('feat/beta', tickets, false), tickets[1]);
+    assert.equal(branchTask('feat/alpha', tickets, false), null);
+    assert.equal(branchTask('feat/gamma', tickets, false), null);
+  }
+  assert.equal(reads, tickets.length);
+  // Another list is another mapping.
+  assert.equal(branchTask('feat/alpha', tickets.slice(0, 1), false), tickets[0]);
+});
+
 /**
  * A branch two Tasks share maps back to neither, so `task_get` says so. On the local tracker
  * that is two tickets in different epics with one file slug, as this repository's two exit
