@@ -1,6 +1,6 @@
 # 12: The Project page leads with the board
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 10
 Spec: `docs/specs/dashboard-redesign/spec.md`
