@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir, userInfo } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { logPath, resolveHome } from './home.ts';
 
@@ -31,20 +31,21 @@ export function servicePlatform(env: NodeJS.ProcessEnv = process.env): ServicePl
 /** The daemon's entry, the one `binn daemon start` spawns. */
 export const daemonEntry = (): string => fileURLToPath(new URL('./bin.ts', import.meta.url));
 
-/** What a definition is rendered from: this Node, the daemon's entry, the home, and the shell's PATH. */
-export type ServiceInputs = { node: string; entry: string; home: string; path: string };
+/** What a definition is rendered from: this Node, the daemon's entry, the home, the shell's PATH, and the user it runs as, which only Windows names. */
+export type ServiceInputs = { node: string; entry: string; home: string; path: string; user: string };
 
 export const serviceInputs = (home: string, env: NodeJS.ProcessEnv = process.env): ServiceInputs => ({
   node: process.execPath,
   entry: daemonEntry(),
   home,
   path: env.PATH ?? '',
+  user: env.USERDOMAIN ? `${env.USERDOMAIN}\\${userInfo().username}` : userInfo().username,
 });
 
-/** Each supported platform's definition: where it lives, how it is written, and how it is read back. */
-type Format = { path(env: NodeJS.ProcessEnv): string; render(inputs: ServiceInputs): string; read(text: string): Read };
+/** Each platform's definition: where it lives, how it is written and read back, and in which encoding. */
+type Format = { path(env: NodeJS.ProcessEnv): string; render(inputs: ServiceInputs): string; read(text: string): Read; encoding: BufferEncoding };
 
-const FORMATS: Partial<Record<ServicePlatform, Format>> = {
+const FORMATS: Record<ServicePlatform, Format> = {
   linux: {
     path(env) {
       const config = env.XDG_CONFIG_HOME?.trim();
@@ -52,21 +53,29 @@ const FORMATS: Partial<Record<ServicePlatform, Format>> = {
     },
     render: renderUnit,
     read: readUnit,
+    encoding: 'utf8',
   },
-  darwin: { path: () => join(homedir(), 'Library', 'LaunchAgents', `${SERVICE_NAME}.plist`), render: renderPlist, read: readPlist },
+  darwin: { path: () => join(homedir(), 'Library', 'LaunchAgents', `${SERVICE_NAME}.plist`), render: renderPlist, read: readPlist, encoding: 'utf8' },
+  // Task Scheduler keeps its own copy of a task; this file is what `schtasks /Create` reads, kept so that it can be read back.
+  win32: {
+    path: (env) => join(env.LOCALAPPDATA?.trim() || join(homedir(), 'AppData', 'Local'), 'binnacle', `${SERVICE_NAME}.xml`),
+    render: renderTask,
+    read: readTask,
+    encoding: 'utf16le',
+  },
 };
 
-function format(platform: ServicePlatform): Format {
-  const found = FORMATS[platform];
-  if (!found) throw new Error(`autostart is not available on ${platform} yet`);
-  return found;
-}
-
-/** Where the definition lives, or null on a platform not supported yet. */
-export const definitionPath = (platform: ServicePlatform, env: NodeJS.ProcessEnv = process.env): string | null => FORMATS[platform]?.path(env) ?? null;
+/** Where the definition lives. */
+export const definitionPath = (platform: ServicePlatform, env: NodeJS.ProcessEnv = process.env): string => FORMATS[platform].path(env);
 
 /** The definition for `platform`, rendered from the current inputs. */
-export const renderDefinition = (platform: ServicePlatform, inputs: ServiceInputs): string => format(platform).render(inputs);
+export const renderDefinition = (platform: ServicePlatform, inputs: ServiceInputs): string => FORMATS[platform].render(inputs);
+
+/** Writes a rendered definition at `path`, in its platform's encoding. */
+export function writeDefinition(platform: ServicePlatform, path: string, text: string): void {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, text, FORMATS[platform].encoding);
+}
 
 /** The systemd user unit: the daemon in the foreground, restarted when it fails, started with the user's manager. */
 function renderUnit({ node, entry, home, path }: ServiceInputs): string {
@@ -130,18 +139,70 @@ function renderPlist({ node, entry, home, path }: ServiceInputs): string {
   ].join('\n');
 }
 
+/**
+ * The Task Scheduler task: at this user's logon, as this user with no elevation, restarted when
+ * it fails, with no time limit. An action has no environment of its own, so cmd sets
+ * BINNACLE_HOME and PATH, then runs the daemon with its output in the home's log. UTF-16 with its
+ * byte order mark, as schtasks reads a task's XML.
+ */
+function renderTask({ node, entry, home, path, user }: ServiceInputs): string {
+  // ponytail: no Windows path holds a quote, and quotes in PATH entries are dropped, which Windows ignores;
+  // a `%NAME%` in a value is expanded by cmd, since its command line has no escape for it.
+  const value = (text: string): string => text.replaceAll('"', '');
+  const line = `/d /s /c "set "BINNACLE_HOME=${value(home)}" && set "PATH=${value(path)}" && "${value(node)}" "${value(entry)}" >> "${value(logPath(home))}" 2>&1"`;
+  return [
+    '\uFEFF<?xml version="1.0" encoding="UTF-16"?>',
+    `<!-- ${SERVICE_MARK} -->`,
+    '<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">',
+    '  <RegistrationInfo>',
+    '    <Description>Binnacle daemon</Description>',
+    '  </RegistrationInfo>',
+    '  <Triggers>',
+    '    <LogonTrigger>',
+    '      <Enabled>true</Enabled>',
+    `      <UserId>${xml(user)}</UserId>`,
+    '    </LogonTrigger>',
+    '  </Triggers>',
+    '  <Principals>',
+    '    <Principal id="Author">',
+    `      <UserId>${xml(user)}</UserId>`,
+    '      <LogonType>InteractiveToken</LogonType>',
+    '      <RunLevel>LeastPrivilege</RunLevel>',
+    '    </Principal>',
+    '  </Principals>',
+    '  <Settings>',
+    '    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>',
+    '    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>',
+    '    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>',
+    '    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>',
+    '    <RestartOnFailure>',
+    '      <Interval>PT1M</Interval>',
+    '      <Count>999</Count>',
+    '    </RestartOnFailure>',
+    '  </Settings>',
+    '  <Actions Context="Author">',
+    '    <Exec>',
+    '      <Command>%SystemRoot%\\System32\\cmd.exe</Command>',
+    `      <Arguments>${xml(line)}</Arguments>`,
+    '    </Exec>',
+    '  </Actions>',
+    '</Task>',
+    '',
+  ].join('\r\n');
+}
+
 /** The installed definition, read back: whether Binnacle wrote it, what it starts, and for which home. */
 export type InstalledService = { text: string; ours: boolean; node: string | null; entry: string | null; home: string };
 
 export function readInstalled(platform: ServicePlatform, path: string): InstalledService | null {
   let text: string;
   try {
-    text = readFileSync(path, 'utf8');
+    text = readFileSync(path, FORMATS[platform].encoding);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
     throw error;
   }
-  const { node, entry, named } = format(platform).read(text);
+  const { node, entry, named } = FORMATS[platform].read(text);
   // A definition written by hand may name no home: the daemon then serves the default one.
   const home = named ? resolve(named) : resolveHome({});
   return { text, ours: text.includes(SERVICE_MARK), node, entry, home };
@@ -163,13 +224,19 @@ function readPlist(text: string): Read {
   return { node, entry, named: named === undefined ? undefined : unxml(named) };
 }
 
+function readTask(text: string): Read {
+  const line = unxml(text.match(/<Arguments>([^<]*)<\/Arguments>/)?.[1] ?? '');
+  const [, node = null, entry = null] = line.match(/&& "([^"]*)" "([^"]*)"/) ?? [];
+  return { node, entry, named: line.match(/set "BINNACLE_HOME=([^"]*)"/)?.[1] };
+}
+
 export type Autostart = {
   state: AutostartState;
   platform: ServicePlatform;
   /** The home asked about. */
   home: string;
-  /** The definition's path, null on a platform not supported yet. */
-  path: string | null;
+  /** The definition's path. */
+  path: string;
   /** The home the installed service serves, when one is installed, whichever home that is. */
   serves: string | null;
   /** What a broken service points at that no longer exists. */
@@ -180,7 +247,7 @@ export type Autostart = {
 export function readAutostart(home: string, env: NodeJS.ProcessEnv = process.env): Autostart {
   const platform = servicePlatform(env);
   const path = definitionPath(platform, env);
-  const installed = path ? readInstalled(platform, path) : null;
+  const installed = readInstalled(platform, path);
   const off: Autostart = { state: 'off', platform, home, path, serves: installed?.home ?? null, missing: [] };
   if (!installed || installed.home !== home) return off;
   const missing = [installed.node, installed.entry].map((file) => file ?? '(no command)').filter((file) => !existsSync(file));

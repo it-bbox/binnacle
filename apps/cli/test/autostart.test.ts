@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { test, type TestContext } from 'node:test';
 import { isAlive, readRuntime } from '@binnacle/daemon';
 import { fakeLaunchctl } from './fake-launchctl.ts';
+import { fakeSchtasks } from './fake-schtasks.ts';
 import { fakeSystemctl } from './fake-systemctl.ts';
 
 const BINN = fileURLToPath(new URL('../src/bin.ts', import.meta.url));
@@ -29,18 +30,22 @@ function setup(t: TestContext, platform = 'linux') {
   const user = join(root, 'user');
   const bin = join(root, 'bin');
   const state = join(root, 'state');
-  const darwin = platform === 'darwin';
-  const log = join(root, darwin ? 'launchctl.log' : 'systemctl.log');
-  const unit = darwin ? join(user, 'Library', 'LaunchAgents', 'binnacle.plist') : join(user, '.config', 'systemd', 'user', 'binnacle.service');
+  const manager = ({ darwin: 'launchctl', win32: 'schtasks' } as Record<string, string>)[platform] ?? 'systemctl';
+  const log = join(root, `${manager}.log`);
+  const unit = {
+    darwin: join(user, 'Library', 'LaunchAgents', 'binnacle.plist'),
+    win32: join(user, 'AppData', 'Local', 'binnacle', 'binnacle.xml'),
+  }[platform] ?? join(user, '.config', 'systemd', 'user', 'binnacle.service');
   for (const dir of [user, bin, state]) mkdirSync(dir);
-  if (darwin) writeFileSync(join(bin, 'launchctl'), fakeLaunchctl(log, state, unit), { mode: 0o755 });
-  else writeFileSync(join(bin, 'systemctl'), fakeSystemctl(log, state, unit), { mode: 0o755 });
+  const fake = { launchctl: fakeLaunchctl(log, state, unit), schtasks: fakeSchtasks(log, state) }[manager] ?? fakeSystemctl(log, state, unit);
+  writeFileSync(join(bin, manager), fake, { mode: 0o755 });
 
   const env: NodeJS.ProcessEnv = { ...process.env, HOME: user, BINNACLE_HOME: home, BINNACLE_PORT: '0', BINNACLE_SERVICE_PLATFORM: platform, PATH: bin };
   // Nothing here may reach this machine's own user manager or its configuration.
   delete env.XDG_CONFIG_HOME;
   delete env.XDG_RUNTIME_DIR;
   delete env.DBUS_SESSION_BUS_ADDRESS;
+  delete env.LOCALAPPDATA;
 
   t.after(() => {
     const leftover = readRuntime(home);
@@ -210,13 +215,7 @@ test('autostart on rewrites a unit whose paths changed, and says so', (t) => {
   assert.match(binn('daemon', 'autostart').stdout, /Autostart is on/);
 });
 
-test('the platform variable selects the platform', (t) => {
-  const { binn, calls } = setup(t, 'win32');
-  const on = binn('daemon', 'autostart', 'on');
-  assert.equal(on.status, 3);
-  assert.match(on.stderr, /not available on win32 yet/);
-  assert.deepEqual(calls(), []);
-
+test('a platform variable naming no supported platform is a usage error', (t) => {
   const bad = setup(t, 'plan9').binn('daemon', 'autostart');
   assert.equal(bad.status, 2);
   assert.match(bad.stderr, /BINNACLE_SERVICE_PLATFORM/);
@@ -473,4 +472,135 @@ test('macOS: with autostart on, start and stop go through launchctl, and stop th
   assert.ok(runtime && isAlive(runtime.pid));
   assert.equal(runtime.pid, supervised());
   assert.notEqual(runtime.pid, first);
+});
+
+// Windows: a Task Scheduler task at this user's logon, defined by XML in UTF-16, created and run under the current user.
+const TASK = '/TN binnacle';
+const xmlOf = (unit: string): string => readFileSync(unit, 'utf16le');
+const breakNode = (unit: string): void => writeFileSync(unit, xmlOf(unit).replace(`"${process.execPath}"`, '"/nowhere/node"'), 'utf16le');
+
+test('Windows: autostart on writes the task XML, creates the task from it and runs it', (t) => {
+  const { binn, unit, calls, home, bin, set } = setup(t, 'win32');
+  set('runs');
+
+  const on = binn('daemon', 'autostart', 'on');
+  assert.equal(on.status, 0, on.stderr);
+  assert.match(on.stdout, /Autostart is on/);
+
+  const text = xmlOf(unit);
+  assert.ok(text.startsWith('\uFEFF<?xml version="1.0" encoding="UTF-16"?>'), text.slice(0, 60));
+  assert.match(text, /Written by binn daemon autostart/);
+  assert.match(text, /<LogonTrigger>\s*<Enabled>true<\/Enabled>\s*<UserId>[^<]+<\/UserId>\s*<\/LogonTrigger>/);
+  assert.match(text, /<RestartOnFailure>\s*<Interval>PT1M<\/Interval>\s*<Count>999<\/Count>\s*<\/RestartOnFailure>/);
+  assert.match(text, /<ExecutionTimeLimit>PT0S<\/ExecutionTimeLimit>/);
+  assert.match(text, /<LogonType>InteractiveToken<\/LogonType>\s*<RunLevel>LeastPrivilege<\/RunLevel>/);
+  const line = `/d /s /c "set "BINNACLE_HOME=${home}" &amp;&amp; set "PATH=${bin}" &amp;&amp; "${process.execPath}" "${DAEMON_ENTRY}" &gt;&gt; "${join(home, 'daemon.log')}" 2&gt;&amp;1"`;
+  assert.ok(text.includes(`<Arguments>${line}</Arguments>`), text);
+  assert.deepEqual(calls(), ['/Query', `/Create ${TASK} /XML ${unit} /F`, `/Run ${TASK}`]);
+
+  assert.match(binn('daemon', 'autostart').stdout, new RegExp(`Autostart is on for ${home} \\(win32`));
+
+  const before = calls().length;
+  const again = binn('daemon', 'autostart', 'on');
+  assert.equal(again.status, 0, again.stderr);
+  assert.match(again.stdout, /already on.*nothing changed/);
+  assert.deepEqual(calls().slice(before), ['/Query', `/Query ${TASK}`]);
+});
+
+test('Windows: without Task Scheduler answering, autostart on refuses and writes nothing', (t) => {
+  const { binn, unit, set, calls } = setup(t, 'win32');
+  set('no-scheduler');
+
+  const on = binn('daemon', 'autostart', 'on');
+  assert.equal(on.status, 3);
+  assert.match(on.stderr, /not available.*Task Scheduler does not answer.*service is not available/s);
+  assert.equal(existsSync(unit), false);
+  assert.deepEqual(calls(), ['/Query']);
+});
+
+test('Windows: autostart off ends and deletes the task and removes its XML, and again says nothing changed', (t) => {
+  const { binn, unit, calls, set, supervised } = setup(t, 'win32');
+  set('runs');
+  assert.equal(binn('daemon', 'autostart', 'on').status, 0);
+  const daemon = supervised();
+  assert.ok(daemon && isAlive(daemon));
+
+  const before = calls().length;
+  const off = binn('daemon', 'autostart', 'off');
+  assert.equal(off.status, 0, off.stderr);
+  assert.match(off.stdout, /Autostart is off/);
+  assert.equal(existsSync(unit), false);
+  assert.equal(isAlive(daemon), false);
+  assert.deepEqual(calls().slice(before), [`/End ${TASK}`, `/Delete ${TASK} /F`]);
+
+  const after = calls().length;
+  const again = binn('daemon', 'autostart', 'off');
+  assert.equal(again.status, 0, again.stderr);
+  assert.match(again.stdout, /already off.*nothing changed/);
+  assert.equal(calls().length, after);
+  assert.match(binn('daemon', 'autostart').stdout, /Autostart is off for .*\(win32\).*binn daemon autostart on/);
+});
+
+test('Windows: a task whose Node path no longer exists reads broken, and on recreates it with the current one', (t) => {
+  const { binn, unit, calls } = setup(t, 'win32');
+  assert.equal(binn('daemon', 'autostart', 'on').status, 0);
+  breakNode(unit);
+  assert.match(binn('daemon', 'autostart').stdout, /Autostart is broken for .*\/nowhere\/node no longer exists.*binn daemon autostart on/s);
+
+  const before = calls().length;
+  const on = binn('daemon', 'autostart', 'on');
+  assert.equal(on.status, 0, on.stderr);
+  assert.match(on.stdout, /Rewrote .*binnacle\.xml with the current paths/);
+  assert.deepEqual(calls().slice(before), ['/Query', `/Create ${TASK} /XML ${unit} /F`, `/Run ${TASK}`]);
+  assert.match(binn('daemon', 'autostart').stdout, /Autostart is on/);
+});
+
+test('Windows: a refusal of schtasks is reported with its message', (t) => {
+  const { binn, set } = setup(t, 'win32');
+  set('refuse');
+
+  const on = binn('daemon', 'autostart', 'on');
+  assert.equal(on.status, 3);
+  assert.match(on.stderr, /schtasks \/Create \/TN binnacle \/XML .*binnacle\.xml \/F failed: ERROR: Access is denied\./);
+});
+
+test('Windows: with autostart on, start and stop go through schtasks, and stop then start leaves one daemon', (t) => {
+  const { binn, calls, set, supervised, home } = setup(t, 'win32');
+  set('runs');
+  assert.equal(binn('daemon', 'autostart', 'on').status, 0);
+  const first = supervised();
+  assert.ok(first && isAlive(first));
+
+  const before = calls().length;
+  const stop = binn('daemon', 'stop');
+  assert.equal(stop.status, 0, stop.stderr);
+  assert.match(stop.stdout, /stopped through the service manager/);
+  assert.equal(isAlive(first), false);
+  assert.deepEqual(calls().slice(before), [`/End ${TASK}`]);
+
+  const start = binn('daemon', 'start');
+  assert.equal(start.status, 0, start.stderr);
+  assert.match(start.stdout, /started through the service manager/);
+  assert.deepEqual(calls().slice(before + 1), [`/Run ${TASK}`]);
+
+  const runtime = readRuntime(home);
+  assert.ok(runtime && isAlive(runtime.pid));
+  assert.equal(runtime.pid, supervised());
+  assert.notEqual(runtime.pid, first);
+});
+
+test('Windows: start recreates a task whose Node path no longer exists, then runs it', (t) => {
+  const { binn, unit, calls, set, supervised, home } = setup(t, 'win32');
+  set('runs');
+  assert.equal(binn('daemon', 'autostart', 'on').status, 0);
+  assert.equal(binn('daemon', 'stop').status, 0);
+  breakNode(unit);
+
+  const before = calls().length;
+  const start = binn('daemon', 'start');
+  assert.equal(start.status, 0, start.stderr);
+  assert.match(start.stdout, /Rewrote .*binnacle\.xml with the current paths/);
+  assert.ok(xmlOf(unit).includes(`"${process.execPath}"`));
+  assert.deepEqual(calls().slice(before), [`/Create ${TASK} /XML ${unit} /F`, `/Run ${TASK}`]);
+  assert.equal(readRuntime(home)?.pid, supervised());
 });

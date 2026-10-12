@@ -1,6 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { closeSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { closeSync, openSync, readFileSync, rmSync } from 'node:fs';
 import {
   daemonEntry,
   ensureHome,
@@ -16,6 +15,7 @@ import {
   serviceInputs,
   servicePlatform,
   SERVICE_NAME,
+  writeDefinition,
   type Autostart,
   type Runtime,
 } from '@binnacle/daemon';
@@ -166,15 +166,8 @@ export async function autostart(home: string, action: 'on' | 'off' | undefined):
     console.log(describeAutostart(current));
     return EXIT.ok;
   }
-  if (current.path === null) {
-    console.error(`binn: autostart is not available on ${current.platform} yet.`);
-    return EXIT.failed;
-  }
-  return action === 'on' ? await autostartOn(current as Service) : await autostartOff(current as Service);
+  return action === 'on' ? await autostartOn(current) : await autostartOff(current);
 }
-
-/** Autostart where the platform has a definition, so a path. */
-type Service = Autostart & { path: string };
 
 /** One platform's service manager: each step a sequence of calls that reports the first refusal. */
 type Manager = {
@@ -206,7 +199,36 @@ function runAll(command: string, ...calls: string[][]): boolean {
   return true;
 }
 
-function managerFor({ platform, path, home }: Service): Manager {
+function managerFor({ platform, path, home }: Autostart): Manager {
+  if (platform === 'win32') {
+    const task = ['/TN', SERVICE_NAME];
+    const create = () => runAll('schtasks', ['/Create', ...task, '/XML', path, '/F']);
+    const run = () => runAll('schtasks', ['/Run', ...task]);
+    // The task's daemon is this home's: whether it runs is read from the home, since schtasks words its status in the system's language.
+    const running = () => {
+      const runtime = readRuntime(home);
+      return runtime !== null && isAlive(runtime.pid);
+    };
+    const end = () => !running() || runAll('schtasks', ['/End', ...task]);
+    return {
+      unavailable() {
+        const scheduler = runManager('schtasks', ['/Query']);
+        return scheduler.ok ? null : `Task Scheduler does not answer (${scheduler.message})`;
+      },
+      isOn: () => runManager('schtasks', ['/Query', ...task]).ok && running(),
+      // Task Scheduler keeps the definition it was given: a rewritten one is created again over it.
+      reload: create,
+      on: () => create() && run(),
+      off() {
+        if (!end() || !runAll('schtasks', ['/Delete', ...task, '/F'])) return false;
+        rmSync(path, { force: true });
+        return true;
+      },
+      start: run,
+      stop: end,
+      output: `${logPath(home)} holds its output.`,
+    };
+  }
   if (platform === 'darwin') {
     // The user's GUI domain, where a LaunchAgent runs; bootstrap starts it, the definition saying RunAtLoad.
     const domain = `gui/${process.getuid?.()}`;
@@ -259,13 +281,10 @@ function managerFor({ platform, path, home }: Service): Manager {
   };
 }
 
-/** Why autostart cannot be turned on here, or null when it can: a platform not supported yet, or no manager answering. */
-export function autostartUnavailable(current: Autostart): string | null {
-  if (current.path === null) return `${current.platform} is not supported yet`;
-  return managerFor(current as Service).unavailable();
-}
+/** Why autostart cannot be turned on here, or null when it can: no service manager answering. */
+export const autostartUnavailable = (current: Autostart): string | null => managerFor(current).unavailable();
 
-async function autostartOn(current: Service): Promise<ExitCode> {
+async function autostartOn(current: Autostart): Promise<ExitCode> {
   const { home, path } = current;
   const unavailable = autostartUnavailable(current);
   if (unavailable) {
@@ -287,6 +306,8 @@ async function autostartOn(current: Service): Promise<ExitCode> {
     if (stopped !== EXIT.ok) return stopped;
   }
 
+  // The service's output goes to the home's log, which neither cmd nor launchd creates a directory for.
+  ensureHome(home);
   rewriteDefinition(current, installed);
 
   if (!manager.on()) {
@@ -298,7 +319,7 @@ async function autostartOn(current: Service): Promise<ExitCode> {
 }
 
 /** Off for this home only: a service that starts another home's daemon, such as the owner's seen from an agent's temporary home, is left alone. */
-async function autostartOff(current: Service): Promise<ExitCode> {
+async function autostartOff(current: Autostart): Promise<ExitCode> {
   const { home, path, serves } = current;
   if (serves !== home) {
     const other = serves ? ` The service starts the daemon for ${serves}, and stays.` : '';
@@ -318,7 +339,7 @@ async function autostartOff(current: Service): Promise<ExitCode> {
 }
 
 function describeAutostart({ state, platform, home, path, serves, missing }: Autostart): string {
-  const where = path ? `${platform}, ${path}` : platform;
+  const where = `${platform}, ${path}`;
   if (state === 'on') return `Autostart is on for ${home} (${where}).`;
   if (state === 'broken') return `Autostart is broken for ${home} (${where}): ${missing.join(' and ')} no longer exists. Repair it with \`${AUTOSTART_ON}\`.`;
   const other = serves && serves !== home ? ` The service starts the daemon for ${serves} instead.` : '';
@@ -326,28 +347,27 @@ function describeAutostart({ state, platform, home, path, serves, missing }: Aut
 }
 
 /** The service when autostart is on, or broken, for this home: then start and stop go through the manager. Anything unreadable leaves them as they were. */
-function serviceFor(home: string): Service | null {
+function serviceFor(home: string): Autostart | null {
   try {
     const current = readAutostart(home);
-    return current.state === 'off' || current.path === null ? null : (current as Service);
+    return current.state === 'off' ? null : current;
   } catch {
     return null;
   }
 }
 
 /** Writes the definition with the current paths when the installed one differs, saying what it replaced; true when it wrote. */
-function rewriteDefinition({ platform, home, path }: Service, installed = readInstalled(platform, path)): boolean {
+function rewriteDefinition({ platform, home, path }: Autostart, installed = readInstalled(platform, path)): boolean {
   const definition = renderDefinition(platform, serviceInputs(home));
   if (installed?.text === definition) return false;
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, definition);
+  writeDefinition(platform, path, definition);
   if (installed && !installed.ours) console.error(`binn: warning: replaced ${path}, which Binnacle did not write.`);
   else if (installed && installed.home !== home) console.log(`Autostart moves from ${installed.home} to ${home}.`);
   else if (installed) console.log(`Rewrote ${path} with the current paths to Node, the daemon and PATH.`);
   return true;
 }
 
-async function startService(service: Service): Promise<ExitCode> {
+async function startService(service: Autostart): Promise<ExitCode> {
   const manager = managerFor(service);
   if (!manager.start()) return EXIT.failed;
   try {

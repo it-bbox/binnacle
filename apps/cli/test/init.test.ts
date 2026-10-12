@@ -2679,17 +2679,15 @@ test('autostart: broken, or not available here, nothing is asked and the Summary
     assert.match(summaryOf(result.stdout), /skipped\s+autostart: not available here, no systemd user manager answers \(systemctl was not found on PATH\)/);
   });
 
-  await t.test('a platform not supported yet', (t) => {
+  await t.test('no Task Scheduler on Windows', (t) => {
     const home = makeHome(t);
-    const systemd = fakeSystemd(home);
-    const root = makeRepository(t, 'win32-autostart');
+    const root = makeRepository(t, 'no-schtasks');
     home.env = { BINNACLE_SERVICE_PLATFORM: 'win32' };
 
     const result = binnIn(home)(root, '\n\n', 'init');
     assert.equal(result.status, 0, result.stderr);
     assert.doesNotMatch(result.stdout, /Start the daemon at login/);
-    assert.match(summaryOf(result.stdout), /skipped\s+autostart: not available here, win32 is not supported yet/);
-    assert.deepEqual(systemd.calls(), []);
+    assert.match(summaryOf(result.stdout), /skipped\s+autostart: not available here, Task Scheduler does not answer \(schtasks was not found on PATH\)/);
   });
 });
 

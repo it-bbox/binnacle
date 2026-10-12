@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, afterEach, describe, it } from 'node:test';
-import { daemonEntry, renderDefinition, type ServicePlatform } from '../src/service.ts';
+import { daemonEntry, definitionPath, renderDefinition, writeDefinition, type ServicePlatform } from '../src/service.ts';
 import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
 
 type SnapshotTask = {
@@ -594,8 +594,8 @@ describe('recent decisions, Git and the unavailable sections', () => {
   });
 });
 
-for (const platform of ['linux', 'darwin'] satisfies ServicePlatform[]) describe(`autostart in the Product Snapshot, on ${platform}`, () => {
-  const saved = { HOME: process.env.HOME, XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME, BINNACLE_SERVICE_PLATFORM: process.env.BINNACLE_SERVICE_PLATFORM };
+for (const platform of ['linux', 'darwin', 'win32'] satisfies ServicePlatform[]) describe(`autostart in the Product Snapshot, on ${platform}`, () => {
+  const saved = { HOME: process.env.HOME, XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME, LOCALAPPDATA: process.env.LOCALAPPDATA, BINNACLE_SERVICE_PLATFORM: process.env.BINNACLE_SERVICE_PLATFORM };
   afterEach(() => {
     for (const [key, value] of Object.entries(saved)) {
       if (value === undefined) delete process.env[key];
@@ -609,11 +609,10 @@ for (const platform of ['linux', 'darwin'] satisfies ServicePlatform[]) describe
     roots.push(user);
     process.env.HOME = user;
     process.env.XDG_CONFIG_HOME = join(user, '.config');
+    process.env.LOCALAPPDATA = join(user, 'AppData', 'Local');
     process.env.BINNACLE_SERVICE_PLATFORM = platform;
     if (!definition) return;
-    const path = platform === 'darwin' ? join(user, 'Library', 'LaunchAgents', 'binnacle.plist') : join(user, '.config', 'systemd', 'user', 'binnacle.service');
-    mkdirSync(join(path, '..'), { recursive: true });
-    writeFileSync(path, renderDefinition(platform, { ...definition, entry: daemonEntry(), path: '/usr/bin' }));
+    writeDefinition(platform, definitionPath(platform), renderDefinition(platform, { ...definition, entry: daemonEntry(), path: '/usr/bin', user: 'someone' }));
   }
 
   it('reads off, with the command that turns it on, and no attention item', async () => {

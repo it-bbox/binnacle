@@ -21,7 +21,7 @@ export {
   trackerToken,
   type Runtime,
 } from './home.ts';
-export { daemonEntry, readAutostart, readInstalled, renderDefinition, runManager, serviceInputs, servicePlatform, SERVICE_NAME, type Autostart } from './service.ts';
+export { daemonEntry, readAutostart, readInstalled, renderDefinition, runManager, serviceInputs, servicePlatform, SERVICE_NAME, writeDefinition, type Autostart } from './service.ts';
 export { isErrorEnvelope, OperationError, type ErrorDetail, type ErrorEnvelope } from './errors.ts';
 export { MANIFEST_RELATIVE, readManifest } from './manifest.ts';
 export { DaemonAlreadyRunningError, HEALTH_PATH, OPS_PREFIX, startDaemon, type Daemon } from './server.ts';
