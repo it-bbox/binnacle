@@ -102,14 +102,15 @@ const sameCells = (row: string[] | null, expected: string[]): boolean =>
 const finished = (task: TrackerTask): boolean => task.state === 'DONE' || task.state === 'CANCELLED';
 
 /**
- * Where the roadmap and the tickets disagree, and where an epic that has been specified
- * cannot be followed to its spec. An epic reaches its Tasks through the spec slug each Task
+ * Where the roadmap and the tickets disagree, where an epic that has been specified
+ * cannot be followed to its spec, and which of `specs`, each a `spec.md` by its slug and path,
+ * no row links. An epic reaches its Tasks through the spec slug each Task
  * carries, never through the shape of its identity, so every tracker is checked alike.
  *
  * Deterministic only. Nothing here judges how long something has taken or whether a
  * branch was merged; those checks produce false positives, and a noisy list gets ignored.
  */
-export function roadmapAttention(epics: Epic[], tasks: TrackerTask[]): Diagnostic[] {
+export function roadmapAttention(epics: Epic[], tasks: TrackerTask[], specs: { slug: string; path: string }[] = []): Diagnostic[] {
   const attention: Diagnostic[] = [];
   const rank = (status: RoadmapStatus): number => ROADMAP_STATUSES.indexOf(status);
 
@@ -132,6 +133,9 @@ export function roadmapAttention(epics: Epic[], tasks: TrackerTask[]): Diagnosti
     } else if ((epic.status === 'tickets' || epic.status === 'in progress') && own.length > 0 && own.every(finished)) {
       mismatch(`is "${epic.status}" on the roadmap, but every ticket of ${epic.spec} is DONE or CANCELLED.`);
     }
+  }
+  for (const { slug, path } of specs) {
+    if (!epics.some((epic) => epic.spec === slug)) attention.push({ code: 'roadmap.spec_unlisted', message: `${path} is a spec no roadmap row links.` });
   }
   return attention;
 }

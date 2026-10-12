@@ -482,6 +482,28 @@ describe('the roadmap in the Product Snapshot', () => {
       );
     });
   });
+
+  it('reports a spec no roadmap row links, by its path, and a row without its spec link stays roadmap.spec_missing', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeRepository({ roadmap: roadmapText([row(1, 'Linked', 'tickets', 'linked'), row(2, 'Specified without a link', 'spec', null)]) });
+      const spec = (slug: string): void => {
+        mkdirSync(join(root, 'docs', 'specs', slug), { recursive: true });
+        writeFileSync(join(root, 'docs', 'specs', slug, 'spec.md'), `# ${slug}\n`);
+      };
+      spec('linked');
+      spec('forgotten');
+      // A directory without a spec.md is not a spec.
+      ticket(root, 'no-spec', '01-one.md', { title: '01: One', status: 'BACKLOG' });
+
+      const body = await snapshot(daemon, root);
+      assert.deepEqual(codes(body, 'roadmap.'), ['roadmap.spec_missing', 'roadmap.spec_unlisted']);
+      assert.match(body.attention.find((item) => item.code === 'roadmap.spec_unlisted')!.message, /docs\/specs\/forgotten\/spec\.md/);
+
+      // Every spec linked: nothing.
+      roadmap(root, roadmapText([row(1, 'Linked', 'tickets', 'linked'), row(2, 'Forgotten no more', 'tickets', 'forgotten')]));
+      assert.deepEqual(codes(await snapshot(daemon, root), 'roadmap.'), []);
+    });
+  });
 });
 
 describe('recent decisions, Git and the unavailable sections', () => {

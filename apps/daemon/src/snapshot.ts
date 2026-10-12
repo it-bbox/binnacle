@@ -289,7 +289,7 @@ export async function readState(
   const tasks = await readTasks(home, tree, manifest, tracker, readRemoteTracker);
   attention.push(...tracker);
   const roadmap = await readRoadmap(tree, manifest, attention);
-  if (roadmap && tasks) attention.push(...roadmapAttention(roadmap.epics, tasks));
+  if (roadmap && tasks) attention.push(...roadmapAttention(roadmap.epics, tasks, await readSpecs(tree, manifest)));
   if (roadmap) attention.push(...nextActionAttention(roadmap, tasks));
   // Only the local tracker reads a Review; a remote one never reads the comments that would hold it.
   // A ready-for-human Task is the owner's to do, such as a demonstration, which no review follows.
@@ -500,6 +500,19 @@ export async function readRoadmap(tree: Tree, manifest: ProjectManifest | null, 
   const { roadmap, diagnostics } = parseRoadmap(text);
   attention.push(...diagnostics);
   return roadmap;
+}
+
+/**
+ * Every `<issues>/<slug>/spec.md` of the local tracker, the tracker's specs directory; none on
+ * another tracker, whose tickets name no directory of specs.
+ */
+async function readSpecs(tree: Tree, manifest: ProjectManifest | null): Promise<{ slug: string; path: string }[]> {
+  const issues = manifest?.tracker.provider === 'local' ? manifest.tracker.local.issues : null;
+  if (issues === null) return [];
+  const slugs = ((await tree.list(issues)) ?? []).filter((entry) => entry.directory).map((entry) => entry.name);
+  const hasSpec = async (slug: string): Promise<boolean> => ((await tree.list(posix.join(issues, slug))) ?? []).some((entry) => !entry.directory && entry.name === 'spec.md');
+  const found = await Promise.all(slugs.map(hasSpec));
+  return slugs.filter((_, index) => found[index]).map((slug) => ({ slug, path: posix.join(issues, slug, 'spec.md') }));
 }
 
 async function readAdrs(tree: Tree, manifest: ProjectManifest | null, attention: Diagnostic[]): Promise<State['adrs']> {
