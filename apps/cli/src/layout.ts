@@ -8,9 +8,11 @@ import { nextActionAttention, parseRoadmap } from '@binnacle/core';
  */
 
 export const ISSUE_TRACKER = 'docs/agents/issue-tracker.md';
+export const TRIAGE_LABELS = 'docs/agents/triage-labels.md';
+export const DOMAIN = 'docs/agents/domain.md';
 
 /** The convention files Matt Pocock Skills read, which `binn init` writes where missing. Any of them present is the layout. */
-export const MATT_POCOCK_FILES = [ISSUE_TRACKER, 'docs/agents/triage-labels.md', 'docs/agents/domain.md'];
+export const MATT_POCOCK_FILES = [ISSUE_TRACKER, TRIAGE_LABELS, DOMAIN];
 
 export const mattPocockFiles = (root: string): string[] => MATT_POCOCK_FILES.filter((path) => existsSync(join(root, path)));
 

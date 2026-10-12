@@ -734,7 +734,7 @@ test('with the convention files and the block present, only a missing ticket-hea
   for (const path of ['docs/agents/triage-labels.md', 'docs/agents/domain.md', 'AGENTS.md', 'CLAUDE.md']) assert.equal(read(root, path), files[path as keyof typeof files], path);
 });
 
-test('a CLAUDE.md importing AGENTS.md is one instruction set; without the import there are two; neither is written', (t) => {
+test('a CLAUDE.md importing AGENTS.md is one instruction set; without the import there are two; a declined plan writes neither', (t) => {
   const home = makeHome(t);
   const agents = '# Agent Instructions\n\nKeep it simple.\n';
   const importing = '@AGENTS.md\n\n# Claude Code Instructions\n';

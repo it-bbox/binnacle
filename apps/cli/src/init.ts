@@ -29,8 +29,8 @@ import {
 import { EXIT, type ExitCode } from './exit.ts';
 import { daemonAddress, detected, exporters, NO_EXPORT, settingsText } from './export.ts';
 import { isRecord, sessionHistory } from './history.ts';
-import { agentSkillsBlock, AGENT_SKILLS_HEADING, DOMAIN_FILE, issueTrackerFile, ticketHeaderSection, TRIAGE_LABELS_FILE } from './conventions.ts';
-import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, MATT_POCOCK_FILES, mattPocockFiles, ROADMAP_SKELETON, roadmapGaps } from './layout.ts';
+import { agentSkillsBlock, AGENT_SKILLS_HEADING, conventionFiles, ticketHeaderSection } from './conventions.ts';
+import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, mattPocockFiles, ROADMAP_SKELETON, roadmapGaps } from './layout.ts';
 import { register } from './project-commands.ts';
 import { binnacleSkills, CONFIG_HOME, declaredCapabilities, INSTALLED_SKILLS, mcpSources, onPath, PACKAGE_DIR, registeredWith, SKILLS_COPY, tilde, TOOLS, VSCODE_USER_DIRECTORY, type Tool } from './tools.ts';
 
@@ -137,7 +137,7 @@ export async function init(
     skillsStep(session, harnesses, tools, options.skipHarness ?? []);
     session.say('');
     // The manifest as it is now, or the tracker it would propose: the plan is not yet written.
-    conventionsStep(session,declaredManifest(session.root)?.tracker.provider ?? forgeRemote(git.remotes)?.provider ?? 'local');
+    conventionsStep(session, declaredManifest(session.root)?.tracker.provider ?? forgeRemote(git.remotes)?.provider ?? 'local');
     session.say('');
     if (manifest !== 'invalid') {
       layoutStep(session, manifest === 'new' ? { ...NEW_LAYOUT, issues: forgeRemote(git.remotes) ? null : NEW_LAYOUT.issues } : declaredLayout(declaredManifest(session.root)!));
@@ -321,7 +321,7 @@ function manifestStep(session: Session): ManifestState {
   }
 }
 
-/** Only what is there: a path that does not exist, or a tracker nobody has, is never declared. */
+/** Only what is there, or what the plan creates: a path that does not exist, or a tracker nobody has, is never declared. */
 function proposeManifest(root: string, remotes: GitRemote[], capabilities: string[]): string {
   const sections = [`version: 1`, `project:\n  id: ${scalar(basename(root))}`];
 
@@ -878,15 +878,10 @@ function layoutStep(session: Session, { issues, docs }: Layout): void {
  * tracker the manifest declares, or the one it would propose.
  */
 function conventionsStep(session: Session, provider: TrackerProvider): void {
-  const texts: Record<string, string> = {
-    [ISSUE_TRACKER]: issueTrackerFile(provider),
-    'docs/agents/triage-labels.md': TRIAGE_LABELS_FILE,
-    'docs/agents/domain.md': DOMAIN_FILE,
-  };
   const found = mattPocockFiles(session.root);
-  const missing = MATT_POCOCK_FILES.filter((path) => !found.includes(path));
-  if (missing.length > 0) session.say(`The planning skills read their conventions from ${missing.join(', ')}, which the plan creates.`);
-  for (const path of missing) planFile(session, path, texts[path]!);
+  const missing = Object.entries(conventionFiles(provider)).filter(([path]) => !found.includes(path));
+  if (missing.length > 0) session.say(`The planning skills read their conventions from ${missing.map(([path]) => path).join(', ')}, which the plan creates.`);
+  for (const [path, text] of missing) planFile(session, path, text);
   if (found.includes(ISSUE_TRACKER)) {
     if (hasTicketHeaderSection(session.root)) record(session, 'skipped', `ticket-header section: ${ISSUE_TRACKER} has it`);
     else planFile(session, ISSUE_TRACKER, ticketHeaderSection(provider));

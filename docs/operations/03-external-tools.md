@@ -70,7 +70,7 @@ Expected project flow:
 
 `binn init` writes the tracker and domain-doc layout these skills read, so `setup-matt-pocock-skills` is not needed.
 
-Do not hardcode upstream implementation details into Binnacle; detect/configure via an adapter.
+Do not hardcode upstream implementation details into Binnacle; detect/configure via an adapter. The one exception is the shape of the convention files `binn init` writes, kept as `setup-matt-pocock-skills` writes them so that the skills read them as their own (ADR-0042).
 
 ## Ponytail
 

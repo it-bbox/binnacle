@@ -1,4 +1,5 @@
 import { ROLES, TASK_STATES, type TrackerProvider } from '@binnacle/core';
+import { DOMAIN, ISSUE_TRACKER, TRIAGE_LABELS } from './layout.ts';
 
 /**
  * The planning conventions `binn init` writes where they are missing, in the shape
@@ -90,14 +91,14 @@ Roles: Developer, Reviewer, Security
 }
 
 /** The Epic brief and the contested points, as conventions every tracker's file lists. */
-const PLANNING = `- A grilling ends with an Epic brief, \`docs/specs/<epic>/brief.md\`: what it decided, in the owner's words, in five parts — the problem, the outcome wanted, who it concerns, the systems it touches, constraints and open questions. The owner reads it whole before \`/to-spec\`, which starts from it, and a Next action that grills an epic names its brief
+const PLANNING_CONVENTIONS = `- A grilling ends with an Epic brief, \`docs/specs/<epic>/brief.md\`: what it decided, in the owner's words, in five parts — the problem, the outcome wanted, who it concerns, the systems it touches, constraints and open questions. The owner reads it whole before \`/to-spec\`, which starts from it, and a Next action that grills an epic names its brief
 - A spec lists its contested points under a \`## Contested points\` heading: where requirements conflict or a choice was close, each with the option taken`;
 
 /** On a remote tracker the tickets are issues, and the spec and the brief stay in Git (ADR-0017). */
 const REMOTE_SPECS = `- A spec is \`docs/specs/<slug>/spec.md\`, committed to Git, never an issue; an issue names it on its \`Spec:\` line
-${PLANNING}`;
+${PLANNING_CONVENTIONS}`;
 
-const REMOTE_PUBLISH = (forge: string): string => `## When a skill says "publish to the issue tracker"
+const remotePublish = (forge: string): string => `## When a skill says "publish to the issue tracker"
 
 Create a ${forge} issue for a ticket. A spec or a brief is a file under \`docs/specs/<slug>/\`, committed to Git.`;
 
@@ -114,7 +115,7 @@ Specs and issues for this repo live as Markdown files in Git under \`docs/specs/
 - Implementation issues are one file per ticket at \`docs/specs/<slug>/issues/NN-<slug>.md\`, numbered from \`01\`, never a single combined tickets file
 - Two separate fields near the top of each issue file: \`Status:\`, the ticket's state (see *Ticket header* below), and \`Triage:\`, the role string from \`triage-labels.md\`
 - Comments and conversation history append to the bottom of the file under a \`## Comments\` heading
-${PLANNING}
+${PLANNING_CONVENTIONS}
 
 ## When a skill says "publish to the issue tracker"
 
@@ -163,7 +164,7 @@ When set to \`yes\`, PRs run through the same labels and states as issues, using
 
 GitHub shares one number space across issues and PRs, so a bare \`#42\` may be either: resolve with \`gh pr view 42\` and fall back to \`gh issue view 42\`.
 
-${REMOTE_PUBLISH('GitHub')}
+${remotePublish('GitHub')}
 
 ## When a skill says "fetch the relevant ticket"
 
@@ -209,7 +210,7 @@ When set to \`yes\`, MRs run through the same labels and states as issues, using
 
 Unlike GitHub, GitLab numbers issues and MRs separately, so \`#42\` is unambiguous once you know which surface the maintainer means.
 
-${REMOTE_PUBLISH('GitLab')}
+${remotePublish('GitLab')}
 
 ## When a skill says "fetch the relevant ticket"
 
@@ -229,9 +230,9 @@ Used by \`/wayfinder\`. The **map** is a single issue with **child** issues as t
 };
 
 /** The whole `docs/agents/issue-tracker.md` for a tracker: its conventions, then the ticket header. */
-export const issueTrackerFile = (provider: TrackerProvider): string => TRACKER_FILES[provider] + ticketHeaderSection(provider);
+const issueTrackerFile = (provider: TrackerProvider): string => TRACKER_FILES[provider] + ticketHeaderSection(provider);
 
-export const TRIAGE_LABELS_FILE = `# Triage Labels
+const TRIAGE_LABELS_FILE = `# Triage Labels
 
 The skills speak in terms of five canonical triage roles. This file maps those roles to the actual label strings used in this repo's issue tracker.
 
@@ -248,7 +249,7 @@ When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the 
 Edit the right-hand column to match whatever vocabulary you actually use.
 `;
 
-export const DOMAIN_FILE = `# Domain Docs
+const DOMAIN_FILE = `# Domain Docs
 
 How the engineering skills should consume this repo's domain documentation when exploring the codebase.
 
@@ -284,6 +285,13 @@ If your output contradicts an existing ADR, surface it explicitly rather than si
 
 > _Contradicts ADR-0007 (event-sourced orders), but worth reopening because…_
 `;
+
+/** Each convention file, by its path, as init creates it for a tracker. */
+export const conventionFiles = (provider: TrackerProvider): Record<string, string> => ({
+  [ISSUE_TRACKER]: issueTrackerFile(provider),
+  [TRIAGE_LABELS]: TRIAGE_LABELS_FILE,
+  [DOMAIN]: DOMAIN_FILE,
+});
 
 const WHERE_ISSUES: Record<TrackerProvider, string> = {
   local: 'Specs and issues live as Markdown files in Git under `docs/specs/<slug>/`.',
