@@ -28,18 +28,19 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 16 | Dashboard redesign | in progress | [`dashboard-redesign`](specs/dashboard-redesign/spec.md) |
 | 17 | Release: npm and open source | not started | — |
 | 18 | Lean flow | done | [`lean-flow`](specs/lean-flow/spec.md) |
+| 19 | Starting a project: new and existing | not started | — |
 
 Epics are ordered by dependency, not by preference. Epic 1 is the foundation; epics 5 to 7 are only meaningful once 1 to 4 exist. Audit and adopt is epic 6 in the specs of epics 1 to 3, written before epic 6 was inserted on 2026-09-26. Epic 14 was added on 2026-10-06 and comes before epic 10, which reuses its list of harnesses.
 
 ## Current focus
 
-Epics 1 to 11, 14 and 18 are done. On 2026-10-10 the owner set a date: on the evening of 2026-10-13 a video presents Binnacle, published to npm and open source, with every remaining v1 epic in it, 11, 12 and 13 included.
+Epics 1 to 11, 14 and 18 are done. On the evening of 2026-10-13 a video presents Binnacle, published to npm and open source (the owner, 2026-10-10).
 
-The owner's order: 16 by autopilot, the owner judging at its exit demonstration, beside 15 and 12; 13, which rewrites every skill's output; 17, npm and open source under Apache-2.0 (`ADR-0010`, `ADR-0031`), last. Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own.
+The owner's order, 2026-10-12: 16, closing at its exit demonstration; then 19, starting a new or an existing project with `/to-roadmap` and the planning chain (`docs/product-inbox.md`), the most important of what is left; then 15, 12 and 13 by importance; 17, npm and open source under Apache-2.0 (`ADR-0010`, `ADR-0031`), at the release. Whatever is not done by then continues after it, in open source. Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own.
 
 Epic 11's ticket 14 waits on one criterion: a merge that shrinks the graph. Whether epic 18 made the flow cheaper is read from epic 16's run.
 
-Epic 16, Dashboard redesign (ADR-0041): autopilot merged 01 to 08 on 2026-10-12, then 10 to 13 after the owner's first demonstration of 09 found places that did not read yet: the current Epic is the first in progress, the Overview shows the epics' stepper and counts with a compact "What's next", the Project page leads with the board, and widgets stand in two column stacks with no hole under them; 14 put the epics' column on the left of the board. The owner finds every page readable now; 09's other three criteria wait for the owner, with ticket 07's browser check.
+Epic 16, Dashboard redesign (ADR-0041): autopilot merged 01 to 08 on 2026-10-12, then 10 to 13 after the owner's first demonstration of 09 found places that did not read yet: the current Epic is the first in progress, the Overview shows the epics' stepper and counts with a compact "What's next", the Project page leads with the board, and widgets stand in two column stacks with no hole under them; 14 put the epics' column on the left of the board, and 15 lets it pick the board's epic and fold. The owner finds every page readable now; 09's other three criteria wait for the owner, with ticket 07's browser check.
 
 Next action: demonstrate epic 16's exit in ticket 09 again, then close the epic. `/mattpocock-skills:implement docs/specs/dashboard-redesign/issues/09-dashboard-redesign-exit-demonstration.md`
 
