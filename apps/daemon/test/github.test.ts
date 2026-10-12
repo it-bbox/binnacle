@@ -1039,9 +1039,9 @@ describe('the task brief on a GitHub tracker', () => {
     });
   });
 
-  it('gives a READY issue under the Matt Pocock workflow the implement command with its URL, in the brief and the snapshot', async () => {
+  it('gives a READY issue the run command with its URL, in the brief and the snapshot', async () => {
     await withGitHub([[issue(7, 'Ready', { body: header({ Status: 'READY' }) })]], async (daemon, fake) => {
-      const root = makeProject(manifest(fake.base, '\nworkflow:\n  provider: matt-pocock\n'));
+      const root = makeProject(manifest(fake.base));
       const command = `/binnacle:task run https://github.com/${REPOSITORY}/issues/7`;
       assert.equal((await taskGet(daemon, root, '#7')).body.start, command);
       assert.deepEqual((await snapshot(daemon, root)).tasks!.readyToStart.items.map((task) => task.start), [command]);

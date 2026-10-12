@@ -231,7 +231,8 @@ type RunReading = Pick<ObservedRun, 'taskId' | 'role' | 'lastActivityAt' | 'acti
  * a Product session's own run never does, nor a run of a Task `DONE`, `MERGED` or `CANCELLED`. The
  * `binnacle` plugin's commands are offered under any workflow; the Matt Pocock chain's, a `plan`
  * alternative's grilling, spec or tickets, only under `matt-pocock` (ADR-0042). A roadmap whose
- * table lists no epic is planned with `/binnacle:roadmap`; `epics` is null without a roadmap. An alternative whose command is the Next action's is left
+ * table lists no epic is planned with `/binnacle:roadmap`; `epics` is null without a roadmap.
+ * An alternative whose command is the Next action's is left
  * out, since the Next action already offers it. `free` is how many more Tasks the parallel limit
  * allows (the snapshot's `tasks.parallel.free`). A Task triaged `ready-for-human` is the owner's to
  * do, so no alternative hands it to an agent: `parallel`, `autopilot` and `byHand` leave it out, and
@@ -260,11 +261,13 @@ function byRule(epics: Epic[] | null, tasks: ResolvedTask[], runs: RunReading[],
   const alternative = (kind: Alternative['kind'], description: string, command: string | null = null, named: string[] = []): Alternative => ({
     kind,
     tasks: named,
-    command: command?.startsWith('/mattpocock-skills:') && workflow !== 'matt-pocock' ? null : command,
+    command,
     description,
     provenance: 'calculated',
   });
   /** Ready Tasks as one alternative: one Task with its start command, several named with none, so that no order is implied. */
+  /** A Matt Pocock Skills command, offered only under that workflow (ADR-0042). */
+  const mattPocock = (command: string): string | null => (workflow === 'matt-pocock' ? command : null);
   const take = (kind: 'parallel' | 'byHand', ready: ResolvedTask[], one: string, several: string): Alternative =>
     ready.length === 1
       ? alternative(kind, `${name(ready[0]!.id)} ${one}`, startCommand(ready[0]!), [ready[0]!.id])
@@ -325,8 +328,8 @@ function byRule(epics: Epic[] | null, tasks: ResolvedTask[], runs: RunReading[],
   if (own.length > 0 && own.every((task) => task.state === 'DONE' || task.state === 'CANCELLED')) {
     return [alternative('close', `Every Task of ${epicName} is DONE or CANCELLED, but the epic is not marked done. Close it in a Product session.`, '/binnacle:product')];
   }
-  if (epic.status === 'not started') return [alternative('plan', `${epicName} is not started. Grill it.`, '/mattpocock-skills:grill-with-docs')];
-  if (epic.status === 'spec' && epic.spec === null) return [alternative('plan', `${epicName} needs its spec.`, '/mattpocock-skills:to-spec')];
-  if (epic.status === 'spec' || (epic.status === 'tickets' && own.length === 0)) return [alternative('plan', `${epicName} needs its tickets.`, '/mattpocock-skills:to-tickets')];
+  if (epic.status === 'not started') return [alternative('plan', `${epicName} is not started. Grill it.`, mattPocock('/mattpocock-skills:grill-with-docs'))];
+  if (epic.status === 'spec' && epic.spec === null) return [alternative('plan', `${epicName} needs its spec.`, mattPocock('/mattpocock-skills:to-spec'))];
+  if (epic.status === 'spec' || (epic.status === 'tickets' && own.length === 0)) return [alternative('plan', `${epicName} needs its tickets.`, mattPocock('/mattpocock-skills:to-tickets'))];
   return [];
 }

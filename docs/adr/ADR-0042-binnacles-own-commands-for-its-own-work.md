@@ -1,6 +1,6 @@
 # ADR-0042: Binnacle's Own Commands for Its Own Work
 
-**Status:** Accepted. Narrows the rule in `docs/03-mcp-and-skills.md` that no command is offered under a workflow other than Matt Pocock's (`specs/starting-a-project/spec.md`).
+**Status:** Accepted. Narrows the rule in `docs/03-mcp-and-skills.md` that no command is offered under a workflow other than Matt Pocock's, and ADR-0032's consequence that the Suggested step's rules follow the Matt Pocock chain (`specs/starting-a-project/spec.md`).
 
 ## Context
 
