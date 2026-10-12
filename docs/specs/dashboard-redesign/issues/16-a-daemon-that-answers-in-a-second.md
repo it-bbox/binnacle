@@ -47,3 +47,23 @@ The daemon's fixes alone, under the old polling, take CPU from 74% to 34%. The b
 
 Reviewed by the session itself over the diff: one index, one `git` call, one shell change and two doc paragraphs. Nothing to fix. Kept: another project's rail dot and the menu's Attention count can be a minute old, which `docs/04-telemetry-dashboard.md` says.
 
+
+### After the owner's check, 2026-10-12
+
+The owner found the daemon much quicker, but a page reload still took about seven seconds. The shell's first load waited for every project's snapshot, each of which waited on GitHub or GitLab. Profiled again on the same temporary daemon:
+
+- **The dedupe of OpenTelemetry records** (`store.usage`): its `case` kept SQLite from any index, so each OpenTelemetry record scanned every artifact record of its session. Two `exists` lookups, the first by request id through a new index `(harness, session_id, request_id)` that replaces `(harness, session_id)`, return the same rows: 0.77 s to 0.04 s on this repository, 1.65 s to 0.10 s on interviewtrainer.
+- **The first load** shows the selected project once its snapshot is read, and reads the others after it (`app.vue`).
+- **The forge**: CI and a GitHub or GitLab tracker's Tasks are kept for a minute (`fromForge`, `apps/daemon/src/ci.ts`), the owner's choice over 15 s or none; a failed read is read again on the next call. `startDaemon`'s `forgeCacheMs` sets it, `0` in tests; a test pins it on GitHub issues. The Task page's own request, read with a filter, is not kept.
+- **A run's checkout** (`runs`) is found once per directory rather than once per record: 1.4 s of a profile, on interviewtrainer's 30 000 records.
+
+| this repository, warm | after the first fixes | now |
+| --- | --- | --- |
+| page shown after a reload | 6 to 7 s | 0.8 s |
+| every project read after a reload | 6 to 9 s | 1.3 s |
+| `project.snapshot` | 1.7 to 2.0 s | 0.43 to 0.54 s |
+| `usage.get` | 0.8 s | 0.4 s |
+| `task.list` | 0.65 s | 0.25 s |
+| CPU, the dashboard open | 19% | 9% |
+
+Left as they are: a reload still starts about a hundred `git` processes, eleven of them `symbolic-ref` for this repository's default branch; and the first call after the daemon starts takes about 5 s, reading each Task branch's own commits once (`readOwnChangeTimes`), which is then kept.
