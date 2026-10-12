@@ -451,6 +451,15 @@ async function autostartStep(session: Session, home: string, asks: boolean, term
   return true;
 }
 
+/** Whether the service manager starts this home's daemon; a definition that cannot be read counts as not. */
+function autostartIsOn(home: string): boolean {
+  try {
+    return readAutostart(home).state === 'on';
+  } catch {
+    return false;
+  }
+}
+
 /** The plan's item for a yes to the autostart question: `binn daemon autostart on`, as the command runs it. */
 function planAutostart(session: Session, home: string): void {
   session.plan.push({
@@ -973,9 +982,12 @@ async function trackerStep(session: Session, home: string, manifest: ProjectMani
   const name = repository ?? `the ${provider} tracker`;
   const variable = `BINNACLE_${provider.toUpperCase()}_TOKEN`;
   // The check reads binn init's own environment; the daemon reads the one it was started with.
-  const fromShell = process.env[variable]?.trim()
-    ? `\nThis check used ${variable} from this shell. The daemon reads it only from the environment it starts with, so start it from a shell that has it, or use the credentials file.`
-    : '';
+  // A daemon the service manager starts has only the BINNACLE_HOME and PATH its definition carries.
+  const fromShell = !process.env[variable]?.trim()
+    ? ''
+    : autostartIsOn(home)
+      ? `\nThis check used ${variable} from this shell. The daemon starts through the service manager, which does not carry it, so use the credentials file.`
+      : `\nThis check used ${variable} from this shell. The daemon reads it only from the environment it starts with, so start it from a shell that has it, or use the credentials file.`;
 
   // A remote tracker is read from its host, never from the tree.
   session.say(`Reading ${name}...`);

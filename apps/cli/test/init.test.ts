@@ -2652,3 +2652,57 @@ test('autostart: already on, nothing is asked', (t) => {
   assert.match(summaryOf(result.stdout), /skipped\s+autostart: it is on/);
   assert.equal(systemd.calls().length, before);
 });
+
+test('autostart: broken, or not available here, nothing is asked and the Summary says why', async (t) => {
+  await t.test('a broken service names its repair', (t) => {
+    const home = makeHome(t);
+    const systemd = fakeSystemd(home);
+    const root = makeRepository(t, 'broken-autostart');
+    assert.equal(spawnSync(process.execPath, [BINN, 'daemon', 'autostart', 'on'], { encoding: 'utf8', env: envFor(home) }).status, 0);
+    writeFileSync(systemd.unit, readFileSync(systemd.unit, 'utf8').replace(`"${process.execPath}"`, '"/nowhere/node"'));
+
+    const result = binnIn(home)(root, '\n\n', 'init');
+    assert.equal(result.status, 0, result.stderr);
+    assert.doesNotMatch(result.stdout, /Start the daemon at login/);
+    assert.match(summaryOf(result.stdout), /skipped\s+autostart: broken, `binn daemon autostart on` repairs it/);
+  });
+
+  await t.test('no systemd user manager', (t) => {
+    const home = makeHome(t);
+    const root = makeRepository(t, 'no-systemd');
+    home.env = { BINNACLE_SERVICE_PLATFORM: 'linux' };
+
+    const result = binnIn(home)(root, '\n\n', 'init');
+    assert.equal(result.status, 0, result.stderr);
+    assert.doesNotMatch(result.stdout, /Start the daemon at login/);
+    assert.match(summaryOf(result.stdout), /skipped\s+autostart: not available here, no systemd user manager answers \(systemctl was not found on PATH\)/);
+  });
+
+  await t.test('a platform not supported yet', (t) => {
+    const home = makeHome(t);
+    const systemd = fakeSystemd(home);
+    const root = makeRepository(t, 'darwin-autostart');
+    home.env = { BINNACLE_SERVICE_PLATFORM: 'darwin' };
+
+    const result = binnIn(home)(root, '\n\n', 'init');
+    assert.equal(result.status, 0, result.stderr);
+    assert.doesNotMatch(result.stdout, /Start the daemon at login/);
+    assert.match(summaryOf(result.stdout), /skipped\s+autostart: not available here, darwin is not supported yet/);
+    assert.deepEqual(systemd.calls(), []);
+  });
+});
+
+test('autostart: once init turned it on, a tracker token from this shell is pointed at the credentials file', async (t) => {
+  const home = makeHome(t);
+  fakeSystemd(home);
+  const gitlab = await trackerStandIn(t, 200, []);
+  const root = makeRepository(t, 'remote', {
+    '.binnacle/project.yaml': remoteManifest('gitlab', 'group/project', gitlab.base),
+    [TRACKER_FILE]: '# Issue tracker: GitLab\n',
+  });
+
+  const { stdout } = await binnInit(home, root, '\n\ny\n', { BINNACLE_GITLAB_TOKEN: 'glpat-from-the-shell' });
+
+  assert.match(stdout, /ran\s+binn daemon autostart on/);
+  assert.match(stdout, /This check used BINNACLE_GITLAB_TOKEN from this shell\. The daemon starts through the service manager, which does not carry it, so use the credentials file/);
+});
