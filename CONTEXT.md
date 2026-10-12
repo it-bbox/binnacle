@@ -95,6 +95,9 @@ Binnacle's view of a Ticket: its identity, title, lifecycle state and dependenci
 ### Task brief
 What a session needs to start one Task: its fields, its dependencies with their titles and states, its spec's path, the ticket body without comments, its roles, its questions and answers, its pull or merge request with its CI state, and the branch name that maps to it. It is compact by construction; the comments and the spec are read separately, when needed.
 
+### Epic brief
+What an epic's grilling decided, in the owner's words: `docs/specs/<epic>/brief.md`, in five parts — the problem, the outcome wanted, who it concerns, the systems it touches, constraints and open questions — which `/to-spec` starts from. Not a Task brief, which is what a session needs to start one Task.
+
 ### BLOCKED
 A Task state: work started and now waits on something. It is not the same as an Unmet dependency, and a snapshot reports the two separately.
 

@@ -36,11 +36,11 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 Epics 1 to 11, 14, 16 and 18 are done. On the evening of 2026-10-13 a video presents Binnacle, published to npm and open source (the owner, 2026-10-10).
 
-The owner's order, 2026-10-12: 19, starting a new or an existing project with `/to-roadmap` and the planning chain (`docs/product-inbox.md`), the most important of what is left; then 15, 12 and 13 by importance; 17, npm and open source under Apache-2.0 (`ADR-0010`, `ADR-0031`), at the release. Whatever is not done by then continues after it, in open source. Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own.
+The owner's order, 2026-10-12: 19, starting a new or an existing project, the most important of what is left; then 15, 12 and 13 by importance; 17, npm and open source under Apache-2.0 (`ADR-0010`, `ADR-0031`), at the release. Whatever is not done by then continues after it, in open source. Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own.
 
-Epic 11's ticket 14 waits on one criterion: a merge that shrinks the graph. Epic 18 made the flow cheaper, read from epic 16's run against epic 11's: per DONE Task 14% less output, 24% less cached input and half the rework share (`dashboard-redesign/09`).
+Epic 19 is grilled (`docs/specs/starting-a-project/brief.md`): a roadmap skill of Binnacle's own, from a vision or an existing project; the audit listing stranded documents; and `/binnacle:task run <ticket>` carrying a ticket's process in place of `/mattpocock-skills:implement`.
 
-Epic 16, Dashboard redesign (ADR-0041), is done: the owner accepted it on 2026-10-12, after ticket 16 made the daemon answer in about a second (a page reload in 0.8 s, the daemon at 9% CPU with the dashboard open, from 74%).
+Epic 16 is done, accepted on 2026-10-12. Epic 18 made the flow cheaper, read from epic 16's run against epic 11's: per DONE Task 14% less output and half the rework share (`dashboard-redesign/09`). Epic 11's ticket 14 waits on one criterion: a merge that shrinks the graph.
 
 Next action: specify epic 19, Starting a project: new and existing, from its grilling's brief, `docs/specs/starting-a-project/brief.md`. `/mattpocock-skills:to-spec`
 
