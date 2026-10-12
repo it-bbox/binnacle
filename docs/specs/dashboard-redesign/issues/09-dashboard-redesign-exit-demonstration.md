@@ -47,3 +47,7 @@ The owner went through the dashboard: the design reads better and they like it, 
 - **13**: the Usage page's widgets sit in rows, so a short one leaves a large empty space under it and the page reads as a jumble.
 
 The other criteria wait for the next demonstration, after 10 to 13 merge.
+
+### After tickets 10 to 14, 2026-10-12
+
+The owner, after autopilot merged 10 to 13: the epics belong on the left of the board, not on the right as their lead in 12 said, which ticket 14 did; otherwise every page now reads ("сейчас нормально, более-менее читаем"). The first criterion holds on that word. The other three wait for the owner to confirm them.
