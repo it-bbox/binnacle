@@ -2,7 +2,7 @@
 
 Status: READY
 Triage: ready-for-human
-Blocked by: 01, 02, 03, 04, 05, 06, 07, 08
+Blocked by: 01, 02, 03, 04, 05, 06, 07, 08, 10, 11, 12, 13
 Spec: `docs/specs/dashboard-redesign/spec.md`
 
 **What to build:** epic 16's exit criterion, demonstrated by the owner on this repository (spec, the paragraph under its title). After it, a Product session reads epic 18's measurement against epic 11 with `usage_get` by epic (spec, *Further Notes*).
@@ -36,3 +36,14 @@ Two things for the owner to judge, neither made by this epic:
 4. On Settings, set the Parallel limit to another value and save. In the chat, `project_snapshot` (or `/binnacle:status`) gives it in `tasks.parallel` with `source: machine`. Set it back to what you want autopilot to use. Under the limit, *What this machine has carried* is ticket 07's last criterion.
 5. In the Claude desktop app, run a Binnacle skill that offers commands, such as `/binnacle:daily`: each command stands alone in a fenced block with the app's copy button, a shell command in a `bash` block with a Run button too.
 6. Tick each criterion that held; for one that did not, one line on what went wrong, to become a ticket. Then a Product session reads epic 18's measurement: `usage_get` with `epic: 16` against `epic: 11`.
+
+### The demonstration, 2026-10-12
+
+The owner went through the dashboard: the design reads better and they like it, and most widgets are fine, but some places do not read yet, so the first criterion is not met. Filed as tickets, which this one now waits on:
+
+- **10**: the current Epic shows as 12, "Audit, completed", with no Tasks, while 16 is in progress.
+- **11**: the Overview's epic progress is folded to a line, and its stepper shows no names when opened; the owner wants the stepper in *Brief* and every epic with its name, status and Tasks done out of all in *Full*. "What's next" is far larger than its content.
+- **12**: on the Project page the epics fill the width and the first screen with little in each row, and the board starts below; the owner's lead is the epics in a column beside the board.
+- **13**: the Usage page's widgets sit in rows, so a short one leaves a large empty space under it and the page reads as a jumble.
+
+The other criteria wait for the next demonstration, after 10 to 13 merge.
