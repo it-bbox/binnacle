@@ -1,6 +1,6 @@
 # 16: A daemon that answers in a second
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/dashboard-redesign/spec.md`
@@ -12,8 +12,38 @@ Spec: `docs/specs/dashboard-redesign/spec.md`
 
 Fix the first by mapping branches to Tasks once per Task list, with behaviour unchanged. Fix the second with the smallest change that stops the storm, the rail's dots, the Projects page and the Attention page still right: the selected project polled as now and the others less often or only where a page shows them, or the daemon handing a snapshot computed a few seconds ago to callers that ask again. Profile again after both and fix only what is still large, such as the `git` processes. Caching runs between calls, a background ingest, and caching CI are later steps, taken only if the numbers still ask for them.
 
-- [ ] A branch's Task is found without recomputing every Task's branch; the existing tests pass unchanged, and one pins the mapping.
-- [ ] The dashboard no longer computes every registered project's full snapshot every 15 seconds; the rail's dots, Projects and Attention stay right.
-- [ ] Before and after, on a temporary daemon with the owner's five projects registered: CPU while idle with the dashboard open, `project.snapshot`, `usage.get` and `task.list` for this repository, recorded here.
-- [ ] The docs say what changed where they describe it (`docs/04-telemetry-dashboard.md`, `docs/01-architecture.md`).
+- [x] A branch's Task is found without recomputing every Task's branch; the existing tests pass unchanged, and one pins the mapping.
+- [x] The dashboard no longer computes every registered project's full snapshot every 15 seconds; the rail's dots, Projects and Attention stay right.
+- [x] Before and after, on a temporary daemon with the owner's five projects registered: CPU while idle with the dashboard open, `project.snapshot`, `usage.get` and `task.list` for this repository, recorded here.
+- [x] The docs say what changed where they describe it (`docs/04-telemetry-dashboard.md`, `docs/01-architecture.md`).
 - [ ] The owner restarts the daemon and switches the Project page's board in about a second.
+
+## Comments
+
+**Branch to Task.** `tasksOnBranch` (`packages/core/src/tracker.ts`) indexes a Task list's local branches once, in a `WeakMap` keyed by the list, which is never changed once read; `branchTask` and `sharedBranch` look a branch up in it. A remote branch still maps by its number, which costs no slug. A test pins the mapping: a hundred rounds of lookups read each ticket once.
+
+**The storm.** The shell (`app.vue`) reads the selected project's snapshot on every poll, every project's on Projects and Attention, and the others' every fourth poll, a minute; `loadProjects` keeps a project's previous view otherwise, and reads one it has none for. Picking another project, or opening Projects or Attention, reads at once.
+
+**Profiled again.** After both, `reviewPoints` (`apps/daemon/src/usage.ts`) still spawned one `git rev-parse` per Task branch, Task after Task, about 3.4 s of a profile of nine calls: it now reads every branch tip with one `git for-each-ref` (`readBranches`, already in the adapters). What is left:
+
+- `project.snapshot` spends 1.2 to 1.9 s of its 2 s waiting for GitHub, reading CI; it is wall time, not CPU. Caching CI is the later step the ticket names.
+- the largest CPU item is `store.usage`, the query that leaves out OpenTelemetry records an artifact already holds: 0.5 s on this repository, 1.2 s on interviewtrainer, run by the snapshot, `usage.get` and `task.list` alike. Caching runs between calls is the later step.
+
+### Measured, 2026-10-12
+
+A temporary daemon (`BINNACLE_HOME` in a scratch directory, port 7720) with the owner's five projects registered and a copy of the owner's database. Each operation called three times for this repository, the first call cold. The dashboard's polling replayed by a script, since a hidden browser tab does not poll: every 15 s the shell's requests and the Project page's `task.list` and `usage.get` on this repository, CPU read from `/proc` over 120 s after 20 s.
+
+| | before | after |
+| --- | --- | --- |
+| CPU, the dashboard open | 74% | 19% |
+| `project.snapshot` | 8.3, 4.4, 4.1 s | 6.0, 2.6, 2.3 s |
+| `usage.get` | 2.7, 2.8, 2.7 s | 0.80, 0.81, 0.80 s |
+| `task.list` | 2.6, 2.7, 2.6 s | 0.65, 0.68, 0.66 s |
+| `project.status` | 0.04, 0.02, 0.01 s | 0.04, 0.01, 0.01 s |
+
+The daemon's fixes alone, under the old polling, take CPU from 74% to 34%. The board is `task.list`, 0.7 s.
+
+### Review
+
+Reviewed by the session itself over the diff: one index, one `git` call, one shell change and two doc paragraphs. Nothing to fix. Kept: another project's rail dot and the menu's Attention count can be a minute old, which `docs/04-telemetry-dashboard.md` says.
+
