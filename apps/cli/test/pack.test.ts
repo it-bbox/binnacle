@@ -194,43 +194,74 @@ test('/binnacle:product presents the graph\'s freshness in one line and each pai
   assert.match(skill, /When `impact` is marked `available: false`, say the risk was not assessed, with its reason, here rather than under \*\*Not available\*\*/);
 });
 
-/** Epic 18: a ticket touches nothing in the roadmap and commits its Review whenever it suits the work; Binnacle reads review and rework from the runs (the owner, 2026-10-11). */
-test('autopilot\'s brief asks for no roadmap edit and no Review order, and for a short Review, short commits, a question\'s options and a browser only for the dashboard', () => {
-  const brief = step(skillText('autopilot'), 6);
-  assert.match(brief, /make the ticket's `Status: DONE` your last commit\. Do not edit the roadmap, neither its current focus nor an epic's status/);
-  assert.match(brief, /mark each finding fixed, kept or left, with its reason/);
-  assert.doesNotMatch(brief, /if the frontier moved|keep this order|Before fixing anything|the Review commit|stale `Next action:`/);
-  assert.match(brief, /Commit the Review whenever it suits the work, before or after its fixes/);
-  assert.match(brief, /a finding to fix in full, with its place and its fix; a finding kept in one line, with its reason/);
-  assert.match(brief, /an English subject of at most 72 characters, and a body only when the subject cannot carry the why/);
-  assert.match(brief, /in a browser only when the ticket changes the dashboard/);
-  assert.match(brief, /its options after it, each with its cost, the recommended one first and marked "\(recommended\)"/);
+/** Epic 19 (ADR-0042): the agent runs the ticket through `/binnacle:task run`, which holds the process; the brief adds only what being unattended asks. */
+test('autopilot\'s brief points to /binnacle:task run and keeps only what being unattended adds, with no copy of the process\'s rules', () => {
+  const seven = step(skillText('autopilot'), 7);
+  const brief = seven.slice(seven.indexOf('> You are the implementation session'), seven.indexOf('The resume paragraph'));
+  assert.match(brief, /run `\/binnacle:task run <ticket path>`/);
+  // The process's rules live in the task skill alone.
+  for (const rule of [/test-first/, /typecheck and run/i,/code review skill/, /### Review/, /a finding to fix in full/, /Commit the Review/, /72 characters/, /in a browser/, /Tick every criterion|criterion only a human/, /retires a document/, /blocks nothing: answer it/, /`Roles:`/, /roadmap/, /Do not merge, push/, /"\(recommended\)"/, /`Status: DONE` your last commit/]) {
+    assert.doesNotMatch(brief, rule, String(rule));
+  }
+  // What being unattended adds: nobody answers, so a question goes to the ticket; a temporary home and port, every daemon stopped; nothing outside the worktree; the report.
+  assert.match(brief, /Nobody answers questions until the owner is back/);
+  assert.match(brief, /goes to the ticket with its options, as `\/binnacle:task run` says for an unattended session/);
+  assert.match(brief, /a temporary `BINNACLE_HOME` of your own, kept inside your worktree/);
+  assert.match(brief, /`BINNACLE_PORT=0`/);
+  assert.match(brief, /Stop every daemon you started before you report/);
+  assert.match(brief, /Change nothing outside your worktree/);
+  assert.match(brief, /Report: any question first, then/);
+});
+
+/** Epic 19: the owner sees what the epic can break, its riskiest step and what was dropped while still there, and a resumed run does not write them again. */
+test('autopilot asks the plan\'s three questions after the epic is found planned and before its loop, starts nothing without a yes, and writes them only when the spec has no ## Risks', () => {
+  const skill = skillText('autopilot');
+  const six = step(skill, 6);
+  assert.match(six, /^6\. \*\*The plan's three questions\.\*\*/);
+  // After step 5 finds the epic planned, before the loop.
+  assert.match(step(skill, 5), /Refuse to start unless the epic is planned/);
+  assert.ok(skill.indexOf(six) < skill.indexOf('## Loop'), 'before the loop');
+  assert.match(step(skill, 7), /\*\*Resume answered tickets, start ready ones\.\*\*/);
+  // The three, drafted from the spec and the tickets.
+  assert.match(six, /from the spec and the tickets/);
+  assert.match(six, /what the epic can break/);
+  assert.match(six, /which step is the riskiest/);
+  assert.match(six, /what was dropped from the epic, and why/);
+  // Written on the owner's yes alone, the spec committed alone to `main`, which the run's start then follows.
+  assert.match(six, /Only on the human's yes in this chat, write them[^.]*under a `## Risks` heading/);
+  assert.match(six, /commit the spec alone to `main`/);
+  assert.match(six, /that commit is the run's start/);
+  assert.match(six, /Without a yes, start nothing/);
+  // A spec that has them already: shown, asked, never written again.
+  assert.match(six, /When the spec already has a `## Risks` section, show it as it stands and ask whether to go on, writing nothing/);
+  // The one file autopilot writes before its loop.
+  assert.match(skill, /Besides step 6's `## Risks`, written before the loop on the owner's yes, you write no file and make no commit of your own during the run/);
 });
 
 /** Epic 18: autopilot rebases a branch itself; only a conflict, or checks failing after a clean rebase, send it back. */
-test('autopilot\'s step 8 rebases the branch onto main itself, sends it back only on a conflict or failing checks, and no longer checks the Review\'s order', () => {
+test('autopilot\'s step 9 rebases the branch onto main itself, sends it back only on a conflict or failing checks, and no longer checks the Review\'s order', () => {
   const skill = skillText('autopilot');
-  const eight = step(skill, 8);
-  assert.match(eight, /run `git rebase main` in the agent's worktree/);
-  assert.match(eight, /On a conflict, run `git rebase --abort` there and send the agent back/);
-  assert.match(eight, /After a clean rebase, the checks below run on the rebased branch, and a failure among them is the one return to the agent/);
+  const verify = step(skill, 9);
+  assert.match(verify, /run `git rebase main` in the agent's worktree/);
+  assert.match(verify, /On a conflict, run `git rebase --abort` there and send the agent back/);
+  assert.match(verify, /After a clean rebase, the checks below run on the rebased branch, and a failure among them is the one return to the agent/);
   assert.doesNotMatch(skill, /-G'\^### Review'|Review recorded only in the last commit|changes only the ticket, and when the Review marks/);
-  assert.match(eight, /Sending the branch back for a conflict is that one return too/);
-  assert.match(skill, /the one change you make to a branch besides a merge is step 8's rebase of an agent's branch/);
+  assert.match(verify, /Sending the branch back for a conflict is that one return too/);
+  assert.match(skill, /the one change you make to a branch besides a merge is step 9's rebase of an agent's branch/);
 });
 
 /** Epic 18: the upkeep happens once, after the last merge, for what the run's merges touched (the owner, 2026-10-11). */
 test('autopilot does its upkeep once after the last merge, in order, each only when the run\'s merges touched what it serves, and reports each', () => {
   const skill = skillText('autopilot');
-  assert.doesNotMatch(step(skill, 8), /frozen install|refresh the plugin|dashboard:generate|`binn daemon stop` then/);
-  const ten = step(skill, 10);
-  assert.match(ten, /After the last merge/);
-  assert.match(ten, /`git diff --name-only <the run's start> main`/);
-  const order = ['--frozen-lockfile', 'refresh the plugin', 'reinstall the package', 'pnpm dashboard:generate', '`binn daemon stop` then `binn daemon start`'].map((text) => ten.indexOf(text));
+  assert.doesNotMatch(step(skill, 9), /frozen install|refresh the plugin|dashboard:generate|`binn daemon stop` then/);
+  const upkeep = step(skill, 11);
+  assert.match(upkeep, /After the last merge/);
+  assert.match(upkeep, /`git diff --name-only <the run's start> main`/);
+  const order = ['--frozen-lockfile', 'refresh the plugin', 'reinstall the package', 'pnpm dashboard:generate', '`binn daemon stop` then `binn daemon start`'].map((text) => upkeep.indexOf(text));
   assert.ok(order.every((at, i) => at >= 0 && at > (order[i - 1] ?? -1)), String(order));
-  assert.match(ten, /A failure here never stops the run/);
-  assert.match(step(skill, 12), /\*\*Upkeep\*\*: each of step 10's, as run, skipped and why, or failed, with the command that failed and the commands run before it/);
-  assert.match(skill, /except as step 10 allows/);
+  assert.match(upkeep, /A failure here never stops the run/);
+  assert.match(step(skill, 13), /\*\*Upkeep\*\*: each of step 11's, as run, skipped and why, or failed, with the command that failed and the commands run before it/);
+  assert.match(skill, /except as step 11 allows/);
 });
 
 /** Epic 9: the installed binnacle@binnacle shadows the skills-directory plugin here, so a merged skill reaches the owner only once refreshed; epic 14 keeps Claude Code's commands in the development workflow, out of the skill. */
@@ -241,7 +272,7 @@ test('autopilot refreshes the plugin only when the run changed its skills, with 
   const workflow = workflowText();
   assert.match(workflow, /run `pnpm --filter @binnacle\/cli run prepare`; then, if `claude plugin list --json` lists `binnacle@binnacle`, `claude plugin marketplace update binnacle` then `claude plugin update binnacle@binnacle`/);
   assert.match(skill, /A failure here never stops the run/);
-  assert.match(step(skill, 12), /when the plugin was refreshed, that a new session loads it/);
+  assert.match(step(skill, 13), /when the plugin was refreshed, that a new session loads it/);
 });
 
 /** Epic 14: every other harness runs the package's `binnacle-<action>` copy, which the `skills` CLI installed, so a merged skill reaches it only once reinstalled, right after the plugin refresh and by the same rules. */
@@ -649,10 +680,10 @@ test('/binnacle:answer ends with autopilot for a Task of a planned epic, and the
 });
 
 /** Epic 11, ADR-0040: a genuine question outlives the agent's session, in the ticket on its branch. */
-test('autopilot\'s brief records a genuine product question as ### Question in a commit of the ticket alone, after what is sound, and never answers it', () => {
-  const brief = step(skillText('autopilot'), 6);
-  assert.match(brief, /commit what is sound without `DONE`, then record the question in the ticket, under `## Comments`, as a `### Question` heading with the question below it and its options after it, [^.]+, in a commit of its own that changes only the ticket, and put the question at the top of your report/);
-  assert.match(brief, /never write an `### Answer`/);
+test('autopilot\'s brief sends a genuine product question to the ticket, as the task skill records it unattended, and never answers it', () => {
+  const brief = step(skillText('autopilot'), 7);
+  assert.match(brief, /A question only the owner can answer goes to the ticket with its options, as `\/binnacle:task run` says for an unattended session/);
+  assert.match(skillText('task'), /Unattended, as an autopilot brief says, commit what is sound without `DONE`, then record it in the ticket \(ADR-0040\)/);
   // An answer autopilot draws from the spec withdraws the question rather than answering it.
   assert.match(brief, /take it out with `git revert --no-edit <its commit>`/);
 });
@@ -660,54 +691,55 @@ test('autopilot\'s brief records a genuine product question as ### Question in a
 /** Epic 11: autopilot started again on the epic resumes an answered ticket on its branch, and leaves one still waiting to the owner. */
 test('autopilot resumes a ticket whose branch exists unmerged and whose questions are all answered, and never starts one with an unanswered question', () => {
   const skill = skillText('autopilot');
-  const six = step(skill, 6);
-  assert.match(six, /`questions`, `\{ asked, unanswered \}`/);
-  assert.match(six, /`git rev-parse --verify --quiet refs\/heads\/<branch>` prints a commit and `git merge-base --is-ancestor <branch> main` fails/);
-  assert.match(six, /never started afresh/);
-  assert.match(six, /With `unanswered` above zero, or `questions` null, which cannot tell, start no agent for it and list it in the report under \*Waiting for the owner\*/);
-  assert.match(six, /`activity\.running`/);
+  const loop = step(skill, 7);
+  assert.match(loop, /`questions`, `\{ asked, unanswered \}`/);
+  assert.match(loop, /`git rev-parse --verify --quiet refs\/heads\/<branch>` prints a commit and `git merge-base --is-ancestor <branch> main` fails/);
+  assert.match(loop, /never started afresh/);
+  assert.match(loop, /With `unanswered` above zero, or `questions` null, which cannot tell, start no agent for it and list it in the report under \*Waiting for the owner\*/);
+  assert.match(loop, /`activity\.running`/);
   // The earlier worktree goes only when clean and no daemon runs from it; the branch stays.
-  assert.match(six, /Remove it only when `git -C <path> status --porcelain` prints nothing and no daemon runs from it, checked as step 8 checks/);
-  assert.match(six, /keeping the ticket's branch/);
-  assert.match(six, /A worktree with changes, or with a daemon running from it, stays/);
+  assert.match(loop, /Remove it only when `git -C <path> status --porcelain` prints nothing and no daemon runs from it, checked as step 9 checks/);
+  assert.match(loop, /keeping the ticket's branch/);
+  assert.match(loop, /A worktree with changes, or with a daemon running from it, stays/);
   // The new agent checks the branch out, rebases it and reads the Answer.
-  assert.match(six, /Do not create the branch: check it out in your worktree, rebase it onto the local `main`, read each `### Question` and its `### Answer`/);
-  assert.match(six, /A resumed ticket counts toward the parallel limit and the conflict risk/);
-  // Only a ticket stopped on a question is resumed; one step 9 stopped for another reason stays the owner's (the Review's finding 14).
-  assert.match(six, /With `asked` zero, it stopped for another reason than a question, which step 9 left to the owner: start no agent for it either/);
-  assert.match(six, /With `asked` above zero and `unanswered` zero, every question answered, resume it/);
+  assert.match(loop, /Do not create the branch: check it out in your worktree, rebase it onto the local `main`, read each `### Question` and its `### Answer`/);
+  assert.match(loop, /A resumed ticket counts toward the parallel limit and the conflict risk/);
+  // Only a ticket stopped on a question is resumed; one step 10 stopped for another reason stays the owner's (the Review's finding 14).
+  assert.match(loop, /With `asked` zero, it stopped for another reason than a question, which step 10 left to the owner: start no agent for it either/);
+  assert.match(loop, /With `asked` above zero and `unanswered` zero, every question answered, resume it/);
   // A ticket past `readyToStart`'s remainder is checked for its branch too, and none with an unmerged branch starts afresh (findings 1 and 9).
-  assert.match(six, /or read from the tickets' lines past `readyToStart`'s remainder/);
-  assert.match(six, /has no branch that exists unmerged, which the paragraph above decides instead/);
-  const nine = step(skill, 9);
-  assert.match(nine, /autopilot started again on the epic resumes the ticket on its branch \(step 6\)/);
-  assert.match(nine, /`\/binnacle:answer`/);
+  assert.match(loop, /or read from the tickets' lines past `readyToStart`'s remainder/);
+  assert.match(loop, /has no branch that exists unmerged, which the paragraph above decides instead/);
+  const stop = step(skill, 10);
+  assert.match(stop, /autopilot started again on the epic resumes the ticket on its branch \(step 7\)/);
+  assert.match(stop, /`\/binnacle:answer`/);
 });
 
 /** Epic 11: the roles the owner sets in the ticket are acted on overnight, and verified. */
-test('autopilot\'s review covers each role of Roles: beyond the Developer and the Reviewer under its own #### heading, and step 8 checks the headings', () => {
+test('autopilot\'s review covers each role of Roles: beyond the Developer and the Reviewer under its own #### heading, and step 9 checks the headings', () => {
   const skill = skillText('autopilot');
-  assert.match(step(skill, 6), /When the ticket's `Roles:` line names a role beyond the Developer and the Reviewer[^.]* the review also covers that role's concerns, each under a `#### <role>` heading of its own in the Review/);
-  assert.match(step(skill, 8), /for each role the ticket's `Roles:` line names beyond the Developer and the Reviewer, the Review has a `#### <role>` heading of its own/);
+  // The agent's review covers them as `/binnacle:task run` says.
+  assert.match(skillText('task'), /When the ticket's `Roles:` line names a role beyond the Developer and the Reviewer, the review covers that role's concerns too, each under a `#### <role>` heading of its own/);
+  assert.match(step(skill, 9), /for each role the ticket's `Roles:` line names beyond the Developer and the Reviewer, the Review has a `#### <role>` heading of its own/);
 });
 
 /** Epic 11: a run that broke CI does not look finished. */
 test('autopilot reads main\'s CI after the last push and puts a failing or running one under Waiting for the owner, without waiting for it', () => {
   const skill = skillText('autopilot');
-  const eleven = step(skill, 11);
-  assert.match(eleven, /`main`'s CI after the last push: `ci\.defaultBranch`/);
-  assert.match(eleven, /Do not wait for CI/);
-  assert.match(eleven, /A `failing` or `running` state goes under \*Waiting for the owner\*/);
-  assert.match(eleven, /when `ci` is marked `available: false`, give its reason/);
-  const twelve = step(skill, 12);
-  assert.match(twelve, /\*\*CI\*\*: `main`'s/);
-  assert.match(twelve, /`main`'s CI failing or still running/);
+  const ci = step(skill, 12);
+  assert.match(ci, /`main`'s CI after the last push: `ci\.defaultBranch`/);
+  assert.match(ci, /Do not wait for CI/);
+  assert.match(ci, /A `failing` or `running` state goes under \*Waiting for the owner\*/);
+  assert.match(ci, /when `ci` is marked `available: false`, give its reason/);
+  const report = step(skill, 13);
+  assert.match(report, /\*\*CI\*\*: `main`'s/);
+  assert.match(report, /`main`'s CI failing or still running/);
 });
 
 /** Epic 11, ADR-0037: the course moves with the work, on the owner's yes; epic 18: with the whole current focus and the epic's status, which no ticket writes any more. */
 test('autopilot\'s report ends with the roadmap it proposes, the current focus, the epic\'s status and the Next action, written and committed only on the owner\'s yes after the run', () => {
   const skill = skillText('autopilot');
-  const items = step(skill, 12).split('\n').filter((line) => /^ {4}- \*\*/.test(line));
+  const items = step(skill, 13).split('\n').filter((line) => /^ {4}- \*\*/.test(line));
   const last = items.at(-1) ?? '';
   assert.match(last, /^ {4}- \*\*Roadmap\*\*, last:/);
   assert.match(last, /the whole current focus/);
@@ -717,7 +749,7 @@ test('autopilot\'s report ends with the roadmap it proposes, the current focus, 
   assert.match(last, /commit the roadmap alone to `main`, as a Product session would/);
   assert.match(last, /do not push it/);
   // Nothing is written during the run.
-  assert.match(skill, /During the run you write no file and make no commit of your own/);
+  assert.match(skill, /you write no file and make no commit of your own during the run/);
 });
 
 /** Epic 11: a Product session moves a stale course as part of its delta. */
@@ -781,10 +813,12 @@ test('the skills copy carries autopilot\'s resume, roles, CI and Next action, an
   assert.match(autopilot, /`ci\.defaultBranch`/);
   assert.match(autopilot, /- \*\*Roadmap\*\*, last:/);
   assert.match(autopilot, /`binnacle-answer`/);
-  // Epic 18: the rebase, the upkeep at the end, and no roadmap edit in the brief.
+  // Epic 18: the rebase and the upkeep at the end.
   assert.match(autopilot, /run `git rebase main` in the agent's worktree/);
   assert.match(autopilot, /\*\*Upkeep, once\.\*\*/);
-  assert.match(autopilot, /Do not edit the roadmap/);
+  // Epic 19: the brief runs the ticket's skill under its name here, and the plan's three questions come first.
+  assert.match(autopilot, /run `binnacle-task run <ticket path>`/);
+  assert.match(autopilot, /\*\*The plan's three questions\.\*\*/);
   // Epic 19: the ticket's run reaches every harness, model-invocable as everything in the copy is.
   const task = readFileSync(join(target, 'binnacle-task', 'SKILL.md'), 'utf8');
   assert.match(task, /## run/);
