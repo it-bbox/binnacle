@@ -1,6 +1,6 @@
 # 02: /binnacle:task run carries a ticket's process
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/starting-a-project/spec.md`
