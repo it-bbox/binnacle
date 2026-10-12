@@ -171,11 +171,11 @@ describe('GitHub issues as Tasks in the Product Snapshot', () => {
 
       assert.deepEqual(body.tasks, {
         inFlight: {
-          items: [{ id: '#3', title: 'Third', state: 'ACTIVE', unmetDependencies: [], ticket: `https://github.com/${REPOSITORY}/issues/3`, questions: { asked: 0, unanswered: 0 }, start: null, roles: DEFAULT_ROLES }],
+          items: [{ id: '#3', title: 'Third', state: 'ACTIVE', unmetDependencies: [], ticket: `https://github.com/${REPOSITORY}/issues/3`, questions: { asked: 0, unanswered: 0 }, start: `/binnacle:task run https://github.com/${REPOSITORY}/issues/3`, roles: DEFAULT_ROLES }],
           remainder: 0,
         },
         readyToStart: {
-          items: [{ id: '#2', title: 'Second', state: 'READY', unmetDependencies: [], ticket: `https://github.com/${REPOSITORY}/issues/2`, questions: { asked: 0, unanswered: 0 }, start: null, roles: DEFAULT_ROLES }],
+          items: [{ id: '#2', title: 'Second', state: 'READY', unmetDependencies: [], ticket: `https://github.com/${REPOSITORY}/issues/2`, questions: { asked: 0, unanswered: 0 }, start: `/binnacle:task run https://github.com/${REPOSITORY}/issues/2`, roles: DEFAULT_ROLES }],
           remainder: 0,
         },
         counts: { BACKLOG: 0, READY: 0, MERGED: 0, DONE: 1, CANCELLED: 0, unknown: 0 },
@@ -409,7 +409,7 @@ describe('GitHub issues as Tasks in the Product Snapshot', () => {
       assert.equal((await daemon.call('project.register', { path: root })).status, 200);
       for (const [command, stale] of [
         ['/binnacle:task #1', true],
-        [`/mattpocock-skills:implement https://github.com/${REPOSITORY}/issues/1`, true],
+        [`/binnacle:task run https://github.com/${REPOSITORY}/issues/1`, true],
         ['/binnacle:task #2', false],
       ] as const) {
         writeFileSync(join(root, 'docs', 'roadmap.md'), roadmap(command));
@@ -1002,7 +1002,7 @@ describe('the task brief on a GitHub tracker', () => {
         ],
         body: { text: '**What to build:** a brief.\n\nStatus: DONE', truncated: false },
         branch: 'feat/5-add-a-task-brief-task-get-friends',
-        start: null,
+        start: `/binnacle:task run https://github.com/${REPOSITORY}/issues/5`,
         review: { available: false, reason: 'Binnacle reads only questions and answers from an issue’s comments, so no Review is read on GitHub or GitLab.' },
         questions: { branch: null, items: [] },
         roles: DEFAULT_ROLES,
@@ -1042,7 +1042,7 @@ describe('the task brief on a GitHub tracker', () => {
   it('gives a READY issue under the Matt Pocock workflow the implement command with its URL, in the brief and the snapshot', async () => {
     await withGitHub([[issue(7, 'Ready', { body: header({ Status: 'READY' }) })]], async (daemon, fake) => {
       const root = makeProject(manifest(fake.base, '\nworkflow:\n  provider: matt-pocock\n'));
-      const command = `/mattpocock-skills:implement https://github.com/${REPOSITORY}/issues/7`;
+      const command = `/binnacle:task run https://github.com/${REPOSITORY}/issues/7`;
       assert.equal((await taskGet(daemon, root, '#7')).body.start, command);
       assert.deepEqual((await snapshot(daemon, root)).tasks!.readyToStart.items.map((task) => task.start), [command]);
     });

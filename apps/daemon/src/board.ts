@@ -56,7 +56,6 @@ export async function taskList(context: OperationContext, projected: Projected, 
   const group = spec === undefined && slug === null ? [] : tasks.filter((task) => task.specSlug === slug);
 
   const [runs, questions] = await Promise.all([latestRuns(context, projected.row.path, projected.manifest, tasks), readQuestions(projected.row.path, projected.manifest, group)]);
-  const workflow = projected.manifest?.workflow.provider ?? null;
   const remote = projected.manifest?.tracker.provider !== 'local';
   const columns: Record<BoardColumn, Card[]> = { backlog: [], ready: [], inProgress: [], done: [] };
   const unknown: TaskList['unknown']['items'] = [];
@@ -72,7 +71,7 @@ export async function taskList(context: OperationContext, projected: Projected, 
       source: placed?.source ?? null,
       unmetDependencies: task.unmetDependencies,
       ticket: task.ticket,
-      start: startCommand(task, workflow),
+      start: startCommand(task),
       review: remote ? null : task.review !== null,
       questions: questionCount(questions, task.id),
       latestRun: run ? { harness: run.harness, model: run.model, role: run.role, startedAt: run.startedAt, lastActivityAt: run.lastActivityAt, active: run.active } : null,

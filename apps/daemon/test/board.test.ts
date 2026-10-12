@@ -192,7 +192,7 @@ describe('the board', () => {
             source: 'state',
             unmetDependencies: [],
             ticket: backlog,
-            start: `/mattpocock-skills:implement ${backlog}`,
+            start: `/binnacle:task run ${backlog}`,
             review: false,
             questions: { asked: 0, unanswered: 0 },
             latestRun: null,
@@ -208,7 +208,7 @@ describe('the board', () => {
         source: 'state',
         unmetDependencies: ['second/01'],
         ticket: ready,
-        start: `/mattpocock-skills:implement ${ready}`,
+        start: `/binnacle:task run ${ready}`,
         review: false,
         questions: { asked: 0, unanswered: 0 },
         latestRun: null,
@@ -225,7 +225,7 @@ describe('the board', () => {
         source: 'runs',
         unmetDependencies: [],
         ticket: worked,
-        start: `/mattpocock-skills:implement ${worked}`,
+        start: `/binnacle:task run ${worked}`,
         review: false,
         questions: { asked: 0, unanswered: 0 },
         latestRun: { harness: 'claude-code', model: 'claude-opus-5-5', role: 'implementation', startedAt: latest, lastActivityAt: latest, active: { value: true, provenance: 'calculated' } },
@@ -258,7 +258,7 @@ describe('the board', () => {
             source: null,
             unmetDependencies: [],
             ticket: unknown,
-            start: `/mattpocock-skills:implement ${unknown}`,
+            start: `/binnacle:task run ${unknown}`,
             review: false,
             questions: { asked: 0, unanswered: 0 },
             latestRun: null,
@@ -420,7 +420,7 @@ describe('the board on a remote tracker', () => {
           code: 'task.unknown_state',
           message: '#4 (https://github.com/octo/repo/issues/4) has Status: "WIP", which is not a Task state.',
         });
-        assert.deepEqual(without.columns.ready.items[0]!.start, '/mattpocock-skills:implement https://github.com/octo/repo/issues/2');
+        assert.deepEqual(without.columns.ready.items[0]!.start, '/binnacle:task run https://github.com/octo/repo/issues/2');
         // Unavailable, since an issue's comments are read for questions only.
         assert.equal(without.columns.ready.items[0]!.review, null);
       });

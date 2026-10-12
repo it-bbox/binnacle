@@ -86,7 +86,7 @@ export const en = {
         : { title: `${ids} are yours to do`, reason: 'They are ready to start and triaged ready-for-human: no agent takes them.' },
     blocked: (ids: string) => ({ title: 'Nothing can start yet', reason: `Every READY Task of the Epic waits on an Unmet dependency: ${ids}.` }),
     close: () => ({ title: 'Close the Epic', reason: 'Every Task of it is DONE or CANCELLED, but the roadmap does not mark it done. Close it in a Product session.' }),
-    plan: () => ({ title: 'Plan the Epic', reason: 'It has no Tasks to start yet. The next step is grilling it, its spec or its tickets.' }),
+    plan: () => ({ title: 'Plan the work', reason: "No Task is ready to start yet. The next step is the roadmap's Epics, or the current Epic's grilling, spec or tickets." }),
     finished: () => ({ title: 'Every Epic is done', reason: 'Nothing is left on the roadmap. Plan what comes next.' }),
   },
   trackerUnreadable: 'The tracker cannot be read',

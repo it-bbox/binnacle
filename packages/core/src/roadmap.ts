@@ -215,7 +215,7 @@ export type Alternative = {
   kind: 'wait' | 'parallel' | 'resume' | 'autopilot' | 'byHand' | 'owner' | 'blocked' | 'close' | 'plan' | 'finished';
   /** The Task ids it names, if it names any. */
   tasks: string[];
-  /** Null when it has none, and under any `workflow.provider` but `matt-pocock`. */
+  /** Null when it has none; a Matt Pocock Skills command is null under any `workflow.provider` but `matt-pocock`. */
   command: string | null;
   description: string;
   provenance: 'calculated';
@@ -228,8 +228,10 @@ type RunReading = Pick<ObservedRun, 'taskId' | 'role' | 'lastActivityAt' | 'acti
  * The Suggested step as alternatives, by the first of eight rules that applies; none when no rule
  * does, as without a roadmap and with no Task in progress. The current epic is `currentEpic`'s.
  * Only an implementation run makes a Task worked on, and only a Task the board places In progress:
- * a Product session's own run never does, nor a run of a Task `DONE`, `MERGED` or `CANCELLED`. Its commands are the Matt Pocock chain's and the `binnacle` plugin's, so any other
- * workflow gets the descriptions alone. An alternative whose command is the Next action's is left
+ * a Product session's own run never does, nor a run of a Task `DONE`, `MERGED` or `CANCELLED`. The
+ * `binnacle` plugin's commands are offered under any workflow; the Matt Pocock chain's, a `plan`
+ * alternative's grilling, spec or tickets, only under `matt-pocock` (ADR-0042). A roadmap whose
+ * table lists no epic is planned with `/binnacle:roadmap`; `epics` is null without a roadmap. An alternative whose command is the Next action's is left
  * out, since the Next action already offers it. `free` is how many more Tasks the parallel limit
  * allows (the snapshot's `tasks.parallel.free`). A Task triaged `ready-for-human` is the owner's to
  * do, so no alternative hands it to an agent: `parallel`, `autopilot` and `byHand` leave it out, and
@@ -238,7 +240,7 @@ type RunReading = Pick<ObservedRun, 'taskId' | 'role' | 'lastActivityAt' | 'acti
  * the parallel limit alone decides, as before there was a graph.
  */
 export function suggestedStep(
-  epics: Epic[],
+  epics: Epic[] | null,
   tasks: ResolvedTask[],
   runs: RunReading[],
   { workflow, free, next, impact = null }: { workflow: string | null; free: number; next: NextAction | null; impact?: Impact | null },
@@ -249,7 +251,7 @@ export function suggestedStep(
 }
 
 /** The alternatives of the first rule that applies, before any is left out. */
-function byRule(epics: Epic[], tasks: ResolvedTask[], runs: RunReading[], workflow: string | null, free: number, impact: Impact | null): Alternative[] {
+function byRule(epics: Epic[] | null, tasks: ResolvedTask[], runs: RunReading[], workflow: string | null, free: number, impact: Impact | null): Alternative[] {
   const byId = new Map(tasks.map((task) => [task.id, task]));
   const name = (id: string): string => {
     const title = byId.get(id)?.title;
@@ -258,14 +260,14 @@ function byRule(epics: Epic[], tasks: ResolvedTask[], runs: RunReading[], workfl
   const alternative = (kind: Alternative['kind'], description: string, command: string | null = null, named: string[] = []): Alternative => ({
     kind,
     tasks: named,
-    command: workflow === 'matt-pocock' ? command : null,
+    command: command?.startsWith('/mattpocock-skills:') && workflow !== 'matt-pocock' ? null : command,
     description,
     provenance: 'calculated',
   });
   /** Ready Tasks as one alternative: one Task with its start command, several named with none, so that no order is implied. */
   const take = (kind: 'parallel' | 'byHand', ready: ResolvedTask[], one: string, several: string): Alternative =>
     ready.length === 1
-      ? alternative(kind, `${name(ready[0]!.id)} ${one}`, startCommand(ready[0]!, workflow), [ready[0]!.id])
+      ? alternative(kind, `${name(ready[0]!.id)} ${one}`, startCommand(ready[0]!), [ready[0]!.id])
       : alternative(kind, `${ready.map((task) => name(task.id)).join(', ')} ${several}`, null, ready.map((task) => task.id));
 
   const forAgent = (task: ResolvedTask): boolean => task.triage !== 'ready-for-human';
@@ -294,10 +296,12 @@ function byRule(epics: Epic[], tasks: ResolvedTask[], runs: RunReading[], workfl
   }
 
   const idle = tasks.find((task) => boardColumn(task.state, attributed.has(task.id))?.column === 'inProgress');
-  if (idle) return [alternative('resume', `${name(idle.id)} is in progress, and no run of it is active. Resume it.`, startCommand(idle, workflow), [idle.id])];
+  if (idle) return [alternative('resume', `${name(idle.id)} is in progress, and no run of it is active. Resume it.`, startCommand(idle), [idle.id])];
 
+  if (epics === null) return [];
+  if (epics.length === 0) return [alternative('plan', 'The roadmap lists no epic. Propose its epics from the vision.', '/binnacle:roadmap')];
   const epic = currentEpic(epics);
-  if (epic === null) return epics.length > 0 ? [alternative('finished', 'Every epic on the roadmap is done.')] : [];
+  if (epic === null) return [alternative('finished', 'Every epic on the roadmap is done.')];
   const epicName = `Epic ${epic.number} (${epic.title})`;
   const own = epic.spec === null ? [] : tasks.filter((task) => task.specSlug === epic.spec);
   const ready = own.filter((task) => task.state === 'READY');

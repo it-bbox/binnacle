@@ -107,7 +107,7 @@ test('binn mcp lists its tools, explains a stopped daemon, and proxies the snaps
     dependencies: [],
     body: { text: '', truncated: false },
     branch: 'feat/first',
-    start: null,
+    start: '/binnacle:task run docs/specs/epic/issues/01-first.md',
     review: null,
     questions: { branch: null, items: [] },
     roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] },

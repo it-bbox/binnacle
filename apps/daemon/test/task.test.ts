@@ -98,7 +98,7 @@ describe('the task brief on the local tracker', () => {
         ],
         body: { text: '**What to build:** the thing.\n\nStatus: DONE\n\n- [ ] It works.', truncated: false },
         branch: 'feat/build-the-thing',
-        start: null,
+        start: '/binnacle:task run docs/specs/epic/issues/03-build-the-thing.md',
         review: { text: 'Nothing found.', truncated: false },
         questions: { branch: null, items: [] },
         roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] },
@@ -206,14 +206,6 @@ describe('the task brief on the local tracker', () => {
     });
   });
 
-  it('gives no start command when the project declares no workflow', async () => {
-    await withDaemon(async (daemon) => {
-      const root = makeProject();
-      write(root, 'docs/specs/epic/issues/01-thing.md', ticketText('01: Thing', ['Status: READY'], 'Body.'));
-      assert.equal((await taskGet(daemon, root, 'epic/01')).body.start, null);
-    });
-  });
-
   it('refuses a call without an id', async () => {
     await withDaemon(async (daemon) => {
       const root = makeProject();
@@ -244,28 +236,20 @@ describe('the start command', () => {
     return Object.fromEntries([...inFlight.items, ...readyToStart.items].map((task) => [task.id, task.start]));
   }
 
-  it('is the implement command with the ticket path under the Matt Pocock workflow, in the brief and the snapshot, and none for a DONE or CANCELLED Task', async () => {
+  it('is the run command with the ticket path under the Matt Pocock workflow, another or none, in the brief and the snapshot, and none for a DONE or CANCELLED Task', async () => {
     await withDaemon(async (daemon) => {
-      const root = makeProject(workflow('matt-pocock'));
-      tickets(root);
+      for (const manifest of [workflow('matt-pocock'), workflow('another'), MANIFEST]) {
+        const root = makeProject(manifest);
+        tickets(root);
 
-      assert.equal((await taskGet(daemon, root, 'epic/01')).body.start, '/mattpocock-skills:implement docs/specs/epic/issues/01-ready.md');
-      assert.equal((await taskGet(daemon, root, 'epic/02')).body.start, null);
-      assert.equal((await taskGet(daemon, root, 'epic/03')).body.start, null);
-      assert.deepEqual(await snapshotStarts(daemon, root), {
-        'epic/01': '/mattpocock-skills:implement docs/specs/epic/issues/01-ready.md',
-        'epic/04': '/mattpocock-skills:implement docs/specs/epic/issues/04-in-flight.md',
-      });
-    });
-  });
-
-  it('is none under another workflow, even for a READY Task', async () => {
-    await withDaemon(async (daemon) => {
-      const root = makeProject(workflow('another'));
-      tickets(root);
-
-      assert.equal((await taskGet(daemon, root, 'epic/01')).body.start, null);
-      assert.deepEqual(await snapshotStarts(daemon, root), { 'epic/01': null, 'epic/04': null });
+        assert.equal((await taskGet(daemon, root, 'epic/01')).body.start, '/binnacle:task run docs/specs/epic/issues/01-ready.md', manifest);
+        assert.equal((await taskGet(daemon, root, 'epic/02')).body.start, null);
+        assert.equal((await taskGet(daemon, root, 'epic/03')).body.start, null);
+        assert.deepEqual(await snapshotStarts(daemon, root), {
+          'epic/01': '/binnacle:task run docs/specs/epic/issues/01-ready.md',
+          'epic/04': '/binnacle:task run docs/specs/epic/issues/04-in-flight.md',
+        });
+      }
     });
   });
 });

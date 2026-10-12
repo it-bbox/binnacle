@@ -157,11 +157,11 @@ describe('GitLab issues as Tasks in the Product Snapshot', () => {
 
       assert.deepEqual(body.tasks, {
         inFlight: {
-          items: [{ id: '#3', title: 'Third', state: 'ACTIVE', unmetDependencies: [], ticket: `https://gitlab.com/${REPOSITORY}/-/issues/3`, questions: { asked: 0, unanswered: 0 }, start: null, roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] } }],
+          items: [{ id: '#3', title: 'Third', state: 'ACTIVE', unmetDependencies: [], ticket: `https://gitlab.com/${REPOSITORY}/-/issues/3`, questions: { asked: 0, unanswered: 0 }, start: `/binnacle:task run https://gitlab.com/${REPOSITORY}/-/issues/3`, roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] } }],
           remainder: 0,
         },
         readyToStart: {
-          items: [{ id: '#2', title: 'Second', state: 'READY', unmetDependencies: [], ticket: `https://gitlab.com/${REPOSITORY}/-/issues/2`, questions: { asked: 0, unanswered: 0 }, start: null, roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] } }],
+          items: [{ id: '#2', title: 'Second', state: 'READY', unmetDependencies: [], ticket: `https://gitlab.com/${REPOSITORY}/-/issues/2`, questions: { asked: 0, unanswered: 0 }, start: `/binnacle:task run https://gitlab.com/${REPOSITORY}/-/issues/2`, roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] } }],
           remainder: 0,
         },
         counts: { BACKLOG: 0, READY: 0, MERGED: 0, DONE: 1, CANCELLED: 0, unknown: 0 },
@@ -509,7 +509,7 @@ describe('the task brief on a GitLab tracker', () => {
         ],
         body: { text: '**What to build:** GitLab.\n\nStatus: DONE', truncated: false },
         branch: 'feat/3-read-gitlab-issues-by-iid',
-        start: null,
+        start: `/binnacle:task run https://gitlab.com/${REPOSITORY}/-/issues/3`,
         review: { available: false, reason: 'Binnacle reads only questions and answers from an issue’s comments, so no Review is read on GitHub or GitLab.' },
         questions: { branch: null, items: [] },
         roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] },

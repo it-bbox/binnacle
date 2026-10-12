@@ -80,7 +80,7 @@ export function taskBrief(
     }),
     body: cut(task.body, BODY_LIMIT),
     branch: taskBranch(task, remote),
-    start: startCommand(task, manifest?.workflow.provider ?? null),
+    start: startCommand(task),
     review: remote ? REVIEW_UNAVAILABLE : task.review === null ? null : cut(task.review, BODY_LIMIT),
     questions,
     roles,

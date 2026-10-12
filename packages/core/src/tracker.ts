@@ -232,14 +232,13 @@ export function taskBranch(task: Pick<TrackerTask, 'id' | 'title' | 'ticket'>, r
 }
 
 /**
- * The one command that starts a Task in a fresh session: `/mattpocock-skills:implement` with
- * its ticket path or URL, when the project's `workflow.provider` is `matt-pocock` and the Task
- * is neither `DONE` nor `CANCELLED`. Otherwise none: finished work is not restarted, and
- * another workflow is not offered commands it does not have.
+ * The one command that starts a Task in a fresh session: Binnacle's own `/binnacle:task run` with
+ * its ticket path or URL, whatever the project's `workflow.provider` (ADR-0042), while the Task is
+ * neither `DONE` nor `CANCELLED`. Otherwise none: finished work is not restarted.
  */
-export function startCommand(task: Pick<TrackerTask, 'state' | 'ticket'>, workflow: string | null): string | null {
-  if (workflow !== 'matt-pocock' || task.state === 'DONE' || task.state === 'CANCELLED') return null;
-  return `/mattpocock-skills:implement ${task.ticket}`;
+export function startCommand(task: Pick<TrackerTask, 'state' | 'ticket'>): string | null {
+  if (task.state === 'DONE' || task.state === 'CANCELLED') return null;
+  return `/binnacle:task run ${task.ticket}`;
 }
 
 /** The board's columns, in order. */

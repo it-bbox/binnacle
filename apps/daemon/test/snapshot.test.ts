@@ -122,7 +122,7 @@ describe('Tasks in the Product Snapshot', () => {
             unmetDependencies: [],
             ticket: 'docs/specs/epic/issues/03-build-the-thing.md',
             questions: { asked: 0, unanswered: 0 },
-            start: null,
+            start: '/binnacle:task run docs/specs/epic/issues/03-build-the-thing.md',
             roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] },
           },
         ],

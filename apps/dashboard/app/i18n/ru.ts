@@ -71,7 +71,7 @@ export const ru: Dictionary = {
         : { title: `${ids} — ваши задачи`, reason: 'Они готовы к старту и в триаже ready-for-human: агент их не берёт.' },
     blocked: (ids) => ({ title: 'Пока ничего не начать', reason: `Каждый READY Task этого Epic ждёт Unmet dependency: ${ids}.` }),
     close: () => ({ title: 'Закрыть Epic', reason: 'Все его Task — DONE или CANCELLED, но в roadmap он не отмечен как done. Закройте его в Product-сессии.' }),
-    plan: () => ({ title: 'Спланировать Epic', reason: 'Task для старта пока нет. Следующий шаг — grilling, спецификация или тикеты.' }),
+    plan: () => ({ title: 'Спланировать работу', reason: 'Task для старта пока нет. Следующий шаг — Epic в roadmap или grilling, спецификация и тикеты текущего Epic.' }),
     finished: () => ({ title: 'Все Epic завершены', reason: 'В roadmap ничего не осталось. Спланируйте, что дальше.' }),
   },
   trackerUnreadable: 'Трекер не читается',

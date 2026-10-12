@@ -218,7 +218,7 @@ export async function snapshot(
   const questions = tasks && (await readQuestions(projected.row.path, projected.manifest, tasks));
   const listed = tasks && taskSections(tasks, attributed);
   const impact = listed && (await impactSection(projected.row.path, graph.graph, listed.inFlightAndReady, projected.manifest?.tracker.provider !== 'local'));
-  const sections = listed && impact && questions && withStartAndParallel(listed, workflow, limit.parallel, impact, questions);
+  const sections = listed && impact && questions && withStartAndParallel(listed, limit.parallel, impact, questions);
   const action = nextAction(roadmap?.focus ?? null);
   const epics = roadmap && roadmap.epics.map((epic): EpicWithProgress => {
     const own = tasks && epic.spec !== null ? tasks.filter((task) => task.specSlug === epic.spec && task.state !== 'CANCELLED') : null;
@@ -233,7 +233,7 @@ export async function snapshot(
     next: {
       action,
       alternatives:
-        tasks && sections ? suggestedStep(roadmap?.epics ?? [], tasks, runs, { workflow, free: sections.parallel.free, next: action, impact: impact?.available ? impact : null }) : trackerUnavailable(unreadable),
+        tasks && sections ? suggestedStep(roadmap?.epics ?? null, tasks, runs, { workflow, free: sections.parallel.free, next: action, impact: impact?.available ? impact : null }) : trackerUnavailable(unreadable),
     },
     tasks: sections,
     decisions: adrs && (await recentDecisions(tree, caller.project, adrs)),
@@ -370,12 +370,11 @@ export function taskSections(
 }
 
 /**
- * The snapshot's sections, each Task with its start command under the project's `workflow.provider`
+ * The snapshot's sections, each Task with its start command
  * and its roles read against `impact`, and the parallel capacity under `limit`.
  */
 function withStartAndParallel(
   { inFlight, readyToStart, counts, inFlightAndReady }: ReturnType<typeof taskSections>,
-  workflow: string | null,
   limit: ParallelLimit,
   impact: Impact | Unavailable,
   questions: ReadQuestions,
@@ -385,7 +384,7 @@ function withStartAndParallel(
     items: items.map((task) => ({
       ...task,
       questions: questionCount(questions, task.id),
-      start: startCommand(task, workflow),
+      start: startCommand(task),
       roles: taskRoles(byId.get(task.id)!, touchedBy(impact, task.id)),
     })),
     remainder,
