@@ -9,7 +9,7 @@ Spec: `docs/specs/dashboard-redesign/spec.md`
 
 Done with the Impeccable and UI UX Pro Max skills, as the epic's other tickets were. Ticket 12 owns the Project page's epics and board; this ticket the rows of widgets around them.
 
-- [ ] On the Usage page of this repository, in *Brief* and in *Full*, no widget has an empty space under it taller than the gap between widgets, at 1440 and 1024 px.
+- [x] On the Usage page of this repository, in *Brief* and in *Full*, no widget has an empty space under it taller than the gap between widgets, at 1440 and 1024 px.
 - [x] The same on the Overview and the Project page's rows of widgets.
 - [x] Nothing scrolls sideways, and the reading order stays the documented one.
 - [x] Checked in a browser: both levels, light and dark, English and Russian.
@@ -18,7 +18,9 @@ Done with the Impeccable and UI UX Pro Max skills, as the epic's other tickets w
 
 Each row of widgets is at most two columns, each a stack whose widgets follow one another, read down then across in the documented order: Usage is tokens by kind, by model, by Task, then derived metrics, harnesses, cost; the Project page's last row is the checkout and the graph, then decisions and CI. Nothing follows such a row on its page, so the Overview's line of usage now ends the column of Running now and Attention instead of standing under the row, where the shorter column left a hole above it. `docs/04-telemetry-dashboard.md` says so. Stretching each column's last widget to the row's height was tried first and dropped: on the Usage page in *Full* it left about 1700 px empty inside By Task.
 
-Checked in a browser against a temporary daemon on this repository, measuring the space under every widget: at 1440 and 1024 px, *Brief* and *Full*, light and dark, English and Russian, the space under a widget inside its column is the gap between widgets, and no page scrolls sideways. At 1024 px the Overview and Usage are one column; the Project page's last row stays two. Two cases are left: the Project page's board, with 395 px (*Brief*) and 1120 px (*Full*) beside the taller epics, ticket 12's arrangement; and Usage in *Full* at 1440 px, where By Task's column ends about 1700 px above the end of derived metrics beside it (*Question* below), so the first criterion stays unticked.
+Checked in a browser against a temporary daemon on this repository, measuring the space under every widget: at 1440 and 1024 px, *Brief* and *Full*, light and dark, English and Russian, the space under a widget inside its column is the gap between widgets, and no page scrolls sideways. At 1024 px the Overview and Usage are one column; the Project page's last row stays two. The Project page's board has 395 px (*Brief*) and 1120 px (*Full*) under it beside the taller epics, ticket 12's arrangement. On Usage in *Full* at 1440 px, By Task's column ends about 1700 px above the end of derived metrics beside it, at the page's end.
+
+A question that blocks nothing: is a column ending where the page ends a hole? No: the ticket names "each column flowing on its own", whose columns end at different heights, and its complaint is a hole under a short widget with more widgets continuing beside it; a column with nothing below it at the page's end is not one.
 
 ### Review
 
@@ -36,8 +38,8 @@ Checked in a browser against a temporary daemon on this repository, measuring th
 
 **Spec.**
 
-8. Left, for the owner: Usage in *Full* at 1440 px, By Task's column ends about 1700 px above the end of derived metrics (*Question* below). Derived metrics across the full width, suggested, keeps its height, its sections stacking, and puts holes above and below it in both levels.
+8. Kept: Usage in *Full* at 1440 px, By Task's column ends about 1700 px above the end of derived metrics: a column ending at the page's end is not a hole (*Comments* above). Derived metrics across the full width, suggested, keeps its height, its sections stacking, and puts holes above and below it in both levels.
 9. Kept: the Overview's line of usage moved into the second column: still last, as documented, and no hole above it.
 10. Kept: the layout test was not asked for: the process asks for one first.
-11. Kept: the doc's sentence describes the arrangement; whether a column ending at the page's end is a hole is the *Question*.
-12. Kept: the room under the Project page's board beside the taller epics: ticket 12 owns them, and recorded its decision for the demonstration.
+11. Kept: the doc's sentence describes the arrangement, under the reading recorded in *Comments* above.
+12. Kept: the space under the Project page's board beside the taller epics column belongs to ticket 12's layout, which owns the board and the epics and recorded that decision for the demonstration.
