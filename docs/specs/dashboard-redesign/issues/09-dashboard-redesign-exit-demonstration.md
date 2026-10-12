@@ -11,3 +11,28 @@ Spec: `docs/specs/dashboard-redesign/spec.md`
 - [ ] Every element of `docs/04-telemetry-dashboard.md` is reachable, in a widget's *Brief* or *Full*, and each widget's *Brief* is what the owner wants first.
 - [ ] A Parallel limit set on the Settings page is the one the snapshot gives and autopilot reads.
 - [ ] The commands in a Binnacle skill's output copy with the Claude desktop app's button.
+
+## Comments
+
+### Checked before the demonstration, 2026-10-12
+
+By the implementation session, on branch `feat/dashboard-redesign-exit-demo` at `main`'s `482f28c`:
+
+- Typecheck clean; the whole suite, 746 tests, passes.
+- The owner's daemon serves this epic's dashboard: it started at 01:04 on 2026-10-12, after the dashboard's last build, and `parallel.get` answers with the informer, so ticket 07's restart is done. The installed `binnacle` plugin's skills are this repository's, file for file.
+- A temporary daemon, its own home, with this repository registered, in a browser at 1440 × 900: Overview, Project, Usage, Projects, Attention, Settings and the Task page of `dashboard-redesign/05`. Body text is 16 px; no visible text on any page is below 13 px, in *Brief* or with every widget in *Full* and every fold opened; no page scrolls sideways. The Task page renders its ticket and its Review as Markdown, with no code block. Russian and English, light and dark.
+- The Parallel limit set to 3 on that daemon's Settings page: its `settings.json` gained `parallelLimit: 3` and kept the vault's path, and the snapshot's `tasks.parallel` gave `limit: 3`, `mode: number`, `source: machine`. `auto` gave `limit: 4`; `0` and `"9999"` were refused with `parallel_limit.invalid` and their reason. Autopilot's skill reads `tasks.parallel` (its step 4). The owner's own daemon gives `2`, `number`, `default` in both `parallel.get` and the snapshot.
+
+Two things for the owner to judge, neither made by this epic:
+
+- **The current Epic reads as 12, not 16.** The sidebar, the Overview's epic progress and the board's default tab take the first epic that is not `done` (`currentEpic` in `apps/dashboard/app/composables/projects.ts`, and `board.ts` for `task.list`). Epic 12 comes before 16 in the roadmap and is `not started`, so the Overview's *Brief* shows "12 Audit, completed, no Tasks yet" while 16 is `in progress`. Picking the first `in progress` epic would be a small ticket of its own.
+- **The informer's figures.** The most runs active at once is 28, on 2026-09-25 at 10:13, subagents counted as runs; and 2026-10-11 at 02:08 lists the same usage limit three times, with 4 runs active, likely once per agent's session that hit it. Both are what the rule gives; whether they read as the owner expects is the owner's call.
+
+### Steps for the demonstration
+
+1. Open the dashboard: `binn dashboard`, or `/binnacle:dashboard` in the chat. Browser zoom at 100%.
+2. Go through every page: Overview, Project, Usage, Projects, Attention, Settings, and a Task page — `dashboard-redesign/05` has a Review to read as Markdown. On each, read every widget in *Brief* first, then in *Full*, against `docs/04-telemetry-dashboard.md`, *Main dashboard views for v1*.
+3. Do it in both languages (Settings → Language) and both themes (the system's light and dark theme, which the page follows).
+4. On Settings, set the Parallel limit to another value and save. In the chat, `project_snapshot` (or `/binnacle:status`) gives it in `tasks.parallel` with `source: machine`. Set it back to what you want autopilot to use. Under the limit, *What this machine has carried* is ticket 07's last criterion.
+5. In the Claude desktop app, run a Binnacle skill that offers commands, such as `/binnacle:daily`: each command stands alone in a fenced block with the app's copy button, a shell command in a `bash` block with a Run button too.
+6. Tick each criterion that held; for one that did not, one line on what went wrong, to become a ticket. Then a Product session reads epic 18's measurement: `usage_get` with `epic: 16` against `epic: 11`.
