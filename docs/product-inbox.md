@@ -37,16 +37,6 @@ Antigravity's agent did not answer in this repository because its Git library re
 1. **Requirements traced end to end.** The brief is split into numbered requirements, recorded word for word. Every requirement has a section of the spec and a task, every task a requirement, which catches work nobody asked for, and only the owner can drop a requirement. Here a story of a spec could carry a number that its tickets and their criteria name, and the snapshot or `binn audit` could report a story with no ticket and a ticket with no story.
 2. **Blind acceptance.** At the end, a separate agent checks the result against the owner's original words only, without the spec, so that what was lost on the way from brief to spec to tickets shows. Here an epic's exit demonstration could start from such a check against the grilling's record.
 
-## A daemon that does not come back after a reboot (2026-10-09)
-
-**Decided by the owner on 2026-10-09: v1, right after epics 10 and 14's demonstrations, set up automatically, not a documented manual step.** It left *Later* in the roadmap. What is still open is how, below, and an ADR narrowing ADR-0016's "autostart is a documented manual step".
-
-After a reboot the owner found the daemon down: nothing starts it. ADR-0016 makes autostart "a documented manual step in v1", but no document describes it; the README and `docs/` say nothing. On the owner's machine it now runs as a systemd user unit, `~/.config/systemd/user/binnacle.service`, which starts `apps/daemon/src/bin.ts` with Node at login, with `BINNACLE_HOME` and a `PATH` that reaches `git`, `graphify` and `npx`, and restarts it on failure. Three things to weigh:
-
-1. **The documented step ADR-0016 promises**: a unit for systemd, an agent for launchd, a Task Scheduler entry for Windows, each a few lines.
-2. **`binn init` asking for it**, as it asks for the import window, so that a new user is not left with the same gap.
-3. **Who restarts it**: `binn daemon stop` then `binn daemon start`, as autopilot runs after a merge that changes the daemon, leaves a daemon outside the service manager; `systemctl --user restart binnacle` is the restart there. Node's path is pinned to one nvm version and breaks when Node is upgraded.
-
 ## A scratchpad project in the owner's daemon (2026-10-10)
 
 The owner's daemon had a project registered at `/tmp/claude-1000/…/aeb63b29-…/scratchpad/demo-init`, a session's scratchpad, shown on every page as unavailable once the directory was gone; the owner had it unregistered on 2026-10-10. Some session ran `binn init` or `binn project register` there against the owner's `BINNACLE_HOME` rather than a temporary one, which `dashboard-design-and-languages/12` asks of agents. Two things to weigh: whether skills and briefs that try a CLI on a throwaway repository say to use a temporary home, and whether a registration whose directory is gone should drop out of the dashboard or be offered for removal rather than shown on every page.
