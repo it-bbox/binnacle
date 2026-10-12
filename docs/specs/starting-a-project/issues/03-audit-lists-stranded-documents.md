@@ -1,6 +1,6 @@
 # 03: The audit lists stranded documents
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/starting-a-project/spec.md`
