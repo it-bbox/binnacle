@@ -111,7 +111,7 @@ export type Board = {
 
 /**
  * Every registered project, with its snapshot read from its registered checkout when `read`
- * says so for its path, and otherwise kept from `previous`; one `previous` does not hold is read.
+ * says so for its path, and otherwise kept from `previous`, or none yet when `previous` holds none.
  */
 export async function loadProjects(previous: ProjectView[] | null, read: (path: string) => boolean): Promise<ProjectView[]> {
   const { projects } = await call<{ projects: ProjectRow[] }>('project.list');
@@ -119,7 +119,7 @@ export async function loadProjects(previous: ProjectView[] | null, read: (path: 
     projects.map(async (project): Promise<ProjectView> => {
       if (project.unavailable !== null) return { project, snapshot: null, failure: null };
       const known = previous?.find((view) => view.project.path === project.path);
-      if (known !== undefined && !read(project.path)) return { ...known, project };
+      if (!read(project.path)) return { snapshot: null, failure: null, ...known, project };
       try {
         return { project, snapshot: await call<Snapshot>('project.snapshot', { path: project.path }), failure: null };
       } catch (error) {

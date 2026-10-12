@@ -250,7 +250,9 @@ export function openStore(home: string): Store {
   const columns = new Set(db.prepare('pragma table_info(ingested_record)').all().map((column) => String(column.name)));
   if (!columns.has('source')) db.exec("alter table ingested_record add column source text not null default 'artifact'");
   if (!columns.has('request_id')) db.exec('alter table ingested_record add column request_id text');
-  db.exec('create index if not exists ingested_record_session on ingested_record (harness, session_id)');
+  // A session's records, and a call among them by its request id.
+  db.exec('drop index if exists ingested_record_session');
+  db.exec('create index if not exists ingested_record_request on ingested_record (harness, session_id, request_id)');
   // Every artifact is read again from its start once, for its markers; its records are stored already and stay as they were.
   if (markersNew || limitsNew) db.exec('delete from ingest_cursor');
 
@@ -377,16 +379,22 @@ export function openStore(home: string): Store {
     select harness, natural_key, session_id, subagent_id, parent_session, timestamp, cwd, branch, branch_source, provider, model, provenance,
       request_id, input, cached_input, cache_creation, output, reasoning
     from ingested_record r where project_path = ? and timestamp >= ?
-      and not (source = 'opentelemetry' and exists (
-        select 1 from ingested_record a
-        where a.harness = r.harness and a.session_id = r.session_id and a.source = 'artifact'
-          and case when a.request_id is not null and r.request_id is not null then a.request_id = r.request_id
-            else a.model is r.model
-              and (r.input is null or a.input is r.input) and (r.cached_input is null or a.cached_input is r.cached_input)
-              and (r.cache_creation is null or a.cache_creation is r.cache_creation) and (r.output is null or a.output is r.output)
-              and (r.reasoning is null or a.reasoning is r.reasoning)
-              and abs(unixepoch(a.timestamp, 'subsec') - unixepoch(r.timestamp, 'subsec')) <= ${SAME_CALL_WITHIN_S}
-            end
+      and not (source = 'opentelemetry' and (
+        -- Two lookups, not one with a case, so that the request id is found through its index.
+        exists (
+          select 1 from ingested_record a
+          where a.harness = r.harness and a.session_id = r.session_id and a.request_id = r.request_id and a.source = 'artifact'
+        )
+        or exists (
+          select 1 from ingested_record a
+          where a.harness = r.harness and a.session_id = r.session_id and a.source = 'artifact'
+            and (a.request_id is null or r.request_id is null)
+            and a.model is r.model
+            and (r.input is null or a.input is r.input) and (r.cached_input is null or a.cached_input is r.cached_input)
+            and (r.cache_creation is null or a.cache_creation is r.cache_creation) and (r.output is null or a.output is r.output)
+            and (r.reasoning is null or a.reasoning is r.reasoning)
+            and abs(unixepoch(a.timestamp, 'subsec') - unixepoch(r.timestamp, 'subsec')) <= ${SAME_CALL_WITHIN_S}
+        )
       ))
   `);
   const countUsage = db.prepare(`

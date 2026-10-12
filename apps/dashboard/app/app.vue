@@ -8,8 +8,9 @@ import { loadProjects, PROJECT_VIEWS, SELECTED_VIEW } from '~/composables/projec
  * The shell: the project rail, the sidebar and the page. It polls the registered projects'
  * snapshots for the rail and the sidebar: the selected project's on every poll, every
  * project's on the pages that list them all, and the others' every `OTHERS_EVERY` polls, so
- * that the daemon is not asked for every snapshot every 15 seconds. It stands in for the page
- * while the daemon loads or does not answer, polling on until it does.
+ * that the daemon is not asked for every snapshot every 15 seconds. The first load shows the
+ * selected project's before it reads the others'. It stands in for the page while the daemon
+ * loads or does not answer, polling on until it does.
  */
 const authorised = useAuthorised();
 const { language, t, uiLocale, plural } = useLanguage();
@@ -27,7 +28,14 @@ let polls = 0;
 const updatedAt = ref<number | null>(null);
 const { data, error, refresh } = usePolling(async () => {
   const all = polls++ % OTHERS_EVERY === 0 || listsAll.value;
-  const views = await loadProjects(data.value, (path) => all || path === selected.value);
+  const own = selected.value;
+  if (data.value === null && !listsAll.value && own !== null) {
+    const first = await loadProjects(null, (path) => path === own);
+    if (data.value === null) data.value = first;
+    updatedAt.value = Date.now();
+    return await loadProjects(first, (path) => path !== own);
+  }
+  const views = await loadProjects(data.value, (path) => all || path === own);
   updatedAt.value = Date.now();
   return views;
 });
