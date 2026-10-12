@@ -206,6 +206,25 @@ describe('GitHub issues as Tasks in the Product Snapshot', () => {
     });
   });
 
+  it('keeps the issues for the daemon’s forgeCacheMs once read, and reads them again after a read that failed', async () => {
+    const [daemon, fake] = await Promise.all([startTestDaemon({ forgeCacheMs: 60_000 }), fakeGitHub([[issue(1, 'Only', { body: header({ Status: 'ACTIVE' }) })]])]);
+    try {
+      const root = makeProject(manifest(fake.base));
+      const listed = (): number => fake.requests.filter((url) => url.pathname === `/repos/${REPOSITORY}/issues`).length;
+      fake.reply = (url) => (url.pathname === `/repos/${REPOSITORY}/issues` ? { status: 500, body: { message: 'Server Error' } } : null);
+      assert.equal((await snapshot(daemon, root)).tasks, null);
+
+      fake.reply = null;
+      assert.deepEqual(ids((await snapshot(daemon, root)).tasks!.inFlight), ['#1']);
+      const read = listed();
+      fake.pages[0] = [issue(1, 'Only', { state: 'closed', state_reason: 'completed', body: header({ Status: 'DONE' }) })];
+      assert.deepEqual(ids((await snapshot(daemon, root)).tasks!.inFlight), ['#1']);
+      assert.equal(listed(), read);
+    } finally {
+      await Promise.all([daemon.stop(), fake.close()]);
+    }
+  });
+
   const waiting = [
     issue(1, 'In review', { body: header({ Status: 'READY_FOR_REVIEW' }) }),
     issue(2, 'The owner’s', { body: header({ Status: 'READY' }), labels: [{ name: 'ready-for-human' }] }),

@@ -37,10 +37,11 @@ export type TestDaemon = {
  * Each artifact root `artifacts` leaves out defaults to a directory inside the home that does
  * not exist, so that no test reads the harness artifacts of the machine it runs on, and
  * `dashboard` likewise, so that no test depends on a generated dashboard. `settledAfterMs` defaults to `0`, so
- * that a file a test has just written is read to its end.
+ * that a file a test has just written is read to its end, and `forgeCacheMs` too, so that a forge's
+ * answer a test changes is read anew.
  */
 export async function startTestDaemon(
-  options: { home?: string; artifacts?: Partial<ArtifactRoots>; ingestBudgetMs?: number; settledAfterMs?: number; dashboard?: string; searchPath?: string; graphPollMs?: number; vaultPollMs?: number } = {},
+  options: { home?: string; artifacts?: Partial<ArtifactRoots>; ingestBudgetMs?: number; settledAfterMs?: number; dashboard?: string; searchPath?: string; graphPollMs?: number; vaultPollMs?: number; forgeCacheMs?: number } = {},
 ): Promise<TestDaemon> {
   const home = options.home ?? mkdtempSync(join(tmpdir(), 'binnacle-test-'));
   const temporary = options.home === undefined;
@@ -55,6 +56,7 @@ export async function startTestDaemon(
     searchPath: options.searchPath ?? join(home, 'no-tools'),
     ...(options.graphPollMs === undefined ? {} : { graphPollMs: options.graphPollMs }),
     ...(options.vaultPollMs === undefined ? {} : { vaultPollMs: options.vaultPollMs }),
+    forgeCacheMs: options.forgeCacheMs ?? 0,
   });
   const url = (path: string): string => `http://${daemon.runtime.host}:${daemon.runtime.port}${path}`;
 

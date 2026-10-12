@@ -30,9 +30,33 @@ function forgeOf(manifest: ProjectManifest | null, git: GitFacts): CiForge | nul
   return { ...remote, host: remote.host === `${remote.provider}.com` ? null : remote.host, from: 'remote' };
 }
 
+/** How long a forge's answer is reused by default: four of the dashboard's polls. */
+export const FORGE_CACHE_MS = 60_000;
+/** `startDaemon`'s `forgeCacheMs`. */
+let forgeCacheMs = FORGE_CACHE_MS;
+export const setForgeCacheMs = (ms: number): void => void (forgeCacheMs = ms);
+const forgeAnswers = new Map<string, { until: number; answer: Promise<unknown> }>();
+
 /**
- * The forge's CI as it is now, read on request and uncached (`ponytail:` until a forge's rate
- * limit is reached in practice), with the token Binnacle holds for the forge's host or none;
+ * A forge's answer for `key`, read at most once per `forgeCacheMs`, callers in the meantime
+ * sharing it: every poll of every page would otherwise wait on the network. One that `kept`
+ * refuses, such as a failure, is read again on the next call.
+ * ponytail: an entry per key ever read, never evicted; a daemon reads a handful of repositories.
+ */
+export function fromForge<T>(key: (string | number | null)[], read: () => Promise<T>, kept: (answer: T) => boolean): Promise<T> {
+  const id = JSON.stringify(key);
+  const known = forgeAnswers.get(id);
+  if (known !== undefined && known.until > Date.now()) return known.answer as Promise<T>;
+  const answer = read();
+  forgeAnswers.set(id, { until: Date.now() + forgeCacheMs, answer });
+  const forget = (): void => void (forgeAnswers.get(id)?.answer === answer && forgeAnswers.delete(id));
+  answer.then((value) => kept(value) || forget(), forget);
+  return answer;
+}
+
+/**
+ * The forge's CI, read on request and kept for `forgeCacheMs` when every request is listed
+ * (`fromForge`), with the token Binnacle holds for the forge's host or none;
  * `limit` requests listed of those whose branch `keep` keeps. Unavailable with the reason when there
  * is no forge or it cannot be read. `tasks` maps a request to the Task its branch names
  * (`branchTask`); read later, so that the forge and the tracker are read at once.
@@ -52,7 +76,9 @@ export async function readCi(
   const credential = trackerToken(home, forge.provider, forge.host, forge.from === 'remote' && forge.host !== null ? {} : process.env);
   if ('failure' in credential) return unavailable(credential.failure.message);
   const read = forge.provider === 'github' ? readGitHubCi : readGitLabCi;
-  const reading = await read(forge.repository, forge.host, credential.token, limit, keep);
+  const reading = await (keep === undefined
+    ? fromForge(['ci', forge.provider, forge.host, forge.repository, credential.token, limit], () => read(forge.repository, forge.host, credential.token, limit), (answer) => !('reason' in answer))
+    : read(forge.repository, forge.host, credential.token, limit, keep));
   if ('reason' in reading) return unavailable(reading.reason);
 
   const remote = manifest?.tracker.provider !== 'local';

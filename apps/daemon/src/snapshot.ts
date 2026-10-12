@@ -40,7 +40,7 @@ import {
   type TaskState,
   type TrackerTask,
 } from '@binnacle/core';
-import { ciAttention, readCi, type Ci } from './ci.ts';
+import { ciAttention, fromForge, readCi, type Ci } from './ci.ts';
 import { resolveGitTimeout, trackerToken } from './home.ts';
 import { defaultCommit, impactSection, touchedBy, type GraphSection } from './graph.ts';
 import { parallelLimit, type ParallelLimit } from './settings.ts';
@@ -324,7 +324,8 @@ export async function readTasks(
 
 /**
  * The declared tracker's Tasks; with none that can be read, `tracker.unavailable` says why.
- * `home` is the Binnacle home, where a remote tracker's credentials are.
+ * `home` is the Binnacle home, where a remote tracker's credentials are. A remote tracker's
+ * Tasks are kept for a while, as CI is (`fromForge`).
  */
 export async function readTracker(home: string, tree: Tree, manifest: ProjectManifest | null): Promise<TaskReading> {
   const tracker = manifest?.tracker;
@@ -333,7 +334,9 @@ export async function readTracker(home: string, tree: Tree, manifest: ProjectMan
     // A credentials problem reads nothing: the token that would have been used is unknown.
     const credential = trackerToken(home, tracker.provider, tracker.host);
     if ('failure' in credential) return { tasks: null, diagnostics: [credential.failure] };
-    return (tracker.provider === 'github' ? readGitHubTasks : readGitLabTasks)(tracker.repository, tracker.host, credential.token);
+    const { provider, host, repository } = tracker;
+    const read = provider === 'github' ? readGitHubTasks : readGitLabTasks;
+    return fromForge(['tasks', provider, host, repository, credential.token], () => read(repository, host, credential.token), (answer) => answer.tasks !== null);
   }
   return { tasks: null, diagnostics: [{ code: 'tracker.unavailable', message: unavailable(tracker) }] };
 }

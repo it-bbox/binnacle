@@ -35,7 +35,7 @@ It runs as a user process started by `binn daemon start`. Installing it as an au
 
 It is **not** the sole source of truth, and it never calls a language model (ADR-0012).
 
-It computes most of an answer when it is asked, so that work is kept small: a Task list's branches are mapped to its Tasks once, not per run or record looked up, and every branch's tip is read with one `git` call.
+It computes most of an answer when it is asked, so that work is kept small: a Task list's branches are mapped to its Tasks once, not per run or record looked up, and every branch's tip is read with one `git` call. What it reads from a forge, CI and a GitHub or GitLab tracker's Tasks, it keeps for a minute, a failed read being read again on the next call: every poll of every page would otherwise wait on the network.
 
 ### `binn`
 CLI for setup, diagnostics, scripting and recovery. Human-facing chat workflows should not require frequent CLI use after setup.

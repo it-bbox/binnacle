@@ -771,12 +771,14 @@ async function runs(
   // same, so a session launched there has none either. The branch its reflog gave them while
   // it existed still attributes them; those first read after its removal have none (ADR-0030).
   const registered = containingEntry(projectPath, checkouts.roots);
-  const exists = new Map<string, boolean>();
+  // Per directory, as records share a few.
+  const found = new Map<string, string | null>();
   const checkout = (cwd: string): string | null => {
+    if (found.has(cwd)) return found.get(cwd)!;
     const root = containingEntry(cwd, checkouts.roots);
-    if (root === undefined || root !== registered) return root?.path ?? null;
-    if (!exists.has(cwd)) exists.set(cwd, existsSync(cwd));
-    return exists.get(cwd) ? root.path : null;
+    const path = root === undefined || root !== registered ? (root?.path ?? null) : existsSync(cwd) ? root.path : null;
+    found.set(cwd, path);
+    return path;
   };
   const withCheckout = records.map((record) => ({ ...record, checkout: checkout(record.cwd) }));
   const { provider = null, repository = null, host = null } = tracker ?? {};

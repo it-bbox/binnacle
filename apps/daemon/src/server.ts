@@ -17,6 +17,7 @@ import {
   writeRuntime,
   type Runtime,
 } from './home.ts';
+import { FORGE_CACHE_MS, setForgeCacheMs } from './ci.ts';
 import { OperationError } from './errors.ts';
 import { GRAPH_POLL_MS, startGraphRunner } from './graph.ts';
 import { startVaultProjector, VAULT_POLL_MS } from './vault.ts';
@@ -70,6 +71,8 @@ export type DaemonOptions = {
   graphPollMs?: number;
   /** How often each project's default branch and the vault setting are read for the vault projection (ADR-0036). */
   vaultPollMs?: number;
+  /** How long a forge's CI and a remote tracker's Tasks are reused (`fromForge`); a minute when omitted. */
+  forgeCacheMs?: number;
 };
 
 export type Daemon = {
@@ -114,6 +117,7 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
     throw error;
   }
   const searchPath = options.searchPath ?? process.env.PATH ?? '';
+  setForgeCacheMs(options.forgeCacheMs ?? FORGE_CACHE_MS);
   const context: OperationContext = { home, runtime, store, searchPath, importer: importer(options.ingestBudgetMs ?? INGEST_BUDGET_MS, options.settledAfterMs ?? SETTLED_AFTER_MS) };
 
   const server = createServer((request, response) => {
