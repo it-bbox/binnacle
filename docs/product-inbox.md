@@ -72,6 +72,8 @@ The course "Один как команда" already tells participants that plan
 
 ## Starting with Binnacle: a new project and an existing one (2026-10-12)
 
+**Specified as epic 19 on 2026-10-12** (`docs/specs/starting-a-project/spec.md`). Gap 3 is closed differently from below: `binn init` writes the conventions `/setup-matt-pocock-skills` writes, so neither the setup nor a second init is needed (the owner, 2026-10-12).
+
 **Decided by the owner on 2026-10-12: the next epic after epic 16, the most important of what is left.** The remaining epics follow by importance; what does not fit before the release on 2026-10-13 continues after it, in open source. The Product session that plans this epic adds its row to the roadmap and moves the order there.
 
 The course "Один как команда" has to explain both starts, and today neither is a clear sequence. Traced on 2026-10-12 against `binn init`'s code, `binn audit`'s checks, the README and `docs/operations/`:
