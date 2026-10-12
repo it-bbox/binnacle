@@ -31,7 +31,7 @@
 ### `binnd`
 Single local daemon. Owns orchestration of local state projections, adapters, telemetry ingestion/query, snapshot generation and the local API.
 
-It runs as a user process started by `binn daemon start`. Installing it as an auto-starting system service is out of v1 on all platforms (ADR-0016).
+It is started by `binn daemon start`, and at login by the user's own service manager once autostart is on: `binn init` asks for it, and `binn daemon autostart on|off` changes it later (ADR-0043, narrowing ADR-0016). It is never a system-wide service.
 
 It is **not** the sole source of truth, and it never calls a language model (ADR-0012).
 

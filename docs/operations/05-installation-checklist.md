@@ -14,7 +14,7 @@ Binnacle is distributed through npm and requires Node 24 on the user's machine (
 npm i -g @binnacle/cli
 ```
 
-It runs natively on Linux, macOS and Windows. The daemon is started by `binn daemon start`; installing it as an auto-starting service is not part of v1.
+It runs natively on Linux, macOS and Windows. The daemon is started by `binn daemon start`. `binn init` asks whether it starts at login, yes by default, and sets that up through the user's own service manager: a systemd user unit on Linux, a LaunchAgent on macOS, a Task Scheduler task at logon on Windows. Without a terminal it installs nothing and names the command instead. `binn daemon autostart on|off` changes it later, and `binn daemon autostart` with no argument says whether it is on, off or broken, and for which Binnacle home (ADR-0043).
 
 Five environment variables configure it, all read by the daemon from its own environment:
 
@@ -343,4 +343,4 @@ Tracker                           GitHub Issues
 Automation mode                   MANUAL
 ```
 
-The setup command explains its actions by showing them as one plan, writes inside the repository and mutations outside it alike, and asks for one confirmation of the whole plan (ADR-0034): Enter accepts it at a terminal, `n` declines it, and without a terminal nothing is written. The questions that are not about a write, such as the history import window, are asked before the plan.
+The setup command explains its actions by showing them as one plan, writes inside the repository and mutations outside it alike, and asks for one confirmation of the whole plan (ADR-0034): Enter accepts it at a terminal, `n` declines it, and without a terminal nothing is written. The questions that are not about a write, such as the history import window, are asked before the plan; so is whether the daemon starts at login, whose yes becomes the plan's last item, `binn daemon autostart on`, asked only while autostart is off for that home and only at a terminal.

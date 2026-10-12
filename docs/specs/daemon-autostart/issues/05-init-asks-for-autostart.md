@@ -10,3 +10,10 @@ Spec: `docs/specs/daemon-autostart/spec.md`
 - [ ] Through init's plan and writes, as `init.test.ts` drives init, with a fake `systemctl`: the question's default is yes and its plan item turns autostart on; no turns nothing on and the summary names the command.
 - [ ] Without a terminal and under `--yes`, nothing is installed and the summary says so; with autostart on, nothing is asked.
 - [ ] The five documents above no longer say autostart is out of v1, and both READMEs say the same.
+
+## Comments
+
+- Decided, as a question that blocks nothing: `binn init` has no `--yes`. The forms that ask nothing, `--plan --json` and `--apply <id>` (ADR-0037), stand for it: they never put autostart in the plan, and their notes and Summary name `binn daemon autostart on`, so a chat yes never installs a service it was not asked about.
+- Init asks only when autostart can be turned on here: on a platform not supported yet (macOS and Windows until tickets 03 and 04) or with no systemd user manager answering, it says so and asks nothing. A broken autostart is not asked either: it names the repair, `binn daemon autostart on`.
+- The plan item runs the same `autostart(home, 'on')` as the command, last in the plan, after the registration that uses a daemon the home may run by hand, which `on` replaces.
+- The fake `systemctl` moved to `apps/cli/test/fake-systemctl.ts`, shared by `autostart.test.ts` and `init.test.ts`.

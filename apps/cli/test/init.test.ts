@@ -10,6 +10,7 @@ import { promisify } from 'node:util';
 import { test, type TestContext } from 'node:test';
 import { isAlive, readManifest, readRuntime, readToken } from '@binnacle/daemon';
 import { callOperation } from '../src/client.ts';
+import { fakeSystemctl } from './fake-systemctl.ts';
 
 const BINN = fileURLToPath(new URL('../src/bin.ts', import.meta.url));
 /** Preloaded, it makes stdin read as a terminal: `binn init` writes nothing without one (ADR-0034). */
@@ -2561,4 +2562,93 @@ test('the telemetry export: with no daemon running and BINNACLE_PORT 0, there is
   assert.equal(result.status, 0, result.stderr);
   assert.equal(userFile(home, '.gemini/settings.json'), null);
   assert.match(result.stdout, /skipped\s+Gemini CLI's OpenTelemetry export: the daemon's address is not known/);
+});
+
+/** The autostart question, asked after the window and before the plan (ADR-0043). */
+const AUTOSTART_QUESTION = 'Start the daemon at login? [Y/n]';
+const summaryOf = (stdout: string): string => stdout.slice(stdout.indexOf('Summary:'));
+
+/** A fake `systemctl` on PATH and Linux as the platform, so that init can offer autostart: its calls, and where the unit goes. */
+function fakeSystemd(home: Home): { unit: string; calls(): string[] } {
+  const log = join(home.home, 'systemctl.log');
+  const state = join(home.home, 'systemctl-state');
+  mkdirSync(state);
+  writeFileSync(join(home.bin, 'systemctl'), fakeSystemctl(log, state), { mode: 0o755 });
+  home.env = { ...home.env, BINNACLE_SERVICE_PLATFORM: 'linux' };
+  return {
+    unit: join(home.home, '.config', 'systemd', 'user', 'binnacle.service'),
+    calls: () => (existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n') : []),
+  };
+}
+
+test('autostart: asked after the window and before the plan, Enter means yes, and its plan item, last, turns it on', (t) => {
+  const home = makeHome(t);
+  const systemd = fakeSystemd(home);
+  const root = makeRepository(t, 'autostarted');
+
+  const result = binnIn(home)(root, '\n\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  const asked = result.stdout.indexOf(AUTOSTART_QUESTION);
+  assert.ok(result.stdout.indexOf('Import window') < asked && asked < result.stdout.indexOf('The plan. '), result.stdout);
+  assert.match(shownHeadings(result.stdout).at(-1)!, /Start the Binnacle daemon at login/);
+  assert.match(readFileSync(systemd.unit, 'utf8'), new RegExp(`BINNACLE_HOME=${home.binnacleHome}`));
+  assert.deepEqual(systemd.calls().slice(-3), ['--user daemon-reload', '--user enable binnacle', '--user restart binnacle']);
+  assert.match(summaryOf(result.stdout), /ran\s+binn daemon autostart on/);
+});
+
+test('autostart: no installs nothing and the Summary names the command; a later run offers it again', (t) => {
+  const home = makeHome(t);
+  const systemd = fakeSystemd(home);
+  const root = makeRepository(t, 'declined-autostart');
+
+  const result = binnIn(home)(root, '\nn\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(result.stdout.includes(AUTOSTART_QUESTION), result.stdout);
+  assert.ok(!shownHeadings(result.stdout).some((heading) => /daemon at login/.test(heading)), result.stdout);
+  assert.equal(existsSync(systemd.unit), false);
+  assert.deepEqual(systemd.calls(), ['--user show-environment']);
+  assert.match(summaryOf(result.stdout), /skipped\s+autostart: .*`binn daemon autostart on`/);
+
+  const again = binnIn(home)(root, '\nn\n', 'init');
+  assert.equal(again.status, 0, again.stderr);
+  assert.ok(again.stdout.includes(AUTOSTART_QUESTION), again.stdout);
+});
+
+test('autostart: without a terminal, and in the forms that ask nothing, nothing is installed and the command is named', async (t) => {
+  const home = makeHome(t);
+  const systemd = fakeSystemd(home);
+  const root = makeRepository(t, 'unattended-autostart');
+
+  const piped = binnIn(home, false)(root, '\n\n\n', 'init');
+  assert.equal(piped.status, 0, piped.stderr);
+  assert.doesNotMatch(piped.stdout, /Start the daemon at login/);
+  assert.match(summaryOf(piped.stdout), /skipped\s+autostart: .*`binn daemon autostart on`/);
+
+  const { id, plan, notes } = await planJson(t, home, root);
+  assert.ok(!plan.some(({ heading }) => /daemon at login/.test(heading)), JSON.stringify(plan, null, 2));
+  assert.ok(notes.some((note) => note.includes('binn daemon autostart on')), notes.join('\n---\n'));
+  const applied = binnIn(home, false)(root, '', 'init', '--apply', id);
+  assert.equal(applied.status, 0, applied.stderr);
+  assert.match(summaryOf(applied.stdout), /skipped\s+autostart: .*`binn daemon autostart on`/);
+
+  assert.equal(existsSync(systemd.unit), false);
+  assert.ok(systemd.calls().every((call) => call === '--user show-environment'), systemd.calls().join('\n'));
+});
+
+test('autostart: already on, nothing is asked', (t) => {
+  const home = makeHome(t);
+  const systemd = fakeSystemd(home);
+  const root = makeRepository(t, 'already-autostarted');
+  const on = spawnSync(process.execPath, [BINN, 'daemon', 'autostart', 'on'], { encoding: 'utf8', env: envFor(home) });
+  assert.equal(on.status, 0, on.stderr);
+  const before = systemd.calls().length;
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(result.stdout, /Start the daemon at login/);
+  assert.match(summaryOf(result.stdout), /skipped\s+autostart: it is on/);
+  assert.equal(systemd.calls().length, before);
 });

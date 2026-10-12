@@ -20,12 +20,14 @@ import {
   MANIFEST_RELATIVE,
   OperationError,
   OWNER_ONLY_FILE,
+  readAutostart,
   readManifest,
   readTracker,
   readRuntime,
   resolveGitTimeout,
   settingsPath,
 } from '@binnacle/daemon';
+import { autostart, autostartUnavailable } from './daemon-commands.ts';
 import { EXIT, type ExitCode } from './exit.ts';
 import { daemonAddress, detected, exporters, NO_EXPORT, settingsText } from './export.ts';
 import { isRecord, sessionHistory } from './history.ts';
@@ -122,6 +124,8 @@ export async function init(
     session.say('');
     // `--plan` and `--apply` ask nothing: without --window, the default, as Enter at the question gives it.
     const windowSection = await windowStep(session, manifest, options.window ?? (asks ? undefined : DEFAULT_WINDOW_DAYS));
+    session.say('');
+    const autostartWanted = await autostartStep(session, home, asks, process.stdin.isTTY === true);
     // Read before the manifest is proposed, which declares what is found or installed; planned after the other writes.
     const plugins = listClaudePlugins(session);
     const tools = detectTools(session.root, plugins);
@@ -159,6 +163,8 @@ export async function init(
       graphBuildStep(session);
       session.say('');
     }
+    // Last: turning it on replaces a daemon this home runs by hand, which the plan's registration uses.
+    if (autostartWanted) planAutostart(session, home);
     if (planOnly) {
       const { root, history, window } = session;
       const plan = session.plan.map(({ heading, body }) => ({ heading, body }));
@@ -404,6 +410,58 @@ async function windowStep(session: Session, manifest: ManifestState, given: Impo
   session.say(`Add this to ${MANIFEST_RELATIVE} yourself:\n\n${section}`);
   record(session, 'printed', `the telemetry.import.window_days line for ${MANIFEST_RELATIVE}`);
   return null;
+}
+
+const AUTOSTART_ON = '`binn daemon autostart on`';
+
+/**
+ * Step 2b: whether the daemon starts at login (ADR-0043), asked after the window and before the
+ * plan, and only while autostart is off for this home and can be turned on here. Enter means yes,
+ * which `planAutostart` makes the plan's last item. Without a terminal, and in the forms that ask
+ * nothing, it is not asked and nothing is installed: the Summary names the command instead.
+ */
+async function autostartStep(session: Session, home: string, asks: boolean, terminal: boolean): Promise<boolean> {
+  const skip = (said: string, why: string): false => {
+    session.say(said);
+    record(session, 'skipped', `autostart: ${why}`);
+    return false;
+  };
+  let reason: string | null;
+  try {
+    const current = readAutostart(home);
+    if (current.state === 'on') return skip(`The daemon already starts at login for ${home}.`, `it is on for ${home}`);
+    if (current.state === 'broken') {
+      return skip(
+        `Autostart is broken for ${home}: ${current.missing.join(' and ')} no longer exists. Repair it with ${AUTOSTART_ON}.`,
+        `broken, ${AUTOSTART_ON} repairs it`,
+      );
+    }
+    reason = autostartUnavailable(current);
+  } catch (error) {
+    reason = (error as Error).message;
+  }
+  if (reason !== null) return skip(`Autostart is not available here: ${reason}.`, `not available here, ${reason}`);
+  const later = `${AUTOSTART_ON} turns it on later`;
+  if (!asks) return skip(`This form of binn init asks nothing, so the daemon is not set to start at login: ${later}.`, `not asked, ${later}`);
+  if (!terminal) return skip(`With no terminal to ask, the daemon is not set to start at login: ${later}.`, `no terminal to ask, ${later}`);
+  const reply = await session.answer('Start the daemon at login? [Y/n] ');
+  // Enter or yes accepts, as the plan's question does; anything else, and the end of input, declines.
+  if (reply === null || !/^\s*(y(es)?)?\s*$/i.test(reply)) return skip(`The daemon is not set to start at login: ${later}.`, `declined, ${later}`);
+  session.say('Turning autostart on is in the plan, as its last item.');
+  return true;
+}
+
+/** The plan's item for a yes to the autostart question: `binn daemon autostart on`, as the command runs it. */
+function planAutostart(session: Session, home: string): void {
+  session.plan.push({
+    heading: `Start the Binnacle daemon at login, and again when it fails, through this user's service manager, for ${home}, outside the repository, by running`,
+    body: '  binn daemon autostart on',
+    declined: `autostart: ${AUTOSTART_ON} turns it on later`,
+    async apply() {
+      const code = await autostart(home, 'on');
+      record(session, code === EXIT.ok ? 'ran' : 'failed', 'binn daemon autostart on');
+    },
+  });
 }
 
 /** An answer to the window question: empty for the default, `all`, or a positive number of days; null for anything else. */

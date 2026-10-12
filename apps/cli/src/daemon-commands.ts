@@ -144,7 +144,7 @@ export async function autostart(home: string, action: 'on' | 'off' | undefined):
     console.error(`binn: autostart is not available on ${current.platform} yet.`);
     return EXIT.failed;
   }
-  return action === 'on' ? await autostartOn(home, current.path) : await autostartOff(current);
+  return action === 'on' ? await autostartOn(home, current.path, current) : await autostartOff(current);
 }
 
 const systemctl = (...args: string[]) => runManager('systemctl', ['--user', ...args]);
@@ -161,10 +161,17 @@ function systemctlAll(...calls: string[][]): boolean {
   return true;
 }
 
-async function autostartOn(home: string, path: string): Promise<ExitCode> {
+/** Why autostart cannot be turned on here, or null when it can: a platform not supported yet, or no systemd user manager. */
+export function autostartUnavailable({ platform, path }: Autostart): string | null {
+  if (path === null) return `${platform} is not supported yet`;
   const manager = systemctl('show-environment');
-  if (!manager.ok) {
-    console.error(`binn: autostart is not available here: no systemd user manager answers (${manager.message}). Nothing was changed.`);
+  return manager.ok ? null : `no systemd user manager answers (${manager.message})`;
+}
+
+async function autostartOn(home: string, path: string, current: Autostart): Promise<ExitCode> {
+  const unavailable = autostartUnavailable(current);
+  if (unavailable) {
+    console.error(`binn: autostart is not available here: ${unavailable}. Nothing was changed.`);
     return EXIT.failed;
   }
 
