@@ -25,7 +25,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 13 | Human output | not started | — |
 | 14 | Skills in any harness | done | [`skills-in-any-harness`](specs/skills-in-any-harness/spec.md) |
 | 15 | Daemon autostart | not started | — |
-| 16 | Dashboard redesign | tickets | [`dashboard-redesign`](specs/dashboard-redesign/spec.md) |
+| 16 | Dashboard redesign | in progress | [`dashboard-redesign`](specs/dashboard-redesign/spec.md) |
 | 17 | Release: npm and open source | not started | — |
 | 18 | Lean flow | done | [`lean-flow`](specs/lean-flow/spec.md) |
 
@@ -35,17 +35,13 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 Epics 1 to 11, 14 and 18 are done. On 2026-10-10 the owner set a date: on the evening of 2026-10-13 a video presents Binnacle, published to npm and open source, with every remaining v1 epic in it, 11, 12 and 13 included.
 
-Four epics were added for it. 15, Daemon autostart: `binn init` sets the daemon up to start at login, narrowing ADR-0016's manual step. 16, Dashboard redesign with the Impeccable and UI UX Pro Max skills: it reads too small and too crowded. 17, Release: npm and open source: the build step (`ADR-0031`), the README's install from npm, the repository public under Apache-2.0 (`ADR-0010`). 18, Lean flow: the per-ticket rituals that cost autopilot tokens and time, and a flaky test of epic 11's run (`docs/05-mvp-plan.md`).
+The owner's order: 16 by autopilot, the owner judging at its exit demonstration, beside 15 and 12; 13, which rewrites every skill's output; 17, npm and open source under Apache-2.0 (`ADR-0010`, `ADR-0031`), last. Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own.
 
-Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own. The owner's order: 11; 18, so that every later run is cheaper (2026-10-11); 16 by autopilot, the owner judging at its exit demonstration (2026-10-11), beside 15 and 12; 13, which rewrites every skill's output; 17, which publishes the rest, last.
+Epic 11's ticket 14 waits on one criterion: a merge that shrinks the graph. Whether epic 18 made the flow cheaper is read from epic 16's run.
 
-Epic 11 is done (ADR-0040): autopilot merged 01 to 11, then 13, GitHub's CI read from Actions runs and commit statuses, and 14, graphify's flag; the owner ran its exit demonstration (12) on 2026-10-11, on ticket 14. Ticket 14's last criterion, a merge that shrinks the graph, waits for one.
+Epic 16, Dashboard redesign (ADR-0041): autopilot merged 01 to 08 on 2026-10-12, one at a time, every pair's conflict risk unknown: the type scale, widgets brief or full on every page, the Task page in Markdown, usage by epic, the Parallel limit on the machine's Settings page, the usage-limit informer, and commands in fenced blocks. Ticket 07's browser check on the owner's daemon waits for the owner; 09, the exit demonstration, is the owner's.
 
-Epic 18 is done: rework read from runs, questions with options, the audit test without its race and the lean per-ticket process; the owner ran its exit demonstration (05) on 2026-10-11. Whether the flow got cheaper is read after epic 16's autopilot run.
-
-Epic 16 is specified and sliced (ADR-0041): 01, the type scale, can start; 09 is the owner's exit demonstration.
-
-Next action: run epic 16, Dashboard redesign, with autopilot; the owner demonstrates its exit in ticket 09. `/binnacle:autopilot`
+Next action: demonstrate epic 16's exit in ticket 09, then close the epic. `/mattpocock-skills:implement docs/specs/dashboard-redesign/issues/09-dashboard-redesign-exit-demonstration.md`
 
 ## Later
 
