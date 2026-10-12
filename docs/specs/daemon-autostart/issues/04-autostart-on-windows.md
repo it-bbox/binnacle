@@ -1,6 +1,6 @@
 # 04: Autostart on Windows
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 01
 Spec: `docs/specs/daemon-autostart/spec.md`
