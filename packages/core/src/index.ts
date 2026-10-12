@@ -35,6 +35,7 @@ export {
   type TrackerTask,
 } from './tracker.ts';
 export {
+  currentEpic,
   nextAction,
   nextActionAttention,
   parseRoadmap,

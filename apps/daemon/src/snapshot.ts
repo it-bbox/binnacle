@@ -15,6 +15,7 @@ import {
 } from '@binnacle/adapters';
 import {
   boardColumn,
+  currentEpic,
   nextAction,
   nextActionAttention,
   parseRoadmap,
@@ -119,6 +120,8 @@ export type Snapshot = {
   /** Null when there is no roadmap to read: without a readable manifest, or with a diagnostic. */
   roadmap: {
     epics: Epic[];
+    /** The current epic (`currentEpic`): the first `in progress`, else the first not `done`; null when none is. */
+    current: Epic | null;
     /** `## Current focus` as written, cut at `FOCUS_LIMIT`; `truncated` says whether it was. */
     focus: { text: string; truncated: boolean } | null;
     /** Every other `##` section, by heading only. */
@@ -216,7 +219,7 @@ export async function snapshot(
     project: projected.row,
     checkout: caller.checkout,
     git: caller.git,
-    roadmap: roadmap && { ...roadmap, focus: roadmap.focus == null ? null : cut(roadmap.focus, FOCUS_LIMIT) },
+    roadmap: roadmap && { ...roadmap, current: currentEpic(roadmap.epics), focus: roadmap.focus == null ? null : cut(roadmap.focus, FOCUS_LIMIT) },
     next: {
       action,
       alternatives:

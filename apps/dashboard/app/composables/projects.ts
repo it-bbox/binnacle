@@ -67,7 +67,8 @@ export type GraphSection = {
 
 export type Snapshot = {
   git: GitFacts;
-  roadmap: { epics: Epic[] } | null;
+  /** `current` is the daemon's current epic: the first in progress, else the first not done. */
+  roadmap: { epics: Epic[]; current: Epic | null } | null;
   next: { action: { description: string; command: string } | null; alternatives: Alternative[] | Unavailable };
   tasks: {
     inFlight: Section<SnapshotTask>;
@@ -134,9 +135,6 @@ export function initials(project: ProjectRow): string {
     .map((word) => word[0]?.toUpperCase())
     .join('');
 }
-
-/** The roadmap's first epic not done: the current one. */
-export const currentEpic = (snapshot: Snapshot): Epic | null => snapshot.roadmap?.epics.find((epic) => epic.status !== 'done') ?? null;
 
 export const isUnavailable = (section: object): section is Unavailable => 'available' in section && section.available === false;
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useLanguage } from '~/composables/language';
-import { count, currentEpic, gitLine, initials, isUnavailable, PROJECT_VIEWS, projectName, statusBadge, type ProjectView } from '~/composables/projects';
+import { count, gitLine, initials, isUnavailable, PROJECT_VIEWS, projectName, statusBadge, type ProjectView } from '~/composables/projects';
 
 /**
  * Every registered project, from the shell's views. *Brief* gives each its name, current Epic, Next
@@ -19,7 +19,7 @@ const rows = computed(() =>
     return {
       view,
       snapshot,
-      epic: snapshot === null ? null : currentEpic(snapshot),
+      epic: snapshot?.roadmap?.current ?? null,
       running: known ? count(activity.running) : null,
       latest: known ? (latest === undefined ? t.value.noRunsSeen : t.value.latest(since(latest.lastActivityAt))) : null,
       activityReason: activity !== undefined && isUnavailable(activity) ? activity.reason : null,

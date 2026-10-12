@@ -1,5 +1,5 @@
 import type { Tree } from '@binnacle/adapters';
-import { boardColumn, startCommand, type BoardColumn, type Diagnostic, type Epic, type ObservedRun, type ResolvedTask } from '@binnacle/core';
+import { boardColumn, currentEpic, startCommand, type BoardColumn, type Diagnostic, type Epic, type ObservedRun, type ResolvedTask } from '@binnacle/core';
 import { OperationError } from './errors.ts';
 import type { OperationContext } from './operations.ts';
 import type { Projected } from './projection.ts';
@@ -38,7 +38,7 @@ export type TaskList = {
 
 /**
  * `spec` is a spec slug, `null` for the Tasks that carry none, or undefined for the current
- * epic: the roadmap's first row that is not `done`. Read now from the caller's checkout, as the
+ * epic, as `currentEpic` reads it. Read now from the caller's checkout, as the
  * snapshot is, and never written back (ADR-0032). A tracker that cannot be read is an error with
  * its own code, as for `task.get`.
  */
@@ -50,7 +50,7 @@ export async function taskList(context: OperationContext, projected: Projected, 
   }
 
   const epics = roadmap?.epics ?? [];
-  const epic = spec === undefined ? (epics.find((row) => row.status !== 'done') ?? null) : spec === null ? null : (epics.find((row) => row.spec === spec) ?? null);
+  const epic = spec === undefined ? currentEpic(epics) : spec === null ? null : (epics.find((row) => row.spec === spec) ?? null);
   const slug = spec === undefined ? (epic?.spec ?? null) : spec;
   // The current epic without a spec has no Tasks; only `spec: null` asks for the Tasks without one.
   const group = spec === undefined && slug === null ? [] : tasks.filter((task) => task.specSlug === slug);

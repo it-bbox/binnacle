@@ -23,7 +23,7 @@ const NO_GRAPH = { available: false, reason: "graphify is not on the daemon's PA
 type Snapshot = {
   checkout: { root: string; registered: boolean };
   git: { available: true; branch: string | null; commit: string | null; dirty: boolean } | { available: false };
-  roadmap: { epics: Epic[]; focus: { text: string; truncated: boolean } | null; sections: string[] } | null;
+  roadmap: { epics: Epic[]; current: Epic | null; focus: { text: string; truncated: boolean } | null; sections: string[] } | null;
   tasks: {
     inFlight: Section;
     readyToStart: Section;
@@ -375,6 +375,7 @@ describe('the roadmap in the Product Snapshot', () => {
           { number: 2, title: 'MCP and Product Snapshot', status: 'in progress', spec: 'snapshot' },
           { number: 3, title: 'Telemetry', status: 'not started', spec: null },
         ],
+        current: { number: 2, title: 'MCP and Product Snapshot', status: 'in progress', spec: 'snapshot' },
         focus: { text: 'Tickets 01 and 02 are done.\n\nNext action: implement ticket 03. `/binnacle:autopilot`', truncated: false },
         sections: ['v1', 'Later', 'Keeping this current'],
       });

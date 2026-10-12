@@ -81,10 +81,10 @@ watch(
 );
 
 const epics = computed(() => snapshot.value?.roadmap?.epics ?? []);
-/** The roadmap's first epic not done: the board's default, as `task.list` reads it. */
-const current = computed(() => epics.value.find((epic) => epic.status !== 'done') ?? null);
+/** The daemon's current epic: the board's default, as `task.list` reads it. */
+const current = computed(() => snapshot.value?.roadmap?.current ?? null);
 const tabs = computed(() =>
-  epics.value.map((epic) => ({ label: String(epic.number), value: String(epic.number), disabled: epic.spec === null && epic !== current.value })),
+  epics.value.map((epic) => ({ label: String(epic.number), value: String(epic.number), disabled: epic.spec === null && epic.number !== current.value?.number })),
 );
 function pick(value: string | number): void {
   const epic = epics.value.find((item) => String(item.number) === String(value));

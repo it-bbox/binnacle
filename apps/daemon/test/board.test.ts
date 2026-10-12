@@ -293,6 +293,18 @@ describe('the board', () => {
     });
   });
 
+  it('answers for the first epic in progress without a spec slug, though one not started is above it', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject();
+      write(root, 'docs/roadmap.md', ROADMAP.replace('| 2 | Second |', '| 4 | Fourth | not started | — |\n| 2 | Second |'));
+      ticket(root, 'second', '01-new.md', 'New', 'Status: READY');
+
+      const board = await taskList(daemon, root);
+      assert.deepEqual(board.epic, { number: 2, title: 'Second', status: 'in progress', spec: 'second' });
+      assert.deepEqual(ids(board.columns.ready), ['second/01']);
+    });
+  });
+
   it('lists at most ten Tasks in a column, with a remainder, and Done its latest by id', async () => {
     await withDaemon(async (daemon) => {
       const root = makeProject();

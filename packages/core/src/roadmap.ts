@@ -196,6 +196,13 @@ export function nextActionAttention(roadmap: Roadmap, tasks: TrackerTask[] | nul
   return [{ code: 'next_action.stale', message: `The Next action's command, ${next.command}, ${why.join('; it also ')}.` }];
 }
 
+/**
+ * The current epic: the first `in progress`, in the roadmap's order, and the first that is not
+ * `done` only when none is in progress; null when there is no epic or every one is done.
+ */
+export const currentEpic = (epics: Epic[]): Epic | null =>
+  epics.find((epic) => epic.status === 'in progress') ?? epics.find((epic) => epic.status !== 'done') ?? null;
+
 /** The Suggested step's alternatives, at most this many. */
 const ALTERNATIVE_LIMIT = 3;
 
@@ -219,8 +226,7 @@ type RunReading = Pick<ObservedRun, 'taskId' | 'role' | 'lastActivityAt' | 'acti
 
 /**
  * The Suggested step as alternatives, by the first of eight rules that applies; none when no rule
- * does, as without a roadmap and with no Task in progress. The current epic is the first not
- * `done`. Only an implementation run makes a Task worked on, and only a Task the board places In
+ * does, as without a roadmap and with no Task in progress. The current epic is `currentEpic`'s. Only an implementation run makes a Task worked on, and only a Task the board places In
  * progress: a Product session's own run never does, nor a run of a Task `DONE`, `MERGED` or
  * `CANCELLED`. Its commands are the Matt Pocock chain's and the `binnacle` plugin's, so any other
  * workflow gets the descriptions alone. An alternative whose command is the Next action's is left
@@ -290,8 +296,8 @@ function byRule(epics: Epic[], tasks: ResolvedTask[], runs: RunReading[], workfl
   const idle = tasks.find((task) => boardColumn(task.state, attributed.has(task.id))?.column === 'inProgress');
   if (idle) return [alternative('resume', `${name(idle.id)} is in progress, and no run of it is active. Resume it.`, startCommand(idle, workflow), [idle.id])];
 
-  const epic = epics.find((row) => row.status !== 'done');
-  if (epic === undefined) return epics.length > 0 ? [alternative('finished', 'Every epic on the roadmap is done.')] : [];
+  const epic = currentEpic(epics);
+  if (epic === null) return epics.length > 0 ? [alternative('finished', 'Every epic on the roadmap is done.')] : [];
   const epicName = `Epic ${epic.number} (${epic.title})`;
   const own = epic.spec === null ? [] : tasks.filter((task) => task.specSlug === epic.spec);
   const ready = own.filter((task) => task.state === 'READY');

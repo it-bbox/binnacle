@@ -8,7 +8,7 @@ const props = defineProps<{ view: ProjectView | null; views: ProjectView[]; sele
 const { t, number, secondsAgo } = useLanguage();
 const route = useRoute();
 
-/** The roadmap's first Epic not done, or why there is none. */
+/** The current Epic, as the daemon reads it, or why there is none. */
 const epic = computed((): { text: string; muted: boolean; title?: string } | null => {
   const view = props.view;
   if (view === null) return null;
@@ -16,8 +16,8 @@ const epic = computed((): { text: string; muted: boolean; title?: string } | nul
   const reason = view.project.unavailable ?? (view.failure === null ? null : `${view.failure.code}: ${view.failure.message}`);
   if (snapshot === null) return { text: t.value.notAvailable, muted: true, ...(reason === null ? {} : { title: reason }) };
   if (snapshot.roadmap === null) return { text: t.value.noRoadmap, muted: true };
-  const current = snapshot.roadmap.epics.find((item) => item.status !== 'done');
-  if (current !== undefined) return { text: `${current.number} ${current.title}`, muted: false };
+  const current = snapshot.roadmap.current;
+  if (current !== null) return { text: `${current.number} ${current.title}`, muted: false };
   return { text: snapshot.roadmap.epics.length === 0 ? t.value.noEpics : t.value.everyEpicDone, muted: true };
 });
 

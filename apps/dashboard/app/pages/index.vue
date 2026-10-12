@@ -49,13 +49,12 @@ const ICONS: Record<Alternative['kind'], string> = {
   finished: 'i-lucide-flag',
 };
 
-/** The roadmap's epics as steps: done, the current one (the first not done), and those after it. */
+/** The roadmap's epics as steps: done, the current one (the daemon's), and the others not done. */
 const steps = computed(() => {
-  const epics = snapshot.value?.roadmap?.epics ?? [];
-  const current = epics.find((epic) => epic.status !== 'done');
-  return epics.map((epic) => ({ epic, step: epic.status === 'done' ? 'done' : epic === current ? 'current' : 'later' }));
+  const roadmap = snapshot.value?.roadmap;
+  return (roadmap?.epics ?? []).map((epic) => ({ epic, step: epic.number === roadmap?.current?.number ? 'current' : epic.status === 'done' ? 'done' : 'later' }));
 });
-const current = computed(() => steps.value.find((item) => item.step === 'current')?.epic ?? null);
+const current = computed(() => snapshot.value?.roadmap?.current ?? null);
 
 /** The current epic's Tasks done out of all of them, `CANCELLED` left out, as its board counts them. */
 const progress = computed(() => {

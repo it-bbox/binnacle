@@ -15,6 +15,7 @@ import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
 type Alternative = { kind: string; tasks: string[]; command: string | null; description: string; provenance: string };
 type Next = { action: { description: string; command: string } | null; alternatives: Alternative[] | { available: false; reason: string } };
 type Snapshot = {
+  roadmap: { current: { number: number } | null } | null;
   next: Next;
   attention: { code: string; message: string }[];
   tasks: { inFlight: { items: { id: string; questions: { asked: number; unanswered: number } | null }[] } } | null;
@@ -515,6 +516,27 @@ describe("the Suggested step's alternatives", () => {
         assert.deepEqual(kinds(list), ['plan'], `${status} ${spec}`);
         assert.equal(list[0]!.command, command);
       }
+    });
+  });
+
+  it('takes the first epic in progress as current, though one not started is above it, and the first not done when none is', async () => {
+    await withDaemon(async (daemon) => {
+      const rows = [row(1, 'Old', 'done', 'old'), row(2, 'Later', 'not started', null), row(3, 'Now', 'in progress', 'now'), row(4, 'Also', 'in progress', 'also')];
+      const root = makeProject(rows);
+      ticket(root, 'old', '01-old.md', 'Status: DONE');
+      const path = ticket(root, 'now', '01-ready.md', 'Status: READY');
+
+      const body = await snapshot(daemon, root);
+      assert.equal(body.roadmap?.current?.number, 3);
+      const [autopilot, byHand] = alternatives(body);
+      assert.deepEqual(kinds(alternatives(body)), ['autopilot', 'byHand']);
+      assert.match(autopilot!.description, /^Epic 3 \(Now\)/);
+      assert.equal(byHand!.command, `/mattpocock-skills:implement ${path}`);
+
+      write(root, 'docs/roadmap.md', roadmap([row(1, 'Old', 'done', 'old'), row(2, 'Later', 'not started', null), row(3, 'Now', 'tickets', 'now')], DAILY));
+      const none = await snapshot(daemon, root);
+      assert.equal(none.roadmap?.current?.number, 2);
+      assert.deepEqual(kinds(alternatives(none)), ['plan']);
     });
   });
 
