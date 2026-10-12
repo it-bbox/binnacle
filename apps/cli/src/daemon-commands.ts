@@ -170,8 +170,7 @@ export async function autostart(home: string, action: 'on' | 'off' | undefined):
     console.error(`binn: autostart is not available on ${current.platform} yet.`);
     return EXIT.failed;
   }
-  const service = { ...current, path: current.path };
-  return action === 'on' ? await autostartOn(service) : await autostartOff(service);
+  return action === 'on' ? await autostartOn(current as Service) : await autostartOff(current as Service);
 }
 
 /** Autostart where the platform has a definition, so a path. */
@@ -181,7 +180,7 @@ type Service = Autostart & { path: string };
 type Manager = {
   /** Why autostart cannot be turned on here, or null when it can. */
   unavailable(): string | null;
-  /** Registered and running, so that `on` has nothing to do once the definition is current. */
+  /** Registered and its daemon running, so that `on` has nothing to do once the definition is current. */
   isOn(): boolean;
   /** What makes the manager read a rewritten definition. */
   reload(): boolean;
@@ -210,18 +209,29 @@ function runAll(command: string, ...calls: string[][]): boolean {
 function managerFor({ platform, path, home }: Service): Manager {
   if (platform === 'darwin') {
     // The user's GUI domain, where a LaunchAgent runs; bootstrap starts it, the definition saying RunAtLoad.
-    const domain = `gui/${process.getuid?.() ?? 0}`;
+    const domain = `gui/${process.getuid?.()}`;
     const target = `${domain}/${SERVICE_NAME}`;
     const loaded = () => runManager('launchctl', ['print', target]).ok;
     const unload = () => !loaded() || runAll('launchctl', ['bootout', target]);
     // Out first: launchd keeps the definition it loaded, and refuses to bootstrap a loaded one.
     const load = () => unload() && runAll('launchctl', ['bootstrap', domain, path]);
     return {
-      unavailable: () => null,
-      isOn: loaded,
+      unavailable() {
+        const session = runManager('launchctl', ['print', domain]);
+        return session.ok ? null : `no GUI session of this user answers (${session.message})`;
+      },
+      isOn() {
+        const print = runManager('launchctl', ['print', target]);
+        return print.ok && /^\s*state = running$/m.test(print.output);
+      },
+      // launchd reads the definition when it loads it, which `start` does.
       reload: () => true,
       on: load,
-      off: () => unload() && (rmSync(path, { force: true }), true),
+      off() {
+        if (!unload()) return false;
+        rmSync(path, { force: true });
+        return true;
+      },
       start: load,
       stop: unload,
       output: `${logPath(home)} holds its output.`,
@@ -238,7 +248,11 @@ function managerFor({ platform, path, home }: Service): Manager {
     reload: () => systemctl(['daemon-reload']),
     // `restart`, not `enable --now`: a service already running under the old definition must pick up the new one.
     on: () => systemctl(['daemon-reload'], ['enable', SERVICE_NAME], ['restart', SERVICE_NAME]),
-    off: () => systemctl(['disable', '--now', SERVICE_NAME]) && (rmSync(path, { force: true }), systemctl(['daemon-reload'])),
+    off() {
+      if (!systemctl(['disable', '--now', SERVICE_NAME])) return false;
+      rmSync(path, { force: true });
+      return systemctl(['daemon-reload']);
+    },
     start: () => systemctl(['start', SERVICE_NAME]),
     stop: () => systemctl(['stop', SERVICE_NAME]),
     output: `\`journalctl --user -u ${SERVICE_NAME}\` shows its output.`,
@@ -248,7 +262,7 @@ function managerFor({ platform, path, home }: Service): Manager {
 /** Why autostart cannot be turned on here, or null when it can: a platform not supported yet, or no manager answering. */
 export function autostartUnavailable(current: Autostart): string | null {
   if (current.path === null) return `${current.platform} is not supported yet`;
-  return managerFor({ ...current, path: current.path }).unavailable();
+  return managerFor(current as Service).unavailable();
 }
 
 async function autostartOn(current: Service): Promise<ExitCode> {
@@ -315,7 +329,7 @@ function describeAutostart({ state, platform, home, path, serves, missing }: Aut
 function serviceFor(home: string): Service | null {
   try {
     const current = readAutostart(home);
-    return current.state === 'off' || current.path === null ? null : { ...current, path: current.path };
+    return current.state === 'off' || current.path === null ? null : (current as Service);
   } catch {
     return null;
   }

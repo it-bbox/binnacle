@@ -357,7 +357,7 @@ test('macOS: autostart on writes the property list and loads it into the GUI dom
   assert.ok(text.includes(`<key>PATH</key>\n    <string>${bin}</string>`), text);
   assert.match(text, /<key>RunAtLoad<\/key>\s*<true\/>/);
   assert.match(text, /<key>KeepAlive<\/key>\s*<dict>\s*<key>SuccessfulExit<\/key>\s*<false\/>/);
-  assert.deepEqual(calls(), [`print ${GUI}/binnacle`, `bootstrap ${GUI} ${unit}`]);
+  assert.deepEqual(calls(), [`print ${GUI}`, `print ${GUI}/binnacle`, `bootstrap ${GUI} ${unit}`]);
 
   const state = binn('daemon', 'autostart');
   assert.match(state.stdout, new RegExp(`Autostart is on for ${home} \\(darwin`));
@@ -366,7 +366,30 @@ test('macOS: autostart on writes the property list and loads it into the GUI dom
   const again = binn('daemon', 'autostart', 'on');
   assert.equal(again.status, 0, again.stderr);
   assert.match(again.stdout, /already on.*nothing changed/);
-  assert.deepEqual(calls().slice(before), [`print ${GUI}/binnacle`]);
+  assert.deepEqual(calls().slice(before), [`print ${GUI}`, `print ${GUI}/binnacle`]);
+});
+
+test('macOS: autostart on reloads a loaded service whose daemon is not running', (t) => {
+  const { binn, unit, calls, set } = setup(t, 'darwin');
+  assert.equal(binn('daemon', 'autostart', 'on').status, 0);
+  set('exited');
+
+  const before = calls().length;
+  const on = binn('daemon', 'autostart', 'on');
+  assert.equal(on.status, 0, on.stderr);
+  assert.doesNotMatch(on.stdout, /already on/);
+  assert.deepEqual(calls().slice(before), [`print ${GUI}`, `print ${GUI}/binnacle`, `print ${GUI}/binnacle`, `bootout ${GUI}/binnacle`, `bootstrap ${GUI} ${unit}`]);
+});
+
+test('macOS: without a GUI session of this user, autostart on refuses and writes nothing', (t) => {
+  const { binn, unit, set, calls } = setup(t, 'darwin');
+  set('no-gui');
+
+  const on = binn('daemon', 'autostart', 'on');
+  assert.equal(on.status, 3);
+  assert.match(on.stderr, /not available.*no GUI session.*Could not find domain/s);
+  assert.equal(existsSync(unit), false);
+  assert.deepEqual(calls(), [`print ${GUI}`]);
 });
 
 test('macOS: autostart off boots the service out and removes the property list, and again says nothing changed', (t) => {
@@ -398,8 +421,24 @@ test('macOS: a property list whose Node path no longer exists reads broken, and 
   const on = binn('daemon', 'autostart', 'on');
   assert.equal(on.status, 0, on.stderr);
   assert.match(on.stdout, /Rewrote .*binnacle\.plist with the current paths/);
-  assert.deepEqual(calls().slice(before), [`print ${GUI}/binnacle`, `bootout ${GUI}/binnacle`, `bootstrap ${GUI} ${unit}`]);
+  assert.deepEqual(calls().slice(before), [`print ${GUI}`, `print ${GUI}/binnacle`, `bootout ${GUI}/binnacle`, `bootstrap ${GUI} ${unit}`]);
   assert.match(binn('daemon', 'autostart').stdout, /Autostart is on/);
+});
+
+test('macOS: start rewrites a property list whose Node path no longer exists, then loads it', (t) => {
+  const { binn, unit, calls, set, supervised, home } = setup(t, 'darwin');
+  set('runs');
+  assert.equal(binn('daemon', 'autostart', 'on').status, 0);
+  assert.equal(binn('daemon', 'stop').status, 0);
+  writeFileSync(unit, readFileSync(unit, 'utf8').replace(`<string>${process.execPath}</string>`, '<string>/nowhere/node</string>'));
+
+  const before = calls().length;
+  const start = binn('daemon', 'start');
+  assert.equal(start.status, 0, start.stderr);
+  assert.match(start.stdout, /Rewrote .*binnacle\.plist with the current paths/);
+  assert.ok(readFileSync(unit, 'utf8').includes(`<string>${process.execPath}</string>`));
+  assert.deepEqual(calls().slice(before), [`print ${GUI}/binnacle`, `bootstrap ${GUI} ${unit}`]);
+  assert.equal(readRuntime(home)?.pid, supervised());
 });
 
 test('macOS: a refusal of launchctl is reported with its message', (t) => {

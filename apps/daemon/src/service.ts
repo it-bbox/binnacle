@@ -41,17 +41,32 @@ export const serviceInputs = (home: string, env: NodeJS.ProcessEnv = process.env
   path: env.PATH ?? '',
 });
 
-/** Where the definition lives, or null on a platform not supported yet. */
-export function definitionPath(platform: ServicePlatform, env: NodeJS.ProcessEnv = process.env): string | null {
-  if (platform === 'darwin') return join(homedir(), 'Library', 'LaunchAgents', `${SERVICE_NAME}.plist`);
-  if (platform !== 'linux') return null;
-  const config = env.XDG_CONFIG_HOME?.trim();
-  return join(config ? config : join(homedir(), '.config'), 'systemd', 'user', `${SERVICE_NAME}.service`);
+/** Each supported platform's definition: where it lives, how it is written, and how it is read back. */
+type Format = { path(env: NodeJS.ProcessEnv): string; render(inputs: ServiceInputs): string; read(text: string): Read };
+
+const FORMATS: Partial<Record<ServicePlatform, Format>> = {
+  linux: {
+    path(env) {
+      const config = env.XDG_CONFIG_HOME?.trim();
+      return join(config ? config : join(homedir(), '.config'), 'systemd', 'user', `${SERVICE_NAME}.service`);
+    },
+    render: renderUnit,
+    read: readUnit,
+  },
+  darwin: { path: () => join(homedir(), 'Library', 'LaunchAgents', `${SERVICE_NAME}.plist`), render: renderPlist, read: readPlist },
+};
+
+function format(platform: ServicePlatform): Format {
+  const found = FORMATS[platform];
+  if (!found) throw new Error(`autostart is not available on ${platform} yet`);
+  return found;
 }
 
+/** Where the definition lives, or null on a platform not supported yet. */
+export const definitionPath = (platform: ServicePlatform, env: NodeJS.ProcessEnv = process.env): string | null => FORMATS[platform]?.path(env) ?? null;
+
 /** The definition for `platform`, rendered from the current inputs. */
-export const renderDefinition = (platform: ServicePlatform, inputs: ServiceInputs): string =>
-  platform === 'darwin' ? renderPlist(inputs) : renderUnit(inputs);
+export const renderDefinition = (platform: ServicePlatform, inputs: ServiceInputs): string => format(platform).render(inputs);
 
 /** The systemd user unit: the daemon in the foreground, restarted when it fails, started with the user's manager. */
 function renderUnit({ node, entry, home, path }: ServiceInputs): string {
@@ -126,7 +141,7 @@ export function readInstalled(platform: ServicePlatform, path: string): Installe
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
     throw error;
   }
-  const { node, entry, named } = platform === 'darwin' ? readPlist(text) : readUnit(text);
+  const { node, entry, named } = format(platform).read(text);
   // A definition written by hand may name no home: the daemon then serves the default one.
   const home = named ? resolve(named) : resolveHome({});
   return { text, ours: text.includes(SERVICE_MARK), node, entry, home };
@@ -175,7 +190,7 @@ export function readAutostart(home: string, env: NodeJS.ProcessEnv = process.env
 /** The command that changes autostart from `state`: off when on, on when off, and on again to repair a broken one. */
 export const autostartCommand = (state: AutostartState): string => `binn daemon autostart ${state === 'on' ? 'off' : 'on'}`;
 
-export type ManagerResult = { ok: true } | { ok: false; message: string };
+export type ManagerResult = { ok: true; output: string } | { ok: false; message: string };
 
 /** Runs the service manager once, synchronously; a refusal carries what it printed. */
 export function runManager(command: string, args: string[]): ManagerResult {
@@ -184,7 +199,7 @@ export function runManager(command: string, args: string[]): ManagerResult {
     const missing = (result.error as NodeJS.ErrnoException).code === 'ENOENT';
     return { ok: false, message: missing ? `${command} was not found on PATH` : result.error.message };
   }
-  if (result.status === 0) return { ok: true };
+  if (result.status === 0) return { ok: true, output: result.stdout };
   return { ok: false, message: result.stderr.trim() || result.stdout.trim() || `exit ${result.status ?? result.signal}` };
 }
 
