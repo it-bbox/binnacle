@@ -141,49 +141,6 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
           <span class="font-mono text-sm text-dimmed">{{ view.project.path }}</span>
         </div>
 
-        <div v-if="snapshot.roadmap === null" class="flex flex-col gap-1.5 rounded-lg border border-dashed border-accented p-4">
-          <div><span class="font-medium">{{ t.notAvailable }}</span> · {{ t.noRoadmap }}</div>
-          <div v-if="roadmapAttention.length > 0" class="text-muted">{{ t.roadmapReason }}</div>
-          <div v-for="(item, index) in roadmapAttention" :key="index" class="text-sm">
-            <code class="font-mono text-muted">{{ item.code }}</code> <DaemonReason :reason="item.message" />
-          </div>
-        </div>
-        <Widget v-else page="project" widget="epics" :title="t.epics">
-          <template #default="{ full }">
-            <div class="overflow-auto">
-              <table class="w-full border-collapse">
-                <thead>
-                  <tr class="text-left text-sm text-muted">
-                    <th class="w-9 border-b border-default px-3.5 py-2 font-medium">#</th>
-                    <th class="border-b border-default px-3.5 py-2 font-medium">{{ t.epicColumn }}</th>
-                    <th class="border-b border-default px-3.5 py-2 font-medium">{{ t.status }}</th>
-                    <th v-if="full" class="border-b border-default px-3.5 py-2 font-medium">{{ t.spec }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="epic in epics" :key="epic.number" :class="{ 'bg-primary/10': board.data.value?.epic?.number === epic.number }">
-                    <td class="border-b border-default px-3.5 py-2 font-mono text-sm text-dimmed">{{ epic.number }}</td>
-                    <td lang="en" class="border-b border-default px-3.5 py-2 font-medium">{{ epic.title }}</td>
-                    <td class="border-b border-default px-3.5 py-2">
-                      <UBadge :label="epic.status" v-bind="statusBadge(epic.status)" size="sm" lang="en" />
-                    </td>
-                    <td v-if="full" class="border-b border-default px-3.5 py-2">
-                      <NuxtLink
-                        v-if="epic.spec !== null"
-                        :to="{ query: { project, spec: epic.spec } }"
-                        class="inline-flex items-center gap-1.5 font-mono text-sm text-primary hover:underline"
-                      >
-                        <UIcon name="i-lucide-file-text" class="size-3 shrink-0" />specs/{{ epic.spec }}/spec.md
-                      </NuxtLink>
-                      <span v-else class="text-dimmed">—</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </template>
-        </Widget>
-
         <Widget page="project" widget="waiting" :title="t.pendingDecisions">
           <template #default="{ full }">
             <p v-if="isUnavailable(snapshot.pendingDecisions)" class="m-0 px-3.5 py-2.5">
@@ -252,148 +209,198 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
         </Widget>
       </template>
 
-      <Widget page="project" widget="board">
-        <template #title>
-          <div class="flex min-w-0 flex-wrap items-center gap-3">
-            <h2 class="m-0 text-base font-semibold">{{ t.board }}</h2>
-            <UTabs
-              v-if="tabs.length > 0"
-              :model-value="board.data.value?.epic ? String(board.data.value.epic.number) : undefined"
-              :items="tabs"
-              :content="false"
-              variant="pill"
-              size="xs"
-              :aria-label="t.board"
-              @update:model-value="pick"
-            />
-            <template v-if="board.data.value?.epic">
-              <span lang="en" class="font-medium">{{ board.data.value.epic.number }} {{ board.data.value.epic.title }}</span>
-              <UBadge :label="board.data.value.epic.status" v-bind="statusBadge(board.data.value.epic.status)" size="sm" lang="en" />
-            </template>
-            <span v-else-if="route.query.withoutSpec !== undefined" class="font-medium">{{ t.tasksWithoutSpec }}</span>
-            <span v-else-if="board.data.value?.spec" class="font-mono text-sm">{{ board.data.value.spec }}</span>
-          </div>
-        </template>
-        <template #aside>
-          <NuxtLink
-            v-if="board.data.value && board.data.value.withoutSpec > 0 && route.query.withoutSpec === undefined"
-            :to="{ query: { project, withoutSpec: null } }"
-            class="text-sm text-primary hover:underline"
-          >
-            {{ t.tasksWithoutSpec }} ({{ number(board.data.value.withoutSpec) }})
-          </NuxtLink>
-        </template>
-        <template #default="{ full }">
-          <div class="flex flex-col gap-3 p-2.5">
-            <p v-if="board.error.value" class="m-0 text-warning"><code>{{ board.error.value.code }}</code> {{ board.error.value.message }}</p>
-            <USkeleton v-else-if="board.data.value === null" class="h-48 w-full" />
-            <template v-else>
-              <p v-if="board.data.value.epic === null && board.data.value.spec === null && route.query.withoutSpec === undefined" class="m-0 text-muted">
-                {{ t.noCurrentEpic }}
-              </p>
-              <div v-else-if="boardEmpty" class="flex flex-col gap-1 rounded-lg border border-dashed border-accented px-4 py-6">
-                <div class="font-medium">{{ t.noTasks }}</div>
-                <div class="text-muted">{{ board.data.value.epic !== null && board.data.value.spec === null ? t.noSpecYet : t.noTasksBody }}</div>
-              </div>
-              <div v-else class="grid grid-cols-4 items-start gap-2.5">
-                <div v-for="[key, label, plain] in COLUMNS" :key="key" class="flex min-w-0 flex-col gap-2 rounded-lg border border-default bg-(--sidebar) p-2">
-                  <div class="flex items-center justify-between px-1 py-0.5">
-                    <span class="text-sm font-semibold">{{ label }}</span>
-                    <span class="font-mono text-sm text-dimmed">{{ number(count(board.data.value.columns[key])) }}</span>
-                  </div>
-                  <div v-if="board.data.value.columns[key].items.length === 0" class="px-1.5 py-2.5 text-sm text-dimmed">{{ t.empty }}</div>
-                  <NuxtLink
-                    v-for="card in shown(key, board.data.value.columns[key].items)"
-                    :key="card.id"
-                    :to="{ path: '/task', query: { project, id: card.id } }"
-                    class="flex flex-col gap-1.5 rounded-md border border-default bg-default px-2.5 py-2 hover:border-accented"
-                    :class="{ 'opacity-60': card.unmetDependencies.length > 0 }"
-                  >
-                    <div class="flex flex-wrap items-center gap-1.5">
-                      <span class="font-mono text-xs break-words text-muted">{{ card.id }}</span>
-                      <span class="flex-1" />
-                      <UBadge v-if="card.state === 'BLOCKED'" label="BLOCKED" color="error" variant="soft" size="sm" class="font-mono" />
-                      <span v-else-if="full && card.state !== plain && card.source !== 'runs'" class="font-mono text-xs text-dimmed">{{ card.state }}</span>
-                      <template v-if="!full">
-                        <UIcon
-                          v-if="card.unmetDependencies.length > 0"
-                          name="i-lucide-lock"
-                          class="size-3.5 shrink-0 text-muted"
-                          role="img"
-                          :aria-label="t.unmetDependency"
-                          :title="t.unmetDependency"
-                        />
-                        <UIcon
-                          v-if="card.questions !== null && card.questions.unanswered > 0"
-                          name="i-lucide-circle-help"
-                          class="size-3.5 shrink-0 text-(--warn)"
-                          role="img"
-                          :aria-label="plural(card.questions.unanswered, t.unansweredQuestions)"
-                          :title="plural(card.questions.unanswered, t.unansweredQuestions)"
-                        />
-                      </template>
-                      <template v-if="full && card.state === 'DONE' && card.review !== null">
-                        <UBadge v-if="card.review" label="Review" color="neutral" variant="soft" size="sm" :title="t.reviewRecorded" />
-                        <UBadge v-else :label="t.noReview" color="warning" variant="soft" size="sm" />
-                      </template>
+      <!-- The board leads, the epics in a narrow column beside it; under 1360 px they follow it, the board's columns too narrow beside them. -->
+      <div class="grid items-start gap-x-2.5 gap-y-6" :class="{ 'min-[85rem]:grid-cols-[minmax(0,1fr)_20rem]': snapshot }">
+        <Widget page="project" widget="board">
+          <template #title>
+            <div class="flex min-w-0 flex-wrap items-center gap-3">
+              <h2 class="m-0 text-base font-semibold">{{ t.board }}</h2>
+              <UTabs
+                v-if="tabs.length > 0"
+                :model-value="board.data.value?.epic ? String(board.data.value.epic.number) : undefined"
+                :items="tabs"
+                :content="false"
+                variant="pill"
+                size="xs"
+                :aria-label="t.board"
+                @update:model-value="pick"
+              />
+              <template v-if="board.data.value?.epic">
+                <span lang="en" class="font-medium">{{ board.data.value.epic.number }} {{ board.data.value.epic.title }}</span>
+                <UBadge :label="board.data.value.epic.status" v-bind="statusBadge(board.data.value.epic.status)" size="sm" lang="en" />
+              </template>
+              <span v-else-if="route.query.withoutSpec !== undefined" class="font-medium">{{ t.tasksWithoutSpec }}</span>
+              <span v-else-if="board.data.value?.spec" class="font-mono text-sm">{{ board.data.value.spec }}</span>
+            </div>
+          </template>
+          <template #aside>
+            <NuxtLink
+              v-if="board.data.value && board.data.value.withoutSpec > 0 && route.query.withoutSpec === undefined"
+              :to="{ query: { project, withoutSpec: null } }"
+              class="text-sm text-primary hover:underline"
+            >
+              {{ t.tasksWithoutSpec }} ({{ number(board.data.value.withoutSpec) }})
+            </NuxtLink>
+          </template>
+          <template #default="{ full }">
+            <div class="flex flex-col gap-3 p-2.5">
+              <p v-if="board.error.value" class="m-0 text-warning"><code>{{ board.error.value.code }}</code> {{ board.error.value.message }}</p>
+              <USkeleton v-else-if="board.data.value === null" class="h-48 w-full" />
+              <template v-else>
+                <p v-if="board.data.value.epic === null && board.data.value.spec === null && route.query.withoutSpec === undefined" class="m-0 text-muted">
+                  {{ t.noCurrentEpic }}
+                </p>
+                <div v-else-if="boardEmpty" class="flex flex-col gap-1 rounded-lg border border-dashed border-accented px-4 py-6">
+                  <div class="font-medium">{{ t.noTasks }}</div>
+                  <div class="text-muted">{{ board.data.value.epic !== null && board.data.value.spec === null ? t.noSpecYet : t.noTasksBody }}</div>
+                </div>
+                <div v-else class="grid grid-cols-4 items-start gap-2.5">
+                  <div v-for="[key, label, plain] in COLUMNS" :key="key" class="flex min-w-0 flex-col gap-2 rounded-lg border border-default bg-(--sidebar) p-2">
+                    <div class="flex items-center justify-between px-1 py-0.5">
+                      <span class="text-sm font-semibold">{{ label }}</span>
+                      <span class="font-mono text-sm text-dimmed">{{ number(count(board.data.value.columns[key])) }}</span>
                     </div>
-                    <div lang="en" class="text-sm leading-snug text-highlighted">{{ card.title ?? t.untitled }}</div>
-                    <template v-if="full">
-                      <div v-if="card.questions !== null && card.questions.unanswered > 0" class="flex items-center gap-1 text-xs text-warning">
-                        <UIcon name="i-lucide-circle-help" class="size-3 shrink-0 text-(--warn)" />{{ plural(card.questions.unanswered, t.unansweredQuestions) }}
+                    <div v-if="board.data.value.columns[key].items.length === 0" class="px-1.5 py-2.5 text-sm text-dimmed">{{ t.empty }}</div>
+                    <NuxtLink
+                      v-for="card in shown(key, board.data.value.columns[key].items)"
+                      :key="card.id"
+                      :to="{ path: '/task', query: { project, id: card.id } }"
+                      class="flex flex-col gap-1.5 rounded-md border border-default bg-default px-2.5 py-2 hover:border-accented"
+                      :class="{ 'opacity-60': card.unmetDependencies.length > 0 }"
+                    >
+                      <div class="flex flex-wrap items-center gap-1.5">
+                        <span class="font-mono text-xs break-words text-muted">{{ card.id }}</span>
+                        <span class="flex-1" />
+                        <UBadge v-if="card.state === 'BLOCKED'" label="BLOCKED" color="error" variant="soft" size="sm" class="font-mono" />
+                        <span v-else-if="full && card.state !== plain && card.source !== 'runs'" class="font-mono text-xs text-dimmed">{{ card.state }}</span>
+                        <template v-if="!full">
+                          <UIcon
+                            v-if="card.unmetDependencies.length > 0"
+                            name="i-lucide-lock"
+                            class="size-3.5 shrink-0 text-muted"
+                            role="img"
+                            :aria-label="t.unmetDependency"
+                            :title="t.unmetDependency"
+                          />
+                          <UIcon
+                            v-if="card.questions !== null && card.questions.unanswered > 0"
+                            name="i-lucide-circle-help"
+                            class="size-3.5 shrink-0 text-(--warn)"
+                            role="img"
+                            :aria-label="plural(card.questions.unanswered, t.unansweredQuestions)"
+                            :title="plural(card.questions.unanswered, t.unansweredQuestions)"
+                          />
+                        </template>
+                        <template v-if="full && card.state === 'DONE' && card.review !== null">
+                          <UBadge v-if="card.review" label="Review" color="neutral" variant="soft" size="sm" :title="t.reviewRecorded" />
+                          <UBadge v-else :label="t.noReview" color="warning" variant="soft" size="sm" />
+                        </template>
                       </div>
-                      <div v-if="card.unmetDependencies.length > 0" class="text-xs text-muted">
-                        {{ t.unmetDependency }} <span class="font-mono break-words">{{ card.unmetDependencies.join(', ') }}</span>
+                      <div lang="en" class="text-sm leading-snug text-highlighted">{{ card.title ?? t.untitled }}</div>
+                      <template v-if="full">
+                        <div v-if="card.questions !== null && card.questions.unanswered > 0" class="flex items-center gap-1 text-xs text-warning">
+                          <UIcon name="i-lucide-circle-help" class="size-3 shrink-0 text-(--warn)" />{{ plural(card.questions.unanswered, t.unansweredQuestions) }}
+                        </div>
+                        <div v-if="card.unmetDependencies.length > 0" class="text-xs text-muted">
+                          {{ t.unmetDependency }} <span class="font-mono break-words">{{ card.unmetDependencies.join(', ') }}</span>
+                        </div>
+                      </template>
+                      <div v-if="card.latestRun" class="flex flex-col gap-0.5 rounded bg-muted px-1.5 py-1 text-xs">
+                        <div v-if="card.source === 'runs'" class="flex items-center gap-1 font-medium text-primary" :title="t.fromRunsReading">
+                          <UIcon name="i-lucide-calculator" class="size-3 shrink-0" />{{ t.fromRuns }}
+                        </div>
+                        <div class="flex items-start gap-1.5">
+                          <span
+                            class="mt-1 size-1.5 shrink-0 rounded-full"
+                            :class="card.latestRun.active.value ? 'bg-success motion-safe:animate-pulse' : 'bg-(--ui-text-dimmed)'"
+                            :title="`${card.latestRun.active.value ? t.activeNow : t.notActiveNow}. ${t.runningReading}`"
+                          />
+                          <span class="text-muted">{{ runTime(card.latestRun) }}</span>
+                        </div>
+                        <div class="font-mono break-words text-muted">{{ runLabel(card.latestRun, full) }}</div>
+                        <div v-if="full && card.source === 'runs'" class="text-dimmed">{{ t.ticketSays(card.state ?? t.noState) }}</div>
                       </div>
-                    </template>
-                    <div v-if="card.latestRun" class="flex flex-col gap-0.5 rounded bg-muted px-1.5 py-1 text-xs">
-                      <div v-if="card.source === 'runs'" class="flex items-center gap-1 font-medium text-primary" :title="t.fromRunsReading">
-                        <UIcon name="i-lucide-calculator" class="size-3 shrink-0" />{{ t.fromRuns }}
-                      </div>
-                      <div class="flex items-start gap-1.5">
-                        <span
-                          class="mt-1 size-1.5 shrink-0 rounded-full"
-                          :class="card.latestRun.active.value ? 'bg-success motion-safe:animate-pulse' : 'bg-(--ui-text-dimmed)'"
-                          :title="`${card.latestRun.active.value ? t.activeNow : t.notActiveNow}. ${t.runningReading}`"
-                        />
-                        <span class="text-muted">{{ runTime(card.latestRun) }}</span>
-                      </div>
-                      <div class="font-mono break-words text-muted">{{ runLabel(card.latestRun, full) }}</div>
-                      <div v-if="full && card.source === 'runs'" class="text-dimmed">{{ t.ticketSays(card.state ?? t.noState) }}</div>
+                    </NuxtLink>
+                    <UButton
+                      v-if="key === 'done' && board.data.value.columns.done.items.length > DONE_SHOWN"
+                      :label="doneOpen ? t.showFewer : plural(board.data.value.columns.done.items.length - DONE_SHOWN, t.showMore)"
+                      :aria-expanded="doneOpen"
+                      color="neutral"
+                      variant="ghost"
+                      size="xs"
+                      block
+                      @click="doneOpen = !doneOpen"
+                    />
+                    <div
+                      v-if="board.data.value.columns[key].remainder > 0 && (key !== 'done' || doneOpen)"
+                      class="px-1.5 text-sm text-dimmed"
+                    >
+                      {{ t.more(number(board.data.value.columns[key].remainder)) }}
                     </div>
-                  </NuxtLink>
-                  <UButton
-                    v-if="key === 'done' && board.data.value.columns.done.items.length > DONE_SHOWN"
-                    :label="doneOpen ? t.showFewer : plural(board.data.value.columns.done.items.length - DONE_SHOWN, t.showMore)"
-                    :aria-expanded="doneOpen"
-                    color="neutral"
-                    variant="ghost"
-                    size="xs"
-                    block
-                    @click="doneOpen = !doneOpen"
-                  />
-                  <div
-                    v-if="board.data.value.columns[key].remainder > 0 && (key !== 'done' || doneOpen)"
-                    class="px-1.5 text-sm text-dimmed"
-                  >
-                    {{ t.more(number(board.data.value.columns[key].remainder)) }}
                   </div>
                 </div>
-              </div>
-              <p v-if="board.data.value.cancelled > 0" class="m-0 text-sm text-muted">{{ plural(board.data.value.cancelled, t.cancelled) }}</p>
-              <div v-if="count(board.data.value.unknown) > 0" class="flex flex-col gap-1.5">
-                <h3 class="m-0 text-sm font-semibold text-muted">{{ t.unknownState }}</h3>
-                <div v-for="card in board.data.value.unknown.items" :key="card.id" class="flex flex-wrap items-baseline gap-x-1.5 text-sm">
-                  <NuxtLink :to="{ path: '/task', query: { project, id: card.id } }" class="font-mono break-words text-primary hover:underline">{{ card.id }}</NuxtLink>
-                  <span lang="en">{{ card.title ?? t.untitled }}</span>
-                  <span v-if="card.diagnostic" lang="en" class="text-warning"><code>{{ card.diagnostic.code }}</code> {{ card.diagnostic.message }}</span>
+                <p v-if="board.data.value.cancelled > 0" class="m-0 text-sm text-muted">{{ plural(board.data.value.cancelled, t.cancelled) }}</p>
+                <div v-if="count(board.data.value.unknown) > 0" class="flex flex-col gap-1.5">
+                  <h3 class="m-0 text-sm font-semibold text-muted">{{ t.unknownState }}</h3>
+                  <div v-for="card in board.data.value.unknown.items" :key="card.id" class="flex flex-wrap items-baseline gap-x-1.5 text-sm">
+                    <NuxtLink :to="{ path: '/task', query: { project, id: card.id } }" class="font-mono break-words text-primary hover:underline">{{ card.id }}</NuxtLink>
+                    <span lang="en">{{ card.title ?? t.untitled }}</span>
+                    <span v-if="card.diagnostic" lang="en" class="text-warning"><code>{{ card.diagnostic.code }}</code> {{ card.diagnostic.message }}</span>
+                  </div>
+                  <div v-if="board.data.value.unknown.remainder > 0" class="text-sm text-dimmed">{{ t.more(number(board.data.value.unknown.remainder)) }}</div>
                 </div>
-                <div v-if="board.data.value.unknown.remainder > 0" class="text-sm text-dimmed">{{ t.more(number(board.data.value.unknown.remainder)) }}</div>
-              </div>
-            </template>
+              </template>
+            </div>
+          </template>
+        </Widget>
+        <template v-if="snapshot">
+          <div v-if="snapshot.roadmap === null" class="flex flex-col gap-1.5 rounded-lg border border-dashed border-accented p-4">
+            <div><span class="font-medium">{{ t.notAvailable }}</span> · {{ t.noRoadmap }}</div>
+            <div v-if="roadmapAttention.length > 0" class="text-muted">{{ t.roadmapReason }}</div>
+            <div v-for="(item, index) in roadmapAttention" :key="index" class="text-sm">
+              <code class="font-mono text-muted">{{ item.code }}</code> <DaemonReason :reason="item.message" />
+            </div>
           </div>
+          <Widget v-else page="project" widget="epics" :title="t.epics">
+            <template #default="{ full }">
+              <table class="w-full border-collapse">
+                <thead>
+                  <tr class="text-left text-sm text-muted">
+                    <th class="w-9 border-b border-default py-2 ps-3.5 pe-1 font-medium">#</th>
+                    <th class="border-b border-default px-2 py-2 font-medium">{{ t.epicColumn }}</th>
+                    <th class="border-b border-default py-2 ps-2 pe-3.5 font-medium">{{ t.status }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- In Full an epic's spec takes a row of its own, under its name and status, where its path has room. -->
+                  <template v-for="epic in epics" :key="epic.number">
+                    <tr class="align-baseline" :class="{ 'bg-primary/10': board.data.value?.epic?.number === epic.number }">
+                      <td class="border-default py-1.5 ps-3.5 pe-1 font-mono text-sm text-dimmed" :class="{ 'border-b': !full }">{{ epic.number }}</td>
+                      <td lang="en" class="border-default px-2 py-1.5 leading-snug font-medium" :class="{ 'border-b': !full }">{{ epic.title }}</td>
+                      <td class="border-default py-1.5 ps-2 pe-3.5 whitespace-nowrap" :class="{ 'border-b': !full }">
+                        <UBadge :label="epic.status" v-bind="statusBadge(epic.status)" size="sm" lang="en" />
+                      </td>
+                    </tr>
+                    <tr v-if="full" :class="{ 'bg-primary/10': board.data.value?.epic?.number === epic.number }">
+                      <td class="border-b border-default" />
+                      <td colspan="2" class="border-b border-default ps-2 pe-3.5 pb-1.5">
+                        <NuxtLink
+                          v-if="epic.spec !== null"
+                          :to="{ query: { project, spec: epic.spec } }"
+                          class="inline-flex items-start gap-1.5 font-mono text-sm break-words text-primary hover:underline"
+                        >
+                          <UIcon name="i-lucide-file-text" class="mt-0.5 size-3 shrink-0" /><span>specs/<wbr>{{ epic.spec }}/<wbr>spec.md</span>
+                        </NuxtLink>
+                        <span v-else class="text-sm text-dimmed">—</span>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </template>
+          </Widget>
         </template>
-      </Widget>
+      </div>
 
       <Widget page="project" widget="usage" :title="t.usageByRole">
         <template #aside>
