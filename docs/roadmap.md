@@ -28,7 +28,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 16 | Dashboard redesign | done | [`dashboard-redesign`](specs/dashboard-redesign/spec.md) |
 | 17 | Release: npm and open source | not started | — |
 | 18 | Lean flow | done | [`lean-flow`](specs/lean-flow/spec.md) |
-| 19 | Starting a project: new and existing | tickets | [`starting-a-project`](specs/starting-a-project/spec.md) |
+| 19 | Starting a project: new and existing | in progress | [`starting-a-project`](specs/starting-a-project/spec.md) |
 
 Epics are ordered by dependency, not by preference. Epic 1 is the foundation; epics 5 to 7 are only meaningful once 1 to 4 exist. Audit and adopt is epic 6 in the specs of epics 1 to 3, written before epic 6 was inserted on 2026-09-26. Epic 14 was added on 2026-10-06 and comes before epic 10, which reuses its list of harnesses.
 
@@ -38,11 +38,11 @@ Epics 1 to 11, 14, 16 and 18 are done. On the evening of 2026-10-13 a video pres
 
 The owner's order, 2026-10-12: 19, starting a new or an existing project, the most important of what is left; then 15, 12 and 13 by importance; 17, npm and open source under Apache-2.0 (`ADR-0010`, `ADR-0031`), at the release. Whatever is not done by then continues after it, in open source. Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own.
 
-Epic 19 is specified (`docs/specs/starting-a-project/spec.md`): `/binnacle:roadmap` from a vision or an existing project; the audit listing stranded documents; `binn init` writing the planning conventions in place of `/setup-matt-pocock-skills`; `/binnacle:task run <ticket>` as every Task's start command, which autopilot's agents follow (ADR-0042, proposed); and autopilot's three questions before it starts. For the release: the start command, the audit's check and init's conventions first, the roadmap skill next. Its eight tickets are written; 01 to 04 can start at once, side by side.
+Epic 19's tickets 01 to 07 are merged, by autopilot on 2026-10-12: `/binnacle:task run <ticket>` is every Task's start command and carries the per-ticket process (ADR-0042); `binn audit` lists stranded documents; `binn init` writes the planning conventions in place of `/setup-matt-pocock-skills`; `/binnacle:roadmap` starts a new or an existing project; a spec no roadmap row links is `roadmap.spec_unlisted`; autopilot's agents follow `task run`, and autopilot asks the plan's three questions before it starts. Left: the owner's exit demonstration, ticket 08.
 
-Epic 16 is done, accepted on 2026-10-12. Epic 18 made the flow cheaper, read from epic 16's run against epic 11's: per DONE Task 14% less output and half the rework share (`dashboard-redesign/09`). Epic 11's ticket 14 waits on one criterion: a merge that shrinks the graph.
+Epic 18 made the flow cheaper, read from epic 16's run against epic 11's: per DONE Task 14% less output and half the rework share (`dashboard-redesign/09`). Epic 11's ticket 14 waits on one criterion: a merge that shrinks the graph.
 
-Next action: run epic 19's tickets, starting with 01 to 04. `/binnacle:autopilot 19`
+Next action: demonstrate epic 19's exit in ticket 08, then close the epic. `/binnacle:task run docs/specs/starting-a-project/issues/08-starting-a-project-exit-demonstration.md`
 
 ## Later
 
