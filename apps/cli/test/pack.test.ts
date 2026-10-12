@@ -314,6 +314,10 @@ test('/binnacle:daemon, /binnacle:register and /binnacle:init run binn, are star
   assert.match(daemon, /`binn daemon <action>`/);
   assert.match(daemon, /`status` when no action was passed/);
   assert.match(daemon, /log tail/);
+  // Epic 15: autostart, from the chat too.
+  assert.match(daemon, /`binn daemon autostart on\|off`/);
+  assert.match(daemon, /^argument-hint: "\[start\|stop\|status\|autostart \[on\|off\]\]"$/m);
+  assert.match(skillText('help'), /`binn daemon autostart`/);
 
   const register = skillText('register');
   assert.match(register, /`binn project register <path>`/);

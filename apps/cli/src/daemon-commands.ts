@@ -1,13 +1,21 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { closeSync, openSync, readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { closeSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import {
+  autostart as readAutostart,
+  daemonEntry,
   ensureHome,
   isAlive,
   logPath,
   OWNER_ONLY_FILE,
+  readInstalled,
   readRuntime,
   removeRuntime,
+  renderUnit,
+  runManager,
+  serviceInputs,
+  SERVICE_NAME,
+  type Autostart,
   type Runtime,
 } from '@binnacle/daemon';
 import { callOperation, isListening } from './client.ts';
@@ -34,7 +42,7 @@ export async function start(home: string): Promise<ExitCode> {
   const log = openSync(logPath(home), 'a', OWNER_ONLY_FILE);
   let child;
   try {
-    child = spawn(process.execPath, [fileURLToPath(import.meta.resolve('@binnacle/daemon/bin'))], {
+    child = spawn(process.execPath, [daemonEntry()], {
       detached: true,
       stdio: ['ignore', log, log],
       env: { ...process.env, BINNACLE_HOME: home },
@@ -108,6 +116,100 @@ export async function stop(home: string): Promise<ExitCode> {
   removeRuntime(home);
   console.log(`Binnacle daemon stopped (pid ${runtime.pid}).`);
   return EXIT.ok;
+}
+
+const AUTOSTART_ON = 'binn daemon autostart on';
+
+/** `binn daemon autostart [on|off]`: turns autostart on or off for this home, or, with no action, says which it is (ADR-0043). */
+export async function autostart(home: string, action: 'on' | 'off' | undefined): Promise<ExitCode> {
+  let current: Autostart;
+  try {
+    current = readAutostart(home);
+  } catch (error) {
+    console.error(`binn: ${(error as Error).message}`);
+    return EXIT.usage;
+  }
+  if (action === undefined) {
+    reportAutostart(current);
+    return EXIT.ok;
+  }
+  if (current.path === null) {
+    console.error(`binn: autostart is not available on ${current.platform} yet.`);
+    return EXIT.failed;
+  }
+  return action === 'on' ? await autostartOn(home, current.path) : autostartOff(current.path);
+}
+
+const systemctl = (...args: string[]) => runManager('systemctl', ['--user', ...args]);
+
+/** Runs each manager call in turn, stopping at the first refusal, which it reports as the manager printed it. */
+function systemctlAll(...calls: string[][]): boolean {
+  for (const args of calls) {
+    const result = systemctl(...args);
+    if (!result.ok) {
+      console.error(`binn: systemctl --user ${args.join(' ')} failed: ${result.message}`);
+      return false;
+    }
+  }
+  return true;
+}
+
+async function autostartOn(home: string, path: string): Promise<ExitCode> {
+  const manager = systemctl('show-environment');
+  if (!manager.ok) {
+    console.error(`binn: autostart is not available here: no systemd user manager answers (${manager.message}). Nothing was changed.`);
+    return EXIT.failed;
+  }
+
+  const unit = renderUnit(serviceInputs(home));
+  const installed = readInstalled(path);
+  if (installed?.text === unit && systemctl('is-enabled', SERVICE_NAME).ok && systemctl('is-active', SERVICE_NAME).ok) {
+    console.log(`Autostart is already on for ${home}; nothing changed.`);
+    return EXIT.ok;
+  }
+
+  // A daemon of this home started by hand holds the home: the service's could not claim it.
+  const running = readRuntime(home);
+  if (running && isAlive(running.pid)) {
+    const stopped = await stop(home);
+    if (stopped !== EXIT.ok) return stopped;
+  }
+
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, unit);
+  if (installed && !installed.ours) console.error(`binn: warning: replaced ${path}, which Binnacle did not write.`);
+  else if (installed && installed.home !== home) console.log(`Autostart moves from ${installed.home} to ${home}.`);
+
+  // `restart`, not `enable --now`: a service already running under the old definition must pick up the new one.
+  if (!systemctlAll(['daemon-reload'], ['enable', SERVICE_NAME], ['restart', SERVICE_NAME])) {
+    console.error(`binn: ${path} is written but autostart may not be on; \`binn daemon autostart off\` removes it.`);
+    return EXIT.failed;
+  }
+  console.log(`Autostart is on for ${home}: ${path} starts the daemon at login, and again when it fails.`);
+  return EXIT.ok;
+}
+
+function autostartOff(path: string): ExitCode {
+  const installed = readInstalled(path);
+  if (!installed) {
+    console.log('Autostart is already off; nothing changed.');
+    return EXIT.ok;
+  }
+  if (!systemctlAll(['disable', '--now', SERVICE_NAME])) return EXIT.failed;
+  rmSync(path, { force: true });
+  if (!systemctlAll(['daemon-reload'])) return EXIT.failed;
+  console.log(`Autostart is off: the daemon it started for ${installed.home} is stopped and ${path} is removed.`);
+  return EXIT.ok;
+}
+
+function reportAutostart({ state, platform, home, path, serves, missing }: Autostart): void {
+  const where = path ? `${platform}, ${path}` : platform;
+  if (state === 'on') console.log(`Autostart is on for ${home} (${where}).`);
+  else if (state === 'broken') console.log(`Autostart is broken for ${home} (${where}): ${missing.join(' and ')} no longer exists. Repair it with \`${AUTOSTART_ON}\`.`);
+  else {
+    const other = serves && serves !== home ? ` The service starts the daemon for ${serves} instead.` : '';
+    console.log(`Autostart is off for ${home} (${platform}).${other} Turn it on with \`${AUTOSTART_ON}\`.`);
+  }
 }
 
 function report(headline: string, runtime: Runtime): void {

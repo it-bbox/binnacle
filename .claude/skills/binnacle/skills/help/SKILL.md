@@ -14,7 +14,7 @@ Binnacle keeps track of a software project for you and your coding agent: where 
 
 - `/binnacle:audit` — see what a repository has and lacks for Binnacle, before changing anything.
 - `/binnacle:init` — set a repository up: shows the whole plan, and writes it only after your yes.
-- `/binnacle:daemon` — start, stop or check Binnacle's background service (`start`, `stop`, `status`).
+- `/binnacle:daemon` — start, stop or check Binnacle's background service (`start`, `stop`, `status`), or turn its start at login on or off (`autostart on`, `autostart off`, which run `binn daemon autostart`).
 - `/binnacle:register` — tell the running service about this repository.
 - `/binnacle:status` — check in a few lines that this project and this checkout are seen as you expect.
 - `/binnacle:dashboard` — open the dashboard in the browser, once the service is running.

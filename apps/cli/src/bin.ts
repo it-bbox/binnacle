@@ -2,7 +2,7 @@
 import { parseArgs } from 'node:util';
 import { type ImportWindow } from '@binnacle/core';
 import { resolveHome, packageVersion } from '@binnacle/daemon';
-import { start, status, stop } from './daemon-commands.ts';
+import { autostart, start, status, stop } from './daemon-commands.ts';
 import { list, register, status as projectStatus, unregister } from './project-commands.ts';
 import { EXIT, type ExitCode } from './exit.ts';
 import { dashboard } from './dashboard.ts';
@@ -34,6 +34,9 @@ Usage:
   binn daemon start     Start the Binnacle daemon on loopback
   binn daemon status    Report whether a daemon is running, and where
   binn daemon stop      Stop the daemon and remove its runtime file
+  binn daemon autostart [on|off]
+                        Turn on or off the daemon's start at login, through your own service manager
+                        (a systemd user unit on Linux), or say whether it is on, off or broken
 
   binn project register [path]    Register a repository (default: the working directory)
   binn project list               List the projects this machine tracks
@@ -99,6 +102,9 @@ async function run(argv: string[]): Promise<ExitCode> {
     if (second === 'start') return await start(home);
     if (second === 'status') return await status(home);
     if (second === 'stop') return await stop(home);
+  }
+  if (first === 'daemon' && second === 'autostart' && rest.length <= 1 && (rest[0] === undefined || rest[0] === 'on' || rest[0] === 'off')) {
+    return await autostart(resolveHome(), rest[0]);
   }
 
   if (first === 'dashboard' && rest.length === 0 && (second === undefined || second === '--print')) {
