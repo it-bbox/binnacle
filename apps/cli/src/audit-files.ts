@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import type { Finding } from '@binnacle/core';
 import { resolveGitTimeout } from '@binnacle/daemon';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, join, posix } from 'node:path';
 
 /** The `.scratch` and the tests, CI and structure areas of `binn audit`: files only, nothing is run but `git check-ignore`. */
 
@@ -58,6 +58,42 @@ export function scratch(root: string): Finding[] {
         },
   );
   return found;
+}
+
+/** A Markdown or text file, the only kind a stranded document is. */
+const TEXT = /\.(md|markdown|mdx|txt)$/i;
+/** A path segment that says a plan, a spec, a decision, a TODO, notes, a backlog, a design, an RFC, a PRD, a roadmap or an ADR. */
+const STRANDED = /(^|[-_. ])(plans?|planning|specs?|specifications?|decisions?|todos?|notes?|backlogs?|designs?|rfcs?|prds?|roadmaps?|adrs?)([-_. ]|$)/i;
+/** The root's own files, an instruction file anywhere, and anything in a dot-directory, which holds a harness's settings and skills. */
+const OWN = /^((readme|licen[cs]e|changelog|contributing|security)([-_.][^/]*)?|CONTEXT\.md)$|(^|\/)((AGENTS|CLAUDE|GEMINI)(\.local)?\.md$|\.)/i;
+
+/**
+ * The tracked documents outside Binnacle's places whose name or directory says what a plan or a decision is kept in
+ * (CONTEXT.md, *Stranded document*). `docs` is knowledge.docs, which holds the roadmap, vision, inbox, specs, ADRs and agent conventions.
+ * A matching directory is listed once, as `dir/`. Untracked and ignored files are never read: the list is `git ls-files`.
+ */
+export function stranded(root: string, docs: string): Finding {
+  const base = { code: 'docs.stranded', area: 'docs' } as const;
+  const listed = spawnSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8', timeout: resolveGitTimeout() });
+  if (listed.status !== 0) {
+    return { ...base, status: 'unknown', reason: 'git ls-files failed, so the tracked documents are not known.', recommendation: 'Run git ls-files in the repository to see why.' };
+  }
+  const files = new Set(['roadmap.md', 'vision.md', 'product-inbox.md'].map((name) => posix.join(docs, name)));
+  const dirs = ['specs', 'adr', 'agents'].map((name) => `${posix.join(docs, name)}/`);
+  const found = new Set<string>();
+  for (const path of listed.stdout.split('\0')) {
+    if (!TEXT.test(path) || OWN.test(path) || files.has(path) || dirs.some((dir) => path.startsWith(dir))) continue;
+    const segments = path.split('/');
+    const at = segments.findIndex((segment) => STRANDED.test(segment));
+    if (at !== -1) found.add(at === segments.length - 1 ? path : `${segments.slice(0, at + 1).join('/')}/`);
+  }
+  if (found.size === 0) return { ...base, status: 'ok', reason: "No tracked document outside Binnacle's places names a plan, a spec, a decision, notes or a roadmap." };
+  return {
+    ...base,
+    status: 'unknown',
+    reason: `Documents outside Binnacle's places, where each belongs is a judgement: ${[...found].join(', ')}.`,
+    recommendation: 'Run /binnacle:roadmap, which proposes a place for each and moves nothing without your yes.',
+  };
 }
 
 const TEST_FILES = ['vitest.config.ts', 'vitest.config.js', 'vitest.config.mts', 'jest.config.js', 'jest.config.ts', 'jest.config.cjs', 'playwright.config.ts', 'pytest.ini', 'tox.ini', 'phpunit.xml', 'karma.conf.js'];

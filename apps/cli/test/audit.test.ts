@@ -558,3 +558,58 @@ test('binn audit: a manifest that declares no knowledge.docs is a roadmap gap, s
   write(root, { '.binnacle/project.yaml': 'version: 1\nproject:\n  id: repo\ntracker:\n  provider: jira\n' });
   assert.equal(finding(root, t, 'docs.roadmap').status, 'unknown');
 });
+
+/** Writes `files` into the fixture and commits them, so that `git ls-files` lists them. */
+function commit(root: string, files: Record<string, string>): void {
+  write(root, files);
+  git(root, 'add', '.');
+  git(root, 'commit', '--quiet', '-m', 'files');
+}
+
+/** Binnacle's places, none of which is a stranded document. */
+const PLACES = {
+  'CONTEXT.md': '# c\n',
+  'AGENTS.md': '# a\n',
+  'CHANGELOG.md': '# c\n',
+  'LICENSE.txt': 'x\n',
+  'docs/roadmap.md': ROADMAP,
+  'docs/vision.md': '# v\n',
+  'docs/product-inbox.md': '# i\n',
+  'docs/specs/one/spec.md': '# s\n',
+  'docs/specs/one/issues/01-plan.md': '# t\n',
+  'docs/adr/ADR-0001-x.md': '# x\n',
+  'docs/agents/issue-tracker.md': '# t\n',
+  '.claude/skills/binnacle-roadmap/SKILL.md': '# s\n',
+  'src/plan.ts': 'export {};\n',
+};
+
+test("binn audit: stranded documents outside Binnacle's places are listed, unknown, with /binnacle:roadmap, the same twice and nothing written", (t) => {
+  const root = fixture(t);
+  commit(root, { ...PLACES, 'TODO.md': '- x\n', 'plans/q3.md': '# q3\n', 'plans/q4.md': '# q4\n', 'auth/login-spec.md': '# s\n', 'doc/adr/0001-use-x.md': '# x\n', 'notes.txt': 'x\n' });
+  const before = listing(root);
+  const first = audit(t, ['--json'], {}, root).stdout;
+  assert.equal(audit(t, ['--json'], {}, root).stdout, first);
+  assert.deepEqual(listing(root), before);
+
+  const stranded = byCode(findings(first), 'docs.stranded');
+  assert.equal(stranded.area, 'docs');
+  assert.equal(stranded.status, 'unknown');
+  for (const path of ['TODO.md', 'plans/', 'auth/login-spec.md', 'doc/adr/', 'notes.txt']) assert.ok(stranded.reason.includes(path), path);
+  for (const path of ['plans/q3.md', 'CONTEXT.md', 'CHANGELOG', 'LICENSE', 'docs/', 'SKILL.md', 'src/plan.ts']) assert.ok(!stranded.reason.includes(path), path);
+  assert.match(stranded.recommendation!, /\/binnacle:roadmap/);
+
+  // The places under knowledge.docs move with the manifest's declaration.
+  commit(root, { '.binnacle/project.yaml': 'version: 1\nproject:\n  id: repo\nknowledge:\n  docs: handbook\n', 'handbook/roadmap.md': ROADMAP, 'handbook/specs/two/spec.md': '# s\n' });
+  const moved = finding(root, t, 'docs.stranded').reason;
+  assert.ok(moved.includes('docs/roadmap.md') && moved.includes('docs/specs/'), moved);
+  assert.ok(!moved.includes('handbook'), moved);
+});
+
+test("binn audit: a repository with only Binnacle's places has no stranded document, and untracked or ignored files are never listed", (t) => {
+  const root = fixture(t);
+  commit(root, { ...PLACES, '.gitignore': 'notes/\n' });
+  write(root, { 'TODO.md': '- x\n', 'notes/today.md': '# n\n' });
+  const ok = finding(root, t, 'docs.stranded');
+  assert.equal(ok.status, 'ok');
+  assert.equal(ok.recommendation, undefined);
+});

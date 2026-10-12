@@ -3,7 +3,7 @@ import { AUDIT_AREAS, forgeRemote, instructionSets, type Finding } from '@binnac
 import { MANIFEST_RELATIVE, OperationError, readManifest, resolveGitTimeout, trackerToken } from '@binnacle/daemon';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, posix, resolve } from 'node:path';
-import { scratch, structure } from './audit-files.ts';
+import { scratch, stranded, structure } from './audit-files.ts';
 import { capabilities, telemetry, telemetryExport } from './audit-tools.ts';
 import { EXIT, type ExitCode } from './exit.ts';
 import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, MATT_POCOCK_FILES, mattPocockFiles, roadmapGaps, specSlugs } from './layout.ts';
@@ -102,9 +102,10 @@ function gitAndTracker(git: Repository, home: string): Finding[] {
   return found;
 }
 
-/** Whether `CONTEXT.md`, an ADR directory and `docs/` exist. */
+/** Whether `CONTEXT.md`, an ADR directory and `docs/` exist, the roadmap, and the documents stranded outside Binnacle's places. */
 function docs(root: string): Finding[] {
   const area = 'docs';
+  const declared = knowledgeDocs(root);
   const check = (code: string, path: string, what: string, recommendation: string): Finding =>
     existsSync(join(root, path))
       ? { code, area, status: 'ok', reason: `${path} exists.` }
@@ -113,26 +114,34 @@ function docs(root: string): Finding[] {
     check('docs.context', 'CONTEXT.md', 'the glossary of the domain an agent reads first.', 'Write CONTEXT.md; /grill-with-docs builds it as terms are settled.'),
     check('docs.adr', 'docs/adr', 'no architecture decisions are recorded.', 'Record durable trade-offs as ADRs under docs/adr.'),
     check('docs.docs', 'docs', 'no durable documentation directory.', 'Keep durable knowledge as Markdown under docs/.'),
-    roadmap(root),
+    roadmap(root, declared),
+    // Without a usable declaration, the places are where binn init would declare them.
+    stranded(root, declared ?? 'docs'),
   ];
 }
 
-/** The roadmap Binnacle reads, `<knowledge.docs>/roadmap.md` (ADR-0025): docs/ when there is no usable manifest, as `binn init` would declare. */
-function roadmap(root: string): Finding {
-  const base = { code: 'docs.roadmap', area: 'docs' } as const;
-  let docs: string | null = 'docs';
+/**
+ * knowledge.docs: `docs` when there is no manifest, as `binn init` would declare; null when the manifest declares none;
+ * undefined when it cannot be read, since a manifest with problems declares nothing that can be trusted.
+ */
+function knowledgeDocs(root: string): string | null | undefined {
   try {
-    docs = readManifest(root).manifest.knowledge.docs;
+    return readManifest(root).manifest.knowledge.docs;
   } catch (error) {
-    // No manifest: the one binn init proposes declares docs. One with problems declares nothing that can be trusted.
-    if (!(error instanceof OperationError) || error.code !== 'manifest.missing') {
-      return {
-        ...base,
-        status: 'unknown',
-        reason: `${MANIFEST_RELATIVE} cannot be read as a manifest, so where its roadmap is, knowledge.docs, is not known.`,
-        recommendation: `Fix ${MANIFEST_RELATIVE}; binn init names its problems.`,
-      };
-    }
+    return error instanceof OperationError && error.code === 'manifest.missing' ? 'docs' : undefined;
+  }
+}
+
+/** The roadmap Binnacle reads, `<knowledge.docs>/roadmap.md` (ADR-0025). */
+function roadmap(root: string, docs: string | null | undefined): Finding {
+  const base = { code: 'docs.roadmap', area: 'docs' } as const;
+  if (docs === undefined) {
+    return {
+      ...base,
+      status: 'unknown',
+      reason: `${MANIFEST_RELATIVE} cannot be read as a manifest, so where its roadmap is, knowledge.docs, is not known.`,
+      recommendation: `Fix ${MANIFEST_RELATIVE}; binn init names its problems.`,
+    };
   }
   if (docs === null) {
     return {
