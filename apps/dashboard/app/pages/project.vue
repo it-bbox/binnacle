@@ -87,9 +87,10 @@ const current = computed(() => snapshot.value?.roadmap?.current ?? null);
 /** An epic picks the board when it has a spec, or is the current one, whose board `task.list` gives by default. */
 const pickable = (epic: Epic): boolean => epic.spec !== null || epic.number === current.value?.number;
 const picked = (epic: Epic): boolean => board.data.value?.epic?.number === epic.number;
+/** The address of an epic's board: the default board for the current epic without a spec. */
+const epicQuery = (epic: Epic) => (epic.spec === null ? { project } : { project, spec: epic.spec });
 function pick(epic: Epic): void {
-  if (!pickable(epic) || picked(epic)) return;
-  void router.push({ query: epic.spec === null ? { project } : { project, spec: epic.spec } });
+  if (pickable(epic) && !picked(epic)) void router.push({ query: epicQuery(epic) });
 }
 /** The epics' column folds to a strip of numbers, so the board gets the width; kept in the browser. */
 const folded = ref(readFolded('project', 'epics'));
@@ -405,7 +406,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
                       <td lang="en" class="border-default px-2 py-1.5 leading-snug font-medium" :class="{ 'border-b': !full }">
                         <NuxtLink
                           v-if="pickable(epic) && !picked(epic)"
-                          :to="{ query: epic.spec === null ? { project } : { project, spec: epic.spec } }"
+                          :to="{ query: epicQuery(epic) }"
                           class="hover:text-primary"
                           @click.stop
                         >
