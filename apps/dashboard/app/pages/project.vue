@@ -77,6 +77,9 @@ watch(
   () => route.query,
   () => {
     doneOpen.value = false;
+    // The daemon may take seconds to read another epic's board: the old one gives way to the skeleton at once.
+    board.data.value = null;
+    board.error.value = null;
     void board.refresh();
   },
 );
@@ -86,7 +89,14 @@ const epics = computed(() => snapshot.value?.roadmap?.epics ?? []);
 const current = computed(() => snapshot.value?.roadmap?.current ?? null);
 /** An epic picks the board when it has a spec, or is the current one, whose board `task.list` gives by default. */
 const pickable = (epic: Epic): boolean => epic.spec !== null || epic.number === current.value?.number;
-const picked = (epic: Epic): boolean => board.data.value?.epic?.number === epic.number;
+/** The epic the address picks, known before the daemon's answer: its spec, none for the Tasks without one, or the current epic. */
+const chosen = computed(() => {
+  if (route.query.withoutSpec !== undefined) return null;
+  return typeof route.query.spec === 'string' ? (epics.value.find((epic) => epic.spec === route.query.spec) ?? null) : current.value;
+});
+const picked = (epic: Epic): boolean => chosen.value?.number === epic.number;
+/** The epic the board's header names: the one picked, or the daemon's when the roadmap does not list it. */
+const shownEpic = computed(() => chosen.value ?? board.data.value?.epic ?? null);
 /** The address of an epic's board: the default board for the current epic without a spec. */
 const epicQuery = (epic: Epic) => (epic.spec === null ? { project } : { project, spec: epic.spec });
 function pick(epic: Epic): void {
@@ -225,9 +235,9 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
           <template #title>
             <div class="flex min-w-0 flex-wrap items-center gap-3">
               <h2 class="m-0 text-base font-semibold">{{ t.board }}</h2>
-              <template v-if="board.data.value?.epic">
-                <span lang="en" class="font-medium">{{ board.data.value.epic.number }} {{ board.data.value.epic.title }}</span>
-                <UBadge :label="board.data.value.epic.status" v-bind="statusBadge(board.data.value.epic.status)" size="sm" lang="en" />
+              <template v-if="shownEpic">
+                <span lang="en" class="font-medium">{{ shownEpic.number }} {{ shownEpic.title }}</span>
+                <UBadge :label="shownEpic.status" v-bind="statusBadge(shownEpic.status)" size="sm" lang="en" />
               </template>
               <span v-else-if="route.query.withoutSpec !== undefined" class="font-medium">{{ t.tasksWithoutSpec }}</span>
               <span v-else-if="board.data.value?.spec" class="font-mono text-sm">{{ board.data.value.spec }}</span>
@@ -381,9 +391,12 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
               />
             </nav>
           </UCard>
-          <Widget v-else page="project" widget="epics" :title="t.epics" class="min-[85rem]:order-first">
-            <template #aside>
-              <UButton icon="i-lucide-panel-left-close" color="neutral" variant="ghost" size="xs" :aria-label="t.foldEpics" :title="t.foldEpics" @click="fold(true)" />
+          <Widget v-else page="project" widget="epics" class="min-[85rem]:order-first">
+            <template #title>
+              <div class="flex items-center gap-1.5">
+                <UButton icon="i-lucide-panel-left-close" color="neutral" variant="ghost" size="xs" :aria-label="t.foldEpics" :title="t.foldEpics" @click="fold(true)" />
+                <h2 class="m-0 text-base font-semibold">{{ t.epics }}</h2>
+              </div>
             </template>
             <template #default="{ full }">
               <table class="w-full border-collapse">
