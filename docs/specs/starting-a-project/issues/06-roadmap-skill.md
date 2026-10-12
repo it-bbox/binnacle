@@ -1,6 +1,6 @@
 # 06: /binnacle:roadmap, from a vision or an existing project
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 03, 04
 Spec: `docs/specs/starting-a-project/spec.md`
