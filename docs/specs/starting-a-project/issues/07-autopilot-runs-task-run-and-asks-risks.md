@@ -1,6 +1,6 @@
 # 07: Autopilot follows /binnacle:task run and asks the plan's three questions
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 02
 Spec: `docs/specs/starting-a-project/spec.md`
