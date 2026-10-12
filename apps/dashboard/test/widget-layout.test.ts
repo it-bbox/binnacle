@@ -18,13 +18,13 @@ const indent = (line: string): number => line.length - line.trimStart().length;
 /** Each grid whose first child is a widget or a column of widgets: its direct children and the line after it closes. */
 function rows(source: string): { line: string; children: string[]; after: string }[] {
   const lines = source.split('\n');
-  const open = (line: string): boolean => line.trim() !== '' && !line.trim().startsWith('<!--');
+  const meaningful = (line: string): boolean => line.trim() !== '' && !line.trim().startsWith('<!--');
   return lines.flatMap((line, index) => {
-    const first = lines.slice(index + 1).find(open)?.trim() ?? '';
+    const first = lines.slice(index + 1).find(meaningful)?.trim() ?? '';
     if (!/^<div\b[^>]*\bclass="grid\b/.test(line.trim()) || !/^<(Widget\b|div class="flex min-w-0 flex-col)/.test(first)) return [];
     const end = lines.findIndex((candidate, at) => at > index && indent(candidate) === indent(line) && candidate.trim() === '</div>');
     const children = lines.slice(index + 1, end).filter((child) => indent(child) === indent(line) + 2 && /^<[A-Za-z]/.test(child.trim()));
-    return [{ line: line.trim(), children: children.map((child) => child.trim()), after: lines.slice(end + 1).find(open)?.trim() ?? '' }];
+    return [{ line: line.trim(), children: children.map((child) => child.trim()), after: lines.slice(end + 1).find(meaningful)?.trim() ?? '' }];
   });
 }
 
@@ -37,19 +37,20 @@ const PAGES = {
 describe('rows of widgets', () => {
   for (const [name, order] of Object.entries(PAGES)) {
     // The board and the epics beside it are ticket 12's.
-    const own = (): ReturnType<typeof rows> => rows(page(name)).filter((row) => !row.children[0]!.includes('widget="board"'));
+    const outsideBoard = (): ReturnType<typeof rows> => rows(page(name)).filter((row) => !row.children[0]!.includes('widget="board"'));
 
     it(`keep the documented order on ${name}.vue`, () => {
       assert.deepEqual(widgets(page(name)), order);
     });
 
-    it(`are at most two columns, never wrapping into a second row, on ${name}.vue`, () => {
-      assert.ok(own().length > 0);
-      for (const row of own()) assert.ok(row.children.length <= 2, `${row.line}: ${row.children.length} children`);
+    it(`are at most two columns side by side on ${name}.vue`, () => {
+      assert.ok(outsideBoard().length > 0);
+      for (const row of outsideBoard()) assert.ok(row.children.length <= 2, `${row.line}: ${row.children.length} children`);
     });
 
     it(`leave nothing under them on ${name}.vue`, () => {
-      for (const row of own()) assert.match(row.after, /^<\//, `${row.line} is followed by ${row.after}`);
+      assert.ok(outsideBoard().length > 0);
+      for (const row of outsideBoard()) assert.match(row.after, /^<\//, `${row.line} is followed by ${row.after}`);
     });
   }
 
