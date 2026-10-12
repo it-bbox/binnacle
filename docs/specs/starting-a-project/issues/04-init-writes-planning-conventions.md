@@ -1,6 +1,6 @@
 # 04: binn init writes the planning conventions itself
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/starting-a-project/spec.md`
