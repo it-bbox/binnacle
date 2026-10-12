@@ -1,6 +1,6 @@
 # 10: The current Epic is the one in progress
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/dashboard-redesign/spec.md`
