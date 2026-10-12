@@ -39,9 +39,9 @@ The owner's order: 16 by autopilot, the owner judging at its exit demonstration,
 
 Epic 11's ticket 14 waits on one criterion: a merge that shrinks the graph. Whether epic 18 made the flow cheaper is read from epic 16's run.
 
-Epic 16, Dashboard redesign (ADR-0041): autopilot merged 01 to 08 on 2026-10-12, one at a time, every pair's conflict risk unknown: the type scale, widgets brief or full on every page, the Task page in Markdown, usage by epic, the Parallel limit on the machine's Settings page, the usage-limit informer, and commands in fenced blocks. Ticket 07's browser check on the owner's daemon waits for the owner; 09, the exit demonstration, is the owner's.
+Epic 16, Dashboard redesign (ADR-0041): autopilot merged 01 to 08 on 2026-10-12, one at a time, every pair's conflict risk unknown: the type scale, widgets brief or full on every page, the Task page in Markdown, usage by epic, the Parallel limit on the machine's Settings page, the usage-limit informer, and commands in fenced blocks. 09, the exit demonstration, found on 2026-10-12 that some places do not read yet: tickets 10 to 13 — the current Epic as the one in progress, the Overview's epics and "What's next", the Project page leading with the board, widgets without gaps. Then 09 again, with ticket 07's browser check.
 
-Next action: demonstrate epic 16's exit in ticket 09, then close the epic. `/mattpocock-skills:implement docs/specs/dashboard-redesign/issues/09-dashboard-redesign-exit-demonstration.md`
+Next action: run epic 16's tickets 10 to 13 with autopilot; the owner then demonstrates 09 again. `/binnacle:autopilot`
 
 ## Later
 
