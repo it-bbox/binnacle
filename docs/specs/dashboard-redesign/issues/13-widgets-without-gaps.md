@@ -41,11 +41,3 @@ Checked in a browser against a temporary daemon on this repository, measuring th
 10. Kept: the layout test was not asked for: the process asks for one first.
 11. Kept: the doc's sentence describes the arrangement; whether a column ending at the page's end is a hole is the *Question*.
 12. Kept: the room under the Project page's board beside the taller epics: ticket 12 owns them, and recorded its decision for the demonstration.
-
-### Question
-
-On the Usage page in *Full* at 1440 px, derived metrics, about 2500 px tall, stands beside the column of tokens by kind, by model and by Task, which ends about 1700 px earlier, at the page's end; in *Brief* the columns end within 50 px of each other. No two-column arrangement in the documented order balances it. Does a column that ends at the page's end, with nothing under it, meet "no widget has an empty space under it"?
-
-1. (recommended) Yes: keep the column stacks as they are. Cost: in *Full*, By Task's column ends well above derived metrics; nothing else changes, and the ticket is done.
-2. No: the Usage page in one column at every width. Cost: the page about twice as long in *Brief*, around 2300 px instead of 1200, its bars across about 1100 px; the criterion then holds literally.
-3. No: derived metrics alone in the right column, harnesses and cost under By Task. Cost: down then across, the order becomes kinds, model, Task, harnesses, cost, derived metrics, against `docs/04-telemetry-dashboard.md`, which would change with it.
