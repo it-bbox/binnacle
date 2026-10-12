@@ -1,6 +1,6 @@
 # 15: The board's epic picked from the epics' column, which folds
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 14
 Spec: `docs/specs/dashboard-redesign/spec.md`
