@@ -200,7 +200,7 @@ test('autopilot\'s brief points to /binnacle:task run and keeps only what being 
   const brief = seven.slice(seven.indexOf('> You are the implementation session'), seven.indexOf('The resume paragraph'));
   assert.match(brief, /run `\/binnacle:task run <ticket path>`/);
   // The process's rules live in the task skill alone.
-  for (const rule of [/test-first/, /typecheck and run/i,/code review skill/, /### Review/, /a finding to fix in full/, /Commit the Review/, /72 characters/, /in a browser/, /Tick every criterion|criterion only a human/, /retires a document/, /blocks nothing: answer it/, /`Roles:`/, /roadmap/, /Do not merge, push/, /"\(recommended\)"/, /`Status: DONE` your last commit/]) {
+  for (const rule of [/test-first/, /typecheck and run/i, /code review skill/, /### Review/, /a finding to fix in full/, /Commit the Review/, /72 characters/, /in a browser/, /Tick every criterion|criterion only a human/, /retires a document/, /blocks nothing: answer it/, /`Roles:`/, /roadmap/, /Do not merge, push/, /"\(recommended\)"/, /`Status: DONE` your last commit/]) {
     assert.doesNotMatch(brief, rule, String(rule));
   }
   // What being unattended adds: nobody answers, so a question goes to the ticket; a temporary home and port, every daemon stopped; nothing outside the worktree; the report.
@@ -210,6 +210,9 @@ test('autopilot\'s brief points to /binnacle:task run and keeps only what being 
   assert.match(brief, /`BINNACLE_PORT=0`/);
   assert.match(brief, /Stop every daemon you started before you report/);
   assert.match(brief, /Change nothing outside your worktree/);
+  // The task skill fetches `main` where it can; unattended, in a worktree, `main` is the run's own (the Review).
+  assert.match(brief, /Branch from the local `main` as it is: fetch nothing and leave `main` alone/);
+  assert.match(brief, /no change outside the ticket's scope/);
   assert.match(brief, /Report: any question first, then/);
 });
 

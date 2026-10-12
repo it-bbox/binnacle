@@ -50,11 +50,11 @@ Give the human each command you offer them alone in a fenced block, which copies
 
    Start each as a background agent in a worktree of its own, through whatever the harness offers for that, and give it this brief, filled in:
 
-   > You are the implementation session for one ticket, running unattended: run `/binnacle:task run <ticket path>`, which holds the per-ticket process, and follow it to its end. This brief adds only what being unattended asks.
+   > You are the implementation session for one ticket, running unattended: run `/binnacle:task run <ticket path>`, which holds the per-ticket process, and follow it to its end. This brief adds only what being unattended asks. Branch from the local `main` as it is: fetch nothing and leave `main` alone, which this run keeps up to date and merges into.
    >
    > Nobody answers questions until the owner is back. A question only the owner can answer goes to the ticket with its options, as `/binnacle:task run` says for an unattended session. If you are sent an answer drawn from the spec, its ADRs or the ticket instead, the question was not the owner's: take it out with `git revert --no-edit <its commit>`, record the answer as you would for a question that blocks nothing, and go on.
    >
-   > Your branch is merged once autopilot's own checks pass, before the owner reads it: no `Co-Authored-By` or "Generated with" lines, and no assistant named in any commit, and no dependency the ticket does not ask for. Start any sub-agent, such as the review's, in the foreground, so that its report comes back to you.
+   > Your branch is merged once autopilot's own checks pass, before the owner reads it: no `Co-Authored-By` or "Generated with" lines and no assistant named in any commit, no dependency the ticket does not ask for, and no change outside the ticket's scope. Start any sub-agent, such as the review's, in the foreground, so that its report comes back to you.
    >
    > Change nothing outside your worktree: no global installs or links, no settings; delete no branch and keep your worktree. Do not stop, restart or reconfigure the owner's Binnacle daemon. Run any CLI against a temporary `BINNACLE_HOME` of your own, kept inside your worktree in a directory Git ignores (`git check-ignore` tells), never in a scratchpad other sessions share. Where Git ignores none, delete the home once its daemon is stopped. Start any temporary daemon with `BINNACLE_PORT=0`, so that it takes a port no other daemon listens on, and read its address from `binn daemon status`. Stop every daemon you started before you report.
    >
