@@ -1,6 +1,6 @@
 # 01: Autostart on Linux, end to end
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/daemon-autostart/spec.md`
