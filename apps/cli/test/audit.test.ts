@@ -585,7 +585,7 @@ const PLACES = {
 
 test("binn audit: stranded documents outside Binnacle's places are listed, unknown, with /binnacle:roadmap, the same twice and nothing written", (t) => {
   const root = fixture(t);
-  commit(root, { ...PLACES, 'TODO.md': '- x\n', 'plans/q3.md': '# q3\n', 'plans/q4.md': '# q4\n', 'auth/login-spec.md': '# s\n', 'doc/adr/0001-use-x.md': '# x\n', 'notes.txt': 'x\n' });
+  commit(root, { ...PLACES, 'TODO.md': '- x\n', 'plans/q3.md': '# q3\n', 'plans/q4.md': '# q4\n', 'auth/login-spec.md': '# s\n', 'doc/adr/0001-use-x.md': '# x\n', 'notes.txt': 'x\n', 'README-roadmap.md': '# r\n', 'src/.notes.md': '# n\n' });
   const before = listing(root);
   const first = audit(t, ['--json'], {}, root).stdout;
   assert.equal(audit(t, ['--json'], {}, root).stdout, first);
@@ -594,7 +594,7 @@ test("binn audit: stranded documents outside Binnacle's places are listed, unkno
   const stranded = byCode(findings(first), 'docs.stranded');
   assert.equal(stranded.area, 'docs');
   assert.equal(stranded.status, 'unknown');
-  for (const path of ['TODO.md', 'plans/', 'auth/login-spec.md', 'doc/adr/', 'notes.txt']) assert.ok(stranded.reason.includes(path), path);
+  for (const path of ['TODO.md', 'plans/', 'auth/login-spec.md', 'doc/adr/', 'notes.txt', 'README-roadmap.md', 'src/.notes.md']) assert.ok(stranded.reason.includes(path), path);
   for (const path of ['plans/q3.md', 'CONTEXT.md', 'CHANGELOG', 'LICENSE', 'docs/', 'SKILL.md', 'src/plan.ts']) assert.ok(!stranded.reason.includes(path), path);
   assert.match(stranded.recommendation!, /\/binnacle:roadmap/);
 

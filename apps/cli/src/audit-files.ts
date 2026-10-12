@@ -4,7 +4,7 @@ import { resolveGitTimeout } from '@binnacle/daemon';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, join, posix } from 'node:path';
 
-/** The `.scratch` and the tests, CI and structure areas of `binn audit`: files only, nothing is run but `git check-ignore`. */
+/** The `.scratch`, the stranded documents and the tests, CI and structure checks of `binn audit`: files only, nothing is run but `git check-ignore` and `git ls-files`. */
 
 /** Every file under `dir` as a path relative to it; an unreadable or missing directory is empty. */
 function files(dir: string, prefix = '', depth = 6): string[] {
@@ -64,8 +64,8 @@ export function scratch(root: string): Finding[] {
 const TEXT = /\.(md|markdown|mdx|txt)$/i;
 /** A path segment that says a plan, a spec, a decision, a TODO, notes, a backlog, a design, an RFC, a PRD, a roadmap or an ADR. */
 const STRANDED = /(^|[-_. ])(plans?|planning|specs?|specifications?|decisions?|todos?|notes?|backlogs?|designs?|rfcs?|prds?|roadmaps?|adrs?)([-_. ]|$)/i;
-/** The root's own files, an instruction file anywhere, and anything in a dot-directory, which holds a harness's settings and skills. */
-const OWN = /^((readme|licen[cs]e|changelog|contributing|security)([-_.][^/]*)?|CONTEXT\.md)$|(^|\/)((AGENTS|CLAUDE|GEMINI)(\.local)?\.md$|\.)/i;
+/** Binnacle's places outside knowledge.docs: the root's own files, an instruction file anywhere, and anything in a dot-directory, which holds a harness's settings and skills. */
+const PLACES = /^((readme|licen[cs]e|changelog|contributing|security)(\.[^/]*)?|CONTEXT\.md)$|(^|\/)((AGENTS|CLAUDE|GEMINI)(\.local)?\.md$|\.[^/]*\/)/i;
 
 /**
  * The tracked documents outside Binnacle's places whose name or directory says what a plan or a decision is kept in
@@ -82,7 +82,7 @@ export function stranded(root: string, docs: string): Finding {
   const dirs = ['specs', 'adr', 'agents'].map((name) => `${posix.join(docs, name)}/`);
   const found = new Set<string>();
   for (const path of listed.stdout.split('\0')) {
-    if (!TEXT.test(path) || OWN.test(path) || files.has(path) || dirs.some((dir) => path.startsWith(dir))) continue;
+    if (!TEXT.test(path) || PLACES.test(path) || files.has(path) || dirs.some((dir) => path.startsWith(dir))) continue;
     const segments = path.split('/');
     const at = segments.findIndex((segment) => STRANDED.test(segment));
     if (at !== -1) found.add(at === segments.length - 1 ? path : `${segments.slice(0, at + 1).join('/')}/`);
