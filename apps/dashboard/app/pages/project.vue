@@ -210,7 +210,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
       </template>
 
       <!-- The board leads, the epics in a narrow column beside it; under 1360 px they follow it, the board's columns too narrow beside them. -->
-      <div class="grid items-start gap-x-2.5 gap-y-6" :class="{ 'min-[85rem]:grid-cols-[minmax(0,1fr)_20rem]': snapshot }">
+      <div class="grid items-start gap-x-2.5 gap-y-6" :class="{ 'min-[85rem]:grid-cols-[20rem_minmax(0,1fr)]': snapshot }">
         <Widget page="project" widget="board">
           <template #title>
             <div class="flex min-w-0 flex-wrap items-center gap-3">
@@ -354,14 +354,14 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
           </template>
         </Widget>
         <template v-if="snapshot">
-          <div v-if="snapshot.roadmap === null" class="flex flex-col gap-1.5 rounded-lg border border-dashed border-accented p-4">
+          <div v-if="snapshot.roadmap === null" class="min-[85rem]:order-first flex flex-col gap-1.5 rounded-lg border border-dashed border-accented p-4">
             <div><span class="font-medium">{{ t.notAvailable }}</span> · {{ t.noRoadmap }}</div>
             <div v-if="roadmapAttention.length > 0" class="text-muted">{{ t.roadmapReason }}</div>
             <div v-for="(item, index) in roadmapAttention" :key="index" class="text-sm">
               <code class="font-mono text-muted">{{ item.code }}</code> <DaemonReason :reason="item.message" />
             </div>
           </div>
-          <Widget v-else page="project" widget="epics" :title="t.epics">
+          <Widget v-else page="project" widget="epics" :title="t.epics" class="min-[85rem]:order-first">
             <template #default="{ full }">
               <table class="w-full border-collapse">
                 <thead>
