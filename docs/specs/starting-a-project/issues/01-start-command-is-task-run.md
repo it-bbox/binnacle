@@ -1,6 +1,6 @@
 # 01: Every Task starts with /binnacle:task run
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/starting-a-project/spec.md`
