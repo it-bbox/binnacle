@@ -104,3 +104,14 @@ Part of the same epic. The playbook, published by Anthropic around 2026-08-21 an
 3. **Three questions to the plan.** After `/to-tickets`, or before an epic's autopilot: what can this break, which step is the riskiest, and what was dropped and why. The answers go to the spec or the tickets.
 
 Not to take: a `plan.md` per task, which the tickets already are; and an agent checking every change against the intent and stopping, which the spec, the criteria and *Questions and answers* already do.
+
+## A smarter conflict risk (2026-10-12)
+
+The conflict risk beside the parallel limit reads a ready Task's modules only from the file names its ticket writes (`conflictRisk`, `packages/core/src/impact.ts`). Epic 19's tickets name commands and behaviour, not files, so every pair came out `unknown` and autopilot ran them one after the other. A new project gets the opposite: with no graph `impact` is unavailable, the number alone decides, and every ready ticket runs side by side whatever it touches. Neither is right.
+
+Ways to weigh:
+
+- `/to-tickets` writes the modules a ticket expects to touch;
+- a ticket's commands and terms are matched to modules through the graph's labels, not only file names (`binn audit` → `apps/cli/src/audit.ts`);
+- before the run, an agent estimates the touched modules, as a calculated reading;
+- without a graph, a cautious fallback instead of a full parallel run.
