@@ -226,9 +226,9 @@ type RunReading = Pick<ObservedRun, 'taskId' | 'role' | 'lastActivityAt' | 'acti
 
 /**
  * The Suggested step as alternatives, by the first of eight rules that applies; none when no rule
- * does, as without a roadmap and with no Task in progress. The current epic is `currentEpic`'s. Only an implementation run makes a Task worked on, and only a Task the board places In
- * progress: a Product session's own run never does, nor a run of a Task `DONE`, `MERGED` or
- * `CANCELLED`. Its commands are the Matt Pocock chain's and the `binnacle` plugin's, so any other
+ * does, as without a roadmap and with no Task in progress. The current epic is `currentEpic`'s.
+ * Only an implementation run makes a Task worked on, and only a Task the board places In progress:
+ * a Product session's own run never does, nor a run of a Task `DONE`, `MERGED` or `CANCELLED`. Its commands are the Matt Pocock chain's and the `binnacle` plugin's, so any other
  * workflow gets the descriptions alone. An alternative whose command is the Next action's is left
  * out, since the Next action already offers it. `free` is how many more Tasks the parallel limit
  * allows (the snapshot's `tasks.parallel.free`). A Task triaged `ready-for-human` is the owner's to

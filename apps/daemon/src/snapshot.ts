@@ -120,7 +120,7 @@ export type Snapshot = {
   /** Null when there is no roadmap to read: without a readable manifest, or with a diagnostic. */
   roadmap: {
     epics: Epic[];
-    /** The current epic (`currentEpic`): the first `in progress`, else the first not `done`; null when none is. */
+    /** The current epic, as `currentEpic` reads it. */
     current: Epic | null;
     /** `## Current focus` as written, cut at `FOCUS_LIMIT`; `truncated` says whether it was. */
     focus: { text: string; truncated: boolean } | null;

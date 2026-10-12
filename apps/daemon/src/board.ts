@@ -38,9 +38,9 @@ export type TaskList = {
 
 /**
  * `spec` is a spec slug, `null` for the Tasks that carry none, or undefined for the current
- * epic, as `currentEpic` reads it. Read now from the caller's checkout, as the
- * snapshot is, and never written back (ADR-0032). A tracker that cannot be read is an error with
- * its own code, as for `task.get`.
+ * epic, as `currentEpic` reads it. Read now from the caller's checkout, as the snapshot is, and
+ * never written back (ADR-0032). A tracker that cannot be read is an error with its own code, as
+ * for `task.get`.
  */
 export async function taskList(context: OperationContext, projected: Projected, tree: Tree, spec: string | null | undefined): Promise<TaskList> {
   const { tasks, unreadable, roadmap, attention } = await readState(context.home, tree, projected, []);

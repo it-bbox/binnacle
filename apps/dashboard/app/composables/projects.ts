@@ -67,7 +67,7 @@ export type GraphSection = {
 
 export type Snapshot = {
   git: GitFacts;
-  /** `current` is the daemon's current epic: the first in progress, else the first not done. */
+  /** `current` is the current epic as the daemon names it (`docs/04-telemetry-dashboard.md`). */
   roadmap: { epics: Epic[]; current: Epic | null } | null;
   next: { action: { description: string; command: string } | null; alternatives: Alternative[] | Unavailable };
   tasks: {
