@@ -69,3 +69,15 @@ Read-only and silent without the daemon; Claude Code only, beside the skills (AD
 Planning runs on Matt Pocock Skills today: `/grill-with-docs`, `/to-spec` and `/to-tickets`, which `binn init` installs and the workflow depends on (ADR-0035). They are good and maintained, but the owner hears from developers that not all of them like these skills. After the release, Binnacle could ship its own skills for the same chain, written for its formats: grilling against the Project Brain, a spec, tickets with `Roles:`, dependencies and criteria, and whatever else planning needs. Not now: Matt Pocock Skills stay for v1.
 
 The course "Один как команда" already tells participants that planning uses Matt Pocock Skills for now and that Binnacle's own skills will come later, without a date. Its prompts and templates do not depend on either, so the switch would not break it.
+
+## Ideas from Anthropic's AI-native SDLC playbook (2026-10-12)
+
+**Decided by the owner on 2026-10-12: v1, before the release, in the nearest fitting epic**; the Product session that plans the next epic places them. What is open is only where and how.
+
+The playbook, published by Anthropic around 2026-08-21 and known here from a video retelling and secondary write-ups, chains one committed file per stage: `intent.md`, then `spec.md`, then `plan.md`, then code. Each stage starts from the previous file, not from the chat. Binnacle already runs the same chain: the grilling, `spec.md`, tickets, a fresh session per ticket, criteria ticked at the end, and `docs/product-inbox.md` closing the loop. Three gaps to close:
+
+1. **An intent as the grilling's standard output.** `/grill-with-docs` ends with a short `docs/specs/<epic>/brief.md` in five parts: the problem, the outcome wanted, who it concerns, the systems it touches, constraints and open questions. It is written in the owner's words, with no conclusions of the agent's, and whatever the agent is unsure of goes to the open questions. The owner reads it whole and corrects it before `/to-spec`. Today only `audit-and-adopt` has one, and there the decisions of the grilling otherwise dissolve into the spec, ADRs and `CONTEXT.md`.
+2. **Contested points in the spec.** The spec lists separately where requirements conflict or a choice was close, so the owner settles them before `/to-tickets` rather than a ticket finding them. Check first whether `/to-spec` already asks for it; `audit-and-adopt/spec.md` has no such section.
+3. **Three questions to the plan.** After `/to-tickets`, or before an epic's autopilot: what can this break, which step is the riskiest, and what was dropped and why. The answers go to the spec or the tickets.
+
+Not to take: a `plan.md` per task, which the tickets already are; and an agent checking every change against the intent and stopping, which the spec, the criteria and *Questions and answers* already do.
