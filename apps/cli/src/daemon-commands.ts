@@ -26,8 +26,15 @@ import { reportFailure, requireToken } from './report.ts';
 const START_TIMEOUT_MS = 10_000;
 const STOP_TIMEOUT_MS = 10_000;
 
+/**
+ * Starts the daemon: through the service manager when autostart is on for this home, first
+ * rewriting the definition with the current paths, so that the daemon is the one the service
+ * supervises (ADR-0043); otherwise as a detached user process.
+ */
 export async function start(home: string): Promise<ExitCode> {
   ensureHome(home);
+  const service = serviceFor(home);
+  if (service && rewriteUnit(home, service) && !systemctlAll(['daemon-reload'])) return EXIT.failed;
 
   // A live pid is a running daemon, exactly as `binn daemon status` reads it. A slow
   // daemon must never look stale here: replacing its runtime file would orphan it and
@@ -39,6 +46,7 @@ export async function start(home: string): Promise<ExitCode> {
   }
   // Absent, or a runtime file whose pid is gone: stale, not a blocker.
   if (running) removeRuntime(home);
+  if (service) return await startService(home);
 
   const log = openSync(logPath(home), 'a', OWNER_ONLY_FILE);
   let child;
@@ -67,6 +75,16 @@ export async function start(home: string): Promise<ExitCode> {
 }
 
 export async function status(home: string): Promise<ExitCode> {
+  const code = await daemonStatus(home);
+  try {
+    console.log(describeAutostart(readAutostart(home)));
+  } catch (error) {
+    console.log(`Autostart is unknown: ${(error as Error).message}.`);
+  }
+  return code;
+}
+
+async function daemonStatus(home: string): Promise<ExitCode> {
   const runtime = readRuntime(home);
   if (!runtime) {
     console.log('Binnacle daemon is not running.');
@@ -86,13 +104,18 @@ export async function status(home: string): Promise<ExitCode> {
   }
 }
 
+/** Stops the daemon: through the service manager when autostart is on for this home, so that it is not started again; then any process of the home left is signalled. */
 export async function stop(home: string): Promise<ExitCode> {
   const runtime = readRuntime(home);
+  // Read before the manager stops it: a pid gone afterwards was the service's daemon, not a stale file.
+  const alive = runtime !== null && isAlive(runtime.pid);
+  const service = serviceFor(home) !== null;
+  if (service && !systemctlAll(['stop', SERVICE_NAME])) return EXIT.failed;
   if (!runtime) {
     console.log('Binnacle daemon is not running.');
     return EXIT.ok;
   }
-  if (!isAlive(runtime.pid)) {
+  if (!alive) {
     removeRuntime(home);
     console.log(`Removed a stale runtime file for pid ${runtime.pid}.`);
     return EXIT.ok;
@@ -115,7 +138,7 @@ export async function stop(home: string): Promise<ExitCode> {
   // The daemon removes its own runtime file on a clean stop. Windows has no graceful
   // SIGTERM, so the file is removed here too rather than left for the next start.
   removeRuntime(home);
-  console.log(`Binnacle daemon stopped (pid ${runtime.pid}).`);
+  console.log(`Binnacle daemon stopped${service ? ' through the service manager' : ''} (pid ${runtime.pid}).`);
   return EXIT.ok;
 }
 
@@ -137,7 +160,7 @@ export async function autostart(home: string, action: 'on' | 'off' | undefined):
     return EXIT.failed;
   }
   if (action === undefined) {
-    reportAutostart(current);
+    console.log(describeAutostart(current));
     return EXIT.ok;
   }
   if (current.path === null) {
@@ -190,11 +213,7 @@ async function autostartOn(current: Autostart, path: string): Promise<ExitCode> 
     if (stopped !== EXIT.ok) return stopped;
   }
 
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, unit);
-  if (installed && !installed.ours) console.error(`binn: warning: replaced ${path}, which Binnacle did not write.`);
-  else if (installed && installed.home !== home) console.log(`Autostart moves from ${installed.home} to ${home}.`);
-  else if (installed && installed.text !== unit) console.log(`Rewrote ${path} with the current paths to Node, the daemon and PATH.`);
+  rewriteUnit(home, path, installed);
 
   // `restart`, not `enable --now`: a service already running under the old definition must pick up the new one.
   if (!systemctlAll(['daemon-reload'], ['enable', SERVICE_NAME], ['restart', SERVICE_NAME])) {
@@ -226,13 +245,44 @@ async function autostartOff({ home, path, serves }: Autostart): Promise<ExitCode
   return EXIT.ok;
 }
 
-function reportAutostart({ state, platform, home, path, serves, missing }: Autostart): void {
+function describeAutostart({ state, platform, home, path, serves, missing }: Autostart): string {
   const where = path ? `${platform}, ${path}` : platform;
-  if (state === 'on') console.log(`Autostart is on for ${home} (${where}).`);
-  else if (state === 'broken') console.log(`Autostart is broken for ${home} (${where}): ${missing.join(' and ')} no longer exists. Repair it with \`${AUTOSTART_ON}\`.`);
-  else {
-    const other = serves && serves !== home ? ` The service starts the daemon for ${serves} instead.` : '';
-    console.log(`Autostart is off for ${home} (${platform}).${other} Turn it on with \`${AUTOSTART_ON}\`.`);
+  if (state === 'on') return `Autostart is on for ${home} (${where}).`;
+  if (state === 'broken') return `Autostart is broken for ${home} (${where}): ${missing.join(' and ')} no longer exists. Repair it with \`${AUTOSTART_ON}\`.`;
+  const other = serves && serves !== home ? ` The service starts the daemon for ${serves} instead.` : '';
+  return `Autostart is off for ${home} (${platform}).${other} Turn it on with \`${AUTOSTART_ON}\`.`;
+}
+
+/** The definition's path when autostart is on, or broken, for this home: then start and stop go through the manager. Anything unreadable leaves them as they were. */
+function serviceFor(home: string): string | null {
+  try {
+    const current = readAutostart(home);
+    return current.state === 'off' ? null : current.path;
+  } catch {
+    return null;
+  }
+}
+
+/** Writes the definition with the current paths when the installed one differs, saying what it replaced; true when it wrote. */
+function rewriteUnit(home: string, path: string, installed = readInstalled(path)): boolean {
+  const unit = renderUnit(serviceInputs(home));
+  if (installed?.text === unit) return false;
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, unit);
+  if (installed && !installed.ours) console.error(`binn: warning: replaced ${path}, which Binnacle did not write.`);
+  else if (installed && installed.home !== home) console.log(`Autostart moves from ${installed.home} to ${home}.`);
+  else if (installed) console.log(`Rewrote ${path} with the current paths to Node, the daemon and PATH.`);
+  return true;
+}
+
+async function startService(home: string): Promise<ExitCode> {
+  if (!systemctlAll(['start', SERVICE_NAME])) return EXIT.failed;
+  try {
+    report('Binnacle daemon started through the service manager.', await waitForStart(home));
+    return EXIT.ok;
+  } catch (error) {
+    console.error(`binn: ${(error as Error).message} \`journalctl --user -u ${SERVICE_NAME}\` shows its output.`);
+    return EXIT.failed;
   }
 }
 
@@ -244,17 +294,18 @@ function report(headline: string, runtime: Runtime): void {
   console.log(`  version  ${runtime.version}`);
 }
 
-async function waitForStart(home: string, child: ChildProcess): Promise<Runtime> {
+/** Waits for the daemon to answer: the child spawned, or, under the service manager, whichever process holds the home. */
+async function waitForStart(home: string, child?: ChildProcess): Promise<Runtime> {
   let exitCode: number | null = null;
   const exited = (): number | null => exitCode;
-  child.once('exit', (code) => {
+  child?.once('exit', (code) => {
     exitCode = code ?? -1;
   });
 
   const deadline = Date.now() + START_TIMEOUT_MS;
   for (;;) {
     const runtime = readRuntime(home);
-    if (runtime && runtime.pid === child.pid && (await isListening(runtime))) return runtime;
+    if (runtime && (child ? runtime.pid === child.pid : isAlive(runtime.pid)) && (await isListening(runtime))) return runtime;
 
     const code = exited();
     if (code !== null) throw new Error(`the daemon exited with code ${code} before it started listening.`);

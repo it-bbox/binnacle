@@ -2572,11 +2572,12 @@ const summaryOf = (stdout: string): string => stdout.slice(stdout.indexOf('Summa
 function fakeSystemd(home: Home): { unit: string; calls(): string[] } {
   const log = join(home.home, 'systemctl.log');
   const state = join(home.home, 'systemctl-state');
+  const unit = join(home.home, '.config', 'systemd', 'user', 'binnacle.service');
   mkdirSync(state);
-  writeFileSync(join(home.bin, 'systemctl'), fakeSystemctl(log, state), { mode: 0o755 });
+  writeFileSync(join(home.bin, 'systemctl'), fakeSystemctl(log, state, unit), { mode: 0o755 });
   home.env = { ...home.env, BINNACLE_SERVICE_PLATFORM: 'linux' };
   return {
-    unit: join(home.home, '.config', 'systemd', 'user', 'binnacle.service'),
+    unit,
     calls: () => (existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n') : []),
   };
 }

@@ -11,6 +11,17 @@ import { fakeSystemctl } from './fake-systemctl.ts';
 const BINN = fileURLToPath(new URL('../src/bin.ts', import.meta.url));
 const DAEMON_ENTRY = fileURLToPath(import.meta.resolve('@binnacle/daemon/bin'));
 
+/** Polls until `read` gives a value, failing after ten seconds. */
+async function until<T>(read: () => T | null | undefined): Promise<T> {
+  const deadline = Date.now() + 10_000;
+  for (;;) {
+    const value = read();
+    if (value) return value;
+    if (Date.now() >= deadline) throw new Error('timed out');
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
 function setup(t: TestContext, platform = 'linux') {
   const root = mkdtempSync(join(tmpdir(), 'binnacle-autostart-'));
   const home = join(root, 'binnacle');
@@ -18,8 +29,9 @@ function setup(t: TestContext, platform = 'linux') {
   const bin = join(root, 'bin');
   const state = join(root, 'state');
   const log = join(root, 'systemctl.log');
+  const unit = join(user, '.config', 'systemd', 'user', 'binnacle.service');
   for (const dir of [user, bin, state]) mkdirSync(dir);
-  writeFileSync(join(bin, 'systemctl'), fakeSystemctl(log, state), { mode: 0o755 });
+  writeFileSync(join(bin, 'systemctl'), fakeSystemctl(log, state, unit), { mode: 0o755 });
 
   const env: NodeJS.ProcessEnv = { ...process.env, HOME: user, BINNACLE_HOME: home, BINNACLE_PORT: '0', BINNACLE_SERVICE_PLATFORM: platform, PATH: bin };
   // Nothing here may reach this machine's own user manager or its configuration.
@@ -36,10 +48,12 @@ function setup(t: TestContext, platform = 'linux') {
   return {
     home,
     bin,
-    unit: join(user, '.config', 'systemd', 'user', 'binnacle.service'),
+    unit,
     binn: (...args: string[]) => spawnSync(process.execPath, [BINN, ...args], { encoding: 'utf8', env }),
     calls: (): string[] => (existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n') : []),
     set: (flag: string) => writeFileSync(join(state, flag), 'yes\n'),
+    /** The pid of the daemon the fake manager runs, if any. */
+    supervised: (): number | null => Number(existsSync(join(state, 'pid')) ? readFileSync(join(state, 'pid'), 'utf8') : '') || null,
     env,
   };
 }
@@ -159,7 +173,7 @@ test('autostart on replaces a running user-process daemon of the same home', (t)
   assert.equal(readRuntime(home), null);
 });
 
-test('autostart off from another home leaves the service alone, and off leaves no daemon of its own home', (t) => {
+test('autostart off from another home leaves the service alone, and off leaves no daemon of its own home', async (t) => {
   const { binn, unit, calls, env, home } = setup(t);
   assert.equal(binn('daemon', 'autostart', 'on').status, 0);
   const before = calls().length;
@@ -170,10 +184,11 @@ test('autostart off from another home leaves the service alone, and off leaves n
   assert.ok(existsSync(unit));
   assert.equal(calls().length, before);
 
-  // The fake manager starts nothing, so this daemon is a user process of the service's home.
-  assert.equal(binn('daemon', 'start').status, 0);
-  const runtime = readRuntime(home);
-  assert.ok(runtime && isAlive(runtime.pid));
+  // The fake manager starts nothing, and `binn daemon start` would go through it: this daemon is a user process of the service's home, started by hand.
+  // Through a shell, so that it is not this process's child, left a zombie that looks alive while spawnSync blocks.
+  spawnSync('/bin/sh', ['-c', '"$0" "$1" < /dev/null > /dev/null 2>&1 &', process.execPath, DAEMON_ENTRY], { env });
+  const runtime = await until(() => readRuntime(home));
+  assert.ok(isAlive(runtime.pid));
   const off = binn('daemon', 'autostart', 'off');
   assert.equal(off.status, 0, off.stderr);
   assert.equal(isAlive(runtime.pid), false);
@@ -202,4 +217,108 @@ test('the platform variable selects the platform', (t) => {
   const bad = setup(t, 'plan9').binn('daemon', 'autostart');
   assert.equal(bad.status, 2);
   assert.match(bad.stderr, /BINNACLE_SERVICE_PLATFORM/);
+});
+
+test('with autostart on, start and stop go through the manager, spawn nothing, and stop then start leaves one daemon', (t) => {
+  const { binn, calls, set, supervised, home } = setup(t);
+  set('runs');
+  assert.equal(binn('daemon', 'autostart', 'on').status, 0);
+  const first = supervised();
+  assert.ok(first && isAlive(first));
+
+  const before = calls().length;
+  const stop = binn('daemon', 'stop');
+  assert.equal(stop.status, 0, stop.stderr);
+  assert.match(stop.stdout, /stopped through the service manager/);
+  assert.equal(isAlive(first), false);
+  assert.deepEqual(calls().slice(before), ['--user stop binnacle']);
+
+  const start = binn('daemon', 'start');
+  assert.equal(start.status, 0, start.stderr);
+  assert.match(start.stdout, /started through the service manager/);
+  assert.deepEqual(calls().slice(before + 1), ['--user start binnacle']);
+
+  // One daemon, and the manager's: the runtime file names the process the manager started.
+  const runtime = readRuntime(home);
+  assert.ok(runtime && isAlive(runtime.pid));
+  assert.equal(runtime.pid, supervised());
+  assert.notEqual(runtime.pid, first);
+
+  const again = binn('daemon', 'start');
+  assert.equal(again.status, 0, again.stderr);
+  assert.match(again.stdout, /already running/);
+  assert.equal(readRuntime(home)?.pid, runtime.pid);
+});
+
+test('start rewrites a unit whose Node path no longer exists, then starts through the manager', (t) => {
+  const { binn, unit, calls, set, supervised, home } = setup(t);
+  set('runs');
+  assert.equal(binn('daemon', 'autostart', 'on').status, 0);
+  assert.equal(binn('daemon', 'stop').status, 0);
+  writeFileSync(unit, readFileSync(unit, 'utf8').replace(`"${process.execPath}"`, '"/nowhere/node"'));
+  assert.match(binn('daemon', 'status').stdout, /Autostart is broken/);
+
+  const before = calls().length;
+  const start = binn('daemon', 'start');
+  assert.equal(start.status, 0, start.stderr);
+  assert.match(start.stdout, /Rewrote .*binnacle\.service with the current paths/);
+  assert.ok(readFileSync(unit, 'utf8').includes(`"${process.execPath}"`));
+  assert.deepEqual(calls().slice(before), ['--user daemon-reload', '--user start binnacle']);
+  assert.equal(readRuntime(home)?.pid, supervised());
+});
+
+test('with autostart off, or for another home, start and stop run a user process and never call the manager', async (t) => {
+  await t.test('autostart off', (t) => {
+    const { binn, calls, home } = setup(t);
+    const start = binn('daemon', 'start');
+    assert.equal(start.status, 0, start.stderr);
+    assert.match(start.stdout, /Binnacle daemon started\./);
+    const runtime = readRuntime(home);
+    assert.ok(runtime && isAlive(runtime.pid));
+
+    const stop = binn('daemon', 'stop');
+    assert.equal(stop.status, 0, stop.stderr);
+    assert.equal(isAlive(runtime.pid), false);
+    assert.deepEqual(calls(), []);
+  });
+
+  await t.test('another home', (t) => {
+    const { binn, calls, set, supervised, env, home } = setup(t);
+    set('runs');
+    assert.equal(binn('daemon', 'autostart', 'on').status, 0);
+    const owner = supervised();
+    const before = calls().length;
+
+    const agent = `${home}-agent`;
+    const agentEnv = { ...env, BINNACLE_HOME: agent };
+    t.after(() => {
+      const leftover = readRuntime(agent);
+      if (leftover && isAlive(leftover.pid)) process.kill(leftover.pid, 'SIGKILL');
+    });
+    const binnAgent = (...args: string[]) => spawnSync(process.execPath, [BINN, ...args], { encoding: 'utf8', env: agentEnv });
+
+    const start = binnAgent('daemon', 'start');
+    assert.equal(start.status, 0, start.stderr);
+    const runtime = readRuntime(agent);
+    assert.ok(runtime && isAlive(runtime.pid));
+    assert.notEqual(runtime.pid, owner);
+
+    assert.equal(binnAgent('daemon', 'stop').status, 0);
+    assert.equal(isAlive(runtime.pid), false);
+    assert.ok(owner && isAlive(owner), 'the service\'s daemon is untouched');
+    assert.equal(calls().length, before);
+  });
+});
+
+test('status says autostart is on, off, or broken with the command that repairs it', (t) => {
+  const { binn, unit, home } = setup(t);
+  const off = binn('daemon', 'status');
+  assert.match(off.stdout, new RegExp(`Autostart is off for ${home} .*binn daemon autostart on`));
+
+  assert.equal(binn('daemon', 'autostart', 'on').status, 0);
+  assert.match(binn('daemon', 'status').stdout, new RegExp(`Autostart is on for ${home}`));
+
+  writeFileSync(unit, readFileSync(unit, 'utf8').replace(`"${process.execPath}"`, '"/nowhere/node"'));
+  const broken = binn('daemon', 'status');
+  assert.match(broken.stdout, /Autostart is broken for .*\/nowhere\/node no longer exists.*binn daemon autostart on/s);
 });
