@@ -180,36 +180,30 @@ binnacle/
 ## Быстрый путь нового проекта
 
 ```text
-idea / discussion
-    ↓
-initial Markdown docs
+git init
     ↓
 binn init
     ↓
-grill-with-docs
+/binnacle:roadmap
     ↓
-to-spec
-    ↓
-to-tickets
-    ↓
-/product
-    ↓
-/task <id>
-    ↓
-Developer → Review → Merge
+/binnacle:product
 ```
+
+`/binnacle:roadmap` читает `docs/vision.md` или спрашивает, что это за проект, для кого он и что в него не входит, по одному вопросу, и записывает видение вашими словами; затем предлагает эпики в порядке зависимостей, у каждого строка объёма, и записывает roadmap с Next action, которое грилит первый эпик. Ему не нужен демон, и он пишет и коммитит только после вашего «да», никогда не пушит. Дальше каждый эпик идёт `/grill-with-docs` → `/to-spec` → `/to-tickets`, а каждый тикет — `/binnacle:task run <ticket>`, в отдельной сессии.
 
 ## Быстрый путь существующего проекта
 
 ```text
 binn audit
     ↓
-прочитать находки и рекомендации
-    ↓
 binn init
     ↓
-/product
+/binnacle:roadmap
+    ↓
+/binnacle:product
 ```
+
+`binn audit` ещё и перечисляет, только читая, планы, заметки и TODO-файлы, которые находит вне мест Binnacle. `/binnacle:roadmap` читает код, историю, документы и находки аудита, предлагает эпики со статусами `done`, `in progress` или `not started` и ссылками на их спеки, место для каждого из этих документов и roadmap, переписанный в формат Binnacle с сохранением содержимого, если он не в формате. Без вашего «да» он ничего не перемещает и не пишет.
 
 `binn audit [path]` читает репозиторий и печатает находки, текстом или с `--json`. Он ничего не пишет и не требует демона. В Claude Code `/binnacle:audit [path]` запускает его из чата и показывает находки там же, сначала пробелы. `binn init` — команда, которая пишет в репозиторий: она показывает один план и спрашивает один раз. Если их нет, план создаёт каталог задач, который читает локальный трекер, и заготовку `<knowledge.docs>/roadmap.md` в формате Binnacle, чьё Next action — `/binnacle:roadmap`, а новый манифест объявляет `knowledge.docs`; существующий roadmap никогда не переписывается, а не соответствующий формату называется в Summary и разбирается в `binn audit`. Ещё он пишет соглашения, которые читают навыки планирования, чтобы никакой навык настройки не запускался перед ним: `docs/agents/issue-tracker.md` для найденного трекера, с заголовком тикета, Epic brief и спорными пунктами, `triage-labels.md` и `domain.md`, а также блок *Agent skills*, который на них ссылается, в `AGENTS.md` или в `CLAUDE.md`, если есть только он; в существующий файл добавляется только недостающий раздел заголовка тикета, а уже имеющийся блок не трогается. План также устанавливает недостающие Serena и Graphify (через `uv tool install`) и ast-grep (через npm), вне репозитория; инструмент, который уже есть в `PATH` или объявлен `false` в `capabilities`, не трогается, а без `uv` init называет команду, которая его ставит, и оставляет Serena и Graphify вне плана. Затем он регистрирует MCP-серверы Serena, Context7 и Graphify в каждом найденном харнессе через его собственный CLI и никогда в репозитории: уже зарегистрированный сервер не трогается, кроме Serena в пользовательском файле Codex с контекстом Claude Code, который он предлагает перерегистрировать с контекстом Codex, а там, где у харнесса нет такой команды, запись печатается. Для найденных Claude Code, Codex и Gemini CLI план направляет их экспорт OpenTelemetry на адрес демона в их пользовательских настройках — `env` в настройках Claude Code, таблица `[otel]` в `~/.codex/config.toml` у Codex, блок `telemetry` в `~/.gemini/settings.json` у Gemini CLI — как JSON поверх HTTP, с выключенным логированием промптов; уже настроенный экспорт, в Binnacle или куда-то ещё, не трогается и называется, а найденный харнесс, который не умеет экспортировать, например opencode, называется в Summary с причиной. `binn audit` сообщает для каждого найденного харнесса, экспортирует ли он в Binnacle. Если найден Claude Code, init устанавливает плагины Matt Pocock Skills и Ponytail через CLI плагинов Claude Code на уровне пользователя, если Claude Code их ещё не перечисляет; если найден хоть один харнесс, init ставит оба набора из их репозиториев во все остальные харнессы, которые находит CLI `skills`, так же как собственные навыки Binnacle, если манифест не объявляет набор `false`. Если Obsidian перечисляет на этой машине ровно одно хранилище, а `~/.binnacle/settings.json` ещё не называет никакого, план записывает его туда, вне репозитория, как хранилище, в которое демон проецирует Project Brain; если хранилищ нет или их несколько, init называет найденные и говорит, как задать путь. Последним шагом, если Graphify найден или установлен, init добавляет `graphify-out/` в `.gitignore`, если Git его ещё не игнорирует, и строит первый граф командой `graphify extract . --code-only --allow-dedup-shrink`, которая разрешает графу уменьшиться, когда дедупликация Graphify сливает узлы, а затем его отчёт командой `graphify cluster-only . --no-label`; ни той, ни другой не нужны ни API-ключ, ни модель; неудачная сборка или отчёт попадает в Summary, а демон построит их позже.
 
@@ -217,7 +211,7 @@ binn init
 
 ## Работа из другого harness
 
-Один `binn init` настраивает все harness на машине. Его план устанавливает навыки Binnacle на уровне пользователя в каждый harness, который находит CLI `skills` (skills.sh), например Codex, Antigravity, ZCode или Pi, через `npx skills`, и не оставляет их в Claude Code, где есть plugin `binnacle`; `--skip-harness <id>` не пускает их и в другой harness. Вне Claude Code каждый навык называется `binnacle-<action>`: `binnacle-product`, `binnacle-daily`, `binnacle-task`, `binnacle-status`, `binnacle-checkpoint`, `binnacle-audit`, `binnacle-init`, `binnacle-daemon`, `binnacle-register`, `binnacle-dashboard`, `binnacle-autopilot`, `binnacle-answer` и `binnacle-help`, тогда как в Claude Code это `/binnacle:product` и остальные. Summary называет harness, в которые установлены навыки, и говорит запустить там `binnacle-product`. Для harness, установленного позже, запустите `binn init` ещё раз: он устанавливает навыки в каждый найденный harness, устарели они или актуальны, и говорит, какими они были. `binn audit` сообщает о навыках, чья версия отличается от версии установленного `binn`, и `binn init` затем ставит их заново.
+Один `binn init` настраивает все harness на машине. Его план устанавливает навыки Binnacle на уровне пользователя в каждый harness, который находит CLI `skills` (skills.sh), например Codex, Antigravity, ZCode или Pi, через `npx skills`, и не оставляет их в Claude Code, где есть plugin `binnacle`; `--skip-harness <id>` не пускает их и в другой harness. Вне Claude Code каждый навык называется `binnacle-<action>`: `binnacle-product`, `binnacle-daily`, `binnacle-task`, `binnacle-status`, `binnacle-checkpoint`, `binnacle-audit`, `binnacle-init`, `binnacle-daemon`, `binnacle-register`, `binnacle-dashboard`, `binnacle-autopilot`, `binnacle-answer`, `binnacle-roadmap` и `binnacle-help`, тогда как в Claude Code это `/binnacle:product` и остальные. Summary называет harness, в которые установлены навыки, и говорит запустить там `binnacle-product`. Для harness, установленного позже, запустите `binn init` ещё раз: он устанавливает навыки в каждый найденный harness, устарели они или актуальны, и говорит, какими они были. `binn audit` сообщает о навыках, чья версия отличается от версии установленного `binn`, и `binn init` затем ставит их заново.
 
 `binn init` также предлагает зарегистрировать MCP-сервер `binnacle` в Claude Code, Codex, opencode и VS Code. В любом другом harness или пока сервер не зарегистрирован навыки вызывают те же инструменты через `binn call <tool> [json]` в shell. `binnacle-autopilot` работает только там, где harness умеет запускать фонового агента в собственном worktree; в остальных он сразу отказывается, ничего не меняет, и тикеты эпика выполняются вручную.
 

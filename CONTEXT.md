@@ -80,6 +80,9 @@ Implementation work on a Task's branch after its first Review run ends; for a Ta
 ### Unassigned
 Usage attributed to a Project but to no Task, because no branch mapping to a Task can be proven for it. It is a first-class outcome, never a guess.
 
+### Vision
+The project's purpose, audience and limits — what it is, for whom, and what it leaves out — in the owner's words, at `<knowledge.docs>/vision.md`. `/binnacle:roadmap` reads it, or asks for it and writes it on the owner's yes, and proposes the roadmap's epics from it. It is not a Spec, which describes one epic's intended behaviour.
+
 ### Spec
 A durable document describing intended behaviour. It lives in Git, next to the code it describes.
 

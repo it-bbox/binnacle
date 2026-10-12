@@ -2,15 +2,23 @@
 
 ## User workflow
 
-### 1. Discovery outside Binnacle
+The short path, as the README gives it:
 
-Discuss product idea, architecture direction and stack. Produce initial Markdown docs.
+```text
+git init
+    ↓
+binn init
+    ↓
+/binnacle:roadmap
+    ↓
+/binnacle:product
+```
 
-### 2. Create repository
+### 1. Create repository
 
-Initialize Git and choose GitHub/GitLab remote where appropriate.
+Run `git init`, and choose a GitHub/GitLab remote where appropriate.
 
-### 3. Initialize Binnacle
+### 2. Initialize Binnacle
 
 Target command:
 
@@ -31,21 +39,17 @@ Expected responsibilities:
 - create minimal project documentation hooks/templates;
 - never overwrite an existing file, and extend one only by a section shown in the plan it asks to confirm once (ADR-0034).
 
-### 4. Install/verify workflow tools
+### 3. From a vision to a roadmap
 
-Recommended Standard profile:
+Run `/binnacle:roadmap` (`binnacle-roadmap` in another harness). It reads `<knowledge.docs>/vision.md`; when there is none, it asks what the project is, for whom and what it leaves out, one question at a time, and writes the vision in the owner's words on their yes. It then proposes the epics in dependency order, each with a line of scope, and on the owner's yes writes the roadmap's rows, its `## Epics` section and a Next action that grills the first epic, and commits only those files, never pushing. It needs no daemon. Run again, it proposes additions and reorders among the epics not started, and never touches a `done` epic or a row that links a spec.
 
-- Matt Pocock Skills;
-- Ponytail;
-- Serena;
-- Graphify;
-- Context7;
-- ast-grep;
-- optional Obsidian integration.
+### 4. Product starts
 
-### 5. Matt Pocock project setup
+Open a fresh supported coding-agent chat and invoke logical `/product`, then `/daily` or current planning action. In Claude Code these are `/binnacle:product` and `/binnacle:daily`. The Next action the roadmap skill wrote grills the first epic.
 
-`binn init` has written the conventions the upstream setup skill would write, so follow the project-design flow:
+### 5. Each epic
+
+`binn init` has written the conventions the upstream setup skill would write, so each epic the roadmap lists follows the project-design flow, starting from the Next action:
 
 ```text
 grill-with-docs
@@ -55,11 +59,19 @@ to-spec
 to-tickets
 ```
 
-Do not make `binn init` secretly execute the interactive grill/spec workflow.
+Each ticket is then worked in a session of its own with `/binnacle:task run <ticket>`. Do not make `binn init` secretly execute the interactive grill/spec workflow.
 
-### 6. Product starts
+### Workflow tools
 
-Open a fresh supported coding-agent chat and invoke logical `/product`, then `/daily` or current planning action. In Claude Code these are `/binnacle:product` and `/binnacle:daily`.
+`binn init` installs or verifies the recommended Standard profile:
+
+- Matt Pocock Skills;
+- Ponytail;
+- Serena;
+- Graphify;
+- Context7;
+- ast-grep;
+- optional Obsidian integration.
 
 ## Installation philosophy
 

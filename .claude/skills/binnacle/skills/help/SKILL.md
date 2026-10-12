@@ -30,6 +30,8 @@ Binnacle keeps track of a software project for you and your coding agent: where 
 
 ## Planning
 
+- `/binnacle:roadmap` — turn your vision, or a project already under way, into a roadmap of epics: for a new project it asks what the project is, for whom and what it leaves out; for an existing one it reads the code and the history and proposes where each old plan or note belongs. It writes and commits only after your yes, and never pushes.
+
 New or large work goes `/grill-with-docs` → `/to-spec` → `/to-tickets`: talk the idea through, write it up as a spec, slice it into tickets. Those three skills come from Matt Pocock's skills, not from this plugin.
 
 - `/binnacle:autopilot` — once an epic is sliced into tickets, finish it: one agent per ticket, stopping at any question only you can answer.

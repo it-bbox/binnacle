@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
+import { roadmapGaps } from '../src/layout.ts';
 import { preparePlugin, prepareSkills } from '../src/prepare.ts';
 
 const PACKAGE = fileURLToPath(new URL('..', import.meta.url));
@@ -62,7 +63,7 @@ test('the packed CLI carries the binnacle plugin, every file of its source, and 
   assert.ok(source.includes(join('.claude-plugin', 'plugin.json')));
   assert.deepEqual(
     source.filter((path) => path.endsWith('SKILL.md')),
-    ['answer', 'audit', 'autopilot', 'checkpoint', 'daemon', 'daily', 'dashboard', 'help', 'init', 'product', 'register', 'status', 'task'].map((skill) => join('skills', skill, 'SKILL.md')),
+    ['answer', 'audit', 'autopilot', 'checkpoint', 'daemon', 'daily', 'dashboard', 'help', 'init', 'product', 'register', 'roadmap', 'status', 'task'].map((skill) => join('skills', skill, 'SKILL.md')),
   );
   const manifest = join('.claude-plugin', 'plugin.json');
   for (const path of source.filter((path) => path !== manifest)) {
@@ -398,8 +399,9 @@ test('/binnacle:help names every skill of the plugin and no other, answers in th
   assert.deepEqual([...named].sort(), readdirSync(join(PLUGIN_SOURCE, 'skills')).sort());
   assert.match(skill, /`\/grill-with-docs` → `\/to-spec` → `\/to-tickets`/);
   assert.match(skill, /`\/binnacle:product`, the work, `\/binnacle:checkpoint`/);
-  // Epic 19: the ticket's run, beside the brief.
+  // Epic 19: the ticket's run, beside the brief, and the roadmap skill.
   assert.match(skill, /`\/binnacle:task run <ticket>`/);
+  assert.match(skill, /`\/binnacle:roadmap` — /);
 });
 
 /** Epic 19 (ADR-0042): a ticket is worked by Binnacle's own skill, which holds the whole per-ticket process; without `run` it gives the brief, as before. */
@@ -452,6 +454,86 @@ test('/binnacle:task takes run and carries the per-ticket process, is model-invo
   assert.match(run, /Never write an `### Answer`/);
   assert.match(run, /every commit follows the project's instruction files for its message and authorship/i);
   assert.match(run, /in a browser only when the ticket changes a dashboard/);
+});
+
+/** Epic 19: a roadmap of epics from a vision or a half-built project, written and committed only on the owner's yes. */
+test('/binnacle:roadmap has two entries, needs no daemon, writes and commits only on the owner\'s yes, and writes a roadmap roadmapGaps accepts', () => {
+  const skill = skillText('roadmap');
+  assert.match(skill, /^disable-model-invocation: true$/m);
+  assert.match(skill, /^description: Turn a vision or a half-built project into a roadmap of epics/m);
+  /** A `## ` section of the skill, to the next one. */
+  const section = (name: string): string => {
+    const start = skill.indexOf(`\n## ${name}\n`);
+    assert.ok(start >= 0, name);
+    const next = skill.indexOf('\n## ', start + 1);
+    return next < 0 ? skill.slice(start) : skill.slice(start, next);
+  };
+  // No daemon: files, Git and the audit, and no Binnacle tool.
+  assert.match(skill, /needs no daemon/);
+  assert.doesNotMatch(skill, /project_detect|project_snapshot|binn call/);
+  // Its entry, picked from the history and the source files, and said.
+  assert.match(skill, /history holds commits beyond those that added `binn init`'s files, or Git tracks source files/);
+  assert.match(skill, /Say which entry you took and why, in one line, and that the human can switch/);
+  const fresh = section('New project');
+  assert.match(fresh, /`<knowledge\.docs>\/vision\.md`/);
+  assert.match(fresh, /what the project is, who it is for, and what it leaves out/);
+  assert.match(fresh, /one question at a time/);
+  assert.match(fresh, /in the human's own words/);
+  assert.match(fresh, /dependency order[^.]*one line of scope/);
+  const existing = section('Existing project');
+  assert.match(existing, /`git log`/);
+  assert.match(existing, /`binn audit --json`/);
+  assert.match(existing, /`done`, `in progress` or `not started`/);
+  assert.match(existing, /links it from its row/);
+  assert.match(existing, /`docs\.stranded`/);
+  assert.match(existing, /a spec, an ADR, `CONTEXT\.md`, the product inbox, the roadmap, or stale/);
+  assert.match(existing, /`git mv`/);
+  assert.match(existing, /A stale document stays where it is unless the human says to delete it/);
+  assert.match(existing, /not in Binnacle's format[^.]*keeping its content/);
+  const again = section('Again');
+  assert.match(again, /add or reorder among the epics `not started`/);
+  assert.match(again, /Never change a `done` epic, nor remove a row whose Spec cell links a spec/);
+  // The owner's yes before any write and any commit; only what it wrote is committed, never pushed.
+  // The last section, whose example holds headings of its own.
+  const writing = skill.slice(skill.indexOf('\n## Writing\n'));
+  assert.match(writing, /Nothing is written, moved or committed until the human says yes in the chat/);
+  assert.match(writing, /commit only the files you wrote, moved or removed \(`git add -- <paths>`\)/);
+  assert.match(writing, /Never push/);
+  // What it writes stays in ADR-0025's format: its example passes the check binn init and binn audit use.
+  const [, example = ''] = /```markdown\n([\s\S]*?)\n```/.exec(writing) ?? [];
+  assert.match(example, /^\| # \| Epic \| Status \| Spec \|$/m);
+  assert.match(example, /^## Epics$/m);
+  assert.match(example, /^Next action: .*`\/grill-with-docs [^`]+`$/m);
+  assert.deepEqual(roadmapGaps(example), []);
+});
+
+/** Epic 19: both starts, in the order the user follows them, alike in both languages and the operations docs. */
+test('the README in both languages and the operations docs give the new and the existing project\'s short paths in order', () => {
+  const inOrder = (text: string, steps: string[], where: string): void => {
+    let at = 0;
+    for (const step of steps) {
+      const found = text.indexOf(step, at);
+      assert.ok(found >= 0, `${where}: ${step} after position ${at}`);
+      at = found + step.length;
+    }
+  };
+  const fresh = ['git init', 'binn init', '/binnacle:roadmap', '/binnacle:product'];
+  const existing = ['binn audit', 'binn init', '/binnacle:roadmap', '/binnacle:product'];
+  for (const [path, freshHeading, existingHeading] of [
+    ['README.md', '## New project: the short path', '## Existing project: the short path'],
+    ['README.ru.md', '## Быстрый путь нового проекта', '## Быстрый путь существующего проекта'],
+  ] as const) {
+    const text = docText(path);
+    const freshStart = text.indexOf(`${freshHeading}\n`);
+    const existingStart = text.indexOf(`${existingHeading}\n`);
+    assert.ok(freshStart >= 0 && existingStart > freshStart, path);
+    inOrder(text.slice(freshStart, existingStart), fresh, `${path}, new`);
+    inOrder(text.slice(existingStart, text.indexOf('\n## ', existingStart + 1)), existing, `${path}, existing`);
+    assert.doesNotMatch(text, /setup-matt-pocock-skills/, path);
+  }
+  inOrder(docText('docs/operations/01-new-project.md'), fresh, '01-new-project.md');
+  inOrder(docText('docs/operations/02-existing-project-adopt.md'), existing, '02-existing-project-adopt.md');
+  assert.match(docText('CONTEXT.md'), /^### Vision\n.*`<knowledge\.docs>\/vision\.md`/m);
 });
 
 /** Epic 14, ADR-0039: one text per skill runs in any harness, so none names one harness's mechanism. */
@@ -708,6 +790,11 @@ test('the skills copy carries autopilot\'s resume, roles, CI and Next action, an
   assert.match(task, /## run/);
   assert.match(task, /Never merge, push or touch `main`/);
   assert.match(readFileSync(join(target, 'binnacle-help', 'SKILL.md'), 'utf8'), /`binnacle-task run <ticket>`/);
+  // And the roadmap skill, the plugin's text but for the skills' names.
+  const body = (text: string): string => text.slice(text.indexOf('\n---\n', 4));
+  const roadmap = readFileSync(join(target, 'binnacle-roadmap', 'SKILL.md'), 'utf8');
+  assert.equal(body(roadmap), body(skillText('roadmap')).replaceAll(/\/binnacle:([a-z-]+)/g, 'binnacle-$1'));
+  assert.match(roadmap, /^name: binnacle-roadmap$/m);
   const checkpoint = readFileSync(join(target, 'binnacle-checkpoint', 'SKILL.md'), 'utf8');
   assert.match(checkpoint, /moved past the current focus/);
   assert.match(checkpoint, /`next_action\.stale` or `next_action\.missing`/);
