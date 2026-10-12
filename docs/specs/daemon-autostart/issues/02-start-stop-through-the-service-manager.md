@@ -17,7 +17,7 @@ Spec: `docs/specs/daemon-autostart/spec.md`
 - "Autostart is on" for `start` and `stop` includes *broken*: a unit of this home whose Node or daemon entry is gone still goes through the manager, so that `start` repairs it (story 19).
 - `start` rewrites the unit, and runs `daemon-reload`, only when it differs from the current one; a daemon already running keeps running, as today, under the old paths until it next starts.
 - `stop` asks the manager to stop, then signals any process of the home still alive, so that a user-process daemon started by hand while autostart was on is stopped too.
-- The fake `systemctl` in `apps/cli/test/autostart.test.ts` now runs the unit's `ExecStart` with its `Environment` when the `runs` flag is set, and stops it synchronously, as the user manager does.
+- The fake `systemctl`, `apps/cli/test/fake-systemctl.ts`, shared with `init.test.ts` since ticket 05, now runs the unit's `ExecStart` with its `Environment` when the `runs` flag is set, and stops it synchronously, as the user manager does.
 
 ### Review
 
