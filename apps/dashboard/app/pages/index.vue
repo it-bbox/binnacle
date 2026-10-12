@@ -239,8 +239,8 @@ function outputTokens(totals: Totals): string {
         </template>
       </Widget>
 
-      <!-- Ready beside a stack of Running and Attention; the columns stretch to the row, so neither leaves a hole above the Usage line. -->
-      <div class="grid grid-cols-[repeat(auto-fit,minmax(380px,1fr))] gap-5">
+      <!-- Ready beside a column of Running, Attention and the Usage line: each column ends where its widgets do, with nothing under the row to leave a hole above. -->
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(380px,1fr))] items-start gap-5">
         <Widget page="overview" widget="ready" :title="t.readyToStart">
           <template #aside>
             <span v-if="snapshot.tasks" class="font-mono text-sm text-dimmed">{{ number(count(snapshot.tasks.readyToStart)) }}</span>
@@ -326,7 +326,7 @@ function outputTokens(totals: Totals): string {
           </template>
         </Widget>
 
-        <div class="flex min-w-0 flex-col gap-5 *:last:flex-1">
+        <div class="flex min-w-0 flex-col gap-5">
           <Widget page="overview" widget="running" :title="t.runningNow">
             <template #aside>
               <span v-if="!isUnavailable(snapshot.activity) && count(snapshot.activity.running) > 0" class="font-mono text-sm text-dimmed">
@@ -382,21 +382,21 @@ function outputTokens(totals: Totals): string {
               <AttentionItems v-else :items="snapshot.attention" :full="full" />
             </template>
           </Widget>
+
+          <ULink
+            :to="{ path: '/usage', query: { project } }"
+            class="flex flex-wrap items-center gap-3.5 rounded-[10px] border border-default bg-default px-3.5 py-2.5 text-default hover:border-accented"
+          >
+            <span class="font-semibold">{{ t.usage }}</span>
+            <span class="text-muted">{{ t.outputTokens }}</span>
+            <span><span class="text-muted">{{ t.today }}</span> <span class="tabular-nums">{{ outputTokens(snapshot.usage.today) }}</span></span>
+            <span class="text-dimmed">·</span>
+            <span><span class="text-muted">{{ t.last7Days }}</span> <span class="tabular-nums">{{ outputTokens(snapshot.usage.last7Days) }}</span></span>
+            <span class="flex-1" />
+            <UIcon name="i-lucide-arrow-right" class="size-3.5 text-primary" />
+          </ULink>
         </div>
       </div>
-
-      <ULink
-        :to="{ path: '/usage', query: { project } }"
-        class="flex flex-wrap items-center gap-3.5 rounded-[10px] border border-default bg-default px-3.5 py-2.5 text-default hover:border-accented"
-      >
-        <span class="font-semibold">{{ t.usage }}</span>
-        <span class="text-muted">{{ t.outputTokens }}</span>
-        <span><span class="text-muted">{{ t.today }}</span> <span class="tabular-nums">{{ outputTokens(snapshot.usage.today) }}</span></span>
-        <span class="text-dimmed">·</span>
-        <span><span class="text-muted">{{ t.last7Days }}</span> <span class="tabular-nums">{{ outputTokens(snapshot.usage.last7Days) }}</span></span>
-        <span class="flex-1" />
-        <UIcon name="i-lucide-arrow-right" class="size-3.5 text-primary" />
-      </ULink>
     </template>
   </div>
 </template>

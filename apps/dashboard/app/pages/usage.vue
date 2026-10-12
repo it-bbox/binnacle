@@ -234,9 +234,9 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
         <p v-if="snapshot.usage.importing.incomplete || usage.data.value?.importing.incomplete" class="text-warning">{{ t.importing }}</p>
       </div>
 
-      <!-- Two columns, each a stack, read down then across in the documented order; the last widget of each stretches, so none leaves a hole. -->
-      <div class="grid grid-cols-[repeat(auto-fit,minmax(400px,1fr))] gap-5">
-        <div class="flex min-w-0 flex-col gap-5 *:last:flex-1">
+      <!-- Two columns, each a stack, read down then across in the documented order: a widget never waits under a taller neighbour's row. -->
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(400px,1fr))] items-start gap-5">
+        <div class="flex min-w-0 flex-col gap-5">
           <Widget page="usage" widget="kinds" :title="t.tokensByKind">
             <template #default="{ full }">
               <div class="px-3.5">
@@ -346,7 +346,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
           </Widget>
         </div>
 
-        <div class="flex min-w-0 flex-col gap-5 *:last:flex-1">
+        <div class="flex min-w-0 flex-col gap-5">
           <Widget page="usage" widget="derived" :title="t.derived">
             <template #aside>
               <span v-if="epic !== null" class="text-sm text-dimmed">Epic {{ epic }}</span>

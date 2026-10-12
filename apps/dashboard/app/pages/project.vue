@@ -438,9 +438,9 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
         </template>
       </Widget>
 
-      <!-- Two columns, each a stack, read down then across in the documented order; the last widget of each stretches, so none leaves a hole. -->
-      <div v-if="snapshot" class="grid grid-cols-2 gap-2.5">
-        <div class="flex min-w-0 flex-col gap-2.5 *:last:flex-1">
+      <!-- Two columns, each a stack, read down then across in the documented order: a widget never waits under a taller neighbour's row. -->
+      <div v-if="snapshot" class="grid grid-cols-2 items-start gap-2.5">
+        <div class="flex min-w-0 flex-col gap-2.5">
           <Widget page="project" widget="checkout" :title="t.registeredCheckout">
             <template #default="{ full }">
               <div class="px-3.5 py-2.5 font-mono text-sm" :class="full ? 'wrap-anywhere' : 'truncate'" :title="gitLine(snapshot.git, t)">{{ gitLine(snapshot.git, t) }}</div>
@@ -477,7 +477,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
           </Widget>
         </div>
 
-        <div class="flex min-w-0 flex-col gap-2.5 *:last:flex-1">
+        <div class="flex min-w-0 flex-col gap-2.5">
           <Widget page="project" widget="decisions" :title="t.recentDecisions">
             <template #aside>
               <span v-if="snapshot.decisions !== null" class="font-mono text-sm text-dimmed">{{ number(count(snapshot.decisions)) }}</span>
