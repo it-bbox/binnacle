@@ -42,7 +42,7 @@ Epic 11's ticket 14 waits on one criterion: a merge that shrinks the graph. Epic
 
 Epic 16, Dashboard redesign (ADR-0041), is done: the owner accepted it on 2026-10-12, after ticket 16 made the daemon answer in about a second (a page reload in 0.8 s, the daemon at 9% CPU with the dashboard open, from 74%).
 
-Next action: grill epic 19, Starting a project: new and existing, in a fresh session, from the product inbox's *Starting with Binnacle* and its four points; then `/to-spec` and `/to-tickets`, and autopilot. `/mattpocock-skills:grill-with-docs`
+Next action: specify epic 19, Starting a project: new and existing, from its grilling's brief, `docs/specs/starting-a-project/brief.md`. `/mattpocock-skills:to-spec`
 
 ## Later
 
