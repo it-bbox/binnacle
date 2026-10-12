@@ -1,6 +1,6 @@
 # 13: Widgets laid out without gaps
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/dashboard-redesign/spec.md`
