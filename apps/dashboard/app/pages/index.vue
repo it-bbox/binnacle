@@ -239,7 +239,8 @@ function outputTokens(totals: Totals): string {
         </template>
       </Widget>
 
-      <div class="grid grid-cols-[repeat(auto-fit,minmax(380px,1fr))] items-start gap-5">
+      <!-- Ready beside a stack of Running and Attention; the columns stretch to the row, so neither leaves a hole above the Usage line. -->
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(380px,1fr))] gap-5">
         <Widget page="overview" widget="ready" :title="t.readyToStart">
           <template #aside>
             <span v-if="snapshot.tasks" class="font-mono text-sm text-dimmed">{{ number(count(snapshot.tasks.readyToStart)) }}</span>
@@ -325,7 +326,7 @@ function outputTokens(totals: Totals): string {
           </template>
         </Widget>
 
-        <div class="flex min-w-0 flex-col gap-5">
+        <div class="flex min-w-0 flex-col gap-5 *:last:flex-1">
           <Widget page="overview" widget="running" :title="t.runningNow">
             <template #aside>
               <span v-if="!isUnavailable(snapshot.activity) && count(snapshot.activity.running) > 0" class="font-mono text-sm text-dimmed">

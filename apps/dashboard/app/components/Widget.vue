@@ -6,7 +6,8 @@ import { LEVELS, readLevel, storeLevel, type Level } from '~/widget';
  * The shared widget frame (spec, *A widget with two levels*): a panel with its title and the
  * *Brief* / *Full* control in its header, the level kept per page and widget in the browser.
  * The default slot and the footer get `full`; `title` replaces the plain heading and `aside` sits
- * before the control.
+ * before the control. Stretched to its column's height, its body takes the room and its footer
+ * stays at the bottom.
  */
 const props = defineProps<{ page: string; widget: string; title?: string }>();
 const { t } = useLanguage();
@@ -18,7 +19,7 @@ const choose = (value: Level): void => {
 };
 const full = computed(() => level.value === 'full');
 
-const panel = { root: 'rounded-[10px]', header: 'flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 px-3.5 py-2.5 sm:px-3.5', body: 'p-0 sm:p-0', footer: 'px-3.5 py-2 sm:px-3.5' };
+const panel = { root: 'flex flex-col rounded-[10px]', header: 'flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 px-3.5 py-2.5 sm:px-3.5', body: 'flex-1 p-0 sm:p-0', footer: 'px-3.5 py-2 sm:px-3.5' };
 </script>
 
 <template>

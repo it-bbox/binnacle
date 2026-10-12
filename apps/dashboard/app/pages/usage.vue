@@ -234,291 +234,296 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
         <p v-if="snapshot.usage.importing.incomplete || usage.data.value?.importing.incomplete" class="text-warning">{{ t.importing }}</p>
       </div>
 
-      <div class="grid grid-cols-[repeat(auto-fit,minmax(400px,1fr))] items-start gap-5">
-        <Widget page="usage" widget="kinds" :title="t.tokensByKind">
-          <template #default="{ full }">
-            <div class="px-3.5">
-              <TokenKinds
-                :columns="[
-                  { key: 'today', label: t.today, totals: snapshot.usage.today },
-                  { key: 'week', label: t.last7Days, totals: snapshot.usage.last7Days },
-                ]"
-                :records="false"
-                :fields="full ? FIELDS : BRIEF_FIELDS"
-              />
-              <p v-if="full" class="border-t border-default py-2 text-sm leading-snug text-muted">{{ countsLine }}</p>
-            </div>
-          </template>
-          <template #footer="{ full }">
-            <p v-if="full" class="text-sm leading-snug text-dimmed">{{ t.reasoningNote }}</p>
-          </template>
-        </Widget>
-
-        <Widget page="usage" widget="models" :title="t.byModel">
-          <template #aside>
-            <span class="text-sm text-dimmed">{{ t[kind] }} · {{ t.last7Days }}</span>
-          </template>
-          <template #default="{ full }">
-            <p v-if="snapshot.usage.byModel.items.length === 0" class="px-3.5 py-3 text-muted">{{ t.noRecords }}</p>
-            <BarList
-              v-else
-              class="py-1"
-              v-bind="
-                leveled(
-                  snapshot.usage.byModel.items.map((item) => tokenRow(String(item.model), item.model ?? t.modelNotReported, item.totals, { muted: item.model === null })),
-                  snapshot.usage.byModel.remainder,
-                  full,
-                )
-              "
-            />
-            <h3 class="border-t border-default px-3.5 pt-2.5 pb-1 text-sm font-semibold">{{ t.byProvider }}</h3>
-            <p v-if="snapshot.usage.byProvider.items.length === 0" class="px-3.5 py-3 text-muted">{{ t.noRecords }}</p>
-            <BarList
-              v-else
-              class="pb-1"
-              v-bind="
-                leveled(
-                  snapshot.usage.byProvider.items.map((item) => tokenRow(String(item.provider), item.provider ?? t.notReported, item.totals, { muted: item.provider === null })),
-                  snapshot.usage.byProvider.remainder,
-                  full,
-                )
-              "
-            />
-          </template>
-        </Widget>
-
-        <Widget page="usage" widget="tasks" :title="t.byTask">
-          <template #aside>
-            <span class="text-sm text-dimmed">{{ epic === null ? t.largestTasks : `Epic ${epic}` }} · {{ t[kind] }}</span>
-          </template>
-          <template #default="{ full }">
-            <p v-if="usage.error.value" class="px-3.5 py-3 text-warning"><code>{{ usage.error.value.code }}</code> {{ usage.error.value.message }}</p>
-            <USkeleton v-else-if="usage.data.value === null" class="m-3.5 h-32" />
-            <template v-else>
-              <p v-if="isUnavailable(usage.data.value.tasks)" class="px-3.5 py-3">
-                <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.tasks.reason" /></span>
-              </p>
-              <template v-else>
-                <p v-if="usage.data.value.tasks.items.length === 0" class="px-3.5 pt-3 text-muted">{{ t.noTaskRuns }}</p>
-                <BarList
-                  class="py-1"
-                  v-bind="
-                    leveled(
-                      usage.data.value.tasks.items.map((item) => tokenRow(item.id, item.id, item.totals, { to: taskLink(item.id), title: item.title })),
-                      usage.data.value.tasks.remainder,
-                      full,
-                    )
-                  "
-                  :last="full && epic === null && !isUnavailable(usage.data.value.unassigned) ? tokenRow('unassigned', t.unassigned, usage.data.value.unassigned, { muted: true }) : undefined"
+      <!-- Two columns, each a stack, read down then across in the documented order; the last widget of each stretches, so none leaves a hole. -->
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(400px,1fr))] gap-5">
+        <div class="flex min-w-0 flex-col gap-5 *:last:flex-1">
+          <Widget page="usage" widget="kinds" :title="t.tokensByKind">
+            <template #default="{ full }">
+              <div class="px-3.5">
+                <TokenKinds
+                  :columns="[
+                    { key: 'today', label: t.today, totals: snapshot.usage.today },
+                    { key: 'week', label: t.last7Days, totals: snapshot.usage.last7Days },
+                  ]"
+                  :records="false"
+                  :fields="full ? FIELDS : BRIEF_FIELDS"
                 />
-              </template>
-              <p v-if="full && epic === null && isUnavailable(usage.data.value.unassigned)" class="px-3.5 pb-2 text-sm">
-                {{ t.unassigned }}: <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.unassigned.reason" /></span>
-              </p>
-              <h3 class="border-t border-default px-3.5 pt-2.5 pb-1 text-sm font-semibold">{{ t.byRole }}</h3>
-              <p v-if="isUnavailable(usage.data.value.byRole)" class="px-3.5 py-3">
-                <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.byRole.reason" /></span>
-              </p>
+                <p v-if="full" class="border-t border-default py-2 text-sm leading-snug text-muted">{{ countsLine }}</p>
+              </div>
+            </template>
+            <template #footer="{ full }">
+              <p v-if="full" class="text-sm leading-snug text-dimmed">{{ t.reasoningNote }}</p>
+            </template>
+          </Widget>
+
+          <Widget page="usage" widget="models" :title="t.byModel">
+            <template #aside>
+              <span class="text-sm text-dimmed">{{ t[kind] }} · {{ t.last7Days }}</span>
+            </template>
+            <template #default="{ full }">
+              <p v-if="snapshot.usage.byModel.items.length === 0" class="px-3.5 py-3 text-muted">{{ t.noRecords }}</p>
+              <BarList
+                v-else
+                class="py-1"
+                v-bind="
+                  leveled(
+                    snapshot.usage.byModel.items.map((item) => tokenRow(String(item.model), item.model ?? t.modelNotReported, item.totals, { muted: item.model === null })),
+                    snapshot.usage.byModel.remainder,
+                    full,
+                  )
+                "
+              />
+              <h3 class="border-t border-default px-3.5 pt-2.5 pb-1 text-sm font-semibold">{{ t.byProvider }}</h3>
+              <p v-if="snapshot.usage.byProvider.items.length === 0" class="px-3.5 py-3 text-muted">{{ t.noRecords }}</p>
               <BarList
                 v-else
                 class="pb-1"
                 v-bind="
                   leveled(
-                    [
-                      tokenRow('product', t.roleProduct, usage.data.value.byRole.product),
-                      tokenRow('implementation', t.roleImplementation, usage.data.value.byRole.implementation),
-                      tokenRow('review', t.roleReview, usage.data.value.byRole.review),
-                      tokenRow('rework', t.roleRework, usage.data.value.byRole.rework),
-                      tokenRow('unknown', t.roleUnknown, usage.data.value.byRole.unknown, { muted: true }),
-                    ],
-                    0,
+                    snapshot.usage.byProvider.items.map((item) => tokenRow(String(item.provider), item.provider ?? t.notReported, item.totals, { muted: item.provider === null })),
+                    snapshot.usage.byProvider.remainder,
                     full,
                   )
                 "
               />
             </template>
-          </template>
-          <template #footer="{ full }">
-            <p class="text-sm leading-snug text-dimmed">{{ windowLabel }}.<template v-if="full && epic === null"> {{ t.unassignedNote }}</template></p>
-          </template>
-        </Widget>
+          </Widget>
 
-        <Widget page="usage" widget="derived" :title="t.derived">
-          <template #aside>
-            <span v-if="epic !== null" class="text-sm text-dimmed">Epic {{ epic }}</span>
-            <UBadge :label="t.calculation" color="neutral" variant="outline" class="border-dashed" :title="t.derivedNote" />
-          </template>
-          <template #default="{ full }">
-            <p v-if="usage.error.value" class="px-3.5 py-3 text-warning"><code>{{ usage.error.value.code }}</code> {{ usage.error.value.message }}</p>
-            <USkeleton v-else-if="usage.data.value === null" class="m-3.5 h-40" />
-            <template v-else>
-              <div class="grid grid-cols-2 divide-x divide-default">
-                <section class="flex min-w-0 flex-col gap-1">
-                  <div class="flex flex-col gap-1 px-3.5 pt-3 pb-1.5">
-                    <h3 class="text-sm leading-snug text-muted">{{ t.perCompletedTask }} · {{ t[kind] }}</h3>
-                    <p v-if="isUnavailable(usage.data.value.derived.perCompletedTask)">
-                      <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.perCompletedTask.reason" /></span>
-                    </p>
-                    <template v-else-if="perCompleted">
-                      <template v-if="perCompleted.mean">
-                        <span class="inline-flex items-center gap-1.5">
-                          <span class="font-mono text-xl font-medium">{{ perCompleted.mean.text }}</span>
-                          <UBadge v-for="mark in perCompleted.mean.marks" :key="mark" :label="mark" color="neutral" variant="outline" size="sm" />
-                        </span>
-                        <span class="text-xs text-dimmed">{{ plural(perCompleted.count, t.meanOverDone) }}</span>
-                      </template>
-                      <p v-else class="text-muted">{{ perCompleted.withoutRuns === 0 ? t.noDoneTask : t.noDoneWithRuns(number(perCompleted.withoutRuns)) }}</p>
-                      <span v-if="full && perCompleted.mean && perCompleted.withoutRuns > 0" class="text-xs text-dimmed">{{ plural(perCompleted.withoutRuns, t.doneWithoutRuns) }}</span>
-                    </template>
-                  </div>
-                  <BarList v-if="full && perCompleted && perCompleted.rows.length > 0" class="pb-1" :rows="perCompleted.rows" :remainder="perCompleted.remainder" />
-                </section>
-                <section class="flex min-w-0 flex-col gap-1">
-                  <div class="flex flex-col gap-1 px-3.5 pt-3 pb-1.5">
-                    <h3 class="text-sm leading-snug text-muted">{{ t.runsPerTask }}</h3>
-                    <p v-if="isUnavailable(usage.data.value.derived.runsPerTask)">
-                      <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.runsPerTask.reason" /></span>
-                    </p>
-                    <template v-else-if="runsPer">
-                      <template v-if="runsPer.mean">
-                        <span class="font-mono text-xl font-medium">{{ oneDecimal(runsPer.mean.runs) }}</span>
-                        <span class="text-xs text-dimmed">{{ plural(runsPer.count, t.meanOverTasks) }} · {{ t.ofWhichSubagents(oneDecimal(runsPer.mean.subagentRuns)) }}</span>
-                      </template>
-                      <p v-else class="text-muted">{{ t.noTaskRuns }}</p>
-                    </template>
-                  </div>
-                  <BarList v-if="full && runsPer && runsPer.rows.length > 0" class="pb-1" :rows="runsPer.rows" :remainder="runsPer.remainder" />
-                </section>
-              </div>
-              <section class="flex flex-col gap-1.5 border-t border-default px-3.5 py-3">
-                <h3 class="text-sm leading-snug text-muted">{{ t.ponytail }} · {{ t[kind] }}</h3>
-                <p v-if="isUnavailable(usage.data.value.derived.ponytail)">
-                  <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.ponytail.reason" /></span>
-                </p>
-                <template v-else-if="ponytail">
-                  <div v-if="ponytail.sides.length > 0" class="grid grid-cols-2 gap-3">
-                    <div v-for="side in ponytail.sides" :key="side.key" class="flex min-w-0 flex-col gap-0.5">
-                      <span class="text-xs text-dimmed">{{ side.label }}</span>
-                      <span v-if="side.mean" class="inline-flex items-center gap-1.5">
-                        <span class="font-mono text-xl font-medium">{{ side.mean.text }}</span>
-                        <UBadge v-for="mark in side.mean.marks" :key="mark" :label="mark" color="neutral" variant="outline" size="sm" />
-                      </span>
-                      <span v-else class="font-mono text-xl text-dimmed">—</span>
-                      <span class="text-xs text-dimmed">{{ plural(side.tasks, t.meanOverDone) }}</span>
-                    </div>
-                  </div>
-                  <DaemonReason v-if="ponytail.reason !== null" class="block text-muted" :reason="ponytail.reason" />
-                  <p v-if="full && ponytail.since" class="text-xs text-dimmed">{{ ponytail.since }}</p>
-                  <p v-if="full && ponytail.undated > 0" class="text-xs text-dimmed">{{ plural(ponytail.undated, t.ponytailUndated) }}</p>
-                </template>
-              </section>
-              <section v-if="full" class="flex flex-col gap-2.5 border-t border-default px-3.5 py-3">
-                <h3 class="text-sm text-muted">{{ t.weekly }} · {{ t[kind] }}</h3>
-                <p v-if="weeks.length === 0" class="text-muted">{{ t.noRecords }}</p>
-                <ol v-else class="grid auto-cols-[minmax(0,56px)] grid-flow-col gap-2">
-                  <li v-for="week in weeks" :key="week.week" class="flex min-w-0 flex-col items-center gap-1" :title="week.title">
-                    <UProgress
-                      v-if="week.value !== null && week.largest > 0"
-                      :model-value="week.value"
-                      :max="week.largest"
-                      orientation="vertical"
-                      inverted
-                      class="h-24 w-full"
-                      :ui="{ base: 'w-full rounded-t-sm rounded-b-none bg-transparent', indicator: 'rounded-t-sm rounded-b-none' }"
-                    />
-                    <div v-else class="h-24" />
-                    <span class="max-w-full truncate font-mono text-xs">{{ week.short }}</span>
-                    <span v-for="mark in week.marks" :key="mark" class="text-xs text-dimmed">{{ mark }}</span>
-                    <span class="max-w-full truncate text-xs text-dimmed">{{ week.week.slice(5) }}</span>
-                  </li>
-                </ol>
-                <p class="text-xs text-dimmed">{{ t.weeklyNote }}</p>
-              </section>
-              <div class="grid grid-cols-2 divide-x divide-default border-t border-default">
-                <section class="flex min-w-0 flex-col gap-1">
-                  <div class="flex flex-col gap-1 px-3.5 pt-3 pb-1.5">
-                    <h3 class="text-sm leading-snug text-muted">{{ t.reworkShare }}</h3>
-                    <p v-if="isUnavailable(usage.data.value.derived.reworkShare)">
-                      <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.reworkShare.reason" /></span>
-                    </p>
-                    <template v-else-if="reworkShares">
-                      <template v-if="reworkShares.mean !== null">
-                        <span class="font-mono text-xl font-medium">{{ reworkShares.mean }}</span>
-                        <span class="text-xs text-dimmed">{{ t.meanShareOver }}</span>
-                      </template>
-                      <p v-else class="text-muted">{{ t.noShare }}</p>
-                      <span v-if="full" class="text-xs text-dimmed">{{ t.reworkShareNote }}</span>
-                    </template>
-                  </div>
-                  <BarList v-if="full && reworkShares && reworkShares.rows.length > 0" class="pb-1" :rows="reworkShares.rows" :remainder="reworkShares.remainder" />
-                </section>
-                <section class="flex min-w-0 flex-col gap-1">
-                  <div class="flex flex-col gap-1 px-3.5 pt-3 pb-1.5">
-                    <h3 class="text-sm leading-snug text-muted">{{ t.firstPassAcceptance }}</h3>
-                    <p v-if="isUnavailable(usage.data.value.derived.firstPassAcceptance)">
-                      <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.firstPassAcceptance.reason" /></span>
-                    </p>
-                    <template v-else-if="firstPass">
-                      <template v-if="firstPass.share !== null">
-                        <span class="font-mono text-xl font-medium">{{ firstPass.share }}</span>
-                        <span class="text-xs text-dimmed">{{ plural(firstPass.count, t.acceptedOf) }}</span>
-                      </template>
-                      <p v-else class="text-muted">{{ t.noReviewedDone }}</p>
-                    </template>
-                  </div>
-                  <BarList v-if="full && firstPass && firstPass.rows.length > 0" class="pb-1" :rows="firstPass.rows" :remainder="firstPass.remainder" />
-                </section>
-              </div>
-              <section v-if="full" class="flex flex-col gap-1 border-t border-default">
-                <h3 class="px-3.5 pt-3 pb-1.5 text-sm text-muted">{{ t.contextGrowth }}</h3>
-                <p v-if="isUnavailable(usage.data.value.derived.contextGrowth)" class="px-3.5 pb-2">
-                  <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.contextGrowth.reason" /></span>
-                </p>
-                <template v-else-if="contexts">
-                  <p v-if="contexts.rows.length === 0" class="px-3.5 pb-2 text-muted">{{ t.noRunsSeen }}</p>
-                  <BarList v-else class="pb-1" :rows="contexts.rows" :remainder="contexts.remainder" />
-                  <p class="px-3.5 pb-3 text-xs text-dimmed">{{ t.contextNote }}</p>
-                </template>
-              </section>
+          <Widget page="usage" widget="tasks" :title="t.byTask">
+            <template #aside>
+              <span class="text-sm text-dimmed">{{ epic === null ? t.largestTasks : `Epic ${epic}` }} · {{ t[kind] }}</span>
             </template>
-          </template>
-          <template #footer>
-            <p class="text-sm leading-snug text-dimmed">{{ epic === null ? t.derivedNote : t.epicAverages }} {{ windowLabel }}.</p>
-          </template>
-        </Widget>
+            <template #default="{ full }">
+              <p v-if="usage.error.value" class="px-3.5 py-3 text-warning"><code>{{ usage.error.value.code }}</code> {{ usage.error.value.message }}</p>
+              <USkeleton v-else-if="usage.data.value === null" class="m-3.5 h-32" />
+              <template v-else>
+                <p v-if="isUnavailable(usage.data.value.tasks)" class="px-3.5 py-3">
+                  <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.tasks.reason" /></span>
+                </p>
+                <template v-else>
+                  <p v-if="usage.data.value.tasks.items.length === 0" class="px-3.5 pt-3 text-muted">{{ t.noTaskRuns }}</p>
+                  <BarList
+                    class="py-1"
+                    v-bind="
+                      leveled(
+                        usage.data.value.tasks.items.map((item) => tokenRow(item.id, item.id, item.totals, { to: taskLink(item.id), title: item.title })),
+                        usage.data.value.tasks.remainder,
+                        full,
+                      )
+                    "
+                    :last="full && epic === null && !isUnavailable(usage.data.value.unassigned) ? tokenRow('unassigned', t.unassigned, usage.data.value.unassigned, { muted: true }) : undefined"
+                  />
+                </template>
+                <p v-if="full && epic === null && isUnavailable(usage.data.value.unassigned)" class="px-3.5 pb-2 text-sm">
+                  {{ t.unassigned }}: <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.unassigned.reason" /></span>
+                </p>
+                <h3 class="border-t border-default px-3.5 pt-2.5 pb-1 text-sm font-semibold">{{ t.byRole }}</h3>
+                <p v-if="isUnavailable(usage.data.value.byRole)" class="px-3.5 py-3">
+                  <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.byRole.reason" /></span>
+                </p>
+                <BarList
+                  v-else
+                  class="pb-1"
+                  v-bind="
+                    leveled(
+                      [
+                        tokenRow('product', t.roleProduct, usage.data.value.byRole.product),
+                        tokenRow('implementation', t.roleImplementation, usage.data.value.byRole.implementation),
+                        tokenRow('review', t.roleReview, usage.data.value.byRole.review),
+                        tokenRow('rework', t.roleRework, usage.data.value.byRole.rework),
+                        tokenRow('unknown', t.roleUnknown, usage.data.value.byRole.unknown, { muted: true }),
+                      ],
+                      0,
+                      full,
+                    )
+                  "
+                />
+              </template>
+            </template>
+            <template #footer="{ full }">
+              <p class="text-sm leading-snug text-dimmed">{{ windowLabel }}.<template v-if="full && epic === null"> {{ t.unassignedNote }}</template></p>
+            </template>
+          </Widget>
+        </div>
 
-        <Widget page="usage" widget="harnesses" :title="t.harnesses">
-          <template #default="{ full }">
-            <ul class="divide-y divide-default">
-              <li v-for="item in snapshot.usage.harnesses" :key="item.harness" class="flex flex-col gap-1.5 px-3.5 py-2.5">
-                <div class="flex items-center gap-2.5">
-                  <span class="flex-1 font-mono text-sm font-medium">{{ item.harness }}</span>
-                  <template v-if="item.level !== null">
-                    <span class="flex gap-0.5" aria-hidden="true">
-                      <span v-for="step in 4" :key="step" class="h-1.5 w-3.5 rounded-xs" :class="step <= item.level ? 'bg-primary' : 'bg-accented'" />
-                    </span>
-                    <span class="text-sm whitespace-nowrap text-muted">{{ t.levelOf(number(item.level)) }} · <span lang="en">{{ LEVELS[item.level - 1] }}</span></span>
-                  </template>
-                  <span v-else class="text-sm text-muted">{{ t.noLevel }}</span>
+        <div class="flex min-w-0 flex-col gap-5 *:last:flex-1">
+          <Widget page="usage" widget="derived" :title="t.derived">
+            <template #aside>
+              <span v-if="epic !== null" class="text-sm text-dimmed">Epic {{ epic }}</span>
+              <UBadge :label="t.calculation" color="neutral" variant="outline" class="border-dashed" :title="t.derivedNote" />
+            </template>
+            <template #default="{ full }">
+              <p v-if="usage.error.value" class="px-3.5 py-3 text-warning"><code>{{ usage.error.value.code }}</code> {{ usage.error.value.message }}</p>
+              <USkeleton v-else-if="usage.data.value === null" class="m-3.5 h-40" />
+              <template v-else>
+                <div class="grid grid-cols-2 divide-x divide-default">
+                  <section class="flex min-w-0 flex-col gap-1">
+                    <div class="flex flex-col gap-1 px-3.5 pt-3 pb-1.5">
+                      <h3 class="text-sm leading-snug text-muted">{{ t.perCompletedTask }} · {{ t[kind] }}</h3>
+                      <p v-if="isUnavailable(usage.data.value.derived.perCompletedTask)">
+                        <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.perCompletedTask.reason" /></span>
+                      </p>
+                      <template v-else-if="perCompleted">
+                        <template v-if="perCompleted.mean">
+                          <span class="inline-flex items-center gap-1.5">
+                            <span class="font-mono text-xl font-medium">{{ perCompleted.mean.text }}</span>
+                            <UBadge v-for="mark in perCompleted.mean.marks" :key="mark" :label="mark" color="neutral" variant="outline" size="sm" />
+                          </span>
+                          <span class="text-xs text-dimmed">{{ plural(perCompleted.count, t.meanOverDone) }}</span>
+                        </template>
+                        <p v-else class="text-muted">{{ perCompleted.withoutRuns === 0 ? t.noDoneTask : t.noDoneWithRuns(number(perCompleted.withoutRuns)) }}</p>
+                        <span v-if="full && perCompleted.mean && perCompleted.withoutRuns > 0" class="text-xs text-dimmed">{{ plural(perCompleted.withoutRuns, t.doneWithoutRuns) }}</span>
+                      </template>
+                    </div>
+                    <BarList v-if="full && perCompleted && perCompleted.rows.length > 0" class="pb-1" :rows="perCompleted.rows" :remainder="perCompleted.remainder" />
+                  </section>
+                  <section class="flex min-w-0 flex-col gap-1">
+                    <div class="flex flex-col gap-1 px-3.5 pt-3 pb-1.5">
+                      <h3 class="text-sm leading-snug text-muted">{{ t.runsPerTask }}</h3>
+                      <p v-if="isUnavailable(usage.data.value.derived.runsPerTask)">
+                        <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.runsPerTask.reason" /></span>
+                      </p>
+                      <template v-else-if="runsPer">
+                        <template v-if="runsPer.mean">
+                          <span class="font-mono text-xl font-medium">{{ oneDecimal(runsPer.mean.runs) }}</span>
+                          <span class="text-xs text-dimmed">{{ plural(runsPer.count, t.meanOverTasks) }} · {{ t.ofWhichSubagents(oneDecimal(runsPer.mean.subagentRuns)) }}</span>
+                        </template>
+                        <p v-else class="text-muted">{{ t.noTaskRuns }}</p>
+                      </template>
+                    </div>
+                    <BarList v-if="full && runsPer && runsPer.rows.length > 0" class="pb-1" :rows="runsPer.rows" :remainder="runsPer.remainder" />
+                  </section>
                 </div>
-                <DaemonReason v-if="full && item.reason !== null" class="block text-sm leading-snug text-dimmed" :reason="item.reason" />
-              </li>
-            </ul>
-          </template>
-          <template #footer="{ full }">
-            <p v-if="full" class="text-xs leading-normal text-dimmed">{{ t.levelsLegend }}</p>
-          </template>
-        </Widget>
+                <section class="flex flex-col gap-1.5 border-t border-default px-3.5 py-3">
+                  <h3 class="text-sm leading-snug text-muted">{{ t.ponytail }} · {{ t[kind] }}</h3>
+                  <p v-if="isUnavailable(usage.data.value.derived.ponytail)">
+                    <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.ponytail.reason" /></span>
+                  </p>
+                  <template v-else-if="ponytail">
+                    <div v-if="ponytail.sides.length > 0" class="grid grid-cols-2 gap-3">
+                      <div v-for="side in ponytail.sides" :key="side.key" class="flex min-w-0 flex-col gap-0.5">
+                        <span class="text-xs text-dimmed">{{ side.label }}</span>
+                        <span v-if="side.mean" class="inline-flex items-center gap-1.5">
+                          <span class="font-mono text-xl font-medium">{{ side.mean.text }}</span>
+                          <UBadge v-for="mark in side.mean.marks" :key="mark" :label="mark" color="neutral" variant="outline" size="sm" />
+                        </span>
+                        <span v-else class="font-mono text-xl text-dimmed">—</span>
+                        <span class="text-xs text-dimmed">{{ plural(side.tasks, t.meanOverDone) }}</span>
+                      </div>
+                    </div>
+                    <DaemonReason v-if="ponytail.reason !== null" class="block text-muted" :reason="ponytail.reason" />
+                    <p v-if="full && ponytail.since" class="text-xs text-dimmed">{{ ponytail.since }}</p>
+                    <p v-if="full && ponytail.undated > 0" class="text-xs text-dimmed">{{ plural(ponytail.undated, t.ponytailUndated) }}</p>
+                  </template>
+                </section>
+                <section v-if="full" class="flex flex-col gap-2.5 border-t border-default px-3.5 py-3">
+                  <h3 class="text-sm text-muted">{{ t.weekly }} · {{ t[kind] }}</h3>
+                  <p v-if="weeks.length === 0" class="text-muted">{{ t.noRecords }}</p>
+                  <ol v-else class="grid auto-cols-[minmax(0,56px)] grid-flow-col gap-2">
+                    <li v-for="week in weeks" :key="week.week" class="flex min-w-0 flex-col items-center gap-1" :title="week.title">
+                      <UProgress
+                        v-if="week.value !== null && week.largest > 0"
+                        :model-value="week.value"
+                        :max="week.largest"
+                        orientation="vertical"
+                        inverted
+                        class="h-24 w-full"
+                        :ui="{ base: 'w-full rounded-t-sm rounded-b-none bg-transparent', indicator: 'rounded-t-sm rounded-b-none' }"
+                      />
+                      <div v-else class="h-24" />
+                      <span class="max-w-full truncate font-mono text-xs">{{ week.short }}</span>
+                      <span v-for="mark in week.marks" :key="mark" class="text-xs text-dimmed">{{ mark }}</span>
+                      <span class="max-w-full truncate text-xs text-dimmed">{{ week.week.slice(5) }}</span>
+                    </li>
+                  </ol>
+                  <p class="text-xs text-dimmed">{{ t.weeklyNote }}</p>
+                </section>
+                <div class="grid grid-cols-2 divide-x divide-default border-t border-default">
+                  <section class="flex min-w-0 flex-col gap-1">
+                    <div class="flex flex-col gap-1 px-3.5 pt-3 pb-1.5">
+                      <h3 class="text-sm leading-snug text-muted">{{ t.reworkShare }}</h3>
+                      <p v-if="isUnavailable(usage.data.value.derived.reworkShare)">
+                        <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.reworkShare.reason" /></span>
+                      </p>
+                      <template v-else-if="reworkShares">
+                        <template v-if="reworkShares.mean !== null">
+                          <span class="font-mono text-xl font-medium">{{ reworkShares.mean }}</span>
+                          <span class="text-xs text-dimmed">{{ t.meanShareOver }}</span>
+                        </template>
+                        <p v-else class="text-muted">{{ t.noShare }}</p>
+                        <span v-if="full" class="text-xs text-dimmed">{{ t.reworkShareNote }}</span>
+                      </template>
+                    </div>
+                    <BarList v-if="full && reworkShares && reworkShares.rows.length > 0" class="pb-1" :rows="reworkShares.rows" :remainder="reworkShares.remainder" />
+                  </section>
+                  <section class="flex min-w-0 flex-col gap-1">
+                    <div class="flex flex-col gap-1 px-3.5 pt-3 pb-1.5">
+                      <h3 class="text-sm leading-snug text-muted">{{ t.firstPassAcceptance }}</h3>
+                      <p v-if="isUnavailable(usage.data.value.derived.firstPassAcceptance)">
+                        <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.firstPassAcceptance.reason" /></span>
+                      </p>
+                      <template v-else-if="firstPass">
+                        <template v-if="firstPass.share !== null">
+                          <span class="font-mono text-xl font-medium">{{ firstPass.share }}</span>
+                          <span class="text-xs text-dimmed">{{ plural(firstPass.count, t.acceptedOf) }}</span>
+                        </template>
+                        <p v-else class="text-muted">{{ t.noReviewedDone }}</p>
+                      </template>
+                    </div>
+                    <BarList v-if="full && firstPass && firstPass.rows.length > 0" class="pb-1" :rows="firstPass.rows" :remainder="firstPass.remainder" />
+                  </section>
+                </div>
+                <section v-if="full" class="flex flex-col gap-1 border-t border-default">
+                  <h3 class="px-3.5 pt-3 pb-1.5 text-sm text-muted">{{ t.contextGrowth }}</h3>
+                  <p v-if="isUnavailable(usage.data.value.derived.contextGrowth)" class="px-3.5 pb-2">
+                    <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.contextGrowth.reason" /></span>
+                  </p>
+                  <template v-else-if="contexts">
+                    <p v-if="contexts.rows.length === 0" class="px-3.5 pb-2 text-muted">{{ t.noRunsSeen }}</p>
+                    <BarList v-else class="pb-1" :rows="contexts.rows" :remainder="contexts.remainder" />
+                    <p class="px-3.5 pb-3 text-xs text-dimmed">{{ t.contextNote }}</p>
+                  </template>
+                </section>
+              </template>
+            </template>
+            <template #footer>
+              <p class="text-sm leading-snug text-dimmed">{{ epic === null ? t.derivedNote : t.epicAverages }} {{ windowLabel }}.</p>
+            </template>
+          </Widget>
 
-        <UCard :ui="card">
-          <template #header>
-            <h2 class="text-base font-semibold">{{ t.cost }}</h2>
-          </template>
-          <div class="flex flex-col gap-1 px-3.5 py-3">
-            <span class="font-medium">{{ t.notAvailable }}</span>
-            <span class="leading-snug text-muted">{{ t.costReason }}</span>
-          </div>
-        </UCard>
+          <Widget page="usage" widget="harnesses" :title="t.harnesses">
+            <template #default="{ full }">
+              <ul class="divide-y divide-default">
+                <li v-for="item in snapshot.usage.harnesses" :key="item.harness" class="flex flex-col gap-1.5 px-3.5 py-2.5">
+                  <div class="flex items-center gap-2.5">
+                    <span class="flex-1 font-mono text-sm font-medium">{{ item.harness }}</span>
+                    <template v-if="item.level !== null">
+                      <span class="flex gap-0.5" aria-hidden="true">
+                        <span v-for="step in 4" :key="step" class="h-1.5 w-3.5 rounded-xs" :class="step <= item.level ? 'bg-primary' : 'bg-accented'" />
+                      </span>
+                      <span class="text-sm whitespace-nowrap text-muted">{{ t.levelOf(number(item.level)) }} · <span lang="en">{{ LEVELS[item.level - 1] }}</span></span>
+                    </template>
+                    <span v-else class="text-sm text-muted">{{ t.noLevel }}</span>
+                  </div>
+                  <DaemonReason v-if="full && item.reason !== null" class="block text-sm leading-snug text-dimmed" :reason="item.reason" />
+                </li>
+              </ul>
+            </template>
+            <template #footer="{ full }">
+              <p v-if="full" class="text-xs leading-normal text-dimmed">{{ t.levelsLegend }}</p>
+            </template>
+          </Widget>
+
+          <UCard :ui="card">
+            <template #header>
+              <h2 class="text-base font-semibold">{{ t.cost }}</h2>
+            </template>
+            <div class="flex flex-col gap-1 px-3.5 py-3">
+              <span class="font-medium">{{ t.notAvailable }}</span>
+              <span class="leading-snug text-muted">{{ t.costReason }}</span>
+            </div>
+          </UCard>
+        </div>
       </div>
     </template>
   </div>

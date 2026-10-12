@@ -438,108 +438,113 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
         </template>
       </Widget>
 
-      <div v-if="snapshot" class="grid grid-cols-2 items-start gap-2.5">
-        <Widget page="project" widget="checkout" :title="t.registeredCheckout">
-          <template #default="{ full }">
-            <div class="px-3.5 py-2.5 font-mono text-sm" :class="full ? 'wrap-anywhere' : 'truncate'" :title="gitLine(snapshot.git, t)">{{ gitLine(snapshot.git, t) }}</div>
-          </template>
-        </Widget>
+      <!-- Two columns, each a stack, read down then across in the documented order; the last widget of each stretches, so none leaves a hole. -->
+      <div v-if="snapshot" class="grid grid-cols-2 gap-2.5">
+        <div class="flex min-w-0 flex-col gap-2.5 *:last:flex-1">
+          <Widget page="project" widget="checkout" :title="t.registeredCheckout">
+            <template #default="{ full }">
+              <div class="px-3.5 py-2.5 font-mono text-sm" :class="full ? 'wrap-anywhere' : 'truncate'" :title="gitLine(snapshot.git, t)">{{ gitLine(snapshot.git, t) }}</div>
+            </template>
+          </Widget>
 
-        <Widget page="project" widget="graph" :title="t.graph">
-          <template #aside>
-            <span v-if="!snapshot.graph.available" class="text-sm text-muted">{{ t.notAvailable }}</span>
-          </template>
-          <template #default="{ full }">
-            <div class="flex flex-col gap-1.5 px-3.5 py-2.5">
-              <DaemonReason v-if="full && snapshot.graph.reason !== null" class="block text-sm leading-snug text-dimmed" :reason="snapshot.graph.reason" />
-              <div class="text-sm" :class="{ truncate: !full }">
-                <span class="me-1.5 text-muted">{{ t.builtFrom }}</span>
-                <template v-if="snapshot.graph.builtFrom">
-                  <code class="font-mono">{{ snapshot.graph.builtFrom.commit.slice(0, 12) }}</code> · {{ since(snapshot.graph.builtFrom.at) }} ·
-                  <span :class="{ 'text-warning': snapshot.graph.behind }">{{ graphFreshness }}</span>
-                </template>
-                <span v-else class="text-dimmed">{{ t.notBuilt }}</span>
-                <span v-if="!full && snapshot.graph.lastRun?.outcome === 'failed'" class="text-warning"> · {{ t.lastRun }} {{ t.runOutcomes.failed }}</span>
-              </div>
-              <div v-if="full" class="text-sm">
-                <span class="me-1.5 text-muted">{{ t.lastRun }}</span>
-                <template v-if="snapshot.graph.lastRun">
-                  <span :class="{ 'text-warning': snapshot.graph.lastRun.outcome === 'failed' }">{{ t.runOutcomes[snapshot.graph.lastRun.outcome] }}</span>
-                  · <code class="font-mono">{{ snapshot.graph.lastRun.commit.slice(0, 12) }}</code> · {{ since(snapshot.graph.lastRun.at) }}
-                  <DaemonReason v-if="snapshot.graph.lastRun.reason !== null" class="block text-sm leading-snug text-dimmed" :reason="snapshot.graph.lastRun.reason" />
-                </template>
-                <span v-else class="text-dimmed">{{ t.noRunYet }}</span>
-              </div>
-            </div>
-          </template>
-        </Widget>
-
-        <Widget page="project" widget="decisions" :title="t.recentDecisions">
-          <template #aside>
-            <span v-if="snapshot.decisions !== null" class="font-mono text-sm text-dimmed">{{ number(count(snapshot.decisions)) }}</span>
-          </template>
-          <template #default="{ full }">
-            <div v-if="snapshot.decisions === null" class="px-3.5 py-2.5 text-muted">{{ t.noAdrDirectory }}</div>
-            <div v-else-if="snapshot.decisions.items.length === 0" class="px-3.5 py-2.5 text-sm text-dimmed">{{ t.none }}</div>
-            <div v-else-if="!full" class="truncate px-3.5 py-2.5 text-sm">
-              <span lang="en">{{ snapshot.decisions.items[0]!.title ?? t.untitled }}</span>
-              <span v-if="count(snapshot.decisions) > 1" class="text-dimmed"> · {{ t.more(number(count(snapshot.decisions) - 1)) }}</span>
-            </div>
-            <div v-else class="flex flex-col gap-1.5 px-3.5 py-2.5">
-              <ul class="flex flex-col gap-1.5">
-                <FoldedList :items="snapshot.decisions.items" :by="(item) => item.path">
-                  <template #default="{ item }">
-                    <li class="text-sm"><span lang="en">{{ item.title ?? t.untitled }}</span> <code class="font-mono text-dimmed">{{ item.path }}</code></li>
+          <Widget page="project" widget="graph" :title="t.graph">
+            <template #aside>
+              <span v-if="!snapshot.graph.available" class="text-sm text-muted">{{ t.notAvailable }}</span>
+            </template>
+            <template #default="{ full }">
+              <div class="flex flex-col gap-1.5 px-3.5 py-2.5">
+                <DaemonReason v-if="full && snapshot.graph.reason !== null" class="block text-sm leading-snug text-dimmed" :reason="snapshot.graph.reason" />
+                <div class="text-sm" :class="{ truncate: !full }">
+                  <span class="me-1.5 text-muted">{{ t.builtFrom }}</span>
+                  <template v-if="snapshot.graph.builtFrom">
+                    <code class="font-mono">{{ snapshot.graph.builtFrom.commit.slice(0, 12) }}</code> · {{ since(snapshot.graph.builtFrom.at) }} ·
+                    <span :class="{ 'text-warning': snapshot.graph.behind }">{{ graphFreshness }}</span>
                   </template>
-                </FoldedList>
-              </ul>
-              <div v-if="snapshot.decisions.remainder > 0" class="text-sm text-dimmed">{{ t.more(number(snapshot.decisions.remainder)) }}</div>
-            </div>
-          </template>
-        </Widget>
-
-        <Widget page="project" widget="ci" :title="t.ci">
-          <template #aside>
-            <span v-if="isUnavailable(snapshot.ci)" class="text-sm text-muted">{{ t.notAvailable }}</span>
-            <span v-else class="font-mono text-sm text-dimmed">{{ snapshot.ci.forge.repository }}</span>
-          </template>
-          <template #default="{ full }">
-            <div v-if="isUnavailable(snapshot.ci)" class="px-3.5 py-2.5 text-sm leading-snug text-dimmed" :class="{ truncate: !full }">
-              <DaemonReason :reason="snapshot.ci.reason" />
-            </div>
-            <div v-else class="flex flex-col gap-0.5 px-3.5 py-2.5">
-              <div class="text-sm" :class="{ truncate: !full }">
-                <code class="font-mono">{{ snapshot.ci.defaultBranch.branch }}</code> ·
-                <span class="font-medium" :class="CI_TONE[snapshot.ci.defaultBranch.state.value]">{{ t.ciStates[snapshot.ci.defaultBranch.state.value] }}</span> ·
-                <template v-if="full">
-                  <a :href="snapshot.ci.defaultBranch.url" target="_blank" rel="noopener noreferrer" class="font-mono text-default underline">{{ snapshot.ci.defaultBranch.commit.slice(0, 12) }}</a>
-                  <template v-if="snapshot.ci.defaultBranch.at"> · {{ since(snapshot.ci.defaultBranch.at) }}</template>
-                </template>
-                <span v-else class="text-muted">{{ plural(count(snapshot.ci.requests), t.openRequestsCount) }}</span>
+                  <span v-else class="text-dimmed">{{ t.notBuilt }}</span>
+                  <span v-if="!full && snapshot.graph.lastRun?.outcome === 'failed'" class="text-warning"> · {{ t.lastRun }} {{ t.runOutcomes.failed }}</span>
+                </div>
+                <div v-if="full" class="text-sm">
+                  <span class="me-1.5 text-muted">{{ t.lastRun }}</span>
+                  <template v-if="snapshot.graph.lastRun">
+                    <span :class="{ 'text-warning': snapshot.graph.lastRun.outcome === 'failed' }">{{ t.runOutcomes[snapshot.graph.lastRun.outcome] }}</span>
+                    · <code class="font-mono">{{ snapshot.graph.lastRun.commit.slice(0, 12) }}</code> · {{ since(snapshot.graph.lastRun.at) }}
+                    <DaemonReason v-if="snapshot.graph.lastRun.reason !== null" class="block text-sm leading-snug text-dimmed" :reason="snapshot.graph.lastRun.reason" />
+                  </template>
+                  <span v-else class="text-dimmed">{{ t.noRunYet }}</span>
+                </div>
               </div>
-              <template v-if="full">
-                <div class="mt-1 text-sm text-muted">{{ t.openRequests }}</div>
-                <div v-if="snapshot.ci.requests.items.length === 0" class="text-sm text-dimmed">{{ t.none }}</div>
-                <ul v-else class="flex flex-col gap-0.5">
-                  <FoldedList :items="snapshot.ci.requests.items" :by="(item) => String(item.number)">
+            </template>
+          </Widget>
+        </div>
+
+        <div class="flex min-w-0 flex-col gap-2.5 *:last:flex-1">
+          <Widget page="project" widget="decisions" :title="t.recentDecisions">
+            <template #aside>
+              <span v-if="snapshot.decisions !== null" class="font-mono text-sm text-dimmed">{{ number(count(snapshot.decisions)) }}</span>
+            </template>
+            <template #default="{ full }">
+              <div v-if="snapshot.decisions === null" class="px-3.5 py-2.5 text-muted">{{ t.noAdrDirectory }}</div>
+              <div v-else-if="snapshot.decisions.items.length === 0" class="px-3.5 py-2.5 text-sm text-dimmed">{{ t.none }}</div>
+              <div v-else-if="!full" class="truncate px-3.5 py-2.5 text-sm">
+                <span lang="en">{{ snapshot.decisions.items[0]!.title ?? t.untitled }}</span>
+                <span v-if="count(snapshot.decisions) > 1" class="text-dimmed"> · {{ t.more(number(count(snapshot.decisions) - 1)) }}</span>
+              </div>
+              <div v-else class="flex flex-col gap-1.5 px-3.5 py-2.5">
+                <ul class="flex flex-col gap-1.5">
+                  <FoldedList :items="snapshot.decisions.items" :by="(item) => item.path">
                     <template #default="{ item }">
-                      <li class="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-sm">
-                        <a :href="item.url" target="_blank" rel="noopener noreferrer" class="font-mono text-default underline">#{{ item.number }}</a>
-                        <span lang="en" class="min-w-0 truncate">{{ item.title }}</span>
-                        <span v-if="item.draft" class="text-dimmed">({{ t.draft }})</span>
-                        · <code class="font-mono text-dimmed">{{ item.branch }}</code>
-                        <NuxtLink v-if="item.taskId" :to="{ path: '/task', query: { project, id: item.taskId } }" class="font-mono break-words text-primary hover:underline">{{ item.taskId }}</NuxtLink>
-                        · <span :class="CI_TONE[item.state.value]">{{ t.ciStates[item.state.value] }}</span>
-                      </li>
+                      <li class="text-sm"><span lang="en">{{ item.title ?? t.untitled }}</span> <code class="font-mono text-dimmed">{{ item.path }}</code></li>
                     </template>
                   </FoldedList>
                 </ul>
-                <div v-if="snapshot.ci.requests.remainder > 0" class="text-sm text-dimmed">{{ t.more(number(snapshot.ci.requests.remainder)) }}</div>
-                <div class="text-sm leading-snug text-dimmed">{{ t.ciReported(forgeName(snapshot.ci.forge)) }}</div>
-              </template>
-            </div>
-          </template>
-        </Widget>
+                <div v-if="snapshot.decisions.remainder > 0" class="text-sm text-dimmed">{{ t.more(number(snapshot.decisions.remainder)) }}</div>
+              </div>
+            </template>
+          </Widget>
+
+          <Widget page="project" widget="ci" :title="t.ci">
+            <template #aside>
+              <span v-if="isUnavailable(snapshot.ci)" class="text-sm text-muted">{{ t.notAvailable }}</span>
+              <span v-else class="font-mono text-sm text-dimmed">{{ snapshot.ci.forge.repository }}</span>
+            </template>
+            <template #default="{ full }">
+              <div v-if="isUnavailable(snapshot.ci)" class="px-3.5 py-2.5 text-sm leading-snug text-dimmed" :class="{ truncate: !full }">
+                <DaemonReason :reason="snapshot.ci.reason" />
+              </div>
+              <div v-else class="flex flex-col gap-0.5 px-3.5 py-2.5">
+                <div class="text-sm" :class="{ truncate: !full }">
+                  <code class="font-mono">{{ snapshot.ci.defaultBranch.branch }}</code> ·
+                  <span class="font-medium" :class="CI_TONE[snapshot.ci.defaultBranch.state.value]">{{ t.ciStates[snapshot.ci.defaultBranch.state.value] }}</span> ·
+                  <template v-if="full">
+                    <a :href="snapshot.ci.defaultBranch.url" target="_blank" rel="noopener noreferrer" class="font-mono text-default underline">{{ snapshot.ci.defaultBranch.commit.slice(0, 12) }}</a>
+                    <template v-if="snapshot.ci.defaultBranch.at"> · {{ since(snapshot.ci.defaultBranch.at) }}</template>
+                  </template>
+                  <span v-else class="text-muted">{{ plural(count(snapshot.ci.requests), t.openRequestsCount) }}</span>
+                </div>
+                <template v-if="full">
+                  <div class="mt-1 text-sm text-muted">{{ t.openRequests }}</div>
+                  <div v-if="snapshot.ci.requests.items.length === 0" class="text-sm text-dimmed">{{ t.none }}</div>
+                  <ul v-else class="flex flex-col gap-0.5">
+                    <FoldedList :items="snapshot.ci.requests.items" :by="(item) => String(item.number)">
+                      <template #default="{ item }">
+                        <li class="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-sm">
+                          <a :href="item.url" target="_blank" rel="noopener noreferrer" class="font-mono text-default underline">#{{ item.number }}</a>
+                          <span lang="en" class="min-w-0 truncate">{{ item.title }}</span>
+                          <span v-if="item.draft" class="text-dimmed">({{ t.draft }})</span>
+                          · <code class="font-mono text-dimmed">{{ item.branch }}</code>
+                          <NuxtLink v-if="item.taskId" :to="{ path: '/task', query: { project, id: item.taskId } }" class="font-mono break-words text-primary hover:underline">{{ item.taskId }}</NuxtLink>
+                          · <span :class="CI_TONE[item.state.value]">{{ t.ciStates[item.state.value] }}</span>
+                        </li>
+                      </template>
+                    </FoldedList>
+                  </ul>
+                  <div v-if="snapshot.ci.requests.remainder > 0" class="text-sm text-dimmed">{{ t.more(number(snapshot.ci.requests.remainder)) }}</div>
+                  <div class="text-sm leading-snug text-dimmed">{{ t.ciReported(forgeName(snapshot.ci.forge)) }}</div>
+                </template>
+              </div>
+            </template>
+          </Widget>
+        </div>
       </div>
     </template>
   </div>
