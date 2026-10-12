@@ -406,24 +406,27 @@ test('/binnacle:help names every skill of the plugin and no other, answers in th
 test('/binnacle:task takes run and carries the per-ticket process, is model-invocable, and gives the brief without run', () => {
   const skill = skillText('task');
   assert.doesNotMatch(skill, /^disable-model-invocation:/m);
-  assert.match(skill, /^argument-hint: "\[run\] <ticket path or URL, or task id: spec-slug\/NN or #number>"$/m);
-  assert.match(skill, /^description: .*\brun\b/m);
+  assert.match(skill, /^argument-hint: "<task id: spec-slug\/NN, or #number> \| run <ticket path, URL or task id>"$/m);
+  assert.match(skill, /^description: .*With run and a ticket, work that ticket through the whole per-ticket process/m);
+  const heading = skill.indexOf('\n## run\n');
+  assert.ok(heading >= 0, 'the run section');
   // The brief, unchanged without `run`, and still changing nothing.
-  const brief = skill.slice(0, skill.indexOf('## run'));
+  const brief = skill.slice(0, heading);
+  assert.match(brief, /When `\$ARGUMENTS` starts with the word `run`, follow \*run\* below instead/);
   assert.match(brief, /call `task_get` once/);
   assert.match(brief, /"To start it, in a fresh session:"/);
   assert.match(brief, /Change nothing: no branch, no worktree, no `Status:` edit/);
-  const run = skill.slice(skill.indexOf('## run'));
-  assert.ok(run.length > 0 && skill.includes('## run'));
+  const run = skill.slice(heading);
   assert.match(run, /Start it only when a human asks for it in this chat, or an autopilot brief does/);
   // Reading the Task, and what it refuses.
   assert.match(run, /through `task_get`/);
-  assert.match(run, /from the ticket file when the daemon is down/);
+  assert.match(run, /Where they would stop on `daemon\.unreachable` or `project\.not_registered`, go on instead: read it from the ticket file when the daemon is down/);
   assert.match(run, /`DONE` or `CANCELLED`, or with a dependency not met/);
   assert.match(run, /saying why/);
   // The branch: resumed, or new from an up-to-date main.
   assert.match(run, /exists unmerged [^\n]*never started afresh: check it out and rebase it onto `main`, reading each `### Question` and its `### Answer`/);
-  assert.match(run, /bring `main` up to date where it fast-forwards, saying so when it cannot be fetched, and branch `feat\/<slug>` from it/);
+  assert.match(run, /A `### Question` with no `### Answer` yet stops the run there/);
+  assert.match(run, /bring `main` up to date where it fast-forwards, saying so when it cannot be fetched or updated, and branch `feat\/<slug>` from it/);
   // The work and its checks.
   assert.match(run, /test-first through the seam the spec fixes/);
   assert.match(run, /typecheck and run the full suite, with the commands the project's instruction files or package manifest name/i);
@@ -652,7 +655,7 @@ test('/binnacle:checkpoint offers the current focus as a candidate when the tick
 });
 
 /** Epic 18: by hand as under autopilot, the same short process. */
-test('AGENTS.md, the workflow, the roadmap\'s rules and the issue-tracker conventions say what autopilot\'s brief says', () => {
+test('AGENTS.md, the workflow, the roadmap\'s rules and the issue-tracker conventions say what autopilot\'s brief says, and Per ticket points to /binnacle:task run', () => {
   assert.match(docText('AGENTS.md'), /an English subject of at most 72 characters, and a body only when the subject cannot carry the why/);
   const workflow = workflowText();
   // Epic 19: *Per ticket* starts from `/binnacle:task run`, which holds the process, and keeps no second copy of it.
