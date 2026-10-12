@@ -148,6 +148,13 @@ const manifestOf = (root: string): string => read(root, '.binnacle/project.yaml'
 const windowSection = (window: string): string => `\ntelemetry:\n  import:\n    window_days: ${window}\n`;
 /** The one question about the plan, and what each of its answers writes. */
 const PLAN_QUESTION = 'Write this plan? [Y/n]';
+/** The planning conventions and the block, in place, so that init plans none of them. */
+const CONVENTIONS_IN_PLACE = {
+  'docs/agents/issue-tracker.md': '# Issue tracker\n\n## Ticket header\n',
+  'docs/agents/triage-labels.md': '# Triage Labels\n',
+  'docs/agents/domain.md': '# Domain Docs\n',
+  'AGENTS.md': '## Agent skills\n',
+};
 
 test('binn --help lists binn init', () => {
   const result = spawnSync(process.execPath, [BINN, '--help'], { encoding: 'utf8' });
@@ -189,6 +196,9 @@ tracker:
 knowledge:
   context: CONTEXT.md
   docs: docs
+
+workflow:
+  provider: matt-pocock
 ${windowSection('90')}`,
   );
   // The whole file is shown before the one question.
@@ -229,6 +239,9 @@ tracker:
 knowledge:
   docs: docs
   adr: docs/adr
+
+workflow:
+  provider: matt-pocock
 ${windowSection('90')}`,
   );
 });
@@ -369,7 +382,7 @@ test('one question covers the whole plan: Enter writes exactly the planned files
   assert.match(read(root, '.codex/config.toml'), /^model = "o3"\n\[mcp_servers\.binnacle\]/);
   assert.match(read(root, 'docs/agents/issue-tracker.md'), /## Ticket header/);
   // The fixtures are untracked, so what shows is what the plan added to them and beside them.
-  assert.equal(git(root, 'status', '--porcelain'), '?? .binnacle/\n?? .codex/\n?? .mcp.json\n?? docs/\n');
+  assert.equal(git(root, 'status', '--porcelain'), '?? .binnacle/\n?? .codex/\n?? .mcp.json\n?? AGENTS.md\n?? docs/\n');
   assert.equal(commits(root), before);
 });
 
@@ -471,7 +484,7 @@ test('the plugin: Claude Code adds the package as a marketplace and installs bin
   for (const args of [add, install]) assert.ok(result.stdout.includes(`Running claude ${args.join(' ')}...`), result.stdout);
   // Claude Code's settings files are Claude Code's to write: binn init writes none.
   assert.equal(existsSync(join(home.home, '.claude')), false);
-  assert.equal(git(root, 'status', '--porcelain'), '?? .binnacle/\n?? .mcp.json\n?? docs/\n');
+  assert.equal(git(root, 'status', '--porcelain'), '?? .binnacle/\n?? .mcp.json\n?? AGENTS.md\n?? docs/\n');
 });
 
 test('the plugin: a failed marketplace add is reported, and the install is not attempted', (t) => {
@@ -624,17 +637,101 @@ test('the ticket-header section is appended to the issue tracker file once, and 
   assert.equal(commits(root), before);
 });
 
-test('without the Matt Pocock layout, init points at /setup-matt-pocock-skills and runs nothing', (t) => {
-  const home = makeHome(t);
-  const root = makeRepository(t, 'plain');
+const CONVENTION_FILES = [TRACKER_FILE, 'docs/agents/triage-labels.md', 'docs/agents/domain.md'];
 
-  const result = binnIn(home)(root, '\nn\n', 'init');
+for (const { provider, remote, title, cli } of [
+  { provider: 'local', remote: null, title: 'Local Markdown', cli: null },
+  { provider: 'github', remote: 'git@github.com:Acme/Planned.git', title: 'GitHub', cli: 'gh issue' },
+  { provider: 'gitlab', remote: 'https://gitlab.com/acme/planned.git', title: 'GitLab', cli: 'glab issue' },
+]) {
+  test(`on a bare repository with ${remote ? `a ${title}` : 'no forge'} remote, init plans the planning conventions for that tracker and the block in a new AGENTS.md, once`, (t) => {
+    const home = makeHome(t);
+    const root = makeRepository(t, `bare-${provider}`);
+    if (remote) git(root, 'remote', 'add', 'origin', remote);
+
+    const first = binnIn(home)(root, '\n\n', 'init');
+
+    assert.equal(first.status, 0, first.stderr);
+    const question = first.stdout.indexOf(PLAN_QUESTION);
+    for (const heading of [...CONVENTION_FILES, 'AGENTS.md'].map((path) => `Create ${path}`)) {
+      const shown = first.stdout.indexOf(heading);
+      assert.ok(shown >= 0 && shown < question, `${heading}\n${first.stdout}`);
+    }
+    assert.doesNotMatch(first.stdout, /setup-matt-pocock-skills/);
+    // The new manifest declares the workflow whose conventions the plan writes.
+    assert.match(manifestOf(root), /\nworkflow:\n  provider: matt-pocock\n/);
+
+    const tracker = read(root, TRACKER_FILE);
+    assert.ok(tracker.startsWith(`# Issue tracker: ${title}\n`), tracker);
+    if (cli) assert.match(tracker, new RegExp(`\`${cli} create`));
+    assert.match(tracker, /## When a skill says "publish to the issue tracker"/);
+    assert.match(tracker, /\n## Ticket header\n/);
+    assert.match(tracker, provider === 'local' ? /such as `01, 03`/ : /such as `#12, #15`/);
+    // The two planning conventions.
+    assert.match(tracker, /Epic brief, `docs\/specs\/<epic>\/brief\.md`/);
+    assert.match(tracker, /the problem, the outcome wanted, who it concerns, the systems it touches, constraints and open questions/);
+    assert.match(tracker, /`## Contested points`/);
+    assert.doesNotMatch(tracker, /\.scratch\//);
+
+    const labels = read(root, 'docs/agents/triage-labels.md');
+    for (const label of ['needs-triage', 'needs-info', 'ready-for-agent', 'ready-for-human', 'wontfix']) assert.match(labels, new RegExp(`\\| \`${label}\` +\\| \`${label}\` +\\|`));
+    const domain = read(root, 'docs/agents/domain.md');
+    assert.match(domain, /^# Domain Docs\n/);
+    assert.match(domain, /single-context/);
+    assert.doesNotMatch(domain, /CONTEXT-MAP\.md/);
+
+    const agents = read(root, 'AGENTS.md');
+    assert.match(agents, /\n## Agent skills\n\n### Issue tracker\n\n.+See `docs\/agents\/issue-tracker\.md`\.\n\n### Triage labels\n\n.+See `docs\/agents\/triage-labels\.md`\.\n\n### Domain docs\n\n.+See `docs\/agents\/domain\.md`\.\n$/);
+    assert.match(agents, provider === 'local' ? /Markdown files in Git under `docs\/specs\/<slug>\/`/ : new RegExp(`${title} Issues`));
+
+    const written = Object.fromEntries([...CONVENTION_FILES, 'AGENTS.md'].map((path) => [path, read(root, path)]));
+    const second = binnIn(home)(root, '', 'init');
+    assert.equal(second.status, 0, second.stderr);
+    assert.doesNotMatch(second.stdout, /Create |Append to|Write this plan/);
+    assert.match(second.stdout, /skipped\s+the Agent skills block: AGENTS\.md has it/);
+    for (const [path, text] of Object.entries(written)) assert.equal(read(root, path), text, path);
+  });
+}
+
+test('with only CLAUDE.md the block is appended there, and AGENTS.md is not created', (t) => {
+  const home = makeHome(t);
+  const claude = '# Claude Code Instructions\n\nKeep it short.';
+  const root = makeRepository(t, 'claude-only', { 'CLAUDE.md': claude });
+
+  const result = binnIn(home)(root, '\n\n', 'init');
 
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /\/setup-matt-pocock-skills/);
-  assert.match(result.stdout, /skipped\s+ticket-header section: no Matt Pocock layout/);
-  assert.equal(existsSync(join(root, 'docs')), false);
-  assert.equal(git(root, 'status', '--porcelain'), '');
+  assert.ok(result.stdout.includes('Append to the end of CLAUDE.md'), result.stdout);
+  assert.equal(existsSync(join(root, 'AGENTS.md')), false);
+  const extended = read(root, 'CLAUDE.md');
+  assert.ok(extended.startsWith(`${claude}\n\n## Agent skills\n\n### Issue tracker\n`), extended);
+  assert.match(result.stdout, /extended\s+CLAUDE\.md/);
+});
+
+test('with the convention files and the block present, only a missing ticket-header section is planned, and nothing else is touched', (t) => {
+  const home = makeHome(t);
+  const files = {
+    [TRACKER_FILE]: '# Issue tracker: GitHub\n\nOur own words.\n',
+    'docs/agents/triage-labels.md': '# Triage Labels\n\nOur own labels.\n',
+    'docs/agents/domain.md': '# Domain Docs\n\nOur own layout.\n',
+    'AGENTS.md': '# Agents\n\nKeep it simple.\n',
+    // The block in either instruction file counts: this one is the set's entry, importing AGENTS.md.
+    'CLAUDE.md': '@AGENTS.md\n\n## Agent skills\n\nOur own block.\n',
+  };
+  const root = makeRepository(t, 'own-conventions', files);
+
+  const result = binnIn(home)(root, '\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  const plan = result.stdout.slice(0, result.stdout.indexOf(PLAN_QUESTION));
+  assert.ok(plan.includes(`Append to the end of ${TRACKER_FILE}`), result.stdout);
+  assert.doesNotMatch(plan, /(Create|Append to the end of) (docs\/agents\/(triage-labels|domain)\.md|AGENTS\.md|CLAUDE\.md)/);
+  assert.match(result.stdout, /skipped\s+the Agent skills block: CLAUDE\.md has it/);
+  const tracker = read(root, TRACKER_FILE);
+  assert.ok(tracker.startsWith(`${files[TRACKER_FILE]}\n## Ticket header\n`), tracker);
+  // Only the ticket header is added to a file that exists: the planning conventions come with a new one.
+  assert.doesNotMatch(tracker, /Contested points/);
+  for (const path of ['docs/agents/triage-labels.md', 'docs/agents/domain.md', 'AGENTS.md', 'CLAUDE.md']) assert.equal(read(root, path), files[path as keyof typeof files], path);
 });
 
 test('a CLAUDE.md importing AGENTS.md is one instruction set; without the import there are two; neither is written', (t) => {
@@ -936,7 +1033,7 @@ test('a new manifest is offered the window answered: 90 by default, all, or a nu
 
     assert.match(stdout, /Claude Code: no sessions/);
     assert.match(stdout, /Codex: no sessions/);
-    assert.ok(manifestOf(root).endsWith(`knowledge:\n  docs: docs\n  specs: docs/specs\n${windowSection(window)}`), manifestOf(root));
+    assert.ok(manifestOf(root).endsWith(`knowledge:\n  docs: docs\n  specs: docs/specs\n\nworkflow:\n  provider: matt-pocock\n${windowSection(window)}`), manifestOf(root));
     assert.equal(readManifest(root).manifest.telemetry.import.windowDays, window === 'all' ? 'all' : Number(window));
     // The window is in the manifest the plan shows, before the one question, and is not asked after it.
     const shown = stdout.indexOf(windowSection(window));
@@ -1010,7 +1107,7 @@ test("on an empty repository the confirmed plan leaves a layout the Product Snap
   const codes = snapshot.attention.map(({ code }) => code);
   assert.ok(!codes.includes('tracker.issues_missing'), codes.join(', '));
   assert.ok(!codes.includes('roadmap.missing'), codes.join(', '));
-  assert.equal(snapshot.next.action?.command, '/grill-with-docs');
+  assert.equal(snapshot.next.action?.command, '/binnacle:roadmap');
 });
 
 test('an existing roadmap is left byte for byte, and one not in the format is named in the Summary with binn audit', (t) => {
@@ -1047,7 +1144,7 @@ test('an existing manifest gets the issues directory it names and a roadmap unde
 
   const bare = makeRepository(t, 'bare', { '.binnacle/project.yaml': 'version: 1\nproject:\n  id: bare\n' });
   const without = binnIn(home)(bare, '\n\n', 'init');
-  assert.ok(!existsSync(join(bare, 'docs')), without.stdout);
+  assert.ok(!existsSync(join(bare, 'docs/roadmap.md')), without.stdout);
   assert.match(without.stdout, /skipped\s+the roadmap: \.binnacle\/project\.yaml declares no knowledge\.docs/);
 });
 
@@ -1135,8 +1232,8 @@ test('the tools: each missing one is in the plan with its exact command, install
   assert.deepEqual(uv(), [SERENA, GRAPHIFY]);
   assert.deepEqual(npm(), [AST_GREP]);
   assert.deepEqual(readManifest(root).manifest.capabilities, { serena: true, graphify: true, ast_grep: true });
-  // The installs write nothing into the repository; the .gitignore is the first graph's, docs/ the layout's.
-  assert.equal(git(root, 'status', '--porcelain'), '?? .binnacle/\n?? .gitignore\n?? docs/\n');
+  // The installs write nothing into the repository; the .gitignore is the first graph's, docs/ and AGENTS.md the layout's and the conventions'.
+  assert.equal(git(root, 'status', '--porcelain'), '?? .binnacle/\n?? .gitignore\n?? AGENTS.md\n?? docs/\n');
 });
 
 test('the tools: one already on PATH is reported as found, nothing is installed for it, and the new manifest declares it', (t) => {
@@ -1414,6 +1511,7 @@ test('the servers: registering them creates or changes no file in the repository
     '.mcp.json': JSON.stringify({ mcpServers: { binnacle: {} } }),
     // Already ignored, so that the first graph's step writes nothing either.
     '.gitignore': 'graphify-out/\n',
+    ...CONVENTIONS_IN_PLACE,
   });
   const before = git(root, 'status', '--porcelain', '--untracked-files=all');
 
@@ -1454,7 +1552,7 @@ test('the skill plugins: with Claude Code detected and neither listed, the plan 
   // Claude Code is asked for its plugins once, for the binnacle plugin and the skill plugins alike.
   assert.equal(claude().filter((call) => call[1] === 'list').length, 1);
   assert.deepEqual(readManifest(root).manifest.capabilities, { matt_pocock_skills: true, ponytail: true });
-  assert.equal(git(root, 'status', '--porcelain'), '?? .binnacle/\n?? .mcp.json\n?? docs/\n');
+  assert.equal(git(root, 'status', '--porcelain'), '?? .binnacle/\n?? .mcp.json\n?? AGENTS.md\n?? docs/\n');
 });
 
 test('the skill plugins: one Claude Code already lists is reported, and nothing is installed for it', (t) => {
@@ -1679,7 +1777,10 @@ const VAULT_HEADING = 'Set the Obsidian vault in';
 test('the vault: the one vault Obsidian lists is proposed in the plan, and after a yes the settings file holds it, owner-only, with nothing written in the repository', (t) => {
   const home = makeHome(t);
   const [vault] = fakeObsidian(home, 'Notes');
-  const root = makeRepository(t, 'vaulted', { '.binnacle/project.yaml': 'version: 1\nproject:\n  id: vaulted\ntelemetry:\n  import:\n    window_days: 90\n' });
+  const root = makeRepository(t, 'vaulted', {
+    '.binnacle/project.yaml': 'version: 1\nproject:\n  id: vaulted\ntelemetry:\n  import:\n    window_days: 90\n',
+    ...CONVENTIONS_IN_PLACE,
+  });
   const before = git(root, 'status', '--porcelain');
 
   const result = binnIn(home)(root, '\n', 'init');
@@ -1891,7 +1992,7 @@ test('--plan --json takes its window from --window, or else the default, and the
 
 test('--plan --json with a manifest that declares a window says so, and an empty plan still has an id', async (t) => {
   const home = makeHome(t);
-  const root = makeRepository(t, 'settled', { '.binnacle/project.yaml': `version: 1\nproject:\n  id: settled\n${windowSection('30')}` });
+  const root = makeRepository(t, 'settled', { '.binnacle/project.yaml': `version: 1\nproject:\n  id: settled\n${windowSection('30')}`, ...CONVENTIONS_IN_PLACE });
 
   const json = await planJson(t, home, root, '--window', '7');
 
@@ -2147,7 +2248,7 @@ test('the skills: a skill set the manifest declares false is not planned', (t) =
     const calls = npx().map((call) => call.join(' '));
     assert.ok(!calls.includes(left.join(' ')) && calls.includes(kept.join(' ')), calls.join('\n'));
     assert.equal(calls.length, 4, calls.join('\n'));
-    assert.ok(!result.stdout.includes(left[2]!), result.stdout);
+    assert.ok(!result.stdout.includes(`skills add ${left[2]!}`), result.stdout);
   }
 });
 

@@ -214,10 +214,18 @@ test('binn audit: a repository with a context file and ADRs but no ticket-header
 
 test('binn audit: a partial Matt Pocock layout names what is missing, and a complete one is ok', (t) => {
   const root = fixture(t);
-  assert.match(finding(root, t, 'layout.files').reason, /No Matt Pocock layout/);
+  const none = finding(root, t, 'layout.files');
+  assert.match(none.reason, /No Matt Pocock layout/);
+  // binn init writes the convention files itself, so the setup is never a step.
+  for (const { recommendation } of [none, finding(root, t, 'layout.ticket_header')]) {
+    assert.match(recommendation!, /binn init/);
+    assert.doesNotMatch(recommendation!, /setup-matt-pocock-skills/);
+  }
   write(root, { 'docs/agents/issue-tracker.md': '# t\n\n## Ticket header\n\nx\n', 'docs/agents/domain.md': '# d\n' });
   const partial = finding(root, t, 'layout.files');
   assert.equal(partial.status, 'gap');
+  assert.match(partial.recommendation!, /binn init/);
+  assert.doesNotMatch(partial.recommendation!, /setup-matt-pocock-skills/);
   assert.match(partial.reason, /Missing: docs\/agents\/triage-labels\.md, docs\/specs\/<slug>\//);
   assert.doesNotMatch(partial.reason, /Missing:.*issue-tracker/);
   assert.equal(finding(root, t, 'layout.ticket_header').status, 'ok');

@@ -9,7 +9,7 @@ import { nextActionAttention, parseRoadmap } from '@binnacle/core';
 
 export const ISSUE_TRACKER = 'docs/agents/issue-tracker.md';
 
-/** The convention files `/setup-matt-pocock-skills` writes. Any of them present is the layout. */
+/** The convention files Matt Pocock Skills read, which `binn init` writes where missing. Any of them present is the layout. */
 export const MATT_POCOCK_FILES = [ISSUE_TRACKER, 'docs/agents/triage-labels.md', 'docs/agents/domain.md'];
 
 export const mattPocockFiles = (root: string): string[] => MATT_POCOCK_FILES.filter((path) => existsSync(join(root, path)));
@@ -42,7 +42,7 @@ Where the project stands: each epic's status and spec, and the current focus. Bi
 
 Nothing is planned yet.
 
-Next action: settle the first epic against the docs, by grilling it. \`/grill-with-docs\`
+Next action: turn the vision into a roadmap of epics. \`/binnacle:roadmap\`
 `;
 
 /** What keeps a roadmap's text from Binnacle's format, each as a sentence; empty when it is in the format. */

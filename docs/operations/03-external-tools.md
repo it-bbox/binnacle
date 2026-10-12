@@ -23,7 +23,7 @@ Matt Pocock Skills and Ponytail ship as Claude Code plugins. Init installs them 
 | Matt Pocock Skills | `matt_pocock_skills` | `claude plugin list --json` lists `mattpocock-skills@…` | `claude plugin install mattpocock-skills@claude-plugins-official --scope user` (Claude Code's official marketplace, nothing to add first) | `mattpocock/skills` |
 | Ponytail | `ponytail` | `claude plugin list --json` lists `ponytail@…` | `claude plugin marketplace add DietrichGebert/ponytail --scope user`, then `claude plugin install ponytail@ponytail --scope user` | `DietrichGebert/ponytail` |
 
-Claude Code is asked for its plugins once, for these and the `binnacle` plugin. A plugin it already lists, from any marketplace, is reported as found and left alone. A skill set declared `false` under `capabilities` is not proposed, to Claude Code or to any other harness. Without Claude Code detected, or without `claude` on `PATH`, no plugin is installed and the Summary says why. A manifest init creates declares `true` for a skill set it installs or finds. This does not replace `/setup-matt-pocock-skills`, which init still names when the project has no Matt Pocock layout.
+Claude Code is asked for its plugins once, for these and the `binnacle` plugin. A plugin it already lists, from any marketplace, is reported as found and left alone. A skill set declared `false` under `capabilities` is not proposed, to Claude Code or to any other harness. Without Claude Code detected, or without `claude` on `PATH`, no plugin is installed and the Summary says why. A manifest init creates declares `true` for a skill set it installs or finds. The conventions Matt Pocock Skills read, which `/setup-matt-pocock-skills` would write, init writes itself, each only where it is missing: `docs/agents/issue-tracker.md` for the tracker it detected, with the ticket header, `triage-labels.md`, `domain.md`, and the *Agent skills* block that points to them, in `AGENTS.md`, or in `CLAUDE.md` when only it exists (ADR-0042).
 
 Every other harness gets both sets as Binnacle's own skills reach it (ADR-0039): when `binn` detected a harness, the plan runs, for each set, `npx skills add <repository> -g -y --json`, then `npx skills remove -g -a claude-code [--skip-harness ids] -s <each skill the add installed> -y`, since Claude Code keeps the plugin. The removal names the skills the add's JSON lists, so the plan shows them as a placeholder. An add is read by what it installed, not by its exit status alone: the `skills` CLI exits non-zero and calls every skill failed when one harness fails, such as PromptScript, which has no global install, while it installs them into the others, so `binn init` then asks `npx skills list -g --json`, removes the set's skills it shows in Claude Code, and the Summary names the reason the add gave for that harness. An add that installed nothing is recorded as failed, its removal is skipped, and the Summary says so. Without `npx` on `PATH` the commands are printed instead.
 
@@ -68,7 +68,7 @@ Expected project flow:
 
 `grill-with-docs → to-spec → to-tickets`
 
-Run `setup-matt-pocock-skills` once per repository so tracker/domain-doc layout is explicit.
+`binn init` writes the tracker and domain-doc layout these skills read, so `setup-matt-pocock-skills` is not needed.
 
 Do not hardcode upstream implementation details into Binnacle; detect/configure via an adapter.
 

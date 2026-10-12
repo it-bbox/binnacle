@@ -14,6 +14,8 @@ Specs and issues for this repo live in Git under `docs/specs/`, not in `.scratch
   - `Status:` — lifecycle state from `docs/workflow/03-state-machines.md`
   - `Triage:` — role string from `triage-labels.md`
 - Comments and conversation history append to the bottom of the file under a `## Comments` heading
+- A grilling ends with an Epic brief, `docs/specs/<epic>/brief.md`: what it decided, in the owner's words, in five parts — the problem, the outcome wanted, who it concerns, the systems it touches, constraints and open questions. The owner reads it whole before `/to-spec`, which starts from it, and a Next action that grills an epic names its brief (`CONTEXT.md`, *Epic brief*)
+- A spec lists its contested points under a `## Contested points` heading: where requirements conflict or a choice was close, each with the option taken
 - The Task's Review goes under a `### Review` heading inside `## Comments`, and runs to the next heading of that level or above, so its own sub-headings are `####`. Binnacle reads it there, and a `DONE` ticket without one is the attention item `review.missing`, unless its `Triage:` is `ready-for-human`: the owner's own work, such as a demonstration, has no review
 - The Review is short: a finding to fix in full, with its place and its fix; a finding kept in one line, with its reason. It may be committed before or after its fixes: Binnacle reads review and rework from the runs (`CONTEXT.md`, *Review run*, *Rework run*)
 - The acceptance criterion "checked in a browser" belongs only to a ticket that changes the dashboard (`apps/dashboard`); `/to-tickets` writes it there alone

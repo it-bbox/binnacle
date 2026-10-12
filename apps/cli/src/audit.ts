@@ -183,7 +183,7 @@ function mattPocockLayout(root: string): Finding[] {
       area,
       status: 'gap',
       reason: `No Matt Pocock layout: ${missing.join(', ')} are all missing.`,
-      recommendation: 'Run /setup-matt-pocock-skills in your agent harness to set it up.',
+      recommendation: 'Run binn init, which writes the convention files; /to-spec writes the spec directories.',
     });
   } else {
     found.push({
@@ -191,7 +191,7 @@ function mattPocockLayout(root: string): Finding[] {
       area,
       status: 'gap',
       reason: `The Matt Pocock layout is partial. Present: ${[...present, ...slugs.map((slug) => `docs/specs/${slug}/`)].join(', ')}. Missing: ${missing.join(', ')}.`,
-      recommendation: 'Add only the missing parts; /setup-matt-pocock-skills writes the convention files and /to-spec the spec directories.',
+      recommendation: 'Add only the missing parts: binn init writes the missing convention files, and /to-spec the spec directories.',
     });
   }
   const tracker = present.includes(ISSUE_TRACKER);
@@ -203,7 +203,7 @@ function mattPocockLayout(root: string): Finding[] {
           area,
           status: 'gap',
           reason: `${ISSUE_TRACKER} has no ticket-header convention${tracker ? '' : ' (the file is missing)'}, which Binnacle reads a ticket's state and dependencies from (ADR-0024).`,
-          recommendation: `${tracker ? 'R' : 'Once /setup-matt-pocock-skills has written the file, r'}un binn init, which offers to add the section.`,
+          recommendation: `Run binn init, which offers ${tracker ? 'to add the section' : 'the file with the section'}.`,
         },
   );
   return found;

@@ -45,11 +45,9 @@ Recommended Standard profile:
 
 ### 5. Matt Pocock project setup
 
-Run the upstream setup skill in the project once, then follow the project-design flow:
+`binn init` has written the conventions the upstream setup skill would write, so follow the project-design flow:
 
 ```text
-setup-matt-pocock-skills
-        ↓
 grill-with-docs
         ↓
 to-spec

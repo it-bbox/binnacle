@@ -5,7 +5,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, posix, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { isIgnored, readGitFacts, workingTree, type GitRemote } from '@binnacle/adapters';
-import { forgeRemote, instructionSets, ROLES, TASK_STATES, type ImportWindow, type ProjectManifest, type TrackerProvider } from '@binnacle/core';
+import { forgeRemote, instructionSets, type ImportWindow, type ProjectManifest, type TrackerProvider } from '@binnacle/core';
 import {
   credentialsKey,
   credentialsPath,
@@ -29,7 +29,8 @@ import {
 import { EXIT, type ExitCode } from './exit.ts';
 import { daemonAddress, detected, exporters, NO_EXPORT, settingsText } from './export.ts';
 import { isRecord, sessionHistory } from './history.ts';
-import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, mattPocockFiles, ROADMAP_SKELETON, roadmapGaps } from './layout.ts';
+import { agentSkillsBlock, AGENT_SKILLS_HEADING, DOMAIN_FILE, issueTrackerFile, ticketHeaderSection, TRIAGE_LABELS_FILE } from './conventions.ts';
+import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, MATT_POCOCK_FILES, mattPocockFiles, ROADMAP_SKELETON, roadmapGaps } from './layout.ts';
 import { register } from './project-commands.ts';
 import { binnacleSkills, CONFIG_HOME, declaredCapabilities, INSTALLED_SKILLS, mcpSources, onPath, PACKAGE_DIR, registeredWith, SKILLS_COPY, tilde, TOOLS, VSCODE_USER_DIRECTORY, type Tool } from './tools.ts';
 
@@ -136,7 +137,7 @@ export async function init(
     skillsStep(session, harnesses, tools, options.skipHarness ?? []);
     session.say('');
     // The manifest as it is now, or the tracker it would propose: the plan is not yet written.
-    mattPocockStep(session, declaredManifest(session.root)?.tracker.provider ?? forgeRemote(git.remotes)?.provider ?? 'local');
+    conventionsStep(session,declaredManifest(session.root)?.tracker.provider ?? forgeRemote(git.remotes)?.provider ?? 'local');
     session.say('');
     if (manifest !== 'invalid') {
       layoutStep(session, manifest === 'new' ? { ...NEW_LAYOUT, issues: forgeRemote(git.remotes) ? null : NEW_LAYOUT.issues } : declaredLayout(declaredManifest(session.root)!));
@@ -338,7 +339,8 @@ function proposeManifest(root: string, remotes: GitRemote[], capabilities: strin
     .map(([key, path]) => `\n  ${key}: ${path}`);
   if (knowledge.length > 0) sections.push(`knowledge:${knowledge.join('')}`);
 
-  if (mattPocockFiles(root).length > 0) sections.push('workflow:\n  provider: matt-pocock');
+  // The plan writes the conventions Matt Pocock Skills read where they are missing (conventionsStep).
+  sections.push('workflow:\n  provider: matt-pocock');
 
   if (capabilities.length > 0) sections.push(`capabilities:${capabilities.map((name) => `\n  ${name}: true`).join('')}`);
 
@@ -868,120 +870,42 @@ function layoutStep(session: Session, { issues, docs }: Layout): void {
 }
 
 /**
- * Step 6: `/to-tickets` learns the ticket header (ADR-0024) from the issue tracker file, so the
- * section is offered as an append to it. `provider` is the tracker the manifest declares, or
- * the one it would propose.
+ * Step 6: the planning conventions Matt Pocock Skills read, in place of `/setup-matt-pocock-skills`
+ * (ADR-0042): each convention file that is missing, the issue tracker's with its ticket header
+ * (ADR-0024), and the *Agent skills* block that points to them, in `AGENTS.md`, in `CLAUDE.md`
+ * when only it exists, or in a new `AGENTS.md`. A file that exists only gets the ticket-header
+ * section it lacks, and a block in either instruction file is left as it is. `provider` is the
+ * tracker the manifest declares, or the one it would propose.
  */
-function mattPocockStep(session: Session, provider: TrackerProvider): void {
-  const what = 'ticket-header section';
+function conventionsStep(session: Session, provider: TrackerProvider): void {
+  const texts: Record<string, string> = {
+    [ISSUE_TRACKER]: issueTrackerFile(provider),
+    'docs/agents/triage-labels.md': TRIAGE_LABELS_FILE,
+    'docs/agents/domain.md': DOMAIN_FILE,
+  };
   const found = mattPocockFiles(session.root);
-  if (found.length === 0) {
-    session.say(
-      `There is no Matt Pocock layout here: no ${ISSUE_TRACKER}, nor its sibling convention files. ` +
-        'Run /setup-matt-pocock-skills in your agent harness to set it up; binn init runs nothing for you.',
-    );
-    return record(session, 'skipped', `${what}: no Matt Pocock layout; /setup-matt-pocock-skills sets it up`);
+  const missing = MATT_POCOCK_FILES.filter((path) => !found.includes(path));
+  if (missing.length > 0) session.say(`The planning skills read their conventions from ${missing.join(', ')}, which the plan creates.`);
+  for (const path of missing) planFile(session, path, texts[path]!);
+  if (found.includes(ISSUE_TRACKER)) {
+    if (hasTicketHeaderSection(session.root)) record(session, 'skipped', `ticket-header section: ${ISSUE_TRACKER} has it`);
+    else planFile(session, ISSUE_TRACKER, ticketHeaderSection(provider));
   }
-  session.say(`Matt Pocock layout: ${found.join(', ')}.`);
-  if (!found.includes(ISSUE_TRACKER)) {
-    session.say(`${ISSUE_TRACKER} is missing, so there is nothing to extend. /setup-matt-pocock-skills writes it.`);
-    return record(session, 'skipped', `${what}: no ${ISSUE_TRACKER}`);
-  }
-  if (hasTicketHeaderSection(session.root)) {
-    session.say(`${ISSUE_TRACKER} already has its ticket-header section.`);
-    return record(session, 'skipped', `${what}: ${ISSUE_TRACKER} has it`);
-  }
-  planFile(session, ISSUE_TRACKER, ticketHeaderSection(provider));
+
+  const files = instructionFiles(session.root);
+  const holder = Object.keys(files).find((name) => AGENT_SKILLS_HEADING.test(files[name]!));
+  if (holder) return record(session, 'skipped', `the Agent skills block: ${holder} has it`);
+  const target = 'CLAUDE.md' in files && !('AGENTS.md' in files) ? 'CLAUDE.md' : 'AGENTS.md';
+  planFile(session, target, target in files ? agentSkillsBlock(provider) : `# Agent Instructions\n${agentSkillsBlock(provider)}`);
 }
 
-const ISSUE_NUMBERS = 'the issue numbers of the issues it waits for, such as `#12, #15`';
-const PATH_OR_LINK = 'its path, such as `docs/specs/<slug>/spec.md`, or a link to that file pinned to a commit';
-const KEEP_CURRENT = 'Binnacle reports any disagreement between the two, so keep the line current when you close the issue.';
-/** A question's options, alike on every tracker. */
-const QUESTION_OPTIONS =
-  'After its text, a question lists its options, each with its cost, the recommended one first and marked "(recommended)"; ' +
-  'the owner chooses one or writes their own answer.';
-const REMOTE_QUESTIONS =
-  'A question only the owner can answer, and its answer, are issue comments that start with `### Question` and `### Answer`; ' +
-  `the answer is written by the owner or \`/binnacle:answer\`, never by an agent. ${QUESTION_OPTIONS}`;
-
-/**
- * What the section says differently on each tracker (ADR-0024). `rule` follows the fields: on
- * the local tracker, the unique slug a ticket's branch needs; on a remote one, the spec's closed-issue states.
- * `questions` says where a question for the owner and its answer go (ADR-0040).
- */
-const CONVENTIONS: Record<TrackerProvider, { ticket: string; blockedBy: string; example: string; spec: string; rule: string; questions: string }> = {
-  local: {
-    ticket: 'ticket',
-    blockedBy: 'the numbers of the tickets in the same spec it waits for, such as `01, 03`',
-    example: '01, 03',
-    spec: 'its path, such as `docs/specs/<slug>/spec.md`',
-    rule:
-      "A ticket's slug, its file name without the number, is unique across every spec's tickets: it names the ticket's branch, `feat/<slug>`, " +
-      'and Binnacle credits the work on a branch two tickets share to neither.',
-    questions:
-      'A question only the owner can answer goes under a `### Question` heading inside `## Comments`, in a commit that changes only the ticket, on the branch where the work is; ' +
-      "the owner's reply goes right after it under `### Answer`, written by the owner or `/binnacle:answer`, never by an agent. " +
-      `Binnacle reads them from the Task's branch while it is unmerged. ${QUESTION_OPTIONS}`,
-  },
-  github: {
-    ticket: 'issue body',
-    blockedBy: ISSUE_NUMBERS,
-    example: '#12, #15',
-    spec: PATH_OR_LINK,
-    rule:
-      'Closing an issue outranks its `Status:` line: an issue closed as completed is done, and one closed as not planned or as a duplicate is cancelled, whatever the line says. ' +
-      `An issue closed with no reason is cancelled when its \`Status:\` says \`CANCELLED\`, and done otherwise. ${KEEP_CURRENT}`,
-    questions: REMOTE_QUESTIONS,
-  },
-  gitlab: {
-    ticket: 'issue body',
-    blockedBy: ISSUE_NUMBERS,
-    example: '#12, #15',
-    spec: PATH_OR_LINK,
-    rule:
-      'Closing an issue outranks its `Status:` line, and GitLab reports no reason for closing: a closed issue is done, unless its `Status:` says `CANCELLED`. ' +
-      `Set \`Status: CANCELLED\` before closing work that was abandoned. ${KEEP_CURRENT}`,
-    questions: REMOTE_QUESTIONS,
-  },
-};
-
-/** The convention `/to-tickets` writes by, for the tracker in use. It leads with a blank line, after the file's last section. */
-function ticketHeaderSection(provider: TrackerProvider): string {
-  const { ticket, blockedBy, example, spec, rule, questions } = CONVENTIONS[provider];
-  const states = TASK_STATES.map((state) => `\`${state}\``).join(', ');
-  return `
-## Ticket header
-
-Binnacle reads a ticket's state, dependencies and spec from its header: these lines, one per line, at the top of every ${ticket}, before anything else. Write them in every ticket, and keep \`Status:\` current.
-
-- \`Status:\` — the ticket's state, one of ${states}.
-- \`Blocked by:\` — ${blockedBy}, or \`None\`.
-- \`Spec:\` — the spec it implements, as ${spec}.
-- \`Roles:\` — the roles the Task needs, comma-separated, from ${ROLES.join(', ').replace(/, (\w+)$/, ' and $1')}, such as \`Developer, Reviewer, Security\`. Optional: without it a Task needs a Developer and a Reviewer. Binnacle shows its own suggested roles beside the line and never changes it.
-
-${rule}
-
-${questions}
-
-For example:
-
-\`\`\`text
-Status: READY
-Blocked by: ${example}
-Spec: \`docs/specs/<slug>/spec.md\`
-Roles: Developer, Reviewer, Security
-\`\`\`
-`;
-}
-
-/** Step 7: the agent instruction files, reported as the sets an agent reads. Nothing is written to either. */
+/** Step 7: the agent instruction files, reported as the sets an agent reads. */
 function instructionsStep(session: Session): void {
   const files = instructionFiles(session.root);
   const sets = instructionSets(files);
   if (sets.length === 0) return session.say('There is no AGENTS.md or CLAUDE.md, so there are no agent instructions to report.');
   const count = sets.length === 1 ? 'one instruction set' : 'two instruction sets';
-  session.say(`Agent instructions: ${count}: ${describeSets(sets)}. binn init writes nothing to them.`);
+  session.say(`Agent instructions: ${count}: ${describeSets(sets)}.`);
 }
 
 /**
