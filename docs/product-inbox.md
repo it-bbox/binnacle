@@ -113,3 +113,7 @@ Ways to weigh:
 ## A unit that uses systemd's specifiers (2026-10-13)
 
 Binnacle reads a systemd unit's `Environment=BINNACLE_HOME=` literally. A unit written by hand that says `%h/.binnacle`, as the one an agent session wrote on the owner's machine on 2026-10-09 does, reads as serving `…/%h/.binnacle`, so `binn daemon autostart` calls autostart off for `~/.binnacle`. Harmless: nothing is changed, and `binn daemon autostart on` replaces such a unit with Binnacle's own, written with absolute paths. Expanding `%h` and the other specifiers would fix it for units written by hand, which are rare; likely not worth doing.
+
+## The current epic is read from the table's order (2026-10-13)
+
+With epic 17 at `tickets` and autopilot running it, the dashboard's overview showed epic 12 as the current epic, with no spec and no progress. `currentEpic` takes the first `in progress` epic, else the first that is not `done` in the table's order, and epic 12 comes before 17 there; Binnacle's alternative "grill epic 12" came from the same rule. The table's order is dependency, not what the owner works on. A fix: take the furthest-along status first, `in progress`, then `tickets`, then `spec`, then `not started`, and the table's order only between equals. Epic 12's title, *Audit, completed*, also reads like a status on the dashboard; renaming it was not chosen for now. After the release.
