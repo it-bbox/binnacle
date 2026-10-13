@@ -8,10 +8,10 @@ Roles: Developer, Reviewer
 
 **What to build:** the rest of the user guides read easily and match the published package, in both languages (spec, *The user guides*, *Install names in the docs*). The external tools guide, the security and resilience guide and the installation checklist are reworked as ticket 05 reworks its three, and checked against the current behaviour; installation is `npm i -g @it-bbox/binnacle`, with `npx -p @it-bbox/binnacle binn` for a one-off run. `CONTRIBUTING.md` gains the release: the build, the tarball test, and the owner's publishing steps — `npm login`, then `npm publish --access public` from the built package's directory. Each Russian twin is updated in the same change.
 
-- [ ] No paragraph in these pages, in either language, runs past about six lines; enumerations are lists or tables.
-- [ ] The installation checklist installs from npm and works as written on a clean machine, as ticket 03's tarball test drives it.
-- [ ] `CONTRIBUTING.md` and its twin give the build, the test and the publishing steps.
-- [ ] The twin and link test passes.
+- [x] No paragraph in these pages, in either language, runs past about six lines; enumerations are lists or tables.
+- [x] The installation checklist installs from npm and works as written on a clean machine, as ticket 03's tarball test drives it.
+- [x] `CONTRIBUTING.md` and its twin give the build, the test and the publishing steps.
+- [x] The twin and link test passes.
 
 ## Comments
 
@@ -35,6 +35,29 @@ Roles: Developer, Reviewer
 - `binn project register` in a repository without a manifest says "Start one from templates/project/project.yaml.example", a file only a checkout has. A user from npm runs `binn init` instead. A Product session can put the message's fix in the product inbox.
 - The plugin's skills still point to "the README's setup section (*Install*, and *From this repository* until the npm package is published)", as ticket 04's review kept. The pointer still leads to the right sections; dropping the clause changes the plugin's files, which this ticket's guides do not cover.
 
+- The autostart service starts the daemon with `BINNACLE_HOME` and `PATH` only (`apps/daemon/src/service.ts`), so `BINNACLE_GITHUB_TOKEN`, `BINNACLE_GITLAB_TOKEN`, `BINNACLE_PORT` and `BINNACLE_GIT_TIMEOUT_MS` never reach it. The guides now say so and send tokens to `credentials.json`; whether the service should carry them is a Product question for the inbox.
+
 ### For ticket 07
 
 The release steps are `CONTRIBUTING.md`'s *Releasing*: the tarball test or CI's `tarball-live` job green, then `npm login`, `cd apps/cli/dist`, `npm publish --access public`, and `npm view @it-bbox/binnacle version`. The clean install from the registry follows the installation checklist's steps 1 to 5.
+
+### Review
+
+A sub-agent reviewed the branch against `main` on both axes. It traced each claim of the three guides and the new `CONTRIBUTING.md` sections to the code, compared each page with its version on `main` and each twin with its English page sentence by sentence, checked every link and anchor as GitHub slugs them, and ran the twin and link test, `pack.test.ts` and the typecheck.
+
+**Standards**
+
+1. **ADR-0013 cited for "never reads a secret from a manifest"** (`04-security-resilience.md`, *Secrets*): the ADR covers the tracker's read-only access only. **Fixed**: the citation dropped, in both languages.
+2. **Enumerations left inline**: the build's contents (`CONTRIBUTING.md`, *Releasing*), the `0600` files (*File permissions*) and the directories kept out of the graph (`03-external-tools.md`, *Graphify*); "the README and its `package.json`" read as the README's. **Fixed**: each is a list, and the build writes "a `package.json`", in both languages.
+3. Authorship, commit subjects, scope and dependencies: no finding.
+
+**Spec**
+
+1. **The environment variables do not reach a daemon autostart runs**: the service passes `BINNACLE_HOME` and `PATH` only (`apps/daemon/src/service.ts`), so a token in the shell never reaches it. Carried over from `main`. **Fixed**: the checklist's *Environment variables* and the security page's *Tracker credentials* say so and send tokens to the credentials file, in both languages. The service not passing them is in *For the owner*.
+2. **CI from a `gitlab.com` remote**: the checklist gave the environment token to `github.com` only, while `ci.ts` takes the provider's variable on its default host. **Fixed**: `github.com` or `gitlab.com` take the provider's variable, and `BINNACLE_GITLAB_TOKEN`'s row names the CI of a `gitlab.com` remote, in both languages.
+3. ***What telemetry keeps* stated a policy as facts**: the store keeps no tool names, launch profile or Task ids, and no content-level diagnostic exists. **Fixed**: the page lists what `store.ts` keeps, and says a content-level diagnostic, if one is added, must be an opt-in.
+4. **Dropped without a note**: "a vault set after a failed run gets no report until the next successful one" (`vault.ts`). **Fixed**: restored in the checklist, in both languages.
+5. **Upgrade and release gaps**: a new session is what loads the refreshed skills; a second release needs its version raised first. **Fixed**: the upgrade's plugin step and *Releasing*'s first step say so, in both languages.
+6. **Minor**: the store's SQLite side files are covered by the home's `0700`, not by `0600`; "уже авторизованным" in two Russian pages; the checklist's twin lacked "instead" for the development link. **Fixed**.
+
+Typecheck is clean and `pnpm test` passes (832); the tarball test passes on Linux.
