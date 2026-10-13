@@ -2,91 +2,86 @@
 
 _Русская версия: [01-new-project.ru.md](01-new-project.ru.md)._
 
-## User workflow
+## The short path
 
-The short path, as the README gives it:
+1. `git init` — create the repository.
+2. `binn init` — one plan of everything it sets up, confirmed once.
+3. `/binnacle:roadmap` — the vision and the epics.
+4. `/binnacle:product` — the first Product session.
 
-```text
-git init
-    ↓
-binn init
-    ↓
-/binnacle:roadmap
-    ↓
-/binnacle:product
-```
+Then each epic goes `/grill-with-docs` → `/to-spec` → `/to-tickets`, and each ticket `/binnacle:task run <ticket>`, in a session of its own. In a harness other than Claude Code, each `/binnacle:<action>` is `binnacle-<action>`: see [Working from another harness](06-other-harnesses.md#binnacles-skills-in-another-harness).
 
-### 1. Create repository
+## 1. Create the repository
 
-Run `git init`, and choose a GitHub/GitLab remote where appropriate.
+Run `git init`. If the project will live on GitHub or GitLab, add the remote now: `binn init` reads the tracker from it. Without a remote, the tracker is local, and tickets are Markdown files under `docs/specs/`.
 
-### 2. Initialize Binnacle
+## 2. Set it up with `binn init`
 
-Target command:
+Run `binn init` in the repository. It works everything out first, shows it as one plan and asks once: Enter or `y` writes it, anything else writes nothing (ADR-0034). It never overwrites a file, extends one only by the section the plan shows, and never commits. Review and commit what it wrote yourself.
 
-```bash
-binn init
-```
+Before the plan, it asks up to two questions:
 
-Expected responsibilities:
+- **The import window.** It shows how many Claude Code and Codex sessions it found in this repository, and the date of the oldest. Then it asks how much of that history the daemon imports: 90 days by default, another number of days, or `all`. `--window <days|all>` answers it unasked.
+- **Autostart.** Where it is available and not yet on, it asks whether the daemon starts at login. A yes makes `binn daemon autostart on` the plan's last item.
 
-- create `.binnacle/project.yaml`;
-- detect Git remote/tracker;
-- register project locally;
-- install/configure Binnacle MCP/client integration;
-- check required/recommended tools;
-- register the Binnacle MCP server in the config of every detected harness;
-- configure telemetry where supported;
-- report how much harness session history was found and how far back it goes, then ask how much to import: a number of days, 90 by default, or everything;
-- create minimal project documentation hooks/templates;
-- never overwrite an existing file, and extend one only by a section shown in the plan it asks to confirm once (ADR-0034).
+For a new repository, the plan holds:
 
-What the plan holds, item by item, is in [Existing project](02-existing-project-adopt.md#what-binn-audit-and-binn-init-do), *What `binn audit` and `binn init` do*.
+- `.binnacle/project.yaml`, the manifest: the tracker, the docs, the tools found or to install, and the import window;
+- `docs/specs/` for local tickets, and a `docs/roadmap.md` skeleton whose Next action is `/binnacle:roadmap`;
+- the planning conventions under `docs/agents/`, and the *Agent skills* block in `AGENTS.md` that points to them;
+- the `binnacle` MCP server in the project file of each harness it detects, such as `.mcp.json` for Claude Code;
+- outside the repository: the `binnacle` plugin and Binnacle's skills, the workflow tools and their MCP servers, the OpenTelemetry export, the Obsidian vault, and the project's registration with a running daemon.
 
-#### From the chat
-
-Setup works from the chat as well as from a terminal. In Claude Code, `/binnacle:init [path]` runs `binn init --plan --json`, shows the same plan in the chat, every item in full, with the session history and the import window it uses, and asks once; name another window there to see the plan again with it. Only your yes in the chat writes it, through `binn init --apply <id>`, which refuses a plan that changed since it was shown, and the skill then shows the new plan and asks again (ADR-0037). The skill needs no daemon and never commits: review and commit init's writes yourself, as after a terminal run. With the daemon stopped, registration is left out of the plan, and `/binnacle:daemon start` then `/binnacle:register` adds it. The chat asks nothing about autostart, so its plan never turns it on: its notes name `binn daemon autostart on` instead. When init writes `.mcp.json`, the skill ends by saying to open a new session in the repository and approve the project's `binnacle` server: Claude Code reads `.mcp.json` only when a session starts. The skill is there once the `binnacle` plugin is installed, which the first `binn init` on this machine does at user scope.
-
-### 3. From a vision to a roadmap
-
-Run `/binnacle:roadmap` (`binnacle-roadmap` in another harness). It reads `<knowledge.docs>/vision.md`; when there is none, it asks what the project is, for whom and what it leaves out, one question at a time, and writes the vision in the owner's words on their yes. It then proposes the epics in dependency order, each with a line of scope, and on the owner's yes writes the roadmap's rows, its `## Epics` section and a Next action that grills the first epic, and commits only those files, never pushing. It needs no daemon. Run again, it proposes additions and reorders among the epics not started, and never touches a `done` epic or a row that links a spec.
-
-### 4. Product starts
-
-Open a fresh supported coding-agent chat and invoke logical `/product`, then `/daily` or current planning action. In Claude Code these are `/binnacle:product` and `/binnacle:daily`. The Next action the roadmap skill wrote grills the first epic.
-
-### 5. Each epic
-
-`binn init` has written the conventions the upstream setup skill would write, so each epic the roadmap lists follows the project-design flow, starting from the Next action:
-
-```text
-grill-with-docs
-        ↓
-to-spec
-        ↓
-to-tickets
-```
-
-Each ticket is then worked in a session of its own with `/binnacle:task run <ticket>`. Do not make `binn init` secretly execute the interactive grill/spec workflow.
+Each item in detail: [Existing project](02-existing-project-adopt.md#the-plan-item-by-item), *The plan, item by item*. After the plan, a GitHub or GitLab tracker is read once, and init says whether it was readable and, if not, how to give it a read-only token. The Summary then lists what was created, extended, run, failed or skipped.
 
 ### Workflow tools
 
-`binn init` installs or verifies the recommended Standard profile:
+The plan installs what is missing of the Standard setup, outside the repository. A tool already installed, or declared `false` under `capabilities` in the manifest, is left alone. No installer script is ever run: only package managers and the harnesses' own CLIs.
 
-- Matt Pocock Skills;
-- Ponytail;
-- Serena;
-- Graphify;
-- Context7;
-- ast-grep;
-- optional Obsidian integration.
+| Tool | How `binn init` installs it | Its MCP server |
+| --- | --- | --- |
+| Matt Pocock Skills | Claude Code's plugin CLI; the `skills` CLI for other harnesses | — |
+| Ponytail | Claude Code's plugin CLI; the `skills` CLI for other harnesses | — |
+| Serena | `uv tool install` | registered with each detected harness |
+| Graphify | `uv tool install`, then the first graph is built | registered for this project only |
+| Context7 | nothing to install | registered with each detected harness |
+| ast-grep | npm | — |
+| Obsidian | not installed: init sets the vault when Obsidian lists exactly one | — |
 
-## Installation philosophy
+Without `uv`, init names the command that installs it, and leaves Serena and Graphify out.
 
-`binn init` should distinguish:
+### From the chat
 
-- **required** — Binnacle own pieces;
-- **recommended** — context/workflow tooling;
-- **optional** — Obsidian or extra Graphify capabilities.
+In Claude Code, `/binnacle:init [path]` does the same from the chat:
 
-If a third-party tool already exists and is configured, do not reinstall blindly.
+1. It runs `binn init --plan --json` and shows the whole plan, every item in full, with the session history and the import window. Name another window, or a harness to keep out of Binnacle's skills, to see the plan again with it.
+2. Only your yes in the chat writes it, through `binn init --apply <id>`. If the plan changed since it was shown, that writes nothing (`init.plan_changed`), and the skill shows the new plan and asks again (ADR-0037).
+3. It shows what init printed, the Summary included.
+
+The skill needs no daemon and never commits. With the daemon stopped, registration is left out of the plan: `/binnacle:daemon start`, then `/binnacle:register`, adds it. The chat asks nothing about autostart, so its plan never turns it on; its notes name `binn daemon autostart on` instead.
+
+When init writes `.mcp.json`, open a new session in the repository and approve the project's `binnacle` server: Claude Code reads `.mcp.json` only when a session starts. The skill itself comes with the `binnacle` plugin, which the first `binn init` on a machine installs at user scope, so run that first one at a terminal.
+
+## 3. From a vision to a roadmap
+
+Run `/binnacle:roadmap`. It needs no daemon, but it needs the manifest and the roadmap `binn init` writes, and stops without them.
+
+1. It reads `<knowledge.docs>/vision.md`. Without one, it asks what the project is, who it is for and what it leaves out, one question at a time, and writes the vision in your words on your yes.
+2. It proposes the epics in dependency order, the foundation first, each with one line of scope. Change, drop, merge or add epics before you say yes.
+3. On your yes, it writes the roadmap's rows, its `## Epics` section and a Next action that grills the first epic. It commits only those files, and never pushes.
+
+It takes this new-project entry when the history holds no commit beyond those that added `binn init`'s files, and Git tracks no source code; `/binnacle:roadmap new` takes it anyway. Run again, it proposes additions and reorders among the epics not started, and never touches a `done` epic or a row that links a spec.
+
+## 4. The first Product session
+
+Open a fresh chat and run `/binnacle:product`, then `/binnacle:daily`. The Next action the roadmap wrote grills the first epic.
+
+## 5. Each epic, then each ticket
+
+Each epic the roadmap lists follows the project-design flow, starting from the Next action:
+
+1. `/grill-with-docs` — talk the epic through; it ends with the epic's brief.
+2. `/to-spec` — write it up as a spec under `docs/specs/<slug>/`.
+3. `/to-tickets` — slice the spec into tickets.
+
+These three come from Matt Pocock Skills, and read the conventions `binn init` wrote, so no setup skill runs first. `binn init` never runs them itself. Each ticket is then worked in a session of its own, with `/binnacle:task run <ticket>`.

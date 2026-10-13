@@ -30,14 +30,48 @@ The harnesses Binnacle reads today, the highest level each reaches, and how:
 | Antigravity | 2 — Attribution, not verified | its window state, which names each conversation's workspace; its conversations are encrypted, so no model or tokens |
 | any other | 1 — Context | MCP, or `binn call` in its shell |
 
-Level 4 holds while a harness's events arrive; without the export, Claude Code, Codex and Gemini CLI are read at level 3 from their files, and a call seen both ways is counted once. Gemini CLI and Antigravity are built from their sources, as neither could run a session on the owner's machine, and are marked not verified. Each project's actual levels, with the reason a harness stays below the next one, are on the dashboard's usage page. Details: [MCP and skills](../03-mcp-and-skills.md#harnesses-and-their-levels), *Harnesses and their levels*.
+Level 4 holds while a harness's events arrive. Without the export, Claude Code, Codex and Gemini CLI are read at level 3 from their files, and a call seen both ways is counted once.
+
+Gemini CLI and Antigravity are built from their sources, as neither could run a session on the owner's machine, and are marked not verified. Each project's actual levels, with the reason a harness stays below the next one, are on the dashboard's usage page. Details: [MCP and skills](../03-mcp-and-skills.md#harnesses-and-their-levels), *Harnesses and their levels*.
 
 ## Binnacle's skills in another harness
 
-One `binn init` sets up every harness on the machine. Its plan installs Binnacle's skills, at user scope, into every harness the `skills` CLI (skills.sh) detects, such as Codex, Antigravity, ZCode or Pi, through `npx skills`, and keeps them out of Claude Code, which has the `binnacle` plugin; `--skip-harness <id>` keeps them out of another one too. Outside Claude Code each skill is named `binnacle-<action>`: `binnacle-product`, `binnacle-daily`, `binnacle-task`, `binnacle-status`, `binnacle-checkpoint`, `binnacle-audit`, `binnacle-init`, `binnacle-daemon`, `binnacle-register`, `binnacle-dashboard`, `binnacle-autopilot`, `binnacle-answer`, `binnacle-roadmap` and `binnacle-help`, where Claude Code has `/binnacle:product` and the rest. The Summary names the harnesses the skills went into and says to run `binnacle-product` there. For a harness installed later, run `binn init` again: it installs them into every harness it detects, stale or current, and says which they were. `binn audit` reports skills at another version than the installed `binn`'s, and `binn init` then reinstalls them.
+One `binn init` sets up every harness on the machine:
 
-`binn init` also offers to register the `binnacle` MCP server with Claude Code, Codex, opencode and VS Code. In any other harness, or before the server is registered, the skills call the same tools through `binn call <tool> [json]` in the shell. `binnacle-autopilot` runs only where the harness can start a background agent in a worktree of its own; elsewhere it refuses at once, changes nothing, and the epic's tickets are run by hand.
+- Its plan installs Binnacle's skills at user scope, through `npx skills`, into every harness the `skills` CLI (skills.sh) detects, such as Codex, Antigravity, ZCode or pi.
+- It then removes them from Claude Code, which has the `binnacle` plugin. `--skip-harness <id>`, with the harness's `skills` CLI id, keeps them out of another harness too.
+- The Summary names the harnesses they went into, and says to run `binnacle-product` there.
+
+For a harness installed later, run `binn init` again: it installs the skills into every harness it detects, stale or current, and says which they were. `binn audit` reports skills at another version than the installed `binn`'s, and `binn init` then reinstalls them.
+
+Outside Claude Code, each skill is named `binnacle-<action>`, where Claude Code has `/binnacle:<action>`:
+
+| In Claude Code | In another harness | What it does |
+| --- | --- | --- |
+| `/binnacle:audit` | `binnacle-audit` | what a repository has and lacks for Binnacle, changing nothing |
+| `/binnacle:init` | `binnacle-init` | set a repository up: the whole plan, written only after your yes |
+| `/binnacle:daemon` | `binnacle-daemon` | start, stop or check the daemon, or turn its autostart on or off |
+| `/binnacle:register` | `binnacle-register` | register this repository with the running daemon |
+| `/binnacle:status` | `binnacle-status` | how this project and this checkout are seen |
+| `/binnacle:dashboard` | `binnacle-dashboard` | open the dashboard |
+| `/binnacle:roadmap` | `binnacle-roadmap` | turn a vision or a project under way into a roadmap of epics |
+| `/binnacle:product` | `binnacle-product` | start a Product session: where the project stands, what comes next |
+| `/binnacle:daily` | `binnacle-daily` | what changed since the last daily, and what needs you |
+| `/binnacle:task` | `binnacle-task` | one ticket's brief; with `run <ticket>`, work the ticket |
+| `/binnacle:answer` | `binnacle-answer` | answer a question an agent left in a ticket |
+| `/binnacle:checkpoint` | `binnacle-checkpoint` | save a Product session's decisions into the project's documents |
+| `/binnacle:autopilot` | `binnacle-autopilot` | finish one planned epic, one agent per ticket |
+| `/binnacle:help` | `binnacle-help` | which skill to use when |
+
+## The `binnacle` MCP server
+
+`binn init` also offers to register the `binnacle` MCP server, in the project's own file, with Claude Code, Codex, opencode and VS Code. In any other harness, or before the server is registered, the skills call the same tools through `binn call <tool> [json]` in the shell.
+
+`binnacle-autopilot` runs only where the harness can start a background agent in a worktree of its own. Elsewhere it refuses at once and changes nothing, and the epic's tickets are run by hand, one session each.
+
+What each harness needs:
 
 - **Codex** reads a project's `.codex/config.toml` only in a trusted project. Trust the project in Codex, or the `binnacle` entry is not seen. The Codex desktop app ships its CLI outside `PATH`; on Linux it is `/usr/lib/chatgpt/resources/codex`.
 - **opencode** reads `opencode.json` or `opencode.jsonc` in the project. Run `opencode` in the repository root.
+- **VS Code** reads `.vscode/mcp.json`. Open the repository, start the `binnacle` server listed there, and chat in agent mode.
 - **GLM** is a model, not a harness. Reach it through a harness such as ZCode, Claude Code or opencode; there is no GLM adapter to look for.
