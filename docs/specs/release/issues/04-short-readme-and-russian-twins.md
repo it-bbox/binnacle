@@ -9,9 +9,9 @@ Roles: Developer, Reviewer
 **What to build:** a GitHub reader understands Binnacle in one or two screens, in English or Russian (spec, *The README*, *The user guides*, *AGENTS.md's language rule*, *Install names in the docs*). `README.md` is rewritten short: the problem and the core principle in a few lines; install with `npm i -g @it-bbox/binnacle`; the new-project and existing-project paths as lists; the harnesses as a table, one row each; links to the user guides; the design docs and ADRs as further reading; the licence. What it held in paragraphs moves, as it is, to the guide that owns it — `docs/operations/`'s pages, a new page for working from another harness — and development from a checkout moves to `CONTRIBUTING.md`; tickets 05 and 06 then rework those guides. `README.ru.md` and `CONTRIBUTING.ru.md` say the same in Russian and link the Russian pages; each guide gains a `*.ru.md` twin. `AGENTS.md`'s exception for `README.ru.md` becomes one for every user guide: `README.md`, `CONTRIBUTING.md`, `SECURITY.md` and `docs/operations/*.md`. An offline test in `pnpm test` fails when a user guide lacks its twin or a relative link in them does not resolve.
 
 - [ ] `README.md` and `README.ru.md` fit in two screens on GitHub and say the same thing; nothing they held is lost, only moved.
-- [ ] Every user guide has a Russian twin, and each Russian page links the Russian pages.
-- [ ] The test fails on a missing twin and on a broken relative link, and passes on the repository.
-- [ ] `AGENTS.md` states the rule; no user-facing page tells a user to install `@binnacle/cli` or to run `npx binn`.
+- [x] Every user guide has a Russian twin, and each Russian page links the Russian pages.
+- [x] The test fails on a missing twin and on a broken relative link, and passes on the repository.
+- [x] `AGENTS.md` states the rule; no user-facing page tells a user to install `@binnacle/cli` or to run `npx binn`.
 
 ## Comments
 
@@ -30,3 +30,25 @@ Roles: Developer, Reviewer
 - The guides hold what the README held as it was, long paragraphs included: `02-existing-project-adopt.md`'s *What `binn audit` and `binn init` do* is the forty-line paragraph, and `01-new-project.md`'s *From the chat* and `06-other-harnesses.md`'s *Binnacle's skills in another harness* are next.
 - `CONTRIBUTING.md` has no release section yet: the build and the tarball test (ticket 03's notes) and the publishing steps are ticket 06's.
 - Rework each English page and its `*.ru.md` in the same change; `pnpm test` checks the twin and the links.
+
+### For the owner: the first criterion
+
+Whether the two READMEs fit in two screens is a reader's check. Once the branch is pushed, open `README.md` and `README.ru.md` on GitHub at a laptop's window size: each should read to *Harnesses* in the first screen and to *Licence* in the second, and the two should say the same thing. Then tick the criterion.
+
+### Review
+
+A sub-agent reviewed the branch against `main` on both axes. It ran the new test, `pack.test.ts` and the typecheck, checked every link's anchor against its heading, traced each section and paragraph of both READMEs on `main` to its new place, and compared each twin with its English page.
+
+**Standards**
+
+1. **`CONTRIBUTING.ru.md`, "не пускаете к ним"** for one copy of the skills. **Fixed**: "к ней".
+
+**Spec**
+
+1. **The fixture did not prove the "does not link its twin" failure.** **Fixed**: `CONTRIBUTING.ru.md` without its link is in the fixture and its failure expected.
+2. **The link parser misses titled, angle-bracket and reference-style links**, and the install check `npm install --global @binnacle/cli`. **Kept**: no guide uses those forms; widen the patterns when one does.
+3. **The skills' pointer "*Install*, and *From this repository* until the npm package is published"** names a section that is now in `CONTRIBUTING.md`. **Kept**: the README's *Install* links it by that name, so the pointer still leads there; ticket 06, which documents the published package, can drop the "until" clause with the plugin's other changes.
+4. **The README's opening lost "persistent project context, workflow and observability across…" and "That is the whole design brief."** **Fixed**: both restored, in both languages.
+5. **`Status:` still `READY`.** **Fixed**: this ticket's last commit.
+
+Typecheck is clean and `pnpm test` passes (832).
