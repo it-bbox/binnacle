@@ -1,6 +1,6 @@
 # 04: A short README, CONTRIBUTING and Russian twins
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 02
 Spec: `docs/specs/release/spec.md`
