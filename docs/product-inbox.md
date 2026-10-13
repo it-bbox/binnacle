@@ -117,3 +117,13 @@ Binnacle reads a systemd unit's `Environment=BINNACLE_HOME=` literally. A unit w
 ## The current epic is read from the table's order (2026-10-13)
 
 With epic 17 at `tickets` and autopilot running it, the dashboard's overview showed epic 12 as the current epic, with no spec and no progress. `currentEpic` takes the first `in progress` epic, else the first that is not `done` in the table's order, and epic 12 comes before 17 there; Binnacle's alternative "grill epic 12" came from the same rule. The table's order is dependency, not what the owner works on. A fix: take the furthest-along status first, `in progress`, then `tickets`, then `spec`, then `not started`, and the table's order only between equals. Epic 12's title, *Audit, completed*, also reads like a status on the dashboard; renaming it was not chosen for now. After the release.
+
+## For the next release (2026-10-13)
+
+Found while publishing 0.1.0 (`specs/release/issues/07-release-exit-demonstration.md`, *Found on the way*); 0.2.0 carries them (the owner, 2026-10-13):
+
+- `CONTRIBUTING.md`'s *Releasing* does not say that npm publishes only from an account with 2FA (`E403` otherwise), that the CLI then asks for the second factor in the browser, that a recovery code puts the account on a 72-hour hold with no publishing, or that a new package shows `0.0.0-stage` as `latest` for a few minutes before its version.
+- npm 11.19 warns that `@ast-grep/cli`'s postinstall is not yet covered by `allowScripts` when `binn init` installs it; a later npm that blocks it may break that install.
+- `binn project register` without a manifest points to `templates/project/project.yaml.example`, which only a checkout has.
+- The plugin's skills still say "*From this repository* until the npm package is published"; the next version can drop the clause.
+- The autostart service passes only `BINNACLE_HOME` and `PATH`, so tracker tokens set in the shell never reach it (ticket 06, *For the owner*).

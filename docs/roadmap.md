@@ -26,7 +26,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 14 | Skills in any harness | done | [`skills-in-any-harness`](specs/skills-in-any-harness/spec.md) |
 | 15 | Daemon autostart | done | [`daemon-autostart`](specs/daemon-autostart/spec.md) |
 | 16 | Dashboard redesign | done | [`dashboard-redesign`](specs/dashboard-redesign/spec.md) |
-| 17 | Release: npm and open source | in progress | [`release`](specs/release/spec.md) |
+| 17 | Release: npm and open source | done | [`release`](specs/release/spec.md) |
 | 18 | Lean flow | done | [`lean-flow`](specs/lean-flow/spec.md) |
 | 19 | Starting a project: new and existing | done | [`starting-a-project`](specs/starting-a-project/spec.md) |
 
@@ -38,24 +38,19 @@ Epics are ordered by dependency, not by preference:
 
 ## Current focus
 
-Done: epics 1 to 11, 14 to 16, 18 and 19.
+Done: epics 1 to 11 and 14 to 19.
 
-**Now: epic 17, the release, tonight** (the owner, 2026-10-13). A video presents Binnacle on npm and in open source this evening (the owner, 2026-10-10). Tickets 01 to 06 are done (autopilot, 2026-10-13):
+**Released** (the owner, 2026-10-13): `@it-bbox/binnacle` 0.1.0 is on npm, and `it-bbox/binnacle` is public, with private vulnerability reporting and Dependabot alerts on. Installed from the registry into a clean container, `binn init`, the daemon and the dashboard work (`specs/release/issues/07-release-exit-demonstration.md`).
 
-- the audit's fixes: the MCP SDK at 1.32.1, Nuxt's tooling updated, `SECURITY.md` and Dependabot;
-- `@it-bbox/binnacle` 0.1.0 builds from `pnpm --filter @binnacle/cli build`; its tarball test is green on Linux, macOS and Windows;
-- a short README and every user guide in English and Russian.
+**Now: epics 12 and 13, each released as the next minor version, 0.2.0 then 0.3.0** (the owner, 2026-10-13). 0.2.0 also carries `docs/product-inbox.md`'s *For the next release*. Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own; its release follows `CONTRIBUTING.md`'s *Releasing*.
 
-**Left for the owner:** ticket 07, the exit demonstration: publish from `apps/cli/dist/`, install from the registry into a clean environment, read the README and guides on GitHub in both languages, make `it-bbox/binnacle` public, and turn on private vulnerability reporting and Dependabot alerts. Dependabot's first npm update failed with `unknown_error`; it waits to be looked at.
+**Left open:**
 
-**After it:** epics 12 and 13, by importance, in open source. Each goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own.
-
-**Left open in done epics:**
-
+- Dependabot's first npm update failed with `unknown_error`; it waits to be looked at;
 - epic 15 (ADR-0043): a reboot that finds the daemon answering is still to be seen;
 - epic 11, ticket 14: waits on a merge that shrinks the graph.
 
-Next action: the owner runs epic 17's exit demonstration and publishes 0.1.0. `/binnacle:task run docs/specs/release/issues/07-release-exit-demonstration.md`
+Next action: plan epic 12, Audit, completed, whose scope is `docs/05-mvp-plan.md`, phase 12, in a fresh session. `/grill-with-docs`
 
 ## Later
 
