@@ -8,8 +8,8 @@ Spec: `docs/specs/starting-a-project/spec.md`
 **What to build:** epic 19's exit criterion, demonstrated by the owner (spec, *Further Notes*).
 
 - [x] In a fresh directory: `git init`, one `binn init` writing `docs/agents/` and the *Agent skills* block, then `/binnacle:roadmap` asking for the vision, writing it, the epics and a Next action that grills the first epic; no `/setup-matt-pocock-skills`.
-- [ ] On a copy of a small existing project with a `TODO.md` and an old plan: `binn audit` lists them, and `/binnacle:roadmap` proposes epics with statuses and a place for each, writing nothing before the owner's yes.
-- [ ] A ticket started from the dashboard's command, `/binnacle:task run`, ends on its branch with its Review and `DONE` last, unmerged.
+- [x] On a copy of a small existing project with a `TODO.md` and an old plan: `binn audit` lists them, and `/binnacle:roadmap` proposes epics with statuses and a place for each, writing nothing before the owner's yes.
+- [x] A ticket started from the dashboard's command, `/binnacle:task run`, ends on its branch with its Review and `DONE` last, unmerged.
 - [x] The three questions shown at the start of the next epic's autopilot run.
 
 ## Comments
@@ -25,12 +25,25 @@ By this ticket's agent, with `binn` from this checkout and the `binnacle` plugin
 ### The demonstration, 2026-10-13
 
 - **The three questions, ticked.** The owner, 2026-10-13: `/binnacle:autopilot 15`, the first autopilot run of an epic after this one, showed the plan's three questions, what it can break, the riskiest step and what was dropped, and started on the owner's yes; it wrote them to `docs/specs/daemon-autostart/spec.md`, `## Risks` (`40a8df7`).
-- **A ticket from the dashboard's command.** The owner started this ticket with the dashboard's command, and counts this run as the demonstration: it is ticked when this branch ends with its Review and `DONE` last, unmerged.
+- **A ticket from the dashboard's command.** The owner started this ticket with the dashboard's command, and counts this run as the demonstration: ticked: this branch ends with its Review and `DONE` last, unmerged, as its commits show.
 
 - **A new project, ticked.** The owner, in `~/demo-new`: `git init`, `binn init` once, then `/binnacle:roadmap`. With no vision, it asked what, for whom and what is out, one at a time, showed `docs/vision.md` whole in the owner's words, proposed two epics in dependency order with a line of scope each, and the roadmap with the Next action `/grill-with-docs epic 1: Shopping list`, naming the brief; it wrote and committed only the vision and the roadmap after the owner's yes. No `/setup-matt-pocock-skills`. Kept, not a defect: the files `binn init` wrote stay uncommitted, as init never commits and the skill commits only its own two.
+
+- **An existing project, ticked.** A local clone of the owner's `diy-magaz` in `~/demo-existing`, its remote removed, with a `TODO.md` added; it has `docs/BACKLOG.md`, four `docs/PLAN-*.md`, its own `docs/ROADMAP.md` and `tech-spec/`. `binn audit` before `binn init` listed all of them under `docs.stranded`. `/binnacle:roadmap` read the code and the history, proposed twelve epics, four `done` and eight `not started`, and a place for each document, and wrote nothing until the owner's yes; it then moved `BACKLOG.md` to `docs/product-inbox.md`, the CRM's tech spec to `docs/specs/users-crm/spec.md` linked from its epic, removed the old roadmap, `TODO.md` and the rest of `tech-spec/`, fixed the three links they broke, and committed once. After it, `docs.roadmap` is `ok` and `docs.stranded` names only the four plans the owner kept.
+
+#### Defects found, to be filed as tickets
+
+1. **`roadmap.spec_missing` on a `done` epic pushes the skill to hide history.** On its first proposal the agent left the four finished epics out of the table, against the skill's step 2, so that the snapshot would not raise `roadmap.spec_missing` for each (`packages/core/src/roadmap.ts:121`); it added them as `done` only when asked. On any adopted project the finished work has no spec, so the item never clears. Fix: no `spec_missing` for a `done` epic, and the skill's step 2 then drops its warning.
+2. **The roadmap skill does not name the product inbox's path.** Its step 3 says "the product inbox" with no file, so the agent proposed keeping `docs/BACKLOG.md` in place as the inbox, which Binnacle does not read and the audit keeps listing. Fix: name `<knowledge.docs>/product-inbox.md` there.
+
+Kept, not defects: the files `binn init` writes stay uncommitted on both projects, as init never commits and the skill commits only its own; plans the owner keeps stay in `docs.stranded`, as `unknown`; `docs/ROADMAP.md` and `docs/roadmap.md` differ only by case, which a case-insensitive file system would trip on until the skill removes the old one, as it did here.
 
 ### Steps for the owner: criteria 1 and 2
 
 1. **A new project.** In a terminal: `mkdir ~/demo-new && cd ~/demo-new && git init`, then `binn init` once, and Enter. Open a new Claude Code session in `~/demo-new` and type `/binnacle:roadmap`. Expect questions one at a time (what, for whom, what is out), then `docs/vision.md` in your words, then on your yes the epics in dependency order in `docs/roadmap.md` and a Next action that grills the first epic. Never run `/setup-matt-pocock-skills`.
 2. **An existing project.** Copy a small project of your own that has a `TODO.md` and an old plan (or add them to the copy), e.g. `cp -r ~/Projects/<project> ~/demo-existing`. In it run `binn audit`: expect `docs.stranded` naming them. Then `binn init`, and in a new Claude Code session there `/binnacle:roadmap`. Expect epics with `done`, `in progress` or `not started` and a place for each stranded document, and nothing written or moved before your yes.
 3. Tick each criterion that held. For one that did not, one line on what went wrong, to become a ticket.
+
+### Review
+
+Nothing to review: this ticket changed no code. Its commits record the checks and the owner's demonstration, and the code they checked was reviewed in tickets 01 to 07. No typecheck or test was run, for the same reason.
