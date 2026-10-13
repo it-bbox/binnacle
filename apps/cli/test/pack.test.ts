@@ -534,8 +534,10 @@ test('/binnacle:roadmap has two entries, needs no daemon, writes and commits onl
   assert.match(existing, /`binn audit --json`/);
   assert.match(existing, /`done`, `in progress` or `not started`/);
   assert.match(existing, /links it from its row/);
+  // A finished epic is proposed as `done` even without a spec: the snapshot raises nothing for it.
+  assert.doesNotMatch(existing, /spec_missing|say so beside it/);
   assert.match(existing, /`docs\.stranded`/);
-  assert.match(existing, /a spec, an ADR, `CONTEXT\.md`, the product inbox, the roadmap, or stale/);
+  assert.match(existing, /a spec, an ADR, `CONTEXT\.md`, the product inbox \(`<knowledge\.docs>\/product-inbox\.md`\), the roadmap, or stale/);
   assert.match(existing, /`git mv`/);
   assert.match(existing, /A stale document stays where it is unless the human says to delete it/);
   assert.match(existing, /not in Binnacle's format[^.]*keeping its content/);

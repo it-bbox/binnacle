@@ -450,6 +450,8 @@ describe('the roadmap in the Product Snapshot', () => {
         row(6, 'Consistent', 'in progress', 'e'),
         row(7, 'Sliced, no tickets yet', 'tickets', 'f'),
         row(8, 'An idea', 'not started', null),
+        row(9, 'Finished before Binnacle', 'done', null),
+        row(10, 'Under way without a spec', 'in progress', null),
       ];
       const root = makeRepository({ roadmap: roadmapText(rows('done')) });
       ticket(root, 'a', '01-one.md', { title: '01: One', status: 'DONE' });
@@ -468,13 +470,16 @@ describe('the roadmap in the Product Snapshot', () => {
         'roadmap.status_mismatch',
         'roadmap.status_mismatch',
         'roadmap.spec_missing',
+        'roadmap.spec_missing',
       ]);
-      const [done, notStarted, inProgress, tickets, specMissing] = body.attention.map((item) => item.message);
+      const [done, notStarted, inProgress, tickets, specMissing, underWay] = body.attention.map((item) => item.message);
       assert.match(done!, /Epic 1 .*done.*a\/02/);
       assert.match(notStarted!, /Epic 2 .*not started/);
       assert.match(inProgress!, /Epic 3 .*in progress/);
       assert.match(tickets!, /Epic 4 .*tickets/);
       assert.match(specMissing!, /Epic 5 .*spec/);
+      // A `done` epic without a spec is history, not an attention item; one still under way is.
+      assert.match(underWay!, /Epic 10 .*in progress/);
 
       // Nothing is stored: correcting the roadmap clears its item on the next call.
       roadmap(root, roadmapText(rows('in progress')));

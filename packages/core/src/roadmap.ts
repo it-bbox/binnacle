@@ -117,7 +117,8 @@ export function roadmapAttention(epics: Epic[], tasks: TrackerTask[], specs: { s
   for (const epic of epics) {
     const name = `Epic ${epic.number} (${epic.title})`;
     if (epic.spec === null) {
-      if (rank(epic.status) >= rank('spec')) {
+      // A `done` epic without a spec is history, often older than Binnacle, not missing work.
+      if (rank(epic.status) >= rank('spec') && epic.status !== 'done') {
         attention.push({ code: 'roadmap.spec_missing', message: `${name} is at "${epic.status}" on the roadmap, but its Spec cell is "—".` });
       }
       continue;
