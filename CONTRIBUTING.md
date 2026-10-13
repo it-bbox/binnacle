@@ -50,11 +50,15 @@ cd apps/cli && pnpm link --global
 
 If pnpm has no global bin directory yet, run `pnpm setup` first and open a new shell. Then start the daemon with `binn daemon start` and register the repository with `binn project register`.
 
-The daemon also serves a read-only dashboard at its own address, `http://127.0.0.1:7717/` by default. Generate it once in the main checkout with `pnpm dashboard:generate`, and again after pulling a change to `apps/dashboard`; until then the address answers with a page naming that command. `binn dashboard` opens the dashboard in the default browser, already authorised, and `binn dashboard --print` prints its address without opening anything. After the first time, the plain address works as a bookmark in that browser.
+The daemon also serves a read-only dashboard at its own address, `http://127.0.0.1:7717/` by default. From a checkout, generate it once in the main checkout with `pnpm dashboard:generate`, and again after pulling a change to `apps/dashboard`. Until then the address answers with a page naming that command.
+
+`binn dashboard` opens the dashboard in the default browser, already authorised; `binn dashboard --print` prints its address with the token, and opens nothing. After the first time, the plain address works as a bookmark in that browser.
 
 ### After a pull or a merge
 
-The link runs the CLI out of the main checkout, with that checkout's `node_modules`. So after pulling or merging a change that touches the workspace — a new package, a changed dependency, `pnpm-lock.yaml` — run `pnpm install` in the main checkout again. Until then a package the CLI now imports is missing there, `binn` fails with `ERR_MODULE_NOT_FOUND`, and every session's MCP tools go with it. Installing in a worktree does not help: each checkout has its own `node_modules`.
+The link runs the CLI out of the main checkout, with that checkout's `node_modules`. So after pulling or merging a change that touches the workspace — a new package, a changed dependency, `pnpm-lock.yaml` — run `pnpm install` in the main checkout again.
+
+Until then a package the CLI now imports is missing there: `binn` fails with `ERR_MODULE_NOT_FOUND`, and every session's MCP tools go with it. Installing in a worktree does not help, since each checkout has its own `node_modules`.
 
 Once `binn init` has installed the `binnacle` plugin, Claude Code loads that installed `binnacle@binnacle` here, not the skills in `.claude/skills/binnacle/`, so a merged change to those skills does not reach a new session by itself. After pulling or merging one, run in the main checkout the first command below, and the other two only when `claude plugin list --json` lists `binnacle@binnacle`:
 
@@ -64,7 +68,9 @@ claude plugin marketplace update binnacle
 claude plugin update binnacle@binnacle
 ```
 
-The first copies the skills into the CLI package and gives the plugin a version drawn from the plugin's files, so it changes whenever a skill does; the other two have Claude Code update its copy to that version. Every other harness runs the `binnacle-<action>` copy the first command also writes, so when `~/.agents/skills` holds a `binnacle-*` skill, reinstall that copy too, and take it back out of Claude Code, naming after `claude-code` any harness you keep it out of with `binn init --skip-harness`:
+The first copies the skills into the CLI package and gives the plugin a version drawn from the plugin's files, so it changes whenever a skill does. The other two have Claude Code update its copy to that version.
+
+Every other harness runs the `binnacle-<action>` copy the first command also writes. So when `~/.agents/skills` holds a `binnacle-*` skill, reinstall that copy too, and take it back out of Claude Code. Name after `claude-code` any harness you keep it out of with `binn init --skip-harness`:
 
 ```bash
 npx skills add ./apps/cli/skills -g -y
@@ -75,7 +81,37 @@ A new session then loads the changed skills. `/binnacle:autopilot` does this its
 
 ## Checking a change
 
-`pnpm typecheck` and `pnpm test` check a change. `pnpm test` is offline; the live tests run apart with `pnpm test:live`: the adapters', which need read-only tokens, and the autostart one, which installs a real service and so runs only where `CI` is set. CI runs the typecheck and the tests in GitHub Actions on every push to `main` and every pull request (`.github/workflows/ci.yml`), without any secret, so without the adapters' live tests, and the live autostart test with the real service manager on Linux, macOS and Windows runners.
+`pnpm typecheck` and `pnpm test` check a change; `pnpm test` is offline. The live tests run apart, with `pnpm test:live`:
+
+| Live test | What it needs |
+| --- | --- |
+| the adapters' | read-only tracker tokens |
+| autostart's | a real service manager; it installs a real service, so it runs only where `CI` is set |
+| the tarball's | nothing beyond `pnpm install`: it builds, packs and installs the package (*Releasing*, below) |
+
+CI runs in GitHub Actions on every push to `main` and every pull request (`.github/workflows/ci.yml`), without any secret:
+
+- the typecheck and `pnpm test`, on Linux;
+- the autostart and tarball live tests, on Linux, macOS and Windows runners.
+
+The adapters' live tests, which need tokens, do not run there.
+
+## Releasing
+
+Binnacle is published to npm as one package, `@it-bbox/binnacle`, whose version is `apps/cli/package.json`'s (ADR-0044). The workspace's own packages stay private.
+
+1. **Check.** `pnpm install`, then `pnpm typecheck` and `pnpm test`.
+2. **Build.** `pnpm --filter @binnacle/cli build` writes the package to `apps/cli/dist/`: `binn` and `binnd` bundled with every dependency, the generated dashboard, the plugin and its marketplace, the skills copy, `LICENSE`, the README and its `package.json`. It runs `nuxt generate` itself.
+3. **Test the tarball.** `node --test apps/cli/test/tarball.live.ts` builds, runs `npm pack`, installs the tarball into an empty prefix with a temporary `HOME` and `BINNACLE_HOME`, and drives the installed commands. It needs no network once the workspace is installed. CI's `tarball-live` job runs it on the three platforms; publish only when that job is green at `main`'s head.
+4. **Publish.** The owner publishes by hand, so no npm token sits in CI:
+
+```bash
+npm login
+cd apps/cli/dist
+npm publish --access public
+```
+
+`npm view @it-bbox/binnacle version` then prints the version published. To install it from the registry, follow the [installation checklist](docs/operations/05-installation-checklist.md).
 
 ## binn in the Claude Code desktop app
 
@@ -86,8 +122,12 @@ A new session then loads the changed skills. `/binnacle:autopilot` does this its
 exec "$HOME/.local/share/pnpm/binn" "$@"
 ```
 
-The path is pnpm's global bin directory, written out because the app has no `$PNPM_HOME` either: take it from `echo $PNPM_HOME` in a shell where pnpm works; on Linux it defaults to `~/.local/share/pnpm`. A symlink to pnpm's `binn` does not work instead: that file is a shim that finds the CLI relative to its own location, and through a symlink it resolves from the link's directory and finds nothing.
+The path is pnpm's global bin directory, written out because the app has no `$PNPM_HOME` either: take it from `echo $PNPM_HOME` in a shell where pnpm works; on Linux it defaults to `~/.local/share/pnpm`.
+
+A symlink to pnpm's `binn` does not work instead: that file is a shim that finds the CLI relative to its own location, and through a symlink it resolves from the link's directory and finds nothing.
 
 ## The repository's `.mcp.json`
 
-The committed `.mcp.json` runs `binn mcp`, so every Claude Code session opened in this repository, in the main checkout or in a worktree, has Binnacle's MCP tools with no per-session setup. It names the linked `binn` and not a path inside the working tree on purpose: in a worktree, a path would run that branch's half-finished code, and a broken branch would take the Product session's tools down with it. With the daemon stopped the server still connects, and each tool answers with an error naming `binn daemon start`.
+The committed `.mcp.json` runs `binn mcp`, so every Claude Code session opened in this repository, in the main checkout or in a worktree, has Binnacle's MCP tools with no per-session setup.
+
+It names the linked `binn`, not a path inside the working tree, on purpose: in a worktree, a path would run that branch's half-finished code, and a broken branch would take the Product session's tools down with it. With the daemon stopped the server still connects, and each tool answers with an error naming `binn daemon start`.
