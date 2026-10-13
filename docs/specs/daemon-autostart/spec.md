@@ -103,3 +103,9 @@ A good test exercises behaviour through the seam a caller uses — the `binn` co
 The test seams, confirmed by the owner on 2026-10-13: the `binn` CLI with a fake service manager on `PATH` and the platform set by an environment variable; the snapshot for the broken state; a live test with the real service manager in CI on all three runners.
 
 The owner's machine runs a hand-written `~/.config/systemd/user/binnacle.service` today, pointing at this repository's daemon with one nvm Node. The first `binn daemon autostart on` after this epic replaces it.
+
+## Risks
+
+- **What it can break.** The owner's running daemon: the first `binn daemon autostart on` replaces the hand-written `binnacle.service`, and `start`/`stop` now go through the service manager, so a wrong unit or a stale path leaves the daemon down or two daemons running. Also `pnpm install` itself: ticket 09 changes how the CLI's `prepare` reads `SKILL.md`, which every install of the package runs.
+- **The riskiest step.** Ticket 09, last of the code tickets: the Windows path is checked only by CI's live test on `windows-latest`, after the merge, and nobody on the team runs Windows; a CRLF fix that passes on Linux may still fail there on the next step past `pnpm install`.
+- **What was dropped, and why.** A system-wide service, systemd lingering and a Windows Service (root or administrator rights); one service per Binnacle home only; a switch on the dashboard (the daemon would change the system from a browser request, ADR-0041 stays the only write); starting the daemon on demand from MCP or a skill; updating Binnacle itself. All are out of scope in the spec to keep autostart to the user's own service manager.
