@@ -72,10 +72,12 @@ test('the guide check fails on a missing twin, a broken link, a Russian page lin
   assert.deepEqual(guideProblems(root), []);
 
   rmSync(join(root, 'SECURITY.ru.md'));
+  write('CONTRIBUTING.ru.md', 'no link\n');
   write('docs/operations/01-a.md', '[ru](01-a.ru.md) [gone](02-gone.md) `npm i -g @binnacle/cli`\n');
   write('docs/operations/01-a.ru.md', '[en](01-a.md) [home](../../README.md) npx binn init\n');
   assert.deepEqual(guideProblems(root), [
     'SECURITY.md: no Russian twin SECURITY.ru.md',
+    'CONTRIBUTING.ru.md: does not link its twin CONTRIBUTING.md',
     'SECURITY.md: broken link SECURITY.ru.md',
     'docs/operations/01-a.md: broken link docs/operations/02-gone.md',
     'docs/operations/01-a.md: names an install that does not exist',

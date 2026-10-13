@@ -5,9 +5,9 @@ _Русская версия: [README.ru.md](README.ru.md)._
 **One project memory. Any coding agent.**
 **Claude today. Codex tomorrow. Your project never starts from zero.**
 
-Binnacle is a local, provider-agnostic **AI Engineering Control Plane** for Claude Code, Codex, Gemini, GLM and other coding agents. It keeps project state outside chat sessions, hands each fresh agent a compact, current context, collects spend telemetry, and leaves the human in charge.
+Binnacle is a local, provider-agnostic **AI Engineering Control Plane**: persistent project context, workflow and observability across Claude Code, Codex, Gemini, GLM and other coding agents. It keeps project state outside chat sessions, hands fresh agents a compact and current context, collects spend telemetry, and leaves the human in charge of the process.
 
-> A binnacle is the stand that holds a ship's compass in front of the helm. It does not steer and it does not pick the course — it keeps the instruments where the helmsman can read them.
+> A binnacle is the stand that holds a ship's compass in front of the helm. It does not steer and it does not pick the course — it keeps the instruments where the helmsman can read them. That is the whole design brief.
 
 ## The problem
 
