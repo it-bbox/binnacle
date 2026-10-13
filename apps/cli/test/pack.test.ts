@@ -801,7 +801,7 @@ test('AGENTS.md, the workflow, the roadmap\'s rules and the issue-tracker conven
   assert.match(perTicket, /reaches `main` in the same step as the merge/);
   assert.match(workflow, /Nothing is left for the merge to edit: the current focus catches up at the next Product session or checkpoint/);
   assert.match(workflow, /`\/binnacle:autopilot` does the same once, after the last merge of its run/);
-  assert.match(docText('docs/roadmap.md'), /The current focus and an epic's status are written by a Product session, a checkpoint, or autopilot at the end of its run on the owner's yes, never by a ticket/);
+  assert.match(docText('docs/roadmap.md'), /\*\*The current focus and an epic's status\*\*: a Product session, a checkpoint, or autopilot at the end of its run, on the owner's yes\. Never a ticket/);
   const tracker = docText('docs/agents/issue-tracker.md');
   assert.match(tracker, /a finding to fix in full, with its place and its fix; a finding kept in one line, with its reason/);
   assert.match(tracker, /"checked in a browser" belongs only to a ticket that changes the dashboard/);
