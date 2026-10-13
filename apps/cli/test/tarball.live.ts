@@ -18,6 +18,8 @@ const BUILD = fileURLToPath(new URL('../src/build.ts', import.meta.url));
 const PACKAGE = fileURLToPath(new URL('../dist', import.meta.url));
 const VERSION = (JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }).version;
 const windows = process.platform === 'win32';
+/** A command or argument for a shell: on Windows the shell gets them joined by spaces, so a path with a space is quoted. */
+const quoted = (word: string): string => (windows && /\s/.test(word) ? `"${word}"` : word);
 
 test('the packed @it-bbox/binnacle, installed into an empty prefix, runs binn, its daemon, the dashboard and MCP', { timeout: 10 * 60_000 }, async (t: TestContext) => {
   const scratch = mkdtempSync(join(tmpdir(), 'binnacle-tarball-'));
@@ -25,9 +27,13 @@ test('the packed @it-bbox/binnacle, installed into an empty prefix, runs binn, i
   const home = join(scratch, 'home');
   // No ~/.npmrc, no user cache and no Binnacle home of the developer's; port 0, so that it never meets a running daemon.
   const env: NodeJS.ProcessEnv = { ...process.env, HOME: home, USERPROFILE: home, BINNACLE_HOME: join(home, '.binnacle'), BINNACLE_PORT: '0' };
-  // npm and the commands it installs are `.cmd` shims on Windows, which only a shell runs.
+  // npm and the commands it installs are `.cmd` shims on Windows, which only a shell runs. A synchronous
+  // call blocks the test's own timeout, so each has its own: a hung npm or binn fails, never hangs.
   const run = (command: string, args: string[], options: SpawnSyncOptions = {}) =>
-    spawnSync(command, args, { encoding: 'utf8', env, shell: windows, ...options }) as ReturnType<typeof spawnSync> & { stdout: string; stderr: string };
+    spawnSync(quoted(command), args.map(quoted), { encoding: 'utf8', env, shell: windows, timeout: 120_000, ...options }) as ReturnType<typeof spawnSync> & {
+      stdout: string;
+      stderr: string;
+    };
   const binnPath = windows ? join(prefix, 'binn.cmd') : join(prefix, 'bin', 'binn');
   const binn = (...args: string[]) => run(binnPath, args);
   t.after(() => {
@@ -36,7 +42,7 @@ test('the packed @it-bbox/binnacle, installed into an empty prefix, runs binn, i
     rmSync(scratch, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
   });
 
-  const build = spawnSync(process.execPath, [BUILD], { encoding: 'utf8' });
+  const build = spawnSync(process.execPath, [BUILD], { encoding: 'utf8', timeout: 5 * 60_000 });
   assert.equal(build.status, 0, build.stderr || build.stdout);
 
   // The tarball and the files it holds, as npm reports them.
@@ -91,12 +97,13 @@ test('the packed @it-bbox/binnacle, installed into an empty prefix, runs binn, i
 
 /** `binn mcp`, sent an MCP `initialize` and a `tools/list`, and the names of the tools it lists. */
 async function mcpTools(binn: string, env: NodeJS.ProcessEnv): Promise<string[]> {
-  const child = spawn(binn, ['mcp'], { env, shell: windows, stdio: ['pipe', 'pipe', 'inherit'] });
+  const child = spawn(quoted(binn), ['mcp'], { env, shell: windows, stdio: ['pipe', 'pipe', 'inherit'] });
   const send = (message: object) => child.stdin.write(`${JSON.stringify(message)}\n`);
   const answers = new Map<number, { result?: { tools?: { name: string }[] } }>();
   let buffered = '';
   const listed = new Promise<void>((resolve, reject) => {
     child.on('error', reject);
+    setTimeout(() => reject(new Error('binn mcp did not list its tools within 30 seconds')), 30_000).unref();
     child.on('exit', (code) => reject(new Error(`binn mcp exited with ${code} before it listed its tools`)));
     child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
       buffered += chunk;

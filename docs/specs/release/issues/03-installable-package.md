@@ -28,3 +28,22 @@ Roles: Developer, Reviewer, DevOps
 
 - To publish (ticket 07, the owner): `pnpm install`, `pnpm --filter @binnacle/cli build`, then `npm publish --access public` in `apps/cli/dist/`. `CONTRIBUTING.md` (ticket 05 or 06) should name the build and the tarball test.
 - The first CI run of `tarball-live` on `macos-latest` and `windows-latest` happens once the owner pushes; the test passed on Linux here. Windows is the spec's riskiest step: npm's `.cmd` shims are run through a shell, and the global prefix's layout differs (`<prefix>\binn.cmd`, `<prefix>\node_modules`).
+
+### Review
+
+A sub-agent reviewed the branch against `main` on both axes and the DevOps role. It ran the typecheck, the workflow's offline test and the tarball test; the tarball was 821 kB, 76 files.
+
+**Standards**
+
+1. **`repository` read from the root manifest while `homepage` and `bugs` were literals.** **Fixed**: `build.ts` writes all three as literals.
+2. **`Status:` still `READY`, criteria unticked.** **Fixed**: this ticket's last commit.
+
+**Spec: no finding.** The manifest matches *The published manifest*; the bundles import only `node:*` built-ins; the development link's `bin` is still `./src/bin.ts`; the only `argv[1]` main guard, `prepare.ts`'s, is in neither bundle. Autostart from the package is covered through `daemonEntry()`, as Decisions says. **Kept.**
+
+#### DevOps
+
+1. **No timeout on the test's synchronous calls**, which block the test's own: a hung `npm` or `binn` would hang the run and leave its daemon. **Fixed**: two minutes on each call, five on the build.
+2. **No deadline on `binn mcp`'s answer.** **Fixed**: 30 seconds. On Windows `kill()` stops only the shell; the end of stdin stops `binn mcp`.
+3. **A path with a space breaks under Windows' shell**, which joins the arguments unquoted. **Fixed**: such a command or argument is quoted on Windows. Node's DEP0190 warning for arguments with `shell` stays. **Kept**: the shell is how `.cmd` shims run.
+
+Typecheck is clean, `pnpm test` passes (828), and the tarball test passes on Linux.

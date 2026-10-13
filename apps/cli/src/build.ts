@@ -44,7 +44,6 @@ cpSync(at('../.claude-plugin'), join(OUT, '.claude-plugin'), { recursive: true }
 for (const file of ['LICENSE', 'README.md']) cpSync(join(ROOT, file), join(OUT, file));
 
 const cli = JSON.parse(readFileSync(at('../package.json'), 'utf8')) as { version: string; engines: unknown };
-const { repository } = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as { repository: unknown };
 const manifest = {
   name: '@it-bbox/binnacle',
   version: cli.version,
@@ -54,7 +53,7 @@ const manifest = {
   bin: { binn: 'bin/binn.js', binnd: 'bin/binnd.js' },
   files: ['bin', 'dashboard', 'plugin', 'skills', '.claude-plugin'],
   engines: cli.engines,
-  repository,
+  repository: { type: 'git', url: 'git+https://github.com/it-bbox/binnacle.git' },
   homepage: 'https://github.com/it-bbox/binnacle#readme',
   bugs: { url: 'https://github.com/it-bbox/binnacle/issues' },
   publishConfig: { access: 'public' },
