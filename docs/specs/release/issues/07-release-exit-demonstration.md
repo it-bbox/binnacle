@@ -11,7 +11,7 @@ Spec: `docs/specs/release/spec.md`
 - [x] The owner publishes `@it-bbox/binnacle@0.1.0` from the built package's directory.
 - [x] In a clean environment — a temporary prefix and home, or a container — `npm i -g @it-bbox/binnacle` from the registry, then `binn init` in a new project, `binn daemon start` and the dashboard work.
 - [ ] The README and the guides read well on GitHub, in English and in Russian.
-- [ ] `it-bbox/binnacle` is public; private vulnerability reporting and Dependabot alerts are on.
+- [x] `it-bbox/binnacle` is public; private vulnerability reporting and Dependabot alerts are on.
 
 ## Comments
 
@@ -35,9 +35,9 @@ Spec: `docs/specs/release/spec.md`
 
 ### For the owner
 
-The two criteria left are yours:
+The criterion left is yours:
 
-1. **Public and its settings.** `it-bbox/binnacle` is public, and Dependabot alerts are on (`gh api -i repos/it-bbox/binnacle/vulnerability-alerts` answers 204). Left: *Settings* → *Advanced Security* (formerly *Code security and analysis*) → *Private vulnerability reporting* → *Enable*; `gh api repos/it-bbox/binnacle/private-vulnerability-reporting` then says `"enabled": true`. Ticket 02's *For ticket 07* has the checks from another account and the Dependabot graph.
+1. **Public and its settings.** Done: `gh repo view` says `PUBLIC`, `private-vulnerability-reporting` says `"enabled": true` and `vulnerability-alerts` answers 204. Ticket 02's *For ticket 07* has the checks from another account and the Dependabot graph.
 2. **Read on GitHub.** Push `main` first, since GitHub shows `origin/main`. Then open `README.md`, `CONTRIBUTING.md`, `SECURITY.md` and the guides in `docs/operations/`, each with its `.ru.md` twin: each reads in short paragraphs, lists and tables, and its links open. The npm page of `@it-bbox/binnacle` now links a public repository.
 
 ### Review
