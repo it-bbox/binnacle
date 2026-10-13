@@ -40,19 +40,22 @@ Epics are ordered by dependency, not by preference:
 
 Done: epics 1 to 11, 14 to 16, 18 and 19.
 
-**Now: epic 17, the release, tonight** (the owner, 2026-10-13). On the evening of 2026-10-13 a video presents Binnacle on npm and in open source (the owner, 2026-10-10). Grilled, specified and sliced on 2026-10-13 (`docs/specs/release/spec.md`, ADR-0044):
+**Now: epic 17, the release, tonight** (the owner, 2026-10-13). A video presents Binnacle on npm and in open source this evening (the owner, 2026-10-10). Tickets 01 to 06 are done (autopilot, 2026-10-13):
 
-- one package, `@it-bbox/binnacle` 0.1.0, which the owner publishes by hand;
-- in order: the audit's fixes, then a short README and user guides in English and Russian, then npm and open source.
+- the audit's fixes: the MCP SDK at 1.32.1, Nuxt's tooling updated, `SECURITY.md` and Dependabot;
+- `@it-bbox/binnacle` 0.1.0 builds from `pnpm --filter @binnacle/cli build`; its tarball test is green on Linux, macOS and Windows;
+- a short README and every user guide in English and Russian.
+
+**Left for the owner:** ticket 07, the exit demonstration: publish from `apps/cli/dist/`, install from the registry into a clean environment, read the README and guides on GitHub in both languages, make `it-bbox/binnacle` public, and turn on private vulnerability reporting and Dependabot alerts. Dependabot's first npm update failed with `unknown_error`; it waits to be looked at.
 
 **After it:** epics 12 and 13, by importance, in open source. Each goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own.
 
 **Left open in done epics:**
 
-- epic 15 (ADR-0043): its demonstration ran on Linux without a reboot; a reboot that finds the daemon answering is still to be seen;
+- epic 15 (ADR-0043): a reboot that finds the daemon answering is still to be seen;
 - epic 11, ticket 14: waits on a merge that shrinks the graph.
 
-Next action: run epic 17's tickets, starting with 01 and 02. `/binnacle:autopilot 17`
+Next action: the owner runs epic 17's exit demonstration and publishes 0.1.0. `/binnacle:task run docs/specs/release/issues/07-release-exit-demonstration.md`
 
 ## Later
 
