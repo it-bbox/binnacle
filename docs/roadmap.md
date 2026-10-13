@@ -40,11 +40,11 @@ The owner's order, 2026-10-12: 19, starting a new or an existing project, the mo
 
 Epic 19's tickets 01 to 07 are merged (2026-10-12): `/binnacle:task run <ticket>` starts every Task (ADR-0042); `binn audit` lists stranded documents; `binn init` writes the planning conventions; `/binnacle:roadmap` starts a new or an existing project; autopilot asks the plan's three questions first.
 
-Epic 15's tickets 01 to 07 are merged (2026-10-13, ADR-0043): `binn init` asks to start the daemon at login, `binn daemon autostart on|off` sets a systemd unit, a LaunchAgent or a Task Scheduler task, and `start` and `stop` go through it. CI's live test passes on Linux and macOS; on Windows `pnpm install` fails on CRLF skill files first, ticket 09. Then the owner's exit demonstrations: epic 19's ticket 08, then epic 15's.
+Epic 15's tickets 01 to 07 and 09 are merged (2026-10-13, ADR-0043): `binn init` asks to start the daemon at login, `binn daemon autostart on|off` sets a systemd unit, a LaunchAgent or a Task Scheduler task, and `start` and `stop` go through it; the skills build reads a CRLF checkout. Whether CI's live test passes on Windows is read from `main`'s run at `fc45948`, as ticket 09 says. Left are the owner's exit demonstrations: epic 19's ticket 08, then epic 15's.
 
 Epic 18 made the flow cheaper, read from epic 16's run against epic 11's: per DONE Task 14% less output and half the rework share (`dashboard-redesign/09`). Epic 11's ticket 14 waits on one criterion: a merge that shrinks the graph.
 
-Next action: run epic 15's ticket 09, so that `main`'s CI is green on Windows. `/binnacle:autopilot 15`
+Next action: demonstrate epic 19's exit criterion by hand. `/binnacle:task run docs/specs/starting-a-project/issues/08-starting-a-project-exit-demonstration.md`
 
 ## Later
 
