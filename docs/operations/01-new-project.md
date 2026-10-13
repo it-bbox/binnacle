@@ -36,7 +36,7 @@ Each item in detail: [Existing project](02-existing-project-adopt.md#the-plan-it
 
 ### Workflow tools
 
-The plan installs what is missing of the Standard setup, outside the repository. A tool already installed, or declared `false` under `capabilities` in the manifest, is left alone. No installer script is ever run: only package managers and the harnesses' own CLIs.
+The plan installs what is missing of the Standard setup, outside the repository. A tool already on `PATH` or listed by Claude Code, or declared `false` under `capabilities` in the manifest, is left alone. The skill sets go into the other harnesses through the `skills` CLI again on every run, so that a harness installed since gets them. No installer script is ever run: only package managers and the harnesses' own CLIs.
 
 | Tool | How `binn init` installs it | Its MCP server |
 | --- | --- | --- |
@@ -48,7 +48,7 @@ The plan installs what is missing of the Standard setup, outside the repository.
 | ast-grep | npm | — |
 | Obsidian | not installed: init sets the vault when Obsidian lists exactly one | — |
 
-Without `uv`, init names the command that installs it, and leaves Serena and Graphify out.
+Without `uv`, init names the command that installs it, and leaves Serena and Graphify out. Without npm, it leaves out Context7 and ast-grep in the same way.
 
 ### From the chat
 
@@ -70,7 +70,7 @@ Run `/binnacle:roadmap`. It needs no daemon, but it needs the manifest and the r
 2. It proposes the epics in dependency order, the foundation first, each with one line of scope. Change, drop, merge or add epics before you say yes.
 3. On your yes, it writes the roadmap's rows, its `## Epics` section and a Next action that grills the first epic. It commits only those files, and never pushes.
 
-It takes this new-project entry when the history holds no commit beyond those that added `binn init`'s files, and Git tracks no source code; `/binnacle:roadmap new` takes it anyway. Run again, it proposes additions and reorders among the epics not started, and never touches a `done` epic or a row that links a spec.
+It takes this new-project entry when the history holds no commit beyond those that added `binn init`'s files, and Git tracks no source code; `/binnacle:roadmap new` takes it anyway. Run again, it proposes additions and reorders among the epics not started, never changes a `done` epic, and never removes a row that links a spec.
 
 ## 4. The first Product session
 

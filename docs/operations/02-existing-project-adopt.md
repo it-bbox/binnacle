@@ -48,16 +48,16 @@ A stranded document is a tracked plan, spec, decision, TODO, notes, backlog, des
 
 ## The plan, item by item
 
-What the plan can hold, in its order. Each item is there only when something is missing, and each write outside the repository says so in its heading.
+What the plan can hold, in its order. Most items are there only when something is missing; the registration, while the daemon runs, and the three skill sets of item 5 are planned on every run. Each write outside the repository says so in its heading.
 
 1. **The manifest**, for a repository without one: the project's id, the tracker from the remote (GitHub, GitLab, or local tickets under `docs/specs`), the knowledge paths, the workflow, the tools found or to install under `capabilities`, and the import window.
 2. **The registration** with the running daemon. With the daemon stopped, init names `binn daemon start` and `binn project register` instead.
 3. **The `binnacle` MCP server**, in the project file of each detected harness: `.mcp.json` for Claude Code, `.codex/config.toml` for Codex, `opencode.json` for opencode, `.vscode/mcp.json` for VS Code. A file that already names `binnacle` is left alone.
 4. **The `binnacle` plugin**, into Claude Code at user scope, from this Binnacle package, unless Claude Code lists it or the project provides its own.
-5. **Binnacle's skills, Matt Pocock Skills and Ponytail**, into every harness the `skills` CLI detects, at user scope, through `npx skills`. Each set is then removed from Claude Code, which has it as a plugin, and from each `--skip-harness <id>`. Without `npx`, the commands are printed.
+5. **Binnacle's skills, Matt Pocock Skills and Ponytail**, into every harness the `skills` CLI detects, at user scope, through `npx skills`, when a harness is detected. Each set is then removed from Claude Code, which has it as a plugin, and from each `--skip-harness <id>`. Without `npx`, the commands are printed.
 6. **The planning conventions** the planning skills read, so that no setup skill runs first: `docs/agents/issue-tracker.md` for the detected tracker, with the ticket header, the Epic brief and the contested points; `triage-labels.md`; `domain.md`. Then the *Agent skills* block that points to them, in `AGENTS.md`, or in `CLAUDE.md` when only it exists.
 7. **The layout**: the issues directory the local tracker reads, and a `<knowledge.docs>/roadmap.md` skeleton in Binnacle's format, whose Next action is `/binnacle:roadmap`.
-8. **The tools**: Matt Pocock Skills and Ponytail as Claude Code plugins at user scope, unless Claude Code lists them; Serena and Graphify through `uv tool install`; ast-grep through npm. Without `uv`, init names the command that installs it, and leaves Serena and Graphify out.
+8. **The tools**: Matt Pocock Skills and Ponytail as Claude Code plugins at user scope, unless Claude Code lists them; Serena and Graphify through `uv tool install`; ast-grep through npm. Without `uv`, init names the command that installs it, and leaves Serena and Graphify out; without npm, Context7 and ast-grep.
 9. **The tools' MCP servers**: Serena, Context7 and Graphify, registered with each detected harness through its own CLI, never in the repository. Graphify serves one project, so it goes into Claude Code's local scope, and its entry is printed for the others.
 10. **The OpenTelemetry export** of Claude Code, Codex and Gemini CLI, pointed at the daemon's address in their user settings (below).
 11. **`graphify-out/` in `.gitignore`**, with Graphify found or installed, unless Git already ignores it.
@@ -91,7 +91,7 @@ Run `/binnacle:roadmap`. It needs no daemon, and takes the existing-project entr
 4. A roadmap not in Binnacle's format is proposed rewritten into it, keeping its content.
 5. It shows every change and the commit, and waits. On your yes, it writes and moves, checks that the audit's `docs.roadmap` is `ok`, and commits only what it wrote. It never pushes.
 
-The Next action it writes grills the first epic not done. Run again, it proposes additions and reorders among the epics not started, and never touches a `done` epic or a row that links a spec. Then `/binnacle:product` starts the first Product session.
+The Next action it writes grills the first epic not done. Run again, it proposes additions and reorders among the epics not started, never changes a `done` epic, and never removes a row that links a spec. Then `/binnacle:product` starts the first Product session.
 
 ## Historical telemetry
 
