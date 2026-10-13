@@ -28,25 +28,23 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 16 | Dashboard redesign | done | [`dashboard-redesign`](specs/dashboard-redesign/spec.md) |
 | 17 | Release: npm and open source | not started | — |
 | 18 | Lean flow | done | [`lean-flow`](specs/lean-flow/spec.md) |
-| 19 | Starting a project: new and existing | in progress | [`starting-a-project`](specs/starting-a-project/spec.md) |
+| 19 | Starting a project: new and existing | done | [`starting-a-project`](specs/starting-a-project/spec.md) |
 
 Epics are ordered by dependency, not by preference. Epic 1 is the foundation; epics 5 to 7 are only meaningful once 1 to 4 exist. Audit and adopt is epic 6 in the specs of epics 1 to 3, written before epic 6 was inserted on 2026-09-26. Epic 14 was added on 2026-10-06 and comes before epic 10, which reuses its list of harnesses.
 
 ## Current focus
 
-Epics 1 to 11, 14, 16 and 18 are done. On the evening of 2026-10-13 a video presents Binnacle, published to npm and open source (the owner, 2026-10-10).
+Epics 1 to 11, 14, 16, 18 and 19 are done. On the evening of 2026-10-13 a video presents Binnacle, published to npm and open source (the owner, 2026-10-10).
 
 The owner's order, 2026-10-12: 19, starting a new or an existing project, the most important of what is left; then 15, 12 and 13 by importance; 17, npm and open source under Apache-2.0 (`ADR-0010`, `ADR-0031`), at the release. Whatever is not done by then continues after it, in open source. Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own.
 
-Epic 19's tickets 01 to 07 are merged (2026-10-12): `/binnacle:task run <ticket>` starts every Task (ADR-0042); `binn audit` lists stranded documents; `binn init` writes the planning conventions; `/binnacle:roadmap` starts a new or an existing project; autopilot asks the plan's three questions first.
+Epic 19 is done (2026-10-13): `/binnacle:task run <ticket>` starts every Task (ADR-0042); `binn audit` lists stranded documents; `binn init` writes the planning conventions; `/binnacle:roadmap` starts a new or an existing project; autopilot asks the plan's three questions first. Its demonstration's two defects are fixed (ticket 09): a `done` epic without a spec raises nothing, and the skill names the product inbox's file.
 
 Epic 15's tickets 01 to 07 and 09 are merged (2026-10-13, ADR-0043): `binn init` asks to start the daemon at login, `binn daemon autostart on|off` sets a systemd unit, a LaunchAgent or a Task Scheduler task, and `start` and `stop` go through it; the skills build reads a CRLF checkout. Whether CI's live test passes on Windows is read from `main`'s run at `fc45948`, as ticket 09 says. Left is the owner's exit demonstration of epic 15, ticket 08.
 
 Epic 18 made the flow cheaper, read from epic 16's run against epic 11's: per DONE Task 14% less output and half the rework share (`dashboard-redesign/09`). Epic 11's ticket 14 waits on one criterion: a merge that shrinks the graph.
 
-Epic 19's exit demonstration, ticket 08, held on 2026-10-13, on a new project and on a copy of `diy-magaz`; it found two defects in the roadmap skill's path, ticket 09, which closes the epic.
-
-Next action: fix the two defects epic 19's demonstration found. `/binnacle:task run docs/specs/starting-a-project/issues/09-roadmap-skill-demonstration-fixes.md`
+Next action: the owner's exit demonstration of epic 15, on Linux, with a reboot. `/binnacle:task run docs/specs/daemon-autostart/issues/08-daemon-autostart-exit-demonstration.md`
 
 ## Later
 
