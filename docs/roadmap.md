@@ -30,45 +30,80 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 18 | Lean flow | done | [`lean-flow`](specs/lean-flow/spec.md) |
 | 19 | Starting a project: new and existing | done | [`starting-a-project`](specs/starting-a-project/spec.md) |
 
-Epics are ordered by dependency, not by preference. Epic 1 is the foundation; epics 5 to 7 are only meaningful once 1 to 4 exist. Audit and adopt is epic 6 in the specs of epics 1 to 3, written before epic 6 was inserted on 2026-09-26. Epic 14 was added on 2026-10-06 and comes before epic 10, which reuses its list of harnesses.
+Epics are ordered by dependency, not by preference:
+
+- epic 1 is the foundation, and epics 5 to 7 are only meaningful once 1 to 4 exist;
+- audit and adopt is epic 6 in the specs of epics 1 to 3, written before epic 6 was inserted on 2026-09-26;
+- epic 14 was added on 2026-10-06 and comes before epic 10, which reuses its list of harnesses.
 
 ## Current focus
 
-Epics 1 to 11, 14 to 16, 18 and 19 are done. On the evening of 2026-10-13 a video presents Binnacle, published to npm and open source (the owner, 2026-10-10).
+Done: epics 1 to 11, 14 to 16, 18 and 19.
 
-The owner's order, 2026-10-13: epic 17 now, before the release tonight. Grilled, specified and sliced on 2026-10-13 (`docs/specs/release/spec.md`, ADR-0044): one package, `@it-bbox/binnacle` 0.1.0, which the owner publishes by hand; the audit's fixes first, then a short README and user guides in English and Russian, then npm and open source. Epics 12 and 13 follow, by importance, in open source. Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own.
+**Now: epic 17, the release, tonight** (the owner, 2026-10-13). On the evening of 2026-10-13 a video presents Binnacle on npm and in open source (the owner, 2026-10-10). Grilled, specified and sliced on 2026-10-13 (`docs/specs/release/spec.md`, ADR-0044):
 
-Epic 19 is done (2026-10-13, ADR-0042): `/binnacle:task run <ticket>` starts every Task, `binn audit` lists stranded documents, and `/binnacle:roadmap` starts a new or an existing project.
+- one package, `@it-bbox/binnacle` 0.1.0, which the owner publishes by hand;
+- in order: the audit's fixes, then a short README and user guides in English and Russian, then npm and open source.
 
-Epic 15 is done (2026-10-13, ADR-0043): `binn daemon autostart on|off` sets a systemd unit, a LaunchAgent or a Task Scheduler task, `binn init` asks for it, and a broken one is reported with its repair. CI's live test is green on all three platforms. Its demonstration (ticket 08) ran on Linux without a reboot: a reboot that finds the daemon answering is still to be seen.
+**After it:** epics 12 and 13, by importance, in open source. Each goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own.
 
-Epic 11's ticket 14 waits on one criterion: a merge that shrinks the graph.
+**Left open in done epics:**
+
+- epic 15 (ADR-0043): its demonstration ran on Linux without a reboot; a reboot that finds the daemon answering is still to be seen;
+- epic 11, ticket 14: waits on a merge that shrinks the graph.
 
 Next action: run epic 17's tickets, starting with 01 and 02. `/binnacle:autopilot 17`
 
 ## Later
 
-Deferred deliberately, each with the decision that deferred it:
+Deferred deliberately, each with the decision that deferred it and when it comes back:
 
-- standalone binaries for users without Node — `ADR-0016`;
-- adopting a large third-party repository as a baseline case — `docs/00-scope.md`;
-- autopilot notifications through a Telegram bot, beside the push notification it sends today — `ADR-0022`;
-- cost computed from a price table — `specs/telemetry/spec.md`: a subscription makes such a number conditional;
-- changing a local ticket's `Status:` from the dashboard — a separate ADR narrowing `ADR-0020`, only if working with the read-only dashboard shows it is needed;
-- forking the Matt Pocock skills into the `binnacle` plugin — only if a skill's procedure, not just its conventions in `docs/agents/`, has to change;
-- reading a record's branch again when its checkout's reflog can still give one: a record stored with the harness's branch before ADR-0029's order, or whose reflog lookup failed or timed out — `ADR-0030`, only if it matters in practice;
-- autopilot resuming by itself once a usage limit resets: on 2026-09-25 a Product session did it by hand, with a script that waited for the reset and a message to the autopilot session — `ADR-0022`, when limits interrupt runs often;
-- an optional Binnacle mod for Claude Code: a status line, a *Waiting for you* band, a pane and toasts, read-only, off by default — the owner, 2026-10-11, after the release; a new surface, so an ADR first (`docs/product-inbox.md`);
-- advanced optimisation rules — only after real measurement. Graphify, Obsidian, worktree conflict analysis, further harnesses, OpenTelemetry, CI state, context pressure and everything from the chat left this list on 2026-10-02: they are baseline items, epics 8 to 12 (`docs/baseline.md`).
+| Deferred | Decided by | Comes back when |
+| --- | --- | --- |
+| Standalone binaries for users without Node | `ADR-0016` | users without Node appear |
+| Adopting a large third-party repository as a baseline case | `docs/00-scope.md` | — |
+| Autopilot notifications through a Telegram bot, beside its push notification | `ADR-0022` | — |
+| Cost computed from a price table | `specs/telemetry/spec.md` | a subscription makes such a number conditional, so not yet |
+| Changing a local ticket's `Status:` from the dashboard | a new ADR narrowing `ADR-0020` | working with the read-only dashboard shows it is needed |
+| Forking the Matt Pocock skills into the `binnacle` plugin | — | a skill's procedure, not just its conventions in `docs/agents/`, has to change |
+| Reading a record's branch again from a checkout's reflog, for records stored before ADR-0029's order or whose lookup failed | `ADR-0030` | it matters in practice |
+| Autopilot resuming by itself once a usage limit resets (done by hand on 2026-09-25) | `ADR-0022` | limits interrupt runs often |
+| An optional Binnacle mod for Claude Code: a status line, a *Waiting for you* band, a pane and toasts, read-only, off by default | the owner, 2026-10-11; an ADR first (`docs/product-inbox.md`) | after the release |
+| Advanced optimisation rules | — | after real measurement |
+
+Graphify, Obsidian, worktree conflict analysis, further harnesses, OpenTelemetry, CI state, context pressure and everything from the chat left this list on 2026-10-02: they are baseline items, epics 8 to 12 (`docs/baseline.md`).
 
 Items excluded from the product altogether are not listed here. See the non-goals in `docs/00-scope.md`.
 
 ## Keeping this current
 
-The current focus and an epic's status are written by a Product session, a checkpoint, or autopilot at the end of its run on the owner's yes, never by a ticket: a ticket's last commit sets only its own `Status: DONE`, and the snapshot derives what is done and what can start from the tickets' statuses until the focus catches up (the owner, 2026-10-11). The `Next action:` paragraph is the owner's course, so it is written only on the owner's yes (the owner, 2026-10-02).
+A stale roadmap is worse than none: Product Snapshot reads its position from here.
 
-Update the status column when an epic changes state. An epic moves to `spec` in the change that fills its spec link, when `to-spec` produces the spec: a `spec`, `tickets` or `in progress` row whose Spec cell is `—` is reported as `roadmap.spec_missing`; a `done` one is not, since finished work, often older than Binnacle, may have no spec. A `spec.md` under the specs directory that no row's Spec cell links is reported as `roadmap.spec_unlisted`. A stale roadmap is worse than none, because Product Snapshot reads its position from here.
+### Who writes what
 
-The epic table's header and the `## Current focus` heading are a contract with Binnacle (`specs/mcp-and-product-snapshot/spec.md`). Change them and the snapshot reports a diagnostic instead of a position. Each row's `#` must be a number, its Status one of the vocabulary above, written exactly, and its Spec cell `—` or a link to `specs/<slug>/spec.md`; a row that is not is left out of the snapshot, with a diagnostic. The current focus reaches a fresh session only up to its first 2000 characters, so keep it short.
+- **The current focus and an epic's status**: a Product session, a checkpoint, or autopilot at the end of its run, on the owner's yes. Never a ticket (the owner, 2026-10-11).
+- **A ticket's last commit** sets only its own `Status: DONE`. Until the focus catches up, the snapshot derives what is done and what can start from the tickets' statuses.
+- **The `Next action:` paragraph** is the owner's course, written only on the owner's yes (the owner, 2026-10-02).
 
-The current focus ends with a paragraph that starts with `Next action:` and ends with exactly one command in backticks, the one the owner types to take it, such as `/binnacle:autopilot` or `/binnacle:task run <ticket path>`, so that the next step can be copied rather than worked out (the owner, 2026-09-26). Epic 5's dashboard reads that command as the Next action and shows Binnacle's Suggested step beside it (ADR-0032). A focus that ends otherwise, whose command names a Task already done, or that runs autopilot on an epic with no ticket left for an agent, is an attention item there.
+### The status column
+
+- Update it when an epic changes state.
+- An epic moves to `spec` in the change that fills its spec link, when `to-spec` produces the spec.
+- A `spec`, `tickets` or `in progress` row whose Spec cell is `—` is reported as `roadmap.spec_missing`. A `done` one is not: finished work, often older than Binnacle, may have no spec.
+- A `spec.md` under the specs directory that no row links is reported as `roadmap.spec_unlisted`.
+
+### The format is a contract
+
+The epic table's header and the `## Current focus` heading are a contract with Binnacle (`specs/mcp-and-product-snapshot/spec.md`). Change them and the snapshot reports a diagnostic instead of a position.
+
+- Each row's `#` is a number.
+- Its Status is one of the vocabulary above, written exactly.
+- Its Spec cell is `—` or a link to `specs/<slug>/spec.md`.
+- A row that breaks these is left out of the snapshot, with a diagnostic.
+- The focus reaches a fresh session only up to its first 2000 characters, so keep it short.
+
+### The Next action
+
+The current focus ends with a paragraph that starts with `Next action:` and ends with exactly one command in backticks, the one the owner types, such as `/binnacle:autopilot` or `/binnacle:task run <ticket path>`. The next step is then copied, not worked out (the owner, 2026-09-26). The dashboard shows that command as the Next action, with Binnacle's Suggested step beside it (ADR-0032).
+
+It is an attention item when the focus ends otherwise, when its command names a Task already done, or when it runs autopilot on an epic with no ticket left for an agent.
