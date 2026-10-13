@@ -1,6 +1,6 @@
 # 06: Guides for tools, security, installation and the release
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 03, 04
 Spec: `docs/specs/release/spec.md`
