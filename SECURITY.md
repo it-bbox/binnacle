@@ -8,7 +8,7 @@ _Русская версия: [SECURITY.ru.md](SECURITY.ru.md)._
 | ------- | --------- |
 | 0.1.x   | Yes       |
 
-Fixes go into the latest `0.1.x` release of `@it-bbox/binnacle`.
+Fixes go only into the latest `0.1.x` release of `@it-bbox/binnacle`.
 
 ## Reporting a vulnerability
 

@@ -8,11 +8,11 @@ _English version: [SECURITY.md](SECURITY.md). Этот файл — русски
 | ------ | -------------- |
 | 0.1.x  | Да             |
 
-Исправления выходят в последнем релизе `0.1.x` пакета `@it-bbox/binnacle`.
+Исправления вносятся только в последний релиз `0.1.x` пакета `@it-bbox/binnacle`.
 
 ## Как сообщить об уязвимости
 
-Сообщайте закрыто, через private vulnerability reporting на GitHub: [открыть отчёт](https://github.com/it-bbox/binnacle/security/advisories/new) или *Security* → *Report a vulnerability* в репозитории.
+Сообщайте конфиденциально, через private vulnerability reporting на GitHub: [открыть отчёт](https://github.com/it-bbox/binnacle/security/advisories/new) или *Security* → *Report a vulnerability* в репозитории.
 
 Не открывайте публичный issue или pull request об уязвимости.
 
@@ -29,4 +29,4 @@ _English version: [SECURITY.md](SECURITY.md). Этот файл — русски
 
 Граница безопасности, на которую всё это опирается, описана в [разделе *Security boundary* архитектуры](docs/01-architecture.md#security-boundary).
 
-Не входит: уязвимость в harness, трекере или инструменте, с которым работает Binnacle; о ней сообщают в их собственный проект.
+Не входит: уязвимость в harness, трекере или инструменте, с которым работает Binnacle; о ней сообщают в проект этого инструмента.
