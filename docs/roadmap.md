@@ -21,7 +21,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 9 | Everything from the chat | done | [`everything-from-the-chat`](specs/everything-from-the-chat/spec.md) |
 | 10 | Telemetry for any harness | done | [`telemetry-for-any-harness`](specs/telemetry-for-any-harness/spec.md) |
 | 11 | The state of work | done | [`the-state-of-work`](specs/the-state-of-work/spec.md) |
-| 12 | Audit, completed | not started | — |
+| 12 | Audit, completed | spec | [`audit-completed`](specs/audit-completed/spec.md) |
 | 13 | Human output | not started | — |
 | 14 | Skills in any harness | done | [`skills-in-any-harness`](specs/skills-in-any-harness/spec.md) |
 | 15 | Daemon autostart | done | [`daemon-autostart`](specs/daemon-autostart/spec.md) |
@@ -50,7 +50,7 @@ Done: epics 1 to 11 and 14 to 19.
 - epic 15 (ADR-0043): a reboot that finds the daemon answering is still to be seen;
 - epic 11, ticket 14: waits on a merge that shrinks the graph.
 
-Next action: specify epic 12, Audit, completed, from its grilling's brief, `docs/specs/audit-completed/brief.md`. `/mattpocock-skills:to-spec`
+Next action: slice epic 12, Audit, completed, into tickets, from `docs/specs/audit-completed/spec.md`. `/mattpocock-skills:to-tickets`
 
 ## Later
 
