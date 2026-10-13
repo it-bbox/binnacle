@@ -33,7 +33,8 @@ export function preparePlugin(source: string, target: string): string {
 export function prepareSkills(source: string, target: string, version: string): void {
   rmSync(target, { recursive: true, force: true });
   for (const action of readdirSync(join(source, 'skills'))) {
-    const text = readFileSync(join(source, 'skills', action, 'SKILL.md'), 'utf8');
+    // A Windows checkout's Git writes CRLF; the copy is the same as from LF.
+    const text = readFileSync(join(source, 'skills', action, 'SKILL.md'), 'utf8').replaceAll('\r\n', '\n');
     const end = text.indexOf('\n---\n', 4);
     if (!text.startsWith('---\n') || end < 0) throw new Error(`${action}/SKILL.md: no frontmatter between two --- lines`);
     const frontmatter = text

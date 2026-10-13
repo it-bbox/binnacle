@@ -150,6 +150,17 @@ test('the skills copy has one binnacle-<action> folder per plugin skill, renamed
   const named = new Set([...help.matchAll(/`(binnacle-[a-z-]+)`/g)].map(([, name]) => name));
   assert.deepEqual([...named].sort(), ACTIONS.map((action) => `binnacle-${action}`));
 
+  // A Windows checkout, whose Git writes CRLF, builds the same copy (daemon-autostart ticket 09).
+  const crlf = join(dir, 'crlf');
+  cpSync(PLUGIN_SOURCE, crlf, { recursive: true });
+  for (const action of ACTIONS) {
+    const path = join(crlf, 'skills', action, 'SKILL.md');
+    writeFileSync(path, readFileSync(path, 'utf8').replaceAll('\n', '\r\n'));
+  }
+  prepareSkills(crlf, join(dir, 'crlf-skills'), version);
+  assert.deepEqual(filesUnder(join(dir, 'crlf-skills')), filesUnder(target));
+  for (const path of filesUnder(target)) assert.equal(readFileSync(join(dir, 'crlf-skills', path), 'utf8'), readFileSync(join(target, path), 'utf8'), path);
+
   // A skill without frontmatter fails the build rather than reaching a harness half-written.
   const broken = join(dir, 'broken');
   cpSync(PLUGIN_SOURCE, broken, { recursive: true });
