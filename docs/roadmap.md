@@ -26,7 +26,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 14 | Skills in any harness | done | [`skills-in-any-harness`](specs/skills-in-any-harness/spec.md) |
 | 15 | Daemon autostart | done | [`daemon-autostart`](specs/daemon-autostart/spec.md) |
 | 16 | Dashboard redesign | done | [`dashboard-redesign`](specs/dashboard-redesign/spec.md) |
-| 17 | Release: npm and open source | spec | [`release`](specs/release/spec.md) |
+| 17 | Release: npm and open source | tickets | [`release`](specs/release/spec.md) |
 | 18 | Lean flow | done | [`lean-flow`](specs/lean-flow/spec.md) |
 | 19 | Starting a project: new and existing | done | [`starting-a-project`](specs/starting-a-project/spec.md) |
 
