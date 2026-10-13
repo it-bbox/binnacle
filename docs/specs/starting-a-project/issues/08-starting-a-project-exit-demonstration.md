@@ -7,7 +7,7 @@ Spec: `docs/specs/starting-a-project/spec.md`
 
 **What to build:** epic 19's exit criterion, demonstrated by the owner (spec, *Further Notes*).
 
-- [ ] In a fresh directory: `git init`, one `binn init` writing `docs/agents/` and the *Agent skills* block, then `/binnacle:roadmap` asking for the vision, writing it, the epics and a Next action that grills the first epic; no `/setup-matt-pocock-skills`.
+- [x] In a fresh directory: `git init`, one `binn init` writing `docs/agents/` and the *Agent skills* block, then `/binnacle:roadmap` asking for the vision, writing it, the epics and a Next action that grills the first epic; no `/setup-matt-pocock-skills`.
 - [ ] On a copy of a small existing project with a `TODO.md` and an old plan: `binn audit` lists them, and `/binnacle:roadmap` proposes epics with statuses and a place for each, writing nothing before the owner's yes.
 - [ ] A ticket started from the dashboard's command, `/binnacle:task run`, ends on its branch with its Review and `DONE` last, unmerged.
 - [x] The three questions shown at the start of the next epic's autopilot run.
@@ -26,6 +26,8 @@ By this ticket's agent, with `binn` from this checkout and the `binnacle` plugin
 
 - **The three questions, ticked.** The owner, 2026-10-13: `/binnacle:autopilot 15`, the first autopilot run of an epic after this one, showed the plan's three questions, what it can break, the riskiest step and what was dropped, and started on the owner's yes; it wrote them to `docs/specs/daemon-autostart/spec.md`, `## Risks` (`40a8df7`).
 - **A ticket from the dashboard's command.** The owner started this ticket with the dashboard's command, and counts this run as the demonstration: it is ticked when this branch ends with its Review and `DONE` last, unmerged.
+
+- **A new project, ticked.** The owner, in `~/demo-new`: `git init`, `binn init` once, then `/binnacle:roadmap`. With no vision, it asked what, for whom and what is out, one at a time, showed `docs/vision.md` whole in the owner's words, proposed two epics in dependency order with a line of scope each, and the roadmap with the Next action `/grill-with-docs epic 1: Shopping list`, naming the brief; it wrote and committed only the vision and the roadmap after the owner's yes. No `/setup-matt-pocock-skills`. Kept, not a defect: the files `binn init` wrote stay uncommitted, as init never commits and the skill commits only its own two.
 
 ### Steps for the owner: criteria 1 and 2
 
