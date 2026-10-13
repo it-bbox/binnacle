@@ -1,6 +1,6 @@
 # 09: A done epic without a spec, and the product inbox's path
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/starting-a-project/spec.md`
