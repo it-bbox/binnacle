@@ -47,6 +47,17 @@ Everything Binnacle keeps about itself lives in the Binnacle home directory — 
 
 `0600` and `0700` are POSIX concepts. **On Windows they are not enforced.** Node passes the mode through and the filesystem ignores it. There these files are protected by the user profile's ACL and by nothing Binnacle does, so anything running as that Windows account can read the API token. That is the same trust boundary the harnesses' own credential files already sit behind, but it is not a protection Binnacle provides — which is why this document says so rather than implying an enforcement that is not running.
 
+## Open dependency advisories
+
+`pnpm audit --prod` reports no high or critical advisory. `pnpm audit` still reports these, all in the dashboard's build tooling, which runs at `nuxt generate` and never ships: the dashboard is served as static files (ADR-0031). Each is kept because no release of a direct dependency removes it (2026-10-13).
+
+| Advisory | Package, through | Severity | Why it is kept | Comes back when |
+| --- | --- | --- | --- | --- |
+| GHSA-x6jw-m9v5-85vh, GHSA-v5rq-49vh-5v5c, GHSA-g4wm-2vf7-vfgr, GHSA-858h-whjf-mvg5 | `simple-git` 3.x and `@simple-git/argv-parser`, through `nuxt` → `@nuxt/devtools` 3 | critical, high | Fixed in `simple-git` 4, which only `@nuxt/devtools` 4's betas take; Nuxt 4.6 requires devtools 3. The dashboard turns devtools off (`devtools: { enabled: false }`), and they run only under `nuxt dev`. | a stable Nuxt takes `@nuxt/devtools` 4 |
+| GHSA-86w9-cpqp-85rv | `node-forge`, through `nitropack` → `listhen` | high | No fixed release exists. `listhen` is the development server's listener; `nuxt generate` verifies no signature with it. | `node-forge` publishes a fix |
+| GHSA-vfj7-8cjw-p6xm | `braces`, through `nitropack` → `globby` → `micromatch` | high | No fixed release exists. The patterns it expands are the dashboard's own, at build time, so the worst case is a failed build. | `braces` publishes a fix |
+| GHSA-g7r4-m6w7-qqqr | `esbuild` 0.27, through `@nuxt/ui` → `@nuxt/fonts` 0.14 → `fontless` | low | The latest Nuxt UI still takes `@nuxt/fonts` 0.14. It affects esbuild's development server on Windows, which the dashboard never runs, and the dashboard turns Nuxt UI's fonts off. | Nuxt UI takes `@nuxt/fonts` 1 |
+
 ## Rebuildability
 
 SQLite is not the sole truth. Project knowledge remains in Git/tracker/docs, and telemetry/event journal should allow meaningful recovery.

@@ -13,13 +13,13 @@
     "node": ">=24 <27"
   },
   "devDependencies": {
-    "nuxt": "^4.5.2",
+    "nuxt": "^4.6.1",
     "typescript": "^5.9.0",
-    "vue-tsc": "^3.3.11"
+    "vue-tsc": "^3.3.13"
   },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.137",
-    "@nuxt/ui": "^4.11.2",
+    "@nuxt/ui": "^4.11.3",
     "marked": "^17.0.6"
   }
 }
