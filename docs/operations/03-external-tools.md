@@ -138,7 +138,16 @@ The daemon keeps the graph current (ADR-0036). Once a minute it reads the commit
 
 One run per project goes at a time, with at most one queued, so a burst of merges costs two runs. Each outcome is recorded as an event, which the snapshot's `graph` section and its attention items read (`docs/03-mcp-and-skills.md`). A failed run, the report's included, keeps the last good graph and is retried at the next move of the branch, not every minute.
 
-Keep generated and vendored directories out of the graph, such as `.scratch/`, `node_modules/`, `.nuxt/`, `.output/`, `dist/` and `coverage/`.
+Keep generated and vendored directories out of the graph, such as:
+
+```text
+.scratch/
+node_modules/
+.nuxt/
+.output/
+dist/
+coverage/
+```
 
 ### Context7
 

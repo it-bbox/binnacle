@@ -52,7 +52,7 @@ cd apps/cli && pnpm link --global
 
 Daemon также раздаёт dashboard только для чтения по своему адресу, по умолчанию `http://127.0.0.1:7717/`. При работе из checkout сгенерируйте его один раз в основном checkout командой `pnpm dashboard:generate` и снова — после pull изменения в `apps/dashboard`. До этого адрес отвечает страницей с этой командой.
 
-`binn dashboard` открывает dashboard в браузере по умолчанию, уже авторизованным; `binn dashboard --print` печатает его адрес с токеном и ничего не открывает. После первого раза обычный адрес работает в этом браузере как закладка.
+`binn dashboard` открывает dashboard, уже авторизованный, в браузере по умолчанию; `binn dashboard --print` печатает его адрес с токеном и ничего не открывает. После первого раза обычный адрес работает в этом браузере как закладка.
 
 ### После pull или merge
 
@@ -100,10 +100,16 @@ CI работает в GitHub Actions на каждый push в `main` и на �
 
 Binnacle публикуется в npm одним пакетом, `@it-bbox/binnacle`, чья версия — версия из `apps/cli/package.json` (ADR-0044). Собственные пакеты workspace остаются приватными.
 
-1. **Проверка.** `pnpm install`, затем `pnpm typecheck` и `pnpm test`.
-2. **Сборка.** `pnpm --filter @binnacle/cli build` пишет пакет в `apps/cli/dist/`: `binn` и `binnd`, собранные со всеми зависимостями, сгенерированный dashboard, plugin и его marketplace, копию skills, `LICENSE`, README и его `package.json`. `nuxt generate` она запускает сама.
-3. **Тест tarball.** `node --test apps/cli/test/tarball.live.ts` собирает пакет, выполняет `npm pack`, устанавливает tarball в пустой префикс с временными `HOME` и `BINNACLE_HOME` и проверяет установленные команды. После установки workspace сеть ему не нужна. Job `tarball-live` в CI запускает его на трёх платформах; публикуйте, только когда этот job зелёный на голове `main`.
-4. **Публикация.** Владелец публикует вручную, чтобы токен npm не лежал в CI:
+1. **Версия.** Поднимите `version` в `apps/cli/package.json` для каждого релиза после `0.1.0`: npm никогда не принимает одну версию дважды.
+2. **Проверка.** `pnpm install`, затем `pnpm typecheck` и `pnpm test`.
+3. **Сборка.** `pnpm --filter @binnacle/cli build` сама запускает `nuxt generate` и пишет пакет в `apps/cli/dist/`:
+   - `bin/binn.js` и `bin/binnd.js`, собранные со всеми зависимостями;
+   - `dashboard/`, сгенерированный dashboard;
+   - `plugin/` и `.claude-plugin/marketplace.json`, plugin и его marketplace;
+   - `skills/`, копию `binnacle-<action>` для других harness;
+   - `LICENSE`, `README.md` и `package.json`, который пишет сборка.
+4. **Тест tarball.** `node --test apps/cli/test/tarball.live.ts` собирает пакет, выполняет `npm pack`, устанавливает tarball в пустой префикс с временными `HOME` и `BINNACLE_HOME` и проверяет установленные команды. После установки workspace сеть ему не нужна. Job `tarball-live` в CI запускает его на трёх платформах; публикуйте, только когда этот job зелёный на голове `main`.
+5. **Публикация.** Владелец публикует вручную, чтобы токен npm не лежал в CI:
 
 ```bash
 npm login

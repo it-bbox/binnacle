@@ -6,22 +6,18 @@ What Binnacle keeps, who can reach its daemon, where its secrets live, and what 
 
 ## What telemetry keeps
 
-Telemetry is metadata first. Content-level diagnostics are an explicit opt-in.
+Telemetry is metadata only. The store keeps, per call or event:
 
-| Kept | Never required |
-| --- | --- |
-| run, task and project identifiers | full prompts |
-| timestamps | model responses |
-| provider, model and profile | source file contents |
-| token and cache counts | secrets and tool arguments |
-| tool counts and names, where configured | |
-| state transitions | |
+- the harness, the session and its subagents, the project, the working directory and the branch;
+- timestamps, the provider and the model;
+- token and cache counts, with their provenance, and `null` where the harness reports none;
+- compactions, usage-limit hits and the daemon's own events.
 
-The OpenTelemetry export `binn init` configures has prompt logging off.
+It never keeps prompts, model responses, source file contents, secrets or tool arguments. The OpenTelemetry export `binn init` configures has prompt logging off. A content-level diagnostic, if one is ever added, must be an explicit opt-in.
 
 ## Secrets
 
-- No API key goes into `.binnacle/project.yaml`: Binnacle never reads a secret from a manifest, nor writes one to it (ADR-0013).
+- No API key goes into `.binnacle/project.yaml`: Binnacle never reads a secret from a manifest, nor writes one to it.
 - Keys live in the environment, the operating system's secret store or the upstream client's own configuration.
 - Never export a secret into Obsidian or Graphify on purpose.
 - `binn audit` does not look for committed secrets yet. Phase 12 of `docs/05-mvp-plan.md` adds it: a committed `.env` and known key patterns, given by path and line, never by value.
@@ -35,7 +31,7 @@ Binnacle never writes to a tracker (ADR-0013), so it asks for read-only tokens: 
 | GitHub | fine-grained | Issues read; for the snapshot's CI, Actions, Commit statuses and Pull requests read |
 | GitLab | any | `read_api` |
 
-- A token is given in the daemon's environment as `BINNACLE_GITHUB_TOKEN` or `BINNACLE_GITLAB_TOKEN`, or in `~/.binnacle/credentials.json`, one per host. How: [Installation checklist](05-installation-checklist.md#tracker-credentials).
+- A token is given in the daemon's environment as `BINNACLE_GITHUB_TOKEN` or `BINNACLE_GITLAB_TOKEN`, or in `~/.binnacle/credentials.json`, one per host. A daemon started by autostart gets no such variable, so keep its tokens in the file. How: [Installation checklist](05-installation-checklist.md#tracker-credentials).
 - A credentials file others can read is refused with `tracker.credentials_insecure`.
 - A token is sent only to its declared host, and never appears in a response, diagnostic, event or log line.
 - GitHub serves check runs to GitHub Apps only, so Binnacle reads a commit's workflow runs and statuses, never its contents.
@@ -74,7 +70,13 @@ Remote or team access is post-MVP, and needs its own authentication and threat m
 
 ## File permissions
 
-Everything Binnacle keeps about itself is in the Binnacle home: `~/.binnacle` by default, or the directory `BINNACLE_HOME` names. The home is created `0700`. The files Binnacle writes there are created `0600`: the API token, the daemon's runtime file and log, the store, the project registry and the settings file.
+Everything Binnacle keeps about itself is in the Binnacle home: `~/.binnacle` by default, or the directory `BINNACLE_HOME` names. The home is created `0700`, and the files Binnacle writes there are made `0600`:
+
+- the API token;
+- the daemon's runtime file and its log;
+- the store, whose SQLite side files the home's `0700` covers;
+- the project registry;
+- the settings file.
 
 `0600` and `0700` are POSIX modes. **On Windows they are not enforced**: Node passes the mode through and the filesystem ignores it.
 

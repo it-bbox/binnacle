@@ -87,14 +87,14 @@ A checkout's development link runs `binn` through pnpm instead: see [CONTRIBUTIN
 1. `binn daemon stop`: a running daemon would keep the old version until it restarts.
 2. `npm i -g @it-bbox/binnacle@latest` replaces the CLI, the daemon, the dashboard and the plugin together.
 3. `binn daemon start`, then `binn --version` prints the new version.
-4. When `claude plugin list --json` lists `binnacle@binnacle`, run `claude plugin marketplace update binnacle`, then `claude plugin update binnacle@binnacle`, so that Claude Code takes the new skills.
+4. When `claude plugin list --json` lists `binnacle@binnacle`, run `claude plugin marketplace update binnacle`, then `claude plugin update binnacle@binnacle`, so that Claude Code takes the new skills. A session opened after this step has them.
 5. Run `binn init` again in a project to reinstall Binnacle's skills into every other harness. `binn audit` reports them while they are stale.
 
 ## Configuration
 
 ### Environment variables
 
-The daemon reads all five from its own environment, so restart it after changing one.
+The daemon reads all five from its own environment, so restart it after changing one. With autostart on, the service starts the daemon with `BINNACLE_HOME` and `PATH` only: the others do not reach it, so keep tracker tokens in the credentials file.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
@@ -102,7 +102,7 @@ The daemon reads all five from its own environment, so restart it after changing
 | `BINNACLE_PORT` | `7717` | The loopback port the daemon binds. `0` takes an ephemeral port. |
 | `BINNACLE_GIT_TIMEOUT_MS` | `5000` | How long one read-only `git` call may take before `project.status` reports Git facts unavailable. Raise it on a slow filesystem. |
 | `BINNACLE_GITHUB_TOKEN` | none | A read-only token for every project whose `tracker.provider` is `github`, and for the CI of every project whose Git remote is on `github.com`. |
-| `BINNACLE_GITLAB_TOKEN` | none | A read-only token for every project whose `tracker.provider` is `gitlab`. |
+| `BINNACLE_GITLAB_TOKEN` | none | A read-only token for every project whose `tracker.provider` is `gitlab`, and for the CI of every project whose Git remote is on `gitlab.com`. |
 
 ### Exit codes
 
@@ -119,7 +119,7 @@ A project on GitHub or GitLab issues is read with a read-only token; a public re
 
 The snapshot's CI is read with the same token: from the tracker when it is GitHub or GitLab, or else from the project's first GitHub or GitLab remote. A remote's host gets the token kept for it:
 
-- on `github.com`, `BINNACLE_GITHUB_TOKEN` or the credentials file's `github.com` entry;
+- on `github.com` or `gitlab.com`, the provider's variable or the credentials file's entry for that host;
 - on any other host, only the credentials file's entry for it, since an environment token is meant for a declared host.
 
 For one host or several, keep the tokens in `credentials.json` in the Binnacle home. It is a JSON object keyed by the project's `tracker.host` as its manifest writes it, or by `github.com` or `gitlab.com` when the manifest writes none:
@@ -188,7 +188,9 @@ The snapshot and daily notes are written each time one is served, from what was 
 - their tickets and ADRs link to the projected notes;
 - with no vault set, serving one writes nothing.
 
-`90-Graphify/GRAPH_REPORT.md` is the registered checkout's `graphify-out/GRAPH_REPORT.md`, with the commit of the last successful run. Only a newer successful run rewrites it, so a failed run leaves it as it was. Without a successful run recorded, without the report, or with `capabilities.graphify: false`, there is no note and no attention item for it.
+`90-Graphify/GRAPH_REPORT.md` is the registered checkout's `graphify-out/GRAPH_REPORT.md`, with the commit of the last successful run. Only a newer successful run rewrites it, so a failed run leaves it as it was, and a vault set after a failed run gets no report until the next successful one.
+
+Without a successful run recorded, without the report, or with `capabilities.graphify: false`, there is no note and no attention item for it.
 
 Every note it writes starts with frontmatter naming it generated, with its source and commit:
 

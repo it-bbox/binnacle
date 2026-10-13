@@ -100,10 +100,16 @@ The adapters' live tests, which need tokens, do not run there.
 
 Binnacle is published to npm as one package, `@it-bbox/binnacle`, whose version is `apps/cli/package.json`'s (ADR-0044). The workspace's own packages stay private.
 
-1. **Check.** `pnpm install`, then `pnpm typecheck` and `pnpm test`.
-2. **Build.** `pnpm --filter @binnacle/cli build` writes the package to `apps/cli/dist/`: `binn` and `binnd` bundled with every dependency, the generated dashboard, the plugin and its marketplace, the skills copy, `LICENSE`, the README and its `package.json`. It runs `nuxt generate` itself.
-3. **Test the tarball.** `node --test apps/cli/test/tarball.live.ts` builds, runs `npm pack`, installs the tarball into an empty prefix with a temporary `HOME` and `BINNACLE_HOME`, and drives the installed commands. It needs no network once the workspace is installed. CI's `tarball-live` job runs it on the three platforms; publish only when that job is green at `main`'s head.
-4. **Publish.** The owner publishes by hand, so no npm token sits in CI:
+1. **Version.** Raise `version` in `apps/cli/package.json` for every release after `0.1.0`: npm never takes the same version twice.
+2. **Check.** `pnpm install`, then `pnpm typecheck` and `pnpm test`.
+3. **Build.** `pnpm --filter @binnacle/cli build` runs `nuxt generate` itself, and writes the package to `apps/cli/dist/`:
+   - `bin/binn.js` and `bin/binnd.js`, bundled with every dependency;
+   - `dashboard/`, the generated dashboard;
+   - `plugin/` and `.claude-plugin/marketplace.json`, the plugin and its marketplace;
+   - `skills/`, the `binnacle-<action>` copy for other harnesses;
+   - `LICENSE`, `README.md` and a `package.json` the build writes.
+4. **Test the tarball.** `node --test apps/cli/test/tarball.live.ts` builds, runs `npm pack`, installs the tarball into an empty prefix with a temporary `HOME` and `BINNACLE_HOME`, and drives the installed commands. It needs no network once the workspace is installed. CI's `tarball-live` job runs it on the three platforms; publish only when that job is green at `main`'s head.
+5. **Publish.** The owner publishes by hand, so no npm token sits in CI:
 
 ```bash
 npm login
