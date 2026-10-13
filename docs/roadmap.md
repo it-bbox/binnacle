@@ -36,7 +36,7 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 Epics 1 to 11, 14 to 16, 18 and 19 are done. On the evening of 2026-10-13 a video presents Binnacle, published to npm and open source (the owner, 2026-10-10).
 
-The owner's order, 2026-10-13: epic 17 now, before the release tonight. First the security audit's findings (`docs/product-inbox.md`, *Security audit before the release*), then every user-facing document checked, current and readable, the roadmap's long paragraphs included (*Readable documentation before the release*), and only then npm and open source under Apache-2.0 (`ADR-0010`, `ADR-0031`). Epics 12 and 13 follow, by importance, in open source. Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own.
+The owner's order, 2026-10-13: epic 17 now, before the release tonight. Grilled, specified and sliced on 2026-10-13 (`docs/specs/release/spec.md`, ADR-0044): one package, `@it-bbox/binnacle` 0.1.0, which the owner publishes by hand; the audit's fixes first, then a short README and user guides in English and Russian, then npm and open source. Epics 12 and 13 follow, by importance, in open source. Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own.
 
 Epic 19 is done (2026-10-13, ADR-0042): `/binnacle:task run <ticket>` starts every Task, `binn audit` lists stranded documents, and `/binnacle:roadmap` starts a new or an existing project.
 
@@ -44,7 +44,7 @@ Epic 15 is done (2026-10-13, ADR-0043): `binn daemon autostart on|off` sets a sy
 
 Epic 11's ticket 14 waits on one criterion: a merge that shrinks the graph.
 
-Next action: grill epic 17, the release: the security audit's fixes, the documentation pass, then npm and open source. `/grill-with-docs`
+Next action: run epic 17's tickets, starting with 01 and 02. `/binnacle:autopilot 17`
 
 ## Later
 
