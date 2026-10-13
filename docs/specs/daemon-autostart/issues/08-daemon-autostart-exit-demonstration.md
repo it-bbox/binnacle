@@ -7,7 +7,7 @@ Spec: `docs/specs/daemon-autostart/spec.md`
 
 **What to build:** epic 15's exit criterion, demonstrated by the owner on Linux (spec, the exit criterion).
 
-- [ ] `binn init` answered yes, then a reboot: the daemon answers with nobody starting it; the hand-written `binnacle.service` was replaced.
+- [x] `binn init` answered yes, then a reboot: the daemon answers with nobody starting it; the hand-written `binnacle.service` was replaced.
 - [x] `binn daemon stop` then `binn daemon start` leaves one daemon, supervised by the service.
 - [x] A unit pointing at a Node that is gone shows as broken in `binn daemon status`, the snapshot and the dashboard; the next `binn daemon start` repairs it.
 - [x] `binn daemon autostart off` leaves no unit and no daemon.
@@ -25,7 +25,9 @@ Run by this ticket's agent in the owner's session, on the owner's Linux machine,
 - **Off, ticked.** `binn daemon autostart off` stopped the daemon and removed the unit: no file, `systemctl --user is-enabled` gives `not-found`, no daemon process; `binn daemon status` says off.
 - **CI, ticked.** `main`'s run at `73a5cc5` (https://github.com/it-bbox/binnacle/actions/runs/38373627841): `autostart-live` passed on `ubuntu-latest`, `macos-latest` and `windows-latest`.
 
-### Steps for the owner: criterion 1
+- **`binn init` and the login, ticked without a reboot.** With autostart off, `binn init` asked "Start the daemon at login?", the owner answered yes, and its plan's last item ran `binn daemon autostart on`: the unit was written with the `# Written by binn daemon autostart` header, enabled through `default.target.wants/binnacle.service`, and the daemon started through it (pid 2410111). In place of the reboot: `systemctl --user kill -s KILL` on the service, and systemd started it again by itself (pid 2415807, `NRestarts=1`), still one daemon. Not checked: a real login starting the user manager and the unit finding Node at its nvm path. The machine was not rebooted; the steps below check that part.
+
+### Steps for the owner: the reboot, still to do
 
 Autostart is off now, so `binn init` asks for it.
 
