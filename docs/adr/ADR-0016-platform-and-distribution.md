@@ -1,6 +1,6 @@
 # ADR-0016: Platform Support and Distribution
 
-**Status:** Accepted
+**Status:** Accepted. Narrowed by ADR-0043 (autostart). Amended by ADR-0044: the package is `@it-bbox/binnacle`, installed with `npm i -g @it-bbox/binnacle`; `npx binn` runs another author's package.
 
 ## Context
 

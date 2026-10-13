@@ -1,6 +1,6 @@
 # ADR-0027: The `binnacle` Plugin Ships Inside the npm Package
 
-**Status:** Accepted
+**Status:** Accepted. Amended by ADR-0044: the package that carries the plugin is `@it-bbox/binnacle`.
 
 ## Context
 

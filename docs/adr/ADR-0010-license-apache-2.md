@@ -1,6 +1,6 @@
 # ADR-0010: Apache-2.0 License
 
-**Status:** Accepted
+**Status:** Accepted. Amended by ADR-0044: the one published package is `@it-bbox/binnacle`, since the scope `@binnacle` is taken; the workspace's `@binnacle/*` packages stay private.
 
 ## Context
 

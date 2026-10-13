@@ -113,22 +113,3 @@ Ways to weigh:
 ## A unit that uses systemd's specifiers (2026-10-13)
 
 Binnacle reads a systemd unit's `Environment=BINNACLE_HOME=` literally. A unit written by hand that says `%h/.binnacle`, as the one an agent session wrote on the owner's machine on 2026-10-09 does, reads as serving `…/%h/.binnacle`, so `binn daemon autostart` calls autostart off for `~/.binnacle`. Harmless: nothing is changed, and `binn daemon autostart on` replaces such a unit with Binnacle's own, written with absolute paths. Expanding `%h` and the other specifiers would fix it for units written by hand, which are rare; likely not worth doing.
-
-## Readable documentation before the release (2026-10-13)
-
-The owner, reading the README on GitHub: it starts well, then turns into walls of text, in English and in Russian alike. The paragraph on `binn audit` and `binn init` is one block of some forty lines that lists every step of the plan, every harness and every tool in a single run of clauses. Before the release on 2026-10-13, and right after epic 15's demonstration, every user-facing document — `README.md`, `README.ru.md` and the docs they link — is checked and made readable: short paragraphs, headings, lists and tables where a paragraph enumerates, the detail moved to the doc that owns it and linked. The owner wants it done before the release, not after.
-
-## Security audit before the release (2026-10-13)
-
-Read-only, by a Product session on `main` at `8abf0e5`, before the repository goes public and the packages reach npm. For epic 17's grilling.
-
-To fix before the release:
-
-1. **`binn` cannot run from npm.** Every package is `private` and `bin` points at a `.ts` file; Node refuses to strip types under `node_modules` (`ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`, checked on v24.16.0). A published package needs JavaScript, or one bundled file, with the dashboard's generated files inside it.
-2. **`@modelcontextprotocol/sdk` below 1.31.0** (high, GHSA-6qxp-vccf-f47h): its OAuth client can send credentials to an authorization server the MCP server chooses. Binnacle uses only its stdio server, so the path is likely unreachable, but the package ships it: upgrade.
-3. **No `SECURITY.md`, no Dependabot or Renovate.** A public repository needs a way to report a vulnerability, and its dependencies a way to be updated.
-4. **Nuxt's build tooling** carries 2 critical and 4 high advisories (`simple-git` and `shell-quote` through `@nuxt/devtools`, `node-forge`, `braces`, `source-map-js`) and 1 low (`esbuild`). They run only at `nuxt generate` on a developer's machine and never ship, since the daemon serves the generated files: update Nuxt where a fixed release exists.
-
-Checked and sound: no secret in a tracked file or in the history, only the tests' dummy tokens; the fixtures hold no conversation content; the daemon binds `127.0.0.1`, checks Host and Origin against DNS rebinding and compares the token in constant time; the dashboard is served under a strict CSP and a path leaving its directory is refused; `~/.binnacle` is `0700` and its files `0600`; telemetry keeps metadata and token counts, never content; the dashboard's Markdown escapes raw HTML and keeps only web and mail links; a shell runs only Binnacle's own commands, never input; every commit is by `miker059@gmail.com`.
-
-Noted, kept: the OTLP endpoint takes no token, by design, so any local process can add usage records; CI's actions are pinned by tag, not by commit, which is acceptable at `contents: read` with no secret.
