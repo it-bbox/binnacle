@@ -19,7 +19,7 @@ test('the repository workflow runs the typecheck and the offline tests on push t
   assert.deepEqual(workflow.on.push.branches, ['main']);
   assert.ok('pull_request' in workflow.on);
 
-  assert.deepEqual(Object.keys(workflow.jobs), ['check', 'autostart-live']);
+  assert.deepEqual(Object.keys(workflow.jobs), ['check', 'autostart-live', 'tarball-live']);
   const job = workflow.jobs.check;
   assert.ok(job);
   assert.equal(job['runs-on'], 'ubuntu-latest');
@@ -51,4 +51,19 @@ test('the workflow runs the live autostart test on Linux, macOS and Windows runn
 
   const scripts = (JSON.parse(readFileSync(new URL('../../../package.json', import.meta.url), 'utf8')) as { scripts: Record<string, string> }).scripts;
   assert.doesNotMatch(scripts.test ?? '', /live/, '`pnpm test` runs only *.test.ts');
+});
+
+/** Ticket 03 of release: the packed `@it-bbox/binnacle`, installed and driven on each runner, never in `pnpm test`. */
+test('the workflow runs the tarball test on Linux, macOS and Windows runners, with a timeout', () => {
+  const workflow = parseYaml(readFileSync(WORKFLOW, 'utf8')) as Workflow;
+  const job = workflow.jobs['tarball-live'];
+  assert.ok(job);
+  assert.deepEqual(job.strategy?.matrix.os, ['ubuntu-latest', 'macos-latest', 'windows-latest']);
+  assert.equal(job['runs-on'], '${{ matrix.os }}');
+  assert.ok(job['timeout-minutes'] && job['timeout-minutes'] <= 20, 'a timeout');
+  const node = job.steps.find((step) => step.uses?.startsWith('actions/setup-node@'));
+  assert.equal(node?.with?.['node-version'], 24);
+  const runs = job.steps.flatMap((step) => (step.run ? [step.run] : []));
+  assert.ok(runs.includes('pnpm install --frozen-lockfile'));
+  assert.equal(runs.at(-1), 'node --test apps/cli/test/tarball.live.ts');
 });

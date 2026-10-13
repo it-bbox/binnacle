@@ -45,7 +45,7 @@ test('the packed CLI carries the binnacle plugin, every file of its source, and 
   t.after(() => rmSync(tree, { recursive: true, force: true }));
   const copy = join(tree, 'apps', 'cli');
   cpSync(PLUGIN_SOURCE, join(tree, '.claude', 'skills', 'binnacle'), { recursive: true });
-  cpSync(PACKAGE, copy, { recursive: true, filter: (path) => !['node_modules', ...output].includes(relative(PACKAGE, path)) });
+  cpSync(PACKAGE, copy, { recursive: true, filter: (path) => !['node_modules', 'dist', ...output].includes(relative(PACKAGE, path)) });
   symlinkSync(join(PACKAGE, 'node_modules'), join(copy, 'node_modules'));
   const pack = spawnSync('pnpm', ['pack', '--pack-destination', out], { cwd: copy, encoding: 'utf8' });
   assert.equal(pack.status, 0, pack.stderr || pack.stdout);

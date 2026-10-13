@@ -1,6 +1,6 @@
 # The typecheck and the offline tests, on every push to main and every pull request, and the
-# live autostart test on each platform's runner. The tracker's live tests need tokens and stay
-# out; this workflow uses no secret.
+# live autostart and tarball tests on each platform's runner. The tracker's live tests need tokens
+# and stay out; this workflow uses no secret.
 name: CI
 
 on:
@@ -53,3 +53,23 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: node --test apps/cli/test/autostart.live.ts
+
+  # The packed @it-bbox/binnacle, installed into an empty prefix and driven as a user drives it:
+  # npm's command shims, the bundles' paths and the dashboard directory, on each platform.
+  tarball-live:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    # The build, the pack and the install take a minute or two.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node --test apps/cli/test/tarball.live.ts

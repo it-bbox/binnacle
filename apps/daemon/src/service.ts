@@ -28,8 +28,11 @@ export function servicePlatform(env: NodeJS.ProcessEnv = process.env): ServicePl
   );
 }
 
-/** The daemon's entry, the one `binn daemon start` spawns. */
-export const daemonEntry = (): string => fileURLToPath(new URL('./bin.ts', import.meta.url));
+/**
+ * The daemon's entry, the one `binn daemon start` spawns and the service records: its source in the
+ * workspace, or, in the installed package, where this module is bundled, the `binnd` bundle beside it.
+ */
+export const daemonEntry = (): string => fileURLToPath(new URL(import.meta.url.endsWith('.ts') ? './bin.ts' : './binnd.js', import.meta.url));
 
 /** What a definition is rendered from: this Node, the daemon's entry, the home, and the shell's PATH. */
 export type ServiceInputs = { node: string; entry: string; home: string; path: string };

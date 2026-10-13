@@ -33,8 +33,13 @@ export const OPS_PREFIX = '/ops/';
 /** OTLP over HTTP's paths: logs carry the calls; metrics and traces are answered and not stored, since they would count the same calls again. */
 export const OTLP_LOGS_PATH = '/v1/logs';
 const OTLP_PATHS = new Set([OTLP_LOGS_PATH, '/v1/metrics', '/v1/traces']);
-/** Where `pnpm dashboard:generate` writes the dashboard, found from the daemon's own place in the workspace. */
-export const DASHBOARD_DIRECTORY = fileURLToPath(new URL('../../dashboard/.output/public/', import.meta.url));
+/**
+ * Where `pnpm dashboard:generate` writes the dashboard, found from the daemon's own place in the
+ * workspace; in the installed package, where this module is bundled, the package's `dashboard/`.
+ */
+export const DASHBOARD_DIRECTORY = fileURLToPath(
+  new URL(import.meta.url.endsWith('.ts') ? '../../dashboard/.output/public/' : '../dashboard/', import.meta.url),
+);
 const DASHBOARD_GENERATE = 'pnpm dashboard:generate';
 
 /** A hostile client should not be able to make the daemon buffer an arbitrary amount. */

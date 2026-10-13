@@ -9,7 +9,8 @@
     "binn": "./src/bin.ts"
   },
   "scripts": {
-    "prepare": "node src/prepare.ts"
+    "prepare": "node src/prepare.ts",
+    "build": "node src/build.ts"
   },
   "dependencies": {
     "@binnacle/adapters": "workspace:*",

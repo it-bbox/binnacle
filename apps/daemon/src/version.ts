@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 
-/** Reads the version of the package a module belongs to. Both `src/` and a future `dist/` sit one level below it. */
+/** Reads the version of the package a module belongs to. Both `src/` and the installed package's `bin/` sit one level below it. */
 export function packageVersion(moduleUrl: string | URL): string {
   const manifest: unknown = JSON.parse(readFileSync(new URL('../package.json', moduleUrl), 'utf8'));
   const version = (manifest as { version?: unknown }).version;
