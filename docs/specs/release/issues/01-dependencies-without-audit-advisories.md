@@ -1,6 +1,6 @@
 # 01: Dependencies without the audit's advisories
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/release/spec.md`
