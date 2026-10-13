@@ -50,7 +50,7 @@ Binnacle integrates this workflow; it does not replace it.
 
 All project documentation is written in English: `README.md`, `CONTEXT.md`, `AGENTS.md`, `CLAUDE.md`, `MANIFEST.md`, everything under `docs/`, ADRs, specs and issues.
 
-The single exception is `README.ru.md`, a Russian duplicate of `README.md`. It lives next to it and is updated in the same change whenever `README.md` changes.
+The exception is the user guides: `README.md`, `CONTRIBUTING.md`, `SECURITY.md` and every page in `docs/operations/`. Each has a Russian twin beside it, named `*.ru.md` (`README.ru.md`, `docs/operations/01-new-project.ru.md`), which links its English page and, for every other user guide, the Russian twin. A twin is updated in the same change as its English page. `pnpm test` fails when a guide lacks its twin or a relative link in either does not resolve.
 
 ## Commit messages
 

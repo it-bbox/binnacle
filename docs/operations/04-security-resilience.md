@@ -1,5 +1,7 @@
 # Security, Privacy and Resilience
 
+_Русская версия: [04-security-resilience.ru.md](04-security-resilience.ru.md)._
+
 ## Default privacy mode
 
 Prefer metadata-first telemetry:

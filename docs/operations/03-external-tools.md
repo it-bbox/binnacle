@@ -1,5 +1,7 @@
 # External Tools and Installation Profile
 
+_Русская версия: [03-external-tools.ru.md](03-external-tools.ru.md)._
+
 This document describes **recommended integrations**, not dependencies that must be embedded into Binnacle.
 
 ## What `binn init` installs

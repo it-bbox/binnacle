@@ -296,8 +296,8 @@ test('autopilot reinstalls the skills CLI\'s copy after the plugin refresh, with
   const workflow = workflowText();
   assert.match(workflow, /Then, if `~\/\.agents\/skills` holds a `binnacle-\*` skill, `npx skills add \.\/apps\/cli\/skills -g -y` then `npx skills remove -g -a claude-code -s \$\(ls apps\/cli\/skills\) -y`/);
   // Without `./` the `skills` CLI reads `apps/cli` as a GitHub repository (ticket 12).
-  for (const readme of ['README.md', 'README.ru.md']) {
-    assert.match(docText(readme), /^npx skills add \.\/apps\/cli\/skills -g -y$/m, readme);
+  for (const page of ['CONTRIBUTING.md', 'CONTRIBUTING.ru.md']) {
+    assert.match(docText(page), /^npx skills add \.\/apps\/cli\/skills -g -y$/m, page);
   }
 });
 

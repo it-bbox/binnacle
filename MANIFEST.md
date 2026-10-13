@@ -4,7 +4,9 @@
 
 - `LICENSE` — Apache-2.0.
 - `README.md` — product concept and repository entry point.
-- `README.ru.md` — Russian duplicate of `README.md`; keep both in sync.
+- `CONTRIBUTING.md` — developing Binnacle from a checkout.
+- `SECURITY.md` — the security policy.
+- Each of these three and each page under `docs/operations/` has a Russian twin, `*.ru.md`, kept in sync with it (`AGENTS.md`, *Documentation language*).
 - `CONTEXT.md` — canonical vocabulary and current product boundary.
 - `AGENTS.md` — cross-agent engineering rules.
 - `CLAUDE.md` — Claude-specific workflow additions.
@@ -42,6 +44,7 @@
 - `docs/operations/03-external-tools.md`
 - `docs/operations/04-security-resilience.md`
 - `docs/operations/05-installation-checklist.md`
+- `docs/operations/06-other-harnesses.md`
 
 ## Accepted ADRs
 

@@ -5,235 +5,76 @@ _English version: [README.md](README.md). Этот файл — русский �
 **Одна память проекта. Любой coding agent.**
 **Сегодня Claude, завтра Codex. Проект больше не начинается с нуля.**
 
-**Binnacle** — локальный provider-agnostic **AI Engineering Control Plane**: сохраняемый контекст проекта, workflow и наблюдаемость поверх Claude Code, Codex, Gemini, GLM и других coding agents. Он хранит состояние проекта **вне чатов**, даёт свежим агентам компактный актуальный контекст, собирает telemetry по расходам и оставляет человека главным управляющим процессом.
+Binnacle — локальный provider-agnostic **AI Engineering Control Plane** для Claude Code, Codex, Gemini, GLM и других coding agents. Он хранит состояние проекта вне чатов, даёт каждому свежему агенту компактный актуальный контекст, собирает telemetry по расходам и оставляет человека главным.
 
-> Нактоуз (binnacle) — тумба с компасом перед штурвалом. Он не рулит и не выбирает курс: он держит приборы там, где рулевой их видит. В этом всё техзадание.
+> Нактоуз (binnacle) — тумба с компасом перед штурвалом. Он не рулит и не выбирает курс: он держит приборы там, где рулевой их видит.
 
 ## Что решаем
 
-Современный AI-development быстро упирается не только в качество модели, но и в управление контекстом:
-
-- длинные Product-сессии разрастаются и начинают дорого стоить;
-- после compaction часть деталей теряется или искажается;
-- новый Claude/Codex/GLM/Gemini заново исследует проект;
-- разные агенты повторно читают одни и те же файлы;
-- сложно понять, куда ушли токены, cache, tool calls и rework;
-- при смене модели приходится вручную переносить контекст;
-- параллельные агенты без контроля зависимостей создают merge-конфликты и дублируют работу.
-
-Control Plane выносит состояние проекта в устойчивые источники: Git, Markdown-документацию, ADR, tracker и локальный reconstructable event/telemetry layer. Чат становится временным рабочим контекстом, а не памятью проекта.
-
-## Основной принцип
+Длинные сессии агентов дорожают, compaction теряет детали, а каждый новый агент заново исследует проект. Binnacle выносит состояние проекта в устойчивые источники — Git, Markdown-документацию, ADR, tracker и локальное восстановимое хранилище telemetry, — так что чат остаётся рабочим контекстом, а не памятью проекта.
 
 > **Project knowledge и task state принадлежат проекту, а не конкретной модели, чату или coding harness.**
 
-Claude Code, Codex, GLM, Gemini и будущие/local agents — сменяемые исполнители.
-
-## Что входит в v1
-
-- локальный daemon `binnd`;
-- CLI `binn`;
-- локальный MCP server;
-- небольшой Web Dashboard на Nuxt;
-- registry проектов;
-- сущности Project / Task / AgentRun / Review;
-- Product Snapshot и Daily Snapshot;
-- checkpoint вместо conversation handoff;
-- ingestion telemetry от coding agents — из session artifacts, которые они и так пишут на диск, и из OpenTelemetry тех, кто её экспортирует;
-- GitHub/GitLab tracker adapters **только на чтение** + local markdown fallback;
-- audit/adopt существующего проекта;
-- интеграция с Matt Pocock Skills;
-- интеграция с Ponytail;
-- Serena, Graphify, Context7 и ast-grep как context/coding capabilities;
-- Obsidian как human-facing projection Project Brain;
-- manual-first execution: система рекомендует, человек запускает. Binnacle сам никогда не вызывает модель.
-
-## Поддержка любого coding agent
-
-Агенты сильно отличаются тем, что отдают наружу, поэтому поддержка градуированная, а не бинарная:
-
-| Уровень | Что требуется | Что получает пользователь |
-| --- | --- | --- |
-| 1 — Context | агент умеет вызвать MCP server | память проекта: snapshots, задачи, checkpoints, вопросы и ответы |
-| 2 — Attribution | пишет session artifact с рабочим каталогом и id сессии | привязка сессии к проекту, тайминги, история |
-| 3 — Usage | в этом artifact есть счётчики токенов | аналитика расходов, стоимость, метрики переделок |
-| 4 — Live | отдаёт наблюдаемый поток | что выполняется прямо сейчас |
-
-**Уровня 1 достаточно, чтобы агент считался поддержанным, и адаптер для него не нужен.** Агент, вышедший завтра, получает память проекта в тот день, когда научится MCP. См. `docs/adr/ADR-0014-harness-support-levels.md`.
-
-Harness, которые Binnacle читает сегодня, наивысший уровень, которого достигает каждый, и как:
-
-| Harness | Уровень | Как он достигается |
-| --- | --- | --- |
-| Claude Code (CLI и desktop) | 4 — Live | его файлы сессий в `~/.claude/projects` и экспорт OpenTelemetry, который `binn init` включает в его настройках |
-| Codex (CLI и desktop) | 4 — Live | его rollouts в `~/.codex/sessions` и экспорт OpenTelemetry, который `binn init` включает в `~/.codex/config.toml` |
-| Gemini CLI | 4 — Live, не проверен | его файлы сессий в `~/.gemini/tmp` и экспорт OpenTelemetry, который `binn init` включает в `~/.gemini/settings.json` |
-| opencode | 3 — Usage | его база данных в `~/.local/share/opencode`; экспорт OpenTelemetry у него не задокументирован |
-| ZCode | 3 — Usage | его база данных в `~/.zcode/cli/db`; экспорт OpenTelemetry у него не задокументирован |
-| pi | 3 — Usage | его файлы сессий в `~/.pi/agent/sessions`; встроенного экспорта OpenTelemetry у него нет |
-| Antigravity | 2 — Attribution, не проверен | его состояние окна, где названо рабочее пространство каждого разговора; сами разговоры зашифрованы, поэтому ни модели, ни токенов |
-| любой другой | 1 — Context | MCP или `binn call` в его shell |
-
-Уровень 4 держится, пока приходят события harness; без экспорта Claude Code, Codex и Gemini CLI читаются из их файлов на уровне 3, а вызов, увиденный обоими путями, считается один раз. Gemini CLI и Antigravity построены по их исходникам, так как ни один не смог провести сессию на машине владельца, и помечены как не проверенные. Фактические уровни каждого проекта, с причиной, по которой harness не дотягивает до следующего, — на странице usage в dashboard. Подробности: `docs/03-mcp-and-skills.md`, *Harnesses and their levels*.
-
-## Что НЕ входит в v1
-
-- автономная «виртуальная компания» агентов;
-- автоматический запуск Architect/QA/Security/Reviewer;
-- автоматический model routing;
-- собственный Git/task tracker/CI;
-- Kubernetes/SRE/incident platform;
-- полноценный Release Captain subsystem;
-- LiteLLM как обязательный gateway;
-- team/server mode;
-- сложный AI optimization advisor;
-- обязательная зависимость проекта от Binnacle.
-
-## Стек
-
-- **TypeScript** — весь собственный application code;
-- **Node.js 24 LTS** — runtime baseline;
-- **pnpm** — package manager / workspace;
-- **Nuxt** — Web Dashboard;
-- **`node:sqlite`** — локальный projection/cache, без нативных модулей и без шага сборки;
-- **MCP** — agent-facing API и стабильный контракт для любого harness;
-- **локальные session artifacts** — основной источник telemetry; OpenTelemetry — опциональное дополнение там, где harness его поддерживает;
-- Markdown/YAML/JSON — переносимые форматы project knowledge/config.
-
-Python/Go/Rust в собственном core не используем. Внешние инструменты могут иметь свой runtime (например Serena/Graphify), но Binnacle их только интегрирует.
-
 ## Установка
 
-Binnacle поставляется через npm и требует Node 24. Работает нативно на Linux, macOS и Windows.
+Binnacle нужен Node 24; он работает на Linux, macOS и Windows.
 
 ```bash
-npm i -g @binnacle/cli
+npm i -g @it-bbox/binnacle
+binn daemon start
 ```
 
-Daemon запускается командой `binn daemon start`. `binn init` спрашивает, запускать ли его при входе в систему, по умолчанию да, и настраивает это через ваш собственный менеджер служб: пользовательский unit systemd в Linux, LaunchAgent в macOS, задачу Планировщика заданий в Windows. `binn daemon autostart on` или `off` меняет это позже, а `binn daemon autostart` показывает, включён ли автозапуск (ADR-0043).
-
-### Из этого репозитория
-
-Пока npm-пакет не опубликован, `binn` берётся из checkout. Один раз поставьте его в PATH ссылкой — из основного checkout, а не из worktree:
-
-```bash
-pnpm install
-cd apps/cli && pnpm link --global
-```
-
-Если у pnpm ещё нет глобального каталога для исполняемых файлов, сначала выполните `pnpm setup` и откройте новый shell. Затем запустите daemon командой `binn daemon start` и зарегистрируйте репозиторий командой `binn project register`.
-
-Daemon также раздаёт dashboard только для чтения по своему адресу, по умолчанию `http://127.0.0.1:7717/`. Сгенерируйте его один раз в основном checkout командой `pnpm dashboard:generate` и снова — после pull изменения в `apps/dashboard`; до этого адрес отвечает страницей с этой командой. `binn dashboard` открывает dashboard в браузере по умолчанию, уже авторизованным, а `binn dashboard --print` печатает его адрес, ничего не открывая. После первого раза обычный адрес работает в этом браузере как закладка.
-
-Ссылка запускает CLI из основного checkout, с его `node_modules`. Поэтому после pull или merge изменения, которое затрагивает workspace — новый пакет, изменённая зависимость, `pnpm-lock.yaml`, — снова выполните `pnpm install` в основном checkout. До этого пакета, который CLI теперь импортирует, там нет, `binn` падает с `ERR_MODULE_NOT_FOUND`, а с ним пропадают MCP-инструменты у каждой сессии. Установка в worktree не помогает: у каждого checkout свой `node_modules`.
-
-Когда `binn init` установил plugin `binnacle`, Claude Code загружает здесь этот установленный `binnacle@binnacle`, а не skills из `.claude/skills/binnacle/`, поэтому влитое изменение этих skills само до новой сессии не доходит. После pull или merge такого изменения выполните в основном checkout первую команду ниже, а две другие — только если `claude plugin list --json` показывает `binnacle@binnacle`:
-
-```bash
-pnpm --filter @binnacle/cli run prepare
-claude plugin marketplace update binnacle
-claude plugin update binnacle@binnacle
-```
-
-Первая команда копирует skills в CLI-пакет и даёт plugin версию, вычисленную из файлов plugin, поэтому она меняется при каждом изменении skill; две другие заставляют Claude Code обновить свою копию до этой версии. Все остальные harness работают с копией `binnacle-<action>`, которую тоже пишет первая команда, поэтому, если в `~/.agents/skills` есть навык `binnacle-*`, установите заново и эту копию, а из Claude Code уберите её снова, назвав после `claude-code` и каждый harness, который вы не пускаете к ним через `binn init --skip-harness`:
-
-```bash
-npx skills add ./apps/cli/skills -g -y
-npx skills remove -g -a claude-code -s $(ls apps/cli/skills) -y
-```
-
-Новая сессия затем загружает изменённые skills. `/binnacle:autopilot` делает это сам один раз, после последнего merge прогона, если его merge их изменили.
-
-`pnpm typecheck` и `pnpm test` проверяют изменение. `pnpm test` работает без сети; живые тесты запускаются отдельно командой `pnpm test:live`: тесты адаптеров, которым нужны токены только для чтения, и тест автозапуска, который ставит настоящую службу и поэтому запускается, только если задана `CI`. CI запускает typecheck и тесты в GitHub Actions на каждый push в `main` и на каждый pull request (`.github/workflows/ci.yml`), без каких-либо секретов, а значит без живых тестов адаптеров, и живой тест автозапуска с настоящим менеджером служб на раннерах Linux, macOS и Windows.
-
-`pnpm setup` добавляет свой глобальный каталог для исполняемых файлов в PATH в файле запуска shell, например `~/.bashrc`, а desktop-приложение Claude Code этот файл не читает, поэтому в нём `.mcp.json` не находит `binn`. Сделайте `binn` видимым там скриптом-обёрткой с именем `binn`, исполняемым, в каталоге, который уже есть в PATH приложения, — в Linux это `~/.local/bin`:
-
-```sh
-#!/bin/sh
-exec "$HOME/.local/share/pnpm/binn" "$@"
-```
-
-Путь — это глобальный каталог pnpm для исполняемых файлов, записанный явно, потому что `$PNPM_HOME` у приложения тоже нет: возьмите его из `echo $PNPM_HOME` в shell, где pnpm работает; по умолчанию в Linux это `~/.local/share/pnpm`. Символическая ссылка на `binn` из pnpm вместо обёртки не работает: этот файл — shim, который ищет CLI относительно своего расположения, и через ссылку он отсчитывает путь от каталога ссылки и ничего не находит.
-
-Закоммиченный `.mcp.json` запускает `binn mcp`, поэтому у любой сессии Claude Code, открытой в этом репозитории — в основном checkout или в worktree, — есть MCP-инструменты Binnacle без настройки на каждую сессию. Он намеренно ссылается на слинкованный `binn`, а не на путь внутри рабочего дерева: в worktree такой путь запускал бы недописанный код этой ветки, и сломанная ветка отключала бы инструменты Product-сессии. Если daemon остановлен, сервер всё равно подключается, а каждый инструмент отвечает ошибкой с командой `binn daemon start`.
-
-## Целевая структура репозитория
-
-```text
-binnacle/
-├── apps/
-│   ├── daemon/
-│   ├── dashboard/
-│   └── cli/
-├── packages/
-│   ├── core/
-│   ├── mcp/
-│   ├── telemetry/
-│   └── adapters/
-├── docs/
-├── templates/
-├── AGENTS.md
-├── CLAUDE.md
-└── CONTEXT.md
-```
+Для разового запуска без установки — `npx -p @it-bbox/binnacle binn`. `binn init` предлагает запускать daemon при входе в систему. Если harness не находит `binn`, см. [чек-лист установки](docs/operations/05-installation-checklist.ru.md#когда-harness-не-находит-binn). Разработка самого Binnacle — в [CONTRIBUTING.ru.md](CONTRIBUTING.ru.md#из-этого-репозитория).
 
 ## Быстрый путь нового проекта
 
-```text
-git init
-    ↓
-binn init
-    ↓
-/binnacle:roadmap
-    ↓
-/binnacle:product
-```
+1. `git init`
+2. `binn init` — один план всего, что он настраивает, с одним подтверждением.
+3. `/binnacle:roadmap` — записывает видение и эпики.
+4. `/binnacle:product` — первая Product-сессия.
 
-`/binnacle:roadmap` читает `docs/vision.md` или спрашивает, что это за проект, для кого он и что в него не входит, по одному вопросу, и записывает видение вашими словами; затем предлагает эпики в порядке зависимостей, у каждого строка объёма, и записывает roadmap с Next action, которое грилит первый эпик. Ему не нужен демон, и он пишет и коммитит только после вашего «да», никогда не пушит. Дальше каждый эпик идёт `/grill-with-docs` → `/to-spec` → `/to-tickets`, а каждый тикет — `/binnacle:task run <ticket>`, в отдельной сессии.
+Дальше каждый эпик идёт `/grill-with-docs` → `/to-spec` → `/to-tickets`, а каждый тикет — `/binnacle:task run <ticket>`, в отдельной сессии. Подробнее: [Новый проект](docs/operations/01-new-project.ru.md).
 
 ## Быстрый путь существующего проекта
 
-```text
-binn audit
-    ↓
-binn init
-    ↓
-/binnacle:roadmap
-    ↓
-/binnacle:product
-```
+1. `binn audit` — находки только для чтения; он ничего не пишет.
+2. `binn init` — тот же один план.
+3. `/binnacle:roadmap` — эпики, предложенные по коду, истории и документам.
+4. `/binnacle:product` — первая Product-сессия.
 
-`binn audit` ещё и перечисляет, только читая, планы, заметки и TODO-файлы, которые находит вне мест Binnacle. `/binnacle:roadmap` читает код, историю, документы и находки аудита, предлагает эпики со статусами `done`, `in progress` или `not started` и ссылками на их спеки, место для каждого из этих документов и roadmap, переписанный в формат Binnacle с сохранением содержимого, если он не в формате. Без вашего «да» он ничего не перемещает и не пишет.
+Без вашего «да» ничего не перемещается и не переписывается. Подробнее: [Существующий проект](docs/operations/02-existing-project-adopt.ru.md).
 
-`binn audit [path]` читает репозиторий и печатает находки, текстом или с `--json`. Он ничего не пишет и не требует демона. В Claude Code `/binnacle:audit [path]` запускает его из чата и показывает находки там же, сначала пробелы. `binn init` — команда, которая пишет в репозиторий: она показывает один план и спрашивает один раз. Если их нет, план создаёт каталог задач, который читает локальный трекер, и заготовку `<knowledge.docs>/roadmap.md` в формате Binnacle, чьё Next action — `/binnacle:roadmap`, а новый манифест объявляет `knowledge.docs`; существующий roadmap никогда не переписывается, а не соответствующий формату называется в Summary и разбирается в `binn audit`. Ещё он пишет соглашения, которые читают навыки планирования, чтобы никакой навык настройки не запускался перед ним: `docs/agents/issue-tracker.md` для найденного трекера, с заголовком тикета, Epic brief и спорными пунктами, `triage-labels.md` и `domain.md`, а также блок *Agent skills*, который на них ссылается, в `AGENTS.md` или в `CLAUDE.md`, если есть только он; в существующий файл добавляется только недостающий раздел заголовка тикета, а уже имеющийся блок не трогается. План также устанавливает недостающие Serena и Graphify (через `uv tool install`) и ast-grep (через npm), вне репозитория; инструмент, который уже есть в `PATH` или объявлен `false` в `capabilities`, не трогается, а без `uv` init называет команду, которая его ставит, и оставляет Serena и Graphify вне плана. Затем он регистрирует MCP-серверы Serena, Context7 и Graphify в каждом найденном харнессе через его собственный CLI и никогда в репозитории: уже зарегистрированный сервер не трогается, кроме Serena в пользовательском файле Codex с контекстом Claude Code, который он предлагает перерегистрировать с контекстом Codex, а там, где у харнесса нет такой команды, запись печатается. Для найденных Claude Code, Codex и Gemini CLI план направляет их экспорт OpenTelemetry на адрес демона в их пользовательских настройках — `env` в настройках Claude Code, таблица `[otel]` в `~/.codex/config.toml` у Codex, блок `telemetry` в `~/.gemini/settings.json` у Gemini CLI — как JSON поверх HTTP, с выключенным логированием промптов; уже настроенный экспорт, в Binnacle или куда-то ещё, не трогается и называется, а найденный харнесс, который не умеет экспортировать, например opencode, называется в Summary с причиной. `binn audit` сообщает для каждого найденного харнесса, экспортирует ли он в Binnacle. Если найден Claude Code, init устанавливает плагины Matt Pocock Skills и Ponytail через CLI плагинов Claude Code на уровне пользователя, если Claude Code их ещё не перечисляет; если найден хоть один харнесс, init ставит оба набора из их репозиториев во все остальные харнессы, которые находит CLI `skills`, так же как собственные навыки Binnacle, если манифест не объявляет набор `false`. Если Obsidian перечисляет на этой машине ровно одно хранилище, а `~/.binnacle/settings.json` ещё не называет никакого, план записывает его туда, вне репозитория, как хранилище, в которое демон проецирует Project Brain; если хранилищ нет или их несколько, init называет найденные и говорит, как задать путь. Последним шагом, если Graphify найден или установлен, init добавляет `graphify-out/` в `.gitignore`, если Git его ещё не игнорирует, и строит первый граф командой `graphify extract . --code-only --allow-dedup-shrink`, которая разрешает графу уменьшиться, когда дедупликация Graphify сливает узлы, а затем его отчёт командой `graphify cluster-only . --no-label`; ни той, ни другой не нужны ни API-ключ, ни модель; неудачная сборка или отчёт попадает в Summary, а демон построит их позже.
+## Harness
 
-Настройка работает и из чата, и из терминала. В Claude Code `/binnacle:init [path]` запускает `binn init --plan --json`, показывает в чате тот же план, каждый пункт целиком, вместе с историей сессий и окном импорта, которое он использует, и спрашивает один раз; назовите там другое окно, чтобы увидеть план с ним. Записывает его только ваше «да» в чате, через `binn init --apply <id>`, который отказывается от плана, изменившегося с момента показа, и тогда навык показывает новый план и спрашивает снова (ADR-0037). Навыку не нужен демон, и он никогда не коммитит: просмотрите и закоммитьте то, что записал init, сами, как после запуска в терминале. При остановленном демоне регистрация в план не входит, и `/binnacle:daemon start`, а затем `/binnacle:register` её добавляют. Об автозапуске в чате ничего не спрашивается, поэтому план его не включает: вместо этого его заметки называют `binn daemon autostart on`. Когда init записывает `.mcp.json`, навык в конце говорит открыть новую сессию в репозитории и одобрить сервер `binnacle` проекта: Claude Code читает `.mcp.json` только при старте сессии. Навык доступен, когда плагин `binnacle` установлен, а это делает на уровне пользователя первый `binn init` на этой машине.
+Любой harness, который умеет MCP или имеет shell для `binn call`, получает память проекта. Сверх этого Binnacle читает то, что каждый harness оставляет на диске:
 
-## Работа из другого harness
+| Harness | Уровень |
+| --- | --- |
+| Claude Code (CLI и desktop) | 4 — Live |
+| Codex (CLI и desktop) | 4 — Live |
+| Gemini CLI | 4 — Live, не проверен |
+| opencode | 3 — Usage |
+| ZCode | 3 — Usage |
+| pi | 3 — Usage |
+| Antigravity | 2 — Attribution, не проверен |
+| любой другой | 1 — Context |
 
-Один `binn init` настраивает все harness на машине. Его план устанавливает навыки Binnacle на уровне пользователя в каждый harness, который находит CLI `skills` (skills.sh), например Codex, Antigravity, ZCode или Pi, через `npx skills`, и не оставляет их в Claude Code, где есть plugin `binnacle`; `--skip-harness <id>` не пускает их и в другой harness. Вне Claude Code каждый навык называется `binnacle-<action>`: `binnacle-product`, `binnacle-daily`, `binnacle-task`, `binnacle-status`, `binnacle-checkpoint`, `binnacle-audit`, `binnacle-init`, `binnacle-daemon`, `binnacle-register`, `binnacle-dashboard`, `binnacle-autopilot`, `binnacle-answer`, `binnacle-roadmap` и `binnacle-help`, тогда как в Claude Code это `/binnacle:product` и остальные. Summary называет harness, в которые установлены навыки, и говорит запустить там `binnacle-product`. Для harness, установленного позже, запустите `binn init` ещё раз: он устанавливает навыки в каждый найденный harness, устарели они или актуальны, и говорит, какими они были. `binn audit` сообщает о навыках, чья версия отличается от версии установленного `binn`, и `binn init` затем ставит их заново.
+Что значит каждый уровень и как Binnacle достигает каждого harness: [Работа из другого harness](docs/operations/06-other-harnesses.ru.md).
 
-`binn init` также предлагает зарегистрировать MCP-сервер `binnacle` в Claude Code, Codex, opencode и VS Code. В любом другом harness или пока сервер не зарегистрирован навыки вызывают те же инструменты через `binn call <tool> [json]` в shell. `binnacle-autopilot` работает только там, где harness умеет запускать фонового агента в собственном worktree; в остальных он сразу отказывается, ничего не меняет, и тикеты эпика выполняются вручную.
+## Руководства
 
-- **Codex** читает `.codex/config.toml` проекта только в доверенном проекте (trusted project). Доверьте проект в Codex, иначе запись `binnacle` не будет видна. Десктопное приложение Codex ставит свой CLI вне `PATH`; на Linux это `/usr/lib/chatgpt/resources/codex`.
-- **opencode** читает `opencode.json` или `opencode.jsonc` в проекте. Запустите `opencode` в корне репозитория.
-- **GLM** — модель, а не harness. Подключайте её через harness, например ZCode, Claude Code или opencode; адаптера GLM искать не нужно.
+- [Новый проект](docs/operations/01-new-project.ru.md)
+- [Существующий проект](docs/operations/02-existing-project-adopt.ru.md)
+- [Внешние инструменты](docs/operations/03-external-tools.ru.md)
+- [Безопасность и устойчивость](docs/operations/04-security-resilience.ru.md)
+- [Чек-лист установки](docs/operations/05-installation-checklist.ru.md)
+- [Работа из другого harness](docs/operations/06-other-harnesses.ru.md)
+- [Участие в разработке](CONTRIBUTING.ru.md) и [политика безопасности](SECURITY.ru.md)
 
-## Документация
+## Что почитать дальше
 
-Начать читать в таком порядке:
-
-1. `docs/00-scope.md`
-2. `docs/01-architecture.md`
-3. `docs/02-project-brain.md`
-4. `docs/workflow/01-product-workflow.md`
-5. `docs/workflow/02-development-workflow.md`
-6. `docs/03-mcp-and-skills.md`
-7. `docs/04-telemetry-dashboard.md`
-8. `docs/05-mvp-plan.md`
-
-Актуальные архитектурные решения зафиксированы в `docs/adr/`.
+Устройство проекта, на английском, в таком порядке: [scope](docs/00-scope.md), [архитектура](docs/01-architecture.md), [Project Brain](docs/02-project-brain.md), [product workflow](docs/workflow/01-product-workflow.md), [development workflow](docs/workflow/02-development-workflow.md), [MCP и skills](docs/03-mcp-and-skills.md), [telemetry и dashboard](docs/04-telemetry-dashboard.md), [план MVP](docs/05-mvp-plan.md). Архитектурные решения — в [docs/adr/](docs/adr/).
 
 ## Лицензия
 
-Apache-2.0. См. `LICENSE`.
+Apache-2.0. См. [LICENSE](LICENSE).

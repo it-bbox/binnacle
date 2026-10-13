@@ -1,5 +1,7 @@
 # Installation Checklist
 
+_Русская версия: [05-installation-checklist.ru.md](05-installation-checklist.ru.md)._
+
 This checklist separates Binnacle requirements from recommended external capabilities. Exact upstream commands should be rechecked during implementation because third-party installers evolve.
 
 `binn init` installs Serena, Graphify and ast-grep when they are missing, after the plan's one yes, with the commands below; it needs `uv` for the first two and `npm` for ast-grep, and names them when they are missing rather than installing them. The table it installs from is in `docs/operations/03-external-tools.md`, *What `binn init` installs*.
@@ -11,7 +13,7 @@ In the same plan, after the installs, `binn init` registers the MCP servers of S
 Binnacle is distributed through npm and requires Node 24 on the user's machine (`ADR-0016`):
 
 ```bash
-npm i -g @binnacle/cli
+npm i -g @it-bbox/binnacle
 ```
 
 It runs natively on Linux, macOS and Windows. The daemon is started by `binn daemon start`. `binn init` asks whether it starts at login, yes by default, and sets that up through the user's own service manager: a systemd user unit on Linux, a LaunchAgent on macOS, a Task Scheduler task at logon on Windows. Without a terminal it installs nothing and names the command instead. `binn daemon autostart on|off` changes it later, and `binn daemon autostart` with no argument says whether it is on, off or broken, and for which Binnacle home (ADR-0043).
@@ -46,6 +48,21 @@ Make it owner-only (`chmod 600 ~/.binnacle/credentials.json`). A file anyone els
 On every call the daemon takes the provider's variable first, then the host's entry in the file, and otherwise reads anonymously. `GITHUB_TOKEN` and other generic names are not read, and nothing is taken from `gh` or `glab`: their tokens can usually write. A variable is read from the environment the daemon started with, so restart it after changing one; the file is read on every call.
 
 One daemon runs per Binnacle home. `binn daemon status` reports whether one is running and where; `binn daemon stop` stops it. Exit codes are `0` success, `2` usage error, `3` operation failed, `4` daemon unreachable.
+
+### The dashboard
+
+The daemon also serves a read-only dashboard at its own address, `http://127.0.0.1:7717/` by default. `binn dashboard` opens the dashboard in the default browser, already authorised, and `binn dashboard --print` prints its address without opening anything. After the first time, the plain address works as a bookmark in that browser.
+
+### When a harness cannot find binn
+
+A harness that answers `command not found` for `binn` does not have npm's global bin directory on its PATH. `npm prefix -g` prints npm's global prefix; `binn` is `<prefix>/bin/binn` on Linux and macOS, and `<prefix>\binn.cmd` on Windows. The Claude Code desktop app reads no shell startup file, such as `~/.bashrc`, so a PATH set there does not reach it: put a wrapper script named `binn`, made executable, in a directory already on the app's PATH — `~/.local/bin` on Linux — with the prefix written out:
+
+```sh
+#!/bin/sh
+exec "<prefix>/bin/binn" "$@"
+```
+
+Developing Binnacle from a checkout runs `binn` through pnpm instead: see [CONTRIBUTING.md](../../CONTRIBUTING.md#binn-in-the-claude-code-desktop-app), *binn in the Claude Code desktop app*.
 
 ---
 

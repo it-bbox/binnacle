@@ -1,5 +1,7 @@
 # New Project Bootstrap
 
+_Русская версия: [01-new-project.ru.md](01-new-project.ru.md)._
+
 ## User workflow
 
 The short path, as the README gives it:
@@ -38,6 +40,12 @@ Expected responsibilities:
 - report how much harness session history was found and how far back it goes, then ask how much to import: a number of days, 90 by default, or everything;
 - create minimal project documentation hooks/templates;
 - never overwrite an existing file, and extend one only by a section shown in the plan it asks to confirm once (ADR-0034).
+
+What the plan holds, item by item, is in [Existing project](02-existing-project-adopt.md#what-binn-audit-and-binn-init-do), *What `binn audit` and `binn init` do*.
+
+#### From the chat
+
+Setup works from the chat as well as from a terminal. In Claude Code, `/binnacle:init [path]` runs `binn init --plan --json`, shows the same plan in the chat, every item in full, with the session history and the import window it uses, and asks once; name another window there to see the plan again with it. Only your yes in the chat writes it, through `binn init --apply <id>`, which refuses a plan that changed since it was shown, and the skill then shows the new plan and asks again (ADR-0037). The skill needs no daemon and never commits: review and commit init's writes yourself, as after a terminal run. With the daemon stopped, registration is left out of the plan, and `/binnacle:daemon start` then `/binnacle:register` adds it. The chat asks nothing about autostart, so its plan never turns it on: its notes name `binn daemon autostart on` instead. When init writes `.mcp.json`, the skill ends by saying to open a new session in the repository and approve the project's `binnacle` server: Claude Code reads `.mcp.json` only when a session starts. The skill is there once the `binnacle` plugin is installed, which the first `binn init` on this machine does at user scope.
 
 ### 3. From a vision to a roadmap
 
