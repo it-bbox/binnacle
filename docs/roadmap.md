@@ -36,15 +36,15 @@ Epics are ordered by dependency, not by preference. Epic 1 is the foundation; ep
 
 Epics 1 to 11, 14 to 16, 18 and 19 are done. On the evening of 2026-10-13 a video presents Binnacle, published to npm and open source (the owner, 2026-10-10).
 
-The owner's order, 2026-10-12: 19, starting a new or an existing project, the most important of what is left; then 15, 12 and 13 by importance; 17, npm and open source under Apache-2.0 (`ADR-0010`, `ADR-0031`), at the release. Whatever is not done by then continues after it, in open source. Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own.
+The owner's order, 2026-10-13: epic 17 now, before the release tonight. First the security audit's findings (`docs/product-inbox.md`, *Security audit before the release*), then every user-facing document checked, current and readable, the roadmap's long paragraphs included (*Readable documentation before the release*), and only then npm and open source under Apache-2.0 (`ADR-0010`, `ADR-0031`). Epics 12 and 13 follow, by importance, in open source. Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own.
 
-Epic 19 is done (2026-10-13): `/binnacle:task run <ticket>` starts every Task (ADR-0042); `binn audit` lists stranded documents; `binn init` writes the planning conventions; `/binnacle:roadmap` starts a new or an existing project; autopilot asks the plan's three questions first. Its demonstration's two defects are fixed (ticket 09): a `done` epic without a spec raises nothing, and the skill names the product inbox's file.
+Epic 19 is done (2026-10-13, ADR-0042): `/binnacle:task run <ticket>` starts every Task, `binn audit` lists stranded documents, and `/binnacle:roadmap` starts a new or an existing project.
 
-Epic 15 is done (2026-10-13, ADR-0043): `binn init` asks to start the daemon at login, `binn daemon autostart on|off` sets a systemd unit, a LaunchAgent or a Task Scheduler task, and `start` and `stop` go through it; a unit whose Node is gone shows as broken in `binn daemon status`, the snapshot and the dashboard, and the next `start` repairs it. CI's live test is green on all three platforms. Its demonstration (ticket 08) ran on Linux without a reboot: a reboot that finds the daemon answering is still to be seen.
+Epic 15 is done (2026-10-13, ADR-0043): `binn daemon autostart on|off` sets a systemd unit, a LaunchAgent or a Task Scheduler task, `binn init` asks for it, and a broken one is reported with its repair. CI's live test is green on all three platforms. Its demonstration (ticket 08) ran on Linux without a reboot: a reboot that finds the daemon answering is still to be seen.
 
-Epic 18 made the flow cheaper, read from epic 16's run against epic 11's: per DONE Task 14% less output and half the rework share (`dashboard-redesign/09`). Epic 11's ticket 14 waits on one criterion: a merge that shrinks the graph.
+Epic 11's ticket 14 waits on one criterion: a merge that shrinks the graph.
 
-Next action: grill epic 12, the audit's Docker, secrets and security areas and its migration plan (`docs/05-mvp-plan.md`, Phase 12). `/grill-with-docs`
+Next action: grill epic 17, the release: the security audit's fixes, the documentation pass, then npm and open source. `/grill-with-docs`
 
 ## Later
 
