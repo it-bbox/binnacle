@@ -1,6 +1,6 @@
 # 08: The exit demonstration of epic 19
 
-Status: READY
+Status: DONE
 Triage: ready-for-human
 Blocked by: 01, 02, 03, 04, 05, 06, 07
 Spec: `docs/specs/starting-a-project/spec.md`
