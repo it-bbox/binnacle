@@ -1,6 +1,6 @@
 # 09: The skills build reads a Windows checkout
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/daemon-autostart/spec.md`
