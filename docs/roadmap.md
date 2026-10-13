@@ -24,7 +24,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 12 | Audit, completed | not started | — |
 | 13 | Human output | not started | — |
 | 14 | Skills in any harness | done | [`skills-in-any-harness`](specs/skills-in-any-harness/spec.md) |
-| 15 | Daemon autostart | tickets | [`daemon-autostart`](specs/daemon-autostart/spec.md) |
+| 15 | Daemon autostart | in progress | [`daemon-autostart`](specs/daemon-autostart/spec.md) |
 | 16 | Dashboard redesign | done | [`dashboard-redesign`](specs/dashboard-redesign/spec.md) |
 | 17 | Release: npm and open source | not started | — |
 | 18 | Lean flow | done | [`lean-flow`](specs/lean-flow/spec.md) |
@@ -38,11 +38,13 @@ Epics 1 to 11, 14, 16 and 18 are done. On the evening of 2026-10-13 a video pres
 
 The owner's order, 2026-10-12: 19, starting a new or an existing project, the most important of what is left; then 15, 12 and 13 by importance; 17, npm and open source under Apache-2.0 (`ADR-0010`, `ADR-0031`), at the release. Whatever is not done by then continues after it, in open source. Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own.
 
-Epic 19's tickets 01 to 07 are merged, by autopilot on 2026-10-12: `/binnacle:task run <ticket>` is every Task's start command and carries the per-ticket process (ADR-0042); `binn audit` lists stranded documents; `binn init` writes the planning conventions in place of `/setup-matt-pocock-skills`; `/binnacle:roadmap` starts a new or an existing project; a spec no roadmap row links is `roadmap.spec_unlisted`; autopilot's agents follow `task run`, and autopilot asks the plan's three questions before it starts. Left: the owner's exit demonstration, ticket 08.
+Epic 19's tickets 01 to 07 are merged (2026-10-12): `/binnacle:task run <ticket>` starts every Task (ADR-0042); `binn audit` lists stranded documents; `binn init` writes the planning conventions; `/binnacle:roadmap` starts a new or an existing project; autopilot asks the plan's three questions first.
+
+Epic 15's tickets 01 to 07 are merged (2026-10-13, ADR-0043): `binn init` asks to start the daemon at login, `binn daemon autostart on|off` sets a systemd unit, a LaunchAgent or a Task Scheduler task, and `start` and `stop` go through it. CI's live test passes on Linux and macOS; on Windows `pnpm install` fails on CRLF skill files first, ticket 09. Then the owner's exit demonstrations: epic 19's ticket 08, then epic 15's.
 
 Epic 18 made the flow cheaper, read from epic 16's run against epic 11's: per DONE Task 14% less output and half the rework share (`dashboard-redesign/09`). Epic 11's ticket 14 waits on one criterion: a merge that shrinks the graph.
 
-Next action: demonstrate epic 19's exit in ticket 08, then close the epic. `/binnacle:task run docs/specs/starting-a-project/issues/08-starting-a-project-exit-demonstration.md`
+Next action: run epic 15's ticket 09, so that `main`'s CI is green on Windows. `/binnacle:autopilot 15`
 
 ## Later
 

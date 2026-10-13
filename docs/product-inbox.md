@@ -105,3 +105,11 @@ Ways to weigh:
 - a ticket's commands and terms are matched to modules through the graph's labels, not only file names (`binn audit` → `apps/cli/src/audit.ts`);
 - before the run, an agent estimates the touched modules, as a calculated reading;
 - without a graph, a cautious fallback instead of a full parallel run.
+
+## Autostart from the chat (2026-10-13)
+
+`binn init` asks to start the daemon at login only in a terminal. Run from the chat, `/binnacle:init` goes through `--plan --json` and `--apply`, which ask nothing, so init installs no service and only names `binn daemon autostart on` in its Summary (`daemon-autostart/05`, its Review, 4). A user who sets Binnacle up from the chat, the main path since epic 9, is left without autostart unless they read the Summary and run the command, which is the gap epic 15 closed for the terminal. A small ticket would close it: the init skill asks the owner in the chat and passes the answer as a flag, as it passes the import window with `--window`.
+
+## A unit that uses systemd's specifiers (2026-10-13)
+
+Binnacle reads a systemd unit's `Environment=BINNACLE_HOME=` literally. A unit written by hand that says `%h/.binnacle`, as the one an agent session wrote on the owner's machine on 2026-10-09 does, reads as serving `…/%h/.binnacle`, so `binn daemon autostart` calls autostart off for `~/.binnacle`. Harmless: nothing is changed, and `binn daemon autostart on` replaces such a unit with Binnacle's own, written with absolute paths. Expanding `%h` and the other specifiers would fix it for units written by hand, which are rare; likely not worth doing.

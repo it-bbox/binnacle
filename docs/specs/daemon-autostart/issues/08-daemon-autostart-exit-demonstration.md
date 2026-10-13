@@ -2,7 +2,7 @@
 
 Status: READY
 Triage: ready-for-human
-Blocked by: 01, 02, 03, 04, 05, 06, 07
+Blocked by: 01, 02, 03, 04, 05, 06, 07, 09
 Spec: `docs/specs/daemon-autostart/spec.md`
 
 **What to build:** epic 15's exit criterion, demonstrated by the owner on Linux (spec, the exit criterion).
