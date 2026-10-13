@@ -19,7 +19,12 @@ Spec: `docs/specs/release/spec.md`
 
 - **CI.** Run `CI` at `515d9d2`, `origin/main`'s head when the package was built: `check`, `tarball-live` and `autostart-live` green on `ubuntu-latest`, `macos-latest` and `windows-latest`. `main`'s one newer commit, `27f1938`, is the roadmap only, unpushed.
 - **Published.** `npm publish --dry-run` first, then the owner's `npm publish --access public` from `apps/cli/dist/`, 76 files, 816 kB. npm refused the first try with `E403` until the account had 2FA, and showed `0.0.0-stage` as `latest` for about four minutes before `0.1.0`.
-- **The clean environment is a container**, `node:24-slim` with only `git` and `curl` added, so nothing on the owner's machine was touched. From the registry: `npm i -g @it-bbox/binnacle`; `binn --version` prints `0.1.0`; `binn daemon start` and `status` answer on `127.0.0.1:7717`; `/`, `/attention/`, `/projects/`, `/usage/` and `/settings/` return 200, and `/ops/project.list` returns 200 with the token from `binn dashboard --print` and 401 without it. In a new repository `binn init --plan --json`, then `--apply`, exit 0: it writes the manifest, the agent docs, `AGENTS.md`, `docs/specs/` and the roadmap, registers the project and installs ast-grep, and skips autostart (no systemd), the harnesses (none installed), Serena and Graphify (no `uv`). `binn project list`, `binn call project_detect` and `binn audit` answer; `binn daemon stop` stops it.
+- **The clean environment is a container**, `node:24-slim` with only `git` and `curl` added, so nothing on the owner's machine was touched. From the registry:
+  - `npm i -g @it-bbox/binnacle`, then `binn --version` prints `0.1.0`.
+  - `binn daemon start` and `status` answer on `127.0.0.1:7717`; `binn daemon stop` stops it.
+  - `/` is the generated dashboard, not the "has not been generated" page, and its `_nuxt` script and stylesheet load; `/attention/`, `/projects/`, `/usage/` and `/settings/` return 200. `/ops/project.list` returns 200 with the token from `binn dashboard --print`, 401 without it.
+  - In a new repository, `binn init --plan --json`, then `--apply`, exits 0: it writes the manifest, the agent docs, `AGENTS.md`, `docs/specs/` and the roadmap, registers the project and installs ast-grep. It skips autostart (no systemd), the harnesses (none installed), Serena and Graphify (no `uv`).
+  - `binn project list`, `binn call project_detect`, `binn audit` and `ast-grep --version` answer.
 - **Dashboard in a browser** was not opened: the container has none. Its pages and its API answering with the token is what a browser loads; the owner opens it at the demonstration.
 
 ### Found on the way
@@ -32,5 +37,22 @@ Spec: `docs/specs/release/spec.md`
 
 The two criteria left are yours:
 
-1. **Public and its settings.** On `github.com/it-bbox/binnacle/settings`: *Danger Zone* → *Change repository visibility* → *Make public*. Then *Advanced Security*: *Private vulnerability reporting* and *Dependabot alerts* → *Enable*. Check: `gh repo view it-bbox/binnacle --json visibility` says `PUBLIC`.
-2. **Read on GitHub.** Open `README.md`, then `README.ru.md`, and from each the guides in `docs/operations/`: each reads in short paragraphs, lists and tables, and its links open.
+1. **Public and its settings.** `it-bbox/binnacle` is public, and Dependabot alerts are on (`gh api -i repos/it-bbox/binnacle/vulnerability-alerts` answers 204). Left: *Settings* → *Advanced Security* (formerly *Code security and analysis*) → *Private vulnerability reporting* → *Enable*; `gh api repos/it-bbox/binnacle/private-vulnerability-reporting` then says `"enabled": true`. Ticket 02's *For ticket 07* has the checks from another account and the Dependabot graph.
+2. **Read on GitHub.** Push `main` first, since GitHub shows `origin/main`. Then open `README.md`, `CONTRIBUTING.md`, `SECURITY.md` and the guides in `docs/operations/`, each with its `.ru.md` twin: each reads in short paragraphs, lists and tables, and its links open. The npm page of `@it-bbox/binnacle` now links a public repository.
+
+### Review
+
+A sub-agent reviewed the branch against `main` on both axes.
+
+**Standards**
+
+1. **One ten-line paragraph** for the clean install. **Fixed**: a list.
+2. **Facts it could not see** (`binn daemon stop`, the dry run's 76 files, `0.0.0-stage`). **Kept**: each is in this session's output.
+3. **Two names for one settings page** against ticket 02. **Fixed**: both named.
+4. Authorship, subject, roadmap untouched, the code's claims: no finding.
+
+**Spec**
+
+1. **A 200 does not prove the dashboard**: the daemon's "has not been generated" page also answers 200 with the same title. **Fixed**: checked again from the registry; `/` is the generated page and its `_nuxt` assets load.
+2. **"At `main`'s head"** while `main` has one unpushed roadmap commit. **Kept**: the package was built at `515d9d2`, `origin/main`'s head, and the commit changes no code.
+3. **The owner's checks were thin**: visibility only, and the guides without `CONTRIBUTING.md` and `SECURITY.md`. **Fixed**: the API checks, ticket 02's steps, both pairs and pushing `main` first.
