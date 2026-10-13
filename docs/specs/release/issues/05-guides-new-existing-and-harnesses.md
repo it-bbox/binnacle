@@ -1,6 +1,6 @@
 # 05: Guides for a new project, an existing project and other harnesses
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 04
 Spec: `docs/specs/release/spec.md`
