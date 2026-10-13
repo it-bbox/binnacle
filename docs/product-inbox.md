@@ -28,6 +28,8 @@ A one-command context dump like `bd prime` is already epic 14's `binn call` (`sp
 
 ## A repository Antigravity cannot open (2026-10-08)
 
+**Taken into epic 12 on 2026-10-13** (`docs/specs/audit-completed/brief.md`).
+
 Antigravity's agent did not answer in this repository because its Git library refuses `extensions.worktreeconfig`, which some worktree tool had set with no `config.worktree` using it; unsetting it fixed it (ticket 06 of epic 10). `binn audit` could report the extension when no `config.worktree` exists, and say which harness it breaks.
 
 ## Ideas from nick-vels/skills (2026-10-09)
@@ -38,6 +40,8 @@ Antigravity's agent did not answer in this repository because its Git library re
 2. **Blind acceptance.** At the end, a separate agent checks the result against the owner's original words only, without the spec, so that what was lost on the way from brief to spec to tickets shows. Here an epic's exit demonstration could start from such a check against the grilling's record.
 
 ## A scratchpad project in the owner's daemon (2026-10-10)
+
+**Taken into epic 12 on 2026-10-13** (`docs/specs/audit-completed/brief.md`).
 
 The owner's daemon had a project registered at `/tmp/claude-1000/…/aeb63b29-…/scratchpad/demo-init`, a session's scratchpad, shown on every page as unavailable once the directory was gone; the owner had it unregistered on 2026-10-10. Some session ran `binn init` or `binn project register` there against the owner's `BINNACLE_HOME` rather than a temporary one, which `dashboard-design-and-languages/12` asks of agents. Two things to weigh: whether skills and briefs that try a CLI on a throwaway repository say to use a temporary home, and whether a registration whose directory is gone should drop out of the dashboard or be offered for removal rather than shown on every page.
 
@@ -108,6 +112,8 @@ Ways to weigh:
 
 ## Autostart from the chat (2026-10-13)
 
+**Taken into epic 12 on 2026-10-13** (`docs/specs/audit-completed/brief.md`).
+
 `binn init` asks to start the daemon at login only in a terminal. Run from the chat, `/binnacle:init` goes through `--plan --json` and `--apply`, which ask nothing, so init installs no service and only names `binn daemon autostart on` in its Summary (`daemon-autostart/05`, its Review, 4). A user who sets Binnacle up from the chat, the main path since epic 9, is left without autostart unless they read the Summary and run the command, which is the gap epic 15 closed for the terminal. A small ticket would close it: the init skill asks the owner in the chat and passes the answer as a flag, as it passes the import window with `--window`.
 
 ## A unit that uses systemd's specifiers (2026-10-13)
@@ -116,9 +122,13 @@ Binnacle reads a systemd unit's `Environment=BINNACLE_HOME=` literally. A unit w
 
 ## The current epic is read from the table's order (2026-10-13)
 
+**Taken into epic 12 on 2026-10-13** (`docs/specs/audit-completed/brief.md`).
+
 With epic 17 at `tickets` and autopilot running it, the dashboard's overview showed epic 12 as the current epic, with no spec and no progress. `currentEpic` takes the first `in progress` epic, else the first that is not `done` in the table's order, and epic 12 comes before 17 there; Binnacle's alternative "grill epic 12" came from the same rule. The table's order is dependency, not what the owner works on. A fix: take the furthest-along status first, `in progress`, then `tickets`, then `spec`, then `not started`, and the table's order only between equals. Epic 12's title, *Audit, completed*, also reads like a status on the dashboard; renaming it was not chosen for now. After the release.
 
 ## For the next release (2026-10-13)
+
+**Taken into epic 12 on 2026-10-13** (`docs/specs/audit-completed/brief.md`).
 
 Found while publishing 0.1.0 (`specs/release/issues/07-release-exit-demonstration.md`, *Found on the way*); 0.2.0 carries them (the owner, 2026-10-13):
 

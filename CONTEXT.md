@@ -140,6 +140,9 @@ One result of an audit: a check code, the area it belongs to, a status, the reas
 ### Stranded document
 A tracked Markdown or text file outside Binnacle's places whose name or directory says a plan, a spec, a decision, a TODO, notes, a backlog, a design, an RFC, a PRD or a roadmap, or an ADR directory other than `<knowledge.docs>/adr/`. Binnacle's places are the root's README, licence, changelog, contributing and security files, the instruction files, `CONTEXT.md`, and under `<knowledge.docs>` its `roadmap.md`, `vision.md`, `product-inbox.md`, `specs/`, `adr/` and `agents/`. The audit lists each as `unknown`, since where it belongs is judgement; `/binnacle:roadmap` proposes a place for it — a spec, an ADR, the context file, the product inbox, the roadmap, or stale — and moves nothing without the owner's yes.
 
+### Migration plan
+The audit's findings that are not `ok`, ordered into numbered steps: first what `binn init` closes, then the secrets, then the rest in the order of the areas. Each step names its findings and what to do. It is an order of advice, never a score and never a fix: every step is the human's to carry out.
+
 ### Checkpoint
 An operation that persists only the new durable delta from the current session into canonical project sources. It is not a retelling of the whole chat. The calling session writes the delta after the human confirms it; Binnacle computes what to consider and records that the checkpoint happened, and writes nothing into the repository itself.
 

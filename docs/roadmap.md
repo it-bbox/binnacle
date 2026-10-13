@@ -50,7 +50,7 @@ Done: epics 1 to 11 and 14 to 19.
 - epic 15 (ADR-0043): a reboot that finds the daemon answering is still to be seen;
 - epic 11, ticket 14: waits on a merge that shrinks the graph.
 
-Next action: plan epic 12, Audit, completed, whose scope is `docs/05-mvp-plan.md`, phase 12, in a fresh session. `/grill-with-docs`
+Next action: specify epic 12, Audit, completed, from its grilling's brief, `docs/specs/audit-completed/brief.md`. `/mattpocock-skills:to-spec`
 
 ## Later
 
