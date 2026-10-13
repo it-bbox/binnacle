@@ -113,3 +113,7 @@ Ways to weigh:
 ## A unit that uses systemd's specifiers (2026-10-13)
 
 Binnacle reads a systemd unit's `Environment=BINNACLE_HOME=` literally. A unit written by hand that says `%h/.binnacle`, as the one an agent session wrote on the owner's machine on 2026-10-09 does, reads as serving `…/%h/.binnacle`, so `binn daemon autostart` calls autostart off for `~/.binnacle`. Harmless: nothing is changed, and `binn daemon autostart on` replaces such a unit with Binnacle's own, written with absolute paths. Expanding `%h` and the other specifiers would fix it for units written by hand, which are rare; likely not worth doing.
+
+## Readable documentation before the release (2026-10-13)
+
+The owner, reading the README on GitHub: it starts well, then turns into walls of text, in English and in Russian alike. The paragraph on `binn audit` and `binn init` is one block of some forty lines that lists every step of the plan, every harness and every tool in a single run of clauses. Before the release on 2026-10-13, and right after epic 15's demonstration, every user-facing document — `README.md`, `README.ru.md` and the docs they link — is checked and made readable: short paragraphs, headings, lists and tables where a paragraph enumerates, the detail moved to the doc that owns it and linked. The owner wants it done before the release, not after.
