@@ -206,8 +206,6 @@ export function docker(root: string): Finding[] {
  * which may not stand right before or after it, so that a longer string that only looks like a token is none.
  * Each was checked against the provider's documentation and gitleaks' rules; the ticket audit-completed/02 lists the sources.
  */
-const B62 = '[A-Za-z0-9]';
-const URLSAFE = '[A-Za-z0-9_-]';
 const TOKEN_FORMATS: { kind: string; token: string; chars?: string }[] = [
   { kind: 'GitHub personal access token (classic)', token: 'ghp_[A-Za-z0-9]{36}', chars: '[A-Za-z0-9_]' },
   { kind: 'GitHub OAuth access token', token: 'gho_[A-Za-z0-9]{36}', chars: '[A-Za-z0-9_]' },
@@ -217,23 +215,23 @@ const TOKEN_FORMATS: { kind: string; token: string; chars?: string }[] = [
   { kind: 'GitHub App installation access token', token: 'ghs_[0-9]+_eyJ[A-Za-z0-9_-]+\\.eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]{43,}', chars: '[A-Za-z0-9_.-]' },
   { kind: 'GitHub App refresh token', token: 'ghr_[A-Za-z0-9]{36}', chars: '[A-Za-z0-9_]' },
   { kind: 'GitHub fine-grained personal access token', token: 'github_pat_[A-Za-z0-9_]{82}', chars: '[A-Za-z0-9_]' },
-  { kind: 'GitLab personal access token', token: 'glpat-[A-Za-z0-9_-]{20}', chars: URLSAFE },
+  { kind: 'GitLab personal access token', token: 'glpat-[A-Za-z0-9_-]{20}', chars: '[A-Za-z0-9_-]' },
   // The routable token of GitLab 17.10 and later: a longer payload, then a dot, a two-character version and a seven-character CRC.
   { kind: 'GitLab personal access token', token: 'glpat-[A-Za-z0-9_-]{27,300}\\.[0-9a-z]{2}[0-9a-z]{7}', chars: '[A-Za-z0-9_.-]' },
-  { kind: 'AWS access key id', token: 'AKIA[A-Z0-9]{16}', chars: B62 },
-  { kind: 'AWS temporary access key id', token: 'ASIA[A-Z0-9]{16}', chars: B62 },
+  { kind: 'AWS access key id', token: 'AKIA[A-Z0-9]{16}', chars: '[A-Za-z0-9]' },
+  { kind: 'AWS temporary access key id', token: 'ASIA[A-Z0-9]{16}', chars: '[A-Za-z0-9]' },
   { kind: 'npm access token', token: 'npm_[A-Za-z0-9]{36}', chars: '[A-Za-z0-9_]' },
   { kind: 'Slack bot token', token: 'xoxb-[0-9]{10,13}-[0-9]{10,13}-[A-Za-z0-9]{24}', chars: '[A-Za-z0-9-]' },
   { kind: 'Slack user token', token: 'xoxp-[0-9]{10,13}-[0-9]{10,13}-[0-9]{10,13}-[a-f0-9]{32}', chars: '[A-Za-z0-9-]' },
-  { kind: 'Slack workspace access token', token: 'xoxa-(?:[0-9]-)?[A-Za-z0-9]{8,48}', chars: B62 },
-  { kind: 'Slack refresh token', token: 'xoxr-(?:[0-9]-)?[A-Za-z0-9]{8,48}', chars: B62 },
+  { kind: 'Slack workspace access token', token: 'xoxa-(?:[0-9]-)?[A-Za-z0-9]{8,48}', chars: '[A-Za-z0-9]' },
+  { kind: 'Slack refresh token', token: 'xoxr-(?:[0-9]-)?[A-Za-z0-9]{8,48}', chars: '[A-Za-z0-9]' },
   { kind: 'Slack session token', token: 'xoxs-[0-9]+-[0-9]+-[0-9]+-[a-fA-F0-9]{10,}', chars: '[A-Za-z0-9-]' },
-  { kind: 'Anthropic API key', token: 'sk-ant-api03-[A-Za-z0-9_-]{93}AA', chars: URLSAFE },
-  { kind: 'Anthropic Admin API key', token: 'sk-ant-admin01-[A-Za-z0-9_-]{93}AA', chars: URLSAFE },
+  { kind: 'Anthropic API key', token: 'sk-ant-api03-[A-Za-z0-9_-]{93}AA', chars: '[A-Za-z0-9_-]' },
+  { kind: 'Anthropic Admin API key', token: 'sk-ant-admin01-[A-Za-z0-9_-]{93}AA', chars: '[A-Za-z0-9_-]' },
   // T3BlbkFJ is "OpenAI" in base64, in the middle of every OpenAI key.
-  { kind: 'OpenAI API key', token: 'sk-(?:proj|svcacct|admin)-(?:[A-Za-z0-9_-]{74}|[A-Za-z0-9_-]{58})T3BlbkFJ(?:[A-Za-z0-9_-]{74}|[A-Za-z0-9_-]{58})', chars: URLSAFE },
-  { kind: 'OpenAI API key', token: 'sk-[A-Za-z0-9]{20}T3BlbkFJ[A-Za-z0-9]{20}', chars: URLSAFE },
-  { kind: 'Google API key', token: 'AIza[A-Za-z0-9_-]{35}', chars: URLSAFE },
+  { kind: 'OpenAI API key', token: 'sk-(?:proj|svcacct|admin)-(?:[A-Za-z0-9_-]{74}|[A-Za-z0-9_-]{58})T3BlbkFJ(?:[A-Za-z0-9_-]{74}|[A-Za-z0-9_-]{58})', chars: '[A-Za-z0-9_-]' },
+  { kind: 'OpenAI API key', token: 'sk-[A-Za-z0-9]{20}T3BlbkFJ[A-Za-z0-9]{20}', chars: '[A-Za-z0-9_-]' },
+  { kind: 'Google API key', token: 'AIza[A-Za-z0-9_-]{35}', chars: '[A-Za-z0-9_-]' },
   // RFC 7468's PRIVATE KEY and ENCRYPTED PRIVATE KEY, OpenSSL's traditional RSA, DSA and EC, OpenSSH's, and OpenPGP's PRIVATE KEY BLOCK.
   { kind: 'PEM private key', token: '-----BEGIN (?:(?:RSA|DSA|EC|OPENSSH|ENCRYPTED|PGP) )?PRIVATE KEY(?: BLOCK)?-----' },
 ].map(({ kind, token, chars }) => ({ kind, token: chars ? `(?<!${chars})${token}(?!${chars})` : token }));
@@ -244,6 +242,9 @@ const TOKEN_START = /gh[pousr]_|github_pat_|glpat-|AKIA|ASIA|npm_|xox[bpars]-|sk
 const SECRET_SCAN_LIMIT = 1024 * 1024;
 /** A tracked `.env` or `.env.<suffix>`, in any directory, but for the documented examples. */
 const ENV_FILE = /(^|\/)\.env(\.(?!(example|sample|template)$)[^/]+)?$/;
+
+/** A path as one POSIX shell word, single-quoted when it holds anything but plain characters, so that a pasted command runs nothing a file name planted. */
+const shellQuote = (path: string): string => (/^[A-Za-z0-9._/-]+$/.test(path) ? path : `'${path.replaceAll("'", "'\\''")}'`);
 
 /**
  * The `secrets` area: each match of a known token format in a tracked text file, by its path, its line and its kind,
@@ -269,7 +270,7 @@ export function secrets(root: string): Finding[] {
         area,
         status: 'gap',
         reason: `${path} is tracked: an environment file holds secrets whatever it holds today, and every clone gets it.`,
-        recommendation: `Stop tracking it with git rm --cached ${path}, add it to .gitignore, rotate every key it held, and commit a .env.example without values instead. ${history}`,
+        recommendation: `Stop tracking it with git rm --cached -- ${shellQuote(path)}, add it to .gitignore, rotate every key it held, and commit a .env.example without values instead. ${history}`,
       });
     }
     let bytes: Buffer;
@@ -306,7 +307,7 @@ export function secrets(root: string): Finding[] {
     });
   }
   if (found.length > 0) return found;
-  return [{ code: 'secrets.scan', area, status: 'ok', reason: `No known token format and no .env file in the ${read} tracked text files read (${skipped} skipped: binary, over 1 MiB or not a regular file).` }];
+  return [{ code: 'secrets.scan', area, status: 'ok', reason: `No known token format and no .env file in the ${read} tracked text files read (${skipped} skipped: binary, over ${SECRET_SCAN_LIMIT / 1024 / 1024} MiB or not a regular file).` }];
 }
 
 /**

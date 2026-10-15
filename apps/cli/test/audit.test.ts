@@ -756,6 +756,8 @@ const TOKENS: { kind: RegExp; prefix: string; body: string }[] = [
 ];
 /** The planted file: a line of prose first, then one token a line, each as a value would be written; `cut` drops that many characters off each. */
 const planted = (cut = 0): string => `# keys\n${TOKENS.map(({ prefix, body }) => `KEY="${`${prefix}${body}`.slice(0, prefix.length + body.length - cut)}"`).join('\n')}\n`;
+/** Each token of an exact length with one more of its characters: a longer string that only starts like a token. A ranged length or a fixed header has no "one more". */
+const longer = (): string => `${TOKENS.filter(({ prefix, body }) => body !== '' && !/^xox[ars]-$/.test(prefix) && !body.includes('.eyJ')).map(({ prefix, body }) => `KEY="${prefix}${body}a"`).join('\n')}\n`;
 
 test('binn audit: a token of each format in a tracked file is a gap with its path, line and kind, and no part of its value is printed', (t) => {
   const root = fixture(t);
@@ -784,11 +786,11 @@ test('binn audit: a token of each format in a tracked file is a gap with its pat
   for (const finding of found) assert.ok(!finding.reason.includes('ignored/') && !finding.reason.includes('loose/'), finding.reason);
 });
 
-test('binn audit: a token one character short is not one; binary, very large and linked files are not read; none found is ok with the count', (t) => {
+test('binn audit: a token one character short, or one running on, is not one; binary, very large and linked files are not read; none found is ok with the count', (t) => {
   const root = fixture(t);
   const outside = join(scratch(t), 'outside.txt');
   writeFileSync(outside, planted());
-  commit(root, { 'short.txt': planted(1), 'big.txt': `${'x'.repeat(1024 * 1024)}\n${planted()}`, 'image.png': `\0PNG${planted()}` });
+  commit(root, { 'short.txt': planted(1), 'long.txt': longer(), 'big.txt': `${'x'.repeat(1024 * 1024)}\n${planted()}`, 'image.png': `\0PNG${planted()}` });
   symlinkSync(outside, join(root, 'linked.txt'));
   git(root, 'add', '.');
   git(root, 'commit', '--quiet', '-m', 'link');
@@ -796,8 +798,8 @@ test('binn audit: a token one character short is not one; binary, very large and
   assert.equal(found.length, 1, JSON.stringify(found, null, 1));
   assert.equal(found[0]!.code, 'secrets.scan');
   assert.equal(found[0]!.status, 'ok');
-  // README.md and short.txt are read; the large, binary and linked files are skipped.
-  assert.match(found[0]!.reason, /\b2 tracked text files\b/);
+  // README.md, short.txt and long.txt are read; the large, binary and linked files are skipped.
+  assert.match(found[0]!.reason, /\b3 tracked text files\b/);
   assert.match(found[0]!.reason, /\b3 skipped\b/);
   assert.equal(found[0]!.recommendation, undefined);
 });
@@ -811,8 +813,11 @@ test('binn audit: a tracked .env or .env.<suffix> is a gap, an example, a sample
     ['secrets.env', 'gap', '.env'],
     ['secrets.env', 'gap', 'app/.env.local'],
   ]);
+  // A planted name is one shell word in the command to paste, so that pasting it runs nothing.
+  commit(root, { ".env.$(touch x)'": 'NAME=value\n' });
+  assert.ok(secrets(root, t).found.some((finding) => finding.recommendation!.includes(`git rm --cached -- '.env.$(touch x)'\\'''`)));
   for (const finding of found) {
-    assert.match(finding.recommendation!, /git rm --cached/);
+    assert.match(finding.recommendation!, /git rm --cached -- /);
     assert.match(finding.recommendation!, /rotate/i);
     assert.match(finding.recommendation!, /gitleaks/);
   }
