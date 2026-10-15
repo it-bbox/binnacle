@@ -109,15 +109,13 @@ Binnacle is published to npm as one package, `@it-bbox/binnacle`, whose version 
    - `skills/`, the `binnacle-<action>` copy for other harnesses;
    - `LICENSE`, `README.md` and a `package.json` the build writes.
 4. **Test the tarball.** `node --test apps/cli/test/tarball.live.ts` builds, runs `npm pack`, installs the tarball into an empty prefix with a temporary `HOME` and `BINNACLE_HOME`, and drives the installed commands. It needs no network once the workspace is installed. CI's `tarball-live` job runs it on the three platforms; publish only when that job is green at `main`'s head.
-5. **Publish.** The owner publishes by hand, so no npm token sits in CI:
+5. **Publish.** The owner publishes by hand, so no npm token sits in CI. npm publishes only from an account with two-factor authentication turned on; without it, `npm publish` fails with `E403`. With it, `npm publish` asks for the second factor in the browser: open the link it prints and confirm there. Do not sign in with a recovery code: it puts the account on a 72-hour hold, with no publishing until it ends.
 
 ```bash
 npm login
 cd apps/cli/dist
 npm publish --access public
 ```
-
-npm publishes only from an account with two-factor authentication turned on; without it, `npm publish` fails with `E403`. With it, `npm publish` asks for the second factor in the browser: open the link it prints and confirm there. Do not sign in with a recovery code: it puts the account on a 72-hour hold, with no publishing until it ends.
 
 `npm view @it-bbox/binnacle version` then prints the version published. A new package can show `0.0.0-stage` as `latest` for a few minutes before its version appears: wait, and look again. To install it from the registry, follow the [installation checklist](docs/operations/05-installation-checklist.md).
 
