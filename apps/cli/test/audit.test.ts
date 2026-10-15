@@ -644,7 +644,7 @@ test('binn audit: a Dockerfile with no .dockerignore is a gap; one leaving .env 
   assert.equal(missing!.code, 'docker.ignore');
   assert.equal(missing!.status, 'gap');
   assert.match(missing!.reason, /Dockerfile/);
-  assert.match(missing!.reason, /no \.dockerignore/);
+  assert.match(missing!.reason, /no tracked \.dockerignore/);
   assert.match(missing!.recommendation!, /\.dockerignore/);
 
   commit(root, { '.dockerignore': '# build\nnode_modules\n.git\n' });
@@ -668,6 +668,21 @@ test('binn audit: a Dockerfile with no .dockerignore is a gap; one leaving .env 
   // A later exception lets .env back in.
   commit(root, { '.dockerignore': '.env*\n.git\n!.env\n' });
   assert.equal(docker(root, t)[0]!.status, 'gap');
+
+  // A character class Docker would reject reads as literal text: the audit still runs.
+  commit(root, { '.dockerignore': '[z-a]\n.env\n.git\n' });
+  assert.equal(docker(root, t)[0]!.status, 'ok');
+});
+
+test("binn audit: a Dockerfile's own <Dockerfile>.dockerignore is read for it instead of the directory's, and is no container file itself", (t) => {
+  const root = fixture(t);
+  commit(root, { Dockerfile: 'FROM scratch\n', '.dockerignore': '.env\n.git\n', 'Dockerfile.dockerignore': '.git\n', 'Dockerfile.dev.dockerignore': '.env\n.git\n' });
+  const found = docker(root, t);
+  assert.equal(found.length, 1);
+  assert.equal(found[0]!.status, 'gap');
+  assert.match(found[0]!.reason, /^Dockerfile: Dockerfile\.dockerignore does not exclude \.env\b/);
+  commit(root, { 'Dockerfile.dockerignore': '.env\n.git\n' });
+  assert.equal(docker(root, t)[0]!.status, 'ok');
 });
 
 test('binn audit: each build context is one finding, read against the .dockerignore beside it, and untracked container files are never read', (t) => {

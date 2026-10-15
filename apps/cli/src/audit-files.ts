@@ -145,12 +145,15 @@ export function structure(root: string): Finding[] {
 }
 
 /** A container file, by its name: what `docker build` or `docker compose` reads from a build context. */
-const CONTAINER = /^(Dockerfile(\.(?!dockerignore$).+)?|.+\.Dockerfile|Containerfile|compose\.ya?ml|docker-compose\.ya?ml)$/;
+const CONTAINER = /^(?!.*\.dockerignore$)(Dockerfile(\..+)?|.+\.Dockerfile|Containerfile|compose\.ya?ml|docker-compose\.ya?ml)$/;
 
 /**
  * The `docker` area: one finding per directory holding a tracked container file, on whether the `.dockerignore`
  * beside it keeps `.env` and `.git` out of the build context; one `ok` when no container file is tracked.
- * The directory stands for the build context. Only tracked files are read, and nothing is run but `git ls-files`.
+ * A `<Dockerfile>.dockerignore` beside a Dockerfile is read for it instead, as BuildKit does.
+ * Only tracked files are read, and nothing is run but `git ls-files`.
+ * ponytail: the directory stands for the build context; a `docker build -f` from elsewhere or a compose `build.context`
+ * is not followed, read the compose file when a project needs it.
  */
 export function docker(root: string): Finding[] {
   const area = 'docker';
@@ -170,31 +173,31 @@ export function docker(root: string): Finding[] {
   }
   const files = new Set(listed);
   return [...contexts].map(([prefix, containers]): Finding => {
+    const ignores = [...new Set(containers.map((path) => (files.has(`${path}.dockerignore`) ? `${path}.dockerignore` : `${prefix}.dockerignore`)))];
+    const reasons: string[] = [];
+    const advice: string[] = [];
+    for (const ignore of ignores) {
+      let text: string | undefined;
+      try {
+        if (files.has(ignore)) text = readFileSync(join(root, ignore), 'utf8');
+      } catch {
+        // A tracked file gone from the working tree is as good as missing.
+      }
+      if (text === undefined) {
+        reasons.push(`no tracked ${ignore}, so docker build sends the whole directory, .env and .git included`);
+        advice.push(`add ${ignore} with a line for .env and a line for .git`);
+        continue;
+      }
+      // The .git directory is out when what it holds is: its config can carry a remote's credentials.
+      const missing = ['.env', '.git'].filter((name) => !dockerignored(text, name === '.git' ? '.git/config' : name));
+      if (missing.length === 0) continue;
+      reasons.push(`${ignore} does not exclude ${missing.join(' or ')}, so docker build sends ${missing.length === 1 ? 'it' : 'them'}`);
+      advice.push(`add a line for ${missing.join(' and a line for ')} to ${ignore}`);
+    }
     const base = { code: 'docker.ignore', area } as const;
-    const ignore = `${prefix}.dockerignore`;
-    let text: string | undefined;
-    try {
-      if (files.has(ignore)) text = readFileSync(join(root, ignore), 'utf8');
-    } catch {
-      // A tracked file gone from the working tree is as good as missing.
-    }
-    if (text === undefined) {
-      return {
-        ...base,
-        status: 'gap',
-        reason: `${containers.join(', ')} with no ${ignore} beside ${containers.length === 1 ? 'it' : 'them'}, so docker build sends the whole directory, .env and .git included.`,
-        recommendation: `Add ${ignore} with a line for .env and a line for .git.`,
-      };
-    }
-    // The .git directory is out when what it holds is: its config can carry a remote's credentials.
-    const missing = ['.env', '.git'].filter((name) => !dockerignored(text, name === '.git' ? '.git/config' : name));
-    if (missing.length === 0) return { ...base, status: 'ok', reason: `${containers.join(', ')}: ${ignore} excludes .env and .git.` };
-    return {
-      ...base,
-      status: 'gap',
-      reason: `${ignore} does not exclude ${missing.join(' or ')}, so docker build sends ${missing.length === 1 ? 'it' : 'them'} with the context of ${containers.join(', ')}.`,
-      recommendation: `Add a line for ${missing.join(' and a line for ')} to ${ignore}.`,
-    };
+    if (reasons.length === 0) return { ...base, status: 'ok', reason: `${containers.join(', ')}: ${ignores.join(' and ')} exclude${ignores.length === 1 ? 's' : ''} .env and .git.` };
+    const recommendation = advice.join('; ');
+    return { ...base, status: 'gap', reason: `${containers.join(', ')}: ${reasons.join('; ')}.`, recommendation: `${recommendation[0]!.toUpperCase()}${recommendation.slice(1)}.` };
   });
 }
 
@@ -219,7 +222,10 @@ function dockerignored(text: string, path: string): boolean {
   return excluded;
 }
 
-/** A `.dockerignore` pattern as a regular expression: `*` and `?` stay within a segment, `**` spans any number of them. */
+/**
+ * A `.dockerignore` pattern as a regular expression: `*` and `?` stay within a segment, `**` spans any number of them.
+ * ponytail: a `[...]` class is read as literal text, so a pattern built on one can give a false gap, never a crash.
+ */
 function dockerPattern(pattern: string): RegExp {
   const literal = (char: string) => char.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
   let out = '';
@@ -234,11 +240,7 @@ function dockerPattern(pattern: string): RegExp {
     } else if (char === '*') out += '[^/]*';
     else if (char === '?') out += '[^/]';
     else if (char === '\\' && at + 1 < pattern.length) out += literal(pattern[++at]!);
-    else if (char === '[' && pattern.indexOf(']', at + 2) !== -1) {
-      const end = pattern.indexOf(']', at + 2);
-      out += `[${pattern.slice(at + 1, end).replace(/^[!^]/, '^').replace(/\\/g, '\\\\')}]`;
-      at = end;
-    } else out += literal(char);
+    else out += literal(char);
   }
   return new RegExp(`^${out}$`);
 }
