@@ -52,6 +52,10 @@ watchEffect(() => {
   const first = present.value[0];
   const gone = data.value?.some((item) => item.project.gone && item.project.path === selected.value) ?? false;
   if ((selected.value === null || gone) && first !== undefined) void router.replace({ query: { ...route.query, project: first.project.path } });
+  else if (gone) {
+    const { project: _gone, ...rest } = route.query;
+    void router.replace({ query: rest });
+  }
 });
 
 /** A page is rebuilt for another project or Task, and keeps itself across the Project page's own query changes. */

@@ -508,6 +508,8 @@ test('/binnacle:task takes run and carries the per-ticket process, is model-invo
   assert.match(run, /every commit follows the project's instruction files for its message and authorship/i);
   assert.match(run, /in a browser only when the ticket changes a dashboard/);
   assert.match(run, /Try the CLI, on a throwaway repository or this one, only against a temporary `BINNACLE_HOME` of your own, never the owner's/);
+  assert.match(run, /inside your worktree in a directory Git ignores[^.]*never in a scratchpad other sessions share/);
+  assert.match(run, /`BINNACLE_PORT=0`/);
 });
 
 /** Epic 19: a roadmap of epics from a vision or a half-built project, written and committed only on the owner's yes. */
