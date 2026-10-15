@@ -80,7 +80,7 @@ test('binn audit on a bare repository, with no daemon, registration or manifest,
   assert.ok(all.length > 0);
   for (const finding of findings(first.stdout)) {
     assert.match(finding.code, /^[a-z]+\.[a-z0-9_]+$/);
-    assert.ok(['git-and-tracker', 'docs', 'matt-pocock-layout', 'scratch', 'capabilities', 'instructions', 'structure', 'telemetry', 'docker'].includes(finding.area), finding.area);
+    assert.ok(['git-and-tracker', 'docs', 'matt-pocock-layout', 'scratch', 'capabilities', 'instructions', 'structure', 'telemetry', 'docker', 'secrets'].includes(finding.area), finding.area);
     assert.ok(['ok', 'gap', 'unknown'].includes(finding.status));
     assert.ok(finding.reason);
     assert.equal(finding.recommendation !== undefined, finding.status !== 'ok', `${finding.code}: a recommendation for a gap or an unknown only`);
@@ -625,7 +625,7 @@ test("binn audit: a repository with only Binnacle's places has no stranded docum
 /** The docker findings, in order. */
 const docker = (root: string, t: TestContext): Finding[] => findings(audit(t, ['--json'], {}, root).stdout).filter((finding) => finding.area === 'docker');
 
-test('binn audit: no tracked container file is one ok, in the last area of the report', (t) => {
+test('binn audit: no tracked container file is one ok, in the area after telemetry', (t) => {
   const root = fixture(t);
   write(root, { Dockerfile: 'FROM scratch\n' });
   const all = findings(audit(t, ['--json'], {}, root).stdout);
@@ -634,7 +634,7 @@ test('binn audit: no tracked container file is one ok, in the last area of the r
   assert.equal(found[0]!.code, 'docker.setup');
   assert.equal(found[0]!.status, 'ok');
   assert.match(found[0]!.reason, /no container setup/);
-  assert.equal(all.at(-1)!.area, 'docker');
+  assert.deepEqual([...new Set(all.map((finding) => finding.area))].slice(-3), ['telemetry', 'docker', 'secrets']);
 });
 
 test('binn audit: a Dockerfile with no .dockerignore is a gap; one leaving .env in names .env; one excluding both is ok', (t) => {
@@ -710,10 +710,118 @@ test('binn audit: each build context is one finding, read against the .dockerign
   for (const finding of found) assert.ok(!finding.reason.includes('loose/') && !finding.reason.includes('ignored/'), finding.reason);
 });
 
+/** The secrets findings, in order, from `binn audit --json`, with the text output beside them. */
+function secrets(root: string, t: TestContext): { found: Finding[]; json: string; text: string } {
+  const json = audit(t, ['--json'], {}, root);
+  assert.equal(json.status, 0, json.stderr);
+  const text = audit(t, [], {}, root);
+  assert.equal(text.status, 0, text.stderr);
+  return { found: findings(json.stdout).filter((finding) => finding.area === 'secrets'), json: json.stdout, text: text.stdout };
+}
+
+/** `n` characters cycled from `alphabet`, so that a planted token is built here and never written in this file in a format the audit matches. */
+const fill = (n: number, alphabet = 'aB3dE5gH7jK9mN1pQ2rS4tU6vW8xY0z'): string => Array.from({ length: n }, (_, at) => alphabet[(at * 7) % alphabet.length]).join('');
+const UPPER = 'QWERTYUIOPASDFGHJKLZXCVBNM234567';
+const HEX = '0123456789abcdef';
+const URLSAFE = 'aB3-dE5_gH7jK9mN1pQ2rS4tU6vW8xY0z';
+const DIGITS = '1234567890';
+
+/** One token of each format, with its prefix kept apart: no part of what follows the prefix may ever be printed. */
+const TOKENS: { kind: RegExp; prefix: string; body: string }[] = [
+  { kind: /GitHub personal access token \(classic\)/, prefix: 'ghp_', body: fill(36) },
+  { kind: /GitHub OAuth access token/, prefix: 'gho_', body: fill(36) },
+  { kind: /GitHub App user access token/, prefix: 'ghu_', body: fill(36) },
+  { kind: /GitHub App installation access token/, prefix: 'ghs_', body: fill(36) },
+  { kind: /GitHub App installation access token/, prefix: 'ghs_', body: `${fill(7, DIGITS)}_eyJ${fill(12)}.eyJ${fill(30)}.${fill(43, URLSAFE)}` },
+  { kind: /GitHub App refresh token/, prefix: 'ghr_', body: fill(36) },
+  { kind: /GitHub fine-grained personal access token/, prefix: 'github_pat_', body: `${fill(22)}_${fill(59)}` },
+  { kind: /GitLab personal access token/, prefix: 'glpat-', body: fill(20, URLSAFE) },
+  { kind: /GitLab personal access token/, prefix: 'glpat-', body: `${fill(27, URLSAFE)}.01${fill(7, '0123456789abcdefghijklmnopqrstuvwxyz')}` },
+  { kind: /AWS access key id/, prefix: 'AKIA', body: fill(16, UPPER) },
+  { kind: /AWS temporary access key id/, prefix: 'ASIA', body: fill(16, UPPER) },
+  { kind: /npm access token/, prefix: 'npm_', body: fill(36) },
+  { kind: /Slack bot token/, prefix: 'xoxb-', body: `${fill(11, DIGITS)}-${fill(12, DIGITS)}-${fill(24)}` },
+  { kind: /Slack user token/, prefix: 'xoxp-', body: `${fill(11, DIGITS)}-${fill(11, DIGITS)}-${fill(12, DIGITS)}-${fill(32, HEX)}` },
+  { kind: /Slack workspace access token/, prefix: 'xoxa-', body: `2-${fill(8)}` },
+  { kind: /Slack refresh token/, prefix: 'xoxr-', body: fill(8) },
+  { kind: /Slack session token/, prefix: 'xoxs-', body: `${fill(10, DIGITS)}-${fill(10, DIGITS)}-${fill(10, DIGITS)}-${fill(10, HEX)}` },
+  { kind: /Anthropic API key/, prefix: 'sk-ant-api03-', body: `${fill(93, URLSAFE)}AA` },
+  { kind: /Anthropic Admin API key/, prefix: 'sk-ant-admin01-', body: `${fill(93, URLSAFE)}AA` },
+  { kind: /OpenAI API key/, prefix: 'sk-proj-', body: `${fill(74, URLSAFE)}${'T3Blbk'}FJ${fill(74, URLSAFE)}` },
+  { kind: /OpenAI API key/, prefix: 'sk-', body: `${fill(20)}${'T3Blbk'}FJ${fill(20)}` },
+  { kind: /Google API key/, prefix: 'AIza', body: fill(35, URLSAFE) },
+  { kind: /PEM private key/, prefix: `-----BEGIN ${'RSA PRIVATE'} KEY-----`, body: '' },
+  { kind: /PEM private key/, prefix: `-----BEGIN ${'OPENSSH PRIVATE'} KEY-----`, body: '' },
+  { kind: /PEM private key/, prefix: `-----BEGIN ${'PRIVATE'} KEY-----`, body: '' },
+];
+/** The planted file: a line of prose first, then one token a line, each as a value would be written; `cut` drops that many characters off each. */
+const planted = (cut = 0): string => `# keys\n${TOKENS.map(({ prefix, body }) => `KEY="${`${prefix}${body}`.slice(0, prefix.length + body.length - cut)}"`).join('\n')}\n`;
+
+test('binn audit: a token of each format in a tracked file is a gap with its path, line and kind, and no part of its value is printed', (t) => {
+  const root = fixture(t);
+  commit(root, { 'config/keys.txt': planted(), '.gitignore': 'ignored/\n' });
+  write(root, { 'ignored/keys.txt': planted(), 'loose/keys.txt': planted() });
+  const { found, json, text } = secrets(root, t);
+  assert.equal(found.length, TOKENS.length, JSON.stringify(found, null, 1));
+  TOKENS.forEach(({ kind }, at) => {
+    const match = found.find((finding) => finding.reason.startsWith(`config/keys.txt:${at + 2}:`))!;
+    assert.ok(match, `line ${at + 2}`);
+    assert.equal(match.code, 'secrets.token');
+    assert.equal(match.status, 'gap');
+    assert.match(match.reason, kind);
+    assert.match(match.recommendation!, /rotate/i);
+    assert.match(match.recommendation!, /history/);
+    assert.match(match.recommendation!, /gitleaks/);
+    assert.ok(text.includes(match.reason), match.reason);
+  });
+  // No six characters in a row of anything after a prefix, in either output.
+  for (const { body } of TOKENS) {
+    for (let at = 0; at + 6 <= body.length; at++) {
+      const part = body.slice(at, at + 6);
+      assert.ok(!json.includes(part) && !text.includes(part), `${part} printed`);
+    }
+  }
+  for (const finding of found) assert.ok(!finding.reason.includes('ignored/') && !finding.reason.includes('loose/'), finding.reason);
+});
+
+test('binn audit: a token one character short is not one; binary, very large and linked files are not read; none found is ok with the count', (t) => {
+  const root = fixture(t);
+  const outside = join(scratch(t), 'outside.txt');
+  writeFileSync(outside, planted());
+  commit(root, { 'short.txt': planted(1), 'big.txt': `${'x'.repeat(1024 * 1024)}\n${planted()}`, 'image.png': `\0PNG${planted()}` });
+  symlinkSync(outside, join(root, 'linked.txt'));
+  git(root, 'add', '.');
+  git(root, 'commit', '--quiet', '-m', 'link');
+  const { found } = secrets(root, t);
+  assert.equal(found.length, 1, JSON.stringify(found, null, 1));
+  assert.equal(found[0]!.code, 'secrets.scan');
+  assert.equal(found[0]!.status, 'ok');
+  // README.md and short.txt are read; the large, binary and linked files are skipped.
+  assert.match(found[0]!.reason, /\b2 tracked text files\b/);
+  assert.match(found[0]!.reason, /\b3 skipped\b/);
+  assert.equal(found[0]!.recommendation, undefined);
+});
+
+test('binn audit: a tracked .env or .env.<suffix> is a gap, an example, a sample or a template is not, and an ignored .env is never read', (t) => {
+  const root = fixture(t);
+  commit(root, { '.env': 'NAME=value\n', 'app/.env.local': 'NAME=value\n', '.env.example': 'NAME=\n', '.env.sample': 'NAME=\n', 'app/.env.template': 'NAME=\n', '.gitignore': '.env.production\n' });
+  write(root, { '.env.production': 'NAME=value\n' });
+  const { found } = secrets(root, t);
+  assert.deepEqual(found.map((finding) => [finding.code, finding.status, finding.reason.split(' ')[0]]), [
+    ['secrets.env', 'gap', '.env'],
+    ['secrets.env', 'gap', 'app/.env.local'],
+  ]);
+  for (const finding of found) {
+    assert.match(finding.recommendation!, /git rm --cached/);
+    assert.match(finding.recommendation!, /rotate/i);
+    assert.match(finding.recommendation!, /gitleaks/);
+  }
+});
+
 test("binn audit on this repository's own tree gives no gap in the docker, secrets and security areas", (t) => {
   const result = audit(t, ['--json', fileURLToPath(new URL('../../..', import.meta.url))]);
   assert.equal(result.status, 0, result.stderr);
   const all = findings(result.stdout);
-  assert.ok(all.some((finding) => finding.area === 'docker'));
+  assert.ok(all.some((finding) => finding.area === 'docker') && all.some((finding) => finding.area === 'secrets'));
   assert.deepEqual(all.filter((finding) => ['docker', 'secrets', 'security'].includes(finding.area) && finding.status === 'gap'), []);
 });

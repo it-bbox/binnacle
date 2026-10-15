@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import type { Finding } from '@binnacle/core';
 import { resolveGitTimeout } from '@binnacle/daemon';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, join, posix } from 'node:path';
 
 /** The `.scratch`, the stranded documents, the tests, CI and structure checks and the container setup of `binn audit`: files only, nothing is run but `git check-ignore` and `git ls-files`. */
@@ -199,6 +199,114 @@ export function docker(root: string): Finding[] {
     const recommendation = advice.join('; ');
     return { ...base, status: 'gap', reason: `${containers.join(', ')}: ${reasons.join('; ')}.`, recommendation: `${recommendation[0]!.toUpperCase()}${recommendation.slice(1)}.` };
   });
+}
+
+/**
+ * The token formats the `secrets` area knows: a kind, the token as a regular expression, and the characters it is made of,
+ * which may not stand right before or after it, so that a longer string that only looks like a token is none.
+ * Each was checked against the provider's documentation and gitleaks' rules; the ticket audit-completed/02 lists the sources.
+ */
+const B62 = '[A-Za-z0-9]';
+const URLSAFE = '[A-Za-z0-9_-]';
+const TOKEN_FORMATS: { kind: string; token: string; chars?: string }[] = [
+  { kind: 'GitHub personal access token (classic)', token: 'ghp_[A-Za-z0-9]{36}', chars: '[A-Za-z0-9_]' },
+  { kind: 'GitHub OAuth access token', token: 'gho_[A-Za-z0-9]{36}', chars: '[A-Za-z0-9_]' },
+  { kind: 'GitHub App user access token', token: 'ghu_[A-Za-z0-9]{36}', chars: '[A-Za-z0-9_]' },
+  { kind: 'GitHub App installation access token', token: 'ghs_[A-Za-z0-9]{36}', chars: '[A-Za-z0-9_]' },
+  // The stateless installation token, ghs_<app id>_<JWT>, rolled out from April 2026; a JWT's shortest signature, HS256, is 43 characters.
+  { kind: 'GitHub App installation access token', token: 'ghs_[0-9]+_eyJ[A-Za-z0-9_-]+\\.eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]{43,}', chars: '[A-Za-z0-9_.-]' },
+  { kind: 'GitHub App refresh token', token: 'ghr_[A-Za-z0-9]{36}', chars: '[A-Za-z0-9_]' },
+  { kind: 'GitHub fine-grained personal access token', token: 'github_pat_[A-Za-z0-9_]{82}', chars: '[A-Za-z0-9_]' },
+  { kind: 'GitLab personal access token', token: 'glpat-[A-Za-z0-9_-]{20}', chars: URLSAFE },
+  // The routable token of GitLab 17.10 and later: a longer payload, then a dot, a two-character version and a seven-character CRC.
+  { kind: 'GitLab personal access token', token: 'glpat-[A-Za-z0-9_-]{27,300}\\.[0-9a-z]{2}[0-9a-z]{7}', chars: '[A-Za-z0-9_.-]' },
+  { kind: 'AWS access key id', token: 'AKIA[A-Z0-9]{16}', chars: B62 },
+  { kind: 'AWS temporary access key id', token: 'ASIA[A-Z0-9]{16}', chars: B62 },
+  { kind: 'npm access token', token: 'npm_[A-Za-z0-9]{36}', chars: '[A-Za-z0-9_]' },
+  { kind: 'Slack bot token', token: 'xoxb-[0-9]{10,13}-[0-9]{10,13}-[A-Za-z0-9]{24}', chars: '[A-Za-z0-9-]' },
+  { kind: 'Slack user token', token: 'xoxp-[0-9]{10,13}-[0-9]{10,13}-[0-9]{10,13}-[a-f0-9]{32}', chars: '[A-Za-z0-9-]' },
+  { kind: 'Slack workspace access token', token: 'xoxa-(?:[0-9]-)?[A-Za-z0-9]{8,48}', chars: B62 },
+  { kind: 'Slack refresh token', token: 'xoxr-(?:[0-9]-)?[A-Za-z0-9]{8,48}', chars: B62 },
+  { kind: 'Slack session token', token: 'xoxs-[0-9]+-[0-9]+-[0-9]+-[a-fA-F0-9]{10,}', chars: '[A-Za-z0-9-]' },
+  { kind: 'Anthropic API key', token: 'sk-ant-api03-[A-Za-z0-9_-]{93}AA', chars: URLSAFE },
+  { kind: 'Anthropic Admin API key', token: 'sk-ant-admin01-[A-Za-z0-9_-]{93}AA', chars: URLSAFE },
+  // T3BlbkFJ is "OpenAI" in base64, in the middle of every OpenAI key.
+  { kind: 'OpenAI API key', token: 'sk-(?:proj|svcacct|admin)-(?:[A-Za-z0-9_-]{74}|[A-Za-z0-9_-]{58})T3BlbkFJ(?:[A-Za-z0-9_-]{74}|[A-Za-z0-9_-]{58})', chars: URLSAFE },
+  { kind: 'OpenAI API key', token: 'sk-[A-Za-z0-9]{20}T3BlbkFJ[A-Za-z0-9]{20}', chars: URLSAFE },
+  { kind: 'Google API key', token: 'AIza[A-Za-z0-9_-]{35}', chars: URLSAFE },
+  // RFC 7468's PRIVATE KEY and ENCRYPTED PRIVATE KEY, OpenSSL's traditional RSA, DSA and EC, OpenSSH's, and OpenPGP's PRIVATE KEY BLOCK.
+  { kind: 'PEM private key', token: '-----BEGIN (?:(?:RSA|DSA|EC|OPENSSH|ENCRYPTED|PGP) )?PRIVATE KEY(?: BLOCK)?-----' },
+].map(({ kind, token, chars }) => ({ kind, token: chars ? `(?<!${chars})${token}(?!${chars})` : token }));
+const TOKENS = TOKEN_FORMATS.map(({ kind, token }) => ({ kind, pattern: new RegExp(token) }));
+/** Every format's start, so that a file with none of them is read once and no further. */
+const TOKEN_START = /gh[pousr]_|github_pat_|glpat-|AKIA|ASIA|npm_|xox[bpars]-|sk-|AIza|-----BEGIN /;
+/** A file over this size is not read: what is that large is generated, vendored or data. */
+const SECRET_SCAN_LIMIT = 1024 * 1024;
+/** A tracked `.env` or `.env.<suffix>`, in any directory, but for the documented examples. */
+const ENV_FILE = /(^|\/)\.env(\.(?!(example|sample|template)$)[^/]+)?$/;
+
+/**
+ * The `secrets` area: each match of a known token format in a tracked text file, by its path, its line and its kind,
+ * each tracked `.env` file, and one `ok` with the number of files read when there is neither. A value is never put
+ * in a finding, not even in part. Untracked and ignored files are never read: the list is `git ls-files`. A binary file,
+ * one over the size limit and anything that is not a regular file, such as a link pointing out of the repository, is skipped.
+ * There is no allowlist: a real key could hide behind one.
+ */
+export function secrets(root: string): Finding[] {
+  const area = 'secrets';
+  const listed = tracked(root);
+  if (!listed) {
+    return [{ code: 'secrets.scan', area, status: 'unknown', reason: 'git ls-files failed, so the tracked files are not known.', recommendation: 'Run git ls-files in the repository to see why.' }];
+  }
+  const history = "If the commit was ever pushed, the value is in Git's history, and rewriting that history is your decision. The audit reads only the tracked files as they are now; gitleaks scans the history.";
+  const found: Finding[] = [];
+  let read = 0;
+  let skipped = 0;
+  for (const path of listed) {
+    if (ENV_FILE.test(path)) {
+      found.push({
+        code: 'secrets.env',
+        area,
+        status: 'gap',
+        reason: `${path} is tracked: an environment file holds secrets whatever it holds today, and every clone gets it.`,
+        recommendation: `Stop tracking it with git rm --cached ${path}, add it to .gitignore, rotate every key it held, and commit a .env.example without values instead. ${history}`,
+      });
+    }
+    let bytes: Buffer;
+    try {
+      const stat = lstatSync(join(root, path));
+      if (!stat.isFile() || stat.size > SECRET_SCAN_LIMIT) {
+        skipped++;
+        continue;
+      }
+      bytes = readFileSync(join(root, path));
+    } catch {
+      continue; // A tracked file gone from the working tree has nothing to read.
+    }
+    // Git's own test for a binary file: a NUL byte in its first 8000 bytes.
+    if (bytes.subarray(0, 8000).includes(0)) {
+      skipped++;
+      continue;
+    }
+    read++;
+    const text = bytes.toString('utf8');
+    if (!TOKEN_START.test(text)) continue;
+    text.split('\n').forEach((line, at) => {
+      if (!TOKEN_START.test(line)) return;
+      for (const { kind, pattern } of TOKENS) {
+        if (!pattern.test(line)) continue;
+        found.push({
+          code: 'secrets.token',
+          area,
+          status: 'gap',
+          reason: `${path}:${at + 1}: a token in the format of the ${kind}; the value is not shown.`,
+          recommendation: `Remove it from ${path}, and rotate the key at its provider: deleting the line does not revoke it. ${history}`,
+        });
+      }
+    });
+  }
+  if (found.length > 0) return found;
+  return [{ code: 'secrets.scan', area, status: 'ok', reason: `No known token format and no .env file in the ${read} tracked text files read (${skipped} skipped: binary, over 1 MiB or not a regular file).` }];
 }
 
 /**

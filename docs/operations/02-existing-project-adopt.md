@@ -32,8 +32,11 @@ Each finding has a code, an area, a status — `ok`, `gap` or `unknown` — and 
 | `structure` | a test setup, a CI configuration, and the project's shape |
 | `telemetry` | Claude Code and Codex sessions for this repository; whether each detected harness exports OpenTelemetry to Binnacle |
 | `docker` | each tracked `Dockerfile`, `Containerfile` or compose file, and whether the `.dockerignore` beside it, or a Dockerfile's own `<Dockerfile>.dockerignore`, excludes `.env` and `.git`; a project with none has no container setup, which is not a gap |
+| `secrets` | every tracked text file, for known token formats (GitHub, GitLab, AWS, npm, Slack, Anthropic, OpenAI, Google and a PEM private key), each named by its path, line and kind, never by its value; every tracked `.env` or `.env.<suffix>` but `.env.example`, `.env.sample` and `.env.template`; binary files and files over 1 MiB are skipped, and there is no way to silence a match |
 
 Whether a tracker token works is known only from the network, so the audit leaves it unknown; `binn init` reads the tracker once and says. Each missing Binnacle file, such as the manifest, the roadmap or a convention file, comes with the recommendation to run `binn init`.
+
+A secret the audit finds is still in Git's history once its line is deleted: remove it, rotate the key, and decide yourself whether to rewrite history if the commit was pushed. The audit reads only the tracked files as they are; gitleaks scans the history.
 
 A stranded document is a tracked plan, spec, decision, TODO, notes, backlog, design, RFC, PRD, roadmap or ADR outside Binnacle's places. The audit only lists them, as `docs.stranded`; `/binnacle:roadmap` proposes where each goes.
 
