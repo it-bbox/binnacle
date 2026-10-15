@@ -5,7 +5,8 @@ import type { SnapshotUsage } from './usage';
 
 /** The parts of `project.list` and `project.snapshot` the pages render. */
 
-export type ProjectRow = { id: string | null; name: string | null; path: string; unavailable: string | null };
+/** `gone`: the registered directory no longer exists, which the daemon tells apart from a manifest it cannot read. */
+export type ProjectRow = { id: string | null; name: string | null; path: string; unavailable: string | null; gone: boolean };
 
 export type Epic = { number: number; title: string; status: string; spec: string | null };
 /** An epic as the snapshot lists it: with its Tasks done out of all, `CANCELLED` left out; null without a spec or when the Tasks cannot be read. */
@@ -131,6 +132,9 @@ export async function loadProjects(previous: ProjectView[] | null, read: (path: 
     }),
   );
 }
+
+/** The command that removes a registration, its path quoted for a POSIX shell. */
+export const unregisterCommand = (path: string): string => `binn project unregister '${path.replaceAll("'", "'\\''")}'`;
 
 export const projectName = (project: ProjectRow): string => project.name ?? project.id ?? project.path;
 

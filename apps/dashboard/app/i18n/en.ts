@@ -38,6 +38,7 @@ export const en = {
   notAvailable: 'Not available',
   noRoadmap: 'The roadmap cannot be read',
   noProject: 'No project is registered.',
+  directoryGone: 'Its directory is gone. To remove the registration, run:',
 
   runsRunning: { one: '# run running', other: '# runs running' } as Forms,
   attentionItems: { one: '# item needs attention', other: '# items need attention' } as Forms,

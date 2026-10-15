@@ -18,7 +18,7 @@ import { OWNER_ONLY_FILE, storePath } from './home.ts';
  * The daemon is the only process that opens this file. The CLI and the dashboard
  * reach state through the API.
  */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export type ProjectRow = {
   /** Null when the manifest could not be read, because an id is read from it and never invented. */
@@ -28,6 +28,8 @@ export type ProjectRow = {
   registeredAt: string;
   /** Why this registered path could not be projected, or null when it projected cleanly. */
   unavailable: string | null;
+  /** True when the registered directory itself no longer exists, rather than its manifest being unreadable. */
+  gone: boolean;
   /**
    * A digest of the whole validated manifest, so that a change to any field is visible
    * — not only to the two this row happens to carry.
@@ -292,6 +294,7 @@ export function openStore(home: string): Store {
         name text,
         registered_at text not null,
         unavailable text,
+        gone integer not null default 0,
         manifest_digest text
       );
     `);
@@ -405,15 +408,15 @@ export function openStore(home: string): Store {
   `);
   const countUnattributed = db.prepare('select count(*) as live from unattributed_record where harness = ? and received_at >= ?');
 
-  const COLUMNS = 'path, id, name, registered_at, unavailable, manifest_digest';
+  const COLUMNS = 'path, id, name, registered_at, unavailable, gone, manifest_digest';
   const selectAll = db.prepare(`select ${COLUMNS} from project order by id`);
   const selectOne = db.prepare(`select ${COLUMNS} from project where path = ?`);
   const upsert = db.prepare(`
-    insert into project (path, id, name, registered_at, unavailable, manifest_digest)
-    values (?, ?, ?, ?, ?, ?)
+    insert into project (path, id, name, registered_at, unavailable, gone, manifest_digest)
+    values (?, ?, ?, ?, ?, ?, ?)
     on conflict(path) do update set
       id = excluded.id, name = excluded.name, registered_at = excluded.registered_at,
-      unavailable = excluded.unavailable, manifest_digest = excluded.manifest_digest
+      unavailable = excluded.unavailable, gone = excluded.gone, manifest_digest = excluded.manifest_digest
   `);
 
   return {
@@ -423,7 +426,7 @@ export function openStore(home: string): Store {
       return row ? toProject(row) : null;
     },
     putProject: (row) => {
-      upsert.run(row.path, row.id, row.name, row.registeredAt, row.unavailable, row.manifestDigest);
+      upsert.run(row.path, row.id, row.name, row.registeredAt, row.unavailable, row.gone ? 1 : 0, row.manifestDigest);
     },
     dropProjectsExcept: (paths) => {
       const placeholders = paths.map(() => '?').join(', ');
@@ -606,6 +609,7 @@ function toProject(row: Record<string, unknown>): ProjectRow {
     name: row.name === null ? null : String(row.name),
     registeredAt: String(row.registered_at),
     unavailable: row.unavailable === null ? null : String(row.unavailable),
+    gone: row.gone === 1,
     manifestDigest: row.manifest_digest === null ? null : String(row.manifest_digest),
   };
 }

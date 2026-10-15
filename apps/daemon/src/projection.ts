@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { ManifestProblem, ProjectManifest } from '@binnacle/core';
+import { OperationError } from './errors.ts';
 import { readManifest } from './manifest.ts';
 import { readRegistry, type RegistryEntry } from './registry.ts';
 import type { ProjectRow, Store } from './store.ts';
@@ -55,7 +56,8 @@ export type Projected = { row: ProjectRow; manifest: ProjectManifest | null; war
 /**
  * A registered repository whose manifest cannot be read stays registered and says why.
  * Its id is null rather than guessed from the directory name — an id is read from the
- * manifest or it is not known.
+ * manifest or it is not known. One whose directory is gone says so apart, so that the
+ * dashboard can leave it off its pages; the registry keeps it either way.
  */
 function deriveProject(entry: RegistryEntry): Projected {
   try {
@@ -67,6 +69,7 @@ function deriveProject(entry: RegistryEntry): Projected {
         name: manifest.project.name,
         registeredAt: entry.registeredAt,
         unavailable: null,
+        gone: false,
         manifestDigest: digest(manifest),
       },
       manifest,
@@ -80,6 +83,7 @@ function deriveProject(entry: RegistryEntry): Projected {
         name: null,
         registeredAt: entry.registeredAt,
         unavailable: (error as Error).message,
+        gone: error instanceof OperationError && error.code === 'project.path_not_found',
         manifestDigest: null,
       },
       manifest: null,

@@ -3,7 +3,9 @@ import { useLanguage } from '~/composables/language';
 import { initials, isUnavailable, PROJECT_VIEWS, projectName, type Run, type ProjectView } from '~/composables/projects';
 
 /** Every project's attention items, from the shell's views, beside the runs running now and recently in all of them. */
-const views = inject(PROJECT_VIEWS, ref(null));
+const all = inject(PROJECT_VIEWS, ref(null));
+/** A project whose directory is gone is listed on the Projects page only. */
+const views = computed(() => all.value?.filter((view) => !view.project.gone) ?? null);
 const { t, number } = useLanguage();
 
 type ProjectRun = { view: ProjectView; run: Run };

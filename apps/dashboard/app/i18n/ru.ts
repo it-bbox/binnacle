@@ -19,6 +19,7 @@ export const ru: Dictionary = {
   notAvailable: 'Недоступно',
   noRoadmap: 'Roadmap не читается',
   noProject: 'Ни один проект не зарегистрирован.',
+  directoryGone: 'Его папки больше нет. Чтобы снять регистрацию, выполните:',
 
   runsRunning: { one: 'идёт # run', few: 'идут # run', many: 'идут # run', other: 'идут # run' },
   attentionItems: {

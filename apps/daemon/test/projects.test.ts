@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, it } from 'node:test';
@@ -35,6 +35,7 @@ type Project = {
   path: string;
   registeredAt: string;
   unavailable?: string;
+  gone: boolean;
 };
 
 const MINIMAL_MANIFEST = `version: 1
@@ -217,6 +218,39 @@ describe('the registry is the record, the table is a projection', () => {
     } finally {
       await second.stop();
     }
+  });
+});
+
+describe('a registration whose directory is gone', () => {
+  it('reads as gone, apart from a broken manifest, and leaves the registry file as it was', async () => {
+    await withDaemon(async (daemon) => {
+      const gone = makeProject();
+      const broken = makeProject('version: 1\n\nproject:\n  id: broken-project\n  name: Broken\n');
+      await daemon.call('project.register', { path: gone });
+      await daemon.call('project.register', { path: broken });
+      const registry = readFileSync(registryPath(daemon.home), 'utf8');
+
+      const parked = `${gone}.parked`;
+      renameSync(gone, parked);
+      writeFileSync(join(broken, '.binnacle', 'project.yaml'), 'version: 1\n');
+
+      const listed = await daemon.call<{ projects: Project[] }>('project.list');
+      const byPath = new Map(listed.body.projects.map((project) => [project.path, project]));
+      assert.equal(byPath.get(gone)?.gone, true);
+      assert.match(byPath.get(gone)?.unavailable ?? '', /No directory at/);
+      assert.equal(byPath.get(broken)?.gone, false);
+      assert.match(byPath.get(broken)?.unavailable ?? '', /problem/);
+      assert.equal(readFileSync(registryPath(daemon.home), 'utf8'), registry);
+
+      // The directory comes back: an ordinary project again, under the same registration.
+      renameSync(parked, gone);
+      const restored = await daemon.call<{ projects: Project[] }>('project.list');
+      const back = restored.body.projects.find((project) => project.path === gone);
+      assert.equal(back?.gone, false);
+      assert.equal(back?.unavailable, null);
+      assert.equal(back?.id, 'example-project');
+      assert.equal(readFileSync(registryPath(daemon.home), 'utf8'), registry);
+    });
   });
 });
 

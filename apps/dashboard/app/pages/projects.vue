@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { useLanguage } from '~/composables/language';
-import { count, gitLine, initials, isUnavailable, PROJECT_VIEWS, projectName, statusBadge, type ProjectView } from '~/composables/projects';
+import { count, gitLine, initials, isUnavailable, PROJECT_VIEWS, projectName, statusBadge, unregisterCommand, type ProjectView } from '~/composables/projects';
 
 /**
  * Every registered project, from the shell's views. *Brief* gives each its name, current Epic, Next
  * action on one line, runs running and attention count; *Full* adds its path, checkout, the Epic's
- * status, a second line of Next action and the latest activity.
+ * status, a second line of Next action and the latest activity. A project whose directory is gone,
+ * left off every other page, is one row here with the command that removes its registration.
  */
 const views = inject(PROJECT_VIEWS, ref(null));
 const { t, number, since } = useLanguage();
@@ -63,13 +64,20 @@ const cell = 'border-b border-default px-3.5 py-2.5 align-top';
                   <div class="flex items-center gap-2.5">
                     <span class="flex size-6.5 flex-none items-center justify-center rounded-md bg-accented text-xs font-semibold">{{ initials(row.view.project) }}</span>
                     <div class="flex min-w-0 flex-col gap-0.5">
-                      <ULink :to="{ path: '/', query: { project: row.view.project.path } }" class="font-medium wrap-anywhere text-default">{{ projectName(row.view.project) }}</ULink>
+                      <span v-if="row.view.project.gone" class="font-medium wrap-anywhere text-muted">{{ projectName(row.view.project) }}</span>
+                      <ULink v-else :to="{ path: '/', query: { project: row.view.project.path } }" class="font-medium wrap-anywhere text-default">{{ projectName(row.view.project) }}</ULink>
                       <span v-if="full" class="font-mono text-xs break-all text-dimmed">{{ row.view.project.path }}</span>
                       <span v-if="full && row.snapshot" class="font-mono text-xs wrap-anywhere text-dimmed" :title="t.registeredCheckout">{{ gitLine(row.snapshot.git, t) }}</span>
                     </div>
                   </div>
                 </td>
-                <td v-if="row.view.project.unavailable !== null" :class="cell" colspan="4">
+                <td v-if="row.view.project.gone" :class="cell" colspan="4">
+                  <div class="flex flex-col items-start gap-1.5">
+                    <span class="text-muted">{{ t.directoryGone }}</span>
+                    <CopyCommand :command="unregisterCommand(row.view.project.path)" />
+                  </div>
+                </td>
+                <td v-else-if="row.view.project.unavailable !== null" :class="cell" colspan="4">
                   <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="wrap-anywhere text-muted">· {{ row.view.project.unavailable }}</span>
                 </td>
                 <td v-else-if="row.view.failure" :class="cell" colspan="4" class="text-warning">
