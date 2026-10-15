@@ -12,9 +12,9 @@ Spec: `docs/specs/audit-completed/spec.md`
 - `SECURITY.md` at the root, in `.github/` or in `docs/` is `ok`; none is a `gap` saying what the file is for.
 - `extensions.worktreeconfig` true with no `config.worktree` in the common Git directory or any worktree's is a `gap` naming Antigravity as the harness it breaks, with the `git config --unset extensions.worktreeconfig` command; with a `config.worktree`, or the setting off, `ok`.
 
-- [ ] Through `binn audit --json`: a manifest without a lockfile is a `gap`; no manifest gives no lockfile finding; Dependabot and Renovate fixtures are `ok`; `SECURITY.md` in each of the three places is `ok`.
-- [ ] A fixture with `extensions.worktreeconfig` set and no `config.worktree` is a `gap` naming Antigravity and the unset command; with a `config.worktree` it is `ok`.
-- [ ] The audit on this repository gives no gap in `security`.
+- [x] Through `binn audit --json`: a manifest without a lockfile is a `gap`; no manifest gives no lockfile finding; Dependabot and Renovate fixtures are `ok`; `SECURITY.md` in each of the three places is `ok`.
+- [x] A fixture with `extensions.worktreeconfig` set and no `config.worktree` is a `gap` naming Antigravity and the unset command; with a `config.worktree` it is `ok`.
+- [x] The audit on this repository gives no gap in `security`.
 
 ## Comments
 
