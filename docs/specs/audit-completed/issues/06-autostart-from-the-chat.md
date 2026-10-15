@@ -1,6 +1,6 @@
 # 06: Autostart from the chat
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 05
 Spec: `docs/specs/audit-completed/spec.md`
