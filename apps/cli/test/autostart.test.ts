@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -619,4 +619,35 @@ test('Windows: start creates the task again when it was deleted by hand, its XML
   assert.equal(start.status, 0, start.stderr);
   assert.deepEqual(calls().slice(before), [`/Query ${TASK}`, `/Create ${TASK} /XML ${unit} /F`, `/Run ${TASK}`]);
   assert.equal(readRuntime(home)?.pid, supervised());
+});
+
+/** Every file under `dir` whose text holds `value`. */
+function filesHolding(dir: string, value: string): string[] {
+  return readdirSync(dir, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => join(entry.parentPath, entry.name))
+    .filter((path) => readFileSync(path, 'latin1').includes(value));
+}
+
+test('autostart on warns that the service will not see a tracker token from this shell, unless the credentials file has one, and never shows or copies it', (t) => {
+  const { binn, env, home } = setup(t);
+  const token = 'github_pat_only-in-this-shell';
+  env.BINNACLE_GITHUB_TOKEN = token;
+  delete env.BINNACLE_GITLAB_TOKEN;
+
+  const on = binn('daemon', 'autostart', 'on');
+  assert.equal(on.status, 0, on.stderr);
+  assert.match(on.stderr, /warning: BINNACLE_GITHUB_TOKEN is set in this shell, but the daemon the service manager starts does not see it/);
+  assert.ok(on.stderr.includes(`${join(home, 'credentials.json')} has no token for "github.com"`), on.stderr);
+  assert.match(on.stderr, /chmod 600/);
+  assert.ok(!`${on.stdout}${on.stderr}`.includes(token));
+  assert.deepEqual(filesHolding(join(home, '..'), token), []);
+
+  // With a token for its tracker in the credentials file, installing the service again warns of nothing.
+  assert.equal(binn('daemon', 'autostart', 'off').status, 0);
+  writeFileSync(join(home, 'credentials.json'), JSON.stringify({ 'github.com': 'github_pat_in-the-file' }), { mode: 0o600 });
+  const again = binn('daemon', 'autostart', 'on');
+  assert.equal(again.status, 0, again.stderr);
+  assert.match(again.stdout, /Autostart is on/);
+  assert.doesNotMatch(again.stderr, /BINNACLE_GITHUB_TOKEN/);
 });

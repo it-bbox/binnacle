@@ -36,7 +36,7 @@ import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, 
 import { register } from './project-commands.ts';
 import { binnacleSkills, CONFIG_HOME, declaredCapabilities, INSTALLED_SKILLS, mcpSources, onPath, PACKAGE_DIR, registeredWith, SKILLS_COPY, tilde, TOOLS, VSCODE_USER_DIRECTORY, type Tool } from './tools.ts';
 
-type Outcome = 'created' | 'extended' | 'updated' | 'printed' | 'ran' | 'found' | 'checked' | 'failed' | 'declined' | 'skipped';
+type Outcome = 'created' | 'extended' | 'updated' | 'printed' | 'ran' | 'found' | 'checked' | 'failed' | 'declined' | 'skipped' | 'warned';
 
 /** One write the plan proposes: shown in full before the one question, applied only after a yes. */
 type PlanItem = {
@@ -467,8 +467,11 @@ function planAutostart(session: Session, home: string): void {
     body: '  binn daemon autostart on',
     declined: `autostart: ${AUTOSTART_ON} turns it on later`,
     async apply() {
-      const code = await autostart(home, 'on');
+      // Its warnings, such as a tracker token the service will not see, go to the Summary.
+      const warnings: string[] = [];
+      const code = await autostart(home, 'on', (text) => warnings.push(text));
       record(session, code === EXIT.ok ? 'ran' : 'failed', 'binn daemon autostart on');
+      for (const warning of warnings) record(session, 'warned', warning);
     },
   });
 }

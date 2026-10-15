@@ -1,6 +1,8 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { closeSync, openSync, readFileSync, rmSync } from 'node:fs';
 import {
+  credentialsKey,
+  credentialsPath,
   daemonEntry,
   ensureHome,
   isAlive,
@@ -8,6 +10,8 @@ import {
   OWNER_ONLY_FILE,
   readAutostart,
   readInstalled,
+  readManifest,
+  readRegistry,
   readRuntime,
   removeRuntime,
   renderDefinition,
@@ -15,6 +19,7 @@ import {
   serviceInputs,
   servicePlatform,
   SERVICE_NAME,
+  trackerToken,
   writeDefinition,
   type Autostart,
   type Runtime,
@@ -148,7 +153,12 @@ export async function stop(home: string): Promise<ExitCode> {
 const AUTOSTART_ON = 'binn daemon autostart on';
 
 /** `binn daemon autostart [on|off]`: turns autostart on or off for this home, or, with no action, says which it is (ADR-0043). */
-export async function autostart(home: string, action: 'on' | 'off' | undefined): Promise<ExitCode> {
+export async function autostart(
+  home: string,
+  action: 'on' | 'off' | undefined,
+  /** Where `on` puts its warnings: stderr, or `binn init`'s Summary. */
+  warn: (text: string) => void = (text) => console.error(`binn: warning: ${text}`),
+): Promise<ExitCode> {
   let current: Autostart;
   try {
     servicePlatform();
@@ -166,7 +176,7 @@ export async function autostart(home: string, action: 'on' | 'off' | undefined):
     console.log(describeAutostart(current));
     return EXIT.ok;
   }
-  return action === 'on' ? await autostartOn(current) : await autostartOff(current);
+  return action === 'on' ? await autostartOn(current, warn) : await autostartOff(current);
 }
 
 /** One platform's service manager: each step a sequence of calls that reports the first refusal. */
@@ -282,7 +292,7 @@ function managerFor({ platform, path, home }: Autostart): Manager {
 /** Why autostart cannot be turned on here, or null when it can: no service manager answering. */
 export const autostartUnavailable = (current: Autostart): string | null => managerFor(current).unavailable();
 
-async function autostartOn(current: Autostart): Promise<ExitCode> {
+async function autostartOn(current: Autostart, warn: (text: string) => void): Promise<ExitCode> {
   const { home, path } = current;
   const unavailable = autostartUnavailable(current);
   if (unavailable) {
@@ -312,7 +322,51 @@ async function autostartOn(current: Autostart): Promise<ExitCode> {
     return EXIT.failed;
   }
   console.log(`Autostart is on for ${home}: ${path} starts the daemon at login, and again when it fails.`);
+  for (const warning of unseenTokenWarnings(home)) warn(warning);
   return EXIT.ok;
+}
+
+/**
+ * One warning for each `BINNACLE_<PROVIDER>_TOKEN` set in this shell while the credentials file
+ * holds no token for that provider's trackers: those of the registered projects, or the
+ * provider's default host when none is registered. The service's daemon starts with only the
+ * environment its definition carries, so it will not see the shell's. Names the variable and
+ * the file's key, never the token, which is neither copied nor written anywhere.
+ */
+function unseenTokenWarnings(home: string, env: NodeJS.ProcessEnv = process.env): string[] {
+  let roots: string[];
+  try {
+    roots = readRegistry(home).map(({ path }) => path);
+  } catch {
+    roots = [];
+  }
+  const trackers = roots.flatMap((root) => {
+    try {
+      return [readManifest(root).manifest.tracker];
+    } catch {
+      return [];
+    }
+  });
+  const warnings: string[] = [];
+  for (const provider of ['github', 'gitlab'] as const) {
+    const variable = `BINNACLE_${provider.toUpperCase()}_TOKEN`;
+    if (!env[variable]?.trim()) continue;
+    const hosts = trackers.filter((tracker) => tracker.provider === provider).map(({ host }) => host);
+    // The file alone, as the service's daemon reads it: an empty environment.
+    const missing = [...new Set(hosts.length > 0 ? hosts : [null])]
+      .filter((host) => {
+        const found = trackerToken(home, provider, host, {});
+        return !('token' in found && found.token);
+      })
+      .map((host) => JSON.stringify(credentialsKey(provider, host)));
+    if (missing.length === 0) continue;
+    const path = credentialsPath(home);
+    warnings.push(
+      `${variable} is set in this shell, but the daemon the service manager starts does not see it, and ${path} has no token for ${missing.join(' or ')}. ` +
+        `Put a read-only token in ${path} under that key, owner-only (chmod 600); Binnacle's docs/operations/05-installation-checklist.md, under Tracker credentials, has the details.`,
+    );
+  }
+  return warnings;
 }
 
 /** Off for this home only: a service that starts another home's daemon, such as the owner's seen from an agent's temporary home, is left alone. */

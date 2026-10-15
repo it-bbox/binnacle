@@ -2598,6 +2598,30 @@ test('autostart: asked after the window and before the plan, Enter means yes, an
   assert.match(summaryOf(result.stdout), /ran\s+binn daemon autostart on/);
 });
 
+test('autostart: turned on with a tracker token only in this shell, the Summary warns the service will not see it, and the token is never shown or copied', (t) => {
+  const home = makeHome(t);
+  fakeSystemd(home);
+  const token = 'github_pat_only-in-this-shell';
+  home.env = { ...home.env, BINNACLE_GITHUB_TOKEN: token };
+  const root = makeRepository(t, 'autostarted-with-token');
+
+  const result = binnIn(home)(root, '\n\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  const summary = summaryOf(result.stdout);
+  assert.match(summary, /ran\s+binn daemon autostart on\n\s+warned\s+BINNACLE_GITHUB_TOKEN is set in this shell, but the daemon the service manager starts does not see it/);
+  assert.ok(summary.includes(`${join(home.binnacleHome, 'credentials.json')} has no token for "github.com"`), summary);
+  assert.doesNotMatch(result.stderr, /BINNACLE_GITHUB_TOKEN/);
+  assert.ok(!`${result.stdout}${result.stderr}`.includes(token));
+  for (const dir of [home.home, root]) {
+    const holding = readdirSync(dir, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => join(entry.parentPath, entry.name))
+      .filter((path) => readFileSync(path, 'latin1').includes(token));
+    assert.deepEqual(holding, []);
+  }
+});
+
 test('autostart: no installs nothing and the Summary names the command; a later run offers it again', (t) => {
   const home = makeHome(t);
   const systemd = fakeSystemd(home);

@@ -45,6 +45,8 @@ To start it at login, `binn init` asks, yes by default, and `binn daemon autosta
 
 `binn daemon autostart off` turns it off. `binn daemon autostart`, with no argument, says whether it is on, off or broken, and for which Binnacle home.
 
+The service starts the daemon with `BINNACLE_HOME` and `PATH` only, so a tracker token kept in your shell, `BINNACLE_GITHUB_TOKEN` or `BINNACLE_GITLAB_TOKEN`, does not reach it. When `binn daemon autostart on` installs or repairs the service, or `binn init` turns it on, while such a variable is set and `credentials.json` holds no token for that tracker, it warns you, and `binn init` repeats the warning in its Summary. Put the token in the credentials file, as [Tracker credentials](#tracker-credentials) says. The warning names the variable and the file's key, never the token, and Binnacle copies the token nowhere.
+
 ## 4. Open the dashboard
 
 ```bash
