@@ -137,3 +137,22 @@ Found while publishing 0.1.0 (`specs/release/issues/07-release-exit-demonstratio
 - `binn project register` without a manifest points to `templates/project/project.yaml.example`, which only a checkout has.
 - The plugin's skills still say "*From this repository* until the npm package is published"; the next version can drop the clause.
 - The autostart service passes only `BINNACLE_HOME` and `PATH`, so tracker tokens set in the shell never reach it (ticket 06, *For the owner*).
+
+## Stricter autopilot and review (2026-10-15)
+
+Ideas to weigh, most useful first:
+
+1. **A tests-first run before the developer.** A separate agent writes the ticket's acceptance tests from the ticket alone and proves they fail for the expected reason, a recorded expected-red, before any production code exists; the developer's run then makes them pass. Today tests-first lives inside the developer's own session, which can bend a test to fit its code.
+2. **Hard stops for autopilot.** Binnacle shows runs per Task and the rework share but stops nothing. Past a threshold of rework runs, a ticket could stop under *Waiting for the owner* with its reason instead of another correction run; review iterations could have a cap, and every CI job one retry budget across runs.
+3. **Classes of a red CI.** An infrastructure failure (runner lost, registry or network) is retried within the budget; a failed test is never retried, since a green rerun on the same commit is flaky evidence, not a pass; an unknown cause is treated as the change's. Binnacle reads a Task's CI; what autopilot does on red is not written down.
+4. **A complexity gate in review.** A complexity reading of the touched code is recorded before development, and review checks it did not grow. A calculated reading that sits well beside Ponytail.
+5. **Tests on the instructions themselves.** Checks over Binnacle's own skills and instruction files: a length budget for each skill description and for all of them together, a size limit for a router entrypoint, every reference file named with the condition that loads it, no procedure copied into two places. They would catch drift and duplication without a reviewer.
+6. **Machine-readable markers.** `### Question` and `### Answer` are already parsed. A parsable first line for a Review's verdict, a stop and a rework, such as `REVIEW:<task>:<run>:<iteration>:<verdict>`, would make first-pass review acceptance and stop reasons exact, counted without a model.
+7. **Delivery signals at slicing.** `/to-tickets` could ask whether a ticket changes a schema, stored data, an API or consumer contract, or background processing; such a ticket carries a rollout step.
+8. **A check belongs to a role that can perform it.** Each check in a ticket names the role that performs it, and grilling asks whether that role can: a "before" screenshot can only be taken where the old version still runs, test accounts on a stage only by whoever administers it. A check handed to a role that cannot do it stalls the ticket.
+9. **Do not rerun what is stale.** Autopilot already rebases a branch before merging. The same rule could cover any rerun: an artifact older than a threshold, or a branch behind `main`, is rebuilt first, and a failure of an old artifact is not reported as an unavailable environment.
+10. **An external cause re-checks itself.** An item under *Waiting for the owner* with an external cause carries a checkable condition (the stage answers, `main`'s CI is green) that the daemon reads, and clears itself when it holds.
+11. **Autonomy counts people, not only stops.** A Task finished without a stop can still have needed a person at several steps. An autonomy reading would count human interventions per Task.
+12. **Stop reasons from facts.** An agent's explanation of why it stopped is often not the root. Stop reasons should come from what Binnacle reads (CI, runs, markers), and the agent's text stays text.
+
+Not to take: running without a human by default, which ADR-0022 rules out; and a fixed pipeline of roles for every Task, since roles are recommended per Task.
