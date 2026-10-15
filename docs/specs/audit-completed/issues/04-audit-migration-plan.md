@@ -1,6 +1,6 @@
 # 04: The migration plan
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 01, 02, 03
 Spec: `docs/specs/audit-completed/spec.md`
