@@ -20,6 +20,24 @@ Roles: Developer, Reviewer, Security
 - Codes: `secrets.token`, one `gap` per match, its reason `<path>:<line>: a token in the format of the <kind>; the value is not shown.`; `secrets.env`, one `gap` per tracked environment file; `secrets.scan`, `ok` with the number of text files read and skipped when there is neither, `unknown` when `git ls-files` fails. The code is `secrets()` in `apps/cli/src/audit-files.ts`, beside `docker()`, on the same `tracked()` list.
 - Decisions where the ticket is silent: the size limit is 1 MiB; a file is binary when its first 8000 bytes hold a NUL, as Git decides; anything not a regular file (a symbolic link, a submodule) is skipped, so a tracked link to a key outside the repository is never followed; a format's own characters may not stand right before or right after a match; the `.env` rule matches by name in any directory; OpenAI's `sk-svcacct-` and `sk-admin-` and Anthropic's `sk-ant-admin01-` are matched beside the ticket's prefixes, being the same formats.
 - For ticket 04 (the plan): every non-`ok` finding of the `secrets` area, `secrets.token` and `secrets.env`, belongs to step 2; neither is closed by `binn init`.
+- AWS's documented example access key id, `AKIA` and 16 characters ending in `EXAMPLE`, is in the format and is reported wherever a project quotes it: no allowlist, as the spec decides (user story 19 over 9).
+- The recommendation's `git rm --cached -- <path>` gives the path as one shell word, single-quoted when it holds anything but plain characters.
+
+### Review
+
+Against `main`, in a sub-agent, on the standards, the spec and, for the Security role, secrets and trust boundaries. Typecheck and the 840 tests pass; each pattern was probed at its length, one longer and one shorter, and across formats for double matches, with none.
+
+1. **A planted `.env` name ran in the pasted command** (security): `git rm --cached ${path}` printed a name such as `.env.$(command)` unquoted. **Fixed**: the path is one single-quoted shell word after `--`; a test plants such a name.
+2. **No test for a token running on** (spec): only one character short was pinned. **Fixed**: `long.txt` plants each exact-length token with one more character; a ranged length (the stateless `ghs_`, `xoxa-`, `xoxr-`, `xoxs-`) or the PEM header has no "one more".
+3. **Character classes half in constants, half inline; "1 MiB" written beside its constant.** **Fixed**: the classes are inline throughout, and the text is drawn from the limit.
+4. **A directory replaced locally by a link out of the repository is followed** (security): `lstat` sees only the last component. **Kept**: Git never checks a file out behind a link, and what leaves is a path, a line and a kind.
+5. **A file name is printed as Git lists it**, a token or a control character in a name included. **Kept**: every area prints paths so; no value from a file's content is ever printed.
+6. **A binary or very large file is a way round the scan** (security). **Kept**: user story 17 asks for it; the `ok` counts what it skipped.
+7. **AWS's example key is reported.** **Kept**: no allowlist, recorded above.
+
+#### Security
+
+Findings 1, 4, 5 and 6 above. Values: only the path, the line and the kind reach a finding; a read error is swallowed without its message. Trust boundaries: links, submodules, FIFOs and devices are not regular files and are skipped, so nothing outside the repository is read through a tracked link and nothing blocks. Backtracking: each pattern starts with a literal prefix that its own characters may not precede, and adversarial 1 MiB lines ran every pattern in under 12 ms. Silencing: no setting, allowlist or comment hides a match.
 
 ### Formats
 
