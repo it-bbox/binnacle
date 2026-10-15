@@ -15,3 +15,11 @@ Spec: `docs/specs/audit-completed/spec.md`
 - [ ] Through `binn audit --json`: a manifest without a lockfile is a `gap`; no manifest gives no lockfile finding; Dependabot and Renovate fixtures are `ok`; `SECURITY.md` in each of the three places is `ok`.
 - [ ] A fixture with `extensions.worktreeconfig` set and no `config.worktree` is a `gap` naming Antigravity and the unset command; with a `config.worktree` it is `ok`.
 - [ ] The audit on this repository gives no gap in `security`.
+
+## Comments
+
+- Codes: `security.lockfile` (no finding without a manifest), `security.updates`, `security.policy`, and `security.files`, `unknown`, only when `git ls-files` fails; `git.worktree_config` in `git-and-tracker`, `ok` when the setting is off, `unknown` when Git cannot read it. `security()` is in `apps/cli/src/audit-files.ts` on the same `tracked()` list as `docker()` and `secrets()`; `worktreeConfig()` is in `apps/cli/src/audit.ts`.
+- Decisions where the ticket is silent: only tracked files count, so an ignored lockfile or an untracked `dependabot.yml` is a gap; a manifest is matched with its own ecosystem's lockfiles (`package.json` with npm's, pnpm's, Yarn's or Bun's; `pyproject.toml` with Poetry's or uv's), found in its directory or any directory above it, so a workspace member is covered by the lockfile at the root; Renovate's places are those of docs.renovatebot.com, *Configuration options* (read 2026-10-15), `jsonc` included, and `package.json`'s `renovate` key; `SECURITY.md` is matched in any case, as GitHub does.
+- Known ceiling: a `go.mod` with no dependency has no `go.sum` and still reads as a gap.
+- For ticket 04 (the plan): none of these findings is closed by `binn init`.
+- For ticket 11 (the exit demonstration): the owner's checkout has `extensions.worktreeconfig` set with no `config.worktree`, so `git.worktree_config` is a gap there today, in `git-and-tracker`, not in the three new areas. `git config --unset extensions.worktreeconfig` clears it; it is the owner's to run.
