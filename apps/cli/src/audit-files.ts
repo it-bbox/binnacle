@@ -4,7 +4,7 @@ import { resolveGitTimeout } from '@binnacle/daemon';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, join, posix } from 'node:path';
 
-/** The `.scratch`, the stranded documents and the tests, CI and structure checks of `binn audit`: files only, nothing is run but `git check-ignore` and `git ls-files`. */
+/** The `.scratch`, the stranded documents, the tests, CI and structure checks and the container setup of `binn audit`: files only, nothing is run but `git check-ignore` and `git ls-files`. */
 
 /** Every file under `dir` as a path relative to it; an unreadable or missing directory is empty. */
 function files(dir: string, prefix = '', depth = 6): string[] {
@@ -60,6 +60,12 @@ export function scratch(root: string): Finding[] {
   return found;
 }
 
+/** The files Git tracks, relative to the root, from `git ls-files`; null when it fails. Nothing untracked or ignored is ever in it. */
+function tracked(root: string): string[] | null {
+  const listed = spawnSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8', timeout: resolveGitTimeout() });
+  return listed.status === 0 ? listed.stdout.split('\0').filter(Boolean) : null;
+}
+
 /** A Markdown or text file, the only kind a stranded document is. */
 const TEXT = /\.(md|markdown|mdx|txt)$/i;
 /** A path segment that says a plan, a spec, a decision, a TODO, notes, a backlog, a design, an RFC, a PRD, a roadmap or an ADR. */
@@ -74,14 +80,14 @@ const PLACES = /^((readme|licen[cs]e|changelog|contributing|security)(\.[^/]*)?|
  */
 export function stranded(root: string, docs: string): Finding {
   const base = { code: 'docs.stranded', area: 'docs' } as const;
-  const listed = spawnSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8', timeout: resolveGitTimeout() });
-  if (listed.status !== 0) {
+  const listed = tracked(root);
+  if (!listed) {
     return { ...base, status: 'unknown', reason: 'git ls-files failed, so the tracked documents are not known.', recommendation: 'Run git ls-files in the repository to see why.' };
   }
   const files = new Set(['roadmap.md', 'vision.md', 'product-inbox.md'].map((name) => posix.join(docs, name)));
   const dirs = ['specs', 'adr', 'agents'].map((name) => `${posix.join(docs, name)}/`);
   const found = new Set<string>();
-  for (const path of listed.stdout.split('\0')) {
+  for (const path of listed) {
     if (!TEXT.test(path) || PLACES.test(path) || files.has(path) || dirs.some((dir) => path.startsWith(dir))) continue;
     const segments = path.split('/');
     const at = segments.findIndex((segment) => STRANDED.test(segment));
@@ -136,4 +142,103 @@ export function structure(root: string): Finding[] {
         ? { code: 'structure.shape', area, status: 'ok', reason: `A single package (${manifest}).` }
         : { code: 'structure.shape', area, status: 'unknown', reason: 'No package manifest or workspace file at the root, so the shape of the project is not known from files.', recommendation: 'If the project is a monorepo, say so in AGENTS.md.' },
   ];
+}
+
+/** A container file, by its name: what `docker build` or `docker compose` reads from a build context. */
+const CONTAINER = /^(Dockerfile(\.(?!dockerignore$).+)?|.+\.Dockerfile|Containerfile|compose\.ya?ml|docker-compose\.ya?ml)$/;
+
+/**
+ * The `docker` area: one finding per directory holding a tracked container file, on whether the `.dockerignore`
+ * beside it keeps `.env` and `.git` out of the build context; one `ok` when no container file is tracked.
+ * The directory stands for the build context. Only tracked files are read, and nothing is run but `git ls-files`.
+ */
+export function docker(root: string): Finding[] {
+  const area = 'docker';
+  const listed = tracked(root);
+  if (!listed) {
+    return [{ code: 'docker.setup', area, status: 'unknown', reason: 'git ls-files failed, so the tracked container files are not known.', recommendation: 'Run git ls-files in the repository to see why.' }];
+  }
+  const contexts = new Map<string, string[]>();
+  for (const path of listed) {
+    if (!CONTAINER.test(posix.basename(path))) continue;
+    const dir = posix.dirname(path);
+    const prefix = dir === '.' ? '' : `${dir}/`;
+    contexts.set(prefix, [...(contexts.get(prefix) ?? []), path]);
+  }
+  if (contexts.size === 0) {
+    return [{ code: 'docker.setup', area, status: 'ok', reason: 'No container file is tracked (a Dockerfile, a Containerfile or a compose file), so the project has no container setup to check.' }];
+  }
+  const files = new Set(listed);
+  return [...contexts].map(([prefix, containers]): Finding => {
+    const base = { code: 'docker.ignore', area } as const;
+    const ignore = `${prefix}.dockerignore`;
+    let text: string | undefined;
+    try {
+      if (files.has(ignore)) text = readFileSync(join(root, ignore), 'utf8');
+    } catch {
+      // A tracked file gone from the working tree is as good as missing.
+    }
+    if (text === undefined) {
+      return {
+        ...base,
+        status: 'gap',
+        reason: `${containers.join(', ')} with no ${ignore} beside ${containers.length === 1 ? 'it' : 'them'}, so docker build sends the whole directory, .env and .git included.`,
+        recommendation: `Add ${ignore} with a line for .env and a line for .git.`,
+      };
+    }
+    // The .git directory is out when what it holds is: its config can carry a remote's credentials.
+    const missing = ['.env', '.git'].filter((name) => !dockerignored(text, name === '.git' ? '.git/config' : name));
+    if (missing.length === 0) return { ...base, status: 'ok', reason: `${containers.join(', ')}: ${ignore} excludes .env and .git.` };
+    return {
+      ...base,
+      status: 'gap',
+      reason: `${ignore} does not exclude ${missing.join(' or ')}, so docker build sends ${missing.length === 1 ? 'it' : 'them'} with the context of ${containers.join(', ')}.`,
+      recommendation: `Add a line for ${missing.join(' and a line for ')} to ${ignore}.`,
+    };
+  });
+}
+
+/**
+ * Whether `.dockerignore` text excludes `path`, as Docker reads it: a line matches the path or a directory above it,
+ * `!` makes an exception, and the last matching line decides.
+ */
+function dockerignored(text: string, path: string): boolean {
+  const segments = path.split('/');
+  const candidates = segments.map((_, at) => segments.slice(0, at + 1).join('/'));
+  let excluded = false;
+  for (const raw of text.split('\n')) {
+    let line = raw.trim();
+    if (line === '' || line.startsWith('#')) continue;
+    const exception = line.startsWith('!');
+    if (exception) line = line.slice(1).trim();
+    line = posix.normalize(line).replace(/^\/+|\/+$/g, '');
+    if (line === '' || line === '.') continue;
+    const pattern = dockerPattern(line);
+    if (candidates.some((candidate) => pattern.test(candidate))) excluded = !exception;
+  }
+  return excluded;
+}
+
+/** A `.dockerignore` pattern as a regular expression: `*` and `?` stay within a segment, `**` spans any number of them. */
+function dockerPattern(pattern: string): RegExp {
+  const literal = (char: string) => char.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+  let out = '';
+  for (let at = 0; at < pattern.length; at++) {
+    const char = pattern[at]!;
+    if (char === '*' && pattern[at + 1] === '*') {
+      at++;
+      if (pattern[at + 1] === '/') {
+        at++;
+        out += '(?:.*/)?';
+      } else out += '.*';
+    } else if (char === '*') out += '[^/]*';
+    else if (char === '?') out += '[^/]';
+    else if (char === '\\' && at + 1 < pattern.length) out += literal(pattern[++at]!);
+    else if (char === '[' && pattern.indexOf(']', at + 2) !== -1) {
+      const end = pattern.indexOf(']', at + 2);
+      out += `[${pattern.slice(at + 1, end).replace(/^[!^]/, '^').replace(/\\/g, '\\\\')}]`;
+      at = end;
+    } else out += literal(char);
+  }
+  return new RegExp(`^${out}$`);
 }

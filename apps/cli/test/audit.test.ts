@@ -80,7 +80,7 @@ test('binn audit on a bare repository, with no daemon, registration or manifest,
   assert.ok(all.length > 0);
   for (const finding of findings(first.stdout)) {
     assert.match(finding.code, /^[a-z]+\.[a-z0-9_]+$/);
-    assert.ok(['git-and-tracker', 'docs', 'matt-pocock-layout', 'scratch', 'capabilities', 'instructions', 'structure', 'telemetry'].includes(finding.area), finding.area);
+    assert.ok(['git-and-tracker', 'docs', 'matt-pocock-layout', 'scratch', 'capabilities', 'instructions', 'structure', 'telemetry', 'docker'].includes(finding.area), finding.area);
     assert.ok(['ok', 'gap', 'unknown'].includes(finding.status));
     assert.ok(finding.reason);
     assert.equal(finding.recommendation !== undefined, finding.status !== 'ok', `${finding.code}: a recommendation for a gap or an unknown only`);
@@ -620,4 +620,85 @@ test("binn audit: a repository with only Binnacle's places has no stranded docum
   const ok = finding(root, t, 'docs.stranded');
   assert.equal(ok.status, 'ok');
   assert.equal(ok.recommendation, undefined);
+});
+
+/** The docker findings, in order. */
+const docker = (root: string, t: TestContext): Finding[] => findings(audit(t, ['--json'], {}, root).stdout).filter((finding) => finding.area === 'docker');
+
+test('binn audit: no tracked container file is one ok, in the last area of the report', (t) => {
+  const root = fixture(t);
+  write(root, { Dockerfile: 'FROM scratch\n' });
+  const all = findings(audit(t, ['--json'], {}, root).stdout);
+  const found = all.filter((finding) => finding.area === 'docker');
+  assert.equal(found.length, 1);
+  assert.equal(found[0]!.code, 'docker.setup');
+  assert.equal(found[0]!.status, 'ok');
+  assert.match(found[0]!.reason, /no container setup/);
+  assert.equal(all.at(-1)!.area, 'docker');
+});
+
+test('binn audit: a Dockerfile with no .dockerignore is a gap; one leaving .env in names .env; one excluding both is ok', (t) => {
+  const root = fixture(t);
+  commit(root, { Dockerfile: 'FROM scratch\n' });
+  const [missing] = docker(root, t);
+  assert.equal(missing!.code, 'docker.ignore');
+  assert.equal(missing!.status, 'gap');
+  assert.match(missing!.reason, /Dockerfile/);
+  assert.match(missing!.reason, /no \.dockerignore/);
+  assert.match(missing!.recommendation!, /\.dockerignore/);
+
+  commit(root, { '.dockerignore': '# build\nnode_modules\n.git\n' });
+  const [env] = docker(root, t);
+  assert.equal(env!.status, 'gap');
+  assert.match(env!.reason, /does not exclude \.env\b/);
+  assert.doesNotMatch(env!.reason, /\.git\b/);
+
+  commit(root, { '.dockerignore': '.env\n' });
+  const [git] = docker(root, t);
+  assert.equal(git!.status, 'gap');
+  assert.match(git!.reason, /does not exclude \.git\b/);
+
+  for (const ignore of ['.env*\n**/.git\n', '/.env\n.git/\n', '*\n!src\n', '  .env  \n.git/**\n']) {
+    commit(root, { '.dockerignore': ignore });
+    const [ok] = docker(root, t);
+    assert.equal(ok!.status, 'ok', ignore);
+    assert.ok(ok!.reason.includes('Dockerfile') && ok!.reason.includes('.dockerignore'), ok!.reason);
+    assert.equal(ok!.recommendation, undefined);
+  }
+  // A later exception lets .env back in.
+  commit(root, { '.dockerignore': '.env*\n.git\n!.env\n' });
+  assert.equal(docker(root, t)[0]!.status, 'gap');
+});
+
+test('binn audit: each build context is one finding, read against the .dockerignore beside it, and untracked container files are never read', (t) => {
+  const root = fixture(t);
+  commit(root, {
+    '.dockerignore': '.env\n.git\n',
+    'services/api/Dockerfile.dev': 'FROM scratch\n',
+    'services/api/compose.yaml': 'services: {}\n',
+    'services/web/web.Dockerfile': 'FROM scratch\n',
+    'services/web/.dockerignore': '.env\n',
+    'tools/Containerfile': 'FROM scratch\n',
+    'tools/.dockerignore': '.env*\n.git\n',
+    '.gitignore': 'ignored/\n',
+  });
+  write(root, { 'loose/Dockerfile': 'FROM scratch\n', 'ignored/docker-compose.yml': 'services: {}\n' });
+  const found = docker(root, t);
+  assert.equal(found.length, 3, JSON.stringify(found));
+  const api = found.find((finding) => finding.reason.includes('services/api/'))!;
+  assert.equal(api.status, 'gap');
+  assert.ok(api.reason.includes('services/api/Dockerfile.dev') && api.reason.includes('services/api/compose.yaml'), api.reason);
+  const web = found.find((finding) => finding.reason.includes('services/web/'))!;
+  assert.equal(web.status, 'gap');
+  assert.match(web.reason, /services\/web\/\.dockerignore does not exclude \.git\b/);
+  assert.equal(found.find((finding) => finding.reason.includes('tools/'))!.status, 'ok');
+  for (const finding of found) assert.ok(!finding.reason.includes('loose/') && !finding.reason.includes('ignored/'), finding.reason);
+});
+
+test("binn audit on this repository's own tree gives no gap in the docker, secrets and security areas", (t) => {
+  const result = audit(t, ['--json', fileURLToPath(new URL('../../..', import.meta.url))]);
+  assert.equal(result.status, 0, result.stderr);
+  const all = findings(result.stdout);
+  assert.ok(all.some((finding) => finding.area === 'docker'));
+  assert.deepEqual(all.filter((finding) => ['docker', 'secrets', 'security'].includes(finding.area) && finding.status === 'gap'), []);
 });

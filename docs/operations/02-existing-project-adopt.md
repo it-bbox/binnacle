@@ -31,6 +31,7 @@ Each finding has a code, an area, a status — `ok`, `gap` or `unknown` — and 
 | `instructions` | `AGENTS.md` and `CLAUDE.md`, and whether they make one instruction set |
 | `structure` | a test setup, a CI configuration, and the project's shape |
 | `telemetry` | Claude Code and Codex sessions for this repository; whether each detected harness exports OpenTelemetry to Binnacle |
+| `docker` | each tracked `Dockerfile`, `Containerfile` or compose file, and whether the `.dockerignore` beside it excludes `.env` and `.git`; a project with none has no container setup, which is not a gap |
 
 Whether a tracker token works is known only from the network, so the audit leaves it unknown; `binn init` reads the tracker once and says. Each missing Binnacle file, such as the manifest, the roadmap or a convention file, comes with the recommendation to run `binn init`.
 

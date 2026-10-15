@@ -3,7 +3,7 @@ import { AUDIT_AREAS, forgeRemote, instructionSets, type Finding } from '@binnac
 import { MANIFEST_RELATIVE, OperationError, readManifest, resolveGitTimeout, trackerToken } from '@binnacle/daemon';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, posix, resolve } from 'node:path';
-import { scratch, stranded, structure } from './audit-files.ts';
+import { docker, scratch, stranded, structure } from './audit-files.ts';
 import { capabilities, telemetry, telemetryExport } from './audit-tools.ts';
 import { EXIT, type ExitCode } from './exit.ts';
 import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, MATT_POCOCK_FILES, mattPocockFiles, roadmapGaps, specSlugs } from './layout.ts';
@@ -23,7 +23,7 @@ export async function audit(home: string, path: string | undefined, json: boolea
   }
 
   // One list per area, so that each later area is one more entry here; the sort is stable, so checks keep their order within an area.
-  const all: Finding[] = [...gitAndTracker(git, home), ...docs(git.root), ...mattPocockLayout(git.root), ...scratch(git.root), ...capabilities(git.root), ...instructions(git.root), ...structure(git.root), ...(await telemetry(git.root)), ...telemetryExport(home)].sort((a, b) => AUDIT_AREAS.indexOf(a.area) - AUDIT_AREAS.indexOf(b.area));
+  const all: Finding[] = [...gitAndTracker(git, home), ...docs(git.root), ...mattPocockLayout(git.root), ...scratch(git.root), ...capabilities(git.root), ...instructions(git.root), ...structure(git.root), ...(await telemetry(git.root)), ...telemetryExport(home), ...docker(git.root)].sort((a, b) => AUDIT_AREAS.indexOf(a.area) - AUDIT_AREAS.indexOf(b.area));
 
   if (json) {
     console.log(JSON.stringify({ root: git.root, findings: all }, null, 2));

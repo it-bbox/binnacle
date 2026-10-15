@@ -31,6 +31,7 @@ _English version: [02-existing-project-adopt.md](02-existing-project-adopt.md). 
 | `instructions` | `AGENTS.md` и `CLAUDE.md` и составляют ли они один набор инструкций |
 | `structure` | наличие тестов, конфигурации CI и форму проекта |
 | `telemetry` | сессии Claude Code и Codex для этого репозитория; экспортирует ли каждый найденный harness OpenTelemetry в Binnacle |
+| `docker` | каждый отслеживаемый `Dockerfile`, `Containerfile` или compose-файл и исключает ли `.dockerignore` рядом с ним `.env` и `.git`; проект без них просто не использует контейнеры, и это не пробел |
 
 Работает ли токен tracker, видно только по сети, поэтому аудит оставляет это неизвестным; `binn init` читает tracker один раз и говорит. Для каждого недостающего файла Binnacle, например манифеста, roadmap или файла соглашений, аудит рекомендует запустить `binn init`.
 
