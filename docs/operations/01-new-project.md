@@ -22,7 +22,7 @@ Run `binn init` in the repository. It works everything out first, shows it as on
 Before the plan, it asks up to two questions:
 
 - **The import window.** It shows how many Claude Code and Codex sessions it found in this repository, and the date of the oldest. Then it asks how much of that history the daemon imports: 90 days by default, another number of days, or `all`. `--window <days|all>` answers it unasked.
-- **Autostart.** Where it is available and not yet on, it asks whether the daemon starts at login. A yes makes `binn daemon autostart on` the plan's last item.
+- **Autostart.** Where it is available and not yet on, it asks whether the daemon starts at login. A yes makes `binn daemon autostart on` the plan's last item. `--autostart <yes|no>` answers it unasked.
 
 For a new repository, the plan holds:
 
@@ -54,11 +54,11 @@ Without `uv`, init names the command that installs it, and leaves Serena and Gra
 
 In Claude Code, `/binnacle:init [path]` does the same from the chat:
 
-1. It runs `binn init --plan --json` and shows the whole plan, every item in full, with the session history and the import window. Name another window, or a harness to keep out of Binnacle's skills, to see the plan again with it.
+1. It runs `binn init --plan --json`. Where autostart is available and not yet on, it first asks whether the daemon starts at login, and passes your answer to init as `--autostart`. Then it shows the whole plan, every item in full, with the session history and the import window. Name another window, or a harness to keep out of Binnacle's skills, to see the plan again with it.
 2. Only your yes in the chat writes it, through `binn init --apply <id>`. If the plan changed since it was shown, that writes nothing (`init.plan_changed`), and the skill shows the new plan and asks again (ADR-0037).
 3. It shows what init printed, the Summary included.
 
-The skill needs no daemon and never commits. With the daemon stopped, registration is left out of the plan: `/binnacle:daemon start`, then `/binnacle:register`, adds it. The chat asks nothing about autostart, so its plan never turns it on; its notes name `binn daemon autostart on` instead.
+The skill needs no daemon and never commits. With the daemon stopped, registration is left out of the plan: `/binnacle:daemon start`, then `/binnacle:register`, adds it. A yes to autostart makes `binn daemon autostart on` the plan's last item; with a no, nothing is installed and the Summary names that command for later.
 
 When init writes `.mcp.json`, open a new session in the repository and approve the project's `binnacle` server: Claude Code reads `.mcp.json` only when a session starts. The skill itself comes with the `binnacle` plugin, which the first `binn init` on a machine installs at user scope, so run that first one at a terminal.
 

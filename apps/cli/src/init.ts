@@ -65,6 +65,8 @@ type Session = {
   history: { harness: string; sessions: number; oldest: string | null }[];
   /** The import window the plan uses, whether the manifest already declares it, and whether it is the default. */
   window: { days: ImportWindow; declared: boolean; default: boolean };
+  /** Whether the autostart question could be asked: autostart is off and can be turned on for this home. */
+  autostart: { ask: boolean };
 };
 
 /**
@@ -72,7 +74,7 @@ type Session = {
  * It works out every write first, asking only the questions that are not about a write, shows
  * them together as one plan and asks once (ADR-0034): Enter or `y` accepts it at a terminal,
  * anything else declines it, and with stdin not a terminal nothing is written. It never commits.
- * `window` answers the window question unasked. With `plan`, the plan is printed as JSON with
+ * `window` answers the window question unasked, and `autostart` the autostart question. With `plan`, the plan is printed as JSON with
  * its id (ADR-0037), and nothing is asked, written or run after it, the tracker check included.
  * With `apply`, the plan is worked out again and written unasked only if its id is `apply`: the
  * human confirmed that plan in the chat (ADR-0037). Any other plan is refused, and nothing is written.
@@ -80,7 +82,13 @@ type Session = {
 export async function init(
   home: string,
   path?: string,
-  options: { plan?: boolean; apply?: string | undefined; window?: ImportWindow | undefined; skipHarness?: string[] } = {},
+  options: {
+    plan?: boolean;
+    apply?: string | undefined;
+    window?: ImportWindow | undefined;
+    autostart?: boolean | undefined;
+    skipHarness?: string[];
+  } = {},
 ): Promise<ExitCode> {
   const git = await readGitFacts(resolve(path ?? process.cwd()), resolveGitTimeout());
   if (!git.available) {
@@ -116,6 +124,7 @@ export async function init(
     planOnly,
     history: [],
     window: { days: DEFAULT_WINDOW_DAYS, declared: false, default: true },
+    autostart: { ask: false },
   };
 
   try {
@@ -125,7 +134,7 @@ export async function init(
     // `--plan` and `--apply` ask nothing: without --window, the default, as Enter at the question gives it.
     const windowSection = await windowStep(session, manifest, options.window ?? (asks ? undefined : DEFAULT_WINDOW_DAYS));
     session.say('');
-    const autostartWanted = await autostartStep(session, home, asks, process.stdin.isTTY === true);
+    const autostartWanted = await autostartStep(session, home, options.autostart, asks, process.stdin.isTTY === true);
     // Read before the manifest is proposed, which declares what is found or installed; planned after the other writes.
     const plugins = listClaudePlugins(session);
     const tools = detectTools(session.root, plugins);
@@ -166,9 +175,9 @@ export async function init(
     // Last: turning it on replaces a daemon this home runs by hand, which the plan's registration uses.
     if (autostartWanted) planAutostart(session, home);
     if (planOnly) {
-      const { root, history, window } = session;
+      const { root, history, window, autostart } = session;
       const plan = session.plan.map(({ heading, body }) => ({ heading, body }));
-      console.log(JSON.stringify({ root, id: planId(root, plan), plan, notes, history, window }, null, 2));
+      console.log(JSON.stringify({ root, id: planId(root, plan), plan, notes, history, window, autostart }, null, 2));
       return EXIT.ok;
     }
     // The same plan shown has the same id; a change to a file that leaves every item as shown is left to ADR-0026's guards.
@@ -417,10 +426,11 @@ const AUTOSTART_ON = '`binn daemon autostart on`';
 /**
  * Step 2b: whether the daemon starts at login (ADR-0043), asked after the window and before the
  * plan, and only while autostart is off for this home and can be turned on here. Enter means yes,
- * which `planAutostart` makes the plan's last item. Without a terminal, and in the forms that ask
- * nothing, it is not asked and nothing is installed: the Summary names the command instead.
+ * which `planAutostart` makes the plan's last item. A `given` answer, the chat's, is taken unasked
+ * in every form. Without one, without a terminal and in the forms that ask nothing, it is not asked
+ * and nothing is installed: the Summary names the command instead.
  */
-async function autostartStep(session: Session, home: string, asks: boolean, terminal: boolean): Promise<boolean> {
+async function autostartStep(session: Session, home: string, given: boolean | undefined, asks: boolean, terminal: boolean): Promise<boolean> {
   const skip = (said: string, why: string): false => {
     session.say(said);
     record(session, 'skipped', `autostart: ${why}`);
@@ -441,12 +451,17 @@ async function autostartStep(session: Session, home: string, asks: boolean, term
     reason = (error as Error).message;
   }
   if (reason !== null) return skip(`Autostart is not available here: ${reason}.`, `not available here, ${reason}`);
+  session.autostart = { ask: true };
   const later = `${AUTOSTART_ON} turns it on later`;
-  if (!asks) return skip(`This form of binn init asks nothing, so the daemon is not set to start at login: ${later}.`, `not asked, ${later}`);
-  if (!terminal) return skip(`With no terminal to ask, the daemon is not set to start at login: ${later}.`, `no terminal to ask, ${later}`);
-  const reply = await session.answer('Start the daemon at login? [Y/n] ');
-  // Enter or yes accepts, as the plan's question does; anything else, and the end of input, declines.
-  if (reply === null || !/^\s*(y(es)?)?\s*$/i.test(reply)) return skip(`The daemon is not set to start at login: ${later}.`, `declined, ${later}`);
+  let yes = given;
+  if (yes === undefined) {
+    if (!asks) return skip(`This form of binn init asks nothing, so the daemon is not set to start at login: ${later}.`, `not asked, ${later}`);
+    if (!terminal) return skip(`With no terminal to ask, the daemon is not set to start at login: ${later}.`, `no terminal to ask, ${later}`);
+    const reply = await session.answer('Start the daemon at login? [Y/n] ');
+    // Enter or yes accepts, as the plan's question does; anything else, and the end of input, declines.
+    yes = reply !== null && /^\s*(y(es)?)?\s*$/i.test(reply);
+  }
+  if (!yes) return skip(`The daemon is not set to start at login: ${later}.`, `declined, ${later}`);
   session.say('Turning autostart on is in the plan, as its last item.');
   return true;
 }

@@ -16,14 +16,15 @@ const VERSION = packageVersion(import.meta.url);
 const USAGE = `binn — Binnacle, a local AI engineering control plane.
 
 Usage:
-  binn init [--window <days|all>] [--skip-harness <id>]... [path]
+  binn init [--window <days|all>] [--autostart <yes|no>] [--skip-harness <id>]... [path]
                         Set up the Git repository containing path (default: the working directory):
                         show the whole plan and ask once before writing; it never overwrites a file
                         and never commits. --window sets the history import window without asking;
+                        --autostart answers whether the daemon starts at login, where it is asked;
                         --skip-harness keeps Binnacle's skills out of that skills CLI harness id
-  binn init --plan --json [--window <days|all>] [--skip-harness <id>]... [path]
+  binn init --plan --json [--window <days|all>] [--autostart <yes|no>] [--skip-harness <id>]... [path]
                         Print that plan and its id as JSON, writing, running and asking nothing
-  binn init --apply <id> [--window <days|all>] [--skip-harness <id>]... [path]
+  binn init --apply <id> [--window <days|all>] [--autostart <yes|no>] [--skip-harness <id>]... [path]
                         Write the plan whose id is <id>, as a confirmed run does, without asking;
                         if the plan is no longer that one, write nothing and exit 3 (init.plan_changed)
 
@@ -113,7 +114,7 @@ async function run(argv: string[]): Promise<ExitCode> {
 
   if (first === 'init') {
     const options = initOptions(argv.slice(1));
-    if (options) return await init(resolveHome(), options.path, { plan: options.plan, apply: options.apply, window: options.window, skipHarness: options.skipHarness });
+    if (options) return await init(resolveHome(), options.path, options);
   }
 
   if (first === 'audit') {
@@ -151,17 +152,34 @@ async function run(argv: string[]): Promise<ExitCode> {
 /**
  * `binn init`'s arguments, or null when they are not its usage: `--plan` and `--json` only together,
  * `--apply` with an id and without them, a window as the window question takes it, though not empty,
- * and any number of `--skip-harness` ids, none empty.
+ * `--autostart` `yes` or `no`, and any number of `--skip-harness` ids, none empty.
  */
 function initOptions(
   args: string[],
-): { path: string | undefined; plan: boolean; apply: string | undefined; window: ImportWindow | undefined; skipHarness: string[] } | null {
+): {
+  path: string | undefined;
+  plan: boolean;
+  apply: string | undefined;
+  window: ImportWindow | undefined;
+  autostart: boolean | undefined;
+  skipHarness: string[];
+} | null {
   try {
     const { values, positionals } = parseArgs({
       args,
       allowPositionals: true,
-      options: { plan: { type: 'boolean' }, json: { type: 'boolean' }, apply: { type: 'string' }, window: { type: 'string' }, 'skip-harness': { type: 'string', multiple: true } },
+      options: {
+        plan: { type: 'boolean' },
+        json: { type: 'boolean' },
+        apply: { type: 'string' },
+        window: { type: 'string' },
+        autostart: { type: 'string' },
+        'skip-harness': { type: 'string', multiple: true },
+      },
     });
+    const answer = values.autostart?.trim();
+    if (answer !== undefined && answer !== 'yes' && answer !== 'no') return null;
+    const autostart = answer === undefined ? undefined : answer === 'yes';
     const plan = values.plan === true;
     const apply = values.apply?.trim();
     if (plan !== (values.json === true) || positionals.length > 1) return null;
@@ -169,7 +187,7 @@ function initOptions(
     const skipHarness = (values['skip-harness'] ?? []).map((id) => id.trim());
     if (skipHarness.includes('')) return null;
     const window = values.window === undefined ? undefined : values.window.trim() === '' ? null : importWindow(values.window);
-    return window === null ? null : { path: positionals[0], plan, apply, window, skipHarness };
+    return window === null ? null : { path: positionals[0], plan, apply, window, autostart, skipHarness };
   } catch {
     // An unknown option, or --window without its value.
     return null;

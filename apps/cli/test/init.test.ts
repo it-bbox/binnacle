@@ -160,7 +160,7 @@ const CONVENTIONS_IN_PLACE = {
 test('binn --help lists binn init', () => {
   const result = spawnSync(process.execPath, [BINN, '--help'], { encoding: 'utf8' });
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /binn init \[--window <days\|all>\] \[--skip-harness <id>\]\.\.\. \[path\]/);
+  assert.match(result.stdout, /binn init \[--window <days\|all>\] \[--autostart <yes\|no>\] \[--skip-harness <id>\]\.\.\. \[path\]/);
 });
 
 test('binn init refuses a directory outside any Git repository and writes nothing', (t) => {
@@ -1893,6 +1893,7 @@ type PlanJson = {
   notes: string[];
   history: { harness: string; sessions: number; oldest: string | null }[];
   window: { days: number | 'all'; declared: boolean; default: boolean };
+  autostart: { ask: boolean };
 };
 
 /** `binn init --plan --json` with `args`, stdin a terminal that is never ended: a plan that read it, or held it open, would hang. */
@@ -2030,8 +2031,8 @@ test('binn init refuses a bad --window, and --plan or --json alone, as usage err
 
 test('binn --help names --plan, --json and --window for binn init', () => {
   const { stdout } = spawnSync(process.execPath, [BINN, '--help'], { encoding: 'utf8' });
-  assert.match(stdout, /binn init \[--window <days\|all>\] \[--skip-harness <id>\]\.\.\. \[path\]/);
-  assert.match(stdout, /binn init --plan --json \[--window <days\|all>\] \[--skip-harness <id>\]\.\.\. \[path\]/);
+  assert.match(stdout, /binn init \[--window <days\|all>\] \[--autostart <yes\|no>\] \[--skip-harness <id>\]\.\.\. \[path\]/);
+  assert.match(stdout, /binn init --plan --json \[--window <days\|all>\] \[--autostart <yes\|no>\] \[--skip-harness <id>\]\.\.\. \[path\]/);
 });
 
 test('--apply with the id from --plan --json writes that plan with stdin not a terminal, runs the tracker check and prints the Summary', async (t) => {
@@ -2114,7 +2115,7 @@ test('binn init refuses --apply with --plan, or without an id, as usage errors',
 
 test('binn --help names --apply for binn init', () => {
   const { stdout } = spawnSync(process.execPath, [BINN, '--help'], { encoding: 'utf8' });
-  assert.match(stdout, /binn init --apply <id> \[--window <days\|all>\] \[--skip-harness <id>\]\.\.\. \[path\]/);
+  assert.match(stdout, /binn init --apply <id> \[--window <days\|all>\] \[--autostart <yes\|no>\] \[--skip-harness <id>\]\.\.\. \[path\]/);
 });
 
 /** The `binnacle-<action>` skills of the package's copy for the `skills` CLI, built by its prepare script. */
@@ -2749,4 +2750,79 @@ test("autostart: the Summary's token warning looks for the project's own tracker
     if (warned) assert.ok(summary.includes(`has no token for ${JSON.stringify(gitlab.base)}`), summary);
     else assert.doesNotMatch(summary, /warned/);
   }
+});
+
+test('autostart from the chat: --plan --json says it could be asked only while it is off and available', async (t) => {
+  const home = makeHome(t);
+  fakeSystemd(home);
+  const root = makeRepository(t, 'askable');
+  assert.deepEqual((await planJson(t, home, root)).autostart, { ask: true });
+  // An answer given does not change whether it could be asked.
+  assert.deepEqual((await planJson(t, home, root, '--autostart', 'no')).autostart, { ask: true });
+
+  assert.equal(spawnSync(process.execPath, [BINN, 'daemon', 'autostart', 'on'], { encoding: 'utf8', env: envFor(home) }).status, 0);
+  assert.deepEqual((await planJson(t, home, root, '--autostart', 'yes')).autostart, { ask: false });
+
+  const elsewhere = makeHome(t);
+  elsewhere.env = { BINNACLE_SERVICE_PLATFORM: 'linux' };
+  const unavailable = await planJson(t, elsewhere, root, '--autostart', 'yes');
+  assert.deepEqual(unavailable.autostart, { ask: false });
+  assert.ok(!unavailable.plan.some(({ heading }) => /daemon at login/.test(heading)), JSON.stringify(unavailable.plan, null, 2));
+});
+
+test('autostart from the chat: --autostart yes makes it the last item of --plan, and --apply with it turns it on', async (t) => {
+  const home = makeHome(t);
+  const systemd = fakeSystemd(home);
+  const root = makeRepository(t, 'chat-yes');
+
+  const yes = await planJson(t, home, root, '--autostart', 'yes');
+  const none = await planJson(t, home, root);
+  assert.match(yes.plan.at(-1)!.heading, /Start the Binnacle daemon at login/);
+  assert.equal(yes.plan.at(-1)!.body, '  binn daemon autostart on');
+  assert.notEqual(yes.id, none.id);
+  assert.equal(existsSync(systemd.unit), false);
+
+  // Without the same answer, the plan is not the one confirmed.
+  const other = binnIn(home, false)(root, '', 'init', '--apply', yes.id);
+  assert.equal(other.status, 3, other.stdout);
+  assert.equal(existsSync(systemd.unit), false);
+
+  const applied = binnIn(home, false)(root, '', 'init', '--apply', yes.id, '--autostart', 'yes');
+  assert.equal(applied.status, 0, applied.stderr);
+  assert.doesNotMatch(applied.stdout, /Start the daemon at login\?/);
+  assert.match(readFileSync(systemd.unit, 'utf8'), new RegExp(`BINNACLE_HOME=${home.binnacleHome}`));
+  assert.deepEqual(systemd.calls().slice(-3), ['--user daemon-reload', '--user enable binnacle', '--user restart binnacle']);
+  assert.match(summaryOf(applied.stdout), /ran\s+binn daemon autostart on/);
+});
+
+test('autostart from the chat: --autostart no installs nothing and the Summary names the command', async (t) => {
+  const home = makeHome(t);
+  const systemd = fakeSystemd(home);
+  const root = makeRepository(t, 'chat-no');
+
+  const { id, plan, notes } = await planJson(t, home, root, '--autostart', 'no');
+  assert.ok(!plan.some(({ heading }) => /daemon at login/.test(heading)), JSON.stringify(plan, null, 2));
+  assert.ok(notes.some((note) => note.includes('binn daemon autostart on')), notes.join('\n---\n'));
+  const applied = binnIn(home, false)(root, '', 'init', '--apply', id, '--autostart', 'no');
+  assert.equal(applied.status, 0, applied.stderr);
+  assert.match(summaryOf(applied.stdout), /skipped\s+autostart: declined, `binn daemon autostart on` turns it on later/);
+
+  // At a terminal, the flag answers the question unasked.
+  const asked = binnIn(home)(makeRepository(t, 'terminal-no'), '\n', 'init', '--window', '7', '--autostart', 'no');
+  assert.equal(asked.status, 0, asked.stderr);
+  assert.doesNotMatch(asked.stdout, /Start the daemon at login\?/);
+  assert.match(summaryOf(asked.stdout), /skipped\s+autostart: declined/);
+
+  assert.equal(existsSync(systemd.unit), false);
+  assert.ok(systemd.calls().every((call) => call === '--user show-environment'), systemd.calls().join('\n'));
+});
+
+test('binn init refuses an --autostart other than yes or no as a usage error', (t) => {
+  const home = makeHome(t);
+  const root = makeRepository(t, 'misused-autostart');
+  for (const args of [['--autostart', 'maybe'], ['--autostart', ''], ['--autostart']]) {
+    const result = binnIn(home)(root, '', 'init', ...args);
+    assert.equal(result.status, 2, `${args.join(' ')}\n${result.stdout}`);
+  }
+  assert.equal(git(root, 'status', '--porcelain'), '');
 });
