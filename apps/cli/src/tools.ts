@@ -77,7 +77,7 @@ export const TOOLS: Tool[] = [
     },
   },
   { name: 'context7', title: 'Context7', files: [], prerequisite: NPM, server: { command: () => ['npx', '-y', '@upstash/context7-mcp'] } },
-  { name: 'ast_grep', title: 'ast-grep', files: [], executable: 'ast-grep', prerequisite: NPM, install: ['npm', 'i', '@ast-grep/cli', '-g'] },
+  { name: 'ast_grep', title: 'ast-grep', files: [], executable: 'ast-grep', prerequisite: NPM, install: ['npm', 'i', '@ast-grep/cli', '-g', '--allow-scripts=@ast-grep/cli'] },
   // From each plugin's README, read on 2026-10-02: Matt Pocock Skills is in Claude Code's official marketplace, Ponytail is its own.
   {
     name: 'matt_pocock_skills',

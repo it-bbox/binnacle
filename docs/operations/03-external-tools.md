@@ -24,7 +24,7 @@ The tools that are executables are installed outside the repository, through a p
 | --- | --- | --- | --- |
 | Serena | `serena` on `PATH` | `uv` | `uv tool install -p 3.13 serena-agent` |
 | Graphify | `graphify` on `PATH` | `uv` | `uv tool install graphifyy` |
-| ast-grep | `ast-grep` on `PATH` (never `sg`) | `npm` | `npm i @ast-grep/cli -g` |
+| ast-grep | `ast-grep` on `PATH` (never `sg`) | `npm` | `npm i @ast-grep/cli -g --allow-scripts=@ast-grep/cli` |
 
 - A tool already on `PATH` is reported as found and left alone.
 - A tool the manifest declares `false` under `capabilities` is not proposed.
@@ -198,6 +198,6 @@ Upstream's own commands, current when this was written; installers change, so ch
 | Serena | any | `uv tool install -p 3.13 serena-agent`, then `serena init` |
 | Graphify | any | `uv tool install graphifyy`, then `graphify install --project` for the assistant integrations |
 | Context7 | any | the MCP server `@upstash/context7-mcp` |
-| ast-grep | any | `npm i @ast-grep/cli -g`; check with `ast-grep --help` |
+| ast-grep | any | `npm i @ast-grep/cli -g --allow-scripts=@ast-grep/cli`; check with `ast-grep --help` |
 
 An install in one harness does not cover another: each harness gets its own.

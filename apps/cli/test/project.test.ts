@@ -116,7 +116,9 @@ orchestration:
       const result = binn('project', 'register', bare);
       assert.equal(result.status, 3, result.stdout);
       assert.match(result.stderr, /manifest\.missing/);
-      assert.match(result.stderr, /project\.yaml\.example/);
+      assert.match(result.stderr, /No \.binnacle\/project\.yaml in /);
+      assert.match(result.stderr, /binn init/);
+      assert.doesNotMatch(result.stderr, /project\.yaml\.example|templates\//);
     } finally {
       rmSync(bare, { recursive: true, force: true });
     }

@@ -10,7 +10,7 @@ This skill needs no daemon and no `binnacle` MCP server: it runs the CLI command
 Give the human each command you offer them alone in a fenced block, which copies in one click: a skill such as `/binnacle:daemon start` in a plain fence, a shell command such as `binn daemon start` in a `bash` fence.
 
 1. Run `binn audit --json` in the current directory, or, if the human passed a path (`$ARGUMENTS`), `binn audit <path> --json`. Quote the path for the shell. Run it once.
-   - If the shell cannot find `binn` (`command not found`, exit 127), stop. Say that `binn` is not on this harness's PATH, and point to the README's setup section (*Install*, and *From this repository* until the npm package is published).
+   - If the shell cannot find `binn` (`command not found`, exit 127), stop. Say that `binn` is not on this harness's PATH, and point to the README's setup section (*Install*).
    - Any other non-zero exit means the audit could not run, for example a missing path or one that is not a Git repository. Stop, give the exit code and quote what it printed on stderr as the reason. Gaps never cause a non-zero exit.
 2. The output is `{ "root", "findings", "plan" }`; each finding has `code`, `area`, `status` (`ok`, `gap` or `unknown`), `init` (whether `binn init` closes it), `reason` and, for a gap or an unknown, `recommendation`. `plan` is `{ "steps", "summary" }`; each step has `number`, `title`, `findings` (the codes it takes) and `todo`. Present them compactly, starting with the audited `root`:
    - **Migration plan**, first: each step in order, its number, its title, its codes and its `todo`. With no step, quote the `summary`, which says there is nothing to do.

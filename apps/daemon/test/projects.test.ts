@@ -121,7 +121,7 @@ describe('registering the same project twice', () => {
 });
 
 describe('registering what cannot be registered', () => {
-  it('names the template when there is no manifest', async () => {
+  it('names binn init when there is no manifest', async () => {
     await withDaemon(async (daemon) => {
       const root = realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-bare-')));
       roots.push(root);
@@ -129,7 +129,7 @@ describe('registering what cannot be registered', () => {
       const { status, body } = await daemon.call<Envelope>('project.register', { path: root });
       assert.equal(status, 400);
       assert.equal(body.error.code, 'manifest.missing');
-      assert.match(body.error.message, /templates\/project\/project\.yaml\.example/);
+      assert.match(body.error.message, /binn init/);
       assert.deepEqual(readRegistryFile(daemon.home).projects, []);
     });
   });

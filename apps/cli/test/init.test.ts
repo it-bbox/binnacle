@@ -1213,7 +1213,7 @@ exit ${exitCode}
 
 const SERENA = ['tool', 'install', '-p', '3.13', 'serena-agent'];
 const GRAPHIFY = ['tool', 'install', 'graphifyy'];
-const AST_GREP = ['i', '@ast-grep/cli', '-g'];
+const AST_GREP = ['i', '@ast-grep/cli', '-g', '--allow-scripts=@ast-grep/cli'];
 
 test('the tools: each missing one is in the plan with its exact command, installed after a yes, and declared by the new manifest', (t) => {
   const home = makeHome(t);

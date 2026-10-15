@@ -11,7 +11,7 @@ The dashboard's token authorises the daemon's local API, and this shell's output
 Give the human each command you offer them alone in a fenced block, which copies in one click: a skill such as `/binnacle:daemon start` in a plain fence, a shell command such as `binn daemon start` in a `bash` fence.
 
 1. Run `binn dashboard` once, with no option.
-   - If the shell cannot find `binn` (`command not found`, exit 127), stop. Say that `binn` is not on this harness's PATH, and point to the README's setup section (*Install*, and *From this repository* until the npm package is published).
+   - If the shell cannot find `binn` (`command not found`, exit 127), stop. Say that `binn` is not on this harness's PATH, and point to the README's setup section (*Install*).
    - Exit 4 means the daemon is not running. Stop, quote what it printed, and name `/binnacle:daemon start`, or `binn daemon start` at a terminal, then `/binnacle:dashboard` again.
    - Any other non-zero exit means the dashboard could not be opened. Stop, give the exit code and quote what it printed on stderr.
 2. Show the address it printed on stdout, whether or not a browser opened.

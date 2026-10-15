@@ -24,7 +24,7 @@ Binnacle интегрирует эти инструменты, но не вст�
 | --- | --- | --- | --- |
 | Serena | `serena` в `PATH` | `uv` | `uv tool install -p 3.13 serena-agent` |
 | Graphify | `graphify` в `PATH` | `uv` | `uv tool install graphifyy` |
-| ast-grep | `ast-grep` в `PATH` (никогда не `sg`) | `npm` | `npm i @ast-grep/cli -g` |
+| ast-grep | `ast-grep` в `PATH` (никогда не `sg`) | `npm` | `npm i @ast-grep/cli -g --allow-scripts=@ast-grep/cli` |
 
 - Инструмент, который уже есть в `PATH`, отмечается как найденный и не трогается.
 - Инструмент, который манифест объявляет `false` в `capabilities`, не предлагается.
@@ -198,6 +198,6 @@ Harness — это клиент для работы с кодом; provider — 
 | Serena | любой | `uv tool install -p 3.13 serena-agent`, затем `serena init` |
 | Graphify | любой | `uv tool install graphifyy`, затем `graphify install --project` для интеграций с ассистентами |
 | Context7 | любой | MCP-сервер `@upstash/context7-mcp` |
-| ast-grep | любой | `npm i @ast-grep/cli -g`; проверка — `ast-grep --help` |
+| ast-grep | любой | `npm i @ast-grep/cli -g --allow-scripts=@ast-grep/cli`; проверка — `ast-grep --help` |
 
 Установка в одном harness не покрывает другой: каждому harness нужна своя.

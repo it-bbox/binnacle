@@ -117,7 +117,9 @@ cd apps/cli/dist
 npm publish --access public
 ```
 
-`npm view @it-bbox/binnacle version` then prints the version published. To install it from the registry, follow the [installation checklist](docs/operations/05-installation-checklist.md).
+npm publishes only from an account with two-factor authentication turned on; without it, `npm publish` fails with `E403`. With it, `npm publish` asks for the second factor in the browser: open the link it prints and confirm there. Do not sign in with a recovery code: it puts the account on a 72-hour hold, with no publishing until it ends.
+
+`npm view @it-bbox/binnacle version` then prints the version published. A new package can show `0.0.0-stage` as `latest` for a few minutes before its version appears: wait, and look again. To install it from the registry, follow the [installation checklist](docs/operations/05-installation-checklist.md).
 
 ## binn in the Claude Code desktop app
 

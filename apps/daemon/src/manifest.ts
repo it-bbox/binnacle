@@ -10,7 +10,6 @@ import { OperationError, pathNotFound } from './errors.ts';
  * where the field paths and the forward-compatible warnings come from.
  */
 export const MANIFEST_RELATIVE = join('.binnacle', 'project.yaml');
-export const MANIFEST_TEMPLATE = 'templates/project/project.yaml.example';
 
 export const manifestPath = (root: string): string => join(root, MANIFEST_RELATIVE);
 
@@ -34,7 +33,7 @@ export function readManifest(root: string): ReadManifest {
       if (!existsSync(root)) throw pathNotFound(root);
       throw new OperationError(
         'manifest.missing',
-        `No ${MANIFEST_RELATIVE} in ${root}. Start one from ${MANIFEST_TEMPLATE}.`,
+        `No ${MANIFEST_RELATIVE} in ${root}. \`binn init\` writes one.`,
         400,
       );
     }
