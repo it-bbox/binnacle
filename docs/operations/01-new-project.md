@@ -54,7 +54,7 @@ Without `uv`, init names the command that installs it, and leaves Serena and Gra
 
 In Claude Code, `/binnacle:init [path]` does the same from the chat:
 
-1. It runs `binn init --plan --json`. Where autostart is available and not yet on, it first asks whether the daemon starts at login, and passes your answer to init as `--autostart`. Then it shows the whole plan, every item in full, with the session history and the import window. Name another window, or a harness to keep out of Binnacle's skills, to see the plan again with it.
+1. It runs `binn init --plan --json`. Where autostart is available and not yet on, it first asks whether the daemon starts at login, and passes your answer to init as `--autostart`. Then it shows the whole plan, every item in full, with the session history and the import window. Name another window, a harness to keep out of Binnacle's skills, or the other autostart answer, to see the plan again with it.
 2. Only your yes in the chat writes it, through `binn init --apply <id>`. If the plan changed since it was shown, that writes nothing (`init.plan_changed`), and the skill shows the new plan and asks again (ADR-0037).
 3. It shows what init printed, the Summary included.
 

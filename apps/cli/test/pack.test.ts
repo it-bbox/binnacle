@@ -417,6 +417,10 @@ test('/binnacle:init shows the plan from --plan --json, asks once, applies only 
   assert.match(skill, /Only a clear yes from the human in the chat/);
   assert.match(skill, /Never answer the question yourself/);
   assert.match(skill, /`--window <days\|all>` when the human named a window/);
+  // Audit-completed/06: the autostart question, only when the plan says it could be asked, its answer passed to both calls.
+  assert.match(skill, /When `autostart\.ask` is true and the human has not answered yet, ask first, alone/);
+  assert.match(skill, /`--autostart yes` or `--autostart no` once the human answered/);
+  assert.match(skill, /the same window, autostart answer/);
   assert.match(skill, /`binn init --apply <id>`/);
   assert.match(skill, /`init\.plan_changed`/);
   assert.match(skill, /show the new plan and ask again/);
