@@ -98,6 +98,9 @@ function cells(line: string): string[] | null {
 const sameCells = (row: string[] | null, expected: string[]): boolean =>
   row !== null && row.length === expected.length && row.every((cell, index) => cell === expected[index]);
 
+/** How far along a status is: its place in the vocabulary. */
+const rank = (status: RoadmapStatus): number => ROADMAP_STATUSES.indexOf(status);
+
 /** A Task no further work moves. */
 const finished = (task: TrackerTask): boolean => task.state === 'DONE' || task.state === 'CANCELLED';
 
@@ -112,7 +115,6 @@ const finished = (task: TrackerTask): boolean => task.state === 'DONE' || task.s
  */
 export function roadmapAttention(epics: Epic[], tasks: TrackerTask[], specs: { slug: string; path: string }[]): Diagnostic[] {
   const attention: Diagnostic[] = [];
-  const rank = (status: RoadmapStatus): number => ROADMAP_STATUSES.indexOf(status);
 
   for (const epic of epics) {
     const name = `Epic ${epic.number} (${epic.title})`;
@@ -206,10 +208,8 @@ export function nextActionAttention(roadmap: Roadmap, tasks: TrackerTask[] | nul
  * order `in progress`, `tickets`, `spec`, `not started`, the roadmap's order deciding between
  * equals; never a `done` one, so null when there is no epic or every one is done.
  */
-export const currentEpic = <E extends Epic>(epics: E[]): E | null => {
-  const rank = (epic: E): number => ROADMAP_STATUSES.indexOf(epic.status);
-  return epics.filter((epic) => epic.status !== 'done').reduce<E | null>((best, epic) => (best === null || rank(epic) > rank(best) ? epic : best), null);
-};
+export const currentEpic = <E extends Epic>(epics: E[]): E | null =>
+  epics.filter((epic) => epic.status !== 'done').reduce<E | null>((best, epic) => (best === null || rank(epic.status) > rank(best.status) ? epic : best), null);
 
 /** The Suggested step's alternatives, at most this many. */
 const ALTERNATIVE_LIMIT = 3;
