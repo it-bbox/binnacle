@@ -12,3 +12,9 @@ Spec: `docs/specs/audit-completed/spec.md`
 - [ ] Every finding in the JSON has the init boolean; the plan's first step is built from it, not from a recommendation's text.
 - [ ] The `/binnacle:audit` skill presents the plan first.
 - [ ] The docs and the Russian twin describe the three areas and the plan.
+
+## Comments
+
+- The JSON: each finding carries `init` after `status`; `plan` is `{ "steps", "summary" }`, each step `{ number, title, findings, todo }`, `findings` its codes without repeats. With no step, `summary` is "Nothing to do: every finding is ok."; the text prints the same under *Migration plan*. `migrationPlan()` is in `apps/cli/src/audit.ts`; `Finding.init` is optional in `packages/core/src/audit.ts`, set only where it is true, and `audit()` writes `false` for the rest.
+- Decisions where the ticket is silent: `init` is true for `binnacle.manifest`, `docs.roadmap` when the file is missing (not when it is out of format or `knowledge.docs` is undeclared), `layout.files` when a convention file is missing (not when only a spec directory is), `layout.ticket_header`, the unknown `capabilities.serena`, `.graphify` and `.context7`, `capabilities.binnacle_skills`, and `telemetry.export_*` when the harness has no export (not when it exports elsewhere); `docs.docs` stays a manual step although writing the roadmap skeleton creates `docs/`, since the ticket's list does not name it; `tracker.token_works` stays false although its recommendation names `binn init`. Step titles are "Run binn init", "Deal with the committed secrets" and "The <area> area"; an area step's `todo` is its findings' distinct recommendations in order, step 1's and step 2's a fixed text.
+- For ticket 11 (the exit demonstration): on the owner's checkout the plan today is the `git-and-tracker` step (`git.worktree_config`, `tracker.token_works`) and the `docs` step (`docs.stranded`).
