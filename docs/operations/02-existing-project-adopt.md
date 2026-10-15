@@ -17,9 +17,9 @@ There is no `binn adopt`: the audit reads, `binn init` writes, and the roadmap s
 
 `binn audit [path]` reads the Git repository containing the path, the working directory by default, and prints findings, as text or with `--json`. It writes nothing, needs no daemon or registration, makes no network call and runs nothing but Git. Gaps never fail it: it exits non-zero only when it could not run.
 
-In Claude Code, `/binnacle:audit [path]` runs it from the chat and shows the gaps first, then what it cannot tell. The rules are in its spec, `docs/specs/audit-and-adopt/spec.md`.
+In Claude Code, `/binnacle:audit [path]` runs it from the chat and shows the migration plan first, then the gaps and what it cannot tell, by area, then the number of `ok`. The rules are in its spec, `docs/specs/audit-and-adopt/spec.md`.
 
-Each finding has a code, an area, a status — `ok`, `gap` or `unknown` — and a reason; a gap or an unknown also has a recommendation. There is no overall score. The areas, in the order it prints them:
+Each finding has a code, an area, a status — `ok`, `gap` or `unknown` —, whether `binn init` closes it, and a reason; a gap or an unknown also has a recommendation. There is no overall score. The areas, in the order it prints them:
 
 | Area | What it reads |
 | --- | --- |
@@ -40,6 +40,14 @@ Whether a tracker token works is known only from the network, so the audit leave
 A secret the audit finds is still in Git's history once its line is deleted: remove it, rotate the key, and decide yourself whether to rewrite history if the commit was pushed. The audit reads only the tracked files as they are; gitleaks scans the history.
 
 A stranded document is a tracked plan, spec, decision, TODO, notes, backlog, design, RFC, PRD, roadmap or ADR outside Binnacle's places. The audit only lists them, as `docs.stranded`; `/binnacle:roadmap` proposes where each goes.
+
+The report ends with a migration plan: the findings that are not `ok`, in numbered steps, each with a title, the codes of its findings and what to do.
+
+1. Everything `binn init` closes: the manifest, the roadmap skeleton, the Matt Pocock convention files and the ticket-header section, the tools it installs, Binnacle's skills and the telemetry export.
+2. The secrets: every finding of the `secrets` area.
+3. Then one step per area, in the order of the table, its gaps first and its unknowns after.
+
+An area with nothing to do has no step; when every finding is `ok`, the plan says there is nothing to do. The plan is advice: the audit runs none of it. `--json` carries it as `plan`, `{ "steps", "summary" }`, beside `root` and `findings`, and each finding's `init` says whether `binn init` closes it.
 
 ## 2. Set up with `binn init`
 

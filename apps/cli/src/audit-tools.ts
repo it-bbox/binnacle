@@ -38,6 +38,8 @@ export function capabilities(root: string): Finding[] {
       code,
       area,
       status: 'unknown',
+      // binn init installs the tool or registers its server, and declares it in the manifest.
+      init: true,
       reason: `No ${title} configuration found in ${looked} (repository), or ${user.map(({ file }) => tilde(file)).join(', ')} (user scope). It may be configured somewhere else.`,
       recommendation: `If an agent here should reach ${title}, declare it under capabilities in ${MANIFEST_RELATIVE}.`,
     };
@@ -51,6 +53,7 @@ export function capabilities(root: string): Finding[] {
       code: 'capabilities.binnacle_skills',
       area,
       status: 'gap',
+      init: true,
       reason: `Binnacle's skills in ${tilde(INSTALLED_SKILLS)} are stale: ${skills.reason}. Every harness the skills CLI installed them into runs the old ones.`,
       recommendation: "Run binn init, and confirm its plan: it reinstalls Binnacle's skills.",
     },
@@ -98,7 +101,7 @@ export function telemetryExport(home: string): Finding[] {
     const state = exporter.read(settingsText(file), address);
     if (state.state === 'binnacle') found.push({ code, area, status: 'ok', reason: `${name} exports OpenTelemetry to Binnacle at ${address}, in ${where}.` });
     else if (state.state === 'none')
-      found.push({ code, area, status: 'gap', reason: `${name} does not export OpenTelemetry (${where}), so Binnacle sees its calls only once its session files are written.`, recommendation: `Run binn init, which shows the export it would add to ${where} and writes it only after you confirm.` });
+      found.push({ code, area, status: 'gap', init: true, reason: `${name} does not export OpenTelemetry (${where}), so Binnacle sees its calls only once its session files are written.`, recommendation: `Run binn init, which shows the export it would add to ${where} and writes it only after you confirm.` });
     else if (state.state === 'elsewhere')
       found.push({ code, area, status: 'gap', reason: `${name} has OpenTelemetry settings of its own (${where}: ${state.what}), which do not export to Binnacle at ${address}.`, recommendation: `binn init leaves OpenTelemetry settings of a harness's own alone. If Binnacle should receive ${name}'s calls, point its export at ${address} yourself.` });
     else found.push({ code, area, status: 'unknown', reason: `${where} cannot be read as ${name}'s settings: ${state.why}.`, recommendation: `Fix ${where}; binn init prints the export to add to it.` });

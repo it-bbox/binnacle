@@ -37,7 +37,7 @@ function fixture(t: TestContext, remote?: string): string {
   return root;
 }
 
-type Finding = { code: string; area: string; status: string; reason: string; recommendation?: string };
+type Finding = { code: string; area: string; status: string; init: boolean; reason: string; recommendation?: string };
 
 /** `binn audit` as a process, with `~` and the daemon's home in one empty directory and the network unreachable. */
 function audit(t: TestContext, args: string[], env: Record<string, string> = {}, cwd?: string) {
@@ -933,4 +933,104 @@ test("binn audit on this repository's own tree gives no gap in the docker, secre
   const all = findings(result.stdout);
   assert.ok(['docker', 'secrets', 'security'].every((area) => all.some((finding) => finding.area === area)));
   assert.deepEqual(all.filter((finding) => ['docker', 'secrets', 'security'].includes(finding.area) && finding.status === 'gap'), []);
+});
+
+type Step = { number: number; title: string; findings: string[]; todo: string };
+type Plan = { steps: Step[]; summary: string };
+const AREAS = ['git-and-tracker', 'docs', 'matt-pocock-layout', 'scratch', 'capabilities', 'instructions', 'structure', 'telemetry', 'docker', 'secrets', 'security'];
+const codesOf = (list: Finding[]): string[] => [...new Set(list.map(({ code }) => code))];
+
+test('binn audit ends with a migration plan: what binn init closes first, the secrets second, then each area, its gaps before its unknowns', (t) => {
+  const root = fixture(t, 'https://github.com/owner/name.git');
+  commit(root, { '.env': 'KEY=value\n' });
+  const result = audit(t, ['--json'], {}, root);
+  assert.equal(result.status, 0, result.stderr);
+  const { root: audited, findings: all, plan } = JSON.parse(result.stdout) as { root: string; findings: Finding[]; plan: Plan };
+  assert.equal(audited, root);
+  for (const finding of all) assert.equal(typeof finding.init, 'boolean', `${finding.code}: the init flag`);
+  const open = all.filter(({ status }) => status !== 'ok');
+  assert.deepEqual(
+    plan.steps.map(({ number }) => number),
+    plan.steps.map((_, at) => at + 1),
+  );
+
+  const [init, secrets, ...rest] = plan.steps;
+  assert.match(init!.title, /binn init/);
+  assert.deepEqual(init!.findings, codesOf(open.filter((finding) => finding.init)));
+  for (const code of ['binnacle.manifest', 'docs.roadmap', 'layout.files', 'layout.ticket_header', 'capabilities.serena', 'capabilities.graphify', 'capabilities.context7']) assert.ok(init!.findings.includes(code), code);
+  // The flag, not a recommendation's wording: binn init reads the tracker, and still does not close whether the token works.
+  assert.match(byCode(all, 'tracker.token_works').recommendation!, /binn init/);
+  assert.equal(byCode(all, 'tracker.token_works').init, false);
+  assert.ok(!init!.findings.includes('tracker.token_works'));
+  assert.ok(all.filter(({ status }) => status === 'ok').every((finding) => !finding.init));
+
+  assert.deepEqual(secrets!.findings, ['secrets.env']);
+  assert.ok(secrets!.todo);
+
+  const left = open.filter((finding) => !finding.init && finding.area !== 'secrets');
+  const areas = AREAS.filter((area) => left.some((finding) => finding.area === area));
+  assert.deepEqual(
+    rest.map(({ title }) => title),
+    areas.map((area) => `The ${area} area`),
+  );
+  rest.forEach((step, at) => {
+    const mine = left.filter(({ area }) => area === areas[at]);
+    assert.deepEqual(step.findings, codesOf([...mine.filter(({ status }) => status === 'gap'), ...mine.filter(({ status }) => status === 'unknown')]));
+    assert.ok(step.todo);
+  });
+  assert.deepEqual(rest[0]!.findings, ['tracker.token', 'tracker.token_works']);
+  assert.doesNotMatch(plan.summary, /nothing to do/i);
+
+  const text = audit(t, [], {}, root).stdout;
+  const at = text.indexOf('\nMigration plan');
+  assert.ok(at > text.lastIndexOf('\n[ok]') && at > text.lastIndexOf('\n[gap]') && at > text.lastIndexOf('\n[unknown]'));
+  for (const step of plan.steps) {
+    assert.ok(text.slice(at).includes(`${step.number}. ${step.title}`), step.title);
+    assert.ok(text.slice(at).includes(step.todo), step.title);
+  }
+});
+
+test('binn audit on a repository with every finding ok has a plan with nothing to do, in the text and the JSON', (t) => {
+  const root = fixture(t);
+  commit(root, {
+    '.binnacle/project.yaml': 'version: 1\nproject:\n  id: repo\ntracker:\n  provider: local\nknowledge:\n  docs: docs\ncapabilities:\n  serena: true\n  graphify: true\n  context7: true\n',
+    'CONTEXT.md': '# c\n',
+    'AGENTS.md': '# a\n',
+    'SECURITY.md': '# s\n',
+    'docs/roadmap.md': ROADMAP,
+    'docs/adr/ADR-0001-x.md': '# x\n',
+    'docs/agents/issue-tracker.md': '# t\n\n## Ticket header\n\nx\n',
+    'docs/agents/triage-labels.md': '# l\n',
+    'docs/agents/domain.md': '# d\n',
+    'docs/specs/one/spec.md': '# s\n',
+    'package.json': JSON.stringify({ scripts: { test: 'node --test' } }),
+    'package-lock.json': '{}\n',
+    '.github/workflows/ci.yml': 'name: ci\n',
+    '.github/dependabot.yml': 'version: 2\n',
+  });
+  const home = scratch(t);
+  const encode = (path: string) => path.replace(/[^a-zA-Z0-9]/g, '-');
+  write(home, {
+    [`claude-config/projects/${encode(root)}/a.jsonl`]: `${JSON.stringify({ type: 'user', cwd: root, timestamp: '2026-09-01T10:00:00.000Z', message: { content: 'x' } })}\n`,
+    'codex-home/sessions/2026/09/01/rollout-x.jsonl': `${JSON.stringify({ type: 'session_meta', timestamp: '2026-09-01T10:00:00.000Z', payload: { id: 'x', cwd: root } })}\n`,
+  });
+  // PATH holds git and no harness, so that no telemetry export is looked for.
+  const bin = join(home, 'bin');
+  mkdirSync(bin);
+  symlinkSync((process.env.PATH ?? '').split(delimiter).map((dir) => join(dir, 'git')).find(existsSync)!, join(bin, 'git'));
+  const run = (args: string[]) => {
+    const result = spawnSync(process.execPath, [BINN, 'audit', ...args], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...baseEnv, PATH: bin, HOME: home, BINNACLE_HOME: join(home, '.binnacle'), CLAUDE_CONFIG_DIR: join(home, 'claude-config'), CODEX_HOME: join(home, 'codex-home'), XDG_CONFIG_HOME: join(home, 'xdg') },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout;
+  };
+  const { findings: all, plan } = JSON.parse(run(['--json'])) as { findings: Finding[]; plan: Plan };
+  assert.deepEqual(all.filter(({ status }) => status !== 'ok'), []);
+  assert.deepEqual(plan.steps, []);
+  assert.match(plan.summary, /nothing to do/i);
+  const text = run([]);
+  assert.match(text.slice(text.indexOf('\nMigration plan')), /Nothing to do/);
 });

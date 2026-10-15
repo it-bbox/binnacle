@@ -25,6 +25,8 @@ export type Finding = {
   code: string;
   area: AuditArea;
   status: 'ok' | 'gap' | 'unknown';
+  /** Whether `binn init` closes it, set by the check that knows; absent is false, and `--json` always carries it. */
+  init?: boolean;
   reason: string;
   recommendation?: string;
 };

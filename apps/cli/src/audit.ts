@@ -24,18 +24,54 @@ export async function audit(home: string, path: string | undefined, json: boolea
   }
 
   // One list per area, so that each later area is one more entry here; the sort is stable, so checks keep their order within an area.
-  const all: Finding[] = [...gitAndTracker(git, home), await worktreeConfig(git.root), ...docs(git.root), ...mattPocockLayout(git.root), ...scratch(git.root), ...capabilities(git.root), ...instructions(git.root), ...structure(git.root), ...(await telemetry(git.root)), ...telemetryExport(home), ...docker(git.root), ...secrets(git.root), ...security(git.root)].sort((a, b) => AUDIT_AREAS.indexOf(a.area) - AUDIT_AREAS.indexOf(b.area));
+  const all: Finding[] = [...gitAndTracker(git, home), await worktreeConfig(git.root), ...docs(git.root), ...mattPocockLayout(git.root), ...scratch(git.root), ...capabilities(git.root), ...instructions(git.root), ...structure(git.root), ...(await telemetry(git.root)), ...telemetryExport(home), ...docker(git.root), ...secrets(git.root), ...security(git.root)]
+    .sort((a, b) => AUDIT_AREAS.indexOf(a.area) - AUDIT_AREAS.indexOf(b.area))
+    .map(({ code, area, status, init, reason, recommendation }) => ({ code, area, status, init: init ?? false, reason, ...(recommendation === undefined ? {} : { recommendation }) }));
+  const plan = migrationPlan(all);
 
   if (json) {
-    console.log(JSON.stringify({ root: git.root, findings: all }, null, 2));
+    console.log(JSON.stringify({ root: git.root, findings: all, plan }, null, 2));
   } else {
     console.log(`Audit of ${git.root}\n`);
     for (const { code, area, status, reason, recommendation } of all) {
       console.log(`[${status}] ${code} (${area})\n    ${reason}`);
       if (recommendation) console.log(`    Recommendation: ${recommendation}`);
     }
+    console.log(`\nMigration plan\n    ${plan.summary}`);
+    for (const { number, title, findings, todo } of plan.steps) console.log(`${number}. ${title} (${findings.join(', ')})\n    ${todo}`);
   }
   return EXIT.ok;
+}
+
+type Step = { number: number; title: string; findings: string[]; todo: string };
+
+/**
+ * The migration plan (CONTEXT.md): every finding not `ok` that `binn init` closes, then the secrets, then one step per area
+ * in the areas' order, its gaps before its unknowns. A step names its findings by code; an area with nothing to do has none.
+ * It is advice: nothing is run.
+ */
+function migrationPlan(all: Finding[]): { steps: Step[]; summary: string } {
+  const open = all.filter(({ status }) => status !== 'ok');
+  const groups: [string, Finding[], string][] = [
+    ['Run binn init', open.filter(({ init }) => init), 'Run binn init: it shows one plan of every file it writes and every tool it installs, and changes nothing until you confirm it.'],
+    [
+      'Deal with the committed secrets',
+      open.filter(({ init, area }) => !init && area === 'secrets'),
+      "Remove each value and stop tracking each environment file, as each finding's recommendation says, then rotate every key at its provider: deleting a line revokes nothing. If a commit holding one was ever pushed, rewriting Git's history is your decision; gitleaks scans the history, which the audit does not read.",
+    ],
+    ...AUDIT_AREAS.filter((area) => area !== 'secrets').map((area): [string, Finding[], string] => {
+      const mine = open.filter((finding) => !finding.init && finding.area === area);
+      const ordered = [...mine.filter(({ status }) => status === 'gap'), ...mine.filter(({ status }) => status === 'unknown')];
+      return [`The ${area} area`, ordered, [...new Set(ordered.map(({ recommendation }) => recommendation))].join(' ')];
+    }),
+  ];
+  const steps = groups
+    .filter(([, findings]) => findings.length > 0)
+    .map(([title, findings, todo], at) => ({ number: at + 1, title, findings: [...new Set(findings.map(({ code }) => code))], todo }));
+  return {
+    steps,
+    summary: steps.length === 0 ? 'Nothing to do: every finding is ok.' : `${steps.length} step${steps.length === 1 ? '' : 's'}, in order. Each is yours to carry out; the audit runs none.`,
+  };
 }
 
 /** Whether this is a repository, on what branch, which tracker its remote names and whether a token for it exists. */
@@ -51,6 +87,7 @@ function gitAndTracker(git: Repository, home: string): Finding[] {
           code: 'binnacle.manifest',
           area,
           status: 'gap',
+          init: true,
           reason: `${MANIFEST_RELATIVE} is missing, so Binnacle has no declaration of this project.`,
           recommendation: 'Run binn init, which shows the file it would create and writes it only after you confirm.',
         },
@@ -189,7 +226,7 @@ function roadmap(root: string, docs: string | null | undefined): Finding {
   try {
     text = readFileSync(join(root, path), 'utf8');
   } catch {
-    return { ...base, status: 'gap', reason: `No roadmap at ${path}, so Binnacle shows no position and no Next action.`, recommendation: 'Run binn init, which proposes a roadmap skeleton in Binnacle\'s format and writes it only after you confirm.' };
+    return { ...base, status: 'gap', init: true, reason: `No roadmap at ${path}, so Binnacle shows no position and no Next action.`, recommendation: 'Run binn init, which proposes a roadmap skeleton in Binnacle\'s format and writes it only after you confirm.' };
   }
   const gaps = roadmapGaps(text);
   if (gaps.length === 0) return { ...base, status: 'ok', reason: `${path} is in Binnacle's format.` };
@@ -215,6 +252,7 @@ function mattPocockLayout(root: string): Finding[] {
       code: 'layout.files',
       area,
       status: 'gap',
+      init: true,
       reason: `No Matt Pocock layout: ${missing.join(', ')} are all missing.`,
       recommendation: 'Run binn init, which writes the convention files; /to-spec writes the spec directories.',
     });
@@ -223,6 +261,8 @@ function mattPocockLayout(root: string): Finding[] {
       code: 'layout.files',
       area,
       status: 'gap',
+      // binn init writes the convention files; a spec directory alone is /to-spec's.
+      init: present.length < MATT_POCOCK_FILES.length,
       reason: `The Matt Pocock layout is partial. Present: ${[...present, ...slugs.map((slug) => `docs/specs/${slug}/`)].join(', ')}. Missing: ${missing.join(', ')}.`,
       recommendation: 'Add only the missing parts: binn init writes the missing convention files, and /to-spec the spec directories.',
     });
@@ -235,6 +275,7 @@ function mattPocockLayout(root: string): Finding[] {
           code: 'layout.ticket_header',
           area,
           status: 'gap',
+          init: true,
           reason: `${ISSUE_TRACKER} has no ticket-header convention${tracker ? '' : ' (the file is missing)'}, which Binnacle reads a ticket's state and dependencies from (ADR-0024).`,
           recommendation: `Run binn init, which offers ${tracker ? 'to add the section' : 'the file with the section'}.`,
         },
