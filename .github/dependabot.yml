@@ -1,11 +1,14 @@
 # npm for the whole pnpm workspace, from its root lockfile, and the workflow's actions, weekly.
 # Minor and patch updates come as one pull request per ecosystem; a major one comes on its own.
+# npm's cooldown is pnpm-workspace.yaml's minimumReleaseAge: change both together.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 3
     groups:
       minor-and-patch:
         update-types: [minor, patch]

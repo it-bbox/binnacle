@@ -29,6 +29,20 @@ test('Dependabot updates npm at the workspace root and GitHub Actions weekly, gr
   }
 });
 
+/**
+ * Ticket 10 of audit-completed: Dependabot runs pnpm 10 under its cooldown as `minimum-release-age`, and pnpm 10
+ * refuses any version the update resolves inside that window, so a lockfile entry younger than the cooldown fails
+ * the whole update. The workspace's own `minimumReleaseAge`, the same window, keeps such entries out of the lockfile.
+ */
+test("Dependabot's npm cooldown is the workspace's minimumReleaseAge", () => {
+  const config = parseYaml(read('.github/dependabot.yml')) as { updates: (Update & { cooldown?: { 'default-days'?: number } })[] };
+  const workspace = parseYaml(read('pnpm-workspace.yaml')) as { minimumReleaseAge?: number };
+  const npm = config.updates.find((update) => update['package-ecosystem'] === 'npm');
+  const days = npm?.cooldown?.['default-days'];
+  assert.ok(typeof days === 'number' && days > 0, 'npm names its cooldown in days');
+  assert.equal(workspace.minimumReleaseAge, days * 24 * 60, 'minimumReleaseAge is the cooldown in minutes');
+});
+
 /** Ticket 02 of release: the policy and its Russian twin, linking each other and the boundary rather than repeating it. */
 test("SECURITY.md and SECURITY.ru.md link each other and the architecture's security boundary", () => {
   assert.match(read('docs/01-architecture.md'), /^## Security boundary$/m);
