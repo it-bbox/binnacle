@@ -50,3 +50,17 @@ Once `main` is pushed with this change, the owner should see, within the week (o
 1. A *Dependabot Updates* run `npm_and_yarn in /.` that ends in success: `gh run list --workflow "Dependabot Updates" --limit 5`.
 2. One pull request from Dependabot, the `minor-and-patch` group for npm, and a pull request of its own for each major update with no cooldown left (for example `typescript` 7 or `@types/node` 26), each running CI.
 3. If the run fails again, its log, `gh run view <id> --log`, with the `ERR_PNPM_…` line near `record_update_job_unknown_error`; a `NO_MATURE_MATCHING_VERSION` there means an entry younger than three days reached the lockfile some way other than pnpm resolving it here.
+
+### Review
+
+Against `main`, in a sub-agent, on the standards, the spec and the DevOps role. Typecheck and the new test pass; the reviewer checked the `cooldown` block against GitHub's documented options (`default-days`, default 3, supported for npm), and found the diagnosis and the three criteria met, nothing outside the ticket, no dependency and no trailer.
+
+1. The new test widened `Update` inline with `cooldown`. **Fixed**: `cooldown` is a field of `Update` in `apps/cli/test/security-policy.test.ts`.
+2. The ticket was still `READY` with its criteria unticked. **Left**: the closing commit does that.
+
+#### DevOps
+
+No finding. `pnpm install --frozen-lockfile`, which every CI job runs, resolves nothing and passes under the setting, the lockfile stays byte-identical, and pnpm 10.34.5 reads `minimumReleaseAge` (added in 10.16); `pnpm/action-setup` takes it from `packageManager`.
+
+- A security update younger than three days refused by the workspace's gate. **Left**: Dependabot passes `minimum-release-age=0` for security updates, overriding the workspace's setting on the command line (`effective_release_age_minutes` in dependabot-core's `pnpm_lockfile_updater.rb`); only a hand-made fix would need `minimumReleaseAgeExclude`.
+- `pnpm add` and `pnpm update` may fetch full package metadata under the gate and run a little slower. **Kept**: installs from the lockfile are unaffected.

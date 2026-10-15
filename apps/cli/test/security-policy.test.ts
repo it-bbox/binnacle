@@ -13,6 +13,7 @@ type Update = {
   directory: string;
   schedule: { interval: string };
   groups?: Record<string, { 'update-types'?: string[] }>;
+  cooldown?: { 'default-days'?: number };
 };
 
 /** Ticket 02 of release: npm for the workspace and GitHub Actions, weekly, minor and patch grouped. */
@@ -35,7 +36,7 @@ test('Dependabot updates npm at the workspace root and GitHub Actions weekly, gr
  * the whole update. The workspace's own `minimumReleaseAge`, the same window, keeps such entries out of the lockfile.
  */
 test("Dependabot's npm cooldown is the workspace's minimumReleaseAge", () => {
-  const config = parseYaml(read('.github/dependabot.yml')) as { updates: (Update & { cooldown?: { 'default-days'?: number } })[] };
+  const config = parseYaml(read('.github/dependabot.yml')) as { updates: Update[] };
   const workspace = parseYaml(read('pnpm-workspace.yaml')) as { minimumReleaseAge?: number };
   const npm = config.updates.find((update) => update['package-ecosystem'] === 'npm');
   const days = npm?.cooldown?.['default-days'];
