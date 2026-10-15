@@ -519,24 +519,34 @@ describe("the Suggested step's alternatives", () => {
     });
   });
 
-  it('takes the first epic in progress as current, though one not started is above it, and the first not done when none is', async () => {
+  it('takes the epic furthest along as current, though one not started is above it, and the earlier row between equals', async () => {
     await withDaemon(async (daemon) => {
-      const rows = [row(1, 'Old', 'done', 'old'), row(2, 'Later', 'not started', null), row(3, 'Now', 'in progress', 'now'), row(4, 'Also', 'in progress', 'also')];
-      const root = makeProject(rows);
+      const root = makeProject([row(11, 'Old', 'done', 'old'), row(12, 'Audit', 'not started', null), row(17, 'Release', 'tickets', 'release')]);
       ticket(root, 'old', '01-old.md', 'Status: DONE');
-      const path = ticket(root, 'now', '01-ready.md', 'Status: READY');
+      const path = ticket(root, 'release', '01-ready.md', 'Status: READY');
 
       const body = await snapshot(daemon, root);
-      assert.equal(body.roadmap?.current?.number, 3);
+      assert.equal(body.roadmap?.current?.number, 17);
       const [autopilot, byHand] = alternatives(body);
       assert.deepEqual(kinds(alternatives(body)), ['autopilot', 'byHand']);
-      assert.match(autopilot!.description, /^Epic 3 \(Now\)/);
+      assert.match(autopilot!.description, /^Epic 17 \(Release\)/);
       assert.equal(byHand!.command, `/binnacle:task run ${path}`);
 
-      write(root, 'docs/roadmap.md', roadmap([row(1, 'Old', 'done', 'old'), row(2, 'Later', 'not started', null), row(3, 'Now', 'tickets', 'now')], DAILY));
-      const none = await snapshot(daemon, root);
-      assert.equal(none.roadmap?.current?.number, 2);
-      assert.deepEqual(kinds(alternatives(none)), ['plan']);
+      ticket(root, 'now', '01-ready.md', 'Status: READY');
+      const order: [string[], number][] = [
+        [[row(12, 'Audit', 'not started', null), row(13, 'Spec', 'spec', 'spec'), row(17, 'Release', 'tickets', 'release'), row(18, 'Now', 'in progress', 'now')], 18],
+        [[row(12, 'Audit', 'not started', null), row(13, 'Spec', 'spec', 'spec'), row(17, 'Release', 'tickets', 'release')], 17],
+        [[row(12, 'Audit', 'not started', null), row(13, 'Spec', 'spec', 'spec')], 13],
+        [[row(17, 'Release', 'tickets', 'release'), row(18, 'Now', 'tickets', 'now')], 17],
+        [[row(11, 'Old', 'done', 'old'), row(12, 'Audit', 'not started', null), row(14, 'Other', 'not started', null)], 12],
+      ];
+      for (const [rows, current] of order) {
+        write(root, 'docs/roadmap.md', roadmap(rows, DAILY));
+        assert.equal((await snapshot(daemon, root)).roadmap?.current?.number, current, rows.join('\n'));
+      }
+
+      write(root, 'docs/roadmap.md', roadmap([row(11, 'Old', 'done', 'old'), row(17, 'Release', 'done', 'release')], DAILY));
+      assert.equal((await snapshot(daemon, root)).roadmap?.current, null);
     });
   });
 

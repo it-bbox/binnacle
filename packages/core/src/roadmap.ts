@@ -202,11 +202,14 @@ export function nextActionAttention(roadmap: Roadmap, tasks: TrackerTask[] | nul
 }
 
 /**
- * The current epic: the first `in progress`, in the roadmap's order, and the first that is not
- * `done` only when none is in progress; null when there is no epic or every one is done.
+ * The current epic: the one furthest along, the first at the furthest status present in the
+ * order `in progress`, `tickets`, `spec`, `not started`, the roadmap's order deciding between
+ * equals; never a `done` one, so null when there is no epic or every one is done.
  */
-export const currentEpic = <E extends Epic>(epics: E[]): E | null =>
-  epics.find((epic) => epic.status === 'in progress') ?? epics.find((epic) => epic.status !== 'done') ?? null;
+export const currentEpic = <E extends Epic>(epics: E[]): E | null => {
+  const rank = (epic: E): number => ROADMAP_STATUSES.indexOf(epic.status);
+  return epics.filter((epic) => epic.status !== 'done').reduce<E | null>((best, epic) => (best === null || rank(epic) > rank(best) ? epic : best), null);
+};
 
 /** The Suggested step's alternatives, at most this many. */
 const ALTERNATIVE_LIMIT = 3;

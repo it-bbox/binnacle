@@ -44,7 +44,7 @@ How many Tasks autopilot works on at once: a number, or *auto*, which runs side 
 The user's own service manager starting the Binnacle daemon at login, and again when it stops, for one Binnacle home. With it on, starting and stopping the daemon go through the service manager; with it off, the daemon runs only while started by hand (ADR-0043).
 
 ### Current Epic
-The epic the dashboard and the Suggested step treat as the one under way: the roadmap's first epic `in progress`, in its order, or the first that is not `done` when none is in progress. The snapshot names it as `roadmap.current`, and the board shows its Tasks unless another epic is picked.
+The epic the dashboard and the Suggested step treat as the one under way: the one furthest along, the first at the furthest status present in the order `in progress`, `tickets`, `spec`, `not started`, the roadmap's order deciding only between epics at the same status. A `done` epic is never current, so there is none when every epic is done. The snapshot names it as `roadmap.current`, and the board shows its Tasks unless another epic is picked.
 
 ### Vault projection
 The daemon's one-way rendering of a project's Project Brain into the owner's Obsidian vault, under `Projects/<Project>/`, from the default branch as committed, with the last snapshot and daily served and Graphify's report beside it (ADR-0036). The vault is a per-machine setting, never committed. Every note it writes is marked as generated, with its source file and commit, and it writes, rewrites and deletes only notes so marked; a note the human wrote is never touched, and an edit to a generated note is overwritten, never synced back. It is derived: deleting it loses nothing.
