@@ -1,6 +1,6 @@
 # 02: Secrets in the audit
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/audit-completed/spec.md`
