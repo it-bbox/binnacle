@@ -23,3 +23,10 @@ Spec: `docs/specs/audit-completed/spec.md`
 - Known ceiling: a `go.mod` with no dependency has no `go.sum` and still reads as a gap.
 - For ticket 04 (the plan): none of these findings is closed by `binn init`.
 - For ticket 11 (the exit demonstration): the owner's checkout has `extensions.worktreeconfig` set with no `config.worktree`, so `git.worktree_config` is a gap there today, in `git-and-tracker`, not in the three new areas. `git config --unset extensions.worktreeconfig` clears it; it is the owner's to run.
+
+### Review
+
+Against `main`, in a sub-agent, on the standards and the spec. Typecheck and the 844 tests pass; each criterion maps to a test, and the security checks read only the `git ls-files` list.
+
+1. **The setting was read from every config scope** (`apps/cli/src/audit.ts`, `worktreeConfig`): a global `extensions.worktreeConfig`, which Git ignores, read as a gap whose unset command changes nothing. **Fixed**: `git config --local`; a test sets it globally and expects `ok`.
+2. **The common Git directory was read with a second `git rev-parse`** where `readGitLocation` in `@binnacle/adapters` already resolves it. **Fixed**: it is reused.
