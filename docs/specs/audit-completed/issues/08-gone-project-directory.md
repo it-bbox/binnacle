@@ -1,6 +1,6 @@
 # 08: A registration whose directory is gone
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/audit-completed/spec.md`
