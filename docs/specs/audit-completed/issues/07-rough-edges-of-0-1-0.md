@@ -16,3 +16,9 @@ Spec: `docs/specs/audit-completed/spec.md`
 - [ ] No skill, in the plugin or the harness copies, still says "until the npm package is published".
 - [ ] `binn init`'s plan shows the ast-grep install with `--allow-scripts=@ast-grep/cli`; the ticket's comments say what an older npm does with it.
 - [ ] *Releasing* and its Russian twin carry the four points.
+
+## Comments
+
+- **What an older npm does with `--allow-scripts`**, checked on 2026-10-15 by installing `@ast-grep/cli` 0.51.0 globally into a throwaway prefix: npm 10.9.8 (Node 22) takes `npm i @ast-grep/cli -g --allow-scripts=@ast-grep/cli` silently, exits 0, runs the postinstall as it always did, and `ast-grep --version` works. npm 11.16.0 (Node 24) exits 0 with the flag and no warning; without it, it warns that the postinstall is "not yet covered by allowScripts". So the flag breaks no npm, and init keeps one command for every npm, with no version check.
+- Decisions where the ticket is silent: the manifest message is `No .binnacle/project.yaml in <root>. \`binn init\` writes one.`, the one `manifest.missing` answer, so the daemon's register and every reader of a missing manifest say the same; `MANIFEST_TEMPLATE`, used only there, is gone, and the template file stays for contributors. The skills' source is `.claude/skills/binnacle/`; `apps/cli/plugin/` and `apps/cli/skills/`, the plugin and harness copies, are generated from it by `prepare` and hold the new wording once it runs. `docs/operations/03-external-tools.md` and its twin show init's new ast-grep command.
+- For the Product session: the three product-inbox entries on ast-grep's postinstall, the register template and the skills' clause (`docs/product-inbox.md`) are closed by this ticket.
