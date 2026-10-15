@@ -19,7 +19,7 @@ There is no `binn adopt`: the audit reads, `binn init` writes, and the roadmap s
 
 In Claude Code, `/binnacle:audit [path]` runs it from the chat and shows the migration plan first, then the gaps and what it cannot tell, by area, then the number of `ok`. The rules are in its spec, `docs/specs/audit-and-adopt/spec.md`.
 
-Each finding has a code, an area, a status — `ok`, `gap` or `unknown` —, whether `binn init` closes it, and a reason; a gap or an unknown also has a recommendation. There is no overall score. The areas, in the order it prints them:
+Each finding has a code, an area, a status (`ok`, `gap` or `unknown`), whether `binn init` closes it, and a reason; a gap or an unknown also has a recommendation. There is no overall score. The areas, in the order it prints them:
 
 | Area | What it reads |
 | --- | --- |
@@ -43,7 +43,7 @@ A stranded document is a tracked plan, spec, decision, TODO, notes, backlog, des
 
 The report ends with a migration plan: the findings that are not `ok`, in numbered steps, each with a title, the codes of its findings and what to do.
 
-1. Everything `binn init` closes: the manifest, the roadmap skeleton, the Matt Pocock convention files and the ticket-header section, the tools it installs, Binnacle's skills and the telemetry export.
+1. Everything `binn init` closes: the manifest, `docs/` and the roadmap skeleton, the Matt Pocock convention files and the ticket-header section, a first `AGENTS.md`, the tools it installs, Binnacle's skills and the telemetry export.
 2. The secrets: every finding of the `secrets` area.
 3. Then one step per area, in the order of the table, its gaps first and its unknowns after.
 

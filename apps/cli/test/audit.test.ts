@@ -957,7 +957,7 @@ test('binn audit ends with a migration plan: what binn init closes first, the se
   const [init, secrets, ...rest] = plan.steps;
   assert.match(init!.title, /binn init/);
   assert.deepEqual(init!.findings, codesOf(open.filter((finding) => finding.init)));
-  for (const code of ['binnacle.manifest', 'docs.roadmap', 'layout.files', 'layout.ticket_header', 'capabilities.serena', 'capabilities.graphify', 'capabilities.context7']) assert.ok(init!.findings.includes(code), code);
+  for (const code of ['binnacle.manifest', 'docs.docs', 'docs.roadmap', 'layout.files', 'layout.ticket_header', 'capabilities.serena', 'capabilities.graphify', 'capabilities.context7', 'instructions.sets']) assert.ok(init!.findings.includes(code), code);
   // The flag, not a recommendation's wording: binn init reads the tracker, and still does not close whether the token works.
   assert.match(byCode(all, 'tracker.token_works').recommendation!, /binn init/);
   assert.equal(byCode(all, 'tracker.token_works').init, false);

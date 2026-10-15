@@ -176,14 +176,15 @@ async function worktreeConfig(root: string): Promise<Finding> {
 function docs(root: string): Finding[] {
   const area = 'docs';
   const declared = knowledgeDocs(root);
-  const check = (code: string, path: string, what: string, recommendation: string): Finding =>
+  const check = (code: string, path: string, what: string, recommendation: string, init = false): Finding =>
     existsSync(join(root, path))
       ? { code, area, status: 'ok', reason: `${path} exists.` }
-      : { code, area, status: 'gap', reason: `No ${path}: ${what}`, recommendation };
+      : { code, area, status: 'gap', init, reason: `No ${path}: ${what}`, recommendation };
   return [
     check('docs.context', 'CONTEXT.md', 'the glossary of the domain an agent reads first.', 'Write CONTEXT.md; /grill-with-docs builds it as terms are settled.'),
     check('docs.adr', 'docs/adr', 'no architecture decisions are recorded.', 'Record durable trade-offs as ADRs under docs/adr.'),
-    check('docs.docs', 'docs', 'no durable documentation directory.', 'Keep durable knowledge as Markdown under docs/.'),
+    // binn init writes its convention files under docs/agents/, which creates docs/.
+    check('docs.docs', 'docs', 'no durable documentation directory.', 'Keep durable knowledge as Markdown under docs/.', true),
     roadmap(root, declared),
     // Without a usable declaration, the places are where binn init would declare them.
     stranded(root, declared ?? 'docs'),
@@ -288,7 +289,8 @@ function instructions(root: string): Finding[] {
   const area = 'instructions';
   const sets = instructionSets(instructionFiles(root));
   if (sets.length === 0) {
-    return [{ code: 'instructions.sets', area, status: 'gap', reason: 'No AGENTS.md or CLAUDE.md: a first agent starts without instructions.', recommendation: 'Write AGENTS.md; have CLAUDE.md hold @AGENTS.md if Claude Code needs its own file.' }];
+    // binn init writes an AGENTS.md holding its Agent skills block.
+    return [{ code: 'instructions.sets', area, status: 'gap', init: true, reason: 'No AGENTS.md or CLAUDE.md: a first agent starts without instructions.', recommendation: 'Write AGENTS.md; have CLAUDE.md hold @AGENTS.md if Claude Code needs its own file.' }];
   }
   const described = describeSets(sets);
   if (sets.length === 1) return [{ code: 'instructions.sets', area, status: 'ok', reason: `One instruction set: ${described}.` }];
