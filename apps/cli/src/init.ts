@@ -469,7 +469,7 @@ function planAutostart(session: Session, home: string): void {
     async apply() {
       // Its warnings, such as a tracker token the service will not see, go to the Summary.
       const warnings: string[] = [];
-      const code = await autostart(home, 'on', (text) => warnings.push(text));
+      const code = await autostart(home, 'on', { warn: (text) => warnings.push(text), root: session.root });
       record(session, code === EXIT.ok ? 'ran' : 'failed', 'binn daemon autostart on');
       for (const warning of warnings) record(session, 'warned', warning);
     },

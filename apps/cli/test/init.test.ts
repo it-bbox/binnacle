@@ -2729,3 +2729,24 @@ test('autostart: once init turned it on, a tracker token from this shell is poin
   assert.match(stdout, /ran\s+binn daemon autostart on/);
   assert.match(stdout, /This check used BINNACLE_GITLAB_TOKEN from this shell\. The daemon starts through the service manager, which does not carry it, so use the credentials file/);
 });
+
+test("autostart: the Summary's token warning looks for the project's own tracker host in the credentials file, registered or not", async (t) => {
+  for (const [entry, warned] of [['gitlab.com', true], ['own', false]] as const) {
+    const home = makeHome(t);
+    fakeSystemd(home);
+    const gitlab = await trackerStandIn(t, 200, []);
+    const root = makeRepository(t, `own-host-${entry}`, {
+      '.binnacle/project.yaml': remoteManifest('gitlab', 'group/project', gitlab.base),
+      [TRACKER_FILE]: '# Issue tracker: GitLab\n',
+    });
+    mkdirSync(home.binnacleHome, { recursive: true });
+    writeFileSync(join(home.binnacleHome, 'credentials.json'), JSON.stringify({ [entry === 'own' ? gitlab.base : entry]: 'glpat-in-the-file' }), { mode: 0o600 });
+
+    const { stdout } = await binnInit(home, root, '\n\ny\n', { BINNACLE_GITLAB_TOKEN: 'glpat-from-the-shell' });
+
+    const summary = summaryOf(stdout);
+    assert.match(summary, /ran\s+binn daemon autostart on/);
+    if (warned) assert.ok(summary.includes(`has no token for ${JSON.stringify(gitlab.base)}`), summary);
+    else assert.doesNotMatch(summary, /warned/);
+  }
+});
