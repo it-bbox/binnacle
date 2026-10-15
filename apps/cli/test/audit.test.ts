@@ -80,7 +80,7 @@ test('binn audit on a bare repository, with no daemon, registration or manifest,
   assert.ok(all.length > 0);
   for (const finding of findings(first.stdout)) {
     assert.match(finding.code, /^[a-z]+\.[a-z0-9_]+$/);
-    assert.ok(['git-and-tracker', 'docs', 'matt-pocock-layout', 'scratch', 'capabilities', 'instructions', 'structure', 'telemetry', 'docker', 'secrets'].includes(finding.area), finding.area);
+    assert.ok(['git-and-tracker', 'docs', 'matt-pocock-layout', 'scratch', 'capabilities', 'instructions', 'structure', 'telemetry', 'docker', 'secrets', 'security'].includes(finding.area), finding.area);
     assert.ok(['ok', 'gap', 'unknown'].includes(finding.status));
     assert.ok(finding.reason);
     assert.equal(finding.recommendation !== undefined, finding.status !== 'ok', `${finding.code}: a recommendation for a gap or an unknown only`);
@@ -625,7 +625,7 @@ test("binn audit: a repository with only Binnacle's places has no stranded docum
 /** The docker findings, in order. */
 const docker = (root: string, t: TestContext): Finding[] => findings(audit(t, ['--json'], {}, root).stdout).filter((finding) => finding.area === 'docker');
 
-test('binn audit: no tracked container file is one ok, in the area after telemetry', (t) => {
+test('binn audit: no tracked container file is one ok, in the area after telemetry, before secrets and security', (t) => {
   const root = fixture(t);
   write(root, { Dockerfile: 'FROM scratch\n' });
   const all = findings(audit(t, ['--json'], {}, root).stdout);
@@ -634,7 +634,7 @@ test('binn audit: no tracked container file is one ok, in the area after telemet
   assert.equal(found[0]!.code, 'docker.setup');
   assert.equal(found[0]!.status, 'ok');
   assert.match(found[0]!.reason, /no container setup/);
-  assert.deepEqual([...new Set(all.map((finding) => finding.area))].slice(-3), ['telemetry', 'docker', 'secrets']);
+  assert.deepEqual([...new Set(all.map((finding) => finding.area))].slice(-4), ['telemetry', 'docker', 'secrets', 'security']);
 });
 
 test('binn audit: a Dockerfile with no .dockerignore is a gap; one leaving .env in names .env; one excluding both is ok', (t) => {
@@ -823,10 +823,110 @@ test('binn audit: a tracked .env or .env.<suffix> is a gap, an example, a sample
   }
 });
 
+/** The security findings, in order. */
+const security = (root: string, t: TestContext): Finding[] => findings(audit(t, ['--json'], {}, root).stdout).filter((finding) => finding.area === 'security');
+
+test('binn audit: a package manifest without a lockfile is a gap, one with its lockfile here or above is ok, and no manifest gives no lockfile finding', (t) => {
+  const root = fixture(t);
+  const none = security(root, t);
+  assert.deepEqual(none.map((finding) => finding.code), ['security.updates', 'security.policy']);
+
+  // An untracked lockfile does not count: another clone does not get it.
+  commit(root, { 'package.json': '{}\n', 'tools/Cargo.toml': '[package]\n', '.gitignore': 'yarn.lock\n' });
+  write(root, { 'yarn.lock': '\n' });
+  const gap = byCode(security(root, t), 'security.lockfile');
+  assert.equal(gap.status, 'gap');
+  assert.ok(gap.reason.includes('package.json') && gap.reason.includes('tools/Cargo.toml'), gap.reason);
+  assert.ok(gap.recommendation!.includes('pnpm-lock.yaml') && gap.recommendation!.includes('Cargo.lock'), gap.recommendation);
+
+  // A workspace member is covered by the lockfile at the root; a lockfile of another ecosystem covers nothing.
+  commit(root, { 'pnpm-lock.yaml': '\n', 'apps/web/package.json': '{}\n', 'tools/go.sum': '\n' });
+  assert.match(byCode(security(root, t), 'security.lockfile').reason, /tools\/Cargo\.toml/);
+  commit(root, { 'tools/Cargo.lock': '\n' });
+  const ok = byCode(security(root, t), 'security.lockfile');
+  assert.equal(ok.status, 'ok', ok.reason);
+  assert.equal(ok.recommendation, undefined);
+
+  for (const [manifest, lockfile] of [['go.mod', 'go.sum'], ['pyproject.toml', 'uv.lock'], ['pyproject.toml', 'poetry.lock'], ['Pipfile', 'Pipfile.lock'], ['Gemfile', 'Gemfile.lock'], ['composer.json', 'composer.lock'], ['package.json', 'bun.lock'], ['package.json', 'package-lock.json']] as const) {
+    const each = fixture(t);
+    commit(each, { [manifest]: '\n' });
+    assert.equal(byCode(security(each, t), 'security.lockfile').status, 'gap', manifest);
+    commit(each, { [lockfile]: '\n' });
+    assert.equal(byCode(security(each, t), 'security.lockfile').status, 'ok', lockfile);
+  }
+});
+
+test('binn audit: Dependabot or Renovate, in any place Renovate reads, is ok; none is a gap recommending either', (t) => {
+  const root = fixture(t);
+  const gap = byCode(security(root, t), 'security.updates');
+  assert.equal(gap.status, 'gap');
+  assert.ok(gap.recommendation!.includes('Dependabot') && gap.recommendation!.includes('Renovate'), gap.recommendation);
+  // Untracked, it is not set up for anyone else.
+  write(root, { '.github/dependabot.yml': 'version: 2\n' });
+  assert.equal(byCode(security(root, t), 'security.updates').status, 'gap');
+
+  const places = ['.github/dependabot.yml', '.github/dependabot.yaml', 'renovate.json', 'renovate.jsonc', 'renovate.json5', '.github/renovate.json', '.github/renovate.json5', '.gitlab/renovate.json', '.gitlab/renovate.jsonc', '.renovaterc', '.renovaterc.json', '.renovaterc.json5'];
+  for (const place of places) {
+    const each = fixture(t);
+    commit(each, { [place]: '{}\n' });
+    const ok = byCode(security(each, t), 'security.updates');
+    assert.equal(ok.status, 'ok', place);
+    assert.ok(ok.reason.includes(place), ok.reason);
+  }
+  const inPackage = fixture(t);
+  commit(inPackage, { 'package.json': '{"renovate": {}}\n' });
+  assert.equal(byCode(security(inPackage, t), 'security.updates').status, 'ok');
+  commit(inPackage, { 'package.json': '{"name": "renovate"}\n' });
+  assert.equal(byCode(security(inPackage, t), 'security.updates').status, 'gap');
+});
+
+test('binn audit: SECURITY.md at the root, in .github/ or in docs/ is ok; none is a gap saying what the file is for', (t) => {
+  const root = fixture(t);
+  const gap = byCode(security(root, t), 'security.policy');
+  assert.equal(gap.status, 'gap');
+  assert.match(gap.reason, /vulnerabilit/);
+  commit(root, { 'src/SECURITY.md': '# s\n' });
+  assert.equal(byCode(security(root, t), 'security.policy').status, 'gap');
+  for (const place of ['SECURITY.md', '.github/SECURITY.md', 'docs/SECURITY.md']) {
+    const each = fixture(t);
+    commit(each, { [place]: '# Security\n' });
+    const ok = byCode(security(each, t), 'security.policy');
+    assert.equal(ok.status, 'ok', place);
+    assert.ok(ok.reason.includes(place), ok.reason);
+  }
+});
+
+test('binn audit: extensions.worktreeconfig with no config.worktree is a git gap naming Antigravity and the unset command; with one, or off, it is ok', (t) => {
+  const root = fixture(t);
+  assert.equal(finding(root, t, 'git.worktree_config').status, 'ok');
+  assert.equal(finding(root, t, 'git.worktree_config').area, 'git-and-tracker');
+
+  git(root, 'config', 'extensions.worktreeConfig', 'true');
+  const gap = finding(root, t, 'git.worktree_config');
+  assert.equal(gap.status, 'gap');
+  assert.match(gap.reason, /Antigravity/);
+  assert.match(gap.recommendation!, /git config --unset extensions\.worktreeconfig/);
+
+  // A linked worktree's own config.worktree uses it.
+  const linked = join(root, '..', 'linked');
+  git(root, 'worktree', 'add', '--quiet', linked);
+  assert.equal(finding(linked, t, 'git.worktree_config').status, 'gap');
+  git(linked, 'config', '--worktree', 'core.sparseCheckout', 'false');
+  assert.equal(finding(root, t, 'git.worktree_config').status, 'ok');
+  git(root, 'worktree', 'remove', '--force', linked);
+
+  // The main worktree's, in the common Git directory.
+  assert.equal(finding(root, t, 'git.worktree_config').status, 'gap');
+  git(root, 'config', '--worktree', 'core.sparseCheckout', 'false');
+  const ok = finding(root, t, 'git.worktree_config');
+  assert.equal(ok.status, 'ok');
+  assert.equal(ok.recommendation, undefined);
+});
+
 test("binn audit on this repository's own tree gives no gap in the docker, secrets and security areas", (t) => {
   const result = audit(t, ['--json', fileURLToPath(new URL('../../..', import.meta.url))]);
   assert.equal(result.status, 0, result.stderr);
   const all = findings(result.stdout);
-  assert.ok(all.some((finding) => finding.area === 'docker') && all.some((finding) => finding.area === 'secrets'));
+  assert.ok(['docker', 'secrets', 'security'].every((area) => all.some((finding) => finding.area === area)));
   assert.deepEqual(all.filter((finding) => ['docker', 'secrets', 'security'].includes(finding.area) && finding.status === 'gap'), []);
 });

@@ -10,6 +10,7 @@ export const AUDIT_AREAS = [
   'telemetry',
   'docker',
   'secrets',
+  'security',
 ] as const;
 
 export type AuditArea = (typeof AUDIT_AREAS)[number];

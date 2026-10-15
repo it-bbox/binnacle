@@ -23,7 +23,7 @@ _English version: [02-existing-project-adopt.md](02-existing-project-adopt.md). 
 
 | Область | Что она читает |
 | --- | --- |
-| `git-and-tracker` | репозиторий и его ветку; `.binnacle/project.yaml`; tracker, который называет remote, и есть ли для него токен |
+| `git-and-tracker` | репозиторий и его ветку; `.binnacle/project.yaml`; tracker, который называет remote, и есть ли для него токен; `extensions.worktreeconfig`, включённый без `config.worktree`, который бы им пользовался: с ним Antigravity не открывает репозиторий |
 | `docs` | `CONTEXT.md`, `docs/adr`, `docs/`; roadmap и то, в формате ли он Binnacle; затерявшиеся документы |
 | `matt-pocock-layout` | соглашения планирования в `docs/agents/`, каталоги спек и раздел заголовка тикета |
 | `scratch` | игнорирует ли Git `.scratch` и нет ли там спеки или тикета в единственном экземпляре |
@@ -33,6 +33,7 @@ _English version: [02-existing-project-adopt.md](02-existing-project-adopt.md). 
 | `telemetry` | сессии Claude Code и Codex для этого репозитория; экспортирует ли каждый найденный harness OpenTelemetry в Binnacle |
 | `docker` | каждый отслеживаемый `Dockerfile`, `Containerfile` или compose-файл и исключены ли `.env` и `.git` в `.dockerignore` рядом с ним или в собственном `<Dockerfile>.dockerignore` у Dockerfile; проект без них просто не использует контейнеры, и это не пробел |
 | `secrets` | каждый отслеживаемый текстовый файл, на известные форматы токенов (GitHub, GitLab, AWS, npm, Slack, Anthropic, OpenAI, Google и закрытый ключ PEM); каждое совпадение названо путём, строкой и видом, но не значением; каждый отслеживаемый `.env` или `.env.<суффикс>`, кроме `.env.example`, `.env.sample` и `.env.template`; бинарные файлы и файлы больше 1 МиБ пропускаются, и заглушить совпадение нельзя |
+| `security` | отслеживаемый lockfile для каждого манифеста пакетов, в его каталоге или выше (npm, pnpm, Yarn, Bun, Cargo, Go, Poetry, uv, Pipenv, Bundler, Composer); у проекта без манифеста этой находки нет; конфигурацию Dependabot или Renovate; `SECURITY.md` в корне, в `.github/` или в `docs/` |
 
 Работает ли токен tracker, видно только по сети, поэтому аудит оставляет это неизвестным; `binn init` читает tracker один раз и говорит. Для каждого недостающего файла Binnacle, например манифеста, roadmap или файла соглашений, аудит рекомендует запустить `binn init`.
 

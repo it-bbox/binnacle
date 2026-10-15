@@ -23,7 +23,7 @@ Each finding has a code, an area, a status — `ok`, `gap` or `unknown` — and 
 
 | Area | What it reads |
 | --- | --- |
-| `git-and-tracker` | the repository and its branch; `.binnacle/project.yaml`; the tracker the remote names, and whether a token for it exists |
+| `git-and-tracker` | the repository and its branch; `.binnacle/project.yaml`; the tracker the remote names, and whether a token for it exists; `extensions.worktreeconfig` set with no `config.worktree` using it, which Antigravity cannot open a repository with |
 | `docs` | `CONTEXT.md`, `docs/adr`, `docs/`; the roadmap and whether it is in Binnacle's format; the stranded documents |
 | `matt-pocock-layout` | the planning conventions under `docs/agents/`, the spec directories, and the ticket-header section |
 | `scratch` | whether Git ignores `.scratch`, and any spec or ticket whose only copy is there |
@@ -33,6 +33,7 @@ Each finding has a code, an area, a status — `ok`, `gap` or `unknown` — and 
 | `telemetry` | Claude Code and Codex sessions for this repository; whether each detected harness exports OpenTelemetry to Binnacle |
 | `docker` | each tracked `Dockerfile`, `Containerfile` or compose file, and whether the `.dockerignore` beside it, or a Dockerfile's own `<Dockerfile>.dockerignore`, excludes `.env` and `.git`; a project with none has no container setup, which is not a gap |
 | `secrets` | every tracked text file, for known token formats (GitHub, GitLab, AWS, npm, Slack, Anthropic, OpenAI, Google and a PEM private key), each named by its path, line and kind, never by its value; every tracked `.env` or `.env.<suffix>` but `.env.example`, `.env.sample` and `.env.template`; binary files and files over 1 MiB are skipped, and there is no way to silence a match |
+| `security` | a tracked lockfile for each package manifest, in its directory or above it (npm, pnpm, Yarn, Bun, Cargo, Go, Poetry, uv, Pipenv, Bundler, Composer), with no finding for a project without a manifest; a Dependabot or Renovate configuration; a `SECURITY.md` at the root, in `.github/` or in `docs/` |
 
 Whether a tracker token works is known only from the network, so the audit leaves it unknown; `binn init` reads the tracker once and says. Each missing Binnacle file, such as the manifest, the roadmap or a convention file, comes with the recommendation to run `binn init`.
 

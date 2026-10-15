@@ -4,7 +4,7 @@ import { resolveGitTimeout } from '@binnacle/daemon';
 import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, join, posix } from 'node:path';
 
-/** The `.scratch`, the stranded documents, the tests, CI and structure checks and the container setup of `binn audit`: files only, nothing is run but `git check-ignore` and `git ls-files`. */
+/** The `.scratch`, the stranded documents, the tests, CI and structure checks, the container setup, the secrets and the security basics of `binn audit`: files only, nothing is run but `git check-ignore` and `git ls-files`. */
 
 /** Every file under `dir` as a path relative to it; an unreadable or missing directory is empty. */
 function files(dir: string, prefix = '', depth = 6): string[] {
@@ -109,7 +109,7 @@ const WORKSPACE_FILES = ['pnpm-workspace.yaml', 'lerna.json', 'nx.json', 'turbo.
 const MANIFESTS = ['package.json', 'pyproject.toml', 'go.mod', 'Cargo.toml', 'pom.xml', 'build.gradle', 'Gemfile', 'composer.json'];
 
 /** The root's package.json as an object; `{}` when it is missing or not JSON. */
-function packageJson(root: string): { scripts?: { test?: string }; workspaces?: unknown } {
+function packageJson(root: string): { scripts?: { test?: string }; workspaces?: unknown; renovate?: unknown } {
   try {
     return JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
   } catch {
@@ -308,6 +308,99 @@ export function secrets(root: string): Finding[] {
   }
   if (found.length > 0) return found;
   return [{ code: 'secrets.scan', area, status: 'ok', reason: `No known token format and no .env file in the ${read} tracked text files read (${skipped} skipped: binary, over ${SECRET_SCAN_LIMIT / 1024 / 1024} MiB or not a regular file).` }];
+}
+
+/** Each package manifest with the lockfiles of its ecosystem: npm, pnpm, Yarn and Bun; Cargo; Go; Poetry and uv; Pipenv; Bundler; Composer. */
+const LOCKFILES: Record<string, string[]> = {
+  'package.json': ['package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock', 'bun.lock', 'bun.lockb'],
+  'Cargo.toml': ['Cargo.lock'],
+  'go.mod': ['go.sum'],
+  'pyproject.toml': ['poetry.lock', 'uv.lock'],
+  Pipfile: ['Pipfile.lock'],
+  Gemfile: ['Gemfile.lock'],
+  'composer.json': ['composer.lock'],
+};
+/** Dependabot's configuration, then every place Renovate reads its own (docs.renovatebot.com, *Configuration options*) but `package.json`'s `renovate` key, which is read apart. */
+const UPDATES = [
+  '.github/dependabot.yml',
+  '.github/dependabot.yaml',
+  ...['', '.github/', '.gitlab/'].flatMap((dir) => ['json', 'jsonc', 'json5'].map((ext) => `${dir}renovate.${ext}`)),
+  '.renovaterc',
+  '.renovaterc.json',
+  '.renovaterc.jsonc',
+  '.renovaterc.json5',
+];
+/** A security policy where GitHub reads one. */
+const POLICY = /^(\.github\/|docs\/)?security\.md$/i;
+
+/**
+ * The `security` area: whether each tracked package manifest has a tracked lockfile of its ecosystem in its directory or one
+ * above it, as a workspace member has at the root, with no finding when there is no manifest; whether Dependabot or Renovate
+ * is configured; and whether a SECURITY.md is where GitHub reads it. Only tracked files count: another clone gets nothing else.
+ * ponytail: a go.mod with no dependency needs no go.sum and still reads as a gap; read its require lines if that is ever reported.
+ */
+export function security(root: string): Finding[] {
+  const area = 'security';
+  const listed = tracked(root);
+  if (!listed) {
+    return [{ code: 'security.files', area, status: 'unknown', reason: 'git ls-files failed, so the tracked files are not known.', recommendation: 'Run git ls-files in the repository to see why.' }];
+  }
+  const files = new Set(listed);
+  const found: Finding[] = [];
+
+  const manifests = listed.filter((path) => Object.hasOwn(LOCKFILES, posix.basename(path)));
+  if (manifests.length > 0) {
+    const used = new Set<string>();
+    const bare = manifests.filter((manifest) => {
+      const names = LOCKFILES[posix.basename(manifest)]!;
+      for (let dir = posix.dirname(manifest); ; dir = posix.dirname(dir)) {
+        const lockfile = names.map((name) => (dir === '.' ? name : `${dir}/${name}`)).find((path) => files.has(path));
+        if (lockfile) {
+          used.add(lockfile);
+          return false;
+        }
+        if (dir === '.') return true;
+      }
+    });
+    const base = { code: 'security.lockfile', area } as const;
+    found.push(
+      bare.length === 0
+        ? { ...base, status: 'ok', reason: `${manifests.length} package manifest${manifests.length === 1 ? '' : 's'}, each with a tracked lockfile in its directory or above it: ${[...used].join(', ')}.` }
+        : {
+            ...base,
+            status: 'gap',
+            reason: `No tracked lockfile for ${bare.join(', ')}, so every install resolves the dependencies afresh, and two installs of the same commit can differ.`,
+            recommendation: `Install with the project's package manager and commit the lockfile it writes, beside the manifest or at the workspace's root: ${[...new Set(bare.map((path) => LOCKFILES[posix.basename(path)]!.join(' or ')))].join('; ')}.`,
+          },
+    );
+  }
+
+  const updates = UPDATES.find((path) => files.has(path)) ?? (files.has('package.json') && packageJson(root).renovate !== undefined ? 'package.json, its renovate key' : undefined);
+  found.push(
+    updates
+      ? { code: 'security.updates', area, status: 'ok', reason: `Dependency updates are configured: ${updates}.` }
+      : {
+          code: 'security.updates',
+          area,
+          status: 'gap',
+          reason: 'No Dependabot or Renovate configuration is tracked, so a dependency, and the fix for a vulnerability in it, is updated only when someone thinks of it.',
+          recommendation: 'Add .github/dependabot.yml for Dependabot on GitHub, or a renovate.json for Renovate, which also runs on GitLab and other forges.',
+        },
+  );
+
+  const policy = listed.find((path) => POLICY.test(path));
+  found.push(
+    policy
+      ? { code: 'security.policy', area, status: 'ok', reason: `A security policy: ${policy}.` }
+      : {
+          code: 'security.policy',
+          area,
+          status: 'gap',
+          reason: 'No SECURITY.md at the root, in .github/ or in docs/. It tells whoever finds a vulnerability how to report it privately instead of in a public issue, which matters once the repository is public.',
+          recommendation: "Add SECURITY.md saying how to report a vulnerability privately, by an address or through the forge's private reporting, and which versions get fixes.",
+        },
+  );
+  return found;
 }
 
 /**
