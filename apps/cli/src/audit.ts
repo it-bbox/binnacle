@@ -1,4 +1,4 @@
-import { readGitFacts, type GitFacts } from '@binnacle/adapters';
+import { readGitFacts, readGitLocation, type GitFacts } from '@binnacle/adapters';
 import { AUDIT_AREAS, forgeRemote, instructionSets, type Finding } from '@binnacle/core';
 import { MANIFEST_RELATIVE, OperationError, readManifest, resolveGitTimeout, trackerToken } from '@binnacle/daemon';
 import { spawnSync } from 'node:child_process';
@@ -24,7 +24,7 @@ export async function audit(home: string, path: string | undefined, json: boolea
   }
 
   // One list per area, so that each later area is one more entry here; the sort is stable, so checks keep their order within an area.
-  const all: Finding[] = [...gitAndTracker(git, home), worktreeConfig(git.root), ...docs(git.root), ...mattPocockLayout(git.root), ...scratch(git.root), ...capabilities(git.root), ...instructions(git.root), ...structure(git.root), ...(await telemetry(git.root)), ...telemetryExport(home), ...docker(git.root), ...secrets(git.root), ...security(git.root)].sort((a, b) => AUDIT_AREAS.indexOf(a.area) - AUDIT_AREAS.indexOf(b.area));
+  const all: Finding[] = [...gitAndTracker(git, home), await worktreeConfig(git.root), ...docs(git.root), ...mattPocockLayout(git.root), ...scratch(git.root), ...capabilities(git.root), ...instructions(git.root), ...structure(git.root), ...(await telemetry(git.root)), ...telemetryExport(home), ...docker(git.root), ...secrets(git.root), ...security(git.root)].sort((a, b) => AUDIT_AREAS.indexOf(a.area) - AUDIT_AREAS.indexOf(b.area));
 
   if (json) {
     console.log(JSON.stringify({ root: git.root, findings: all }, null, 2));
@@ -108,17 +108,17 @@ function gitAndTracker(git: Repository, home: string): Finding[] {
  * to a Git library that refuses an extension it does not know, as Antigravity's does. A `config.worktree` in the common Git
  * directory, the main worktree's, or under its `worktrees/`, a linked worktree's, makes the setting deliberate.
  */
-function worktreeConfig(root: string): Finding {
+async function worktreeConfig(root: string): Promise<Finding> {
   const base = { code: 'git.worktree_config', area: 'git-and-tracker' } as const;
-  const git = (...args: string[]) => spawnSync('git', args, { cwd: root, encoding: 'utf8', timeout: resolveGitTimeout() });
-  const setting = git('config', '--bool', '--get', 'extensions.worktreeconfig');
+  // The repository's own config only: Git honours an extension nowhere else, and that is the file the unset command edits.
+  const setting = spawnSync('git', ['config', '--local', '--bool', '--get', 'extensions.worktreeconfig'], { cwd: root, encoding: 'utf8', timeout: resolveGitTimeout() });
   // git config exits 1 for a key that is not set.
   if (setting.status === 1 || (setting.status === 0 && setting.stdout.trim() !== 'true')) return { ...base, status: 'ok', reason: 'extensions.worktreeConfig is not set.' };
-  const common = git('rev-parse', '--git-common-dir');
-  if (setting.status !== 0 || common.status !== 0) {
-    return { ...base, status: 'unknown', reason: 'Git could not read extensions.worktreeConfig or the common Git directory.', recommendation: 'Run git config --bool --get extensions.worktreeconfig in the repository to see why.' };
+  const location = setting.status === 0 ? await readGitLocation(root, resolveGitTimeout()) : null;
+  if (!location) {
+    return { ...base, status: 'unknown', reason: 'Git could not read extensions.worktreeConfig or the common Git directory.', recommendation: 'Run git config --local --bool --get extensions.worktreeconfig in the repository to see why.' };
   }
-  const dir = resolve(root, common.stdout.trim());
+  const dir = location.commonDir;
   let linked: string[] = [];
   try {
     linked = readdirSync(join(dir, 'worktrees')).map((name) => join(dir, 'worktrees', name, 'config.worktree'));

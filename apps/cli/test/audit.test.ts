@@ -900,6 +900,10 @@ test('binn audit: extensions.worktreeconfig with no config.worktree is a git gap
   const root = fixture(t);
   assert.equal(finding(root, t, 'git.worktree_config').status, 'ok');
   assert.equal(finding(root, t, 'git.worktree_config').area, 'git-and-tracker');
+  // Git honours the extension only in the repository's own config, not in the global one.
+  const global = join(scratch(t), 'gitconfig');
+  writeFileSync(global, '[extensions]\n\tworktreeConfig = true\n');
+  assert.equal(byCode(findings(audit(t, ['--json'], { GIT_CONFIG_GLOBAL: global }, root).stdout), 'git.worktree_config').status, 'ok');
 
   git(root, 'config', 'extensions.worktreeConfig', 'true');
   const gap = finding(root, t, 'git.worktree_config');
