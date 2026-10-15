@@ -42,11 +42,10 @@ Done: epics 1 to 11 and 14 to 19.
 
 **Released** (the owner, 2026-10-13): `@it-bbox/binnacle` 0.1.0 is on npm, and `it-bbox/binnacle` is public, with private vulnerability reporting and Dependabot alerts on. Installed from the registry into a clean container, `binn init`, the daemon and the dashboard work (`specs/release/issues/07-release-exit-demonstration.md`).
 
-**Now: epics 12 and 13, each released as the next minor version, 0.2.0 then 0.3.0** (the owner, 2026-10-13). 0.2.0 also carries `docs/product-inbox.md`'s *For the next release*. Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own; its release follows `CONTRIBUTING.md`'s *Releasing*.
+**Now: epics 12 and 13, each released as the next minor version, 0.2.0 then 0.3.0** (the owner, 2026-10-13). 0.2.0 also carries `docs/product-inbox.md`'s *For the next release*. Epic 12 is sliced into eleven tickets (`specs/audit-completed/`), the inbox's items and Dependabot's failed npm update among them (2026-10-13). Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own; its release follows `CONTRIBUTING.md`'s *Releasing*.
 
 **Left open:**
 
-- Dependabot's first npm update failed with `unknown_error`; it waits to be looked at;
 - epic 15 (ADR-0043): a reboot that finds the daemon answering is still to be seen;
 - epic 11, ticket 14: waits on a merge that shrinks the graph.
 
