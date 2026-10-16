@@ -21,7 +21,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 9 | Everything from the chat | done | [`everything-from-the-chat`](specs/everything-from-the-chat/spec.md) |
 | 10 | Telemetry for any harness | done | [`telemetry-for-any-harness`](specs/telemetry-for-any-harness/spec.md) |
 | 11 | The state of work | done | [`the-state-of-work`](specs/the-state-of-work/spec.md) |
-| 12 | Audit, completed | tickets | [`audit-completed`](specs/audit-completed/spec.md) |
+| 12 | Audit, completed | in progress | [`audit-completed`](specs/audit-completed/spec.md) |
 | 13 | Human output | not started | — |
 | 14 | Skills in any harness | done | [`skills-in-any-harness`](specs/skills-in-any-harness/spec.md) |
 | 15 | Daemon autostart | done | [`daemon-autostart`](specs/daemon-autostart/spec.md) |
@@ -38,18 +38,18 @@ Epics are ordered by dependency, not by preference:
 
 ## Current focus
 
-Done: epics 1 to 11 and 14 to 19.
+Done: epics 1 to 11 and 14 to 19, and epic 12's tickets 01 to 10.
 
 **Released** (the owner, 2026-10-13): `@it-bbox/binnacle` 0.1.0 is on npm, and `it-bbox/binnacle` is public, with private vulnerability reporting and Dependabot alerts on. Installed from the registry into a clean container, `binn init`, the daemon and the dashboard work (`specs/release/issues/07-release-exit-demonstration.md`).
 
-**Now: epics 12 and 13, each released as the next minor version, 0.2.0 then 0.3.0** (the owner, 2026-10-13). 0.2.0 also carries `docs/product-inbox.md`'s *For the next release*. Epic 12 is sliced into eleven tickets (`specs/audit-completed/`), the inbox's items and Dependabot's failed npm update among them (2026-10-13). Each epic goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own; its release follows `CONTRIBUTING.md`'s *Releasing*.
+**Now: epic 12, then epic 13, each released as the next minor version, 0.2.0 then 0.3.0** (the owner, 2026-10-13). 0.2.0 also carries `docs/product-inbox.md`'s *For the next release*. Autopilot merged epic 12's tickets 01 to 10 (2026-10-15): the audit's Docker, secrets and security areas, the worktree setting and the migration plan; the tracker-token warning and autostart from the chat; 0.1.0's rough edges; a gone directory; the current epic by its status; and Dependabot's npm cooldown. Left is ticket 11, the owner's: the exit demonstration on this repository and a fixture, Dependabot's npm pull request after the push, and 0.2.0 by `CONTRIBUTING.md`'s *Releasing*. Epic 13 then goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own.
 
 **Left open:**
 
 - epic 15 (ADR-0043): a reboot that finds the daemon answering is still to be seen;
 - epic 11, ticket 14: waits on a merge that shrinks the graph.
 
-Next action: run epic 12's tickets, starting with those blocked by none. `/binnacle:autopilot 12`
+Next action: demonstrate epic 12's exit criterion and release 0.2.0. `/binnacle:task run docs/specs/audit-completed/issues/11-audit-completed-exit-demonstration.md`
 
 ## Later
 
