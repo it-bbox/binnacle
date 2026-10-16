@@ -156,3 +156,15 @@ Ideas to weigh, most useful first:
 12. **Stop reasons from facts.** An agent's explanation of why it stopped is often not the root. Stop reasons should come from what Binnacle reads (CI, runs, markers), and the agent's text stays text.
 
 Not to take: running without a human by default, which ADR-0022 rules out; and a fixed pipeline of roles for every Task, since roles are recommended per Task.
+
+## Derived roadmap state without a yes (2026-10-16)
+
+The owner leans towards it, but wants the options weighed first. Today a Product session, a checkpoint or autopilot's end writes the roadmap only on the owner's yes (`docs/roadmap.md`, *Keeping this current*). After autopilot merged epic 12's tickets 01 to 10, the owner was asked to confirm an epic's status and the *Done* line, which follow from the tickets' statuses alone, beside the `Next action:`, which is a real choice of course.
+
+Options to weigh:
+
+1. **Write the derived part without a yes.** Autopilot and checkpoint set an epic's status (`tickets` → `in progress` → `done`) and the *Done* line from the tickets; the focus's prose and the `Next action:` stay on the owner's yes.
+2. **Stop writing the derived part at all.** The snapshot and the dashboard already derive progress from the tickets; the table's status could be read the same way, leaving only `not started` and `spec` for the owner to write.
+3. **Keep the rule.** One yes for the whole roadmap commit stays the cheapest check that nothing wrong reaches the text every fresh session reads first.
+
+To decide: which statuses are truly derived (a `tickets` epic with one ticket merged; an epic whose last ticket is `ready-for-human`), and whether a commit to `main` with no yes fits the rule that a decision reaches the repository only once the owner confirms it.
