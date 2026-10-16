@@ -26,24 +26,12 @@ Not to take: Dolt as the source of truth, since canonical knowledge lives in Mar
 
 A one-command context dump like `bd prime` is already epic 14's `binn call` (`specs/skills-in-any-harness/spec.md`).
 
-## A repository Antigravity cannot open (2026-10-08)
-
-**Taken into epic 12 on 2026-10-13** (`docs/specs/audit-completed/brief.md`).
-
-Antigravity's agent did not answer in this repository because its Git library refuses `extensions.worktreeconfig`, which some worktree tool had set with no `config.worktree` using it; unsetting it fixed it (ticket 06 of epic 10). `binn audit` could report the extension when no `config.worktree` exists, and say which harness it breaks.
-
 ## Ideas from nick-vels/skills (2026-10-09)
 
 [nick-vels/skills](https://github.com/nick-vels/skills) is a single `/autopilot` skill that builds a project from a brief: rounds of questions at the brief's forks, a spec, tasks built by parallel agents, an offline HTML dashboard, and a final acceptance. It aims at an owner who reads neither the spec nor the code; Binnacle keeps the human in control of a long-lived project (ADR-0022). Two of its ideas could close a gap here, where a spec's link to its brief and its tickets is prose:
 
 1. **Requirements traced end to end.** The brief is split into numbered requirements, recorded word for word. Every requirement has a section of the spec and a task, every task a requirement, which catches work nobody asked for, and only the owner can drop a requirement. Here a story of a spec could carry a number that its tickets and their criteria name, and the snapshot or `binn audit` could report a story with no ticket and a ticket with no story.
 2. **Blind acceptance.** At the end, a separate agent checks the result against the owner's original words only, without the spec, so that what was lost on the way from brief to spec to tickets shows. Here an epic's exit demonstration could start from such a check against the grilling's record.
-
-## A scratchpad project in the owner's daemon (2026-10-10)
-
-**Taken into epic 12 on 2026-10-13** (`docs/specs/audit-completed/brief.md`).
-
-The owner's daemon had a project registered at `/tmp/claude-1000/…/aeb63b29-…/scratchpad/demo-init`, a session's scratchpad, shown on every page as unavailable once the directory was gone; the owner had it unregistered on 2026-10-10. Some session ran `binn init` or `binn project register` there against the owner's `BINNACLE_HOME` rather than a temporary one, which `dashboard-design-and-languages/12` asks of agents. Two things to weigh: whether skills and briefs that try a CLI on a throwaway repository say to use a temporary home, and whether a registration whose directory is gone should drop out of the dashboard or be offered for removal rather than shown on every page.
 
 ## A Binnacle mod for Claude Code (2026-10-11)
 
@@ -110,21 +98,9 @@ Ways to weigh:
 - before the run, an agent estimates the touched modules, as a calculated reading;
 - without a graph, a cautious fallback instead of a full parallel run.
 
-## Autostart from the chat (2026-10-13)
-
-**Taken into epic 12 on 2026-10-13** (`docs/specs/audit-completed/brief.md`).
-
-`binn init` asks to start the daemon at login only in a terminal. Run from the chat, `/binnacle:init` goes through `--plan --json` and `--apply`, which ask nothing, so init installs no service and only names `binn daemon autostart on` in its Summary (`daemon-autostart/05`, its Review, 4). A user who sets Binnacle up from the chat, the main path since epic 9, is left without autostart unless they read the Summary and run the command, which is the gap epic 15 closed for the terminal. A small ticket would close it: the init skill asks the owner in the chat and passes the answer as a flag, as it passes the import window with `--window`.
-
 ## A unit that uses systemd's specifiers (2026-10-13)
 
 Binnacle reads a systemd unit's `Environment=BINNACLE_HOME=` literally. A unit written by hand that says `%h/.binnacle`, as the one an agent session wrote on the owner's machine on 2026-10-09 does, reads as serving `…/%h/.binnacle`, so `binn daemon autostart` calls autostart off for `~/.binnacle`. Harmless: nothing is changed, and `binn daemon autostart on` replaces such a unit with Binnacle's own, written with absolute paths. Expanding `%h` and the other specifiers would fix it for units written by hand, which are rare; likely not worth doing.
-
-## The current epic is read from the table's order (2026-10-13)
-
-**Taken into epic 12 on 2026-10-13** (`docs/specs/audit-completed/brief.md`).
-
-With epic 17 at `tickets` and autopilot running it, the dashboard's overview showed epic 12 as the current epic, with no spec and no progress. `currentEpic` takes the first `in progress` epic, else the first that is not `done` in the table's order, and epic 12 comes before 17 there; Binnacle's alternative "grill epic 12" came from the same rule. The table's order is dependency, not what the owner works on. A fix: take the furthest-along status first, `in progress`, then `tickets`, then `spec`, then `not started`, and the table's order only between equals. Epic 12's title, *Audit, completed*, also reads like a status on the dashboard; renaming it was not chosen for now. After the release.
 
 ## For the next release (2026-10-13)
 
@@ -168,3 +144,7 @@ Options to weigh:
 3. **Keep the rule.** One yes for the whole roadmap commit stays the cheapest check that nothing wrong reaches the text every fresh session reads first.
 
 To decide: which statuses are truly derived (a `tickets` epic with one ticket merged; an epic whose last ticket is `ready-for-human`), and whether a commit to `main` with no yes fits the rule that a decision reaches the repository only once the owner confirms it.
+
+## A shared sanitizer for manifest text in output (2026-10-16)
+
+From `audit-completed/05`'s Review (5): a manifest's `tracker.host` is quoted back through `JSON.stringify`, which leaves C1 controls and bidi overrides in, and the tracker check already prints it the same way. One sanitizer for manifest values printed to a terminal would cover both. Low risk: the manifest is the user's own file.
