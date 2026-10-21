@@ -2216,8 +2216,28 @@ for (const [provider, remote] of [['local', null], ['github', 'git@github.com:Ac
     for (const role of ['Developer', 'Reviewer', 'Architect', 'QA', 'Security', 'DevOps', 'Analyst']) markers.push(role);
     if (provider === 'local') markers.push('`## Comments`', '`feat/<slug>`');
     for (const marker of markers) assert.ok(section.includes(marker), `${marker}\n${section}`);
+    // Before the section: the flag /triage reads, and the headings and fields the skills write by.
+    const conventions = ['`## Contested points`'];
+    if (provider === 'local') conventions.push('`## Comments`', '`Triage:`');
+    else conventions.push('`Spec:`', provider === 'github' ? '**PRs as a request surface: no.**' : '**MRs as a request surface: no.**');
+    for (const marker of conventions) assert.ok(tracker.slice(0, tracker.length - section.length).includes(marker), `${marker}\n${tracker}`);
   });
 }
+
+test('the templates follow the language the manifest declares, and the answer when an existing manifest declares none', async (t) => {
+  const home = makeHome(t);
+  const manifest = (language: string): string => `version: 1\nproject:\n  id: kept\nknowledge:\n  docs: docs\n${language}telemetry:\n  import:\n    window_days: 90\n`;
+  const declared = makeRepository(t, 'declared-en', { 'README.md': 'Документация проекта.\n', '.binnacle/project.yaml': manifest('  language: en\n') });
+  const undeclared = makeRepository(t, 'undeclared', { 'README.md': 'Документация проекта.\n', '.binnacle/project.yaml': manifest('') });
+
+  const english = await planJson(t, home, declared);
+  const russian = await planJson(t, home, undeclared);
+  for (const path of TEMPLATES) {
+    assert.doesNotMatch(created(english, path), CYRILLIC, path);
+    assert.match(created(russian, path), CYRILLIC, path);
+  }
+  assert.ok(!russian.plan.some(({ heading }) => heading.includes('project.yaml')), JSON.stringify(russian.plan));
+});
 
 test('on a repository binn init wrote in Russian, binn audit finds no gap in the roadmap and the ticket header, and the roadmap parses cleanly', async (t) => {
   const home = makeHome(t);
