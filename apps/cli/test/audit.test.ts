@@ -15,6 +15,13 @@ const baseEnv = {
   LC_ALL: 'C',
 };
 
+/** The two languages `binn audit` speaks, as the locale a test sets over the base environment. */
+const LANGUAGES: ['English' | 'Russian', Record<string, string>][] = [
+  ['English', {}],
+  ['Russian', { LC_ALL: 'ru_RU.UTF-8' }],
+];
+const RU = { LC_ALL: 'ru_RU.UTF-8' };
+
 function git(cwd: string, ...args: string[]): void {
   const result = spawnSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', ...args], { cwd, encoding: 'utf8', env: baseEnv });
   assert.equal(result.status, 0, result.stderr);
@@ -92,18 +99,6 @@ test('binn audit on a bare repository, with no daemon, registration or manifest,
   assert.deepEqual(findings(audit(t, ['--json'], {}, root).stdout), all);
 });
 
-test('binn audit prints each finding with its code, area, status, reason and recommendation, and takes a path', (t) => {
-  const root = fixture(t, 'git@github.com:owner/name.git');
-  const result = audit(t, [root]);
-  assert.equal(result.status, 0, result.stderr);
-  for (const finding of findings(audit(t, [root, '--json']).stdout)) {
-    assert.ok(result.stdout.includes(finding.code), finding.code);
-    assert.ok(result.stdout.includes(finding.area));
-    assert.ok(result.stdout.includes(finding.status));
-    assert.ok(result.stdout.includes(finding.reason));
-    if (finding.recommendation) assert.ok(result.stdout.includes(finding.recommendation));
-  }
-});
 
 test('a repository with no remote is told that local tickets under docs/specs are a tracker Binnacle reads', (t) => {
   const provider = byCode(findings(audit(t, ['--json'], {}, fixture(t)).stdout), 'tracker.provider');
@@ -119,10 +114,12 @@ test('the tracker provider is read from the remote, and the token is reported wi
   assert.equal(byCode(none, 'tracker.token').status, 'gap');
 
   const SECRET = 'glpat-SECRETVALUE123';
-  for (const args of [[], ['--json']]) {
-    const result = audit(t, args, { BINNACLE_GITLAB_TOKEN: SECRET }, root);
-    assert.equal(result.status, 0, result.stderr);
-    assert.ok(!result.stdout.includes(SECRET) && !result.stderr.includes(SECRET));
+  for (const [language, env] of LANGUAGES) {
+    for (const args of [[], ['--json']]) {
+      const result = audit(t, args, { ...env, BINNACLE_GITLAB_TOKEN: SECRET }, root);
+      assert.equal(result.status, 0, result.stderr);
+      assert.ok(!result.stdout.includes(SECRET) && !result.stderr.includes(SECRET), language);
+    }
   }
   const present = findings(audit(t, ['--json'], { BINNACLE_GITLAB_TOKEN: SECRET }, root).stdout);
   assert.equal(byCode(present, 'tracker.token').status, 'ok');
@@ -134,14 +131,20 @@ test('a token in the credentials file counts, and is not printed', (t) => {
   const home = scratch(t);
   mkdirSync(join(home, '.binnacle'));
   writeFileSync(join(home, '.binnacle', 'credentials.json'), JSON.stringify({ 'github.com': 'ghp_FILESECRET' }), { mode: 0o600 });
-  const result = spawnSync(process.execPath, [BINN, 'audit', '--json'], {
-    cwd: root,
-    encoding: 'utf8',
-    env: { ...baseEnv, HOME: home, BINNACLE_HOME: join(home, '.binnacle') },
-  });
-  assert.equal(result.status, 0, result.stderr);
-  assert.ok(!result.stdout.includes('ghp_FILESECRET'));
-  assert.equal(byCode(findings(result.stdout), 'tracker.token').status, 'ok');
+  const run = (args: string[], env: Record<string, string>) =>
+    spawnSync(process.execPath, [BINN, 'audit', ...args], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...baseEnv, HOME: home, BINNACLE_HOME: join(home, '.binnacle'), ...env },
+    });
+  for (const [language, env] of LANGUAGES) {
+    for (const args of [[], ['--json']]) {
+      const result = run(args, env);
+      assert.equal(result.status, 0, result.stderr);
+      assert.ok(!result.stdout.includes('FILESECRET') && !result.stderr.includes('FILESECRET'), language);
+    }
+  }
+  assert.equal(byCode(findings(run(['--json'], {}).stdout), 'tracker.token').status, 'ok');
 });
 
 test('the exit code is 0 with gaps, and non-zero with a reason for a missing path and for a directory outside Git', (t) => {
@@ -156,19 +159,26 @@ test('the exit code is 0 with gaps, and non-zero with a reason for a missing pat
   const outside = audit(t, [scratch(t)]);
   assert.notEqual(outside.status, 0);
   assert.match(outside.stderr, /Git repository/);
+
+  const russian = audit(t, [scratch(t)], RU);
+  assert.equal(russian.status, outside.status);
+  assert.match(russian.stderr, /Git-репозитории/);
+  assert.doesNotMatch(russian.stderr, /git\.[a-z_]+/);
 });
 
-test('binn audit writes nothing, in the repository or in the home it is pointed at', (t) => {
+test('binn audit writes nothing, in the repository or in the home it is pointed at, in either language', (t) => {
   const root = fixture(t, 'https://github.com/owner/name.git');
   const home = scratch(t);
   const before = [listing(root), listing(home)];
-  const result = spawnSync(process.execPath, [BINN, 'audit'], {
-    cwd: root,
-    encoding: 'utf8',
-    env: { ...baseEnv, HOME: home, BINNACLE_HOME: join(home, '.binnacle') },
-  });
-  assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual([listing(root), listing(home)], before);
+  for (const [language, env] of LANGUAGES) {
+    const result = spawnSync(process.execPath, [BINN, 'audit'], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...baseEnv, HOME: home, BINNACLE_HOME: join(home, '.binnacle'), ...env },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual([listing(root), listing(home)], before, language);
+  }
   assert.equal(readFileSync(join(root, 'README.md'), 'utf8'), '# fixture\n');
 });
 
@@ -182,15 +192,21 @@ test('binn audit names a detached HEAD, and audits the repository containing a s
   assert.match(byCode(findings(result.stdout), 'git.repository').reason, /detached HEAD/);
 });
 
-test('binn audit gives the same output with the network unreachable as with a proxy-free environment', (t) => {
+test('binn audit gives the same output with the network unreachable as with a proxy-free environment, in either language', (t) => {
   const root = fixture(t, 'https://github.com/owner/name.git');
-  const home = scratch(t);
-  const plain = spawnSync(process.execPath, [BINN, 'audit', '--json'], {
-    cwd: root,
-    encoding: 'utf8',
-    env: { ...baseEnv, HOME: home, BINNACLE_HOME: join(home, '.binnacle'), CLAUDE_CONFIG_DIR: join(home, 'claude-config'), CODEX_HOME: join(home, 'codex-home') },
-  });
-  assert.equal(plain.stdout, audit(t, ['--json'], {}, root).stdout);
+  for (const [language, env] of LANGUAGES) {
+    for (const args of [['--json'], []]) {
+      // The same home for both runs, so that the text's paths agree.
+      const home = scratch(t);
+      const run = (extra: Record<string, string>) =>
+        spawnSync(process.execPath, [BINN, 'audit', ...args], {
+          cwd: root,
+          encoding: 'utf8',
+          env: { ...baseEnv, HOME: home, BINNACLE_HOME: join(home, '.binnacle'), CLAUDE_CONFIG_DIR: join(home, 'claude-config'), CODEX_HOME: join(home, 'codex-home'), ...env, ...extra },
+        }).stdout;
+      assert.equal(run({}), run({ NODE_USE_ENV_PROXY: '1', HTTPS_PROXY: 'http://127.0.0.1:9', HTTP_PROXY: 'http://127.0.0.1:9' }), `${language} ${args.join(' ')}`);
+    }
+  }
 });
 
 /** Writes `files` (path to text) into the fixture, creating directories. */
@@ -712,13 +728,16 @@ test('binn audit: each build context is one finding, read against the .dockerign
   for (const finding of found) assert.ok(!finding.reason.includes('loose/') && !finding.reason.includes('ignored/'), finding.reason);
 });
 
-/** The secrets findings, in order, from `binn audit --json`, with the text output beside them. */
-function secrets(root: string, t: TestContext): { found: Finding[]; json: string; text: string } {
+/** The secrets findings, in order, from `binn audit --json`, with the text output in each language beside them. */
+function secrets(root: string, t: TestContext): { found: Finding[]; json: string; text: string; texts: string[] } {
   const json = audit(t, ['--json'], {}, root);
   assert.equal(json.status, 0, json.stderr);
-  const text = audit(t, [], {}, root);
-  assert.equal(text.status, 0, text.stderr);
-  return { found: findings(json.stdout).filter((finding) => finding.area === 'secrets'), json: json.stdout, text: text.stdout };
+  const texts = LANGUAGES.map(([, env]) => {
+    const text = audit(t, [], env, root);
+    assert.equal(text.status, 0, text.stderr);
+    return text.stdout;
+  });
+  return { found: findings(json.stdout).filter((finding) => finding.area === 'secrets'), json: json.stdout, text: texts[0]!, texts };
 }
 
 /** `n` characters cycled from `alphabet`, so that a planted token is built here and never written in this file in a format the audit matches. */
@@ -765,7 +784,7 @@ test('binn audit: a token of each format in a tracked file is a gap with its pat
   const root = fixture(t);
   commit(root, { 'config/keys.txt': planted(), '.gitignore': 'ignored/\n' });
   write(root, { 'ignored/keys.txt': planted(), 'loose/keys.txt': planted() });
-  const { found, json, text } = secrets(root, t);
+  const { found, json, text, texts } = secrets(root, t);
   assert.equal(found.length, TOKENS.length, JSON.stringify(found, null, 1));
   TOKENS.forEach(({ kind }, at) => {
     const match = found.find((finding) => finding.reason.startsWith(`config/keys.txt:${at + 2}:`))!;
@@ -778,11 +797,13 @@ test('binn audit: a token of each format in a tracked file is a gap with its pat
     assert.match(match.recommendation!, /gitleaks/);
     assert.ok(text.includes(match.reason), match.reason);
   });
-  // No six characters in a row of anything after a prefix, in either output.
+  // The Russian text names each by its path and line too.
+  for (const at of TOKENS.keys()) assert.ok(texts[1]!.includes(`config/keys.txt:${at + 2}: токен в формате `), `line ${at + 2}`);
+  // No six characters in a row of anything after a prefix, in either output or language.
   for (const { body } of TOKENS) {
     for (let at = 0; at + 6 <= body.length; at++) {
       const part = body.slice(at, at + 6);
-      assert.ok(!json.includes(part) && !text.includes(part), `${part} printed`);
+      assert.ok(!json.includes(part) && texts.every((text) => !text.includes(part)), `${part} printed`);
     }
   }
   for (const finding of found) assert.ok(!finding.reason.includes('ignored/') && !finding.reason.includes('loose/'), finding.reason);
@@ -983,13 +1004,14 @@ test('binn audit ends with a migration plan: what binn init closes first, the se
   assert.deepEqual(rest[0]!.findings, ['tracker.token', 'tracker.token_works']);
   assert.doesNotMatch(plan.summary, /nothing to do/i);
 
+  // The text leads with the plan, each step with what to do, before any finding.
   const text = audit(t, [], {}, root).stdout;
-  const at = text.indexOf('\nMigration plan');
-  assert.ok(at > text.lastIndexOf('\n[ok]') && at > text.lastIndexOf('\n[gap]') && at > text.lastIndexOf('\n[unknown]'));
-  for (const step of plan.steps) {
-    assert.ok(text.slice(at).includes(`${step.number}. ${step.title}`), step.title);
-    assert.ok(text.slice(at).includes(step.todo), step.title);
-  }
+  const at = text.indexOf('\nMigration plan: ');
+  const end = text.indexOf('\nGaps and unknowns\n');
+  assert.ok(at !== -1 && at < end, text);
+  for (const step of plan.steps) assert.ok(text.slice(at, end).includes(`\n    ${step.todo}\n`), step.title);
+  assert.ok(text.slice(at, end).includes('\n1. Run binn init ('));
+  assert.ok(text.slice(at, end).includes('\n2. Deal with the committed secrets\n'));
 });
 
 test('binn audit on a repository with every finding ok has a plan with nothing to do, in the text and the JSON', (t) => {
@@ -1034,5 +1056,100 @@ test('binn audit on a repository with every finding ok has a plan with nothing t
   assert.deepEqual(plan.steps, []);
   assert.match(plan.summary, /nothing to do/i);
   const text = run([]);
-  assert.match(text.slice(text.indexOf('\nMigration plan')), /Nothing to do/);
+  assert.match(text.split('\n')[0]!, /; nothing to do\.$/);
+  assert.match(text, /\nMigration plan: Nothing to do: every finding is ok\.\n/);
+  assert.doesNotMatch(text, /Gaps and unknowns/);
+});
+
+/** The areas as the text names them, in the audit's order. */
+const AREA_NAMES = {
+  English: ['Git and tracker', 'Docs', 'Matt Pocock layout', '.scratch', 'Capabilities', 'Instructions', 'Structure', 'Telemetry', 'Docker', 'Secrets', 'Security'],
+  Russian: ['Git и трекер', 'Документация', 'Раскладка Matt Pocock', '.scratch', 'Инструменты', 'Инструкции агентов', 'Структура проекта', 'Телеметрия', 'Docker', 'Секреты', 'Безопасность'],
+};
+const HEADINGS = {
+  English: { totals: /^Audit of (.+): (\d+) ok, (\d+) gaps?, (\d+) unknown; (\d+) steps? in the migration plan\.$/, plan: 'Migration plan: ', gaps: 'Gaps and unknowns', ok: 'In order', status: { gap: 'gap', unknown: 'unknown' }, recommendation: 'Recommendation' },
+  Russian: { totals: /^Аудит (.+): в порядке — (\d+), пробелов — (\d+), неизвестно — (\d+); шагов в плане перехода — (\d+)\.$/, plan: 'План перехода: ', gaps: 'Пробелы и неизвестное', ok: 'В порядке', status: { gap: 'пробел', unknown: 'неизвестно' }, recommendation: 'Рекомендация' },
+};
+
+test("binn audit's text leads with its totals, then the plan by area, then the gaps and unknowns by area, then each ok in a line, with no code, in English and in Russian", (t) => {
+  const root = fixture(t, 'git@github.com:owner/name.git');
+  commit(root, { '.env': 'KEY=value\n', 'notes/plans.md': '# plans\n', 'docs/roadmap.md': '# Roadmap\n' });
+  const { findings: all, plan } = JSON.parse(audit(t, [root, '--json']).stdout) as { findings: Finding[]; plan: Plan };
+  const open = all.filter(({ status }) => status !== 'ok');
+  const count = (status: string) => all.filter((finding) => finding.status === status).length;
+  assert.ok(count('gap') > 0 && count('unknown') > 0 && count('ok') > 0 && plan.steps.length > 2);
+  for (const [language, env] of LANGUAGES) {
+    const result = audit(t, [root], env);
+    assert.equal(result.status, 0, result.stderr);
+    const text = result.stdout;
+    const lines = text.split('\n');
+    const words = HEADINGS[language];
+    const names = AREA_NAMES[language];
+    const nameOf = (area: string) => names[AREAS.indexOf(area)]!;
+
+    // One line of totals, its numbers the JSON's.
+    const totals = words.totals.exec(lines[0]!);
+    assert.ok(totals, `${language}: ${lines[0]}`);
+    assert.deepEqual(totals.slice(1), [root, String(count('ok')), String(count('gap')), String(count('unknown')), String(plan.steps.length)]);
+
+    // Then the plan, then the gaps and unknowns, then the ok findings.
+    const at = { plan: lines.findIndex((line) => line.startsWith(words.plan)), gaps: lines.indexOf(words.gaps), ok: lines.indexOf(words.ok) };
+    assert.ok(at.plan === 2 && at.plan < at.gaps && at.gaps < at.ok, `${language}: ${JSON.stringify(at)}\n${text}`);
+    // Each step by its number, in order, naming its areas rather than its codes.
+    const steps = lines.slice(at.plan, at.gaps).filter((line) => /^\d+\. /.test(line));
+    assert.deepEqual(
+      steps.map((line) => Number.parseInt(line)),
+      plan.steps.map(({ number }) => number),
+    );
+    const initAreas = AREAS.filter((area) => open.some((finding) => finding.init && finding.area === area));
+    assert.ok(steps[0]!.endsWith(` (${initAreas.map(nameOf).join(', ')})`), `${language}: ${steps[0]}`);
+    plan.steps.slice(2).forEach((step, index) => assert.equal(steps[index + 2], `${step.number}. ${nameOf(step.title.replace(/^The (.+) area$/, '$1'))}`, language));
+
+    // The gaps and unknowns under their areas' names, in the audit's order, each with its recommendation.
+    const gaps = lines.slice(at.gaps + 1, at.ok);
+    assert.deepEqual(
+      gaps.filter((line) => line !== '' && !line.startsWith(' ')),
+      AREAS.filter((area) => open.some((finding) => finding.area === area)).map(nameOf),
+    );
+    const entries = gaps.filter((line) => line.startsWith(`  ${words.status.gap}: `) || line.startsWith(`  ${words.status.unknown}: `));
+    assert.equal(entries.length, open.length, `${language}: one entry per gap or unknown`);
+    assert.equal(gaps.filter((line) => line.startsWith(`    ${words.recommendation}: `)).length, open.length, `${language}: one recommendation per gap or unknown`);
+    // Then each ok finding in one line.
+    const ok = lines.slice(at.ok + 1).filter((line) => line !== '');
+    assert.equal(ok.length, count('ok'), language);
+
+    for (const finding of all) assert.ok(!text.includes(finding.code), `${language} shows ${finding.code}`);
+    if (language === 'English') {
+      for (const finding of open) {
+        const entry = gaps.indexOf(`  ${finding.status}: ${finding.reason}`);
+        assert.ok(entry !== -1, finding.reason);
+        assert.equal(gaps[entry + 1], `    Recommendation: ${finding.recommendation}`);
+        assert.equal(gaps.slice(0, entry).findLast((line) => line !== '' && !line.startsWith(' ')), nameOf(finding.area));
+      }
+      for (const finding of all.filter(({ status }) => status === 'ok')) assert.ok(ok.includes(`  ${nameOf(finding.area)}: ${finding.reason}`), finding.reason);
+    } else {
+      // Every reason and recommendation is worded in Russian: none is the English --json carries.
+      for (const finding of all) {
+        assert.ok(!text.includes(finding.reason), `English in the Russian text: ${finding.reason}`);
+        if (finding.recommendation) assert.ok(!text.includes(finding.recommendation), `English in the Russian text: ${finding.recommendation}`);
+      }
+      assert.doesNotMatch(text, /\(англ\.\)/);
+    }
+  }
+});
+
+test('binn audit --json is byte-for-byte the same under a Russian locale as under an English one', (t) => {
+  const root = fixture(t, 'https://gitlab.example.com/group/project.git');
+  commit(root, {
+    '.env': 'KEY=value\n',
+    Dockerfile: 'FROM scratch\n',
+    'package.json': '{}\n',
+    'docs/roadmap.md': '# Roadmap\n',
+    '.binnacle/project.yaml': 'version: 1\nproject:\n  id: repo\nknowledge:\n  docs: docs\n',
+    'CLAUDE.md': '# c\n',
+    'AGENTS.md': '# a\n',
+  });
+  const english = audit(t, ['--json'], {}, root);
+  assert.equal(english.status, 0, english.stderr);
+  for (const locale of [RU, { LC_ALL: '', LANG: 'ru_RU.UTF-8' }, { LC_ALL: '', LANG: '' }]) assert.equal(audit(t, ['--json'], locale, root).stdout, english.stdout, JSON.stringify(locale));
 });

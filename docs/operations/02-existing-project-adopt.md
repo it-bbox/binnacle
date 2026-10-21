@@ -41,7 +41,9 @@ A secret the audit finds is still in Git's history once its line is deleted: rem
 
 A stranded document is a tracked plan, spec, decision, TODO, notes, backlog, design, RFC, PRD, roadmap or ADR outside Binnacle's places. The audit only lists them, as `docs.stranded`; `/binnacle:roadmap` proposes where each goes.
 
-The report ends with a migration plan: the findings that are not `ok`, in numbered steps, each with a title, the codes of its findings and what to do.
+The text leads with what to do, in your language: Russian when `LC_ALL`, or else `LANG`, starts with `ru`, English otherwise. One line of totals comes first, then the migration plan, then the gaps and unknowns by area, each with its reason and recommendation, then each `ok` finding in a line. The text shows no finding's code; `--json` carries the codes, and its reasons and recommendations are English whatever the locale.
+
+The migration plan puts the findings that are not `ok` in numbered steps, each naming its areas and what to do; in `--json`, each step has a title, the codes of its findings and what to do.
 
 1. Everything `binn init` closes: the manifest, `docs/` and the roadmap skeleton, the Matt Pocock convention files and the ticket-header section, a first `AGENTS.md`, the tools it installs, Binnacle's skills and the telemetry export.
 2. The secrets: every finding of the `secrets` area.

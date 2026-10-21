@@ -1,142 +1,155 @@
 import { readGitFacts, readGitLocation, type GitFacts } from '@binnacle/adapters';
-import { AUDIT_AREAS, forgeRemote, instructionSets, type Finding } from '@binnacle/core';
+import { AUDIT_AREAS, forgeRemote, instructionSets, type AuditArea, type Finding, type Language } from '@binnacle/core';
 import { MANIFEST_RELATIVE, OperationError, readManifest, resolveGitTimeout, trackerToken } from '@binnacle/daemon';
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, posix, resolve } from 'node:path';
 import { docker, scratch, secrets, security, stranded, structure } from './audit-files.ts';
+import { REPORT_WORDS, word, words, type Check } from './audit-text.ts';
 import { capabilities, telemetry, telemetryExport } from './audit-tools.ts';
 import { EXIT, type ExitCode } from './exit.ts';
-import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, MATT_POCOCK_FILES, mattPocockFiles, roadmapGaps, specSlugs } from './layout.ts';
+import { LANGUAGE } from './language.ts';
+import { hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, MATT_POCOCK_FILES, mattPocockFiles, roadmapGaps, specSlugs } from './layout.ts';
+import { say } from './text.ts';
 
 type Repository = Extract<GitFacts, { available: true }>;
 
 /**
  * `binn audit [path]`: findings about the Git repository containing `path`, as text or JSON.
  * It reads and never writes (ADR-0020), makes no network call and runs nothing but Git. Gaps
- * leave the exit code at 0; it fails only when the audit could not run.
+ * leave the exit code at 0; it fails only when the audit could not run. `--json` is English
+ * whatever the locale; the text is in the person's language and leads with what to do.
  */
 export async function audit(home: string, path: string | undefined, json: boolean): Promise<ExitCode> {
   const git = await readGitFacts(resolve(path ?? process.cwd()), resolveGitTimeout());
   if (!git.available) {
-    console.error(`binn: ${git.reason} binn audit works on a Git repository.`);
+    console.error(`binn: ${REPORT_WORDS[LANGUAGE].notGit(say({ code: git.code, message: git.reason, params: git.params }))}`);
     return EXIT.failed;
   }
 
   // One list per area, so that each later area is one more entry here; the sort is stable, so checks keep their order within an area.
-  const all: Finding[] = [...gitAndTracker(git, home), await worktreeConfig(git.root), ...docs(git.root), ...mattPocockLayout(git.root), ...scratch(git.root), ...capabilities(git.root), ...instructions(git.root), ...structure(git.root), ...(await telemetry(git.root)), ...telemetryExport(home), ...docker(git.root), ...secrets(git.root), ...security(git.root)]
+  const all: Check[] = [...gitAndTracker(git, home), await worktreeConfig(git.root), ...docs(git.root), ...mattPocockLayout(git.root), ...scratch(git.root), ...capabilities(git.root), ...instructions(git.root), ...structure(git.root), ...(await telemetry(git.root)), ...telemetryExport(home), ...docker(git.root), ...secrets(git.root), ...security(git.root)]
     .sort((a, b) => AUDIT_AREAS.indexOf(a.area) - AUDIT_AREAS.indexOf(b.area))
-    .map(({ code, area, status, init, reason, recommendation }) => ({ code, area, status, init: init ?? false, reason, ...(recommendation === undefined ? {} : { recommendation }) }));
-  const plan = migrationPlan(all);
+    .map((check) => ({ ...check, init: check.init ?? false }));
 
   if (json) {
-    console.log(JSON.stringify({ root: git.root, findings: all, plan }, null, 2));
+    const findings: Finding[] = all.map((check) => {
+      const { reason, recommendation } = word('en', check);
+      return { code: check.code, area: check.area, status: check.status, init: check.init!, reason, ...(recommendation === undefined ? {} : { recommendation }) };
+    });
+    const { en } = REPORT_WORDS;
+    const steps = migrationPlan(all).map(({ kind, checks }, at) => ({
+      number: at + 1,
+      title: kind === 'init' ? en.init : kind === 'secrets' ? en.secrets : `The ${kind} area`,
+      findings: [...new Set(checks.map(({ code }) => code))],
+      todo: todo('en', kind, checks),
+    }));
+    console.log(JSON.stringify({ root: git.root, findings, plan: { steps, summary: en.summary(steps.length) } }, null, 2));
   } else {
-    console.log(`Audit of ${git.root}\n`);
-    for (const { code, area, status, reason, recommendation } of all) {
-      console.log(`[${status}] ${code} (${area})\n    ${reason}`);
-      if (recommendation) console.log(`    Recommendation: ${recommendation}`);
-    }
-    console.log(`\nMigration plan\n    ${plan.summary}`);
-    for (const { number, title, findings, todo } of plan.steps) console.log(`${number}. ${title} (${findings.join(', ')})\n    ${todo}`);
+    console.log(report(git.root, all, LANGUAGE));
   }
   return EXIT.ok;
 }
 
-type Step = { number: number; title: string; findings: string[]; todo: string };
+/** A plan's step: binn init's, the secrets', or one area's, with its findings. */
+type Step = { kind: 'init' | 'secrets' | AuditArea; checks: Check[] };
 
 /**
  * The migration plan (CONTEXT.md): every finding not `ok` that `binn init` closes, then the secrets, then one step per area
- * in the areas' order, its gaps before its unknowns. A step names its findings by code; an area with nothing to do has none.
- * It is advice: nothing is run.
+ * in the areas' order, its gaps before its unknowns. A step with nothing to do is left out. It is advice: nothing is run.
  */
-function migrationPlan(all: Finding[]): { steps: Step[]; summary: string } {
+function migrationPlan(all: Check[]): Step[] {
   const open = all.filter(({ status }) => status !== 'ok');
-  const groups: [string, Finding[], string][] = [
-    ['Run binn init', open.filter(({ init }) => init), 'Run binn init: it shows one plan of every file it writes and every tool it installs, and changes nothing until you confirm it.'],
-    [
-      'Deal with the committed secrets',
-      open.filter(({ init, area }) => !init && area === 'secrets'),
-      "Remove each value and stop tracking each environment file, as each finding's recommendation says, then rotate every key at its provider: deleting a line revokes nothing. If a commit holding one was ever pushed, rewriting Git's history is your decision; gitleaks scans the history, which the audit does not read.",
-    ],
-    ...AUDIT_AREAS.filter((area) => area !== 'secrets').map((area): [string, Finding[], string] => {
-      const mine = open.filter((finding) => !finding.init && finding.area === area);
-      const ordered = [...mine.filter(({ status }) => status === 'gap'), ...mine.filter(({ status }) => status === 'unknown')];
-      return [`The ${area} area`, ordered, [...new Set(ordered.map(({ recommendation }) => recommendation))].join(' ')];
+  const steps: Step[] = [
+    { kind: 'init', checks: open.filter(({ init }) => init) },
+    { kind: 'secrets', checks: open.filter(({ init, area }) => !init && area === 'secrets') },
+    ...AUDIT_AREAS.filter((area) => area !== 'secrets').map((area): Step => {
+      const mine = open.filter((check) => !check.init && check.area === area);
+      return { kind: area, checks: [...mine.filter(({ status }) => status === 'gap'), ...mine.filter(({ status }) => status === 'unknown')] };
     }),
   ];
-  const steps = groups
-    .filter(([, findings]) => findings.length > 0)
-    .map(([title, findings, todo], at) => ({ number: at + 1, title, findings: [...new Set(findings.map(({ code }) => code))], todo }));
-  return {
-    steps,
-    summary: steps.length === 0 ? 'Nothing to do: every finding is ok.' : `${steps.length} step${steps.length === 1 ? '' : 's'}, in order. Each is yours to carry out; the audit runs none.`,
-  };
+  return steps.filter(({ checks }) => checks.length > 0);
+}
+
+/** What a step asks: binn init's and the secrets' own words, an area's recommendations once each. */
+function todo(language: Language, kind: Step['kind'], checks: Check[]): string {
+  const words = REPORT_WORDS[language];
+  if (kind === 'init') return words.initTodo;
+  if (kind === 'secrets') return words.secretsTodo;
+  return [...new Set(checks.map((check) => word(language, check).recommendation))].join(' ');
+}
+
+/**
+ * The text: one line of totals, then the plan, its steps naming their areas, then the gaps and unknowns by area, each
+ * with its reason and recommendation, then each `ok` in a line. No finding's code is in it.
+ */
+function report(root: string, all: Check[], language: Language): string {
+  const words = REPORT_WORDS[language];
+  const area = (name: AuditArea) => words.areas[name];
+  const steps = migrationPlan(all);
+  const count = (status: Finding['status']) => all.filter((check) => check.status === status).length;
+  const lines = [words.totals(root, { ok: count('ok'), gap: count('gap'), unknown: count('unknown') }, steps.length), '', `${words.plan}: ${words.summary(steps.length)}`];
+  steps.forEach(({ kind, checks }, at) => {
+    const title =
+      kind === 'init'
+        ? `${words.init} (${AUDIT_AREAS.filter((name) => checks.some((check) => check.area === name))
+            .map(area)
+            .join(', ')})`
+        : kind === 'secrets'
+          ? words.secrets
+          : area(kind);
+    lines.push(`${at + 1}. ${title}`, `    ${todo(language, kind, checks)}`);
+  });
+  const open = all.filter(({ status }) => status !== 'ok');
+  if (open.length > 0) {
+    lines.push('', words.gaps);
+    for (const name of AUDIT_AREAS) {
+      const mine = open.filter((check) => check.area === name);
+      if (mine.length === 0) continue;
+      lines.push(area(name));
+      for (const check of mine) {
+        const { reason, recommendation } = word(language, check);
+        lines.push(`  ${words.status[check.status]}: ${reason}`, `    ${words.recommendation}: ${recommendation}`);
+      }
+    }
+  }
+  const ok = all.filter(({ status }) => status === 'ok');
+  if (ok.length > 0) lines.push('', words.ok, ...ok.map((check) => `  ${area(check.area)}: ${word(language, check).reason}`));
+  return lines.join('\n');
 }
 
 /** Whether this is a repository, on what branch, which tracker its remote names and whether a token for it exists. */
-function gitAndTracker(git: Repository, home: string): Finding[] {
+function gitAndTracker(git: Repository, home: string): Check[] {
   const area = 'git-and-tracker';
-  const branch = git.detached ? 'a detached HEAD' : `branch ${git.branch}${git.commit === null ? ' (no commit yet)' : ''}`;
-  const found: Finding[] = [{ code: 'git.repository', area, status: 'ok', reason: `A Git repository, on ${branch}.` }];
+  const found: Check[] = [{ code: 'git.repository', area, status: 'ok', ...words('git.repository', { branch: git.detached ? null : git.branch, empty: git.commit === null }) }];
   // A Binnacle file, and the one that declares the tracker: its absence is what `binn init` answers.
   found.push(
     existsSync(join(git.root, MANIFEST_RELATIVE))
-      ? { code: 'binnacle.manifest', area, status: 'ok', reason: `${MANIFEST_RELATIVE} is present.` }
-      : {
-          code: 'binnacle.manifest',
-          area,
-          status: 'gap',
-          init: true,
-          reason: `${MANIFEST_RELATIVE} is missing, so Binnacle has no declaration of this project.`,
-          recommendation: 'Run binn init, which shows the file it would create and writes it only after you confirm.',
-        },
+      ? { code: 'binnacle.manifest', area, status: 'ok', ...words('manifest.present', { path: MANIFEST_RELATIVE }) }
+      : { code: 'binnacle.manifest', area, status: 'gap', init: true, ...words('manifest.missing', { path: MANIFEST_RELATIVE }) },
   );
 
   const forge = forgeRemote(git.remotes);
   if (!forge) {
-    if (git.remotes.length === 0) {
-      found.push({
-        code: 'tracker.provider',
-        area,
-        status: 'ok',
-        reason: 'No remote, so no remote tracker. Local tickets under docs/specs/ are a tracker Binnacle reads.',
-      });
-    } else {
-      found.push({
-        code: 'tracker.provider',
-        area,
-        status: 'unknown',
-        reason: `The remote ${git.remotes[0]!.name} is not recognised as GitHub or GitLab from its URL, so Binnacle would read local tickets under docs/specs/.`,
-        recommendation: 'If the remote is a self-hosted GitHub or GitLab, declare it in the tracker section of .binnacle/project.yaml.',
-      });
-    }
+    found.push(
+      git.remotes.length === 0
+        ? { code: 'tracker.provider', area, status: 'ok', ...words('provider.local') }
+        : { code: 'tracker.provider', area, status: 'unknown', ...words('provider.unrecognised', { remote: git.remotes[0]!.name }) },
+    );
     return found;
   }
 
-  found.push({ code: 'tracker.provider', area, status: 'ok', reason: `The remote names a ${forge.provider} tracker, ${forge.repository} on ${forge.host}.` });
+  found.push({ code: 'tracker.provider', area, status: 'ok', ...words('provider.forge', { provider: forge.provider, repository: forge.repository, host: forge.host }) });
   // The daemon's own lookup, so that the two never disagree. Only its presence is used; the value goes no further.
   const token = trackerToken(home, forge.provider, forge.host === `${forge.provider}.com` ? null : forge.host);
   if ('failure' in token) {
-    found.push({ code: 'tracker.token', area, status: 'gap', reason: token.failure.message, recommendation: 'Fix the token as that message says.' });
+    found.push({ code: 'tracker.token', area, status: 'gap', ...words('token.unusable', { failure: token.failure }) });
   } else if (token.token === null) {
-    found.push({
-      code: 'tracker.token',
-      area,
-      status: 'gap',
-      reason: `No tracker token: BINNACLE_${forge.provider.toUpperCase()}_TOKEN is not set and the credentials file has no entry for ${forge.host}.`,
-      recommendation: 'A public repository needs none. For a private one, give Binnacle a read-only token (docs/operations/05-installation-checklist.md, Tracker credentials).',
-    });
+    found.push({ code: 'tracker.token', area, status: 'gap', ...words('token.none', { variable: `BINNACLE_${forge.provider.toUpperCase()}_TOKEN`, host: forge.host }) });
   } else {
-    found.push({ code: 'tracker.token', area, status: 'ok', reason: 'A tracker token is present, in the environment or the credentials file. Its value is not shown.' });
+    found.push({ code: 'tracker.token', area, status: 'ok', ...words('token.present') });
   }
-  found.push({
-    code: 'tracker.token_works',
-    area,
-    status: 'unknown',
-    reason: 'Whether a token works is known only from the network, which the audit does not use.',
-    recommendation: 'Run binn init, which reads the tracker once and says whether it was readable.',
-  });
+  found.push({ code: 'tracker.token_works', area, status: 'unknown', ...words('token.works') });
   return found;
 }
 
@@ -145,16 +158,14 @@ function gitAndTracker(git: Repository, home: string): Finding[] {
  * to a Git library that refuses an extension it does not know, as Antigravity's does. A `config.worktree` in the common Git
  * directory, the main worktree's, or under its `worktrees/`, a linked worktree's, makes the setting deliberate.
  */
-async function worktreeConfig(root: string): Promise<Finding> {
+async function worktreeConfig(root: string): Promise<Check> {
   const base = { code: 'git.worktree_config', area: 'git-and-tracker' } as const;
   // The repository's own config only: Git honours an extension nowhere else, and that is the file the unset command edits.
   const setting = spawnSync('git', ['config', '--local', '--bool', '--get', 'extensions.worktreeconfig'], { cwd: root, encoding: 'utf8', timeout: resolveGitTimeout() });
   // git config exits 1 for a key that is not set.
-  if (setting.status === 1 || (setting.status === 0 && setting.stdout.trim() !== 'true')) return { ...base, status: 'ok', reason: 'extensions.worktreeConfig is not set.' };
+  if (setting.status === 1 || (setting.status === 0 && setting.stdout.trim() !== 'true')) return { ...base, status: 'ok', ...words('worktree.unset') };
   const location = setting.status === 0 ? await readGitLocation(root, resolveGitTimeout()) : null;
-  if (!location) {
-    return { ...base, status: 'unknown', reason: 'Git could not read extensions.worktreeConfig or the common Git directory.', recommendation: 'Run git config --local --bool --get extensions.worktreeconfig in the repository to see why.' };
-  }
+  if (!location) return { ...base, status: 'unknown', ...words('worktree.unreadable') };
   const dir = location.commonDir;
   let linked: string[] = [];
   try {
@@ -163,28 +174,21 @@ async function worktreeConfig(root: string): Promise<Finding> {
     // No linked worktree.
   }
   const used = [join(dir, 'config.worktree'), ...linked].find((path) => existsSync(path));
-  if (used) return { ...base, status: 'ok', reason: `extensions.worktreeConfig is set, and ${used} uses it.` };
-  return {
-    ...base,
-    status: 'gap',
-    reason: "extensions.worktreeConfig is set, but no config.worktree uses it, in the common Git directory or any worktree's. Git ignores it; Antigravity's Git library refuses the repository, so Antigravity's agent cannot work in it.",
-    recommendation: 'Unset it with git config --unset extensions.worktreeconfig; nothing reads it, so nothing else changes.',
-  };
+  if (used) return { ...base, status: 'ok', ...words('worktree.used', { path: used }) };
+  return { ...base, status: 'gap', ...words('worktree.unused') };
 }
 
 /** Whether `CONTEXT.md`, an ADR directory and `docs/` exist, the roadmap, and the documents stranded outside Binnacle's places. */
-function docs(root: string): Finding[] {
+function docs(root: string): Check[] {
   const area = 'docs';
   const declared = knowledgeDocs(root);
-  const check = (code: string, path: string, what: string, recommendation: string, init = false): Finding =>
-    existsSync(join(root, path))
-      ? { code, area, status: 'ok', reason: `${path} exists.` }
-      : { code, area, status: 'gap', init, reason: `No ${path}: ${what}`, recommendation };
+  const check = (code: string, path: string, missing: 'context.missing' | 'adr.missing' | 'docs.missing', init = false): Check =>
+    existsSync(join(root, path)) ? { code, area, status: 'ok', ...words('exists', { path }) } : { code, area, status: 'gap', init, ...words(missing) };
   return [
-    check('docs.context', 'CONTEXT.md', 'the glossary of the domain an agent reads first.', 'Write CONTEXT.md; /grill-with-docs builds it as terms are settled.'),
-    check('docs.adr', 'docs/adr', 'no architecture decisions are recorded.', 'Record durable trade-offs as ADRs under docs/adr.'),
+    check('docs.context', 'CONTEXT.md', 'context.missing'),
+    check('docs.adr', 'docs/adr', 'adr.missing'),
     // binn init writes its convention files under docs/agents/, which creates docs/.
-    check('docs.docs', 'docs', 'no durable documentation directory.', 'Keep durable knowledge as Markdown under docs/.', true),
+    check('docs.docs', 'docs', 'docs.missing', true),
     roadmap(root, declared),
     // Without a usable declaration, the places are where binn init would declare them.
     stranded(root, declared ?? 'docs'),
@@ -204,59 +208,33 @@ function knowledgeDocs(root: string): string | null | undefined {
 }
 
 /** The roadmap Binnacle reads, `<knowledge.docs>/roadmap.md` (ADR-0025). */
-function roadmap(root: string, docs: string | null | undefined): Finding {
+function roadmap(root: string, docs: string | null | undefined): Check {
   const base = { code: 'docs.roadmap', area: 'docs' } as const;
-  if (docs === undefined) {
-    return {
-      ...base,
-      status: 'unknown',
-      reason: `${MANIFEST_RELATIVE} cannot be read as a manifest, so where its roadmap is, knowledge.docs, is not known.`,
-      recommendation: `Fix ${MANIFEST_RELATIVE}; binn init names its problems.`,
-    };
-  }
-  if (docs === null) {
-    return {
-      ...base,
-      status: 'gap',
-      reason: `${MANIFEST_RELATIVE} declares no knowledge.docs, so Binnacle reads no roadmap.`,
-      recommendation: `Declare knowledge.docs in ${MANIFEST_RELATIVE}, the directory whose roadmap.md is the roadmap.`,
-    };
-  }
+  if (docs === undefined) return { ...base, status: 'unknown', ...words('roadmap.unknown', { manifest: MANIFEST_RELATIVE }) };
+  if (docs === null) return { ...base, status: 'gap', ...words('roadmap.undeclared', { manifest: MANIFEST_RELATIVE }) };
   const path = posix.join(docs, 'roadmap.md');
   let text: string;
   try {
     text = readFileSync(join(root, path), 'utf8');
   } catch {
-    return { ...base, status: 'gap', init: true, reason: `No roadmap at ${path}, so Binnacle shows no position and no Next action.`, recommendation: 'Run binn init, which proposes a roadmap skeleton in Binnacle\'s format and writes it only after you confirm.' };
+    return { ...base, status: 'gap', init: true, ...words('roadmap.missing', { path }) };
   }
   const gaps = roadmapGaps(text);
-  if (gaps.length === 0) return { ...base, status: 'ok', reason: `${path} is in Binnacle's format.` };
-  return {
-    ...base,
-    status: 'gap',
-    reason: `${path} is not in Binnacle's format. ${gaps.join(' ')}`,
-    recommendation: `Bring ${path} into the format by hand, keeping its content; binn init never rewrites an existing roadmap.`,
-  };
+  if (gaps.length === 0) return { ...base, status: 'ok', ...words('roadmap.ok', { path }) };
+  return { ...base, status: 'gap', ...words('roadmap.format', { path, gaps }) };
 }
 
 /** The Matt Pocock layout: its convention files and a spec directory, and the ticket-header convention. */
-function mattPocockLayout(root: string): Finding[] {
+function mattPocockLayout(root: string): Check[] {
   const area = 'matt-pocock-layout';
   const present = mattPocockFiles(root);
   const slugs = specSlugs(root);
   const missing = [...MATT_POCOCK_FILES.filter((path) => !present.includes(path)), ...(slugs.length === 0 ? ['docs/specs/<slug>/'] : [])];
-  const found: Finding[] = [];
+  const found: Check[] = [];
   if (missing.length === 0) {
-    found.push({ code: 'layout.files', area, status: 'ok', reason: `The layout is in place: ${present.join(', ')}, and ${slugs.length} spec${slugs.length === 1 ? '' : 's'} under docs/specs/.` });
+    found.push({ code: 'layout.files', area, status: 'ok', ...words('layout.ok', { present, specs: slugs.length }) });
   } else if (present.length + slugs.length === 0) {
-    found.push({
-      code: 'layout.files',
-      area,
-      status: 'gap',
-      init: true,
-      reason: `No Matt Pocock layout: ${missing.join(', ')} are all missing.`,
-      recommendation: 'Run binn init, which writes the convention files; /to-spec writes the spec directories.',
-    });
+    found.push({ code: 'layout.files', area, status: 'gap', init: true, ...words('layout.none', { missing }) });
   } else {
     found.push({
       code: 'layout.files',
@@ -264,43 +242,23 @@ function mattPocockLayout(root: string): Finding[] {
       status: 'gap',
       // binn init writes the convention files; a spec directory alone is /to-spec's.
       init: present.length < MATT_POCOCK_FILES.length,
-      reason: `The Matt Pocock layout is partial. Present: ${[...present, ...slugs.map((slug) => `docs/specs/${slug}/`)].join(', ')}. Missing: ${missing.join(', ')}.`,
-      recommendation: 'Add only the missing parts: binn init writes the missing convention files, and /to-spec the spec directories.',
+      ...words('layout.partial', { present: [...present, ...slugs.map((slug) => `docs/specs/${slug}/`)], missing }),
     });
   }
-  const tracker = present.includes(ISSUE_TRACKER);
   found.push(
     hasTicketHeaderSection(root)
-      ? { code: 'layout.ticket_header', area, status: 'ok', reason: `${ISSUE_TRACKER} has its ticket-header section.` }
-      : {
-          code: 'layout.ticket_header',
-          area,
-          status: 'gap',
-          init: true,
-          reason: `${ISSUE_TRACKER} has no ticket-header convention${tracker ? '' : ' (the file is missing)'}, which Binnacle reads a ticket's state and dependencies from (ADR-0024).`,
-          recommendation: `Run binn init, which offers ${tracker ? 'to add the section' : 'the file with the section'}.`,
-        },
+      ? { code: 'layout.ticket_header', area, status: 'ok', ...words('header.ok', { path: ISSUE_TRACKER }) }
+      : { code: 'layout.ticket_header', area, status: 'gap', init: true, ...words('header.missing', { path: ISSUE_TRACKER, file: present.includes(ISSUE_TRACKER) }) },
   );
   return found;
 }
 
 /** AGENTS.md and CLAUDE.md as the sets an agent reads. */
-function instructions(root: string): Finding[] {
-  const area = 'instructions';
+function instructions(root: string): Check[] {
+  const base = { code: 'instructions.sets', area: 'instructions' } as const;
   const sets = instructionSets(instructionFiles(root));
-  if (sets.length === 0) {
-    // binn init writes an AGENTS.md holding its Agent skills block.
-    return [{ code: 'instructions.sets', area, status: 'gap', init: true, reason: 'No AGENTS.md or CLAUDE.md: a first agent starts without instructions.', recommendation: 'Write AGENTS.md; have CLAUDE.md hold @AGENTS.md if Claude Code needs its own file.' }];
-  }
-  const described = describeSets(sets);
-  if (sets.length === 1) return [{ code: 'instructions.sets', area, status: 'ok', reason: `One instruction set: ${described}.` }];
-  return [
-    {
-      code: 'instructions.sets',
-      area,
-      status: 'gap',
-      reason: `Two instruction files that do not import each other: ${described}. An agent may read two truths.`,
-      recommendation: 'Decide which is canonical, and have the other import it (a CLAUDE.md holding @AGENTS.md).',
-    },
-  ];
+  // binn init writes an AGENTS.md holding its Agent skills block.
+  if (sets.length === 0) return [{ ...base, status: 'gap', init: true, ...words('instructions.none') }];
+  if (sets.length === 1) return [{ ...base, status: 'ok', ...words('instructions.one', { sets }) }];
+  return [{ ...base, status: 'gap', ...words('instructions.two', { sets }) }];
 }

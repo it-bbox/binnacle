@@ -1007,7 +1007,7 @@ function layoutStep(session: Session, { issues, docs }: Layout, language: Langua
     session.say(`${path} is in Binnacle's format. It is left as it is.`);
     return record(session, 'skipped', `${path}: it exists`);
   }
-  session.say(`${path} is not in Binnacle's format, and binn init never rewrites it. ${gaps.join(' ')}`);
+  session.say(`${path} is not in Binnacle's format, and binn init never rewrites it. ${gaps.map(({ message }) => message).join(' ')}`);
   record(session, 'skipped', `${path}: it exists, and is not in Binnacle's format; binn audit names what is missing`);
 }
 

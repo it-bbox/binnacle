@@ -1,8 +1,8 @@
 import { spawnSync } from 'node:child_process';
-import type { Finding } from '@binnacle/core';
 import { resolveGitTimeout } from '@binnacle/daemon';
 import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, join, posix } from 'node:path';
+import { words, type Check } from './audit-text.ts';
 
 /** The `.scratch`, the stranded documents, the tests, CI and structure checks, the container setup, the secrets and the security basics of `binn audit`: files only, nothing is run but `git check-ignore` and `git ls-files`. */
 
@@ -25,37 +25,21 @@ function files(dir: string, prefix = '', depth = 6): string[] {
  */
 const DURABLE = /(^|[/\-_.])(specs?|tickets?|issues?|prd)([/\-_.]|$)/i;
 
-export function scratch(root: string): Finding[] {
+export function scratch(root: string): Check[] {
   const area = 'scratch';
-  if (!existsSync(join(root, '.scratch'))) return [{ code: 'scratch.exists', area, status: 'ok', reason: 'No .scratch directory, so nothing to check.' }];
-  const found: Finding[] = [{ code: 'scratch.exists', area, status: 'ok', reason: '.scratch exists.' }];
+  if (!existsSync(join(root, '.scratch'))) return [{ code: 'scratch.exists', area, status: 'ok', ...words('scratch.none') }];
+  const found: Check[] = [{ code: 'scratch.exists', area, status: 'ok', ...words('scratch.exists') }];
 
   // A path inside it, so that the answer holds whether the rule names the directory or its contents.
   const ignored = spawnSync('git', ['check-ignore', '-q', '--', '.scratch/probe'], { cwd: root, timeout: resolveGitTimeout() }).status === 0;
-  found.push(
-    ignored
-      ? { code: 'scratch.ignored', area, status: 'ok', reason: 'Git ignores .scratch.' }
-      : {
-          code: 'scratch.ignored',
-          area,
-          status: 'gap',
-          reason: 'Git does not ignore .scratch, so its working files can be committed by mistake.',
-          recommendation: 'Add .scratch/ to .gitignore.',
-        },
-  );
+  found.push(ignored ? { code: 'scratch.ignored', area, status: 'ok', ...words('scratch.ignored') } : { code: 'scratch.ignored', area, status: 'gap', ...words('scratch.unignored') });
 
   const tracked = new Set(files(join(root, 'docs/specs')).map((path) => basename(path)));
   const only = files(join(root, '.scratch')).filter((path) => path.endsWith('.md') && DURABLE.test(path) && !tracked.has(basename(path)));
   found.push(
     only.length === 0
-      ? { code: 'scratch.durable', area, status: 'ok', reason: '.scratch holds no spec or ticket that is not also under docs/specs/.' }
-      : {
-          code: 'scratch.durable',
-          area,
-          status: 'gap',
-          reason: `.scratch holds what looks like the only copy of a spec or a ticket: ${only.map((path) => `.scratch/${path}`).join(', ')}.`,
-          recommendation: 'Move each into Git, a spec under docs/specs/<slug>/ and its tickets under docs/specs/<slug>/issues/, before a worktree removal loses it.',
-        },
+      ? { code: 'scratch.durable', area, status: 'ok', ...words('scratch.clean') }
+      : { code: 'scratch.durable', area, status: 'gap', ...words('scratch.durable', { paths: only.map((path) => `.scratch/${path}`) }) },
   );
   return found;
 }
@@ -78,12 +62,10 @@ const PLACES = /^((readme|licen[cs]e|changelog|contributing|security)(\.[^/]*)?|
  * (CONTEXT.md, *Stranded document*). `docs` is knowledge.docs, which holds the roadmap, vision, inbox, specs, ADRs and agent conventions.
  * A matching directory is listed once, as `dir/`. Untracked and ignored files are never read: the list is `git ls-files`.
  */
-export function stranded(root: string, docs: string): Finding {
+export function stranded(root: string, docs: string): Check {
   const base = { code: 'docs.stranded', area: 'docs' } as const;
   const listed = tracked(root);
-  if (!listed) {
-    return { ...base, status: 'unknown', reason: 'git ls-files failed, so the tracked documents are not known.', recommendation: 'Run git ls-files in the repository to see why.' };
-  }
+  if (!listed) return { ...base, status: 'unknown', ...words('ls-files.failed', { what: 'documents' }) };
   const files = new Set(['roadmap.md', 'vision.md', 'product-inbox.md'].map((name) => posix.join(docs, name)));
   const dirs = ['specs', 'adr', 'agents'].map((name) => `${posix.join(docs, name)}/`);
   const found = new Set<string>();
@@ -93,13 +75,8 @@ export function stranded(root: string, docs: string): Finding {
     const at = segments.findIndex((segment) => STRANDED.test(segment));
     if (at !== -1) found.add(at === segments.length - 1 ? path : `${segments.slice(0, at + 1).join('/')}/`);
   }
-  if (found.size === 0) return { ...base, status: 'ok', reason: "No tracked document outside Binnacle's places names a plan, a spec, a decision, notes or a roadmap." };
-  return {
-    ...base,
-    status: 'unknown',
-    reason: `Documents outside Binnacle's places, where each belongs is a judgement: ${[...found].join(', ')}.`,
-    recommendation: 'Run /binnacle:roadmap, which proposes a place for each and moves nothing without your yes.',
-  };
+  if (found.size === 0) return { ...base, status: 'ok', ...words('stranded.none') };
+  return { ...base, status: 'unknown', ...words('stranded.found', { paths: [...found] }) };
 }
 
 const TEST_FILES = ['vitest.config.ts', 'vitest.config.js', 'vitest.config.mts', 'jest.config.js', 'jest.config.ts', 'jest.config.cjs', 'playwright.config.ts', 'pytest.ini', 'tox.ini', 'phpunit.xml', 'karma.conf.js'];
@@ -117,30 +94,29 @@ function packageJson(root: string): { scripts?: { test?: string }; workspaces?: 
   }
 }
 
-export function structure(root: string): Finding[] {
+export function structure(root: string): Check[] {
   const area = 'structure';
   const has = (path: string) => existsSync(join(root, path));
   const pkg = packageJson(root);
 
-  const testScript = typeof pkg.scripts?.test === 'string' && !/no test specified/.test(pkg.scripts.test);
-  const tests = [...(testScript ? ['a test script in package.json'] : []), ...[...TEST_FILES, ...TEST_DIRS.map((dir) => `${dir}/`)].filter(has)];
+  const script = typeof pkg.scripts?.test === 'string' && !/no test specified/.test(pkg.scripts.test);
+  const tests = [...TEST_FILES, ...TEST_DIRS.map((dir) => `${dir}/`)].filter(has);
   const ci = [...files(join(root, '.github/workflows')).filter((path) => /\.ya?ml$/.test(path)).map((path) => `.github/workflows/${path}`), ...CI_FILES.filter(has)];
 
-  const workspace = WORKSPACE_FILES.find(has) ?? (pkg.workspaces ? 'workspaces in package.json' : undefined);
+  // null: the workspaces key of package.json.
+  const workspace = WORKSPACE_FILES.find(has) ?? (pkg.workspaces ? null : undefined);
   const manifest = MANIFESTS.find(has);
 
   return [
-    tests.length > 0
-      ? { code: 'structure.tests', area, status: 'ok', reason: `A test setup: ${tests.join(', ')}. It was not run.` }
-      : { code: 'structure.tests', area, status: 'gap', reason: 'No test setup found: no test script, test configuration or test directory.', recommendation: 'Add tests and a command that runs them, so a change can be checked.' },
-    ci.length > 0
-      ? { code: 'structure.ci', area, status: 'ok', reason: `A CI configuration: ${ci.join(', ')}. It was not run.` }
-      : { code: 'structure.ci', area, status: 'gap', reason: 'No CI configuration found.', recommendation: 'Add a CI pipeline that runs the tests on every push.' },
-    workspace
-      ? { code: 'structure.shape', area, status: 'ok', reason: `A workspace of packages (${workspace}).` }
+    script || tests.length > 0
+      ? { code: 'structure.tests', area, status: 'ok', ...words('tests.found', { script, files: tests }) }
+      : { code: 'structure.tests', area, status: 'gap', ...words('tests.none') },
+    ci.length > 0 ? { code: 'structure.ci', area, status: 'ok', ...words('ci.found', { files: ci }) } : { code: 'structure.ci', area, status: 'gap', ...words('ci.none') },
+    workspace !== undefined
+      ? { code: 'structure.shape', area, status: 'ok', ...words('shape.workspace', { file: workspace }) }
       : manifest
-        ? { code: 'structure.shape', area, status: 'ok', reason: `A single package (${manifest}).` }
-        : { code: 'structure.shape', area, status: 'unknown', reason: 'No package manifest or workspace file at the root, so the shape of the project is not known from files.', recommendation: 'If the project is a monorepo, say so in AGENTS.md.' },
+        ? { code: 'structure.shape', area, status: 'ok', ...words('shape.single', { file: manifest }) }
+        : { code: 'structure.shape', area, status: 'unknown', ...words('shape.unknown') },
   ];
 }
 
@@ -155,12 +131,10 @@ const CONTAINER = /^(?!.*\.dockerignore$)(Dockerfile(\..+)?|.+\.Dockerfile|Conta
  * ponytail: the directory stands for the build context; a `docker build -f` from elsewhere or a compose `build.context`
  * is not followed, read the compose file when a project needs it.
  */
-export function docker(root: string): Finding[] {
+export function docker(root: string): Check[] {
   const area = 'docker';
   const listed = tracked(root);
-  if (!listed) {
-    return [{ code: 'docker.setup', area, status: 'unknown', reason: 'git ls-files failed, so the tracked container files are not known.', recommendation: 'Run git ls-files in the repository to see why.' }];
-  }
+  if (!listed) return [{ code: 'docker.setup', area, status: 'unknown', ...words('ls-files.failed', { what: 'containers' }) }];
   const contexts = new Map<string, string[]>();
   for (const path of listed) {
     if (!CONTAINER.test(posix.basename(path))) continue;
@@ -168,14 +142,11 @@ export function docker(root: string): Finding[] {
     const prefix = dir === '.' ? '' : `${dir}/`;
     contexts.set(prefix, [...(contexts.get(prefix) ?? []), path]);
   }
-  if (contexts.size === 0) {
-    return [{ code: 'docker.setup', area, status: 'ok', reason: 'No container file is tracked (a Dockerfile, a Containerfile or a compose file), so the project has no container setup to check.' }];
-  }
+  if (contexts.size === 0) return [{ code: 'docker.setup', area, status: 'ok', ...words('docker.none') }];
   const files = new Set(listed);
-  return [...contexts].map(([prefix, containers]): Finding => {
+  return [...contexts].map(([prefix, containers]): Check => {
     const ignores = [...new Set(containers.map((path) => (files.has(`${path}.dockerignore`) ? `${path}.dockerignore` : `${prefix}.dockerignore`)))];
-    const reasons: string[] = [];
-    const advice: string[] = [];
+    const problems: { ignore: string; missing: string[] | null }[] = [];
     for (const ignore of ignores) {
       let text: string | undefined;
       try {
@@ -184,20 +155,16 @@ export function docker(root: string): Finding[] {
         // A tracked file gone from the working tree is as good as missing.
       }
       if (text === undefined) {
-        reasons.push(`no tracked ${ignore}, so docker build sends the whole directory, .env and .git included`);
-        advice.push(`add ${ignore} with a line for .env and a line for .git`);
+        problems.push({ ignore, missing: null });
         continue;
       }
       // The .git directory is out when what it holds is: its config can carry a remote's credentials.
       const missing = ['.env', '.git'].filter((name) => !dockerignored(text, name === '.git' ? '.git/config' : name));
-      if (missing.length === 0) continue;
-      reasons.push(`${ignore} does not exclude ${missing.join(' or ')}, so docker build sends ${missing.length === 1 ? 'it' : 'them'}`);
-      advice.push(`add a line for ${missing.join(' and a line for ')} to ${ignore}`);
+      if (missing.length > 0) problems.push({ ignore, missing });
     }
     const base = { code: 'docker.ignore', area } as const;
-    if (reasons.length === 0) return { ...base, status: 'ok', reason: `${containers.join(', ')}: ${ignores.join(' and ')} exclude${ignores.length === 1 ? 's' : ''} .env and .git.` };
-    const recommendation = advice.join('; ');
-    return { ...base, status: 'gap', reason: `${containers.join(', ')}: ${reasons.join('; ')}.`, recommendation: `${recommendation[0]!.toUpperCase()}${recommendation.slice(1)}.` };
+    if (problems.length === 0) return { ...base, status: 'ok', ...words('docker.ok', { containers, ignores }) };
+    return { ...base, status: 'gap', ...words('docker.gap', { containers, problems }) };
   });
 }
 
@@ -253,26 +220,15 @@ const shellQuote = (path: string): string => (/^[A-Za-z0-9._/-]+$/.test(path) ? 
  * one over the size limit and anything that is not a regular file, such as a link pointing out of the repository, is skipped.
  * There is no allowlist: a real key could hide behind one.
  */
-export function secrets(root: string): Finding[] {
+export function secrets(root: string): Check[] {
   const area = 'secrets';
   const listed = tracked(root);
-  if (!listed) {
-    return [{ code: 'secrets.scan', area, status: 'unknown', reason: 'git ls-files failed, so the tracked files are not known.', recommendation: 'Run git ls-files in the repository to see why.' }];
-  }
-  const history = "If the commit was ever pushed, the value is in Git's history, and rewriting that history is your decision. The audit reads only the tracked files as they are now; gitleaks scans the history.";
-  const found: Finding[] = [];
+  if (!listed) return [{ code: 'secrets.scan', area, status: 'unknown', ...words('ls-files.failed', { what: 'files' }) }];
+  const found: Check[] = [];
   let read = 0;
   let skipped = 0;
   for (const path of listed) {
-    if (ENV_FILE.test(path)) {
-      found.push({
-        code: 'secrets.env',
-        area,
-        status: 'gap',
-        reason: `${path} is tracked: an environment file holds secrets whatever it holds today, and every clone gets it.`,
-        recommendation: `Stop tracking it with git rm --cached -- ${shellQuote(path)}, add it to .gitignore, rotate every key it held, and commit a .env.example without values instead. ${history}`,
-      });
-    }
+    if (ENV_FILE.test(path)) found.push({ code: 'secrets.env', area, status: 'gap', ...words('secrets.env', { path, quoted: shellQuote(path) }) });
     let bytes: Buffer;
     try {
       const stat = lstatSync(join(root, path));
@@ -295,19 +251,12 @@ export function secrets(root: string): Finding[] {
     text.split('\n').forEach((line, at) => {
       if (!TOKEN_START.test(line)) return;
       for (const { kind, pattern } of TOKENS) {
-        if (!pattern.test(line)) continue;
-        found.push({
-          code: 'secrets.token',
-          area,
-          status: 'gap',
-          reason: `${path}:${at + 1}: a token in the format of the ${kind}; the value is not shown.`,
-          recommendation: `Remove it from ${path}, and rotate the key at its provider: deleting the line does not revoke it. ${history}`,
-        });
+        if (pattern.test(line)) found.push({ code: 'secrets.token', area, status: 'gap', ...words('secrets.token', { path, line: at + 1, kind }) });
       }
     });
   }
   if (found.length > 0) return found;
-  return [{ code: 'secrets.scan', area, status: 'ok', reason: `No known token format and no .env file in the ${read} tracked text files read (${skipped} skipped: binary, over ${SECRET_SCAN_LIMIT / 1024 / 1024} MiB or not a regular file).` }];
+  return [{ code: 'secrets.scan', area, status: 'ok', ...words('secrets.none', { read, skipped, limit: SECRET_SCAN_LIMIT / 1024 / 1024 }) }];
 }
 
 /** Each package manifest with the lockfiles of its ecosystem: npm, pnpm, Yarn and Bun; Cargo; Go; Poetry and uv; Pipenv; Bundler; Composer. */
@@ -339,14 +288,12 @@ const POLICY = /^(\.github\/|docs\/)?security\.md$/i;
  * is configured; and whether a SECURITY.md is where GitHub reads it. Only tracked files count: another clone gets nothing else.
  * ponytail: a go.mod with no dependency needs no go.sum and still reads as a gap; read its require lines if that is ever reported.
  */
-export function security(root: string): Finding[] {
+export function security(root: string): Check[] {
   const area = 'security';
   const listed = tracked(root);
-  if (!listed) {
-    return [{ code: 'security.files', area, status: 'unknown', reason: 'git ls-files failed, so the tracked files are not known.', recommendation: 'Run git ls-files in the repository to see why.' }];
-  }
+  if (!listed) return [{ code: 'security.files', area, status: 'unknown', ...words('ls-files.failed', { what: 'files' }) }];
   const files = new Set(listed);
-  const found: Finding[] = [];
+  const found: Check[] = [];
 
   const manifests = listed.filter((path) => Object.hasOwn(LOCKFILES, posix.basename(path)));
   if (manifests.length > 0) {
@@ -363,43 +310,23 @@ export function security(root: string): Finding[] {
       }
     });
     const base = { code: 'security.lockfile', area } as const;
+    // Each ecosystem's lockfiles once, as the manifests without one name them.
+    const choices = [...new Map(bare.map((path) => LOCKFILES[posix.basename(path)]!).map((names) => [names.join(), names])).values()];
     found.push(
       bare.length === 0
-        ? { ...base, status: 'ok', reason: `${manifests.length} package manifest${manifests.length === 1 ? '' : 's'}, each with a tracked lockfile in its directory or above it: ${[...used].join(', ')}.` }
-        : {
-            ...base,
-            status: 'gap',
-            reason: `No tracked lockfile for ${bare.join(', ')}, so every install resolves the dependencies afresh, and two installs of the same commit can differ.`,
-            recommendation: `Install with the project's package manager and commit the lockfile it writes, beside the manifest or at the workspace's root: ${[...new Set(bare.map((path) => LOCKFILES[posix.basename(path)]!.join(' or ')))].join('; ')}.`,
-          },
+        ? { ...base, status: 'ok', ...words('lockfile.ok', { count: manifests.length, used: [...used] }) }
+        : { ...base, status: 'gap', ...words('lockfile.missing', { bare, choices }) },
     );
   }
 
-  const updates = UPDATES.find((path) => files.has(path)) ?? (files.has('package.json') && packageJson(root).renovate !== undefined ? 'package.json, its renovate key' : undefined);
+  // null: the renovate key of package.json.
+  const updates = UPDATES.find((path) => files.has(path)) ?? (files.has('package.json') && packageJson(root).renovate !== undefined ? null : undefined);
   found.push(
-    updates
-      ? { code: 'security.updates', area, status: 'ok', reason: `Dependency updates are configured: ${updates}.` }
-      : {
-          code: 'security.updates',
-          area,
-          status: 'gap',
-          reason: 'No Dependabot or Renovate configuration is tracked, so a dependency, and the fix for a vulnerability in it, is updated only when someone thinks of it.',
-          recommendation: 'Add .github/dependabot.yml for Dependabot on GitHub, or a renovate.json for Renovate, which also runs on GitLab and other forges.',
-        },
+    updates !== undefined ? { code: 'security.updates', area, status: 'ok', ...words('updates.ok', { where: updates }) } : { code: 'security.updates', area, status: 'gap', ...words('updates.none') },
   );
 
   const policy = listed.find((path) => POLICY.test(path));
-  found.push(
-    policy
-      ? { code: 'security.policy', area, status: 'ok', reason: `A security policy: ${policy}.` }
-      : {
-          code: 'security.policy',
-          area,
-          status: 'gap',
-          reason: 'No SECURITY.md at the root, in .github/ or in docs/. It tells whoever finds a vulnerability how to report it privately instead of in a public issue, which matters once the repository is public.',
-          recommendation: "Add SECURITY.md saying how to report a vulnerability privately, by an address or through the forge's private reporting, and which versions get fixes.",
-        },
-  );
+  found.push(policy ? { code: 'security.policy', area, status: 'ok', ...words('policy.ok', { path: policy }) } : { code: 'security.policy', area, status: 'gap', ...words('policy.none') });
   return found;
 }
 

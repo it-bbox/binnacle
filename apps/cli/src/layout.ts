@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { nextActionAttention, parseRoadmap, type Language } from '@binnacle/core';
+import { nextActionAttention, parseRoadmap, type Coded, type Language } from '@binnacle/core';
 
 /**
  * What a repository's documentation layout looks like, read the same way by `binn init` and
@@ -66,11 +66,11 @@ Next action: превратить видение в роадмап из эпик
 `,
 };
 
-/** What keeps a roadmap's text from Binnacle's format, each as a sentence; empty when it is in the format. */
-export function roadmapGaps(text: string): string[] {
+/** What keeps a roadmap's text from Binnacle's format, each with its code, its English sentence and its values; empty when it is in the format. */
+export function roadmapGaps(text: string): Coded[] {
   const { roadmap, diagnostics } = parseRoadmap(text);
   // Without a focus, roadmap.focus_missing already says so; no Tasks, so only a missing Next action is reported.
-  return [...diagnostics, ...(roadmap.focus === null ? [] : nextActionAttention(roadmap, null))].map(({ message }) => message);
+  return [...diagnostics, ...(roadmap.focus === null ? [] : nextActionAttention(roadmap, null))].map(({ code, message, params }) => ({ code, message, ...(params && { params }) }));
 }
 
 /** The section is recognised by its heading, at any level, so that it is never appended twice. */

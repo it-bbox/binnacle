@@ -223,25 +223,30 @@ function skillVersion(file: string): string | null {
  * otherwise, with which skills differ or are missing. A `binnacle-*` skill the copy no longer has
  * is not judged.
  */
-export function binnacleSkills(): { state: 'none' | 'current' } | { state: 'stale'; reason: string } {
+export function binnacleSkills():
+  | { state: 'none' | 'current' }
+  | { state: 'stale'; reason: string; differ: { skill: string; version: string | null }[]; missing: string[]; version: string | null } {
   let skills: string[];
   try {
     skills = readdirSync(SKILLS_COPY).sort();
   } catch {
     return { state: 'none' };
   }
-  const differ: string[] = [];
+  const differ: { skill: string; version: string | null }[] = [];
   const missing: string[] = [];
   for (const skill of skills) {
     const file = join(INSTALLED_SKILLS, skill, 'SKILL.md');
     const installed = skillVersion(file);
     if (!existsSync(file)) missing.push(skill);
-    else if (installed !== skillVersion(join(SKILLS_COPY, skill, 'SKILL.md'))) differ.push(`${skill} (${installed === null ? 'no version' : `version ${installed}`})`);
+    else if (installed !== skillVersion(join(SKILLS_COPY, skill, 'SKILL.md'))) differ.push({ skill, version: installed });
   }
   if (missing.length === skills.length) return { state: 'none' };
   if (differ.length === 0 && missing.length === 0) return { state: 'current' };
   // The build gives every skill of the copy the plugin's one version.
   const version = skillVersion(join(SKILLS_COPY, skills[0]!, 'SKILL.md'));
-  const parts = [differ.length > 0 ? `${differ.join(', ')} differ from this package's version ${version}` : '', missing.length > 0 ? `${missing.join(', ')} ${missing.length === 1 ? 'is' : 'are'} missing` : ''];
-  return { state: 'stale', reason: parts.filter(Boolean).join(', and ') };
+  const parts = [
+    differ.length > 0 ? `${differ.map(({ skill, version: at }) => `${skill} (${at === null ? 'no version' : `version ${at}`})`).join(', ')} differ from this package's version ${version}` : '',
+    missing.length > 0 ? `${missing.join(', ')} ${missing.length === 1 ? 'is' : 'are'} missing` : '',
+  ];
+  return { state: 'stale', reason: parts.filter(Boolean).join(', and '), differ, missing, version };
 }
