@@ -11,7 +11,7 @@ Spec: `docs/specs/audit-completed/spec.md`
 - [x] On a fixture with a committed `.env`, a GitHub token in a tracked file and a Dockerfile with no `.dockerignore`: each reported by path and line, never by value, and the plan puts `binn init` first and the secrets second; `/binnacle:audit` shows the plan first.
 - [x] `/binnacle:init` from the chat asks about autostart.
 - [x] After the push, Dependabot opens an npm update pull request.
-- [ ] 0.2.0 published by `CONTRIBUTING.md`'s *Releasing*, and installed from the registry.
+- [x] 0.2.0 published by `CONTRIBUTING.md`'s *Releasing*, and installed from the registry.
 
 ## Comments
 
@@ -26,8 +26,7 @@ Spec: `docs/specs/audit-completed/spec.md`
   - **Dependabot**, criterion 4, holds: after `main` was pushed with ticket 10's cooldown (head `40a7525`, 2026-10-16), Dependabot opened npm update pull requests #2 to #5 on 2026-10-20, as GitHub reports. #3 (`@types/node` 26) and #4 (`typescript` 7) fail CI; they are majors, the owner's to take or close.
   - **`/binnacle:audit`**, criterion 2, holds (the owner, 2026-10-21): `/binnacle:audit .scratch/demo/fixture` in the chat shows the migration plan first, `Run binn init` as step 1 and the committed secrets as step 2, then `.env`, `config.js:3` and `Dockerfile` among the gaps, and no value.
   - **`/binnacle:init`**, criterion 3, holds (the owner, 2026-10-21): with autostart turned off, `/binnacle:init .scratch/demo/fixture` in the chat asks first, alone, whether the daemon should start at login; the owner's no leaves autostart out of the plan and names `binn daemon autostart on` in its notes. The owner declined the plan, the fixture stayed clean, and autostart was turned on again.
-- For the owner, the criterion left unticked:
-  - **0.2.0**, criterion 5: after the merge, rebuild at `main`'s head (*Releasing* steps 3 and 4: the `apps/cli/dist/` built on this branch predates the `SECURITY.md` fix); once `tarball-live` is green there, *Releasing* step 5 (`npm login`, `cd apps/cli/dist`, `npm publish --access public`), then `npm view @it-bbox/binnacle version` prints `0.2.0` and the installation checklist installs it.
+  - **0.2.0**, criterion 5, holds (the owner, 2026-10-21): `main` pushed at `0b25394`, CI's `check`, `tarball-live` and `autostart-live` green on Linux, macOS and Windows there; rebuilt at that commit, `pnpm test` (855 passed) and `tarball.live.ts` pass. `npm publish --dry-run`, then `npm publish --access public` from `apps/cli/dist/`, 76 files, 821 kB, the second factor confirmed in the browser. `latest` moved from `0.1.0` to `0.2.0` about four and a half minutes later. From the registry, in a `node:24-slim` container: `npm i -g @it-bbox/binnacle`, then `binn --version` prints `0.2.0`, and the daemon starts, answers `binn daemon status` with version `0.2.0`, and stops.
 
 ### Review
 
