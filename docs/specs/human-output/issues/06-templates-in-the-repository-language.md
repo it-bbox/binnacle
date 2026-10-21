@@ -1,6 +1,6 @@
 # 06: binn init's templates in the repository language
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 01
 Spec: `docs/specs/human-output/spec.md`
