@@ -7,9 +7,9 @@ Spec: `docs/specs/human-output/spec.md`
 
 **What to build:** `binn audit`'s text leads with what to do, in the person's language (spec, *`binn audit`'s findings carry their values*). Its findings carry the values their reasons and recommendations are written from, and the text output words them from the CLI dictionary: one line of totals, then the migration plan, its steps naming their areas rather than codes, then the gaps and unknowns by area, each with its reason and recommendation, then the `ok` findings one line each. No finding code is in the text. `--json` keeps today's English reasons and recommendations, the codes and `plan` as they are. `/binnacle:audit` is ticket 09.
 
-- [ ] Through the `binn` process: the totals, then the plan, then gaps and unknowns by area, then `ok`, in English and in Russian.
-- [ ] No code in the text; `--json` byte-for-byte the same under either locale.
-- [ ] The existing tests that the audit writes nothing, runs offline and never prints a secret's value pass in both languages.
+- [x] Through the `binn` process: the totals, then the plan, then gaps and unknowns by area, then `ok`, in English and in Russian.
+- [x] No code in the text; `--json` byte-for-byte the same under either locale.
+- [x] The existing tests that the audit writes nothing, runs offline and never prints a secret's value pass in both languages.
 
 ## Comments
 
@@ -25,3 +25,19 @@ Spec: `docs/specs/human-output/spec.md`
 
 - `binn init` (ticket 05) reads the same export states and no-export reasons: `NO_EXPORT_RU` in `audit-text.ts` and `REPORT_WORDS` can be moved to `text.ts` if init needs them, and `ExportState`'s `what` and `why` are the English left to word.
 - The guides' *Audit* section, `docs/operations/02-existing-project-adopt.md` and its twin, now describe the text's order and language.
+
+### Review
+
+A Reviewer sub-agent ran against `main`, on both axes. Typecheck is clean; `binn audit --json` is byte-for-byte `main`'s on four repositories under `C`, `LC_ALL=ru_RU.UTF-8` and `LANG=ru_RU.UTF-8`, with and without a token; no token value reaches either output in either language; `binn init`'s output is unchanged.
+
+**Standards:** nothing to fix.
+
+**Spec:**
+
+1. **Russian wording.** «Remote нет», «Remote указывает» became «Удалённого репозитория нет», «Удалённый репозиторий указывает» (Git's words take their Russian); «Возможно, он настроен» became «Возможно, <tool> настроен», with «(уровень пользователя)»; «куда относится каждый, решает человек» became «куда отнести каждый — решать вам»; «укажите их в» became «укажите путь к ним в»; the plan's summary reads «Каждый шаг выполняете вы; аудит сам ничего не запускает.», and the empty plan «делать ничего не нужно, все находки в порядке.» **Fixed** in `apps/cli/src/audit-text.ts`.
+2. **The `Recommendation:` line was printed unguarded.** **Fixed**: `apps/cli/src/audit.ts` prints it only when there is one.
+3. **The empty plan had no Russian test.** **Fixed**: the all-ok test in `apps/cli/test/audit.test.ts` reads the Russian text too.
+4. **The English empty plan reads "Migration plan: Nothing to do: every finding is ok."**, two colons. **Kept**: the summary is `--json`'s, which stays as it is.
+5. **No Russian test of an unusable tracker token's line.** **Kept**: it is core's wording of `tracker.unavailable`, tested by core, and was checked by hand.
+
+Typecheck is clean, and the full suite passes: 884 of 884, under `ru_RU.UTF-8` and under `C`.
