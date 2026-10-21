@@ -1042,11 +1042,11 @@ test('binn audit on a repository with every finding ok has a plan with nothing t
   const bin = join(home, 'bin');
   mkdirSync(bin);
   symlinkSync((process.env.PATH ?? '').split(delimiter).map((dir) => join(dir, 'git')).find(existsSync)!, join(bin, 'git'));
-  const run = (args: string[]) => {
+  const run = (args: string[], locale: Record<string, string> = {}) => {
     const result = spawnSync(process.execPath, [BINN, 'audit', ...args], {
       cwd: root,
       encoding: 'utf8',
-      env: { ...baseEnv, PATH: bin, HOME: home, BINNACLE_HOME: join(home, '.binnacle'), CLAUDE_CONFIG_DIR: join(home, 'claude-config'), CODEX_HOME: join(home, 'codex-home'), XDG_CONFIG_HOME: join(home, 'xdg') },
+      env: { ...baseEnv, PATH: bin, HOME: home, BINNACLE_HOME: join(home, '.binnacle'), CLAUDE_CONFIG_DIR: join(home, 'claude-config'), CODEX_HOME: join(home, 'codex-home'), XDG_CONFIG_HOME: join(home, 'xdg'), ...locale },
     });
     assert.equal(result.status, 0, result.stderr);
     return result.stdout;
@@ -1059,6 +1059,10 @@ test('binn audit on a repository with every finding ok has a plan with nothing t
   assert.match(text.split('\n')[0]!, /; nothing to do\.$/);
   assert.match(text, /\nMigration plan: Nothing to do: every finding is ok\.\n/);
   assert.doesNotMatch(text, /Gaps and unknowns/);
+  const russian = run([], RU);
+  assert.match(russian.split('\n')[0]!, /; делать ничего не нужно\.$/);
+  assert.match(russian, /\nПлан перехода: делать ничего не нужно, все находки в порядке\.\n/);
+  assert.doesNotMatch(russian, /Пробелы и неизвестное/);
 });
 
 /** The areas as the text names them, in the audit's order. */

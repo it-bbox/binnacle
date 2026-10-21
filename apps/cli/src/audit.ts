@@ -109,7 +109,8 @@ function report(root: string, all: Check[], language: Language): string {
       lines.push(area(name));
       for (const check of mine) {
         const { reason, recommendation } = word(language, check);
-        lines.push(`  ${words.status[check.status]}: ${reason}`, `    ${words.recommendation}: ${recommendation}`);
+        lines.push(`  ${words.status[check.status]}: ${reason}`);
+        if (recommendation) lines.push(`    ${words.recommendation}: ${recommendation}`);
       }
     }
   }
