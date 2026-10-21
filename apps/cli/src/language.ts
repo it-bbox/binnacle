@@ -1,10 +1,16 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Language } from '@binnacle/core';
+import { LANGUAGES, type Language } from '@binnacle/core';
 
 /** The person's language: `LC_ALL`, then `LANG`, Russian when the value starts with `ru`, English otherwise, `C` and unset included. */
 export const personLanguage = (env: NodeJS.ProcessEnv = process.env): Language =>
   (env.LC_ALL || env.LANG || '').startsWith('ru') ? 'ru' : 'en';
+
+/** An answer to the language question, or `--language`'s value: `en` or `ru` in any case; null for anything else. */
+export function parseLanguage(text: string): Language | null {
+  const language = text.trim().toLowerCase();
+  return (LANGUAGES as string[]).includes(language) ? (language as Language) : null;
+}
 
 /**
  * The repository language `binn init` proposes (ADR-0045): the root `README.md`'s, Russian when
@@ -20,8 +26,8 @@ export function proposeLanguage(root: string): { language: Language; source: 're
     return { language: personLanguage(), source: 'locale' };
   }
   const prose = readme
-    // A fenced block, to its closing fence or the end of the file.
-    .replace(/^ {0,3}(`{3,}|~{3,})[^]*?(^ {0,3}\1|(?![^]))/gm, '')
+    // A fenced block, to its closing fence, which carries no info string, or to the end of the file.
+    .replace(/^ {0,3}(`{3,}|~{3,})[^]*?(^ {0,3}\1[`~]*[ \t]*$|(?![^]))/gm, '')
     .replace(/`[^`\n]*`/g, '');
   const count = (letters: RegExp): number => prose.match(letters)?.length ?? 0;
   return { language: count(/\p{Script=Cyrillic}/gu) > count(/\p{Script=Latin}/gu) ? 'ru' : 'en', source: 'readme' };

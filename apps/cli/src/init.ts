@@ -5,7 +5,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, posix, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { isIgnored, readGitFacts, workingTree, type GitRemote } from '@binnacle/adapters';
-import { forgeRemote, instructionSets, LANGUAGES, type ImportWindow, type Language, type ProjectManifest, type TrackerProvider } from '@binnacle/core';
+import { forgeRemote, instructionSets, type ImportWindow, type Language, type ProjectManifest, type TrackerProvider } from '@binnacle/core';
 import {
   credentialsKey,
   credentialsPath,
@@ -33,7 +33,7 @@ import { daemonAddress, detected, exporters, NO_EXPORT, settingsText } from './e
 import { isRecord, sessionHistory } from './history.ts';
 import { agentSkillsBlock, AGENT_SKILLS_HEADING, conventionFiles, ticketHeaderSection } from './conventions.ts';
 import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, mattPocockFiles, ROADMAP_SKELETON, roadmapGaps } from './layout.ts';
-import { proposeLanguage } from './language.ts';
+import { parseLanguage, proposeLanguage } from './language.ts';
 import { register } from './project-commands.ts';
 import { binnacleSkills, CONFIG_HOME, declaredCapabilities, INSTALLED_SKILLS, mcpSources, onPath, PACKAGE_DIR, registeredWith, SKILLS_COPY, tilde, TOOLS, VSCODE_USER_DIRECTORY, type Tool } from './tools.ts';
 
@@ -77,7 +77,7 @@ type Session = {
  * It works out every write first, asking only the questions that are not about a write, shows
  * them together as one plan and asks once (ADR-0034): Enter or `y` accepts it at a terminal,
  * anything else declines it, and with stdin not a terminal nothing is written. It never commits.
- * `window` answers the window question unasked, and `autostart` the autostart question. With `plan`, the plan is printed as JSON with
+ * `window` answers the window question unasked, `language` the language question, and `autostart` the autostart question. With `plan`, the plan is printed as JSON with
  * its id (ADR-0037), and nothing is asked, written or run after it, the tracker check included.
  * With `apply`, the plan is worked out again and written unasked only if its id is `apply`: the
  * human confirmed that plan in the chat (ADR-0037). Any other plan is refused, and nothing is written.
@@ -102,7 +102,7 @@ export async function init(
 
   const planOnly = options.plan === true;
   const { apply } = options;
-  // Only the interactive form asks: the window, then the plan.
+  // Only the interactive form asks: the window, the language, autostart, then the plan.
   const asks = !planOnly && apply === undefined;
   // Opened at the first question only: a run that asks nothing never reads stdin, nor holds it open.
   let lines: ReturnType<typeof createInterface> | undefined;
@@ -139,14 +139,14 @@ export async function init(
     // `--plan` and `--apply` ask nothing: without --window, the default, as Enter at the question gives it.
     const windowSection = await windowStep(session, manifest, options.window ?? (asks ? undefined : DEFAULT_WINDOW_DAYS));
     session.say('');
+    // Each of its branches ends with its own blank line: an English answer for an existing manifest says nothing.
     const language = await languageStep(session, manifest, options.language, asks);
-    session.say('');
     const autostartWanted = await autostartStep(session, home, options.autostart, asks, process.stdin.isTTY === true);
     // Read before the manifest is proposed, which declares what is found or installed; planned after the other writes.
     const plugins = listClaudePlugins(session);
     const tools = detectTools(session.root, plugins);
     const toDeclare = tools.filter(({ state }) => state === 'found' || state === 'install').map(({ tool }) => tool.name);
-    if (manifest === 'new') planFile(session, MANIFEST_RELATIVE, proposeManifest(session.root, git.remotes, toDeclare, language ?? 'en') + (windowSection ? `\n${windowSection}` : ''));
+    if (manifest === 'new') planFile(session, MANIFEST_RELATIVE, proposeManifest(session.root, git.remotes, toDeclare, language) + (windowSection ? `\n${windowSection}` : ''));
     session.say('');
     registrationStep(session, home, manifest !== 'invalid');
     session.say('');
@@ -430,19 +430,19 @@ async function windowStep(session: Session, manifest: ManifestState, given: Impo
 
 /**
  * Step 2a: the repository's documentation language, `knowledge.language` (ADR-0045), asked after
- * the window with init's proposal as its default. The answer is returned for a manifest the plan
+ * the window with init's proposal as its default. The language is returned for a manifest the plan
  * creates, which states it whatever it is; for an existing one the line is printed, never written
  * (ADR-0026), and only when it is not English, which a manifest without one already reads. A
  * `given` language is taken as the answer, and the forms that ask nothing take the proposal.
  */
-async function languageStep(session: Session, manifest: ManifestState, given: Language | undefined, asks: boolean): Promise<Language | null> {
+async function languageStep(session: Session, manifest: ManifestState, given: Language | undefined, asks: boolean): Promise<Language> {
   const { language: proposal, source } = proposeLanguage(session.root);
   const declared = manifest === 'valid' ? declaredLanguage(session.root) : null;
   if (declared !== null) {
     session.language = { value: declared, proposal, source, declared: true };
-    session.say(`${MANIFEST_RELATIVE} declares knowledge.language. It is left as it is.`);
+    session.say(`${MANIFEST_RELATIVE} declares knowledge.language. It is left as it is.\n`);
     record(session, 'skipped', `documentation language: ${MANIFEST_RELATIVE} declares it`);
-    return null;
+    return declared;
   }
 
   let language = given ?? (asks ? null : proposal);
@@ -457,19 +457,19 @@ async function languageStep(session: Session, manifest: ManifestState, given: La
     do {
       const answer = await session.answer(`Documentation language [${proposal}]: `);
       // The end of input takes the proposal, as Enter does.
-      const text = answer?.trim().toLowerCase() || proposal;
-      language = (LANGUAGES as string[]).includes(text) ? (text as Language) : null;
+      language = answer === null || answer.trim() === '' ? proposal : parseLanguage(answer);
       if (language === null) session.say('Answer en or ru.');
     } while (language === null);
+    session.say('');
   }
   session.language = { value: language, proposal, source, declared: false };
 
-  if (manifest === 'new') return language;
-  if (language !== 'en') {
+  // A manifest without the field already reads as English, so only another answer is worth a line.
+  if (manifest !== 'new' && language !== 'en') {
     session.say(`Add this to ${MANIFEST_RELATIVE} yourself, in its knowledge section:\n\nknowledge:\n  language: ${language}\n`);
     record(session, 'printed', `the knowledge.language line for ${MANIFEST_RELATIVE}`);
   }
-  return null;
+  return language;
 }
 
 /** The manifest's language, English for one it names but this Binnacle does not know, or null when it states none. */

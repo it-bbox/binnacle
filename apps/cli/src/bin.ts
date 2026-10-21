@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
-import { LANGUAGES, type ImportWindow, type Language } from '@binnacle/core';
+import { type ImportWindow, type Language } from '@binnacle/core';
 import { resolveHome, packageVersion } from '@binnacle/daemon';
 import { autostart, start, status, stop } from './daemon-commands.ts';
 import { list, register, status as projectStatus, unregister } from './project-commands.ts';
@@ -8,6 +8,7 @@ import { EXIT, type ExitCode } from './exit.ts';
 import { dashboard } from './dashboard.ts';
 import { audit } from './audit.ts';
 import { importWindow, init } from './init.ts';
+import { parseLanguage } from './language.ts';
 import { toolsHelp } from '@binnacle/mcp';
 import { call, mcp } from './mcp.ts';
 
@@ -190,8 +191,8 @@ function initOptions(
     const skipHarness = (values['skip-harness'] ?? []).map((id) => id.trim());
     if (skipHarness.includes('')) return null;
     const window = values.window === undefined ? undefined : values.window.trim() === '' ? null : importWindow(values.window);
-    const language = values.language?.trim() as Language | undefined;
-    if (language !== undefined && !LANGUAGES.includes(language)) return null;
+    const language = values.language === undefined ? undefined : parseLanguage(values.language);
+    if (language === null) return null;
     return window === null ? null : { path: positionals[0], plan, apply, window, language, autostart, skipHarness };
   } catch {
     // An unknown option, or --window without its value.

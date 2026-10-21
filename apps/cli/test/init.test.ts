@@ -2155,6 +2155,18 @@ test('a manifest that declares a language is not asked, and --plan --json says i
   assert.equal(result.status, 0, result.stderr);
   assert.doesNotMatch(result.stdout, /Documentation language/);
   assert.deepEqual((await planJson(t, home, root, '--language', 'ru')).language, { value: 'en', proposal: 'ru', source: 'readme', declared: true });
+
+  // A language this Binnacle does not know is stated all the same, and read as English.
+  const unknown = makeRepository(t, 'unknown-language', {
+    'README.md': 'Документация проекта.\n',
+    '.binnacle/project.yaml': 'version: 1\nproject:\n  id: unknown\nknowledge:\n  language: fr\ntelemetry:\n  import:\n    window_days: 90\n',
+    ...CONVENTIONS_IN_PLACE,
+  });
+  const warned = binnIn(home)(unknown, '\n', 'init');
+  assert.equal(warned.status, 0, warned.stderr);
+  assert.match(warned.stdout, /knowledge\.language: expected one of en, ru; read as en/);
+  assert.doesNotMatch(warned.stdout, /Documentation language|Add this to .* in its knowledge section/);
+  assert.deepEqual((await planJson(t, home, unknown)).language, { value: 'en', proposal: 'ru', source: 'readme', declared: true });
 });
 
 test('--apply with the id from --plan --json writes that plan with stdin not a terminal, runs the tracker check and prints the Summary', async (t) => {
