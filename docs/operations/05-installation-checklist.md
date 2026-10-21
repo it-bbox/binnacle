@@ -190,7 +190,7 @@ The snapshot and daily notes are written each time one is served, from what was 
 - their `source` is `project.snapshot` or `daily.get`, their `commit` the caller's HEAD, and a `served:` line gives the time;
 - both carry *Waiting for the owner*: the unanswered questions, the Tasks waiting for an approval, and the `ready-for-human` Tasks ready to start;
 - their tickets and ADRs link to the projected notes;
-- their headings and the lines Binnacle writes are in the project's documentation language, the manifest's `knowledge.language`, English when it states none; a reason the daemon has only in English is written as it is, and in a Russian note marked `(англ.)`. The notes copied from the repository and the frontmatter stay as they are, whatever the language, and so does the daemon's autostart service: the language comes from the manifest, not from a locale;
+- their headings and the lines Binnacle writes are in the project's documentation language, the manifest's `knowledge.language`, English when it states none; a Russian note words each attention item without its code, and writes a reason the daemon has only in English as it is, marked `(англ.)`. The notes copied from the repository and the frontmatter stay as they are, whatever the language. The daemon's autostart service is unchanged: the language comes from the manifest, not from a locale;
 - with no vault set, serving one writes nothing.
 
 `90-Graphify/GRAPH_REPORT.md` is the registered checkout's `graphify-out/GRAPH_REPORT.md`, with the commit of the last successful run. Only a newer successful run rewrites it, so a failed run leaves it as it was, and a vault set after a failed run gets no report until the next successful one.

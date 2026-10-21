@@ -1,4 +1,5 @@
 import { wordMessage, type Diagnostic, type Language } from '@binnacle/core';
+import { FALLBACK_DAYS } from './daily.ts';
 
 /**
  * The vault's own words, the snapshot's and the daily's headings and generated lines, in the
@@ -14,7 +15,7 @@ export type VaultWords = {
   /** A Task's state; null when the tracker gave none. */
   state: (state: string | null) => string;
   /** An English sentence from the daemon, marked as such in Russian. */
-  reason: (text: string) => string;
+  english: (text: string) => string;
   attention: (item: Diagnostic) => string;
   notAvailable: (reason: string) => string;
   waiting: string;
@@ -54,7 +55,7 @@ export type VaultWords = {
   dailyTitle: (name: string) => string;
   trackerUnreadableNow: string;
   range: (from: string | null, source: string, head: string, dirty: boolean) => string;
-  fallback: (fallback: { reason: string; message: string }, days: number) => string;
+  fallback: (fallback: { reason: string; message: string }) => string;
   commits: (count: number) => string;
   statusChanges: string;
   transition: (from: string | null, to: string | null) => string;
@@ -70,7 +71,7 @@ const ENGLISH: VaultWords = {
   more: (count) => `and ${count} more`,
   untitled: 'untitled',
   state: (state) => state ?? 'unknown',
-  reason: (text) => text,
+  english: (text) => text,
   attention: (item) => `\`${item.code}\`: ${item.message}`,
   notAvailable: (reason) => `Not available: ${reason}`,
   waiting: '## Waiting for the owner',
@@ -144,6 +145,7 @@ const FALLBACK: Record<string, string> = {
   baseline_missing: 'Записанная точка отсчёта — не коммит этого репозитория.',
   baseline_diverged: 'Записанная точка отсчёта — не предок HEAD: история переписана, или эта рабочая копия на другой линии работы.',
 };
+const DAYS: Partial<Record<Intl.LDMLPluralRule, string>> = { one: 'день', few: 'дня' };
 /** A value the table does not know is written as it came. */
 const word = (table: Record<string, string>, value: string): string => table[value] ?? value;
 const english = (text: string): string => `${text} (англ.)`;
@@ -153,7 +155,7 @@ const RUSSIAN: VaultWords = {
   more: (count) => `и ещё ${count}`,
   untitled: 'без названия',
   state: (state) => (state === null ? 'неизвестно' : word(TASK_STATE, state)),
-  reason: english,
+  english,
   attention: (item) => {
     const { text, english: marked } = wordMessage('ru', item);
     return marked ? english(text) : text;
@@ -197,9 +199,9 @@ const RUSSIAN: VaultWords = {
   dailyTitle: (name) => `# Сводка дня: ${name}`,
   trackerUnreadableNow: 'Трекер сейчас не читается; почему — в разделе «Внимание».',
   range: (from, source, head, dirty) =>
-    `С ${from ? `\`${from}\`` : 'первого коммита'} (${word(RANGE_SOURCE, source)}) до \`${head}\`${dirty ? ', без незакоммиченных изменений' : ''}.`,
-  fallback: (fallback, days) =>
-    `${Object.hasOwn(FALLBACK, fallback.reason) ? FALLBACK[fallback.reason] : english(fallback.message)} Вместо этого — коммиты за последние ${days} дн.`,
+    `С ${from ? `\`${from}\`` : 'первого коммита'} (${word(RANGE_SOURCE, source)}) до \`${head}\`${dirty ? ', незакоммиченные изменения не учтены' : ''}.`,
+  fallback: (fallback) =>
+    `${Object.hasOwn(FALLBACK, fallback.reason) ? FALLBACK[fallback.reason] : english(fallback.message)} Вместо этого — коммиты за последние ${FALLBACK_DAYS} ${DAYS[new Intl.PluralRules('ru').select(FALLBACK_DAYS)] ?? 'дней'}.`,
   commits: (count) => `## Коммиты (${count})`,
   statusChanges: '## Смена статусов',
   transition: (from, to) => `${from === null ? 'нет' : word(TASK_STATE, from)} → ${to === null ? 'нет' : word(TASK_STATE, to)}`,

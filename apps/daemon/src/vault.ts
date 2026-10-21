@@ -2,7 +2,7 @@ import { accessSync, constants, existsSync, mkdirSync, readdirSync, readFileSync
 import { basename, dirname, isAbsolute, join, posix, relative, sep } from 'node:path';
 import { commitTree, type Tree } from '@binnacle/adapters';
 import type { Diagnostic, Params, ProjectManifest } from '@binnacle/core';
-import { FALLBACK_DAYS, type Daily } from './daily.ts';
+import type { Daily } from './daily.ts';
 import { defaultCommit, GRAPH_DIRECTORY, lastBuild, manifestOf } from './graph.ts';
 import { resolveGitTimeout, settingsPath } from './home.ts';
 import { readRegistry } from './registry.ts';
@@ -401,7 +401,7 @@ function notes(w: VaultWords, link: Link): { snapshot(name: string, snapshot: Sn
         next.action ? w.nextAction(next.action.description, next.action.command) : w.noNextAction,
         unavailable(next.alternatives)
           ? w.noSuggestedStep(next.alternatives.reason)
-          : list(next.alternatives, (item) => `${w.reason(item.description)}${item.command ? ` \`${item.command}\`` : ''}`),
+          : list(next.alternatives, (item) => `${w.english(item.description)}${item.command ? ` \`${item.command}\`` : ''}`),
         ...waiting(snapshot.pendingDecisions),
       ];
       if (tasks === null) parts.push(w.tasks, w.trackerUnreadable);
@@ -439,7 +439,7 @@ function notes(w: VaultWords, link: Link): { snapshot(name: string, snapshot: Sn
         value === null ? w.trackerUnreadableNow : unavailable(value) ? notAvailable(value) : list(value.items, line, value.remainder);
       const parts = [
         w.dailyTitle(name),
-        `${w.range(daily.from.commit ? short(daily.from.commit) : null, daily.from.source, short(daily.head), daily.dirty)}${daily.fallback ? ` ${w.fallback(daily.fallback, FALLBACK_DAYS)}` : ''}`,
+        `${w.range(daily.from.commit ? short(daily.from.commit) : null, daily.from.source, short(daily.head), daily.dirty)}${daily.fallback ? ` ${w.fallback(daily.fallback)}` : ''}`,
         w.commits(daily.commits.count),
         list(daily.commits.items, (item) => `\`${short(item.commit)}\` ${item.subject}`, daily.commits.remainder),
         w.statusChanges,

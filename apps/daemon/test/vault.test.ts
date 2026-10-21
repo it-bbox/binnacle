@@ -414,6 +414,9 @@ describe('the vault projection', () => {
     assert.match(russian.snapshot, /^Лимит \d+.*\(оценка\)\.$/m);
     for (const line of ['# Сводка дня: Vault Test', '## Коммиты (2)', '## Смена статусов', '## Новые тикеты', '## Роадмап', '- Эпик 1, Alpha: новый → в работе', '## Ждёт владельца'])
       assert.ok(russian.daily.split('\n').includes(line), `${line}\n\n${russian.daily}`);
+    // The fallback worded from its reason; a reason the daemon has only in English, written as it is and marked.
+    assert.match(russian.daily, /^С первого коммита \(запасное окно\) до `[0-9a-f]{7}`\. Для этого проекта на этой машине ещё не записан ни daily, ни чекпойнт\. Вместо этого — коммиты за последние 7 дней\.$/m);
+    assert.match(russian.snapshot, /^## CI\n\nНет данных: There is no forge to read CI from: .*\(англ\.\)$/m);
     // No English heading is left in either note.
     assert.doesNotMatch(`${russian.snapshot}\n${russian.daily}`, /^#+ [A-Z][a-z]/m);
 
