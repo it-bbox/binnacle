@@ -33,6 +33,8 @@ For a new repository, the plan holds:
 - the `binnacle` MCP server in the project file of each harness it detects, such as `.mcp.json` for Claude Code;
 - outside the repository: the `binnacle` plugin and Binnacle's skills, the workflow tools and their MCP servers, the OpenTelemetry export, the Obsidian vault, and the project's registration with a running daemon.
 
+The roadmap, the planning conventions and a new `AGENTS.md` are written in the documentation language. In Russian, the words Binnacle reads stay English: the roadmap's table header and statuses, `## Current focus`, `Next action:`, the ticket header's fields and states, the triage labels, `## Ticket header` and `## Agent skills`. The *Agent skills* block then also says the documentation is in Russian, so that any agent writes its specs and tickets in it.
+
 Each item in detail: [Existing project](02-existing-project-adopt.md#the-plan-item-by-item), *The plan, item by item*. After the plan, a GitHub or GitLab tracker is read once, and init says whether it was readable and, if not, how to give it a read-only token. The Summary then lists what was created, extended, run, failed or skipped.
 
 ### Workflow tools

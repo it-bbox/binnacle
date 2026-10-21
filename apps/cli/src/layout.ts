@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { nextActionAttention, parseRoadmap } from '@binnacle/core';
+import { nextActionAttention, parseRoadmap, type Language } from '@binnacle/core';
 
 /**
  * What a repository's documentation layout looks like, read the same way by `binn init` and
@@ -29,9 +29,12 @@ export const specSlugs = (root: string): string[] => {
 
 /**
  * The roadmap `binn init` proposes where there is none: Binnacle's format (ADR-0025) with no
- * epic yet, and a current focus whose Next action is the planning step (ADR-0032).
+ * epic yet, and a current focus whose Next action is the planning step (ADR-0032), in the
+ * repository language (ADR-0045). The table's header, its statuses, `## Current focus` and
+ * `Next action:` are markers Binnacle parses, English in both.
  */
-export const ROADMAP_SKELETON = `# Roadmap
+export const ROADMAP_SKELETON: Record<Language, string> = {
+  en: `# Roadmap
 
 Where the project stands: each epic's status and spec, and the current focus. Binnacle reads this file, so keep the table's header and the \`## Current focus\` heading as they are.
 
@@ -45,7 +48,23 @@ Where the project stands: each epic's status and spec, and the current focus. Bi
 Nothing is planned yet.
 
 Next action: turn the vision into a roadmap of epics. \`/binnacle:roadmap\`
-`;
+`,
+  ru: `# Роадмап
+
+Где стоит проект: статус и спецификация каждого эпика и текущий фокус. Binnacle читает этот файл, поэтому заголовок таблицы и заголовок \`## Current focus\` оставляйте как есть.
+
+**Статусы:** \`not started\` → \`spec\` → \`tickets\` → \`in progress\` → \`done\`. Ячейка Spec — \`—\` или ссылка на \`specs/<slug>/spec.md\`.
+
+| # | Epic | Status | Spec |
+| --- | --- | --- | --- |
+
+## Current focus
+
+Пока ничего не запланировано.
+
+Next action: превратить видение в роадмап из эпиков. \`/binnacle:roadmap\`
+`,
+};
 
 /** What keeps a roadmap's text from Binnacle's format, each as a sentence; empty when it is in the format. */
 export function roadmapGaps(text: string): string[] {

@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { test, type TestContext } from 'node:test';
 import { isAlive, readManifest, readRuntime, readToken } from '@binnacle/daemon';
+import { parseRoadmap } from '@binnacle/core';
 import { callOperation } from '../src/client.ts';
 import { fakeSystemctl } from './fake-systemctl.ts';
 
@@ -2171,6 +2172,79 @@ test('a manifest that declares a language is not asked, and --plan --json says i
   assert.match(warned.stdout, /knowledge\.language: expected one of en, ru; read as en/);
   assert.doesNotMatch(warned.stdout, /Documentation language|Add this to .* in its knowledge section/);
   assert.deepEqual((await planJson(t, home, unknown)).language, { value: 'en', proposal: 'ru', source: 'readme', declared: true });
+});
+
+/** The body of the plan item that creates `path`. */
+const created = (json: PlanJson, path: string): string => json.plan.find(({ heading }) => heading === `Create ${path}`)!.body;
+const CYRILLIC = /\p{Script=Cyrillic}/u;
+const TEMPLATES = ['docs/roadmap.md', ...CONVENTION_FILES, 'AGENTS.md'];
+
+test('the templates are in the repository language, Russian on a Russian repository and English as before on an English one', async (t) => {
+  const home = makeHome(t);
+  const english = await planJson(t, home, makeRepository(t, 'english-templates'));
+  const russian = await planJson(t, home, makeRepository(t, 'russian-templates', { 'README.md': '# Магазин\n\nМагазин для своих.\n' }));
+  assert.equal(russian.language.value, 'ru');
+
+  for (const path of TEMPLATES) {
+    assert.doesNotMatch(created(english, path), CYRILLIC, path);
+    assert.match(created(russian, path), CYRILLIC, path);
+  }
+  assert.match(created(english, 'docs/roadmap.md'), /^# Roadmap\n/);
+  assert.match(created(english, TRACKER_FILE), /^# Issue tracker: Local Markdown\n/);
+  assert.match(created(english, 'AGENTS.md'), /^# Agent Instructions\n/);
+
+  // Every marker Binnacle or a skill parses stays English in the Russian text.
+  const roadmap = created(russian, 'docs/roadmap.md');
+  for (const marker of ['| # | Epic | Status | Spec |', '\n## Current focus\n', '\nNext action: ', '`/binnacle:roadmap`', ...['not started', 'spec', 'tickets', 'in progress', 'done'].map((status) => `\`${status}\``)]) {
+    assert.ok(roadmap.includes(marker), `${marker}\n${roadmap}`);
+  }
+  const labels = created(russian, 'docs/agents/triage-labels.md');
+  for (const label of ['needs-triage', 'needs-info', 'ready-for-agent', 'ready-for-human', 'wontfix']) assert.match(labels, new RegExp(`\\| \`${label}\` +\\| \`${label}\` +\\|`));
+  assert.match(created(russian, 'AGENTS.md'), /\n## Agent skills\n/);
+});
+
+for (const [provider, remote] of [['local', null], ['github', 'git@github.com:Acme/Planned.git'], ['gitlab', 'https://gitlab.com/acme/planned.git']] as const) {
+  test(`the Russian ticket-header section for the ${provider} tracker keeps its heading, fields, states and question headings English`, async (t) => {
+    const root = makeRepository(t, `russian-${provider}`);
+    if (remote) git(root, 'remote', 'add', 'origin', remote);
+    const tracker = created(await planJson(t, makeHome(t), root, '--language', 'ru'), TRACKER_FILE);
+    const section = tracker.slice(tracker.indexOf('\n## Ticket header\n'));
+    assert.ok(section.length < tracker.length, tracker);
+    assert.match(section, CYRILLIC);
+    const markers = ['`Status:`', '`Blocked by:`', '`Spec:`', '`Roles:`', '`None`', '`### Question`', '`### Answer`', '"(recommended)"', '\nStatus: READY\n', '\nRoles: Developer, Reviewer, Security\n'];
+    for (const state of ['BACKLOG', 'READY', 'ACTIVE', 'BLOCKED', 'READY_FOR_REVIEW', 'APPROVED', 'MERGE_READY', 'MERGED', 'DONE', 'CANCELLED']) markers.push(`\`${state}\``);
+    for (const role of ['Developer', 'Reviewer', 'Architect', 'QA', 'Security', 'DevOps', 'Analyst']) markers.push(role);
+    if (provider === 'local') markers.push('`## Comments`', '`feat/<slug>`');
+    for (const marker of markers) assert.ok(section.includes(marker), `${marker}\n${section}`);
+  });
+}
+
+test('on a repository binn init wrote in Russian, binn audit finds no gap in the roadmap and the ticket header, and the roadmap parses cleanly', async (t) => {
+  const home = makeHome(t);
+  const root = makeRepository(t, 'written-in-russian', { 'README.md': '# Магазин\n\nМагазин для своих.\n' });
+  const json = await planJson(t, home, root);
+  const applied = binnIn(home, false)(root, '', 'init', '--apply', json.id);
+  assert.equal(applied.status, 0, applied.stderr);
+  assert.match(read(root, 'docs/roadmap.md'), CYRILLIC);
+
+  const audited = binnIn(home)(root, '', 'audit', '--json');
+  const findings = JSON.parse(audited.stdout).findings as { code: string; status: string; reason: string }[];
+  for (const code of ['docs.roadmap', 'layout.ticket_header']) {
+    const found = findings.find((finding) => finding.code === code);
+    assert.equal(found?.status, 'ok', `${code}: ${JSON.stringify(found)}`);
+  }
+  assert.deepEqual(parseRoadmap(read(root, 'docs/roadmap.md')).diagnostics, []);
+  assert.notEqual(parseRoadmap(read(root, 'docs/roadmap.md')).roadmap.focus, null);
+});
+
+test('the Agent skills block names Russian on a Russian repository and says nothing of language on an English one', async (t) => {
+  const home = makeHome(t);
+  const block = async (...args: string[]): Promise<string> => {
+    const agents = created(await planJson(t, home, makeRepository(t, `block-${args.length}`), ...args), 'AGENTS.md');
+    return agents.slice(agents.indexOf('\n## Agent skills\n'));
+  };
+  assert.match(await block('--language', 'ru'), /\n## Agent skills\n\n.*на русском.*\n/);
+  assert.doesNotMatch(await block(), /language|English|Russian/i);
 });
 
 test('--apply with the id from --plan --json writes that plan with stdin not a terminal, runs the tracker check and prints the Summary', async (t) => {

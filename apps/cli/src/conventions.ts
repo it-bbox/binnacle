@@ -1,4 +1,5 @@
-import { ROLES, TASK_STATES, type TrackerProvider } from '@binnacle/core';
+import { ROLES, TASK_STATES, type Language, type TrackerProvider } from '@binnacle/core';
+import { agentSkillsBlockRu, DOMAIN_FILE_RU, ticketHeaderSectionRu, TRACKER_FILES_RU, TRIAGE_LABELS_FILE_RU } from './conventions-ru.ts';
 import { DOMAIN, ISSUE_TRACKER, TRIAGE_LABELS } from './layout.ts';
 
 /**
@@ -6,7 +7,8 @@ import { DOMAIN, ISSUE_TRACKER, TRIAGE_LABELS } from './layout.ts';
  * `/setup-matt-pocock-skills` writes them, so that Matt Pocock Skills read them as their own
  * (ADR-0042): `docs/agents/issue-tracker.md` for the tracker, with the ticket header (ADR-0024),
  * `triage-labels.md`, `domain.md` for a single context, and the *Agent skills* block that points
- * to the three. Text only: init plans and writes it.
+ * to the three, each in the repository language (ADR-0045), the Russian texts in `conventions-ru.ts`.
+ * Text only: init plans and writes it.
  */
 
 const ISSUE_NUMBERS = 'the issue numbers of the issues it waits for, such as `#12, #15`';
@@ -62,7 +64,8 @@ const CONVENTIONS: Record<TrackerProvider, { ticket: string; blockedBy: string; 
 };
 
 /** The convention `/to-tickets` writes by, for the tracker in use. It leads with a blank line, after the file's last section. */
-export function ticketHeaderSection(provider: TrackerProvider): string {
+export function ticketHeaderSection(provider: TrackerProvider, language: Language): string {
+  if (language === 'ru') return ticketHeaderSectionRu(provider);
   const { ticket, blockedBy, example, spec, rule, questions } = CONVENTIONS[provider];
   const states = TASK_STATES.map((state) => `\`${state}\``).join(', ');
   return `
@@ -230,7 +233,8 @@ Used by \`/wayfinder\`. The **map** is a single issue with **child** issues as t
 };
 
 /** The whole `docs/agents/issue-tracker.md` for a tracker: its conventions, then the ticket header. */
-const issueTrackerFile = (provider: TrackerProvider): string => TRACKER_FILES[provider] + ticketHeaderSection(provider);
+const issueTrackerFile = (provider: TrackerProvider, language: Language): string =>
+  (language === 'ru' ? TRACKER_FILES_RU : TRACKER_FILES)[provider] + ticketHeaderSection(provider, language);
 
 const TRIAGE_LABELS_FILE = `# Triage Labels
 
@@ -287,10 +291,10 @@ If your output contradicts an existing ADR, surface it explicitly rather than si
 `;
 
 /** Each convention file, by its path, as init creates it for a tracker. */
-export const conventionFiles = (provider: TrackerProvider): Record<string, string> => ({
-  [ISSUE_TRACKER]: issueTrackerFile(provider),
-  [TRIAGE_LABELS]: TRIAGE_LABELS_FILE,
-  [DOMAIN]: DOMAIN_FILE,
+export const conventionFiles = (provider: TrackerProvider, language: Language): Record<string, string> => ({
+  [ISSUE_TRACKER]: issueTrackerFile(provider, language),
+  [TRIAGE_LABELS]: language === 'ru' ? TRIAGE_LABELS_FILE_RU : TRIAGE_LABELS_FILE,
+  [DOMAIN]: language === 'ru' ? DOMAIN_FILE_RU : DOMAIN_FILE,
 });
 
 const WHERE_ISSUES: Record<TrackerProvider, string> = {
@@ -302,8 +306,18 @@ const WHERE_ISSUES: Record<TrackerProvider, string> = {
 /** The *Agent skills* block, recognised by its heading, so that one already there is never added again. */
 export const AGENT_SKILLS_HEADING = /^##\s+Agent skills\s*$/m;
 
-/** The block for an instruction file, pointing to the three files. It leads with a blank line, after the file's last section. */
-export const agentSkillsBlock = (provider: TrackerProvider): string => `
+/**
+ * The block for an instruction file, pointing to the three files. It leads with a blank line, after
+ * the file's last section. The Russian text also states the documentation language, so that any agent writes in it.
+ */
+export const agentSkillsBlock = (provider: TrackerProvider, language: Language): string =>
+  language === 'ru' ? agentSkillsBlockRu(provider) : agentSkillsBlockEn(provider);
+
+/** A new `AGENTS.md`: its heading, then the block. */
+export const agentsFile = (provider: TrackerProvider, language: Language): string =>
+  `${language === 'ru' ? '# Инструкции для агентов' : '# Agent Instructions'}\n${agentSkillsBlock(provider, language)}`;
+
+const agentSkillsBlockEn = (provider: TrackerProvider): string => `
 ## Agent skills
 
 ### Issue tracker

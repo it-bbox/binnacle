@@ -31,7 +31,7 @@ import { autostart, autostartUnavailable } from './daemon-commands.ts';
 import { EXIT, type ExitCode } from './exit.ts';
 import { daemonAddress, detected, exporters, NO_EXPORT, settingsText } from './export.ts';
 import { isRecord, sessionHistory } from './history.ts';
-import { agentSkillsBlock, AGENT_SKILLS_HEADING, conventionFiles, ticketHeaderSection } from './conventions.ts';
+import { agentSkillsBlock, agentsFile, AGENT_SKILLS_HEADING, conventionFiles, ticketHeaderSection } from './conventions.ts';
 import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, mattPocockFiles, ROADMAP_SKELETON, roadmapGaps } from './layout.ts';
 import { parseLanguage, proposeLanguage } from './language.ts';
 import { register } from './project-commands.ts';
@@ -157,10 +157,10 @@ export async function init(
     skillsStep(session, harnesses, tools, options.skipHarness ?? []);
     session.say('');
     // The manifest as it is now, or the tracker it would propose: the plan is not yet written.
-    conventionsStep(session, declaredManifest(session.root)?.tracker.provider ?? forgeRemote(git.remotes)?.provider ?? 'local');
+    conventionsStep(session, declaredManifest(session.root)?.tracker.provider ?? forgeRemote(git.remotes)?.provider ?? 'local', language);
     session.say('');
     if (manifest !== 'invalid') {
-      layoutStep(session, manifest === 'new' ? { ...NEW_LAYOUT, issues: forgeRemote(git.remotes) ? null : NEW_LAYOUT.issues } : declaredLayout(declaredManifest(session.root)!));
+      layoutStep(session, manifest === 'new' ? { ...NEW_LAYOUT, issues: forgeRemote(git.remotes) ? null : NEW_LAYOUT.issues } : declaredLayout(declaredManifest(session.root)!), language);
       session.say('');
     }
     instructionsStep(session);
@@ -987,7 +987,7 @@ const declaredLayout = ({ tracker, knowledge }: ProjectManifest): Layout => ({
  * proposed only when missing; an existing roadmap is never rewritten, and one not in the
  * format is left to `binn audit` to explain.
  */
-function layoutStep(session: Session, { issues, docs }: Layout): void {
+function layoutStep(session: Session, { issues, docs }: Layout, language: Language): void {
   if (issues !== null && !existsSync(join(session.root, issues))) {
     session.say(`The tracker reads tickets from ${issues}/, which does not exist. The plan creates it.`);
     planFile(session, posix.join(issues, '.gitkeep'), '');
@@ -1000,7 +1000,7 @@ function layoutStep(session: Session, { issues, docs }: Layout): void {
   const existing = join(session.root, path);
   if (!existsSync(existing)) {
     session.say(`There is no roadmap at ${path}. The plan creates a skeleton in Binnacle's format.`);
-    return planFile(session, path, ROADMAP_SKELETON);
+    return planFile(session, path, ROADMAP_SKELETON[language]);
   }
   const gaps = roadmapGaps(readFileSync(existing, 'utf8'));
   if (gaps.length === 0) {
@@ -1019,21 +1019,21 @@ function layoutStep(session: Session, { issues, docs }: Layout): void {
  * section it lacks, and a block in either instruction file is left as it is. `provider` is the
  * tracker the manifest declares, or the one it would propose.
  */
-function conventionsStep(session: Session, provider: TrackerProvider): void {
+function conventionsStep(session: Session, provider: TrackerProvider, language: Language): void {
   const found = mattPocockFiles(session.root);
-  const missing = Object.entries(conventionFiles(provider)).filter(([path]) => !found.includes(path));
+  const missing = Object.entries(conventionFiles(provider, language)).filter(([path]) => !found.includes(path));
   if (missing.length > 0) session.say(`The planning skills read their conventions from ${missing.map(([path]) => path).join(', ')}, which the plan creates.`);
   for (const [path, text] of missing) planFile(session, path, text);
   if (found.includes(ISSUE_TRACKER)) {
     if (hasTicketHeaderSection(session.root)) record(session, 'skipped', `ticket-header section: ${ISSUE_TRACKER} has it`);
-    else planFile(session, ISSUE_TRACKER, ticketHeaderSection(provider));
+    else planFile(session, ISSUE_TRACKER, ticketHeaderSection(provider, language));
   }
 
   const files = instructionFiles(session.root);
   const holder = Object.keys(files).find((name) => AGENT_SKILLS_HEADING.test(files[name]!));
   if (holder) return record(session, 'skipped', `the Agent skills block: ${holder} has it`);
   const target = 'CLAUDE.md' in files && !('AGENTS.md' in files) ? 'CLAUDE.md' : 'AGENTS.md';
-  planFile(session, target, target in files ? agentSkillsBlock(provider) : `# Agent Instructions\n${agentSkillsBlock(provider)}`);
+  planFile(session, target, target in files ? agentSkillsBlock(provider, language) : agentsFile(provider, language));
 }
 
 /** Step 7: the agent instruction files, reported as the sets an agent reads. */
