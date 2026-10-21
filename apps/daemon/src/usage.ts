@@ -752,7 +752,11 @@ function summary(name: string, failures: string[]): Diagnostic | null {
   if (failures.length === 0) return null;
   const others = failures.length - 1;
   const rest = others === 0 ? '' : ` It could not read ${others} other ${others === 1 ? 'file or directory' : 'files or directories'} either.`;
-  return { code: 'telemetry.unreadable', message: `${name} could not read ${failures[0]}.${rest}`, params: { harness: name, what: failures[0]!, others } };
+  const message = `${name} could not read ${failures[0]}.${rest}`;
+  // ponytail: a line or row a reader stopped at is an English sentence, not a value, so it has no params and is
+  // shown as written, marked English; give those failures their own values if they are met in practice.
+  if (failures[0]!.includes(', and nothing after it')) return { code: 'telemetry.unreadable', message };
+  return { code: 'telemetry.unreadable', message, params: { harness: name, what: failures[0]!, others } };
 }
 
 /**

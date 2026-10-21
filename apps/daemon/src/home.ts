@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { closeSync, fstatSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync, writeSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import type { Diagnostic, TrackerProvider } from '@binnacle/core';
+import type { Diagnostic, Params, TrackerProvider } from '@binnacle/core';
 
 /**
  * The Binnacle home directory holds everything this machine keeps about Binnacle
@@ -84,12 +84,12 @@ export function trackerToken(
 ): { token: string | null } | { failure: Diagnostic } {
   const variable = `BINNACLE_${provider.toUpperCase()}_TOKEN`;
   const path = credentialsPath(home);
-  const unusable = (source: string): { failure: Diagnostic } => ({
-    failure: { code: 'tracker.unavailable', message: `${source} is not a usable token, so nothing was read with it.`, params: { kind: 'token', source } },
+  const unusable = (source: string, params: Params): { failure: Diagnostic } => ({
+    failure: { code: 'tracker.unavailable', message: `${source} is not a usable token, so nothing was read with it.`, params },
   });
 
   const fromEnv = env[variable]?.trim();
-  if (fromEnv) return USABLE_TOKEN.test(fromEnv) ? { token: fromEnv } : unusable(variable);
+  if (fromEnv) return USABLE_TOKEN.test(fromEnv) ? { token: fromEnv } : unusable(variable, { kind: 'token', source: variable });
 
   let text: string;
   try {
@@ -132,7 +132,7 @@ export function trackerToken(
   if (!Object.hasOwn(entries, key)) return { token: null };
   const entry: unknown = (entries as Record<string, unknown>)[key];
   const token = typeof entry === 'string' ? entry.trim() : '';
-  return USABLE_TOKEN.test(token) ? { token } : unusable(`The entry for ${key} in ${path}`);
+  return USABLE_TOKEN.test(token) ? { token } : unusable(`The entry for ${key} in ${path}`, { kind: 'credentials_token', key, path });
 }
 
 /**

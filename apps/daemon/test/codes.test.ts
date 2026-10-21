@@ -12,6 +12,8 @@ import { WORDED_CODES } from '@binnacle/core';
  */
 
 const SOURCES = ['../src/', '../../../packages/core/src/', '../../../packages/adapters/src/'].map((path) => new URL(path, import.meta.url));
+/** The wording itself names every code it words, which would find each one emitted. */
+const WORDING = 'wording.ts';
 
 const CODE = String.raw`'([a-z_]+\.[a-z_]+)'`;
 const EMITTED = [
@@ -23,7 +25,7 @@ const EMITTED = [
 
 const emitted = new Map<string, string>();
 for (const source of SOURCES) {
-  for (const name of readdirSync(source).filter((file) => file.endsWith('.ts'))) {
+  for (const name of readdirSync(source).filter((file) => file.endsWith('.ts') && file !== WORDING)) {
     const text = readFileSync(new URL(name, source), 'utf8');
     for (const pattern of EMITTED) for (const match of text.matchAll(pattern)) if (!emitted.has(match[1]!)) emitted.set(match[1]!, name);
   }

@@ -1,5 +1,6 @@
 import { readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { isAbsolute, relative, sep } from 'node:path';
+import type { Params } from '@binnacle/core';
 import { OperationError } from './errors.ts';
 import { OWNER_ONLY_FILE, registryPath } from './home.ts';
 
@@ -25,14 +26,9 @@ export type RegistryEntry = {
   * the one canonical file here, and a generic 500 would tell its owner nothing.
   */
 export class RegistryUnreadableError extends OperationError {
-  constructor(path: string, reason: string) {
-    super(
-      'registry.unreadable',
-      `The Binnacle project registry at ${path} is unreadable (${reason}). Repair or remove the file.`,
-      500,
-      undefined,
-      { path, reason },
-    );
+  /** `params` say which `reason` it is: `json` with the parser's `error`, `projects` or `entry`. */
+  constructor(path: string, reason: string, params: Params) {
+    super('registry.unreadable', `The Binnacle project registry at ${path} is unreadable (${reason}). Repair or remove the file.`, 500, undefined, { path, ...params });
     this.name = 'RegistryUnreadableError';
   }
 }
@@ -51,13 +47,13 @@ export function readRegistry(home: string): RegistryEntry[] {
   try {
     parsed = JSON.parse(contents);
   } catch (error) {
-    throw new RegistryUnreadableError(path, (error as Error).message);
+    throw new RegistryUnreadableError(path, (error as Error).message, { kind: 'json', error: (error as Error).message });
   }
 
   const entries = (parsed as { projects?: unknown })?.projects;
-  if (!Array.isArray(entries)) throw new RegistryUnreadableError(path, 'no "projects" array');
+  if (!Array.isArray(entries)) throw new RegistryUnreadableError(path, 'no "projects" array', { kind: 'projects' });
   return entries.map((entry) => {
-    if (!isEntry(entry)) throw new RegistryUnreadableError(path, 'an entry has no "path"');
+    if (!isEntry(entry)) throw new RegistryUnreadableError(path, 'an entry has no "path"', { kind: 'entry' });
     return { path: entry.path, registeredAt: entry.registeredAt };
   });
 }

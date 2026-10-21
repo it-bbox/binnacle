@@ -84,7 +84,10 @@ const SHAPES: Record<string, string> = {
 };
 
 /** A value the daemon names by its shape, or a number as written. */
-const shape = (v: Values, name: string): string => (/^\d+$/.test(v.s(name)) ? v.s(name) : v.of(name, SHAPES));
+const shape = (v: Values, name: string): string => (/^-?\d+(\.\d+)?$/.test(v.s(name)) ? v.s(name) : v.of(name, SHAPES));
+
+/** A list the daemon joins with commas, said as alternatives. */
+const either = (v: Values, name: string): string => v.s(name).split(', ').join(' или ');
 
 /** What a forge lists, as the remote tracker names it. */
 const LISTED: Record<string, string> = {
@@ -128,7 +131,7 @@ const RUSSIAN: Record<string, (v: Values) => string> = {
   'expected.absolute_path': () => 'ожидается абсолютный путь, разрешённый вызывающим',
   'expected.relative_path': () => 'ожидается относительный путь внутри проекта',
   'expected.array': () => 'ожидается массив',
-  'manifest.unknown_key': () => 'неизвестный ключ, пропущен: его написал более новый Binnacle, или это опечатка',
+  'manifest.unknown_key': () => 'неизвестный ключ, пропущен: его написал более новый Binnacle или это опечатка',
   'manifest.unknown_language': (v) => `ожидается одно из: ${v.s('allowed')}; читается как en`,
   'yaml.syntax': (v) => `YAML не разбирается: ${v.s('error')}`,
   'project.shared_id': (v) => `«${v.s('id')}» — также id проекта, зарегистрированного в ${v.s('other')}`,
@@ -206,10 +209,11 @@ const RUSSIAN: Record<string, (v: Values) => string> = {
   'review.missing': (v) => `Задача ${v.s('task')} (${v.s('ticket')}) готова, но в её тикете нет ревью в ## Comments.`,
   'tracker.remote_mismatch': (v) => `Трекер объявлен на ${v.s('tracker')}, но ни один Git remote туда не указывает: ${v.s('remotes')}.`,
   'tracker.issues_missing': (v) => `tracker.local.issues указывает на ${v.s('path')}, но это не каталог.`,
-  'tracker.credentials_insecure': (v) => `${v.s('path')} могут читать не только его владелец, поэтому он не прочитан; оставьте доступ только владельцу (chmod 600).`,
+  'tracker.credentials_insecure': (v) => `${v.s('path')} может читать не только его владелец, поэтому он не прочитан; оставьте доступ только владельцу (chmod 600).`,
   'tracker.unavailable': (v) => {
     const kinds: Record<string, () => string> = {
       token: () => `${v.s('source')} — непригодный токен, поэтому с ним ничего не прочитано.`,
+      credentials_token: () => `Запись для ${v.s('key')} в ${v.s('path')} — непригодный токен, поэтому с ним ничего не прочитано.`,
       credentials_unreadable: () => `${v.s('path')} не читается (${v.s('error')}).`,
       credentials_invalid: () => `${v.s('path')} — не JSON-объект «хост — токен», поэтому с его токенами ничего не прочитано.`,
       manifest: () => 'Без читаемого манифеста задачи не прочитать.',
@@ -240,7 +244,7 @@ const RUSSIAN: Record<string, (v: Values) => string> = {
     v.o('status') === null
       ? `${v.s('task')} (${v.s('ticket')}) открыт, но его Status: — ${v.s('state')}.`
       : `${v.s('task')} (${v.s('ticket')}) закрыт как ${v.s('state')}, но его Status: — ${v.s('status')}.`,
-  'transition.unknown_state': (v) => `У ${v.of('entity', ENTITIES)} нет состояния ${v.s('states')}.`,
+  'transition.unknown_state': (v) => `У ${v.of('entity', ENTITIES)} нет состояния ${either(v, 'states')}.`,
   'transition.terminal': (v) => `Состояние ${v.of('entity', ENTITIES)} ${v.s('from')} конечное; перейти в ${v.s('to')} нельзя.`,
   'transition.not_allowed': (v) => `Перейти из ${v.s('from')} в ${v.s('to')} для ${v.of('entity', ENTITIES)} нельзя.`,
   'epic.unknown': (v) => `В роадмапе нет эпика ${v.s('epic')}.`,
@@ -248,7 +252,7 @@ const RUSSIAN: Record<string, (v: Values) => string> = {
   'adr.missing': (v) => `knowledge.adr указывает на ${v.s('path')}, но это не каталог.`,
   'checkpoint.uncommitted': (v) =>
     `В ${v.s('path')} есть незакоммиченные изменения, поэтому его нет в записанном коммите ${v.s('head')}, и он снова появится в следующей дельте. Закоммитьте его и запишите чекпойнт ещё раз.`,
-  'checkpoint.path_missing': (v) => `${v.s('path')} ничего не называет в этой рабочей копии, поэтому туда ничего не перенесено.`,
+  'checkpoint.path_missing': (v) => `По пути ${v.s('path')} в этой рабочей копии ничего нет, поэтому туда ничего не перенесено.`,
 
   // Git, CI, the graph, telemetry and the machine.
   'git.not_a_repository': (v) =>
@@ -297,7 +301,10 @@ const RUSSIAN: Record<string, (v: Values) => string> = {
     return pick(v, kinds);
   },
   'daemon.autostart_broken': (v) => `Автозапуск для ${v.s('home')} сломан: ${v.s('missing')} больше нет. Почините его командой \`${v.s('command')}\`.`,
-  'registry.unreadable': (v) => `Реестр проектов Binnacle в ${v.s('path')} не читается (${v.s('reason')}). Почините или удалите файл.`,
+  'registry.unreadable': (v) => {
+    const why = pick(v, { json: () => `не JSON: ${v.s('error')}`, projects: () => 'в нём нет массива "projects"', entry: () => 'у одной из записей нет "path"' });
+    return `Реестр проектов Binnacle в ${v.s('path')} не читается (${why}). Почините или удалите файл.`;
+  },
   'project.path_not_found': (v) => `Каталога ${v.s('path')} нет.`,
   'project.not_registered': (v) =>
     pick(v, {
@@ -312,7 +319,7 @@ const RUSSIAN: Record<string, (v: Values) => string> = {
   'request.unsupported_media_type': (v) =>
     `Binnacle принимает OTLP по HTTP только как несжатый JSON (application/json), а не ${v.s('received')}: укажите в экспортере протокол http/json.`,
   'request.not_found': (v) => `Маршрута ${v.s('route')} нет.`,
-  'request.method_not_allowed': (v) => `Метод «${v.s('method')}» здесь не разрешён; используйте ${v.s('allowed')}.`,
+  'request.method_not_allowed': (v) => `Метод «${v.s('method')}» здесь не разрешён; используйте ${either(v, 'allowed')}.`,
   'request.forbidden_host': (v) => `Host «${v.s('host')}» — не ${v.s('address')}, адрес, на котором слушает этот демон.`,
   'request.forbidden_origin': (v) => `Origin «${v.s('origin')}» не разрешён.`,
   'operation.unknown': (v) => `Неизвестная операция «${v.s('operation')}».`,

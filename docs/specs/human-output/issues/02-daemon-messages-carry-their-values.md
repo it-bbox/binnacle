@@ -31,3 +31,26 @@ Roles: Developer, Reviewer, Architect
 - `wordMessage(language, { code, message, params })` from `@binnacle/core` gives `{ text, english }`: `english` true means the message is the daemon's own, to be marked. Tickets 03 and 08 call it; the dashboard's `daemonReasons` move beside it in ticket 08.
 - **Not coded yet**: a section's `{ available: false, reason }` and the daily's `fallback` carry no code or params; ticket 08's text-matched `daemonReasons` cover the former. The CLI's own codes (`daemon.unreachable`, and `auth.missing` from `report.ts`, whose message differs from the daemon's) are ticket 03's; `OperationFailedError` now keeps `params`, and `binn mcp` and `binn call` pass them on.
 - A new code needs a wording in `packages/core/src/wording.ts` and an example in `packages/core/test/wording.test.ts`, or `apps/daemon/test/codes.test.ts` and the wording test fail.
+
+### Review
+
+A Reviewer sub-agent ran against `main`, on both axes and as the Architect. Typecheck and the 871 tests pass; every criterion holds; no new dependency, nothing outside the ticket, no Russian in MCP, `--json` or `binn call`.
+
+**Standards:**
+
+1. **The source test scanned `wording.ts` itself**, whose `expected.*` keys made every such code look emitted, so a worded code no longer emitted would not fail. **Fixed**: `apps/daemon/test/codes.test.ts` leaves `wording.ts` out.
+2. **Binnacle's own English phrases rode in `params`** and showed inside a Russian sentence unmarked: the credentials file's unusable entry (`The entry for … in …` as `source`), the registry's reasons, and `telemetry.unreadable`'s `what` for a line or row a reader stopped at. **Fixed**: `tracker.unavailable` gains `kind: 'credentials_token'` with `key` and `path`; `registry.unreadable` takes `kind` `json` (with the parser's `error`), `projects` or `entry`; a line or row failure carries no `params`, so it shows as written, marked English (a `ponytail:` note in `usage.ts`'s `summary`). **Kept**: Git's `detail` and a compaction's `trigger` (`auto`, `manual`) are values another tool reports, and Git's fallback `exit code N` rides with them.
+3. **"… могут читать не только его владелец"** was ungrammatical. **Fixed**: «может читать».
+4. **`shape()` read only whole positive numbers**, so `limit: -1` or `2.5` fell back to English. **Fixed**: signed and decimal numbers pass through.
+5. **`checkpoint.path_missing` was a calque.** **Fixed**: «По пути … в этой рабочей копии ничего нет».
+6. **Lists the English joins with "or"** read as a comma list. **Fixed**: `either()` says `request.method_not_allowed`'s methods and `transition.unknown_state`'s states with «или»; the stray comma before «или это опечатка» is gone.
+7. **`Coded` repeats `Diagnostic`'s shape.** **Kept**: `Coded` is what `wordMessage` takes, a diagnostic, an error or a detail alike; folding it into `tracker.ts` moves the type-only import cycle rather than removing it.
+
+**Spec:** the five criteria hold (below); the adapters' codes, every detail's code and `manifest.warning`'s `warning` are recorded under *Decisions*.
+
+#### Architect
+
+1. **`params` is additive** on `Diagnostic`, the error envelope and its details; `ErrorDetail.code` and `ManifestProblem.code`/`params` are new and required, so every detail has a code. No existing field changed. Nothing to fix.
+2. **`params` cannot be typed as "values only"**, so a later phrase would slip into a Russian sentence. **Fixed** by rule: `docs/03-mcp-and-skills.md` says a param is a value, never a phrase of Binnacle's own, a phrase being a `kind`.
+3. **The wording in core** is pure, imports nothing outside the package, and only `Unusable` is caught. Nothing to fix.
+4. **`board.ts` still finds `task.unknown_state` by its message's prefix**, which `params.task` could now replace. **Left**: it works as it is, and the ticket does not ask for it.

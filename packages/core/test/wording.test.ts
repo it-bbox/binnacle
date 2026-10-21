@@ -69,6 +69,7 @@ const EXAMPLES: [string, Params][] = [
   ['tracker.issues_missing', { path: 'docs/specs' }],
   ['tracker.credentials_insecure', { path: '/home/u/.binnacle/credentials.json' }],
   ['tracker.unavailable', { kind: 'token', source: 'BINNACLE_GITHUB_TOKEN' }],
+  ['tracker.unavailable', { kind: 'credentials_token', key: 'github.com', path: '/home/u/.binnacle/credentials.json' }],
   ['tracker.unavailable', { kind: 'credentials_unreadable', path: '/home/u/.binnacle/credentials.json', error: 'EACCES' }],
   ['tracker.unavailable', { kind: 'credentials_invalid', path: '/home/u/.binnacle/credentials.json' }],
   ['tracker.unavailable', { kind: 'manifest' }],
@@ -114,6 +115,7 @@ const EXAMPLES: [string, Params][] = [
   ['parallel_limit.invalid', { kind: 'file', file: '/home/u/.binnacle/settings.json', limit: 2 }],
   ['parallel_limit.invalid', { kind: 'setting', file: '/home/u/.binnacle/settings.json', max: 16, limit: 2 }],
   ['parallel_limit.invalid', { kind: 'value', max: 16, got: '17' }],
+  ['parallel_limit.invalid', { kind: 'value', max: 16, got: '-1.5' }],
   ['parallel_limit.invalid', { kind: 'value', max: 16, got: 'a string other than "auto"' }],
   ['settings.unreadable', { file: '/home/u/.binnacle/settings.json' }],
   ['vault.unwritable', { kind: 'settings', file: '/home/u/.binnacle/settings.json' }],
@@ -121,7 +123,9 @@ const EXAMPLES: [string, Params][] = [
   ['vault.unwritable', { kind: 'directory', path: '/home/u/vault' }],
   ['vault.unwritable', { kind: 'write', path: '/home/u/vault', error: 'EACCES' }],
   ['daemon.autostart_broken', { home: '/home/u/.binnacle', missing: '/usr/bin/node', command: 'binn daemon autostart on' }],
-  ['registry.unreadable', { path: '/home/u/.binnacle/projects.json', reason: 'not JSON' }],
+  ['registry.unreadable', { path: '/home/u/.binnacle/projects.json', kind: 'json', error: 'Unexpected end of JSON input' }],
+  ['registry.unreadable', { path: '/home/u/.binnacle/projects.json', kind: 'projects' }],
+  ['registry.unreadable', { path: '/home/u/.binnacle/projects.json', kind: 'entry' }],
   ['project.path_not_found', { path: '/work/gone' }],
   ['project.not_registered', { kind: 'registered', path: '/work/demo' }],
   ['project.not_registered', { kind: 'contains', path: '/work/demo/sub' }],
@@ -130,7 +134,7 @@ const EXAMPLES: [string, Params][] = [
   ['request.body_too_large', { limit: 1048576 }],
   ['request.unsupported_media_type', { received: 'application/x-protobuf' }],
   ['request.not_found', { route: '/nope' }],
-  ['request.method_not_allowed', { method: 'PUT', allowed: 'GET, HEAD' }],
+  ['request.method_not_allowed', { method: 'PUT', allowed: 'POST' }],
   ['request.forbidden_host', { host: 'evil.test', address: '127.0.0.1:7777' }],
   ['request.forbidden_origin', { origin: 'https://evil.test' }],
   ['operation.unknown', { operation: 'project.explode' }],
@@ -169,9 +173,11 @@ describe("core's Russian wording", () => {
     assert.equal(russian('manifest.invalid', { path: 'p.yaml', count: 1 }), 'В p.yaml 1 ошибка.');
     assert.equal(russian('manifest.invalid', { path: 'p.yaml', count: 3 }), 'В p.yaml 3 ошибки.');
     assert.equal(russian('manifest.invalid', { path: 'p.yaml', count: 5 }), 'В p.yaml 5 ошибок.');
-    assert.equal(russian('manifest.warning', { path: 'tracker.colour', warning: 'manifest.unknown_key' }), 'tracker.colour: неизвестный ключ, пропущен: его написал более новый Binnacle, или это опечатка.');
+    assert.equal(russian('manifest.warning', { path: 'tracker.colour', warning: 'manifest.unknown_key' }), 'tracker.colour: неизвестный ключ, пропущен: его написал более новый Binnacle или это опечатка.');
     assert.equal(russian('tracker.unauthorized', { forge: 'GitHub', where: 'a/b at h', token: 'none' }), 'GitHub отклонил запрос для a/b at h (401); запрос был без токена.');
     assert.equal(russian('expected.mapping', { got: 'a list' }), 'ожидается YAML-отображение, а здесь список');
+    assert.equal(russian('request.method_not_allowed', { method: 'PUT', allowed: 'GET, HEAD' }), 'Метод «PUT» здесь не разрешён; используйте GET или HEAD.');
+    assert.equal(russian('transition.unknown_state', { entity: 'Task', states: '"LATER", "SOON"' }), 'У задачи нет состояния "LATER" или "SOON".');
   });
 
   it('gives English, as the daemon wrote it, in English', () => {
