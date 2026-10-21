@@ -1,6 +1,6 @@
 # 05: binn init in the person's language, next command first
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 01, 03, 06
 Spec: `docs/specs/human-output/spec.md`
