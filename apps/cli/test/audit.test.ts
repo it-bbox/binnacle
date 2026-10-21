@@ -9,9 +9,11 @@ import { test, type TestContext } from 'node:test';
 const BINN = fileURLToPath(new URL('../src/bin.ts', import.meta.url));
 
 /** The environment minus anything that points git at another repository or holds a tracker token. */
-const baseEnv = Object.fromEntries(
-  Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_') && !/^BINNACLE_(GITHUB|GITLAB)_TOKEN$/.test(key)),
-);
+const baseEnv = {
+  ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_') && !/^BINNACLE_(GITHUB|GITLAB)_TOKEN$/.test(key))),
+  // English, the language these tests read.
+  LC_ALL: 'C',
+};
 
 function git(cwd: string, ...args: string[]): void {
   const result = spawnSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', ...args], { cwd, encoding: 'utf8', env: baseEnv });

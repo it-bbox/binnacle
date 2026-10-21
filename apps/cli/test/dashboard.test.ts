@@ -17,7 +17,8 @@ function binn(home: string, ...args: string[]): Promise<{ status: number | null;
 
 function binnWith(home: string, env: NodeJS.ProcessEnv, ...args: string[]): Promise<{ status: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [BINN, ...args], { env: { ...process.env, HOME: home, BINNACLE_HOME: join(home, '.binnacle'), ...env } });
+    // English, the language these tests read, unless a test sets another.
+    const child = spawn(process.execPath, [BINN, ...args], { env: { ...process.env, LC_ALL: 'C', HOME: home, BINNACLE_HOME: join(home, '.binnacle'), ...env } });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString()));
@@ -89,18 +90,19 @@ test('binn dashboard with no browser to open says to run binn dashboard --print 
   assert.ok(!(result.stdout + result.stderr).includes(daemon.token));
 });
 
-test('binn dashboard with no daemon gives daemon.unreachable and the command that starts one', async (t) => {
+test('binn dashboard with no daemon says no daemon answers, with the command that starts one, and exits 4', async (t) => {
   const home = temporaryHome(t);
   for (const args of [['dashboard'], ['dashboard', '--print']]) {
     const result = await binn(home, ...args);
     assert.equal(result.status, 4, args.join(' '));
     assert.equal(result.stdout, '');
-    assert.match(result.stderr, /daemon\.unreachable/);
+    assert.match(result.stderr, /no Binnacle daemon is answering/);
+    assert.doesNotMatch(result.stderr, /daemon\.unreachable/);
     assert.match(result.stderr, /binn daemon start/);
   }
 });
 
-test('binn dashboard gives daemon.unreachable when the runtime file names a live process that does not answer', async (t) => {
+test('binn dashboard says no daemon answers when the runtime file names a live process that does not answer', async (t) => {
   const home = temporaryHome(t);
   const daemon = await startTestDaemon({ home: join(home, '.binnacle') });
   const { port } = daemon.runtime;
@@ -111,7 +113,7 @@ test('binn dashboard gives daemon.unreachable when the runtime file names a live
   const result = await binn(home, 'dashboard', '--print');
   assert.equal(result.status, 4);
   assert.equal(result.stdout, '');
-  assert.match(result.stderr, /daemon\.unreachable/);
+  assert.match(result.stderr, /no Binnacle daemon is answering/);
   assert.match(result.stderr, /binn daemon start/);
 });
 

@@ -24,11 +24,15 @@ const GIT = (process.env.PATH ?? '').split(delimiter).map((dir) => join(dir, 'gi
  * tracker token the developer has set, which would otherwise reach the loopback stand-ins,
  * and minus the harnesses' artifact roots, which would show this machine's own sessions.
  */
-const baseEnv = Object.fromEntries(
-  Object.entries(process.env).filter(
-    ([key]) => !key.startsWith('GIT_') && !/^BINNACLE_(GITHUB|GITLAB)_TOKEN$/.test(key) && key !== 'CLAUDE_CONFIG_DIR' && key !== 'CODEX_HOME',
+const baseEnv = {
+  ...Object.fromEntries(
+    Object.entries(process.env).filter(
+      ([key]) => !key.startsWith('GIT_') && !/^BINNACLE_(GITHUB|GITLAB)_TOKEN$/.test(key) && key !== 'CLAUDE_CONFIG_DIR' && key !== 'CODEX_HOME',
+    ),
   ),
-);
+  // English, the language these tests read, unless a test sets another.
+  LC_ALL: 'C',
+};
 
 function git(cwd: string, ...args: string[]): string {
   const result = spawnSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', ...args], {

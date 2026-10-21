@@ -22,7 +22,8 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 test(`autostart on ${process.platform} with the real service manager`, { skip, timeout: 10 * 60_000 }, async (t: TestContext) => {
   const platform = servicePlatform();
   const home = mkdtempSync(join(tmpdir(), 'binnacle-live-'));
-  const env: NodeJS.ProcessEnv = { ...process.env, BINNACLE_HOME: home };
+  // English, the language this test reads.
+  const env: NodeJS.ProcessEnv = { ...process.env, LC_ALL: 'C', BINNACLE_HOME: home };
   const binn = (...args: string[]) => spawnSync(process.execPath, [BINN, ...args], { encoding: 'utf8', env });
 
   /** The pid of the daemon answering for the home, or null. */

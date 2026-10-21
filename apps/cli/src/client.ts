@@ -3,9 +3,12 @@ import { HEALTH_PATH, OPS_PREFIX, isErrorEnvelope, type ErrorDetail, type Runtim
 
 /** The daemon is not answering on the address its runtime file claims. */
 export class DaemonUnreachableError extends Error {
+  address: string;
+
   constructor(address: string, cause: unknown) {
     super(`No Binnacle daemon answered on ${address}.`, { cause });
     this.name = 'DaemonUnreachableError';
+    this.address = address;
   }
 }
 

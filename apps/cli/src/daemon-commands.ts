@@ -27,6 +27,7 @@ import {
 import { callOperation, isListening } from './client.ts';
 import { EXIT, type ExitCode } from './exit.ts';
 import { reportFailure, requireToken } from './report.ts';
+import { marked, row, say, T } from './text.ts';
 
 const START_TIMEOUT_MS = 10_000;
 const STOP_TIMEOUT_MS = 10_000;
@@ -46,7 +47,7 @@ export async function start(home: string): Promise<ExitCode> {
   // start a competitor against the same home.
   const running = readRuntime(home);
   if (running && isAlive(running.pid)) {
-    report('Binnacle daemon is already running.', running);
+    report(T.alreadyRunning, running);
     return EXIT.ok;
   }
   // Under the service it is left to the daemon, which replaces a stale file itself: a daemon the
@@ -70,7 +71,7 @@ export async function start(home: string): Promise<ExitCode> {
   try {
     const runtime = await waitForStart(home, child);
     child.unref();
-    report('Binnacle daemon started.', runtime);
+    report(T.started, runtime);
     return EXIT.ok;
   } catch (error) {
     child.unref();
@@ -86,7 +87,7 @@ export async function status(home: string): Promise<ExitCode> {
   try {
     console.log(describeAutostart(readAutostart(home)));
   } catch (error) {
-    console.log(`Autostart is unknown: ${(error as Error).message}.`);
+    console.log(T.autostartUnknown(marked((error as Error).message)));
   }
   return code;
 }
@@ -94,17 +95,17 @@ export async function status(home: string): Promise<ExitCode> {
 async function daemonStatus(home: string): Promise<ExitCode> {
   const runtime = readRuntime(home);
   if (!runtime) {
-    console.log('Binnacle daemon is not running.');
+    console.log(T.notRunning);
     return EXIT.unreachable;
   }
   if (!isAlive(runtime.pid)) {
-    console.log(`Binnacle daemon is not running (stale runtime file for pid ${runtime.pid}).`);
+    console.log(T.stale(runtime.pid));
     return EXIT.unreachable;
   }
 
   try {
     const status = await callOperation<Runtime>(runtime, requireToken(home), 'daemon.status');
-    report('Binnacle daemon is running.', status);
+    report(T.running, status);
     return EXIT.ok;
   } catch (error) {
     return reportFailure(error);
@@ -120,12 +121,12 @@ export async function stop(home: string): Promise<ExitCode> {
   const supervised = service !== null;
   if (service && !managerFor(service).stop()) return EXIT.failed;
   if (!runtime) {
-    console.log('Binnacle daemon is not running.');
+    console.log(T.notRunning);
     return EXIT.ok;
   }
   if (!alive) {
     removeRuntime(home);
-    console.log(`Removed a stale runtime file for pid ${runtime.pid}.`);
+    console.log(T.removedStale(runtime.pid));
     return EXIT.ok;
   }
 
@@ -133,20 +134,20 @@ export async function stop(home: string): Promise<ExitCode> {
     process.kill(runtime.pid, 'SIGTERM');
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ESRCH') {
-      console.error(`binn: could not signal pid ${runtime.pid}: ${(error as Error).message}`);
+      console.error(`binn: ${T.cannotSignal(runtime.pid, (error as Error).message)}`);
       return EXIT.failed;
     }
   }
 
   if (!(await waitFor(() => !isAlive(runtime.pid), STOP_TIMEOUT_MS))) {
-    console.error(`binn: pid ${runtime.pid} did not stop within ${STOP_TIMEOUT_MS / 1000}s.`);
+    console.error(`binn: ${T.didNotStop(runtime.pid, STOP_TIMEOUT_MS / 1000)}`);
     return EXIT.failed;
   }
 
   // The daemon removes its own runtime file on a clean stop. Windows has no graceful
   // SIGTERM, so the file is removed here too rather than left for the next start.
   removeRuntime(home);
-  console.log(`Binnacle daemon stopped${supervised ? ' through the service manager' : ''} (pid ${runtime.pid}).`);
+  console.log(T.stopped(runtime.pid, supervised));
   return EXIT.ok;
 }
 
@@ -157,7 +158,7 @@ export async function autostart(
   home: string,
   action: 'on' | 'off' | undefined,
   {
-    warn = (text) => console.error(`binn: warning: ${text}`),
+    warn = (text) => console.error(`binn: ${T.warning}: ${text}`),
     root,
   }: {
     /** Where `on` puts its warnings: stderr, or `binn init`'s Summary. */
@@ -170,13 +171,13 @@ export async function autostart(
   try {
     servicePlatform();
   } catch (error) {
-    console.error(`binn: ${(error as Error).message}`);
+    console.error(`binn: ${marked((error as Error).message)}`);
     return EXIT.usage;
   }
   try {
     current = readAutostart(home);
   } catch (error) {
-    console.error(`binn: ${(error as Error).message}`);
+    console.error(`binn: ${marked((error as Error).message)}`);
     return EXIT.failed;
   }
   if (action === undefined) {
@@ -209,7 +210,7 @@ function runAll(command: string, ...calls: string[][]): boolean {
   for (const args of calls) {
     const result = runManager(command, args);
     if (!result.ok) {
-      console.error(`binn: ${command} ${args.join(' ')} failed: ${result.message}`);
+      console.error(`binn: ${T.managerFailed(`${command} ${args.join(' ')}`, result.message)}`);
       return false;
     }
   }
@@ -227,7 +228,7 @@ function managerFor({ platform, path, home }: Autostart): Manager {
     return {
       unavailable() {
         const scheduler = runManager('schtasks', ['/Query']);
-        return scheduler.ok ? null : `Task Scheduler does not answer (${scheduler.message})`;
+        return scheduler.ok ? null : T.noScheduler(scheduler.message);
       },
       isOn: () => registered() && daemonAlive(home),
       // Task Scheduler keeps the definition it was given: a rewritten one is created again over it.
@@ -241,7 +242,7 @@ function managerFor({ platform, path, home }: Autostart): Manager {
       // A task deleted by hand leaves its XML behind, which still reads on: start creates it again.
       start: () => (registered() || create()) && run(),
       stop: end,
-      output: `${logPath(home)} holds its output.`,
+      output: T.logHolds(logPath(home)),
     };
   }
   if (platform === 'darwin') {
@@ -255,7 +256,7 @@ function managerFor({ platform, path, home }: Autostart): Manager {
     return {
       unavailable() {
         const session = runManager('launchctl', ['print', domain]);
-        return session.ok ? null : `no GUI session of this user answers (${session.message})`;
+        return session.ok ? null : T.noGuiSession(session.message);
       },
       isOn() {
         const print = runManager('launchctl', ['print', target]);
@@ -271,7 +272,7 @@ function managerFor({ platform, path, home }: Autostart): Manager {
       },
       start: load,
       stop: unload,
-      output: `${logPath(home)} holds its output.`,
+      output: T.logHolds(logPath(home)),
     };
   }
   const user = (...args: string[]) => ['--user', ...args];
@@ -279,7 +280,7 @@ function managerFor({ platform, path, home }: Autostart): Manager {
   return {
     unavailable() {
       const manager = runManager('systemctl', user('show-environment'));
-      return manager.ok ? null : `no systemd user manager answers (${manager.message})`;
+      return manager.ok ? null : T.noSystemd(manager.message);
     },
     isOn: () => runManager('systemctl', user('is-enabled', SERVICE_NAME)).ok && runManager('systemctl', user('is-active', SERVICE_NAME)).ok,
     reload: () => systemctl(['daemon-reload']),
@@ -292,7 +293,7 @@ function managerFor({ platform, path, home }: Autostart): Manager {
     },
     start: () => systemctl(['start', SERVICE_NAME]),
     stop: () => systemctl(['stop', SERVICE_NAME]),
-    output: `\`journalctl --user -u ${SERVICE_NAME}\` shows its output.`,
+    output: T.journal(SERVICE_NAME),
   };
 }
 
@@ -303,14 +304,14 @@ async function autostartOn(current: Autostart, warn: (text: string) => void, roo
   const { home, path } = current;
   const unavailable = autostartUnavailable(current);
   if (unavailable) {
-    console.error(`binn: autostart is not available here: ${unavailable}. Nothing was changed.`);
+    console.error(`binn: ${T.autostartUnavailable(unavailable)}`);
     return EXIT.failed;
   }
 
   const manager = managerFor(current);
   const installed = readInstalled(current.platform, path);
   if (installed?.text === renderDefinition(current.platform, serviceInputs(home)) && manager.isOn()) {
-    console.log(`Autostart is already on for ${home}; nothing changed.`);
+    console.log(T.alreadyOn(home));
     return EXIT.ok;
   }
 
@@ -325,10 +326,10 @@ async function autostartOn(current: Autostart, warn: (text: string) => void, roo
   rewriteDefinition(current, installed);
 
   if (!manager.on()) {
-    console.error(`binn: ${path} is written but autostart may not be on; \`binn daemon autostart off\` removes it.`);
+    console.error(`binn: ${T.mayNotBeOn(path, 'binn daemon autostart off')}`);
     return EXIT.failed;
   }
-  console.log(`Autostart is on for ${home}: ${path} starts the daemon at login, and again when it fails.`);
+  console.log(T.turnedOn(home, path));
   for (const warning of unseenTokenWarnings(home, root)) warn(warning);
   return EXIT.ok;
 }
@@ -363,14 +364,11 @@ function unseenTokenWarnings(home: string, root: string | undefined): string[] {
     const problems = [...new Set(hosts.length > 0 ? hosts : [null])].flatMap((host) => {
       // The file alone, as the service's daemon reads it: an empty environment.
       const found = trackerToken(home, provider, host, {});
-      if ('failure' in found) return [found.failure.message.replace(/\.$/, '')];
-      return found.token ? [] : [`${path} has no token for ${JSON.stringify(credentialsKey(provider, host))}`];
+      if ('failure' in found) return [say(found.failure)];
+      return found.token ? [] : [T.noTokenFor(path, credentialsKey(provider, host))];
     });
     if (problems.length === 0) continue;
-    warnings.push(
-      `${variable} is set in this shell, but the daemon the service manager starts does not see it, and ${[...new Set(problems)].join('; ')}. ` +
-        `Put a read-only token in ${path} under the tracker's key, owner-only (chmod 600); Binnacle's docs/operations/05-installation-checklist.md, under Tracker credentials, has the details.`,
-    );
+    warnings.push(T.unseenToken(variable, [...new Set(problems)], path));
   }
   return warnings;
 }
@@ -379,8 +377,7 @@ function unseenTokenWarnings(home: string, root: string | undefined): string[] {
 async function autostartOff(current: Autostart): Promise<ExitCode> {
   const { home, path, serves } = current;
   if (serves !== home) {
-    const other = serves ? ` The service starts the daemon for ${serves}, and stays.` : '';
-    console.log(`Autostart is already off for ${home}; nothing changed.${other}`);
+    console.log(T.alreadyOff(home, serves));
     return EXIT.ok;
   }
   if (!managerFor(current).off()) return EXIT.failed;
@@ -390,7 +387,7 @@ async function autostartOff(current: Autostart): Promise<ExitCode> {
     const stopped = await stop(home);
     if (stopped !== EXIT.ok) return stopped;
   }
-  console.log(`Autostart is off for ${home}: the service's daemon is stopped and ${path} is removed.`);
+  console.log(T.turnedOff(home, path));
   return EXIT.ok;
 }
 
@@ -401,10 +398,9 @@ function daemonAlive(home: string): boolean {
 
 function describeAutostart({ state, platform, home, path, serves, missing }: Autostart): string {
   const where = `${platform}, ${path}`;
-  if (state === 'on') return `Autostart is on for ${home} (${where}).`;
-  if (state === 'broken') return `Autostart is broken for ${home} (${where}): ${missing.join(' and ')} no longer exists. Repair it with \`${AUTOSTART_ON}\`.`;
-  const other = serves && serves !== home ? ` The service starts the daemon for ${serves} instead.` : '';
-  return `Autostart is off for ${home} (${platform}).${other} Turn it on with \`${AUTOSTART_ON}\`.`;
+  if (state === 'on') return T.isOn(home, where);
+  if (state === 'broken') return T.isBroken(home, where, missing, AUTOSTART_ON);
+  return T.isOff(home, platform, serves && serves !== home ? serves : null, AUTOSTART_ON);
 }
 
 /** The service when autostart is on, or broken, for this home: then start and stop go through the manager. Anything unreadable leaves them as they were. */
@@ -422,9 +418,9 @@ function rewriteDefinition({ platform, home, path }: Autostart, installed = read
   const definition = renderDefinition(platform, serviceInputs(home));
   if (installed?.text === definition) return false;
   writeDefinition(platform, path, definition);
-  if (installed && !installed.ours) console.error(`binn: warning: replaced ${path}, which Binnacle did not write.`);
-  else if (installed && installed.home !== home) console.log(`Autostart moves from ${installed.home} to ${home}.`);
-  else if (installed) console.log(`Rewrote ${path} with the current paths to Node, the daemon and PATH.`);
+  if (installed && !installed.ours) console.error(`binn: ${T.warning}: ${T.replaced(path)}`);
+  else if (installed && installed.home !== home) console.log(T.moves(installed.home, home));
+  else if (installed) console.log(T.rewrote(path));
   return true;
 }
 
@@ -432,7 +428,7 @@ async function startService(service: Autostart): Promise<ExitCode> {
   const manager = managerFor(service);
   if (!manager.start()) return EXIT.failed;
   try {
-    report('Binnacle daemon started through the service manager.', await waitForStart(service.home));
+    report(T.startedService, await waitForStart(service.home));
     return EXIT.ok;
   } catch (error) {
     console.error(`binn: ${(error as Error).message} ${manager.output}`);
@@ -442,10 +438,10 @@ async function startService(service: Autostart): Promise<ExitCode> {
 
 function report(headline: string, runtime: Runtime): void {
   console.log(headline);
-  console.log(`  address  http://${runtime.host}:${runtime.port}`);
-  console.log(`  pid      ${runtime.pid}`);
-  console.log(`  since    ${runtime.startedAt}`);
-  console.log(`  version  ${runtime.version}`);
+  console.log(row('address', `http://${runtime.host}:${runtime.port}`));
+  console.log(row('pid', String(runtime.pid)));
+  console.log(row('since', runtime.startedAt));
+  console.log(row('version', runtime.version));
 }
 
 /** Waits for the daemon to answer: the child spawned, or, under the service manager, whichever process holds the home. */
@@ -462,8 +458,8 @@ async function waitForStart(home: string, child?: ChildProcess): Promise<Runtime
     if (runtime && (child ? runtime.pid === child.pid : isAlive(runtime.pid)) && (await isListening(runtime))) return runtime;
 
     const code = exited();
-    if (code !== null) throw new Error(`the daemon exited with code ${code} before it started listening.`);
-    if (Date.now() >= deadline) throw new Error(`the daemon did not start within ${START_TIMEOUT_MS / 1000}s.`);
+    if (code !== null) throw new Error(T.exitedEarly(code));
+    if (Date.now() >= deadline) throw new Error(T.didNotStart(START_TIMEOUT_MS / 1000));
     await delay(25);
   }
 }

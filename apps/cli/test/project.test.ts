@@ -30,7 +30,8 @@ test('binn project register, list and unregister', async (t) => {
     spawnSync(process.execPath, [BINN, ...args], {
       encoding: 'utf8',
       cwd: root,
-      env: { ...process.env, BINNACLE_HOME: home, BINNACLE_PORT: '0' },
+      // English, the language this test reads.
+      env: { ...process.env, LC_ALL: 'C', BINNACLE_HOME: home, BINNACLE_PORT: '0' },
     });
 
   t.after(() => {
@@ -115,8 +116,8 @@ orchestration:
     try {
       const result = binn('project', 'register', bare);
       assert.equal(result.status, 3, result.stdout);
-      assert.match(result.stderr, /manifest\.missing/);
-      assert.match(result.stderr, /No \.binnacle\/project\.yaml in /);
+      assert.doesNotMatch(result.stderr, /manifest\.missing/);
+      assert.match(result.stderr, /^binn: No \.binnacle\/project\.yaml in /);
       assert.match(result.stderr, /binn init/);
       assert.doesNotMatch(result.stderr, /project\.yaml\.example|templates\//);
     } finally {

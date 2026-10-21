@@ -3,6 +3,7 @@ import { readRuntime } from '@binnacle/daemon';
 import { isListening } from './client.ts';
 import { EXIT, type ExitCode } from './exit.ts';
 import { reportFailure, requireToken } from './report.ts';
+import { T } from './text.ts';
 
 /**
  * `binn dashboard`: the daemon's own address, with the token in the fragment, which never
@@ -14,7 +15,7 @@ import { reportFailure, requireToken } from './report.ts';
 export async function dashboard(home: string, print: boolean): Promise<ExitCode> {
   const runtime = readRuntime(home);
   if (!runtime || !(await isListening(runtime))) {
-    console.error('binn: daemon.unreachable: no Binnacle daemon is answering. Start it with `binn daemon start`.');
+    console.error(`binn: ${T.notAnswering}`);
     return EXIT.unreachable;
   }
   let token;
@@ -41,6 +42,6 @@ function open(address: string): void {
     ? ['cmd', ['/c', 'start', '""', `"${address}"`]]
     : [process.platform === 'darwin' ? 'open' : 'xdg-open', [address]];
   const child = spawn(command, args, { detached: true, stdio: 'ignore', windowsVerbatimArguments: windows });
-  child.on('error', (error) => console.error(`binn: could not open a browser (${error.message}); run \`binn dashboard --print\` at a terminal for the address with its token.`));
+  child.on('error', (error) => console.error(`binn: ${T.noBrowser(error.message)}`));
   child.unref();
 }

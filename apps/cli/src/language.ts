@@ -6,6 +6,9 @@ import { LANGUAGES, type Language } from '@binnacle/core';
 export const personLanguage = (env: NodeJS.ProcessEnv = process.env): Language =>
   (env.LC_ALL || env.LANG || '').startsWith('ru') ? 'ru' : 'en';
 
+/** The person's language for this run, read once. */
+export const LANGUAGE = personLanguage();
+
 /** An answer to the language question, or `--language`'s value: `en` or `ru` in any case; null for anything else. */
 export function parseLanguage(text: string): Language | null {
   const language = text.trim().toLowerCase();
@@ -23,7 +26,7 @@ export function proposeLanguage(root: string): { language: Language; source: 're
   try {
     readme = readFileSync(join(root, 'README.md'), 'utf8');
   } catch {
-    return { language: personLanguage(), source: 'locale' };
+    return { language: LANGUAGE, source: 'locale' };
   }
   const prose = readme
     // A fenced block, to its closing fence, which carries no info string, or to the end of the file.

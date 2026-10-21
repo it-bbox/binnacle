@@ -106,6 +106,8 @@ The daemon reads all five from its own environment, so restart it after changing
 | `BINNACLE_GITHUB_TOKEN` | none | A read-only token for every project whose `tracker.provider` is `github`, and for the CI of every project whose Git remote is on `github.com`. |
 | `BINNACLE_GITLAB_TOKEN` | none | A read-only token for every project whose `tracker.provider` is `gitlab`, and for the CI of every project whose Git remote is on `gitlab.com`. |
 
+`binn` speaks your locale's language: Russian when `LC_ALL`, or else `LANG`, starts with `ru`, and English otherwise, `C` and unset included. Its exit codes are the same in either language; `binn mcp`, `binn call` and every `--json` stay English.
+
 ### Exit codes
 
 | Code | Meaning |

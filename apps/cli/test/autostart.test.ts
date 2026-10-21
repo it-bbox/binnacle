@@ -41,7 +41,8 @@ function setup(t: TestContext, platform = 'linux') {
   for (const dir of [user, bin, state]) mkdirSync(dir);
   writeFileSync(join(bin, manager), fake(log, unit), { mode: 0o755 });
 
-  const env: NodeJS.ProcessEnv = { ...process.env, HOME: user, BINNACLE_HOME: home, BINNACLE_PORT: '0', BINNACLE_SERVICE_PLATFORM: platform, PATH: bin };
+  // English, the language these tests read.
+  const env: NodeJS.ProcessEnv = { ...process.env, LC_ALL: 'C', HOME: user, BINNACLE_HOME: home, BINNACLE_PORT: '0', BINNACLE_SERVICE_PLATFORM: platform, PATH: bin };
   // Nothing here may reach this machine's own user manager or its configuration.
   delete env.XDG_CONFIG_HOME;
   delete env.XDG_RUNTIME_DIR;

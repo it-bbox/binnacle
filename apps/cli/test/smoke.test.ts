@@ -19,7 +19,8 @@ test('binn daemon start, an operation, and stop', async (t) => {
   const binn = (...args: string[]) =>
     spawnSync(process.execPath, [BINN, ...args], {
       encoding: 'utf8',
-      env: { ...process.env, BINNACLE_HOME: home, BINNACLE_PORT: '0' },
+      // English, the language this test reads.
+      env: { ...process.env, LC_ALL: 'C', BINNACLE_HOME: home, BINNACLE_PORT: '0' },
     });
 
   t.after(() => {
@@ -74,7 +75,8 @@ test('binn daemon start, an operation, and stop', async (t) => {
     try {
       const result = binn('daemon', 'status');
       assert.equal(result.status, 3, result.stdout);
-      assert.match(result.stderr, /auth\.invalid/);
+      assert.match(result.stderr, /The presented Binnacle API token is not valid\./);
+      assert.doesNotMatch(result.stderr, /auth\.invalid/);
     } finally {
       rmSync(token, { force: true });
     }
