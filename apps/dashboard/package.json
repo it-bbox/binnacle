@@ -21,6 +21,6 @@
     "@binnacle/core": "workspace:*",
     "@iconify-json/lucide": "^1.2.137",
     "@nuxt/ui": "^4.11.3",
-    "marked": "^17.0.6"
+    "marked": "^18.1.1"
   }
 }
