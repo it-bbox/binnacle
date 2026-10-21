@@ -1,6 +1,6 @@
 # 08: The dashboard in Russian terms, without codes
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 02
 Spec: `docs/specs/human-output/spec.md`
