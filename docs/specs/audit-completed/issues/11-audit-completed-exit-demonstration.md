@@ -10,7 +10,7 @@ Spec: `docs/specs/audit-completed/spec.md`
 - [x] `binn audit` on this repository: no gap in `docker`, `secrets` and `security`, and a migration plan at the end.
 - [ ] On a fixture with a committed `.env`, a GitHub token in a tracked file and a Dockerfile with no `.dockerignore`: each reported by path and line, never by value, and the plan puts `binn init` first and the secrets second; `/binnacle:audit` shows the plan first.
 - [ ] `/binnacle:init` from the chat asks about autostart.
-- [ ] After the push, Dependabot opens an npm update pull request.
+- [x] After the push, Dependabot opens an npm update pull request.
 - [ ] 0.2.0 published by `CONTRIBUTING.md`'s *Releasing*, and installed from the registry.
 
 ## Comments
@@ -26,5 +26,5 @@ Spec: `docs/specs/audit-completed/spec.md`
 - For the owner, the criteria left unticked:
   - **`/binnacle:audit`**, criterion 2: in a chat in this checkout, run `/binnacle:audit .scratch/demo/fixture` and see the migration plan shown first, `binn init` as step 1 and the secrets as step 2.
   - **`/binnacle:init`**, criterion 3: in a chat, run `/binnacle:init .scratch/demo/fixture` with autostart not installed (`binn daemon autostart off` first, or a machine without it), and see it ask, alone, whether the daemon should start at login. Answer no, and decline the plan, so nothing is written.
-  - **Dependabot**, criterion 4: after the push, an npm update pull request opens. Pull requests #2, #3, #4 and #5 are open as of 2026-10-21, so this one may already hold.
+  - **Dependabot**, criterion 4, holds: after `main` was pushed with ticket 10's cooldown (head `40a7525`, 2026-10-16), Dependabot opened npm update pull requests #2 to #5 on 2026-10-20, as GitHub reports. #3 (`@types/node` 26) and #4 (`typescript` 7) fail CI; they are majors, the owner's to take or close.
   - **0.2.0**, criterion 5: once `tarball-live` is green at `main`'s head, *Releasing* step 5 (`npm login`, `cd apps/cli/dist`, `npm publish --access public`), then `npm view @it-bbox/binnacle version` prints `0.2.0` and the installation checklist installs it.
