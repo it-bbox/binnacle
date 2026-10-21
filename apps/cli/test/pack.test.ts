@@ -197,10 +197,10 @@ test('/binnacle:product presents the graph\'s freshness in one line and each pai
   const skill = skillText('product');
   assert.match(skill, /\*\*Graph\*\*, in one line: current or behind from `graph\.behind`, built from `graph\.builtFrom`'s commit and time, and `graph\.lastRun`'s outcome and time, with its reason when it failed/);
   // No invented telemetry: a graph built outside the daemon has no recorded build, and its `behind` reads true.
-  assert.match(skill, /A `null` `behind` is "not known". A `null` `builtFrom` is "no build recorded", and then do not call the graph behind; a `null` `lastRun` is "no run recorded"/);
+  assert.match(skill, /A `null` `behind` is "no data". A `null` `builtFrom` is "no build recorded", and then do not call the graph behind; a `null` `lastRun` is "no run recorded"/);
   assert.match(skill, /When `graph` is marked `available: false`, give its reason instead, here rather than under \*\*Not available\*\*/);
   assert.match(skill, /\*\*Conflict risk\*\*, beside the Tasks ready to start: each pair in `tasks\.parallel\.impact\.pairs`, by Task id, with its `risk`, its `reason` and the `modules` it names/);
-  assert.match(skill, /Binnacle's calculation from the graph, not a fact; say so once/);
+  assert.match(skill, /the risk marked "\(estimate\)": Binnacle's calculation from the graph, not a fact/);
   assert.match(skill, /With no pair, say "no pair to assess"/);
   assert.match(skill, /When `impact` is marked `available: false`, say the risk was not assessed, with its reason, here rather than under \*\*Not available\*\*/);
 });
@@ -372,7 +372,7 @@ test('/binnacle:status calls project_status and nothing else, says a linked work
   assert.match(skill, /`registered` is false/);
   assert.match(skill, /"no commits yet" when `git\.commit` is null/);
   assert.match(skill, /a linked worktree, not the registered checkout/);
-  assert.match(skill, /\*\*Diagnostics\*\*: every item with its code/);
+  assert.match(skill, /\*\*What is wrong\*\*, only when something is: each diagnostic, worded/);
   assert.match(skill, /leave them to `\/binnacle:product`/);
 });
 
@@ -863,4 +863,20 @@ test('the skills copy carries autopilot\'s resume, roles, CI and Next action, an
   const checkpoint = readFileSync(join(target, 'binnacle-checkpoint', 'SKILL.md'), 'utf8');
   assert.match(checkpoint, /moved past the current focus/);
   assert.match(checkpoint, /`next_action\.stale` or `next_action\.missing`/);
+});
+
+/** Epic 13 (ADR-0045): the reporting skills open short, word every code, and say each term as CONTEXT.md's *Russian words* do. */
+test('the five reporting skills open with three to six lines, show no code and list CONTEXT.md\'s Russian words', () => {
+  const table = docText('CONTEXT.md').split('\n## Russian words\n')[1]?.split('\n## ')[0] ?? '';
+  const words = [...table.matchAll(/^\| ([^|]+?) \| ([^|]+?) \|$/gm)].slice(2).map(([, term = '', russian = '']) => [term, russian.replace(/: (.*)$/, ' ($1)')]);
+  assert.ok(words.length > 40, 'the table');
+  for (const name of ['product', 'daily', 'status', 'task', 'audit']) {
+    const skill = skillText(name);
+    const brief = name === 'task' ? skill.slice(0, skill.indexOf('\n## run\n')) : skill;
+    assert.match(brief, name === 'status' ? /\*\*Answer in two or three lines\*\*/ : /\*\*Open with three to six lines\*\*, in this order, and leave out a line with nothing in it/, name);
+    assert.match(brief, /never show its code: codes are for you/, name);
+    assert.doesNotMatch(brief, /item with its code|its code and message|Quote the error's code|quote its code/, name);
+    assert.match(brief, /"\(оценка\)", "\(по активности\)" and "нет данных"/, name);
+    for (const [term, russian] of words) assert.ok(brief.includes(`${term} — ${russian}`), `${name}: ${term} — ${russian}`);
+  }
 });

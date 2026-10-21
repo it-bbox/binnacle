@@ -48,12 +48,12 @@ Do **not** expose autonomous `spawn_agents`, `merge_to_main`, `deploy_prod` in v
 
 Initial user-facing actions:
 
-- `/product` — load Product role + compact current Product Snapshot;
-- `/daily` — show delta since previous daily/checkpoint and attention items;
+- `/product` — load Product role + compact current Product Snapshot, opening with its short report;
+- `/daily` — show delta since previous daily/checkpoint, what waits for the owner, what is broken and what can start next;
 - `/task <id>` — load a compact task brief, ending with the command that starts the Task, `/binnacle:task run <ticket>`, Binnacle's own whatever the project's workflow, and none for a Task `DONE` or `CANCELLED` (ADR-0042); `/task run <ticket>`, with a ticket path, URL or Task id, works that ticket through the whole per-ticket process instead, which lives in that skill alone; the skill is model-invocable, so that autopilot's agents can run it, and `run` starts only when a human or an autopilot brief asks for it;
-- `/status` — concise project and session status from `project_status` alone: the project, the manifest's tracker, this session's checkout (the registered one, or a linked worktree, said plainly) with its branch, commit and dirty state, and the diagnostics; the roadmap, Tasks and usage stay with `/product`;
+- `/status` — concise project and session status from `project_status` alone, in two or three lines: the project and the manifest's tracker, this session's checkout (the registered one, or a linked worktree, said plainly) with its branch, commit and clean or dirty state, and the diagnostics only when there are any; the roadmap, Tasks and usage stay with `/product`;
 - `/checkpoint` — extract durable delta and propose persistence; a stale or missing Next action paragraph is one of its candidates, with the text it proposes, written only on the human's yes;
-- `/audit [path]` — run `binn audit --json` on the current repository or a path and show in the chat its migration plan first, then its gaps and unknowns by area, then the number of `ok`;
+- `/audit [path]` — run `binn audit --json` on the current repository or a path and show in the chat a line of totals, then its migration plan, its steps naming areas rather than codes, then its gaps and unknowns by area;
 - `/init [path]` — run `binn init --plan --json` on the current repository or a path, show the whole plan in the chat and ask once, first asking whether the daemon starts at login when the plan's `autostart.ask` says it could be asked and passing that answer as `--autostart <yes|no>` to both calls; only the human's yes runs `binn init --apply <id>`, a changed plan is shown and asked again, and it never commits (ADR-0037);
 - `/daemon [start|stop|status]` — run `binn daemon <action>`, `status` by default, and show what it printed, with the log tail of a failed start;
 - `/register [path]` — run `binn project register` on a path, or else on the main checkout (the first path `git worktree list` prints), saying when that is not the session's checkout;
@@ -64,6 +64,16 @@ Initial user-facing actions:
 - `/help` — a plain guide to working with Binnacle, in the language the user writes in: what Binnacle is, each skill of the plugin with when to use it, grouped as setting up, a day's work and planning, and the usual order of a day (`/product`, the work, `/checkpoint`); it calls no tool, runs no command and needs no daemon.
 
 Every skill gives each command it offers the human alone in a fenced block, which copies in one click: a skill such as `/binnacle:daemon start` in a plain fence, a shell command such as `binn daemon start` in a `bash` fence. The roadmap's `Next action:` paragraph keeps its one command in backticks, the snapshot's contract; a skill fences it when it shows it.
+
+Every skill speaks to the person in the language of the conversation, while its instructions stay English (ADR-0045). The reporting skills, `/product`, `/daily`, `/status`, `/task` without `run` and `/audit`, open with a short report of three to six lines, in an order of their own, leave out a line with nothing in it, give the next command alone in a fenced block, end with one line on what else they can show, and give the rest from the same answer when the person asks, without calling again (`specs/human-output/spec.md`, *The skills' short report*):
+
+- `/product`: where the project stands — the current epic, its status and its Tasks done of all, and a linked worktree when the session runs in one; what waits for the owner — questions, approvals and Tasks to start, counted, with the first of each; what is broken — a failing default branch and the attention items; what is running, only when something is; and the Next action with its command, with Binnacle's first alternative in a line. The rest is every Task, the roadmap, conflict risk, the graph, CI by pull request, usage and decisions, and the dashboard holds the full picture.
+- `/daily`: what changed in one line — the range in words, the commits, and the transitions, new tickets, roadmap changes and decisions — or that nothing did; what waits for the owner; what is broken; and what can start next, with its command.
+- `/status`: the project and its tracker; the checkout with its branch, short commit and clean or dirty state, and a linked worktree when it is one; what is wrong, only when something is.
+- `/task`, without `run`: the Task with its state and epic; what it waits on — unanswered questions, Unmet dependencies, an approval; what is broken — its pull request's CI, a missing Review; and the command that starts it.
+- `/audit`: the totals, the plan, then the gaps and unknowns by area.
+
+No attention code reaches a person's text: the model words each item, diagnostic and error from its `code`, `message` and `params`, keeping the Task ids, paths and numbers it names. A value Binnacle calculated takes one word in brackets, "(estimate)" or "(оценка)", a reading from runs "(from activity)" or "(по активности)", and an unknown value is "no data" or "нет данных", never zero. Each reporting skill lists `CONTEXT.md`'s *Russian words* for the model, so that a Russian report says each term as `binn` and the dashboard do.
 
 The skills reach a harness through one of two channels, from one text per skill (ADR-0039). The text names no harness's mechanism: it says to ask the human, to start a background agent in a worktree of its own, or to open a new session, and takes what depends on the harness from `binn`'s output.
 
