@@ -49,6 +49,12 @@ The epic the dashboard and the Suggested step treat as the one under way: the on
 ### Vault projection
 The daemon's one-way rendering of a project's Project Brain into the owner's Obsidian vault, under `Projects/<Project>/`, from the default branch as committed, with the last snapshot and daily served and Graphify's report beside it (ADR-0036). The vault is a per-machine setting, never committed. Every note it writes is marked as generated, with its source file and commit, and it writes, rewrites and deletes only notes so marked; a note the human wrote is never touched, and an edit to a generated note is overwritten, never synced back. It is derived: deleting it loses nothing.
 
+### Person's language
+The language a person reads Binnacle in: the conversation's in the chat, the system locale's in a terminal, the browser's or the chosen one on the dashboard. Text for a person is in it; text written into a repository is not (ADR-0045).
+
+### Repository language
+The language a project's documentation is written in, stated in its manifest. What Binnacle and its skills write into the repository is in it, whatever the person's language; the markers Binnacle parses stay English in every one (ADR-0045).
+
 ### Harness
 The coding client a run happens inside: Claude Code, Codex, Gemini CLI and others. A harness is not a provider — the same harness can be pointed at different backends.
 
