@@ -42,12 +42,12 @@ function commitAll(root: string, message: string): string {
   return git(root, ['rev-parse', 'HEAD']);
 }
 
-function makeRepository(): { root: string; commit: string } {
+function makeRepository(language?: 'en' | 'ru'): { root: string; commit: string } {
   const root = temporary('binnacle-vault-repo-');
   write(
     root,
     '.binnacle/project.yaml',
-    'version: 1\n\nproject:\n  id: vault\n  name: Vault Test\n\ntracker:\n  provider: local\n  local:\n    issues: docs/specs\n\nknowledge:\n  docs: docs\n  adr: docs/adr\n  specs: docs/specs\n',
+    `version: 1\n\nproject:\n  id: vault\n  name: Vault Test\n\ntracker:\n  provider: local\n  local:\n    issues: docs/specs\n\nknowledge:\n  docs: docs\n  adr: docs/adr\n  specs: docs/specs\n${language ? `  language: ${language}\n` : ''}`,
   );
   write(root, '.gitignore', 'graphify-out/\n');
   write(root, 'docs/roadmap.md', '# Roadmap\n\n| # | Epic | Status | Spec |\n| --- | --- | --- | --- |\n| 1 | Alpha | in progress | [`alpha`](specs/alpha/spec.md) |\n\n## Current focus\n\nAlpha.\n');
@@ -367,5 +367,67 @@ describe('the vault projection', () => {
       const result = await daemon.call<Snapshot>('project.snapshot', { path: other.root });
       assert.deepEqual(result.body.attention.filter((item) => /^(vault|graph)\./.test(item.code)), []);
     });
+  });
+
+  it('writes the snapshot and daily notes in the repository language, the generated marker and the copied notes as they are', async () => {
+    const notes = async (language?: 'en' | 'ru'): Promise<{ snapshot: string; daily: string; adr: string; mine: string; commit: string }> => {
+      const { root } = makeRepository(language);
+      write(root, 'docs/specs/alpha/issues/02-asked.md', '# 02: Asked\n\nStatus: ACTIVE\n\n## Comments\n\n### Question\n\nWhich way?\n');
+      write(root, 'docs/specs/alpha/issues/03-review.md', '# 03: Review\n\nStatus: READY_FOR_REVIEW\n');
+      const head = commitAll(root, 'Waiting for the owner');
+      const vault = temporary('binnacle-vault-');
+      const mine = '---\ntitle: Mine\n---\n# Mine\n';
+      write(vault, `${PROJECT}/Product/mine.md`, mine);
+      let result = { snapshot: '', daily: '', adr: '', mine: '', commit: head };
+      await withDaemon(async (daemon) => {
+        setVault(daemon, vault);
+        await register(daemon, root);
+        await until(() => existsSync(note(vault, 'Decisions/ADR-0001-first.md')), 'the projection');
+        assert.equal((await daemon.call('project.snapshot', { path: root })).status, 200);
+        assert.equal((await daemon.call('daily.get', { path: root })).status, 200);
+        result = { snapshot: read(vault, 'Product/snapshot.md'), daily: read(vault, 'Product/daily.md'), adr: read(vault, 'Decisions/ADR-0001-first.md'), mine: read(vault, 'Product/mine.md'), commit: head };
+      });
+      return result;
+    };
+
+    const russian = await notes('ru');
+    const marker = (source: string, commit: string): RegExp => new RegExp(`^---\ngenerated-by: binnacle\nsource: ${source}\ncommit: ${commit}\nserved: \\d{4}-`);
+    assert.match(russian.snapshot, marker('project.snapshot', russian.commit));
+    assert.match(russian.daily, marker('daily.get', russian.commit));
+    for (const line of [
+      '# Снимок проекта Vault Test',
+      '## Следующий шаг',
+      '## Ждёт владельца',
+      '### Вопросы',
+      '- [[Projects/Vault Test/Specs/alpha/02-asked|alpha/02: Asked]]: Which way?',
+      '### Ждут одобрения',
+      '- [[Projects/Vault Test/Specs/alpha/03-review|alpha/03: Review]] — на ревью',
+      '## В работе',
+      '## Готовы к старту',
+      '- [[Projects/Vault Test/Specs/alpha/01-one|alpha/01: One]] — готова',
+      '## Параллельная работа',
+      '## Решения',
+      '- [[Projects/Vault Test/Decisions/ADR-0001-first|ADR-0001: First]]',
+      '## Граф',
+      '## Внимание',
+    ]) assert.ok(russian.snapshot.split('\n').includes(line), `${line}\n\n${russian.snapshot}`);
+    assert.match(russian.snapshot, /^Лимит \d+.*\(оценка\)\.$/m);
+    for (const line of ['# Сводка дня: Vault Test', '## Коммиты (2)', '## Смена статусов', '## Новые тикеты', '## Роадмап', '- Эпик 1, Alpha: новый → в работе', '## Ждёт владельца'])
+      assert.ok(russian.daily.split('\n').includes(line), `${line}\n\n${russian.daily}`);
+    // No English heading is left in either note.
+    assert.doesNotMatch(`${russian.snapshot}\n${russian.daily}`, /^#+ [A-Z][a-z]/m);
+
+    // An English repository, and one that states no language, are as today.
+    for (const english of [await notes('en'), await notes()]) {
+      assert.match(english.snapshot, marker('project.snapshot', english.commit));
+      for (const line of ['# Snapshot of Vault Test', '## Next', '## Waiting for the owner', '- [[Projects/Vault Test/Specs/alpha/03-review|alpha/03: Review]] — READY_FOR_REVIEW', '## Attention'])
+        assert.ok(english.snapshot.split('\n').includes(line), `${line}\n\n${english.snapshot}`);
+      assert.ok(english.daily.split('\n').includes('# Daily of Vault Test'), english.daily);
+      assert.ok(english.daily.split('\n').includes('- Epic 1, Alpha: new → in progress'), english.daily);
+      // The note copied from the repository and the human's note are the same in either language.
+      assert.equal(english.adr.replace(english.commit, ''), russian.adr.replace(russian.commit, ''));
+      assert.equal(english.mine, russian.mine);
+    }
+    assert.equal(russian.mine, '---\ntitle: Mine\n---\n# Mine\n');
   });
 });

@@ -2,12 +2,13 @@ import { accessSync, constants, existsSync, mkdirSync, readdirSync, readFileSync
 import { basename, dirname, isAbsolute, join, posix, relative, sep } from 'node:path';
 import { commitTree, type Tree } from '@binnacle/adapters';
 import type { Diagnostic, Params, ProjectManifest } from '@binnacle/core';
-import type { Daily } from './daily.ts';
+import { FALLBACK_DAYS, type Daily } from './daily.ts';
 import { defaultCommit, GRAPH_DIRECTORY, lastBuild, manifestOf } from './graph.ts';
 import { resolveGitTimeout, settingsPath } from './home.ts';
 import { readRegistry } from './registry.ts';
 import type { PendingDecisions, Snapshot, Unavailable } from './snapshot.ts';
 import type { Store } from './store.ts';
+import { vaultWords, type VaultWords } from './vault-text.ts';
 
 /**
  * The vault projection (ADR-0036): a one-way rendering of each registered project's Project
@@ -303,20 +304,20 @@ const folderName = (manifest: ProjectManifest): string =>
 /**
  * Writes Product's snapshot or daily note from what was just served, with no other read than
  * the setting's; nothing when no vault is set or the manifest cannot be read. A write that fails
- * is logged and never fails what was served.
+ * is logged and never fails what was served. Its own words are in the repository language.
  */
 export function writeServed(home: string, manifest: ProjectManifest | null, served: { snapshot: Snapshot } | { daily: Daily }): void {
   const vault = readVault(home);
   if (vault === null || 'code' in vault || manifest === null) return;
   try {
-    const link = linker(manifest);
+    const note = notes(vaultWords(manifest.knowledge.language), linker(manifest));
     const name = manifest.project.name ?? manifest.project.id;
-    const [note, source, commit, body] =
+    const [file, source, commit, body] =
       'snapshot' in served
-        ? ['snapshot', 'project.snapshot', served.snapshot.git.available ? served.snapshot.git.commit : null, snapshotNote(name, served.snapshot, link)]
-        : ['daily', 'daily.get', served.daily.head, dailyNote(name, served.daily, link)];
-    const file = join(vault.path, 'Projects', folderName(manifest), 'Product', `${note}.md`);
-    writeNote(realpathSync(vault.path), file, `${header(source, commit ?? 'none')}served: ${new Date().toISOString()}\n---\n${body}`);
+        ? ['snapshot', 'project.snapshot', served.snapshot.git.available ? served.snapshot.git.commit : null, note.snapshot(name, served.snapshot)]
+        : ['daily', 'daily.get', served.daily.head, note.daily(name, served.daily)];
+    const path = join(vault.path, 'Projects', folderName(manifest), 'Product', `${file}.md`);
+    writeNote(realpathSync(vault.path), path, `${header(source, commit ?? 'none')}served: ${new Date().toISOString()}\n---\n${body}`);
   } catch (error) {
     console.error(error);
   }
@@ -339,130 +340,126 @@ function linker(manifest: ProjectManifest): Link {
 const unavailable = (value: object): value is Unavailable => 'available' in value && value.available === false;
 const short = (commit: string): string => commit.slice(0, 7);
 
-function list<T>(items: T[], line: (item: T) => string, remainder = 0): string {
-  if (items.length === 0) return 'None.';
-  return [...items.map((item) => `- ${line(item)}`), ...(remainder > 0 ? [`- and ${remainder} more`] : [])].join('\n');
-}
-
 type TaskLine = { id: string; title: string | null; ticket: string; state: string | null };
-const ticket = (link: Link, item: Pick<TaskLine, 'id' | 'title' | 'ticket'>): string => link(item.ticket, `${item.id}: ${item.title ?? 'untitled'}`);
-const task =
-  (link: Link) =>
-  (item: TaskLine): string =>
-    `${ticket(link, item)} — ${item.state ?? 'unknown'}`;
-const attention = (items: { code: string; message: string }[]): string => list(items, (item) => `\`${item.code}\`: ${item.message}`);
 
-/** *Waiting for the owner*, each question under its Task, with the branch it was read from, its later lines indented into the item. */
-function waiting(pending: PendingDecisions | Unavailable, link: Link): string[] {
-  if (unavailable(pending)) return ['## Waiting for the owner', `Not available: ${pending.reason}`];
-  const { questions, approvals, owner } = pending;
-  return [
-    '## Waiting for the owner',
-    '### Questions',
-    unavailable(questions)
-      ? `Not available: ${questions.reason}`
-      : list(questions.items, (item) => `${ticket(link, item)}${item.branch ? ` on \`${item.branch}\`` : ''}: ${item.question.replace(/\n/g, '\n  ')}`, questions.remainder),
-    '### Approvals',
-    list(approvals.items, task(link), approvals.remainder),
-    '### The owner’s to start',
-    list(owner.items, task(link), owner.remainder),
-  ];
-}
-
-/** CI as the forge reports it: the default branch's latest commit, then the open pull requests with their Tasks. */
-function ciNote(ci: Snapshot['ci']): string[] {
-  if (unavailable(ci)) return ['## CI', `Not available: ${ci.reason}`];
-  const { forge, defaultBranch: head, requests } = ci;
-  const at = (url: string): string => ` (provider reported). ${url}`;
-  return [
-    '## CI',
-    `\`${head.branch}\` on ${forge.provider === 'github' ? 'GitHub' : 'GitLab'} (${forge.repository}): ${head.state.value} at \`${short(head.commit)}\`${head.at ? `, ${head.at}` : ''}${at(head.url)}`,
-    '### Open pull requests',
-    list(
-      requests.items,
-      (item) => `#${item.number} ${item.title}${item.draft ? ' (draft)' : ''}, \`${item.branch}\`${item.taskId ? `, ${item.taskId}` : ''}: ${item.state.value}${at(item.url)}`,
-      requests.remainder,
-    ),
-  ];
-}
-
-/**
- * The snapshot as a note: where it was served from, the next step, what waits for the owner, the Tasks, the parallel limit
- * and its conflict risk, the ADRs, the graph, CI and the attention. Usage and activity are left to
- * the dashboard.
- */
-function snapshotNote(name: string, snapshot: Snapshot, link: Link): string {
-  const { git, next, tasks, decisions, graph } = snapshot;
-  const parts = [
-    `# Snapshot of ${name}`,
-    git.available
-      ? `Served from \`${git.branch ?? 'a detached HEAD'}\` at \`${git.commit ? short(git.commit) : 'no commit'}\`${git.dirty ? ', with uncommitted changes' : ''}.`
-      : `Served without Git: ${git.reason}`,
-    '## Next',
-    next.action ? `Next action: ${next.action.description} \`${next.action.command}\`` : "The roadmap's focus names no Next action.",
-    unavailable(next.alternatives)
-      ? `Suggested step not available: ${next.alternatives.reason}`
-      : list(next.alternatives, (item) => `${item.description}${item.command ? ` \`${item.command}\`` : ''}`),
-    ...waiting(snapshot.pendingDecisions, link),
-  ];
-  if (tasks === null) parts.push('## Tasks', 'The tracker cannot be read; the attention says why.');
-  else {
-    const { limit, mode, source, inProgress, free, impact } = tasks.parallel;
-    parts.push(
-      '## In flight',
-      list(tasks.inFlight.items, task(link), tasks.inFlight.remainder),
-      '## Ready to start',
-      list(tasks.readyToStart.items, task(link), tasks.readyToStart.remainder),
-      '## Parallel',
-      `Limit ${limit}${mode === 'auto' ? ' (auto)' : ''}, from the ${source}, in progress ${inProgress}, free ${free} (calculated).`,
-      unavailable(impact)
-        ? `Conflict risk not available: ${impact.reason}`
-        : list(impact.pairs, (pair) => `${pair.tasks.join(' and ')}: ${pair.risk} — ${pair.reason} (calculated)`),
-    );
+/** The snapshot's and the daily's notes, in `w`'s words, with `link`'s links. */
+function notes(w: VaultWords, link: Link): { snapshot(name: string, snapshot: Snapshot): string; daily(name: string, daily: Daily): string } {
+  function list<T>(items: T[], line: (item: T) => string, remainder = 0): string {
+    if (items.length === 0) return w.none;
+    return [...items.map((item) => `- ${line(item)}`), ...(remainder > 0 ? [`- ${w.more(remainder)}`] : [])].join('\n');
   }
-  parts.push(
-    '## Decisions',
-    decisions === null ? 'This project declares no ADR directory.' : list(decisions.items, (item) => link(item.path, item.title ?? item.path), decisions.remainder),
-    '## Graph',
-    [
-      graph.available ? 'A graph is available.' : `No graph: ${graph.reason}`,
-      graph.builtFrom ? ` Built from \`${short(graph.builtFrom.commit)}\` at ${graph.builtFrom.at}${graph.behind ? ', and the default branch has moved past it' : ''}.` : '',
-      graph.lastRun
-        ? ` The last run, of \`${short(graph.lastRun.commit)}\` at ${graph.lastRun.at}, ${graph.lastRun.outcome === 'built' ? 'built' : `failed: ${graph.lastRun.reason}`}.`
-        : '',
-    ].join(''),
-    ...ciNote(snapshot.ci),
-    '## Attention',
-    attention(snapshot.attention),
-  );
-  return `${parts.join('\n\n')}\n`;
-}
+  const ticket = (item: Pick<TaskLine, 'id' | 'title' | 'ticket'>): string => link(item.ticket, `${item.id}: ${item.title ?? w.untitled}`);
+  const task = (item: TaskLine): string => `${ticket(item)} — ${w.state(item.state)}`;
+  const notAvailable = (value: Unavailable): string => w.notAvailable(value.reason);
 
-/** The daily delta as a note: its range, the commits, the Task changes, what waits for the owner, CI, the roadmap changes, the ADRs and the attention. */
-function dailyNote(name: string, daily: Daily, link: Link): string {
-  const tasks = <T>(value: { items: T[]; remainder: number } | Unavailable | null, line: (item: T) => string): string =>
-    value === null ? 'The tracker cannot be read now; the attention says why.' : unavailable(value) ? `Not available: ${value.reason}` : list(value.items, line, value.remainder);
-  const parts = [
-    `# Daily of ${name}`,
-    `From ${daily.from.commit ? `\`${short(daily.from.commit)}\`` : 'the first commit'} (${daily.from.source}) to \`${short(daily.head)}\`${daily.dirty ? ', with uncommitted changes left out' : ''}.${daily.fallback ? ` ${daily.fallback.message}` : ''}`,
-    `## Commits (${daily.commits.count})`,
-    list(daily.commits.items, (item) => `\`${short(item.commit)}\` ${item.subject}`, daily.commits.remainder),
-    '## Status changes',
-    tasks(daily.transitions, (item) => `${ticket(link, item)}: ${item.from ?? 'none'} → ${item.to ?? 'none'}`),
-    '## New tickets',
-    tasks(daily.newTickets, task(link)),
-    '## Ready to start',
-    tasks(daily.readyToStart, task(link)),
-    ...waiting(daily.pendingDecisions, link),
-    ...ciNote(daily.ci),
-    '## Roadmap',
-    daily.roadmap === null ? 'There is no roadmap.' : list(daily.roadmap, (epic) => `Epic ${epic.number}, ${epic.title}: ${epic.from ?? 'new'} → ${epic.to}`),
-    '## Decisions',
-    daily.decisions === null
-      ? 'This project declares no ADR directory.'
-      : list(daily.decisions.items, (item) => `${link(item.path, item.title ?? item.path)} (${item.change})`, daily.decisions.remainder),
-    '## Attention',
-    attention(daily.attention),
-  ];
-  return `${parts.join('\n\n')}\n`;
+  /** *Waiting for the owner*, each question under its Task, with the branch it was read from, its later lines indented into the item. */
+  function waiting(pending: PendingDecisions | Unavailable): string[] {
+    if (unavailable(pending)) return [w.waiting, notAvailable(pending)];
+    const { questions, approvals, owner } = pending;
+    return [
+      w.waiting,
+      w.questions,
+      unavailable(questions)
+        ? notAvailable(questions)
+        : list(questions.items, (item) => `${ticket(item)}${item.branch ? w.onBranch(item.branch) : ''}: ${item.question.replace(/\n/g, '\n  ')}`, questions.remainder),
+      w.approvals,
+      list(approvals.items, task, approvals.remainder),
+      w.ownersToStart,
+      list(owner.items, task, owner.remainder),
+    ];
+  }
+
+  /** CI as the forge reports it: the default branch's latest commit, then the open pull requests with their Tasks. */
+  function ciNote(ci: Snapshot['ci']): string[] {
+    if (unavailable(ci)) return [w.ci, notAvailable(ci)];
+    const { forge, defaultBranch: head, requests } = ci;
+    return [
+      w.ci,
+      `${w.ciHead(head.branch, forge.provider === 'github' ? 'GitHub' : 'GitLab', forge.repository, w.ciState(head.state.value), short(head.commit), head.at)}${w.providerReported(head.url)}`,
+      w.openRequests,
+      list(
+        requests.items,
+        (item) =>
+          `#${item.number} ${item.title}${item.draft ? w.draft : ''}, \`${item.branch}\`${item.taskId ? `, ${item.taskId}` : ''}: ${w.ciState(item.state.value)}${w.providerReported(item.url)}`,
+        requests.remainder,
+      ),
+    ];
+  }
+
+  return {
+    /**
+     * The snapshot as a note: where it was served from, the next step, what waits for the owner, the Tasks, the parallel limit
+     * and its conflict risk, the ADRs, the graph, CI and the attention. Usage and activity are left to
+     * the dashboard.
+     */
+    snapshot(name, snapshot) {
+      const { git, next, tasks, decisions, graph } = snapshot;
+      const parts = [
+        w.snapshotTitle(name),
+        git.available ? w.servedFrom(git.branch, git.commit ? short(git.commit) : null, git.dirty) : w.servedWithoutGit(git.reason),
+        w.next,
+        next.action ? w.nextAction(next.action.description, next.action.command) : w.noNextAction,
+        unavailable(next.alternatives)
+          ? w.noSuggestedStep(next.alternatives.reason)
+          : list(next.alternatives, (item) => `${w.reason(item.description)}${item.command ? ` \`${item.command}\`` : ''}`),
+        ...waiting(snapshot.pendingDecisions),
+      ];
+      if (tasks === null) parts.push(w.tasks, w.trackerUnreadable);
+      else {
+        const { limit, mode, source, inProgress, free, impact } = tasks.parallel;
+        parts.push(
+          w.inFlight,
+          list(tasks.inFlight.items, task, tasks.inFlight.remainder),
+          w.readyToStart,
+          list(tasks.readyToStart.items, task, tasks.readyToStart.remainder),
+          w.parallel,
+          w.limit(limit, mode === 'auto', source, inProgress, free),
+          unavailable(impact) ? w.noConflictRisk(impact.reason) : list(impact.pairs, (pair) => w.pair(pair.tasks, pair.risk, pair.reason)),
+        );
+      }
+      parts.push(
+        w.decisions,
+        decisions === null ? w.noAdrDirectory : list(decisions.items, (item) => link(item.path, item.title ?? item.path), decisions.remainder),
+        w.graph,
+        [
+          graph.available ? w.graphAvailable : w.noGraph(`${graph.reason}`),
+          graph.builtFrom ? w.builtFrom(short(graph.builtFrom.commit), graph.builtFrom.at, Boolean(graph.behind)) : '',
+          graph.lastRun ? w.lastRun(short(graph.lastRun.commit), graph.lastRun.at, graph.lastRun.outcome === 'built' ? null : `${graph.lastRun.reason}`) : '',
+        ].join(''),
+        ...ciNote(snapshot.ci),
+        w.attentionHeading,
+        list(snapshot.attention, w.attention),
+      );
+      return `${parts.join('\n\n')}\n`;
+    },
+
+    /** The daily delta as a note: its range, the commits, the Task changes, what waits for the owner, CI, the roadmap changes, the ADRs and the attention. */
+    daily(name, daily) {
+      const tasks = <T>(value: { items: T[]; remainder: number } | Unavailable | null, line: (item: T) => string): string =>
+        value === null ? w.trackerUnreadableNow : unavailable(value) ? notAvailable(value) : list(value.items, line, value.remainder);
+      const parts = [
+        w.dailyTitle(name),
+        `${w.range(daily.from.commit ? short(daily.from.commit) : null, daily.from.source, short(daily.head), daily.dirty)}${daily.fallback ? ` ${w.fallback(daily.fallback, FALLBACK_DAYS)}` : ''}`,
+        w.commits(daily.commits.count),
+        list(daily.commits.items, (item) => `\`${short(item.commit)}\` ${item.subject}`, daily.commits.remainder),
+        w.statusChanges,
+        tasks(daily.transitions, (item) => `${ticket(item)}: ${w.transition(item.from, item.to)}`),
+        w.newTickets,
+        tasks(daily.newTickets, task),
+        w.readyToStart,
+        tasks(daily.readyToStart, task),
+        ...waiting(daily.pendingDecisions),
+        ...ciNote(daily.ci),
+        w.roadmap,
+        daily.roadmap === null ? w.noRoadmap : list(daily.roadmap, (epic) => w.epic(epic.number, epic.title, epic.from, epic.to)),
+        w.decisions,
+        daily.decisions === null
+          ? w.noAdrDirectory
+          : list(daily.decisions.items, (item) => `${link(item.path, item.title ?? item.path)} (${w.change(item.change)})`, daily.decisions.remainder),
+        w.attentionHeading,
+        list(daily.attention, w.attention),
+      ];
+      return `${parts.join('\n\n')}\n`;
+    },
+  };
 }
