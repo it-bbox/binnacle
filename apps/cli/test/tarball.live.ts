@@ -26,7 +26,8 @@ test('the packed @it-bbox/binnacle, installed into an empty prefix, runs binn, i
   const prefix = join(scratch, 'prefix');
   const home = join(scratch, 'home');
   // No ~/.npmrc, no user cache and no Binnacle home of the developer's; port 0, so that it never meets a running daemon.
-  const env: NodeJS.ProcessEnv = { ...process.env, HOME: home, USERPROFILE: home, BINNACLE_HOME: join(home, '.binnacle'), BINNACLE_PORT: '0' };
+  // English, the language this test reads.
+  const env: NodeJS.ProcessEnv = { ...process.env, LC_ALL: 'C', HOME: home, USERPROFILE: home, BINNACLE_HOME: join(home, '.binnacle'), BINNACLE_PORT: '0' };
   // npm and the commands it installs are `.cmd` shims on Windows, which only a shell runs. A synchronous
   // call blocks the test's own timeout, so each has its own: a hung npm or binn fails, never hangs.
   const run = (command: string, args: string[], options: SpawnSyncOptions = {}) =>

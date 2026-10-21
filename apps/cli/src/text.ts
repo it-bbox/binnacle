@@ -243,7 +243,7 @@ ${tools}
   english: ' (англ.)',
   warning: 'предупреждение',
 
-  unreachable: (address: string) => `Демон Binnacle не ответил на ${address}.`,
+  unreachable: (address: string) => `Демон Binnacle не ответил по адресу ${address}.`,
   tokenMissing: (home: string) => `В ${home} нет API-токена Binnacle.`,
   notRunningStart: 'демон Binnacle не запущен. Запустите его командой `binn daemon start`.',
   notAnswering: 'демон Binnacle не отвечает. Запустите его командой `binn daemon start`.',
@@ -304,16 +304,16 @@ ${tools}
   turnedOn: (home: string, path: string) => `Автозапуск для ${home} включён: ${path} запускает демон при входе в систему и снова, если он упадёт.`,
   noTokenFor: (path: string, key: string) => `В ${path} нет токена для ${JSON.stringify(key)}.`,
   unseenToken: (variable: string, problems: string[], path: string) =>
-    `${variable} задана в этой оболочке, но демон, которого запускает менеджер служб, её не видит. ${problems.join(' ')} ` +
-    `Положите токен только для чтения в ${path} под ключом трекера, с доступом только для владельца (chmod 600); подробности — в docs/operations/05-installation-checklist.md Binnacle, раздел Tracker credentials.`,
+    `${variable} задана в этой оболочке, но демон, запущенный менеджером служб, её не видит. ${problems.join(' ')} ` +
+    `Положите токен только для чтения в ${path} под ключом трекера, с доступом только для владельца (chmod 600); подробности — в docs/operations/05-installation-checklist.ru.md Binnacle, раздел «Учётные данные tracker».`,
   alreadyOff: (home: string, serves: string | null) =>
     `Автозапуск для ${home} уже выключен; ничего не изменено.${serves ? ` Служба запускает демон для ${serves} и остаётся.` : ''}`,
   turnedOff: (home: string, path: string) => `Автозапуск для ${home} выключен: демон службы остановлен, ${path} удалён.`,
   isOn: (home: string, where: string) => `Автозапуск для ${home} включён (${where}).`,
   isBroken: (home: string, where: string, missing: string[], on: string) =>
-    `Автозапуск для ${home} сломан (${where}): ${missing.join(' и ')} больше нет. Почините его командой \`${on}\`.`,
+    `Автозапуск для ${home} сломан (${where}): ${missing.join(' и ')} больше нет. Почините автозапуск командой \`${on}\`.`,
   isOff: (home: string, platform: string, serves: string | null, on: string) =>
-    `Автозапуск для ${home} выключен (${platform}).${serves ? ` Служба запускает вместо него демон для ${serves}.` : ''} Включите его командой \`${on}\`.`,
+    `Автозапуск для ${home} выключен (${platform}).${serves ? ` Служба вместо этого запускает демон для ${serves}.` : ''} Включите автозапуск командой \`${on}\`.`,
   replaced: (path: string) => `заменён ${path}, который записал не Binnacle.`,
   moves: (from: string, to: string) => `Автозапуск переходит с ${from} на ${to}.`,
   rewrote: (path: string) => `${path} переписан с текущими путями к Node, демону и PATH.`,

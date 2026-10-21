@@ -652,3 +652,26 @@ test('autostart on warns that the service will not see a tracker token from this
   assert.match(again.stdout, /Autostart is on/);
   assert.doesNotMatch(again.stderr, /BINNACLE_GITHUB_TOKEN/);
 });
+
+test('autostart speaks Russian under a Russian locale, its token warning too, with no code and the exit codes as in English', (t) => {
+  const { binn, env, home } = setup(t);
+  env.LC_ALL = 'ru_RU.UTF-8';
+  env.BINNACLE_GITHUB_TOKEN = 'github_pat_only-in-this-shell';
+  delete env.BINNACLE_GITLAB_TOKEN;
+  const noCode = (text: string) => assert.doesNotMatch(text, /\b[a-z_]+\.(unavailable|unreachable|missing|invalid|broken)\b/, text);
+
+  const off = binn('daemon', 'autostart');
+  assert.equal(off.status, 0, off.stderr);
+  assert.match(off.stdout, new RegExp(`^Автозапуск для ${home} выключен \\(linux\\)\\. Включите автозапуск командой \`binn daemon autostart on\`\\.$`, 'm'));
+
+  const on = binn('daemon', 'autostart', 'on');
+  assert.equal(on.status, 0, on.stderr);
+  assert.match(on.stdout, new RegExp(`^Автозапуск для ${home} включён: .*binnacle\\.service запускает демон при входе в систему`, 'm'));
+  assert.match(on.stderr, /^binn: предупреждение: BINNACLE_GITHUB_TOKEN задана в этой оболочке, но демон, запущенный менеджером служб, её не видит\. В .*credentials\.json нет токена для "github\.com"\./m);
+  assert.match(binn('daemon', 'autostart', 'on').stdout, /^Автозапуск для .* уже включён; ничего не изменено\.$/m);
+
+  const turnedOff = binn('daemon', 'autostart', 'off');
+  assert.equal(turnedOff.status, 0, turnedOff.stderr);
+  assert.match(turnedOff.stdout, /^Автозапуск для .* выключен: демон службы остановлен, .*binnacle\.service удалён\.$/m);
+  for (const result of [off, on, turnedOff]) noCode(result.stdout + result.stderr);
+});
