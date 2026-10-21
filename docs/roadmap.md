@@ -42,7 +42,7 @@ Done: epics 1 to 12 and 14 to 19.
 
 **Released** (the owner): `@it-bbox/binnacle` 0.1.0 on 2026-10-13, with `it-bbox/binnacle` public, private vulnerability reporting and Dependabot alerts on; 0.2.0, epic 12, on 2026-10-21, installed from the registry into a clean container (`specs/audit-completed/issues/11-audit-completed-exit-demonstration.md`).
 
-**Now: epic 13, Human output, released as 0.3.0, the last epic of v1** (the owner, 2026-10-13). It has no spec yet: it goes through `/grill-with-docs`, `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own.
+**Now: epic 13, Human output, released as 0.3.0, the last epic of v1** (the owner, 2026-10-13). Grilled on 2026-10-21 (`specs/human-output/brief.md`, ADR-0045); it goes through `/to-spec` and `/to-tickets`, then autopilot, in sessions of their own.
 
 **Left open:**
 
@@ -50,7 +50,7 @@ Done: epics 1 to 12 and 14 to 19.
 - epic 11, ticket 14: waits on a merge that shrinks the graph;
 - Dependabot's major updates, pull requests #3 (`@types/node` 26) and #4 (`typescript` 7), fail CI: the owner's to take or close.
 
-Next action: grill epic 13, Human output, released as 0.3.0. `/grill-with-docs`
+Next action: specify epic 13 from its brief, `docs/specs/human-output/brief.md`. `/to-spec`
 
 ## Later
 
