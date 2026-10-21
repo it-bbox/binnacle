@@ -1,6 +1,6 @@
 # 01: The repository language in the manifest and in binn init
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/human-output/spec.md`
