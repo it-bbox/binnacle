@@ -20,6 +20,9 @@ knowledge:
   docs: docs
   adr: docs/adr
   specs: docs/specs
+  # The language the repository is documented in: en | ru. Proposed at `binn init` from the
+  # README, or from the person's locale without one. Unwritten, or another value, reads as en.
+  language: en
 
 workflow:
   provider: matt-pocock

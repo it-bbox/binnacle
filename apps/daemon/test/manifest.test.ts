@@ -291,3 +291,27 @@ describe('a second project with an id already registered', () => {
     });
   });
 });
+
+describe("the repository's language, knowledge.language", () => {
+  it('validates en, ru and its absence, warning about none', async () => {
+    await withDaemon(async (daemon) => {
+      for (const [id, language] of [['english', '  language: en\n'], ['russian', '  language: ru\n'], ['unstated', '']]) {
+        const root = makeProject(`version: 1\n\nproject:\n  id: ${id}\n\nknowledge:\n  docs: docs\n${language}`);
+        const { status, body } = await daemon.call<{ warnings: Problem[] }>('project.register', { path: root });
+        assert.equal(status, 200, language);
+        assert.deepEqual(body.warnings, [], language);
+      }
+    });
+  });
+
+  it('warns about a language it does not know and registers the manifest anyway', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject('version: 1\n\nproject:\n  id: example-project\n\nknowledge:\n  language: fr\n');
+      const { status, body } = await daemon.call<{ project: { id: string }; warnings: Problem[] }>('project.register', { path: root });
+      assert.equal(status, 200);
+      assert.equal(body.project.id, 'example-project');
+      assert.deepEqual(body.warnings.map((warning) => warning.path), ['knowledge.language']);
+      assert.match(body.warnings[0]!.message, /en, ru/);
+    });
+  });
+});

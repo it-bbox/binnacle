@@ -1,8 +1,10 @@
 export { AUDIT_AREAS, type AuditArea, type Finding } from './audit.ts';
 export {
+  LANGUAGES,
   MANIFEST_VERSION,
   validateManifest,
   type ImportWindow,
+  type Language,
   type ManifestProblem,
   type ProjectManifest,
   type TrackerProvider,

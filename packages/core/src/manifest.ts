@@ -26,6 +26,8 @@ export type TrackerProvider = 'github' | 'gitlab' | 'local';
 export type AutomationMode = 'manual';
 export type TelemetryPrivacy = 'metadata' | 'content';
 export type Capability = boolean | 'optional';
+/** The repository's documentation language (ADR-0045). */
+export type Language = 'en' | 'ru';
 
 export type ProjectManifest = {
   version: number;
@@ -38,7 +40,14 @@ export type ProjectManifest = {
     host: string | null;
     local: { issues: string | null };
   };
-  knowledge: { context: string | null; docs: string | null; adr: string | null; specs: string | null };
+  knowledge: {
+    context: string | null;
+    docs: string | null;
+    adr: string | null;
+    specs: string | null;
+    /** Null when unwritten, and when it names a language this Binnacle does not know: either reads as English where it is used. */
+    language: Language | null;
+  };
   workflow: { provider: string | null; scratch: string | null };
   capabilities: Record<string, Capability>;
   automation: { mode: AutomationMode | null; maxParallelDevelopmentTasks: number | null };
@@ -69,6 +78,7 @@ export type ManifestValidation = {
 const TRACKER_PROVIDERS: TrackerProvider[] = ['github', 'gitlab', 'local'];
 const AUTOMATION_MODES: AutomationMode[] = ['manual'];
 const TELEMETRY_PRIVACY: TelemetryPrivacy[] = ['metadata', 'content'];
+export const LANGUAGES: Language[] = ['en', 'ru'];
 
 const SECTIONS = ['version', 'project', 'tracker', 'knowledge', 'workflow', 'capabilities', 'automation', 'telemetry'];
 
@@ -135,13 +145,22 @@ function readTracker(value: unknown, notes: Notes): ProjectManifest['tracker'] {
 
 function readKnowledge(value: unknown, notes: Notes): ProjectManifest['knowledge'] {
   const section = sectionOf(value, 'knowledge', notes);
-  warnUnknownKeys(section, 'knowledge', ['context', 'docs', 'adr', 'specs'], notes);
+  warnUnknownKeys(section, 'knowledge', ['context', 'docs', 'adr', 'specs', 'language'], notes);
   return {
     context: optionalString(section.context, 'knowledge.context', notes),
     docs: optionalString(section.docs, 'knowledge.docs', notes),
     adr: optionalString(section.adr, 'knowledge.adr', notes),
     specs: optionalString(section.specs, 'knowledge.specs', notes),
+    language: readLanguage(section.language, notes),
   };
+}
+
+/** A language a later Binnacle may know is a warning, not a problem, so that its manifest still loads here. */
+function readLanguage(value: unknown, notes: Notes): Language | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'string' && (LANGUAGES as string[]).includes(value)) return value as Language;
+  notes.warnings.push({ path: 'knowledge.language', message: `expected one of ${LANGUAGES.join(', ')}; read as en` });
+  return null;
 }
 
 function readWorkflow(value: unknown, notes: Notes): ProjectManifest['workflow'] {

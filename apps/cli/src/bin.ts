@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
-import { type ImportWindow } from '@binnacle/core';
+import { LANGUAGES, type ImportWindow, type Language } from '@binnacle/core';
 import { resolveHome, packageVersion } from '@binnacle/daemon';
 import { autostart, start, status, stop } from './daemon-commands.ts';
 import { list, register, status as projectStatus, unregister } from './project-commands.ts';
@@ -16,15 +16,16 @@ const VERSION = packageVersion(import.meta.url);
 const USAGE = `binn — Binnacle, a local AI engineering control plane.
 
 Usage:
-  binn init [--window <days|all>] [--autostart <yes|no>] [--skip-harness <id>]... [path]
+  binn init [--window <days|all>] [--language <en|ru>] [--autostart <yes|no>] [--skip-harness <id>]... [path]
                         Set up the Git repository containing path (default: the working directory):
                         show the whole plan and ask once before writing; it never overwrites a file
                         and never commits. --window sets the history import window without asking;
+                        --language answers the repository's documentation language, en or ru;
                         --autostart answers whether the daemon starts at login, where it is asked;
                         --skip-harness keeps Binnacle's skills out of that skills CLI harness id
-  binn init --plan --json [--window <days|all>] [--autostart <yes|no>] [--skip-harness <id>]... [path]
+  binn init --plan --json [--window <days|all>] [--language <en|ru>] [--autostart <yes|no>] [--skip-harness <id>]... [path]
                         Print that plan and its id as JSON, writing, running and asking nothing
-  binn init --apply <id> [--window <days|all>] [--autostart <yes|no>] [--skip-harness <id>]... [path]
+  binn init --apply <id> [--window <days|all>] [--language <en|ru>] [--autostart <yes|no>] [--skip-harness <id>]... [path]
                         Write the plan whose id is <id>, as a confirmed run does, without asking;
                         if the plan is no longer that one, write nothing and exit 3 (init.plan_changed)
 
@@ -152,7 +153,7 @@ async function run(argv: string[]): Promise<ExitCode> {
 /**
  * `binn init`'s arguments, or null when they are not its usage: `--plan` and `--json` only together,
  * `--apply` with an id and without them, a window as the window question takes it, though not empty,
- * `--autostart` `yes` or `no`, and any number of `--skip-harness` ids, none empty.
+ * `--language` `en` or `ru`, `--autostart` `yes` or `no`, and any number of `--skip-harness` ids, none empty.
  */
 function initOptions(
   args: string[],
@@ -161,6 +162,7 @@ function initOptions(
   plan: boolean;
   apply: string | undefined;
   window: ImportWindow | undefined;
+  language: Language | undefined;
   autostart: boolean | undefined;
   skipHarness: string[];
 } | null {
@@ -173,6 +175,7 @@ function initOptions(
         json: { type: 'boolean' },
         apply: { type: 'string' },
         window: { type: 'string' },
+        language: { type: 'string' },
         autostart: { type: 'string' },
         'skip-harness': { type: 'string', multiple: true },
       },
@@ -187,7 +190,9 @@ function initOptions(
     const skipHarness = (values['skip-harness'] ?? []).map((id) => id.trim());
     if (skipHarness.includes('')) return null;
     const window = values.window === undefined ? undefined : values.window.trim() === '' ? null : importWindow(values.window);
-    return window === null ? null : { path: positionals[0], plan, apply, window, autostart, skipHarness };
+    const language = values.language?.trim() as Language | undefined;
+    if (language !== undefined && !LANGUAGES.includes(language)) return null;
+    return window === null ? null : { path: positionals[0], plan, apply, window, language, autostart, skipHarness };
   } catch {
     // An unknown option, or --window without its value.
     return null;

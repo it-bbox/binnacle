@@ -421,6 +421,10 @@ test('/binnacle:init shows the plan from --plan --json, asks once, applies only 
   assert.match(skill, /When `autostart\.ask` is true and the human has not answered yet, ask first, alone/);
   assert.match(skill, /`--autostart yes` or `--autostart no` once the human answered/);
   assert.match(skill, /the same window, autostart answer/);
+  // Human-output/01: the language question, unless the manifest states one, its answer passed to both calls.
+  assert.match(skill, /when `language\.declared` is false and the human has not answered yet, ask, alone/);
+  assert.match(skill, /`--language en` or `--language ru` once the human answered/);
+  assert.match(skill, /the same window, autostart answer, language,/);
   assert.match(skill, /`binn init --apply <id>`/);
   assert.match(skill, /`init\.plan_changed`/);
   assert.match(skill, /show the new plan and ask again/);

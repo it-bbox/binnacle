@@ -5,7 +5,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, posix, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { isIgnored, readGitFacts, workingTree, type GitRemote } from '@binnacle/adapters';
-import { forgeRemote, instructionSets, type ImportWindow, type ProjectManifest, type TrackerProvider } from '@binnacle/core';
+import { forgeRemote, instructionSets, LANGUAGES, type ImportWindow, type Language, type ProjectManifest, type TrackerProvider } from '@binnacle/core';
 import {
   credentialsKey,
   credentialsPath,
@@ -33,6 +33,7 @@ import { daemonAddress, detected, exporters, NO_EXPORT, settingsText } from './e
 import { isRecord, sessionHistory } from './history.ts';
 import { agentSkillsBlock, AGENT_SKILLS_HEADING, conventionFiles, ticketHeaderSection } from './conventions.ts';
 import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, mattPocockFiles, ROADMAP_SKELETON, roadmapGaps } from './layout.ts';
+import { proposeLanguage } from './language.ts';
 import { register } from './project-commands.ts';
 import { binnacleSkills, CONFIG_HOME, declaredCapabilities, INSTALLED_SKILLS, mcpSources, onPath, PACKAGE_DIR, registeredWith, SKILLS_COPY, tilde, TOOLS, VSCODE_USER_DIRECTORY, type Tool } from './tools.ts';
 
@@ -65,6 +66,8 @@ type Session = {
   history: { harness: string; sessions: number; oldest: string | null }[];
   /** The import window the plan uses, whether the manifest already declares it, and whether it is the default. */
   window: { days: ImportWindow; declared: boolean; default: boolean };
+  /** The repository language the plan uses, the one init proposes and where from, and whether the manifest already declares one. */
+  language: { value: Language; proposal: Language; source: 'readme' | 'locale'; declared: boolean } | null;
   /** Whether the autostart question could be asked: autostart is off and can be turned on for this home. */
   autostart: { ask: boolean };
 };
@@ -86,6 +89,7 @@ export async function init(
     plan?: boolean;
     apply?: string | undefined;
     window?: ImportWindow | undefined;
+    language?: Language | undefined;
     autostart?: boolean | undefined;
     skipHarness?: string[];
   } = {},
@@ -124,6 +128,7 @@ export async function init(
     planOnly,
     history: [],
     window: { days: DEFAULT_WINDOW_DAYS, declared: false, default: true },
+    language: null,
     autostart: { ask: false },
   };
 
@@ -134,12 +139,14 @@ export async function init(
     // `--plan` and `--apply` ask nothing: without --window, the default, as Enter at the question gives it.
     const windowSection = await windowStep(session, manifest, options.window ?? (asks ? undefined : DEFAULT_WINDOW_DAYS));
     session.say('');
+    const language = await languageStep(session, manifest, options.language, asks);
+    session.say('');
     const autostartWanted = await autostartStep(session, home, options.autostart, asks, process.stdin.isTTY === true);
     // Read before the manifest is proposed, which declares what is found or installed; planned after the other writes.
     const plugins = listClaudePlugins(session);
     const tools = detectTools(session.root, plugins);
     const toDeclare = tools.filter(({ state }) => state === 'found' || state === 'install').map(({ tool }) => tool.name);
-    if (manifest === 'new') planFile(session, MANIFEST_RELATIVE, proposeManifest(session.root, git.remotes, toDeclare) + (windowSection ? `\n${windowSection}` : ''));
+    if (manifest === 'new') planFile(session, MANIFEST_RELATIVE, proposeManifest(session.root, git.remotes, toDeclare, language ?? 'en') + (windowSection ? `\n${windowSection}` : ''));
     session.say('');
     registrationStep(session, home, manifest !== 'invalid');
     session.say('');
@@ -175,9 +182,9 @@ export async function init(
     // Last: turning it on replaces a daemon this home runs by hand, which the plan's registration uses.
     if (autostartWanted) planAutostart(session, home);
     if (planOnly) {
-      const { root, history, window, autostart } = session;
+      const { root, history, window, language, autostart } = session;
       const plan = session.plan.map(({ heading, body }) => ({ heading, body }));
-      console.log(JSON.stringify({ root, id: planId(root, plan), plan, notes, history, window, autostart }, null, 2));
+      console.log(JSON.stringify({ root, id: planId(root, plan), plan, notes, history, window, language, autostart }, null, 2));
       return EXIT.ok;
     }
     // The same plan shown has the same id; a change to a file that leaves every item as shown is left to ADR-0026's guards.
@@ -337,7 +344,7 @@ function manifestStep(session: Session): ManifestState {
 }
 
 /** Only what is there, or what the plan creates: a path that does not exist, or a tracker nobody has, is never declared. */
-function proposeManifest(root: string, remotes: GitRemote[], capabilities: string[]): string {
+function proposeManifest(root: string, remotes: GitRemote[], capabilities: string[], language: Language): string {
   const sections = [`version: 1`, `project:\n  id: ${scalar(basename(root))}`];
 
   const forge = forgeRemote(remotes);
@@ -352,7 +359,7 @@ function proposeManifest(root: string, remotes: GitRemote[], capabilities: strin
   const knowledge = Object.entries({ context: 'CONTEXT.md', docs: NEW_LAYOUT.docs, adr: 'docs/adr', specs: NEW_LAYOUT.issues })
     .filter(([key, path]) => existsSync(join(root, path)) || key === 'docs' || (key === 'specs' && !forge))
     .map(([key, path]) => `\n  ${key}: ${path}`);
-  if (knowledge.length > 0) sections.push(`knowledge:${knowledge.join('')}`);
+  sections.push(`knowledge:${knowledge.join('')}\n  language: ${language}`);
 
   // The plan writes the conventions Matt Pocock Skills read where they are missing (conventionsStep).
   sections.push('workflow:\n  provider: matt-pocock');
@@ -419,6 +426,56 @@ async function windowStep(session: Session, manifest: ManifestState, given: Impo
   session.say(`Add this to ${MANIFEST_RELATIVE} yourself:\n\n${section}`);
   record(session, 'printed', `the telemetry.import.window_days line for ${MANIFEST_RELATIVE}`);
   return null;
+}
+
+/**
+ * Step 2a: the repository's documentation language, `knowledge.language` (ADR-0045), asked after
+ * the window with init's proposal as its default. The answer is returned for a manifest the plan
+ * creates, which states it whatever it is; for an existing one the line is printed, never written
+ * (ADR-0026), and only when it is not English, which a manifest without one already reads. A
+ * `given` language is taken as the answer, and the forms that ask nothing take the proposal.
+ */
+async function languageStep(session: Session, manifest: ManifestState, given: Language | undefined, asks: boolean): Promise<Language | null> {
+  const { language: proposal, source } = proposeLanguage(session.root);
+  const declared = manifest === 'valid' ? declaredLanguage(session.root) : null;
+  if (declared !== null) {
+    session.language = { value: declared, proposal, source, declared: true };
+    session.say(`${MANIFEST_RELATIVE} declares knowledge.language. It is left as it is.`);
+    record(session, 'skipped', `documentation language: ${MANIFEST_RELATIVE} declares it`);
+    return null;
+  }
+
+  let language = given ?? (asks ? null : proposal);
+  if (language === null) {
+    const from = source === 'readme' ? 'README.md' : 'your locale, as there is no README.md';
+    session.say(
+      `Binnacle proposes ${proposal} as this repository's documentation language, from ${from}. Answer en or ru. ` +
+        (manifest === 'new'
+          ? `The answer goes into the new ${MANIFEST_RELATIVE} in the plan, as knowledge.language.`
+          : `${MANIFEST_RELATIVE} exists, so the line to add is printed when the answer is not en, and nothing is written.`),
+    );
+    do {
+      const answer = await session.answer(`Documentation language [${proposal}]: `);
+      // The end of input takes the proposal, as Enter does.
+      const text = answer?.trim().toLowerCase() || proposal;
+      language = (LANGUAGES as string[]).includes(text) ? (text as Language) : null;
+      if (language === null) session.say('Answer en or ru.');
+    } while (language === null);
+  }
+  session.language = { value: language, proposal, source, declared: false };
+
+  if (manifest === 'new') return language;
+  if (language !== 'en') {
+    session.say(`Add this to ${MANIFEST_RELATIVE} yourself, in its knowledge section:\n\nknowledge:\n  language: ${language}\n`);
+    record(session, 'printed', `the knowledge.language line for ${MANIFEST_RELATIVE}`);
+  }
+  return null;
+}
+
+/** The manifest's language, English for one it names but this Binnacle does not know, or null when it states none. */
+function declaredLanguage(root: string): Language | null {
+  const { manifest, warnings } = readManifest(root);
+  return manifest.knowledge.language ?? (warnings.some(({ path }) => path === 'knowledge.language') ? 'en' : null);
 }
 
 const AUTOSTART_ON = '`binn daemon autostart on`';

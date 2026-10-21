@@ -54,6 +54,7 @@ An area with nothing to do has no step; when every finding is `ok`, the plan say
 `binn init` shows one plan and asks once, as for a [new project](01-new-project.md#2-set-it-up-with-binn-init); from the chat, `/binnacle:init` does the same (*[From the chat](01-new-project.md#from-the-chat)*). On an existing project it adds only what is missing:
 
 - A valid manifest is left as it is. One with problems is named and left for you to fix, and the project is not registered until it is.
+- The documentation language is proposed from the root `README.md`: Russian when Cyrillic letters outnumber Latin ones outside code blocks and inline code, English otherwise. A new manifest states your answer as `knowledge.language`. An existing one without it reads as English, so when your answer is not English, init prints the line to add to it, and writes nothing.
 - An existing roadmap is never rewritten. One not in Binnacle's format is named in the Summary, and `binn audit` says what it lacks.
 - An existing `docs/agents/issue-tracker.md` only gets its missing ticket-header section. An *Agent skills* block already in `AGENTS.md` or `CLAUDE.md` is left alone.
 - An existing JSON file is never rewritten: the entry to add is printed instead.
@@ -63,7 +64,7 @@ An area with nothing to do has no step; when every finding is `ok`, the plan say
 
 What the plan can hold, in its order. Most items are there only when something is missing; the registration, while the daemon runs, and the three skill sets of item 5 are planned on every run. Each write outside the repository says so in its heading.
 
-1. **The manifest**, for a repository without one: the project's id, the tracker from the remote (GitHub, GitLab, or local tickets under `docs/specs`), the knowledge paths, the workflow, the tools found or to install under `capabilities`, and the import window.
+1. **The manifest**, for a repository without one: the project's id, the tracker from the remote (GitHub, GitLab, or local tickets under `docs/specs`), the knowledge paths, the workflow, the tools found or to install under `capabilities`, the import window, and the documentation language under `knowledge.language`.
 2. **The registration** with the running daemon. With the daemon stopped, init names `binn daemon start` and `binn project register` instead.
 3. **The `binnacle` MCP server**, in the project file of each detected harness: `.mcp.json` for Claude Code, `.codex/config.toml` for Codex, `opencode.json` for opencode, `.vscode/mcp.json` for VS Code. A file that already names `binnacle` is left alone.
 4. **The `binnacle` plugin**, into Claude Code at user scope, from this Binnacle package, unless Claude Code lists it or the project provides its own.

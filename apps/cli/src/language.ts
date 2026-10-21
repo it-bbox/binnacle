@@ -1,0 +1,28 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { Language } from '@binnacle/core';
+
+/** The person's language: `LC_ALL`, then `LANG`, Russian when the value starts with `ru`, English otherwise, `C` and unset included. */
+export const personLanguage = (env: NodeJS.ProcessEnv = process.env): Language =>
+  (env.LC_ALL || env.LANG || '').startsWith('ru') ? 'ru' : 'en';
+
+/**
+ * The repository language `binn init` proposes (ADR-0045): the root `README.md`'s, Russian when
+ * Cyrillic letters outnumber Latin ones outside code blocks and inline code, English otherwise;
+ * with no README, the person's. Only a proposal, which the person confirms, so letters are counted
+ * rather than a language detected.
+ */
+export function proposeLanguage(root: string): { language: Language; source: 'readme' | 'locale' } {
+  let readme: string;
+  try {
+    readme = readFileSync(join(root, 'README.md'), 'utf8');
+  } catch {
+    return { language: personLanguage(), source: 'locale' };
+  }
+  const prose = readme
+    // A fenced block, to its closing fence or the end of the file.
+    .replace(/^ {0,3}(`{3,}|~{3,})[^]*?(^ {0,3}\1|(?![^]))/gm, '')
+    .replace(/`[^`\n]*`/g, '');
+  const count = (letters: RegExp): number => prose.match(letters)?.length ?? 0;
+  return { language: count(/\p{Script=Cyrillic}/gu) > count(/\p{Script=Latin}/gu) ? 'ru' : 'en', source: 'readme' };
+}

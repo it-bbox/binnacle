@@ -12,3 +12,19 @@ Spec: `docs/specs/human-output/spec.md`
 - [ ] `--language` answers in the interactive form, `--plan` and `--apply`; `--plan --json` carries the proposal and its source.
 - [ ] A new manifest in the plan holds `knowledge.language`; an existing one without it gets the line printed and its file unchanged; an English answer prints nothing.
 - [ ] `/binnacle:init` asks the language in the chat and passes the answer (checked in review).
+
+## Comments
+
+### Decisions
+
+- **An unknown `knowledge.language`** is a warning on `knowledge.language`, and the validated manifest carries `null` for it, which reads as English where it is used, as an unwritten one does. `binn init` treats such a manifest as one that states a language (English), so it neither asks nor prints a line to add a key the file already has.
+- **The question's place.** After the window and before autostart: `Documentation language [<proposal>]: `. Enter and the end of input take the proposal; anything but `en` or `ru` is asked again.
+- **A new manifest states the language whatever it is**, English included, as the last line of its `knowledge` section; the section is always there, since `docs` is always declared.
+- **`--plan --json`** carries `language: { value, proposal, source, declared }`: the language the plan uses, init's proposal, `readme` or `locale`, and whether the manifest states one. `--plan` and `--apply` without `--language` take the proposal, as they take the default window.
+- **The README count** strips fenced blocks (``` and ~~~, an unclosed one to the end of the file) and inline code, then counts `\p{Script=Cyrillic}` against `\p{Script=Latin}`; a tie is English. Indented code blocks are counted as prose.
+
+### For the next tickets
+
+- `apps/cli/src/language.ts` holds `personLanguage()` (`LC_ALL`, then `LANG`, `ru…` is Russian), the one function the spec asks for: ticket 03 should take it rather than write another.
+- `@binnacle/core` exports `Language` and `LANGUAGES`; `ProjectManifest['knowledge'].language` is the field tickets 06, 07 and 10 read, `?? 'en'` at the point of use.
+- Every interactive `binn init` in `apps/cli/test/init.test.ts` now answers one more line, the language, after the window's: a test that adds a question must shift its inputs the same way.
