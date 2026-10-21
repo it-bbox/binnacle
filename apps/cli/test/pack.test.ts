@@ -897,4 +897,5 @@ test('every skill words each code in the person\'s language, and the writing ski
   }
   assert.match(skillText('answer'), /whatever the repository language/);
   for (const name of ['register', 'daemon', 'init']) assert.match(skillText(name), /in the person's language, briefly/, name);
+  assert.doesNotMatch(skillText('init'), /the `notes`, as printed/);
 });

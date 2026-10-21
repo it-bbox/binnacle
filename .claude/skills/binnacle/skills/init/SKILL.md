@@ -25,8 +25,8 @@ Speak to the person in the language of this conversation; these instructions sta
    - the `history`: each harness, how many sessions it has in this repository, and the date of the oldest;
    - the `window` the plan uses, in days or all, and whether it is the default; when `declared` is true, the manifest already declares it, and another window changes nothing;
    - the `language`'s `value`, the documentation language the plan uses; when `declared` is true, the manifest already states it, and another language changes nothing;
-   - every plan item in full, numbered, each with its `heading` and its whole `body` as printed: a file's content, an addition to a file, a command, a setting outside the repository. Shorten nothing, summarise nothing, and leave no item out;
-   - the `notes`, as printed: what init only reports, such as an entry to add by hand, a step it skips and why, or a prerequisite with its install command.
+   - every plan item in full, numbered, each with its `heading`, in the person's language, and its whole `body` as printed: a file's content, an addition to a file, a command, a setting outside the repository. Shorten nothing, summarise nothing, and leave no item out;
+   - the `notes`, in the person's language, each in full and a code in it worded, never shown: what init only reports, such as an entry to add by hand, a step it skips and why, or a prerequisite with its install command.
 
    If `plan` is empty, say there is nothing to write, and stop.
 3. Ask once whether to write this plan, and say that another window, a number of days or all, can be named instead, that a harness can be kept out of Binnacle's skills, and, when autostart or the language was asked, that its answer can be changed. Then wait for the human.
