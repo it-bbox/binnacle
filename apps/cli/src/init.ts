@@ -221,7 +221,10 @@ export async function init(
   const next: Next =
     session.next ?? (session.claudeCode ? { kind: 'claudeCode' } : session.otherHarnesses[0] ? { kind: 'harness', name: session.otherHarnesses[0].name } : { kind: 'audit' });
   session.say(w.summary);
-  session.say(`${w.next(next, MANIFEST_RELATIVE)}\n\n${NEXT_COMMANDS[next.kind].map((command) => `  ${command}\n`).join('')}`);
+  // Run from elsewhere, as `binn init <path>` may be, a command that acts on the repository names it.
+  const at = resolve(process.cwd()) === session.root ? '' : ` ${quoted(session.root)}`;
+  const commands = NEXT_COMMANDS[next.kind].map((command) => (/^binn (init|project register)$/.test(command) ? `${command}${at}` : command));
+  session.say(`${w.next(next, MANIFEST_RELATIVE)}\n\n${commands.map((command) => `  ${command}\n`).join('')}`);
   const width = Math.max(...Object.values(w.outcome).map((label) => label.length));
   for (const { outcome, what } of session.outcomes) session.say(`  ${w.outcome[outcome].padEnd(width)}  ${what}`);
   session.say(w.notCommitted);
@@ -685,8 +688,8 @@ const HARNESSES: Harness[] = [
 
 /** Step 4: the MCP registration for each detected harness, then a generic snippet for any other. Returns the detected harnesses. */
 function harnessStep(session: Session): Harness[] {
-  const { w, speaks } = session;
-  const found = HARNESSES.map((harness) => ({ harness, reason: detected(harness, speaks) })).filter(({ reason }) => reason !== null);
+  const { w } = session;
+  const found = HARNESSES.map((harness) => ({ harness, reason: detected(harness, w) })).filter(({ reason }) => reason !== null);
   if (found.length === 0) session.say(w.noHarness(HARNESSES.map(({ name }) => name).join(', ')));
 
   for (const { harness, reason } of found) {
@@ -1264,10 +1267,10 @@ function serversStep(session: Session, tools: ToolState[], harnesses: Harness[])
  * printed. A detected harness without an export is named with its reason.
  */
 function telemetryStep(session: Session, home: string): void {
-  const { w, speaks } = session;
+  const { w } = session;
   const address = daemonAddress(home);
   for (const exporter of exporters()) {
-    const why = detected(exporter, speaks);
+    const why = detected(exporter, w);
     if (why === null) continue;
     const { name, file } = exporter;
     const what = w.export(name);

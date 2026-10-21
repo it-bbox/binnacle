@@ -26,7 +26,7 @@ const listed =
 
 const LISTING = 'claude plugin list --json';
 const LATER = (on: string) => `${on} turns it on later`;
-const LATER_RU = (on: string) => `${on} включит его позже`;
+const LATER_RU = (on: string) => `включить его можно позже командой ${on}`;
 
 const en = {
   outcome: {
@@ -239,6 +239,7 @@ const en = {
     `Binnacle's docs/operations/05-installation-checklist.md, under Tracker credentials, has the details.${shell}`,
 
   toolOnPath: (executable: string) => `${executable} is on PATH`,
+  exists: (directory: string) => `${directory} exists`,
   toolListed: (id: string) => `Claude Code lists ${id}`,
   toolNoChannel: (reason: string) => `a Claude Code plugin, and ${reason}`,
   declaredFalse: (manifest: string, name: string, title: string) => `${manifest} declares ${name}: false, so ${title} is not proposed.`,
@@ -352,7 +353,7 @@ const ru: InitText = {
           init: 'Дальше, чтобы записать план, в терминале:',
           fixManifest: `Дальше, когда ${manifest} будет исправлен:`,
           startDaemon: 'Дальше запустите демон и зарегистрируйте проект:',
-          register: 'Дальше зарегистрируйте проект в демоне, который запустил автозапуск:',
+          register: 'Дальше зарегистрируйте проект в демоне, запущенном автозапуском:',
           claudeCode: 'Дальше, в новой сессии Claude Code:',
           audit: 'Дальше, чтобы увидеть, насколько этот репозиторий далёк от того, как работает Binnacle:',
         }[next.kind],
@@ -397,7 +398,7 @@ const ru: InitText = {
   manifestWithProblems: (manifest) => `${manifest}: уже есть, с ошибками`,
 
   window: 'окно импорта',
-  history: 'История сессий в этом репозитории, которую Binnacle импортирует для расхода токенов:',
+  history: 'История сессий в этом репозитории, которую Binnacle импортирует, чтобы считать расход:',
   sessions: (count, oldest) => (count === 0 ? 'сессий нет' : `${counted(count, ['сессия', 'сессии', 'сессий'])}, самая старая — от ${oldest}`),
   windowDeclared: (manifest, days) => `${manifest} задаёт telemetry.import.window_days: ${days}. Он остаётся как есть.`,
   windowDeclaredWhat: (manifest, days) => `${manifest} задаёт ${days}`,
@@ -442,8 +443,8 @@ const ru: InitText = {
   autostartLater: (on) => `автозапуск: ${LATER_RU(on)}`,
 
   registration: 'регистрация проекта',
-  noUsableManifest: (manifest, root) => `Годного ${manifest} нет, поэтому проект не зарегистрирован. Когда он появится, запустите \`binn project register\` в ${root}.`,
-  noUsableManifestWhat: 'годного манифеста нет',
+  noUsableManifest: (manifest, root) => `Пригодного ${manifest} нет, поэтому проект не зарегистрирован. Когда он появится, запустите \`binn project register\` в ${root}.`,
+  noUsableManifestWhat: 'пригодного манифеста нет',
   daemonNotRunning: (root) => `Демон Binnacle не запущен, поэтому проект не зарегистрирован. В ${root} запустите:\n\n  binn daemon start\n  binn project register`,
   daemonNotRunningWhat: 'демон не запущен',
   registerHeading: 'Зарегистрировать проект в запущенном демоне Binnacle, вне репозитория',
@@ -457,13 +458,13 @@ const ru: InitText = {
   plugin: 'плагин binnacle',
   ownPlugin: (own) => `У проекта свой плагин binnacle, в ${own}, поэтому копия не ставится.`,
   ownPluginWhat: (own) => `у проекта свой, в ${own}`,
-  noClaude: { undetected: 'Claude Code не обнаружен', offPath: '`claude` нет в PATH', failed: `\`${LISTING}\` не удался` },
+  noClaude: { undetected: 'Claude Code не обнаружен', offPath: '`claude` нет в PATH', failed: `\`${LISTING}\` — ошибка` },
   noPlugin: (reason) => `${reason}, поэтому плагин binnacle не ставится.`,
   pluginListed: (id) => `Claude Code уже показывает ${id}. Он остаётся как есть.`,
   pluginListedWhat: (id) => `Claude Code уже показывает ${id}`,
   pluginHeading: 'Поставить плагин binnacle из этого пакета Binnacle, на уровне пользователя, вне репозитория, командами',
   asking: `Спрашиваем у Claude Code его плагины (${LISTING})...`,
-  listingFailed: (stderr) => `\`${LISTING}\` не удался, поэтому плагины Claude Code не ставятся.${stderr ? `\n${stderr} (англ.)` : ''}`,
+  listingFailed: (stderr) => `\`${LISTING}\` — ошибка, поэтому плагины Claude Code не ставятся.${stderr ? `\n${stderr} (англ.)` : ''}`,
 
   binnacleSkills: 'скиллы Binnacle',
   binnaclePlugin: 'плагин binnacle',
@@ -485,8 +486,8 @@ const ru: InitText = {
   addFailed: 'установка не удалась',
   notRemoved: (what, why) => `${what} не удалены из Claude Code: ${why}.`,
   notRemovedWhat: (what, why) => `удаление ${what} из Claude Code: ${why}`,
-  commandFailed: (command, output) => `${command} не удалась${output ? `:\n${output}` : '.'}`,
-  notEveryHarness: (command, what, reasons) => `${command} поставила ${what}, но не во все клиенты агента:\n${reasons.map((reason) => `${reason} (англ.)`).join('\n')}`,
+  commandFailed: (command, output) => `${command} — ошибка${output ? `:\n${output}` : '.'}`,
+  notEveryHarness: (command, what, reasons) => `${command}: ${what} поставлены, но не во все клиенты агента:\n${reasons.map((reason) => `${reason} (англ.)`).join('\n')}`,
   forAHarness: (what, reason) => `${what} для клиента агента: ${reason} (англ.)`,
 
   noIssues: (issues) => `Трекер читает тикеты из ${issues}/, а такого каталога нет. План его создаёт.`,
@@ -504,7 +505,7 @@ const ru: InitText = {
   noInstructions: 'Нет ни AGENTS.md, ни CLAUDE.md, поэтому об инструкциях агентов сказать нечего.',
   instructions: (sets) => `Инструкции агентов: ${sets.length === 1 ? 'один набор' : 'два набора'}: ${setsRu(sets)}.`,
 
-  noTrackerManifest: 'Годного манифеста нет, поэтому трекер не проверяется.',
+  noTrackerManifest: 'Пригодного манифеста нет, поэтому трекер не проверяется.',
   notRemote: 'Трекер не удалённый, проверять нечего.',
   trackerOf: (provider) => `трекер ${provider}`,
   shellService: (variable) =>
@@ -529,6 +530,7 @@ const ru: InitText = {
     `Подробности — в docs/operations/05-installation-checklist.ru.md Binnacle, раздел «Учётные данные tracker».${shell}`,
 
   toolOnPath: (executable) => `${executable} есть в PATH`,
+  exists: (directory) => `${directory} существует`,
   toolListed: (id) => `Claude Code показывает ${id}`,
   toolNoChannel: (reason) => `плагин Claude Code, а ${reason}`,
   declaredFalse: (manifest, name, title) => `${manifest} задаёт ${name}: false, поэтому ${title} не предлагается.`,
@@ -571,7 +573,7 @@ const ru: InitText = {
     `${name} установлен (${why}), но демон Binnacle не запущен, а BINNACLE_PORT равен 0, поэтому адреса для экспорта нет. Запустите демон, затем снова binn init.`,
   noAddressWhat: (what) => `${what}: адрес демона неизвестен`,
   exportsToBinnacle: (name, address, where) => `${name} уже экспортирует OpenTelemetry в Binnacle по адресу ${address}, в ${where}. Он остаётся как есть.`,
-  exportsToBinnacleWhat: (what) => `${what}: уже идёт в Binnacle`,
+  exportsToBinnacleWhat: (what) => `${what}: уже экспортирует в Binnacle`,
   exportsElsewhere: (name, where, settings) => `У ${name} уже есть свои настройки OpenTelemetry в ${where}: ${settings} (англ.). Они остаются как есть.`,
   exportsElsewhereWhat: (what, where, settings) => `${what}: в ${where} уже свои настройки (${settings} (англ.))`,
   settingsUnreadable: (where, name, why, change) =>

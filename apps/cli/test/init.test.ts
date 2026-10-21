@@ -221,6 +221,8 @@ ${windowSection('90')}`,
   assert.match(result.stdout, /failed\s+tracker check: \S/);
   assert.doesNotMatch(result.stdout, /tracker\.unreachable/);
   assert.match(result.stdout, /Nothing was committed/);
+  // Run from elsewhere, the next command names the repository it acts on.
+  assert.ok(result.stdout.includes(`Summary:\nNext, start the daemon and register the project:\n\n  binn daemon start\n  binn project register ${root}\n\n`), result.stdout);
   assert.equal(commits(root), before);
 });
 
@@ -466,6 +468,25 @@ test('registration with a running daemon', async (t) => {
     assert.ok(list.stdout.includes(root), list.stdout);
     assert.equal(commits(root), before);
   });
+});
+
+test('once the project is registered, the Summary opens with binn audit with no harness, and with binnacle-product for a harness other than Claude Code', async (t) => {
+  const home = makeHome(t);
+  const binn = binnIn(home);
+  const bare = makeRepository(t, 'bare');
+  assert.equal(binn(bare, '', 'daemon', 'start').status, 0);
+  t.after(() => binn(bare, '', 'daemon', 'stop'));
+
+  const alone = binn(bare, '\n\n\n', 'init');
+  assert.equal(alone.status, 0, alone.stderr);
+  assert.match(alone.stdout, /Summary:\nNext, to see how far this repository is from the way Binnacle works:\n\n {2}binn audit\n\n/);
+  // Not suggested a second time below.
+  assert.equal(alone.stdout.split('binn audit').length, 2, alone.stdout);
+
+  installExecutable(home, 'codex');
+  const codex = binn(makeRepository(t, 'codex'), '\n\n\n', 'init');
+  assert.equal(codex.status, 0, codex.stderr);
+  assert.match(codex.stdout, /Summary:\nNext, in Codex:\n\n {2}binnacle-product\n\n/);
 });
 
 /** The skill plugins as Claude Code lists them, so that a binnacle plugin test sees only its own calls. */
@@ -2436,6 +2457,11 @@ test('--apply with a made-up id, or with another --window than the plan had, wri
     assert.equal(result.status, 3, `${args.join(' ')}\n${result.stdout}\n${result.stderr}`);
     assert.match(result.stderr, /the plan is not the one confirmed/);
   }
+  const russian = binnIn({ ...home, env: RUSSIAN }, false)(root, '', 'init', '--apply', '0'.repeat(64));
+  assert.equal(russian.status, 3, russian.stderr);
+  assert.doesNotMatch(russian.stdout, /Итог:/);
+  assert.match(russian.stderr, /^binn: план уже не тот, что был подтверждён/);
+  assertNoCode(russian.stderr, 'a refused --apply');
   assert.equal(git(root, 'status', '--porcelain'), '');
   assert.ok(claude().every((call) => call.join(' ') === 'plugin list --json'), JSON.stringify(claude()));
 });
@@ -3130,6 +3156,8 @@ test('autostart from the chat: --autostart yes makes it the last item of --plan,
   assert.match(readFileSync(systemd.unit, 'utf8'), new RegExp(`BINNACLE_HOME=${home.binnacleHome}`));
   assert.deepEqual(systemd.calls().slice(-3), ['--user daemon-reload', '--user enable binnacle', '--user restart binnacle']);
   assert.match(summaryOf(applied.stdout), /ran\s+binn daemon autostart on/);
+  // The service started the daemon the registration waited for: only the registration is left.
+  assert.match(applied.stdout, /Summary:\nNext, register the project with the daemon autostart started:\n\n {2}binn project register\n\n/);
 });
 
 test('autostart from the chat: --autostart no installs nothing and the Summary names the command', async (t) => {
