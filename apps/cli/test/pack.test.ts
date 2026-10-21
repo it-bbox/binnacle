@@ -868,7 +868,7 @@ test('the skills copy carries autopilot\'s resume, roles, CI and Next action, an
 /** Epic 13 (ADR-0045): the reporting skills open short, word every code, and say each term as CONTEXT.md's *Russian words* do. */
 test('the five reporting skills open with three to six lines, show no code and list CONTEXT.md\'s Russian words', () => {
   const table = docText('CONTEXT.md').split('\n## Russian words\n')[1]?.split('\n## ')[0] ?? '';
-  const words = [...table.matchAll(/^\| ([^|]+?) \| ([^|]+?) \|$/gm)].slice(2).map(([, term = '', russian = '']) => [term, russian.replace(/: (.*)$/, ' ($1)')]);
+  const words = [...table.matchAll(/^\| ([^|]+?) \| ([^|]+?) \|$/gm)].slice(1).map(([, term = '', russian = '']) => [term, russian.replace(/: (.*)$/, ' ($1)')]);
   assert.ok(words.length > 40, 'the table');
   for (const name of ['product', 'daily', 'status', 'task', 'audit']) {
     const skill = skillText(name);

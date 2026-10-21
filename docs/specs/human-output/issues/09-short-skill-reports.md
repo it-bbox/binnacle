@@ -25,3 +25,18 @@ Spec: `docs/specs/human-output/spec.md`
 ### For the next tickets
 
 - Ticket 10 can take the *Words* paragraph as it stands for the other skills, and `/binnacle:task run`'s report already sits under it in the task skill; `checkpoint`, `answer` and `autopilot` still say "Quote the error's code and message".
+
+### Review
+
+A Reviewer sub-agent ran against `main`, on the project's standards and the ticket's spec. Typecheck and `pack.test.ts` pass; the field names the skills cite match `snapshot.ts`, `daily.ts`, the Task brief and `audit.ts`; each skill's order, the fenced command, the closing line and the rest on request hold.
+
+1. **`/binnacle:audit` offered a bare `binn init`** for an audit run on a path, which would set up the current directory. **Fixed**: the fence carries the audited path, quoted, when one was passed.
+2. **`/binnacle:daily`'s first line counted lists that can be null or `available: false`**, so a remote tracker's first daily could read as "nothing changed". **Fixed**: such a list is "no data", and "nothing changed" is said only when every list is known and empty.
+3. **The new test's `.slice(2)` dropped *Task — задача***, since the table's separator row does not match. **Fixed**: `.slice(1)`.
+4. **A failing default branch was said twice**, from `ci` and as `ci.failing`. **Fixed** in `/binnacle:product` and `/binnacle:daily`: the attention items other than `ci.failing`.
+5. **`/binnacle:product`'s running line against the rule that an unavailable section gives its reason.** **Fixed**: an unavailable `activity` is left to **Not available**.
+6. **`/binnacle:task`'s description and its `docs/03-mcp-and-skills.md` entry still described the old brief.** **Fixed**.
+7. **The CI and finding words had no values beside them**, as the Task states have. **Fixed** in all five skills.
+8. **`/binnacle:daily`'s "Do not act on it" lost its referent.** **Fixed**: "Do not run that command".
+9. **"`READY_FOR_REVIEW` or later" could take in `CANCELLED`.** **Fixed**: the states are named.
+10. **The test does not check the sentence of statuses, states, CI and finding words.** **Kept**: the table is the list a person learns; the sentence is copied with it and read in review.
