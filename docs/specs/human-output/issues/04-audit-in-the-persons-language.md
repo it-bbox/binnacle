@@ -1,6 +1,6 @@
 # 04: binn audit in the person's language, plan first
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 03
 Spec: `docs/specs/human-output/spec.md`
