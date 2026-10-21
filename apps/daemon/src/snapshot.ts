@@ -31,6 +31,7 @@ import {
   type Impact,
   type NextAction,
   type ObservedRun,
+  type Params,
   type ProjectManifest,
   type Question,
   type ResolvedTask,
@@ -116,8 +117,12 @@ export type CallerCheckout = {
  */
 export type EpicWithProgress = Epic & { progress: { done: number; all: number } | null };
 
-/** A section Binnacle cannot fill. It is present and says why, and is never filled with a guess (ADR-0007). */
-export type Unavailable = { available: false; reason: string };
+/**
+ * A section Binnacle cannot fill. It is present and says why, and is never filled with a guess
+ * (ADR-0007). A reason core words carries its `code` and `params`, as a diagnostic does, so that
+ * a person's surface says it in their language; one without them is shown as written.
+ */
+export type Unavailable = { available: false; reason: string; code?: string; params?: Params };
 
 export type Snapshot = {
   project: ProjectRow;
@@ -274,11 +279,16 @@ function autostartSection(home: string): { section: Snapshot['autostart']; atten
   }
 }
 
-/** Attribution to Tasks, unavailable with the tracker's own reasons for being unreadable. */
-export const trackerUnavailable = (unreadable: Diagnostic[]): Unavailable => ({
-  available: false,
-  reason: unreadable.map((item) => item.message).join(' ') || 'The tracker cannot be read.',
-});
+/**
+ * Attribution to Tasks, unavailable with the tracker's own reasons for being unreadable: the one
+ * reason with its code, or several joined, as written.
+ */
+export function trackerUnavailable(unreadable: Diagnostic[]): Unavailable {
+  const [only, ...others] = unreadable;
+  if (only === undefined) return { available: false, reason: 'The tracker cannot be read.', code: 'tracker.unavailable', params: { kind: 'unreadable' } };
+  if (others.length > 0) return { available: false, reason: unreadable.map((item) => item.message).join(' ') };
+  return { available: false, reason: only.message, code: only.code, ...(only.params && { params: only.params }) };
+}
 
 /** `text` cut at `limit` code points, so that a cut never splits a character in two, and whether it was. */
 export function cut(text: string, limit: number): { text: string; truncated: boolean } {

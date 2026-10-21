@@ -262,6 +262,36 @@ const RUSSIAN: Record<string, (v: Values) => string> = {
   'git.failed': (v) => `git ${v.s('command')} завершился с ошибкой: ${v.s('detail')}`,
   'git.no_commits': () => 'В этой рабочей копии ещё нет коммитов.',
   'ci.failing': (v) => `CI падает в ${v.s('branch')} на ${v.s('commit')}, по данным ${v.s('forge')}: ${v.s('url')}`,
+  'ci.no_forge': () => 'CI читать неоткуда: трекер — не GitHub и не GitLab, и Git remote на GitHub или GitLab нет.',
+  'review.remote': () => 'Из комментариев к issue Binnacle читает только вопросы и ответы, поэтому ревью на GitHub и GitLab не читается.',
+  'graph.unavailable': (v) =>
+    pick(v, {
+      none: () => 'Графа нет.',
+      off: () => 'Проект не использует Graphify: в его манифесте capabilities.graphify — false.',
+      no_graphify: () => 'graphify нет в PATH демона, поэтому граф не строится и не читается.',
+      not_built: () => `Граф ещё не построен: ${v.s('file')} нет.`,
+      unreadable: () => `${v.s('file')} не читается как граф.`,
+    }),
+  'harness.no_sessions': (v) => `Сессий ${v.s('harness')} этого проекта в ${v.s('path')} не найдено.`,
+  'usage.import_pending': () => 'Импорт этого проекта ещё не дошёл ни до одной записи.',
+  'harness.no_export': (v) => {
+    const harness = v.s('harness');
+    return pick(v, {
+      database: () => `Экспорт OpenTelemetry у ${harness} не описан, поэтому Binnacle считает его только по его базе данных, каждый вызов — после его завершения.`,
+      session_files: () => `Встроенного экспорта OpenTelemetry у ${harness} нет, поэтому Binnacle считает его только по файлам его сессий, каждый вызов — после его завершения.`,
+      encrypted: () =>
+        `У ${harness} нет экспорта OpenTelemetry, а его разговоры зашифрованы, поэтому Binnacle видит только его сессии и их каталоги, по состоянию его окна, без модели и счётчиков токенов.`,
+    });
+  },
+  'ponytail.no_comparison': (v) =>
+    pick(v, {
+      no_commit: () => 'Ни один коммит в ветке по умолчанию не добавляет Ponytail в AGENTS.md или CLAUDE.md, поэтому «до» и «после» нет.',
+      unread: () => 'Git не может прочитать историю ветки по умолчанию, поэтому дата Ponytail неизвестна.',
+      none_before: () => 'Ни одна задача с запусками не завершена до Ponytail, сравнивать не с чем.',
+      none_after: () => 'После Ponytail не завершена ни одна задача с запусками, сравнивать не с чем.',
+      neither: () => 'Ни одну задачу с запусками коммит в ветке по умолчанию не перевёл в Status: DONE, сравнивать не с чем.',
+      remote: () => 'На GitHub и GitLab задача становится готовой по своему issue, а не по коммиту, поэтому ни одна задача не попадает ни до, ни после Ponytail.',
+    }),
   'graph.update_failed': (v) =>
     `Обновление графа для ${v.s('commit')} не удалось: ${v.s('reason')}${v.o('kept') === null ? '' : ` Граф, построенный по ${v.s('kept')}, сохранён.`}`,
   'graph.not_ignored': (v) =>

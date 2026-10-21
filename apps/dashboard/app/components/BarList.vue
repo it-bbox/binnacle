@@ -64,8 +64,8 @@ const largest = computed(() => Math.max(0, ...[...props.rows, ...(props.last ? [
         />
         <span v-else />
         <span class="inline-flex items-center justify-end gap-1.5">
-          <UBadge v-for="mark in row.marks ?? []" :key="mark" :label="mark" color="neutral" variant="outline" size="sm" />
           <span class="text-sm" :class="row.value === null ? 'text-dimmed' : 'font-mono'">{{ row.text }}</span>
+          <span v-for="mark in row.marks ?? []" :key="mark" class="text-sm text-dimmed">({{ mark }})</span>
         </span>
       </li>
     </template>

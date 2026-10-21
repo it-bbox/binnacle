@@ -30,9 +30,9 @@ const { t, number } = useLanguage();
         <th class="py-1.5 pr-3 text-left font-normal text-muted" :class="{ 'pl-3.5': name === 'reasoning' }">{{ t[name] }}</th>
         <td v-for="column in columns" :key="column.key" class="py-1.5 pl-3 text-right">
           <span class="inline-flex items-center justify-end gap-1.5">
-            <UBadge v-for="mark in marks(column.totals[name])" :key="mark" :label="t[mark]" color="neutral" variant="outline" size="sm" />
-            <span v-if="column.totals[name].tokens === null" class="text-dimmed">{{ t.notReported }}</span>
+            <span v-if="column.totals[name].tokens === null" class="text-dimmed">{{ t.noData }}</span>
             <span v-else class="font-mono">{{ number(Math.round(column.totals[name].tokens!)) }}</span>
+            <span v-for="mark in marks(column.totals[name])" :key="mark" class="text-sm text-dimmed">({{ t[mark] }})</span>
           </span>
         </td>
       </tr>

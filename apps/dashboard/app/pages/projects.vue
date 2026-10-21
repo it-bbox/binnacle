@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useLanguage } from '~/composables/language';
-import { count, gitLine, initials, isUnavailable, PROJECT_VIEWS, projectName, statusBadge, unregisterCommand, type ProjectView } from '~/composables/projects';
+import { count, gitLine, initials, isUnavailable, PROJECT_VIEWS, projectName, said, statusBadge, unregisterCommand, type ProjectView } from '~/composables/projects';
 
 /**
  * Every registered project, from the shell's views. *Brief* gives each its name, current Epic, Next
@@ -9,7 +9,7 @@ import { count, gitLine, initials, isUnavailable, PROJECT_VIEWS, projectName, st
  * left off every other page, is one row here with the command that removes its registration.
  */
 const views = inject(PROJECT_VIEWS, ref(null));
-const { t, number, since } = useLanguage();
+const { t, language, number, since } = useLanguage();
 
 const rows = computed(() =>
   (views.value ?? []).map((view: ProjectView) => {
@@ -23,7 +23,7 @@ const rows = computed(() =>
       epic: snapshot?.roadmap?.current ?? null,
       running: known ? count(activity.running) : null,
       latest: known ? (latest === undefined ? t.value.noRunsSeen : t.value.latest(since(latest.lastActivityAt))) : null,
-      activityReason: activity !== undefined && isUnavailable(activity) ? activity.reason : null,
+      activityReason: activity !== undefined && isUnavailable(activity) ? activity : null,
     };
   }),
 );
@@ -53,7 +53,7 @@ const cell = 'border-b border-default px-3.5 py-2.5 align-top';
               <tr class="text-left text-sm text-muted">
                 <th class="border-b border-default px-3.5 py-2 font-medium">{{ t.project }}</th>
                 <th class="border-b border-default px-3.5 py-2 font-medium">{{ t.currentEpic }}</th>
-                <th class="border-b border-default px-3.5 py-2 font-medium">Next action</th>
+                <th class="border-b border-default px-3.5 py-2 font-medium">{{ t.nextAction }}</th>
                 <th class="border-b border-default px-3.5 py-2 font-medium">{{ t.runningNow }}</th>
                 <th class="border-b border-default px-3.5 py-2 font-medium">{{ t.attention }}</th>
               </tr>
@@ -67,7 +67,7 @@ const cell = 'border-b border-default px-3.5 py-2.5 align-top';
                       <span v-if="row.view.project.gone" class="font-medium wrap-anywhere text-muted">{{ projectName(row.view.project) }}</span>
                       <ULink v-else :to="{ path: '/', query: { project: row.view.project.path } }" class="font-medium wrap-anywhere text-default">{{ projectName(row.view.project) }}</ULink>
                       <span v-if="full" class="font-mono text-xs break-all text-dimmed">{{ row.view.project.path }}</span>
-                      <span v-if="full && row.snapshot" class="font-mono text-xs wrap-anywhere text-dimmed" :title="t.registeredCheckout">{{ gitLine(row.snapshot.git, t) }}</span>
+                      <span v-if="full && row.snapshot" class="font-mono text-xs wrap-anywhere text-dimmed" :title="t.registeredCheckout">{{ gitLine(row.snapshot.git, t, language) }}</span>
                     </div>
                   </div>
                 </td>
@@ -81,7 +81,7 @@ const cell = 'border-b border-default px-3.5 py-2.5 align-top';
                   <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="wrap-anywhere text-muted">· {{ row.view.project.unavailable }}</span>
                 </td>
                 <td v-else-if="row.view.failure" :class="cell" colspan="4" class="text-warning">
-                  <code>{{ row.view.failure.code }}</code> <span lang="en">{{ row.view.failure.message }}</span>
+                  <DaemonReason :said="row.view.failure" />
                 </td>
                 <template v-else-if="row.snapshot">
                   <td :class="cell">
@@ -91,7 +91,7 @@ const cell = 'border-b border-default px-3.5 py-2.5 align-top';
                     </div>
                     <div v-else-if="row.epic" class="flex flex-col items-start gap-1">
                       <span lang="en">{{ row.epic.number }} {{ row.epic.title }}</span>
-                      <UBadge v-if="full" :label="row.epic.status" v-bind="statusBadge(row.epic.status)" size="sm" lang="en" />
+                      <UBadge v-if="full" :label="said(t.roadmapStatuses, row.epic.status)" v-bind="statusBadge(row.epic.status)" size="sm" />
                     </div>
                     <span v-else class="text-muted">{{ row.snapshot.roadmap.epics.length === 0 ? t.noEpics : t.everyEpicDone }}</span>
                   </td>
@@ -104,7 +104,7 @@ const cell = 'border-b border-default px-3.5 py-2.5 align-top';
                   <td :class="cell">
                     <div v-if="row.running === null" class="flex flex-col gap-0.5">
                       <span class="font-medium">{{ t.notAvailable }}</span>
-                      <DaemonReason v-if="row.activityReason !== null" class="text-xs leading-snug text-dimmed" :reason="row.activityReason" />
+                      <DaemonReason v-if="row.activityReason !== null" class="text-xs leading-snug text-dimmed" :said="row.activityReason" />
                     </div>
                     <div v-else class="flex flex-col gap-0.5">
                       <span class="inline-flex items-center gap-1.5 font-mono text-sm">

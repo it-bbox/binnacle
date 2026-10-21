@@ -17,6 +17,7 @@ type FieldTotal = { tokens: number | null; partial: boolean; provenance: string 
 type Totals = { records: number; input: FieldTotal; cachedInput: FieldTotal; cacheCreation: FieldTotal; output: FieldTotal; reasoning: FieldTotal };
 type Level = { harness: string; level: number | null; reason: string | null };
 
+const NO_EXPORT_CODE = { code: 'harness.no_export', params: { kind: 'session_files', harness: 'pi' } };
 const NO_EXPORT = 'pi has no built-in OpenTelemetry export, so Binnacle counts it only from its session files, each call once it has finished.';
 
 const SESSION = readFileSync(join(import.meta.dirname, '..', '..', '..', 'packages', 'adapters', 'test', 'fixtures', 'pi', 'session.jsonl'), 'utf8')
@@ -111,7 +112,7 @@ describe('pi usage', () => {
     await withDaemon(async (daemon, pi) => {
       const root = makeProject();
       assert.equal((await daemon.call('project.register', { path: root })).status, 200);
-      assert.deepEqual(await level(daemon, root), { harness: 'pi', level: null, reason: `No pi session of this project was found under ${pi}.` });
+      assert.deepEqual(await level(daemon, root), { harness: 'pi', level: null, reason: `No pi session of this project was found under ${pi}.`, code: 'harness.no_sessions', params: { harness: 'pi', path: pi } });
 
       const main = placed(root, 'main');
       piSession(pi, root, 'main', main);
@@ -124,7 +125,7 @@ describe('pi usage', () => {
 
       const usage = await call<{ totals: Totals }>(daemon, 'usage.get', root);
       assert.deepEqual(usage.totals, calls(2));
-      assert.deepEqual(await level(daemon, root), { harness: 'pi', level: 3, reason: NO_EXPORT });
+      assert.deepEqual(await level(daemon, root), { harness: 'pi', level: 3, reason: NO_EXPORT, ...NO_EXPORT_CODE });
 
       const rows = stored(daemon);
       assert.equal(rows.length, 14);
@@ -145,6 +146,7 @@ describe('pi usage', () => {
         harness: 'pi',
         level: 1,
         reason: `pi could not read ${file} at line 18: not a JSON line, and nothing after it is counted, however the file grows, until Binnacle can read that line.`,
+        code: 'telemetry.unreadable',
       });
       assert.equal(stored(daemon).length, 7);
     });

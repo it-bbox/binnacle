@@ -9,6 +9,7 @@ import {
   type Diagnostic,
   type Impact,
   type ModuleGraph,
+  type Params,
   type ProjectManifest,
   type TaskTouch,
   type TrackerTask,
@@ -49,9 +50,11 @@ const FAILED = 'graph.failed';
 export const GRAPH_FILE = `${GRAPH_DIRECTORY}/graph.json`;
 
 export type GraphSection = {
-  /** Whether there is a graph an agent can use; `reason` says why not. */
+  /** Whether there is a graph an agent can use; `reason` says why not, with its `code` and `params`. */
   available: boolean;
   reason: string | null;
+  code?: string;
+  params?: Params;
   /** The commit and time of the last successful run. */
   builtFrom: { commit: string; at: string } | null;
   /** Whether the default branch has moved past `builtFrom`; null when its commit cannot be read. */
@@ -198,9 +201,10 @@ export async function graphSection(
     });
   }
 
-  let reason: string | null = null;
-  if (manifest?.capabilities.graphify === false) reason = 'This project does not use Graphify: capabilities.graphify is false in its manifest.';
-  else if (findExecutable('graphify', searchPath) === null) reason = "graphify is not on the daemon's PATH, so no graph is built or read.";
+  let why: { reason: string; code: string; params: Params } | null = null;
+  const unavailable = (reason: string, params: Params) => ({ reason, code: 'graph.unavailable', params });
+  if (manifest?.capabilities.graphify === false) why = unavailable('This project does not use Graphify: capabilities.graphify is false in its manifest.', { kind: 'off' });
+  else if (findExecutable('graphify', searchPath) === null) why = unavailable("graphify is not on the daemon's PATH, so no graph is built or read.", { kind: 'no_graphify' });
   else {
     if ((await isIgnored(path, GRAPH_FILE, resolveGitTimeout())) === false) {
       attention.push({
@@ -209,11 +213,11 @@ export async function graphSection(
         params: { directory: GRAPH_DIRECTORY, path },
       });
     }
-    if (!existsSync(join(path, GRAPH_FILE))) reason = `No graph has been built yet: there is no ${GRAPH_FILE}.`;
+    if (!existsSync(join(path, GRAPH_FILE))) why = unavailable(`No graph has been built yet: there is no ${GRAPH_FILE}.`, { kind: 'not_built', file: GRAPH_FILE });
   }
 
   return {
-    graph: { available: reason === null, reason, builtFrom, behind: commit === null ? null : builtFrom?.commit !== commit, lastRun },
+    graph: { available: why === null, reason: null, ...why, builtFrom, behind: commit === null ? null : builtFrom?.commit !== commit, lastRun },
     attention,
   };
 }
@@ -233,14 +237,18 @@ export async function impactSection(
   tasks: Pick<TrackerTask, 'id' | 'title' | 'ticket' | 'body'>[],
   remote: boolean,
 ): Promise<Impact | Unavailable> {
-  if (!graph.available) return { available: false, reason: graph.reason ?? 'There is no graph.' };
+  if (!graph.available) {
+    const { reason, code, params } = graph;
+    if (reason === null) return { available: false, reason: 'There is no graph.', code: 'graph.unavailable', params: { kind: 'none' } };
+    return { available: false, reason, ...(code !== undefined && { code }), ...(params !== undefined && { params }) };
+  }
   let modules: ModuleGraph | null = null;
   try {
     modules = moduleGraph(JSON.parse(readFileSync(join(path, GRAPH_FILE), 'utf8')));
   } catch {
     // Unreadable or not JSON: said below, as a graph of the wrong shape is.
   }
-  if (modules === null) return { available: false, reason: `${GRAPH_FILE} cannot be read as a graph.` };
+  if (modules === null) return { available: false, reason: `${GRAPH_FILE} cannot be read as a graph.`, code: 'graph.unavailable', params: { kind: 'unreadable', file: GRAPH_FILE } };
 
   const base = await defaultCommit(path);
   const touches = await Promise.all(

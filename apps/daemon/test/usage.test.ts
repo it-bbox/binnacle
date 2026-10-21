@@ -154,8 +154,9 @@ describe('Claude Code usage in the Product Snapshot', () => {
       assert.deepEqual(body.byModel, { items: [{ model: 'claude-opus-5-5', totals: GRILL_TOTALS }], remainder: 0 });
       assert.deepEqual(body.harnesses[0], { harness: 'claude-code', level: 3, reason: null });
       // This project declares no tracker, so nothing can be attributed to a Task.
-      assert.deepEqual(body.tasks, { available: false, reason: 'This project declares no tracker.provider.' });
-      assert.deepEqual(body.unassigned, { available: false, reason: 'This project declares no tracker.provider.' });
+      const unavailable = { available: false, reason: 'This project declares no tracker.provider.', code: 'tracker.unavailable', params: { kind: 'provider' } };
+      assert.deepEqual(body.tasks, unavailable);
+      assert.deepEqual(body.unassigned, unavailable);
 
       const records = stored(daemon);
       assert.equal(records.length, 1);
@@ -853,10 +854,10 @@ describe('Observed runs and Task attribution in the Product Snapshot', () => {
         session(artifacts, root, 'unreadable', lines(GRILL, daysAgo(0)));
 
         assert.equal((await daemon.call('project.register', { path: root })).status, 200);
-        const { body } = await daemon.call<{ usage: Usage; attention: { code: string; message: string }[] }>('project.snapshot', { path: root });
+        const { body } = await daemon.call<{ usage: Usage; attention: { code: string; message: string; params?: Record<string, string | number> }[] }>('project.snapshot', { path: root });
         const tracker = body.attention.filter((item) => item.code.startsWith('tracker.'));
         assert.equal(tracker.length, 1);
-        const unavailable = { available: false, reason: tracker[0]!.message };
+        const unavailable = { available: false, reason: tracker[0]!.message, code: tracker[0]!.code, params: tracker[0]!.params };
         assert.deepEqual(body.usage.tasks, unavailable);
         assert.deepEqual(body.usage.unassigned, unavailable);
         assert.deepEqual(body.usage.today, GRILL_TOTALS);
@@ -2059,7 +2060,7 @@ describe('What is running now, in the Product Snapshot', () => {
       session(artifacts, root, 'product', lines(GRILL, minutesAgo(1)));
       await register(daemon, root);
 
-      assert.deepEqual(await activity(daemon, root), { available: false, reason: 'This project declares no tracker.provider.' });
+      assert.deepEqual(await activity(daemon, root), { available: false, reason: 'This project declares no tracker.provider.', code: 'tracker.unavailable', params: { kind: 'provider' } });
     });
   });
 });
@@ -2519,6 +2520,8 @@ describe('Ponytail’s effect in usage.get', () => {
         after: null,
         undated: 1,
         reason: 'No commit on the default branch adds Ponytail to AGENTS.md or CLAUDE.md, so there is no before and after.',
+        code: 'ponytail.no_comparison',
+        params: { kind: 'no_commit' },
       });
 
       const adopted = commitFile(root, at(0, 0), 'AGENTS.md', '# Agent Instructions\n\nPonytail.\n');

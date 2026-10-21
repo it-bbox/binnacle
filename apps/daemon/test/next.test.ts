@@ -631,7 +631,12 @@ describe("the Suggested step's alternatives", () => {
       write(root, '.binnacle/project.yaml', manifest().replace('    issues: docs/specs\n', ''));
 
       const body = await snapshot(daemon, root);
-      assert.deepEqual(body.next.alternatives, { available: false, reason: 'tracker.provider is local, and this project declares no tracker.local.issues.' });
+      assert.deepEqual(body.next.alternatives, {
+        available: false,
+        reason: 'tracker.provider is local, and this project declares no tracker.local.issues.',
+        code: 'tracker.unavailable',
+        params: { kind: 'issues' },
+      });
       assert.deepEqual(body.next.action, { description: 'run the epic.', command: '/binnacle:autopilot' });
     });
   });

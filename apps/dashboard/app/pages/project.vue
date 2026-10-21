@@ -8,6 +8,8 @@ import {
   gitLine,
   isUnavailable,
   projectName,
+  runRole,
+  said,
   SELECTED_VIEW,
   statusBadge,
   type Board,
@@ -47,17 +49,17 @@ type ProjectSnapshot = Snapshot & {
 
 type ColumnKey = keyof Board['columns'];
 
-/** The columns, with the ticket state a card in each needs no word about. */
-const COLUMNS: [ColumnKey, string, string | null][] = [
-  ['backlog', 'Backlog', 'BACKLOG'],
-  ['ready', 'Ready', 'READY'],
-  ['inProgress', 'In progress', null],
-  ['done', 'Done', 'DONE'],
+/** The columns, with the ticket state a card in each needs no word about; each column's name is the dictionary's. */
+const COLUMNS: [ColumnKey, string | null][] = [
+  ['backlog', 'BACKLOG'],
+  ['ready', 'READY'],
+  ['inProgress', null],
+  ['done', 'DONE'],
 ];
 /** Done shows its latest few until it is opened. */
 const DONE_SHOWN = 3;
 
-const { t, plural, number, since, elapsed } = useLanguage();
+const { t, language, plural, number, since, elapsed } = useLanguage();
 const route = useRoute();
 const router = useRouter();
 const project = typeof route.query.project === 'string' ? route.query.project : null;
@@ -116,7 +118,7 @@ const boardEmpty = computed(() => {
 const shown = (key: ColumnKey, cards: Card[]): Card[] => (key === 'done' && !doneOpen.value ? cards.slice(0, DONE_SHOWN) : cards);
 /** Who works on a card: harness and role, and in *Full* the model between them. */
 const runLabel = (latest: LatestRun, full: boolean): string =>
-  (full ? [latest.harness, latest.model ?? t.value.modelNotReported, latest.role] : [latest.harness, latest.role]).join(' · ');
+  (full ? [latest.harness, latest.model ?? t.value.modelNotReported, runRole(t.value, latest.role)] : [latest.harness, runRole(t.value, latest.role)]).join(' · ');
 /** A card's time: how long its run has been going while it runs, and how long ago it was last active. */
 const runTime = (latest: LatestRun): string =>
   latest.active.value ? `${t.value.runningFor(elapsed(latest.startedAt))} · ${t.value.activeAgo(since(latest.lastActivityAt))}` : t.value.activeAgo(since(latest.lastActivityAt));
@@ -151,7 +153,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
       <p v-else-if="view.project.unavailable !== null" class="m-0 text-muted">
         <span class="font-medium text-default">{{ t.notAvailable }}</span> · <span lang="en">{{ view.project.unavailable }}</span>
       </p>
-      <p v-else-if="view.failure" class="m-0 text-warning"><code>{{ view.failure.code }}</code> <span lang="en">{{ view.failure.message }}</span></p>
+      <p v-else-if="view.failure" class="m-0 text-warning"><DaemonReason :said="view.failure" /></p>
       <template v-else-if="snapshot">
         <div class="flex flex-col gap-0.5">
           <h1 class="m-0 text-xl font-semibold text-highlighted">{{ projectName(view.project) }}</h1>
@@ -161,7 +163,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
         <Widget page="project" widget="waiting" :title="t.pendingDecisions">
           <template #default="{ full }">
             <p v-if="isUnavailable(snapshot.pendingDecisions)" class="m-0 px-3.5 py-2.5">
-              <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="snapshot.pendingDecisions.reason" /></span>
+              <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :said="snapshot.pendingDecisions" /></span>
             </p>
             <div v-else class="grid grid-cols-3 items-start divide-x divide-default">
               <section class="flex min-w-0 flex-col gap-2 px-3.5 py-2.5">
@@ -172,7 +174,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
                   </span>
                 </div>
                 <p v-if="isUnavailable(snapshot.pendingDecisions.questions)" class="m-0 text-sm">
-                  <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="snapshot.pendingDecisions.questions.reason" /></span>
+                  <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :said="snapshot.pendingDecisions.questions" /></span>
                 </p>
                 <template v-else>
                   <div v-if="snapshot.pendingDecisions.questions.items.length === 0" class="text-sm text-dimmed">{{ t.none }}</div>
@@ -237,7 +239,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
               <h2 class="m-0 text-base font-semibold">{{ t.board }}</h2>
               <template v-if="shownEpic">
                 <span lang="en" class="font-medium">{{ shownEpic.number }} {{ shownEpic.title }}</span>
-                <UBadge :label="shownEpic.status" v-bind="statusBadge(shownEpic.status)" size="sm" lang="en" />
+                <UBadge :label="said(t.roadmapStatuses, shownEpic.status)" v-bind="statusBadge(shownEpic.status)" size="sm" />
               </template>
               <span v-else-if="route.query.withoutSpec !== undefined" class="font-medium">{{ t.tasksWithoutSpec }}</span>
               <span v-else-if="board.data.value?.spec" class="font-mono text-sm">{{ board.data.value.spec }}</span>
@@ -254,7 +256,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
           </template>
           <template #default="{ full }">
             <div class="flex flex-col gap-3 p-2.5">
-              <p v-if="board.error.value" class="m-0 text-warning"><code>{{ board.error.value.code }}</code> {{ board.error.value.message }}</p>
+              <p v-if="board.error.value" class="m-0 text-warning"><DaemonReason :said="board.error.value" /></p>
               <USkeleton v-else-if="board.data.value === null" class="h-48 w-full" />
               <template v-else>
                 <p v-if="board.data.value.epic === null && board.data.value.spec === null && route.query.withoutSpec === undefined" class="m-0 text-muted">
@@ -265,9 +267,9 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
                   <div class="text-muted">{{ board.data.value.epic !== null && board.data.value.spec === null ? t.noSpecYet : t.noTasksBody }}</div>
                 </div>
                 <div v-else class="grid grid-cols-4 items-start gap-2.5">
-                  <div v-for="[key, label, plain] in COLUMNS" :key="key" class="flex min-w-0 flex-col gap-2 rounded-lg border border-default bg-(--sidebar) p-2">
+                  <div v-for="[key, plain] in COLUMNS" :key="key" class="flex min-w-0 flex-col gap-2 rounded-lg border border-default bg-(--sidebar) p-2">
                     <div class="flex items-center justify-between px-1 py-0.5">
-                      <span class="text-sm font-semibold">{{ label }}</span>
+                      <span class="text-sm font-semibold">{{ t.columns[key] }}</span>
                       <span class="font-mono text-sm text-dimmed">{{ number(count(board.data.value.columns[key])) }}</span>
                     </div>
                     <div v-if="board.data.value.columns[key].items.length === 0" class="px-1.5 py-2.5 text-sm text-dimmed">{{ t.empty }}</div>
@@ -281,8 +283,8 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
                       <div class="flex flex-wrap items-center gap-1.5">
                         <span class="font-mono text-xs break-words text-muted">{{ card.id }}</span>
                         <span class="flex-1" />
-                        <UBadge v-if="card.state === 'BLOCKED'" label="BLOCKED" color="error" variant="soft" size="sm" class="font-mono" />
-                        <span v-else-if="full && card.state !== plain && card.source !== 'runs'" class="font-mono text-xs text-dimmed">{{ card.state }}</span>
+                        <UBadge v-if="card.state === 'BLOCKED'" :label="t.states.BLOCKED" color="error" variant="soft" size="sm" />
+                        <span v-else-if="full && card.state !== null && card.state !== plain && card.source !== 'runs'" class="text-xs text-dimmed">{{ said(t.states, card.state) }}</span>
                         <template v-if="!full">
                           <UIcon
                             v-if="card.unmetDependencies.length > 0"
@@ -302,7 +304,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
                           />
                         </template>
                         <template v-if="full && card.state === 'DONE' && card.review !== null">
-                          <UBadge v-if="card.review" label="Review" color="neutral" variant="soft" size="sm" :title="t.reviewRecorded" />
+                          <UBadge v-if="card.review" :label="t.roleReview" color="neutral" variant="soft" size="sm" :title="t.reviewRecorded" />
                           <UBadge v-else :label="t.noReview" color="warning" variant="soft" size="sm" />
                         </template>
                       </div>
@@ -316,19 +318,19 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
                         </div>
                       </template>
                       <div v-if="card.latestRun" class="flex flex-col gap-0.5 rounded bg-muted px-1.5 py-1 text-xs">
-                        <div v-if="card.source === 'runs'" class="flex items-center gap-1 font-medium text-primary" :title="t.fromRunsReading">
-                          <UIcon name="i-lucide-calculator" class="size-3 shrink-0" />{{ t.fromRuns }}
+                        <div v-if="card.source === 'runs'" class="flex items-center gap-1 font-medium text-primary">
+                          {{ t.states.ACTIVE }} <span class="font-normal text-dimmed">({{ t.fromActivity }})</span>
                         </div>
                         <div class="flex items-start gap-1.5">
                           <span
                             class="mt-1 size-1.5 shrink-0 rounded-full"
                             :class="card.latestRun.active.value ? 'bg-success motion-safe:animate-pulse' : 'bg-(--ui-text-dimmed)'"
-                            :title="`${card.latestRun.active.value ? t.activeNow : t.notActiveNow}. ${t.runningReading}`"
+                            :title="`${card.latestRun.active.value ? t.activeNow : t.notActiveNow} (${t.fromActivity})`"
                           />
                           <span class="text-muted">{{ runTime(card.latestRun) }}</span>
                         </div>
                         <div class="font-mono break-words text-muted">{{ runLabel(card.latestRun, full) }}</div>
-                        <div v-if="full && card.source === 'runs'" class="text-dimmed">{{ t.ticketSays(card.state ?? t.noState) }}</div>
+                        <div v-if="full && card.source === 'runs'" class="text-dimmed">{{ t.ticketSays(card.state === null ? t.noState : said(t.states, card.state)) }}</div>
                       </div>
                     </NuxtLink>
                     <UButton
@@ -355,7 +357,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
                   <div v-for="card in board.data.value.unknown.items" :key="card.id" class="flex flex-wrap items-baseline gap-x-1.5 text-sm">
                     <NuxtLink :to="{ path: '/task', query: { project, id: card.id } }" class="font-mono break-words text-primary hover:underline">{{ card.id }}</NuxtLink>
                     <span lang="en">{{ card.title ?? t.untitled }}</span>
-                    <span v-if="card.diagnostic" lang="en" class="text-warning"><code>{{ card.diagnostic.code }}</code> {{ card.diagnostic.message }}</span>
+                    <span v-if="card.diagnostic" class="text-warning"><DaemonReason :said="card.diagnostic" /></span>
                   </div>
                   <div v-if="board.data.value.unknown.remainder > 0" class="text-sm text-dimmed">{{ t.more(number(board.data.value.unknown.remainder)) }}</div>
                 </div>
@@ -368,7 +370,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
             <div><span class="font-medium">{{ t.notAvailable }}</span> · {{ t.noRoadmap }}</div>
             <div v-if="roadmapAttention.length > 0" class="text-muted">{{ t.roadmapReason }}</div>
             <div v-for="(item, index) in roadmapAttention" :key="index" class="text-sm">
-              <code class="font-mono text-muted">{{ item.code }}</code> <DaemonReason :reason="item.message" />
+              <DaemonReason :said="item" />
             </div>
           </div>
           <UCard v-else-if="folded" :ui="{ root: 'rounded-[10px] min-[85rem]:order-first', header: 'px-2 py-2.5 sm:px-2', body: 'p-1.5 sm:p-1.5' }">
@@ -380,7 +382,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
                 v-for="epic in epics"
                 :key="epic.number"
                 :label="String(epic.number)"
-                :title="`${epic.number} ${epic.title} · ${epic.status}`"
+                :title="`${epic.number} ${epic.title} · ${said(t.roadmapStatuses, epic.status)}`"
                 :disabled="!pickable(epic)"
                 :aria-current="picked(epic) ? 'true' : undefined"
                 :color="picked(epic) ? 'primary' : 'neutral'"
@@ -428,7 +430,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
                         <span v-else :aria-current="picked(epic) ? 'true' : undefined" :class="{ 'text-dimmed': !pickable(epic) }">{{ epic.title }}</span>
                       </td>
                       <td class="border-default py-1.5 ps-2 pe-3.5 whitespace-nowrap" :class="{ 'border-b': !full }">
-                        <UBadge :label="epic.status" v-bind="statusBadge(epic.status)" size="sm" lang="en" />
+                        <UBadge :label="said(t.roadmapStatuses, epic.status)" v-bind="statusBadge(epic.status)" size="sm" />
                       </td>
                     </tr>
                     <tr v-if="full" :class="{ 'bg-primary/10': picked(epic) }">
@@ -454,10 +456,11 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
 
       <Widget page="project" widget="usage" :title="t.usageByRole">
         <template #aside>
+          <span class="text-sm text-dimmed">({{ t.estimate }})</span>
           <NuxtLink :to="{ path: '/usage', query: { project } }" class="text-sm text-primary hover:underline">{{ t.usagePage }}</NuxtLink>
         </template>
         <template #default="{ full }">
-          <p v-if="usage.error.value" class="m-0 px-3.5 py-2.5 text-warning"><code>{{ usage.error.value.code }}</code> {{ usage.error.value.message }}</p>
+          <p v-if="usage.error.value" class="m-0 px-3.5 py-2.5 text-warning"><DaemonReason :said="usage.error.value" /></p>
           <div v-else-if="usage.data.value === null" class="px-3.5 py-2.5"><USkeleton class="h-40 w-full" /></div>
           <div v-else class="flex flex-col gap-2 overflow-x-auto px-3.5 py-2.5">
             <p v-if="full" class="m-0 text-sm text-dimmed">
@@ -465,7 +468,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
             </p>
             <p v-if="usage.data.value.importing.incomplete" class="m-0 text-warning">{{ t.importing }}</p>
             <p v-if="isUnavailable(usage.data.value.byRole)" class="m-0">
-              <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.byRole.reason" /></span>
+              <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :said="usage.data.value.byRole" /></span>
             </p>
             <TokenKinds
               v-else
@@ -481,7 +484,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
               ]"
             />
             <p v-if="isUnavailable(usage.data.value.unassigned)" class="m-0">
-              {{ t.unassigned }}: <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.unassigned.reason" /></span>
+              {{ t.unassigned }}: <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :said="usage.data.value.unassigned" /></span>
             </p>
             <p v-else-if="full" class="m-0 text-sm text-dimmed">{{ t.unassignedNote }}</p>
           </div>
@@ -493,7 +496,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
         <div class="flex min-w-0 flex-col gap-2.5">
           <Widget page="project" widget="checkout" :title="t.registeredCheckout">
             <template #default="{ full }">
-              <div class="px-3.5 py-2.5 font-mono text-sm" :class="full ? 'wrap-anywhere' : 'truncate'" :title="gitLine(snapshot.git, t)">{{ gitLine(snapshot.git, t) }}</div>
+              <div class="px-3.5 py-2.5 font-mono text-sm" :class="full ? 'wrap-anywhere' : 'truncate'" :title="gitLine(snapshot.git, t, language)">{{ gitLine(snapshot.git, t, language) }}</div>
             </template>
           </Widget>
 
@@ -503,7 +506,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
             </template>
             <template #default="{ full }">
               <div class="flex flex-col gap-1.5 px-3.5 py-2.5">
-                <DaemonReason v-if="full && snapshot.graph.reason !== null" class="block text-sm leading-snug text-dimmed" :reason="snapshot.graph.reason" />
+                <DaemonReason v-if="full && snapshot.graph.reason !== null" class="block text-sm leading-snug text-dimmed" :said="snapshot.graph" />
                 <div class="text-sm" :class="{ truncate: !full }">
                   <span class="me-1.5 text-muted">{{ t.builtFrom }}</span>
                   <template v-if="snapshot.graph.builtFrom">
@@ -518,7 +521,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
                   <template v-if="snapshot.graph.lastRun">
                     <span :class="{ 'text-warning': snapshot.graph.lastRun.outcome === 'failed' }">{{ t.runOutcomes[snapshot.graph.lastRun.outcome] }}</span>
                     · <code class="font-mono">{{ snapshot.graph.lastRun.commit.slice(0, 12) }}</code> · {{ since(snapshot.graph.lastRun.at) }}
-                    <DaemonReason v-if="snapshot.graph.lastRun.reason !== null" class="block text-sm leading-snug text-dimmed" :reason="snapshot.graph.lastRun.reason" />
+                    <DaemonReason v-if="snapshot.graph.lastRun.reason !== null" class="block text-sm leading-snug text-dimmed" :said="snapshot.graph.lastRun" />
                   </template>
                   <span v-else class="text-dimmed">{{ t.noRunYet }}</span>
                 </div>
@@ -559,7 +562,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
             </template>
             <template #default="{ full }">
               <div v-if="isUnavailable(snapshot.ci)" class="px-3.5 py-2.5 text-sm leading-snug text-dimmed" :class="{ truncate: !full }">
-                <DaemonReason :reason="snapshot.ci.reason" />
+                <DaemonReason :said="snapshot.ci" />
               </div>
               <div v-else class="flex flex-col gap-0.5 px-3.5 py-2.5">
                 <div class="text-sm" :class="{ truncate: !full }">

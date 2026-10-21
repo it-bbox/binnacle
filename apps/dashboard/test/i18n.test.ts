@@ -1,16 +1,26 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { compactNumber, daemonReason, DICTIONARIES, duration, LANGUAGES, pairReason, plural, secondsAgo, startingLanguage } from '../app/i18n/index.ts';
-import { parseRoadmap } from '../../../packages/core/src/roadmap.ts';
+import { ROLES, TASK_STATES } from '@binnacle/core';
+import { compactNumber, daemonSaid, DICTIONARIES, duration, LANGUAGES, pairReason, plural, secondsAgo, startingLanguage } from '../app/i18n/index.ts';
+import { ROADMAP_STATUSES } from '../../../packages/core/src/roadmap.ts';
 import { NO_FORGE } from '../../daemon/src/ci.ts';
 import { trackerUnavailable } from '../../daemon/src/snapshot.ts';
-import { ANTIGRAVITY_NO_TOKENS, OPENCODE_NO_EXPORT, PI_NO_EXPORT, PONYTAIL_REASONS, ZCODE_NO_EXPORT } from '../../daemon/src/usage.ts';
 
 /**
  * The dashboard's own dictionary (ADR-0033): which language the page starts in, and how a
- * count and a relative time read in it. The pages themselves are not automated (the spec's
- * *Testing Decisions*); a missing Russian key fails the typecheck.
+ * count and a relative time read in it; that its Russian says the domain's terms in Russian
+ * (ADR-0045), and that what the daemon says is worded by core from its code and params. The
+ * pages themselves are checked in a browser (spec `human-output`, *Testing Decisions*); a
+ * missing Russian key fails the typecheck.
  */
+
+/** Every text a dictionary holds: its strings, its plural forms, and what its functions write from sample values. */
+function texts(value: unknown): string[] {
+  if (typeof value === 'string') return [value];
+  if (typeof value === 'function') return [...texts(value('a/01', 1, 'x')), ...texts(value('a/01, a/02', 2, 'x'))];
+  if (value !== null && typeof value === 'object') return Object.values(value).flatMap(texts);
+  return [];
+}
 
 describe('the starting language', () => {
   it('is the stored choice when there is one', () => {
@@ -86,12 +96,6 @@ describe('a duration', () => {
 });
 
 describe('the board card', () => {
-  it('says plainly that a Task is In progress from its runs, never "по runs", which reads as "no runs"', () => {
-    for (const dictionary of Object.values(DICTIONARIES)) assert.match(dictionary.fromRuns, /^In progress/);
-    assert.doesNotMatch(DICTIONARIES.ru.fromRuns, /по runs/);
-    assert.match(DICTIONARIES.ru.fromRunsReading, /Вывод Binnacle/, 'still marked as Binnacle’s reading');
-  });
-
   it('gives a running card its time and its latest activity', () => {
     const { ru, en } = DICTIONARIES;
     assert.equal(`${ru.runningFor(duration('ru', 15 * 60))} · ${ru.activeAgo(secondsAgo('ru', 7))}`, 'идёт 15 мин · активность 7 сек. назад');
@@ -108,17 +112,33 @@ describe('a compact number', () => {
   });
 });
 
-describe("the daemon's reasons", () => {
-  const noForge = NO_FORGE;
+describe('what the daemon says', () => {
+  it('is worded by core from its code and params, with no code in the text', () => {
+    const item = { code: 'review.missing', message: 'a/01 (x.md) is DONE, and its ticket records no Review.', params: { task: 'a/01', ticket: 'x.md' } };
+    assert.deepEqual(daemonSaid('ru', item), { text: 'Задача a/01 (x.md) готова, но в её тикете нет ревью в ## Comments.', english: false });
+    assert.deepEqual(daemonSaid('en', item), { text: item.message, english: false });
+    assert.doesNotMatch(daemonSaid('ru', item).text, /review\.missing/);
+  });
 
-  it('are in the language when the page knows them, and as the daemon wrote them when it does not', () => {
-    assert.equal(daemonReason('en', noForge), noForge);
-    assert.equal(daemonReason('ru', noForge), 'CI читать неоткуда: трекер — не GitHub и не GitLab, и Git remote на GitHub или GitLab нет.');
-    assert.equal(daemonReason('ru', 'There is no roadmap at docs/roadmap.md.'), 'There is no roadmap at docs/roadmap.md.');
-    assert.match(daemonReason('ru', `${OPENCODE_NO_EXPORT}.`), /^Экспорт OpenTelemetry у opencode/);
-    assert.match(daemonReason('ru', `${ZCODE_NO_EXPORT}.`), /^Экспорт OpenTelemetry у ZCode/);
-    assert.match(daemonReason('ru', `${ANTIGRAVITY_NO_TOKENS}.`), /^У Antigravity нет экспорта OpenTelemetry/);
-    assert.match(daemonReason('ru', `${PI_NO_EXPORT}.`), /^Встроенного экспорта OpenTelemetry у pi нет/);
+  it('is a reason as the daemon gives it, with its code, in Russian', () => {
+    assert.deepEqual(daemonSaid('ru', { reason: NO_FORGE, code: 'ci.no_forge' }), {
+      text: 'CI читать неоткуда: трекер — не GitHub и не GitLab, и Git remote на GitHub или GitLab нет.',
+      english: false,
+    });
+    assert.equal(daemonSaid('ru', { reason: 'There is no graph.', code: 'graph.unavailable', params: { kind: 'none' } }).text, 'Графа нет.');
+    assert.equal(daemonSaid('en', { reason: NO_FORGE, code: 'ci.no_forge' }).text, NO_FORGE);
+  });
+
+  it('is the daemon’s own English, marked, without a code core words', () => {
+    assert.deepEqual(daemonSaid('ru', { reason: 'Autostart cannot be read: EACCES' }), { text: 'Autostart cannot be read: EACCES', english: true });
+    assert.deepEqual(daemonSaid('ru', { code: 'nothing.known', message: 'As written.' }), { text: 'As written.', english: true });
+  });
+
+  it('carries the tracker’s own code when one reason says why the tracker cannot be read, and none for several', () => {
+    const one = { code: 'tracker.unavailable', message: 'This project declares no tracker.provider.', params: { kind: 'provider' } };
+    assert.equal(daemonSaid('ru', trackerUnavailable([one])).text, 'Этот проект не задаёт tracker.provider.');
+    assert.equal(daemonSaid('ru', trackerUnavailable([])).text, 'Трекер не читается.');
+    assert.equal(daemonSaid('ru', trackerUnavailable([one, one])).english, true);
   });
 
   const tasks = [
@@ -130,7 +150,7 @@ describe("the daemon's reasons", () => {
   const pair = (a: string, b: string, risk: 'high' | 'medium' | 'low' | 'unknown', modules: string[] = []) => ({ tasks: [a, b] as [string, string], risk, modules, reason: 'as the daemon wrote it' });
 
   it("of a pair's risk are written from the risk and the modules, which stay as they are", () => {
-    assert.equal(pairReason('ru', pair('a/01', 'a/02', 'high', ['nuxt.config.ts']), tasks), 'Оба затрагивают nuxt.config.ts.');
+    assert.equal(pairReason('ru', pair('a/01', 'a/02', 'high', ['nuxt.config.ts']), tasks), 'Обе затрагивают nuxt.config.ts.');
     assert.equal(
       pairReason('ru', pair('a/01', 'a/02', 'medium', ['src/a.ts', 'src/b.ts']), tasks),
       'Их модули соседствуют в графе: src/a.ts у a/01 и src/b.ts у a/02.',
@@ -148,10 +168,6 @@ describe("the daemon's reasons", () => {
     assert.equal(pairReason('ru', pair('a/01', 'x/99', 'unknown'), tasks), 'as the daemon wrote it');
   });
 
-  it('the page knows are the texts the daemon writes, so a reworded one is caught here rather than shown in English', () => {
-    const written = [NO_FORGE, trackerUnavailable([]).reason, ...parseRoadmap('').diagnostics.map((item) => item.message), ...Object.values(PONYTAIL_REASONS)];
-    for (const reason of written) assert.notEqual(daemonReason('ru', reason), reason, reason);
-  });
 });
 
 describe('the Parallel limit on the Settings page', () => {
@@ -170,15 +186,52 @@ describe('the Parallel limit on the Settings page', () => {
 });
 
 describe('the informer beside the Parallel limit', () => {
-  it("is labelled as Binnacle's calculation, and counts the runs active at a usage limit, in both languages", () => {
+  it('counts the runs active at a usage limit, in both languages', () => {
     const { en, ru } = DICTIONARIES;
-    assert.match(en.carriedNote, /^Binnacle's calculation/);
-    assert.match(ru.carriedNote, /^Расчёт Binnacle/);
     assert.equal(plural('en', 1, en.activeThen), '1 run active then');
     assert.equal(plural('en', 3, en.activeThen), '3 runs active then');
-    assert.equal(plural('ru', 1, ru.activeThen), 'тогда был активен 1 run');
-    assert.equal(plural('ru', 3, ru.activeThen), 'тогда были активны 3 run');
+    assert.equal(plural('ru', 1, ru.activeThen), 'тогда был активен 1 запуск');
+    assert.equal(plural('ru', 3, ru.activeThen), 'тогда были активны 3 запуска');
+    assert.equal(plural('ru', 5, ru.activeThen), 'тогда были активны 5 запусков');
     assert.equal(en.notReporting('gemini-cli'), 'Not reporting usage limits: gemini-cli.');
     assert.equal(ru.notReporting('gemini-cli'), 'Не сообщают об исчерпании лимитов: gemini-cli.');
+  });
+});
+
+describe('the Russian dictionary', () => {
+  /** The terms epic 6 kept English in both languages, and the other domain terms a Russian page once showed in English. */
+  const ENGLISH = /\b(Tasks?|Epics?|Next action|Suggested step|Backlog|Ready|In progress|Done|Review|Unmet dependency|runs?|roadmap|Product|Harness|Autopilot|Checkpoint|Spec)\b/;
+
+  it('holds none of the terms epic 6 kept English', () => {
+    const english = texts(DICTIONARIES.ru).filter((text) => ENGLISH.test(text));
+    assert.deepEqual(english, []);
+  });
+
+  it('says every Task state, roadmap status and role in Russian, as CONTEXT.md lists them', () => {
+    const { ru } = DICTIONARIES;
+    for (const state of TASK_STATES) assert.match(ru.states[state] ?? '', /^[а-яё ]+$/, state);
+    for (const status of ROADMAP_STATUSES) assert.match(ru.roadmapStatuses[status] ?? '', /^[а-яё ]+$/, status);
+    for (const role of ROLES) assert.ok(ru.taskRoles[role] !== undefined, role);
+    assert.equal(ru.states.READY_FOR_REVIEW, 'на ревью');
+    assert.equal(ru.roadmapStatuses['not started'], 'не начат');
+    assert.equal(ru.taskRoles.QA, 'тестировщик');
+    assert.equal(ru.ciStates.none, 'нет проверок');
+  });
+});
+
+describe('the marks of calculation', () => {
+  it('are one word beside the value, and an unknown is no data, in both languages', () => {
+    const { en, ru } = DICTIONARIES;
+    assert.deepEqual([en.estimate, en.fromActivity, en.noData], ['estimate', 'from activity', 'no data']);
+    assert.deepEqual([ru.estimate, ru.fromActivity, ru.noData], ['оценка', 'по активности', 'нет данных']);
+  });
+
+  it('take the place of the longer provenance notes', () => {
+    for (const dictionary of Object.values(DICTIONARIES)) {
+      assert.deepEqual(
+        texts(dictionary).filter((text) => /Binnacle['’]s (calculation|reading)|(Расчёт|расчёт|Вывод|вывод) Binnacle/.test(text)),
+        [],
+      );
+    }
   });
 });

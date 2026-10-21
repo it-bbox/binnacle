@@ -2,7 +2,7 @@
 import { call, usePolling } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
 import { pairReason } from '~/i18n';
-import { count, isUnavailable, SELECTED_VIEW, statusBadge, type Alternative, type Board, type ConflictRisk } from '~/composables/projects';
+import { count, isUnavailable, runRole, said, SELECTED_VIEW, statusBadge, type Alternative, type Board, type ConflictRisk } from '~/composables/projects';
 import type { Totals } from '~/composables/usage';
 
 /**
@@ -95,7 +95,7 @@ const lastActivity = (timestamp: string): string => secondsAgo((Date.now() - Dat
 function outputTokens(totals: Totals): string {
   if (totals.records === 0) return t.value.noRecords;
   const { tokens, partial } = totals.output;
-  if (tokens === null) return t.value.notReported;
+  if (tokens === null) return t.value.noData;
   return partial ? `${number(tokens)} (${t.value.partial})` : number(tokens);
 }
 </script>
@@ -109,7 +109,7 @@ function outputTokens(totals: Totals): string {
     <p v-else-if="view.project.unavailable !== null" class="py-10 text-muted">
       <span class="font-medium text-default">{{ t.notAvailable }}</span> · <span lang="en">{{ view.project.unavailable }}</span>
     </p>
-    <p v-else-if="view.failure" class="py-10 text-warning"><code>{{ view.failure.code }}</code> <span lang="en">{{ view.failure.message }}</span></p>
+    <p v-else-if="view.failure" class="py-10 text-warning"><DaemonReason :said="view.failure" /></p>
     <template v-else-if="snapshot">
       <UCard :ui="{ root: 'rounded-[10px]', body: 'flex flex-col gap-3 px-3.5 py-3 sm:px-3.5 sm:py-3' }">
         <h1 class="text-base font-semibold">{{ t.whatsNext }}</h1>
@@ -118,13 +118,13 @@ function outputTokens(totals: Totals): string {
             <UBadge :label="t.notAvailable" color="neutral" variant="outline" class="border-dashed" />
             <span class="font-medium">{{ t.noRoadmap }}</span>
           </div>
-          <p v-for="item in roadmapReasons" :key="item.code + item.message" class="font-mono text-sm leading-normal text-muted">
-            <DaemonReason :reason="item.message" /> <code class="text-dimmed">{{ item.code }}</code>
+          <p v-for="item in roadmapReasons" :key="item.code + item.message" class="text-sm leading-normal text-muted">
+            <DaemonReason :said="item" />
           </p>
         </div>
         <div v-else class="flex flex-col gap-2.5">
           <div class="flex flex-wrap items-center gap-2">
-            <UBadge label="Next action" color="primary" variant="soft" />
+            <UBadge :label="t.nextAction" color="primary" variant="soft" />
             <span class="text-sm text-muted">{{ t.fromRoadmap }}</span>
           </div>
           <template v-if="snapshot.next.action">
@@ -138,17 +138,15 @@ function outputTokens(totals: Totals): string {
             variant="soft"
             icon="i-lucide-triangle-alert"
             :title="item.code === 'next_action.stale' ? t.nextActionStale : t.nextActionMissing"
-          >
-            <template #description><code class="font-mono text-xs">{{ item.code }}</code></template>
-          </UAlert>
+          />
         </div>
         <p v-if="isUnavailable(snapshot.next.alternatives)" class="text-muted">
-          <span class="font-medium text-default">{{ t.notAvailable }}</span> · <DaemonReason :reason="snapshot.next.alternatives.reason" />
+          <span class="font-medium text-default">{{ t.notAvailable }}</span> · <DaemonReason :said="snapshot.next.alternatives" />
         </p>
         <div v-else-if="alternatives.length > 0" class="flex flex-col">
           <div class="mb-1.5 flex items-center gap-2.5">
             <span class="font-semibold text-muted">{{ t.or }}</span>
-            <UBadge :label="t.calculation" color="neutral" variant="outline" icon="i-lucide-calculator" class="border-dashed" />
+            <span class="text-sm text-dimmed">({{ t.estimate }})</span>
             <div class="h-px flex-1 bg-(--ui-border)" />
           </div>
           <div
@@ -195,7 +193,7 @@ function outputTokens(totals: Totals): string {
                   <td class="border-b border-default px-3.5 py-2 font-mono text-sm text-dimmed">{{ epic.number }}</td>
                   <td lang="en" class="border-b border-default px-3.5 py-2" :class="step === 'current' ? 'font-semibold' : step === 'later' ? 'text-muted' : ''">{{ epic.title }}</td>
                   <td class="border-b border-default px-3.5 py-2">
-                    <UBadge :label="epic.status" v-bind="statusBadge(epic.status)" size="sm" lang="en" />
+                    <UBadge :label="said(t.roadmapStatuses, epic.status)" v-bind="statusBadge(epic.status)" size="sm" />
                   </td>
                   <td class="border-b border-default px-3.5 py-2 font-mono text-sm whitespace-nowrap text-muted">
                     <span v-if="epic.progress === null" class="text-dimmed">—</span>
@@ -211,7 +209,7 @@ function outputTokens(totals: Totals): string {
               <li
                 v-for="{ epic, step } in steps"
                 :key="epic.number"
-                :title="`${epic.number} ${epic.title} · ${epic.status}`"
+                :title="`${epic.number} ${epic.title} · ${said(t.roadmapStatuses, epic.status)}`"
                 :aria-current="step === 'current' ? 'step' : undefined"
                 class="flex min-w-0 flex-1 flex-col gap-1"
               >
@@ -249,22 +247,22 @@ function outputTokens(totals: Totals): string {
             <div v-if="snapshot.tasks === null" class="flex flex-col gap-1 px-3.5 py-4">
               <div class="font-medium">{{ t.notAvailable }} · {{ t.trackerUnreadable }}</div>
               <FoldedText v-for="item in trackerReasons" :key="item.code + item.message" class="leading-snug break-words text-muted">
-                <DaemonReason :reason="item.message" /> <code class="font-mono text-xs text-dimmed">{{ item.code }}</code>
+                <DaemonReason :said="item" />
               </FoldedText>
             </div>
             <template v-else>
               <template v-if="full">
-                <div v-if="parallel" class="flex items-center gap-1.5 border-b border-default px-3.5 py-2 text-sm text-primary" :title="t.calculation">
+                <div v-if="parallel" class="flex items-center gap-1.5 border-b border-default px-3.5 py-2 text-sm text-primary">
                   <UIcon name="i-lucide-split" class="size-3.5" />
-                  {{ parallel }}
+                  {{ parallel }} <span class="text-dimmed">({{ t.estimate }})</span>
                 </div>
                 <div v-if="!snapshot.tasks.parallel.impact.available || snapshot.tasks.parallel.impact.tasks.length > 0" class="flex flex-col gap-1.5 border-b border-default px-3.5 py-2.5 text-sm">
                   <div class="flex flex-wrap items-center gap-2">
                     <span class="font-semibold">{{ t.conflictRisk }}</span>
-                    <UBadge :label="t.calculation" color="neutral" variant="outline" icon="i-lucide-calculator" size="sm" class="border-dashed" />
+                    <span class="text-dimmed">({{ t.estimate }})</span>
                   </div>
                   <p v-if="isUnavailable(snapshot.tasks.parallel.impact)" class="text-muted">
-                    <span class="font-medium text-default">{{ t.notAvailable }}</span> · <DaemonReason :reason="snapshot.tasks.parallel.impact.reason" />
+                    <span class="font-medium text-default">{{ t.notAvailable }}</span> · <DaemonReason :said="snapshot.tasks.parallel.impact" />
                   </p>
                   <template v-else>
                     <div v-for="task in snapshot.tasks.parallel.impact.tasks" :key="task.id" class="flex min-w-0 flex-wrap gap-x-1.5">
@@ -279,7 +277,7 @@ function outputTokens(totals: Totals): string {
                         <UBadge :label="t.risks[pair.risk]" :color="RISK_COLORS[pair.risk]" variant="soft" size="sm" />
                       </div>
                       <FoldedText class="leading-snug break-words text-muted">
-                        <DaemonReason :reason="pair.reason" :translated="pairReason(language, pair, snapshot.tasks.parallel.impact.tasks)" />
+                        <DaemonReason :said="pair" :translated="pairReason(language, pair, snapshot.tasks.parallel.impact.tasks)" />
                       </FoldedText>
                     </div>
                   </template>
@@ -290,7 +288,7 @@ function outputTokens(totals: Totals): string {
                   <div class="font-medium">{{ t.noTasks }}</div>
                   <div class="leading-snug text-muted">{{ t.noTasksBody }}</div>
                   <FoldedText v-for="item in trackerReasons" :key="item.code + item.message" class="leading-snug break-words text-muted">
-                    <DaemonReason :reason="item.message" /> <code class="font-mono text-xs text-dimmed">{{ item.code }}</code>
+                    <DaemonReason :said="item" />
                   </FoldedText>
                 </div>
                 <p v-else class="px-3.5 py-4 text-muted">{{ t.nothing }}</p>
@@ -315,7 +313,7 @@ function outputTokens(totals: Totals): string {
                         <ULink :to="{ path: '/task', query: { project, id: card.id } }" class="font-mono text-sm break-all text-muted">{{ card.id }}</ULink>
                         <span class="leading-snug" lang="en">{{ card.title ?? card.id }}</span>
                       </div>
-                      <UBadge color="neutral" variant="outline" icon="i-lucide-lock" title="Unmet dependency" class="flex-none">
+                      <UBadge color="neutral" variant="outline" icon="i-lucide-lock" :title="t.unmetDependency" class="flex-none">
                         {{ t.waitsOn(card.unmetDependencies.map((id) => dependency(card.id, id)).join(', ')) }}
                       </UBadge>
                     </li>
@@ -329,13 +327,14 @@ function outputTokens(totals: Totals): string {
         <div class="flex min-w-0 flex-col gap-5">
           <Widget page="overview" widget="running" :title="t.runningNow">
             <template #aside>
+              <span class="text-sm text-dimmed">({{ t.fromActivity }})</span>
               <span v-if="!isUnavailable(snapshot.activity) && count(snapshot.activity.running) > 0" class="font-mono text-sm text-dimmed">
                 {{ number(count(snapshot.activity.running)) }}
               </span>
             </template>
             <template #default="{ full }">
               <p v-if="isUnavailable(snapshot.activity)" class="px-3.5 py-4 text-muted">
-                {{ t.notAvailable }} · <DaemonReason :reason="snapshot.activity.reason" />
+                {{ t.notAvailable }} · <DaemonReason :said="snapshot.activity" />
               </p>
               <p v-else-if="snapshot.activity.running.items.length === 0" class="px-3.5 py-4 text-muted">{{ t.nothing }}</p>
               <ul v-else class="divide-y divide-default">
@@ -349,7 +348,7 @@ function outputTokens(totals: Totals): string {
                           <span v-if="run.taskTitle !== null" class="truncate" lang="en">{{ run.taskTitle }}</span>
                         </template>
                         <template v-else>
-                          <UBadge :label="run.role" color="neutral" variant="soft" size="sm" class="font-mono" />
+                          <UBadge :label="runRole(t, run.role)" color="neutral" variant="soft" size="sm" />
                           <span class="text-sm text-dimmed">{{ t.noTask }}</span>
                         </template>
                         <span class="flex-1" />
@@ -357,8 +356,8 @@ function outputTokens(totals: Totals): string {
                       </div>
                       <div v-if="full" class="flex flex-wrap gap-x-3 gap-y-1 pl-3.5 font-mono text-xs text-dimmed">
                         <span>{{ run.harness }}</span>
-                        <span>{{ run.model ?? t.notReported }}</span>
-                        <span v-if="run.taskId !== null">{{ run.role }}</span>
+                        <span>{{ run.model ?? t.modelNotReported }}</span>
+                        <span v-if="run.taskId !== null" class="font-sans">{{ runRole(t, run.role) }}</span>
                         <span v-if="run.branch !== null" class="inline-flex items-center gap-1"><UIcon name="i-lucide-git-branch" class="size-3" />{{ run.branch }}</span>
                       </div>
                     </li>
@@ -366,9 +365,6 @@ function outputTokens(totals: Totals): string {
                 </FoldedList>
                 <li v-if="snapshot.activity.running.remainder > 0" class="px-3.5 py-2.5 text-muted">{{ t.more(number(snapshot.activity.running.remainder)) }}</li>
               </ul>
-            </template>
-            <template #footer>
-              <p class="text-sm leading-snug text-dimmed">{{ t.runningNote }}</p>
             </template>
           </Widget>
 

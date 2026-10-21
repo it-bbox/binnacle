@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui';
 import { useLanguage } from '~/composables/language';
+import { daemonSaid } from '~/i18n';
 import { attentionCount, projectName, type ProjectView } from '~/composables/projects';
 
 /** The selected project's name and current Epic, the menu (the selected project's pages, then the general ones) and the data's freshness. */
 const props = defineProps<{ view: ProjectView | null; views: ProjectView[]; selected: string | null; updatedAt: number | null; unreachable: boolean }>();
-const { t, number, secondsAgo } = useLanguage();
+const { t, language, number, secondsAgo } = useLanguage();
 const route = useRoute();
 
 /** The current Epic, as the daemon reads it, or why there is none. */
@@ -13,7 +14,7 @@ const epic = computed((): { text: string; muted: boolean; title?: string } | nul
   const view = props.view;
   if (view === null) return null;
   const snapshot = view.snapshot;
-  const reason = view.project.unavailable ?? (view.failure === null ? null : `${view.failure.code}: ${view.failure.message}`);
+  const reason = view.project.unavailable ?? (view.failure === null ? null : daemonSaid(language.value, view.failure).text);
   if (snapshot === null) return { text: t.value.notAvailable, muted: true, ...(reason === null ? {} : { title: reason }) };
   if (snapshot.roadmap === null) return { text: t.value.noRoadmap, muted: true };
   const current = snapshot.roadmap.current;

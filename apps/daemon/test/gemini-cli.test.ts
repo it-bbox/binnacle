@@ -127,7 +127,7 @@ describe('Gemini CLI usage', () => {
     await withDaemon(async (daemon, geminiCli) => {
       const root = makeProject();
       assert.equal((await daemon.call('project.register', { path: root })).status, 200);
-      assert.deepEqual((await harnesses(daemon, root))[2], { harness: 'gemini-cli', level: null, reason: `No Gemini CLI session of this project was found under ${geminiCli}.` });
+      assert.deepEqual((await harnesses(daemon, root))[2], { harness: 'gemini-cli', level: null, reason: `No Gemini CLI session of this project was found under ${geminiCli}.`, code: 'harness.no_sessions', params: { harness: 'Gemini CLI', path: geminiCli } });
 
       geminiSession(geminiCli, 'gemini-project', root, 'main');
       // A subagent launched by it, and a session launched in a subdirectory, are the project's.

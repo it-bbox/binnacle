@@ -108,6 +108,7 @@ describe('the task brief on the local tracker', () => {
         request: {
           available: false,
           reason: 'There is no forge to read CI from: the tracker is not GitHub or GitLab, and there is no Git remote on GitHub or GitLab.',
+          code: 'ci.no_forge',
         },
       });
     });

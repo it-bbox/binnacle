@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { useLanguage } from '~/composables/language';
-import { projectName, type ProjectView, type Run } from '~/composables/projects';
+import { projectName, runRole, type ProjectView, type Run } from '~/composables/projects';
 
 /** A run on the Attention page: its Task or role, its project and its latest activity, and in *Full* who ran it and where. */
 const props = defineProps<{ view: ProjectView; run: Run; live: boolean; full: boolean }>();
 const { t, since } = useLanguage();
 
 const meta = computed(() =>
-  [props.run.harness, props.run.model ?? t.value.modelNotReported, props.run.role, props.run.branch, props.run.checkout].filter((part) => part !== null).join(' · '),
+  [props.run.harness, props.run.model ?? t.value.modelNotReported, runRole(t.value, props.run.role), props.run.branch, props.run.checkout].filter((part) => part !== null).join(' · '),
 );
 </script>
 
@@ -23,7 +23,7 @@ const meta = computed(() =>
           class="min-w-0 font-mono text-sm break-all text-muted"
         >{{ run.taskId }}</ULink>
         <span v-else class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-          <UBadge :label="run.role" color="neutral" variant="soft" size="sm" class="font-mono" />
+          <UBadge :label="runRole(t, run.role)" color="neutral" variant="soft" size="sm" />
           <span class="text-sm text-dimmed">{{ t.noTask }}</span>
         </span>
         <span class="flex-none text-sm whitespace-nowrap text-muted">{{ since(run.lastActivityAt) }}</span>

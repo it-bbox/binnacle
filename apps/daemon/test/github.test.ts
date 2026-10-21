@@ -179,7 +179,7 @@ describe('GitHub issues as Tasks in the Product Snapshot', () => {
           remainder: 0,
         },
         counts: { BACKLOG: 0, READY: 0, MERGED: 0, DONE: 1, CANCELLED: 0, unknown: 0 },
-        parallel: { limit: 2, mode: 'number', source: 'default', inProgress: 1, free: 1, provenance: 'calculated', impact: { available: false, reason: "graphify is not on the daemon's PATH, so no graph is built or read." } },
+        parallel: { limit: 2, mode: 'number', source: 'default', inProgress: 1, free: 1, provenance: 'calculated', impact: { available: false, reason: "graphify is not on the daemon's PATH, so no graph is built or read.", code: 'graph.unavailable', params: { kind: 'no_graphify' } } },
       });
       assert.deepEqual(codes(body), []);
       assert.deepEqual(
@@ -1003,7 +1003,7 @@ describe('the task brief on a GitHub tracker', () => {
         body: { text: '**What to build:** a brief.\n\nStatus: DONE', truncated: false },
         branch: 'feat/5-add-a-task-brief-task-get-friends',
         start: `/binnacle:task run https://github.com/${REPOSITORY}/issues/5`,
-        review: { available: false, reason: 'Binnacle reads only questions and answers from an issue’s comments, so no Review is read on GitHub or GitLab.' },
+        review: { available: false, reason: 'Binnacle reads only questions and answers from an issue’s comments, so no Review is read on GitHub or GitLab.', code: 'review.remote' },
         questions: { branch: null, items: [] },
         roles: DEFAULT_ROLES,
         diagnostics: [],

@@ -11,6 +11,7 @@ export const BODY_LIMIT = 8000;
 const REVIEW_UNAVAILABLE: Unavailable = {
   available: false,
   reason: 'Binnacle reads only questions and answers from an issue’s comments, so no Review is read on GitHub or GitLab.',
+  code: 'review.remote',
 };
 
 /**

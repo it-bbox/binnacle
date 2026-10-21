@@ -63,7 +63,10 @@ async function save(): Promise<void> {
     edited.value = false;
     saved.value = true;
   } catch (error) {
-    refused.value = error instanceof DaemonError ? { code: error.code, message: error.message } : { code: 'daemon.unreachable', message: 'The Binnacle daemon did not answer.' };
+    refused.value =
+      error instanceof DaemonError
+        ? { code: error.code, message: error.message, ...(error.params && { params: error.params }) }
+        : { code: 'daemon.unreachable', message: 'The Binnacle daemon did not answer.' };
   } finally {
     saving.value = false;
   }
@@ -150,7 +153,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
       </template>
       <div class="flex flex-col gap-3">
         <p v-if="machine.error.value" class="text-warning">
-          <code>{{ machine.error.value.code }}</code> <span lang="en">{{ machine.error.value.message }}</span>
+          <DaemonReason :said="machine.error.value" />
         </p>
         <form class="flex flex-wrap items-center gap-x-4 gap-y-2" aria-labelledby="parallel" @submit.prevent="save">
           <URadioGroup v-model="choice" :items="choices" orientation="horizontal" aria-labelledby="parallel" @update:model-value="edit" />
@@ -167,11 +170,11 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
           <span v-if="saved" class="text-sm text-success" role="status">{{ t.parallelSaved }}</span>
         </form>
         <p v-if="refused" class="text-warning" role="alert">
-          <code>{{ refused.code }}</code> <span lang="en">{{ refused.message }}</span>
+          <DaemonReason :said="refused" />
         </p>
         <p v-if="override !== null" class="text-warning">{{ t.parallelOverride(number(override)) }}</p>
         <section v-if="informer" class="flex flex-col gap-1.5 border-t border-default pt-3" aria-labelledby="carried">
-          <h3 id="carried" class="text-sm font-semibold">{{ t.carried }}</h3>
+          <h3 id="carried" class="text-sm font-semibold">{{ t.carried }} <span class="font-normal text-dimmed">({{ t.estimate }})</span></h3>
           <p v-if="informer.mostActive.at === null" class="text-muted">{{ t.noRunsCarried }}</p>
           <p v-else>
             <span class="text-muted">{{ t.mostActive }}:</span> <span class="font-semibold">{{ number(informer.mostActive.runs) }}</span>
@@ -204,7 +207,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
       </template>
       <p v-if="project === null" class="text-muted">{{ t.noProject }}</p>
       <p v-else-if="status.error.value" class="text-warning">
-        <code>{{ status.error.value.code }}</code> <span lang="en">{{ status.error.value.message }}</span>
+        <DaemonReason :said="status.error.value" />
       </p>
       <div v-else-if="status.data.value === null" class="flex flex-col gap-2" :aria-label="t.loading" aria-busy="true">
         <USkeleton class="h-3.5 w-[60%]" />
@@ -238,8 +241,8 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
       </div>
       <div v-if="!status.error.value && status.data.value?.diagnostics.length" class="mt-4 flex flex-col gap-1.5 border-t border-default pt-3">
         <h3 class="text-sm font-semibold">{{ t.diagnostics }}</h3>
-        <p v-for="item in status.data.value.diagnostics" :key="item.code + item.message" class="font-mono text-sm leading-normal text-warning" lang="en">
-          {{ item.message }} <code class="text-dimmed">{{ item.code }}</code>
+        <p v-for="item in status.data.value.diagnostics" :key="item.code + item.message" class="text-sm leading-normal text-warning">
+          <DaemonReason :said="item" />
         </p>
       </div>
       <template v-if="sections" #footer>
@@ -253,7 +256,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
       </template>
       <div class="flex flex-col gap-3">
         <p v-if="daemon.error.value" class="text-warning">
-          <code>{{ daemon.error.value.code }}</code> <span lang="en">{{ daemon.error.value.message }}</span>
+          <DaemonReason :said="daemon.error.value" />
         </p>
         <dl v-else-if="daemon.data.value" class="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-sm">
           <dt class="text-muted">{{ t.version }}</dt>

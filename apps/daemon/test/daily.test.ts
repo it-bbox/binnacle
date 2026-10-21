@@ -224,6 +224,8 @@ describe('the daily delta', () => {
       assert.deepEqual((await daily(daemon, root)).pendingDecisions, {
         available: false,
         reason: 'tracker.provider is local, and this project declares no tracker.local.issues.',
+        code: 'tracker.unavailable',
+        params: { kind: 'issues' },
       });
     });
   });

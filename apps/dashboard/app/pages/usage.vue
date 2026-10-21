@@ -2,7 +2,7 @@
 import type { BarRow } from '~/components/BarList.vue';
 import { call, usePolling } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
-import { isUnavailable, projectName, SELECTED_VIEW } from '~/composables/projects';
+import { isUnavailable, projectName, runRole, SELECTED_VIEW } from '~/composables/projects';
 import { BRIEF_FIELDS, FIELDS, marks, tokensLine, type Context, type Field, type PonytailSide, type ProjectUsage, type Totals } from '~/composables/usage';
 import { BRIEF_ROWS } from '~/widget';
 
@@ -22,7 +22,7 @@ const { t, plural, number, compact, dateTime } = useLanguage();
 /** The roadmap's epics with a spec, which `usage.get` takes by number; `project` is the whole project. */
 const scope = ref('project');
 const epics = computed(() => (snapshot.value?.roadmap?.epics ?? []).filter((epic) => epic.spec !== null));
-const scopes = computed(() => [{ label: t.value.wholeProject, value: 'project' }, ...epics.value.map((epic) => ({ label: `Epic ${epic.number} · ${epic.title}`, value: String(epic.number) }))]);
+const scopes = computed(() => [{ label: t.value.wholeProject, value: 'project' }, ...epics.value.map((epic) => ({ label: `${t.value.epicColumn} ${epic.number} · ${epic.title}`, value: String(epic.number) }))]);
 const epic = computed(() => (scope.value === 'project' ? null : Number(scope.value)));
 
 const usage = usePolling(async () =>
@@ -45,8 +45,8 @@ const kind = ref<Field>('output');
 const kinds = computed(() => FIELDS.map((name) => ({ label: t.value[name], value: name })));
 
 /**
- * A set of totals as a bar: the picked kind, not reported rather than zero, marked partial,
- * calculated or estimated, with how many records it counts after the row's own note.
+ * A set of totals as a bar: the picked kind, no data rather than zero, marked partial or an
+ * estimate, with how many records it counts after the row's own note.
  */
 function tokenRow(key: string, label: string, totals: Totals, extra: Partial<BarRow> = {}): BarRow {
   const field = totals[kind.value];
@@ -55,7 +55,7 @@ function tokenRow(key: string, label: string, totals: Totals, extra: Partial<Bar
     key,
     label,
     value: field.tokens,
-    text: field.tokens === null ? t.value.notReported : number(Math.round(field.tokens)),
+    text: field.tokens === null ? t.value.noData : number(Math.round(field.tokens)),
     marks: marks(field).map((mark) => t.value[mark]),
     ...extra,
     note: [extra.note, plural(totals.records, t.value.recordsCount)].filter((part) => part !== undefined).join(' · '),
@@ -73,7 +73,7 @@ function leveled(rows: BarRow[], remainder: number, full: boolean): { rows: BarR
 const windowLabel = computed(() => {
   const start = usage.data.value?.importing.windowStart ?? null;
   const window = start === null ? t.value.importWindow : `${t.value.importWindow}, ${t.value.sinceDate(start)}`;
-  return epic.value === null ? window : `Epic ${epic.value} · ${window}`;
+  return epic.value === null ? window : `${t.value.epicColumn} ${epic.value} · ${window}`;
 });
 
 /**
@@ -137,6 +137,8 @@ const ponytail = computed(() => {
     sides: [side('before', t.value.beforePonytail, metric.before), side('after', t.value.afterPonytail, metric.after)].filter((item) => item !== null),
     undated: metric.undated,
     reason: metric.reason,
+    code: metric.code,
+    params: metric.params,
   };
 });
 const oneDecimal = (value: number): string => number(Math.round(value * 10) / 10);
@@ -169,13 +171,11 @@ const firstPass = computed(() => {
   };
 });
 
-const ROLE_LABELS = { product: 'roleProduct', implementation: 'roleImplementation', review: 'roleReview', rework: 'roleRework', unknown: 'roleUnknown' } as const;
-
 /** Each run's context growth, a bar for its largest call's context, largest first. */
 const contexts = computed(() => {
   const metric = usage.data.value?.derived.contextGrowth;
   if (metric === undefined || isUnavailable(metric)) return null;
-  const shown = (context: Context): string => (context.tokens === null ? t.value.notReported : compact(context.tokens));
+  const shown = (context: Context): string => (context.tokens === null ? t.value.noData : compact(context.tokens));
   return {
     rows: metric.items.map(
       (item): BarRow => ({
@@ -183,7 +183,7 @@ const contexts = computed(() => {
         label: item.taskId ?? t.value.unassigned,
         to: item.taskId === null ? undefined : taskLink(item.taskId),
         muted: item.taskId === null,
-        note: `${item.harness} · ${t.value[ROLE_LABELS[item.role]]}`,
+        note: `${item.harness} · ${runRole(t.value, item.role)}`,
         value: item.largest.tokens,
         text: t.value.contextLine(shown(item.first), shown(item.latest), shown(item.largest)),
         marks: [item.first, item.latest, item.largest].some((context) => context.partial) ? [t.value.partial] : [],
@@ -200,7 +200,7 @@ const weeks = computed(() => {
   const largest = Math.max(0, ...values.map((value) => value ?? 0));
   return items.map((item, index) => {
     const value = values[index] ?? null;
-    const text = item.totals.records === 0 ? t.value.noRecords : value === null ? t.value.notReported : number(Math.round(value));
+    const text = item.totals.records === 0 ? t.value.noRecords : value === null ? t.value.noData : number(Math.round(value));
     return { week: item.week, value, largest, short: value === null ? '—' : compact(value), title: `${t.value.weekOf(item.week)}: ${text}`, marks: marks(item.totals[kind.value]).map((mark) => t.value[mark]) };
   });
 });
@@ -215,7 +215,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
     <p v-else-if="view.project.unavailable !== null" class="text-muted">
       <span class="font-medium text-default">{{ t.notAvailable }}</span> · <span lang="en">{{ view.project.unavailable }}</span>
     </p>
-    <p v-else-if="view.failure" class="text-warning"><code>{{ view.failure.code }}</code> <span lang="en">{{ view.failure.message }}</span></p>
+    <p v-else-if="view.failure" class="text-warning"><DaemonReason :said="view.failure" /></p>
     <template v-else-if="snapshot">
       <div class="flex flex-col gap-1">
         <div class="flex flex-wrap items-center gap-x-2.5 gap-y-2">
@@ -280,7 +280,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
                 class="pb-1"
                 v-bind="
                   leveled(
-                    snapshot.usage.byProvider.items.map((item) => tokenRow(String(item.provider), item.provider ?? t.notReported, item.totals, { muted: item.provider === null })),
+                    snapshot.usage.byProvider.items.map((item) => tokenRow(String(item.provider), item.provider ?? t.noData, item.totals, { muted: item.provider === null })),
                     snapshot.usage.byProvider.remainder,
                     full,
                   )
@@ -291,14 +291,14 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
 
           <Widget page="usage" widget="tasks" :title="t.byTask">
             <template #aside>
-              <span class="text-sm text-dimmed">{{ epic === null ? t.largestTasks : `Epic ${epic}` }} · {{ t[kind] }}</span>
+              <span class="text-sm text-dimmed">{{ epic === null ? t.largestTasks : `${t.epicColumn} ${epic}` }} · {{ t[kind] }}</span>
             </template>
             <template #default="{ full }">
-              <p v-if="usage.error.value" class="px-3.5 py-3 text-warning"><code>{{ usage.error.value.code }}</code> {{ usage.error.value.message }}</p>
+              <p v-if="usage.error.value" class="px-3.5 py-3 text-warning"><DaemonReason :said="usage.error.value" /></p>
               <USkeleton v-else-if="usage.data.value === null" class="m-3.5 h-32" />
               <template v-else>
                 <p v-if="isUnavailable(usage.data.value.tasks)" class="px-3.5 py-3">
-                  <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.tasks.reason" /></span>
+                  <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :said="usage.data.value.tasks" /></span>
                 </p>
                 <template v-else>
                   <p v-if="usage.data.value.tasks.items.length === 0" class="px-3.5 pt-3 text-muted">{{ t.noTaskRuns }}</p>
@@ -315,11 +315,11 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
                   />
                 </template>
                 <p v-if="full && epic === null && isUnavailable(usage.data.value.unassigned)" class="px-3.5 pb-2 text-sm">
-                  {{ t.unassigned }}: <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.unassigned.reason" /></span>
+                  {{ t.unassigned }}: <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :said="usage.data.value.unassigned" /></span>
                 </p>
                 <h3 class="border-t border-default px-3.5 pt-2.5 pb-1 text-sm font-semibold">{{ t.byRole }}</h3>
                 <p v-if="isUnavailable(usage.data.value.byRole)" class="px-3.5 py-3">
-                  <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.byRole.reason" /></span>
+                  <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :said="usage.data.value.byRole" /></span>
                 </p>
                 <BarList
                   v-else
@@ -349,11 +349,11 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
         <div class="flex min-w-0 flex-col gap-5">
           <Widget page="usage" widget="derived" :title="t.derived">
             <template #aside>
-              <span v-if="epic !== null" class="text-sm text-dimmed">Epic {{ epic }}</span>
-              <UBadge :label="t.calculation" color="neutral" variant="outline" class="border-dashed" :title="t.derivedNote" />
+              <span v-if="epic !== null" class="text-sm text-dimmed">{{ t.epicColumn }} {{ epic }}</span>
+              <span class="text-sm text-dimmed">({{ t.estimate }})</span>
             </template>
             <template #default="{ full }">
-              <p v-if="usage.error.value" class="px-3.5 py-3 text-warning"><code>{{ usage.error.value.code }}</code> {{ usage.error.value.message }}</p>
+              <p v-if="usage.error.value" class="px-3.5 py-3 text-warning"><DaemonReason :said="usage.error.value" /></p>
               <USkeleton v-else-if="usage.data.value === null" class="m-3.5 h-40" />
               <template v-else>
                 <div class="grid grid-cols-2 divide-x divide-default">
@@ -361,13 +361,13 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
                     <div class="flex flex-col gap-1 px-3.5 pt-3 pb-1.5">
                       <h3 class="text-sm leading-snug text-muted">{{ t.perCompletedTask }} · {{ t[kind] }}</h3>
                       <p v-if="isUnavailable(usage.data.value.derived.perCompletedTask)">
-                        <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.perCompletedTask.reason" /></span>
+                        <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :said="usage.data.value.derived.perCompletedTask" /></span>
                       </p>
                       <template v-else-if="perCompleted">
                         <template v-if="perCompleted.mean">
                           <span class="inline-flex items-center gap-1.5">
                             <span class="font-mono text-xl font-medium">{{ perCompleted.mean.text }}</span>
-                            <UBadge v-for="mark in perCompleted.mean.marks" :key="mark" :label="mark" color="neutral" variant="outline" size="sm" />
+                            <span v-for="mark in perCompleted.mean.marks" :key="mark" class="text-sm text-dimmed">({{ mark }})</span>
                           </span>
                           <span class="text-xs text-dimmed">{{ plural(perCompleted.count, t.meanOverDone) }}</span>
                         </template>
@@ -381,7 +381,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
                     <div class="flex flex-col gap-1 px-3.5 pt-3 pb-1.5">
                       <h3 class="text-sm leading-snug text-muted">{{ t.runsPerTask }}</h3>
                       <p v-if="isUnavailable(usage.data.value.derived.runsPerTask)">
-                        <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.runsPerTask.reason" /></span>
+                        <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :said="usage.data.value.derived.runsPerTask" /></span>
                       </p>
                       <template v-else-if="runsPer">
                         <template v-if="runsPer.mean">
@@ -397,7 +397,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
                 <section class="flex flex-col gap-1.5 border-t border-default px-3.5 py-3">
                   <h3 class="text-sm leading-snug text-muted">{{ t.ponytail }} · {{ t[kind] }}</h3>
                   <p v-if="isUnavailable(usage.data.value.derived.ponytail)">
-                    <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.ponytail.reason" /></span>
+                    <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :said="usage.data.value.derived.ponytail" /></span>
                   </p>
                   <template v-else-if="ponytail">
                     <div v-if="ponytail.sides.length > 0" class="grid grid-cols-2 gap-3">
@@ -405,13 +405,13 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
                         <span class="text-xs text-dimmed">{{ side.label }}</span>
                         <span v-if="side.mean" class="inline-flex items-center gap-1.5">
                           <span class="font-mono text-xl font-medium">{{ side.mean.text }}</span>
-                          <UBadge v-for="mark in side.mean.marks" :key="mark" :label="mark" color="neutral" variant="outline" size="sm" />
+                          <span v-for="mark in side.mean.marks" :key="mark" class="text-sm text-dimmed">({{ mark }})</span>
                         </span>
                         <span v-else class="font-mono text-xl text-dimmed">—</span>
                         <span class="text-xs text-dimmed">{{ plural(side.tasks, t.meanOverDone) }}</span>
                       </div>
                     </div>
-                    <DaemonReason v-if="ponytail.reason !== null" class="block text-muted" :reason="ponytail.reason" />
+                    <DaemonReason v-if="ponytail.reason !== null" class="block text-muted" :said="ponytail" />
                     <p v-if="full && ponytail.since" class="text-xs text-dimmed">{{ ponytail.since }}</p>
                     <p v-if="full && ponytail.undated > 0" class="text-xs text-dimmed">{{ plural(ponytail.undated, t.ponytailUndated) }}</p>
                   </template>
@@ -432,7 +432,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
                       />
                       <div v-else class="h-24" />
                       <span class="max-w-full truncate font-mono text-xs">{{ week.short }}</span>
-                      <span v-for="mark in week.marks" :key="mark" class="text-xs text-dimmed">{{ mark }}</span>
+                      <span v-for="mark in week.marks" :key="mark" class="text-xs text-dimmed">({{ mark }})</span>
                       <span class="max-w-full truncate text-xs text-dimmed">{{ week.week.slice(5) }}</span>
                     </li>
                   </ol>
@@ -443,7 +443,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
                     <div class="flex flex-col gap-1 px-3.5 pt-3 pb-1.5">
                       <h3 class="text-sm leading-snug text-muted">{{ t.reworkShare }}</h3>
                       <p v-if="isUnavailable(usage.data.value.derived.reworkShare)">
-                        <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.reworkShare.reason" /></span>
+                        <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :said="usage.data.value.derived.reworkShare" /></span>
                       </p>
                       <template v-else-if="reworkShares">
                         <template v-if="reworkShares.mean !== null">
@@ -460,7 +460,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
                     <div class="flex flex-col gap-1 px-3.5 pt-3 pb-1.5">
                       <h3 class="text-sm leading-snug text-muted">{{ t.firstPassAcceptance }}</h3>
                       <p v-if="isUnavailable(usage.data.value.derived.firstPassAcceptance)">
-                        <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.firstPassAcceptance.reason" /></span>
+                        <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :said="usage.data.value.derived.firstPassAcceptance" /></span>
                       </p>
                       <template v-else-if="firstPass">
                         <template v-if="firstPass.share !== null">
@@ -476,7 +476,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
                 <section v-if="full" class="flex flex-col gap-1 border-t border-default">
                   <h3 class="px-3.5 pt-3 pb-1.5 text-sm text-muted">{{ t.contextGrowth }}</h3>
                   <p v-if="isUnavailable(usage.data.value.derived.contextGrowth)" class="px-3.5 pb-2">
-                    <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="usage.data.value.derived.contextGrowth.reason" /></span>
+                    <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :said="usage.data.value.derived.contextGrowth" /></span>
                   </p>
                   <template v-else-if="contexts">
                     <p v-if="contexts.rows.length === 0" class="px-3.5 pb-2 text-muted">{{ t.noRunsSeen }}</p>
@@ -487,7 +487,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
               </template>
             </template>
             <template #footer>
-              <p class="text-sm leading-snug text-dimmed">{{ epic === null ? t.derivedNote : t.epicAverages }} {{ windowLabel }}.</p>
+              <p class="text-sm leading-snug text-dimmed"><template v-if="epic !== null">{{ t.epicAverages }} </template>{{ windowLabel }}.</p>
             </template>
           </Widget>
 
@@ -505,7 +505,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
                     </template>
                     <span v-else class="text-sm text-muted">{{ t.noLevel }}</span>
                   </div>
-                  <DaemonReason v-if="full && item.reason !== null" class="block text-sm leading-snug text-dimmed" :reason="item.reason" />
+                  <DaemonReason v-if="full && item.reason !== null" class="block text-sm leading-snug text-dimmed" :said="item" />
                 </li>
               </ul>
             </template>

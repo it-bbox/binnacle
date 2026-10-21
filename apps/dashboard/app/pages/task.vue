@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { call, usePolling, type Failure } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
-import { CI_TONE, forgeName, isUnavailable, type CiForge, type CiRequest, type Unavailable } from '~/composables/projects';
+import { CI_TONE, forgeName, isUnavailable, runRole, said, type CiForge, type CiRequest, type Unavailable } from '~/composables/projects';
 import { tokensLine, type TaskUsage } from '~/composables/usage';
 import { markdown } from '~/markdown';
 import { BRIEF_ROWS, LIST_FOLD } from '~/widget';
@@ -74,23 +74,26 @@ const review = computed(() => {
 const questions = computed(() => (data.value === null || isUnavailable(data.value.questions) ? [] : data.value.questions.items));
 const unanswered = computed(() => questions.value.filter((item) => item.answer === null));
 
+/** A Task's state in the page's language, or that it has none. */
+const state = (value: string | null): string => (value === null ? t.value.noState : said(t.value.states, value));
+
 const dependency = (item: Brief['dependencies'][number]): string =>
-  item.dangling ? t.value.dangling : `${item.state ?? t.value.noState}, ${item.met ? t.value.met : t.value.notMet}`;
+  item.dangling ? t.value.dangling : `${state(item.state)}, ${item.met ? t.value.met : t.value.notMet}`;
 </script>
 
 <template>
   <div class="flex flex-col gap-5 pt-4">
     <p v-if="project === null || id === null" class="m-0 text-warning">{{ t.noTaskAddress }}</p>
-    <p v-else-if="error" class="m-0 text-warning"><code>{{ error.code }}</code> {{ error.message }}</p>
+    <p v-else-if="error" class="m-0 text-warning"><DaemonReason :said="error" /></p>
     <USkeleton v-else-if="data === null" class="h-40 w-full" />
     <template v-else>
       <div class="flex flex-col gap-2">
         <div class="flex flex-wrap items-center gap-2">
           <span class="font-mono text-sm text-muted">{{ data.id }}</span>
-          <UBadge :label="data.state ?? t.noState" v-bind="stateBadge(data.state)" class="font-mono" />
+          <UBadge :label="state(data.state)" v-bind="stateBadge(data.state)" />
           <template v-if="fromRuns">
-            <UBadge label="In progress" color="primary" variant="soft" />
-            <span class="text-sm text-muted" :title="t.fromRunsReading">{{ t.fromRuns }}, {{ t.ticketSays(data.state ?? t.noState) }}</span>
+            <UBadge :label="t.states.ACTIVE" color="primary" variant="soft" />
+            <span class="text-sm text-muted">({{ t.fromActivity }}), {{ t.ticketSays(state(data.state)) }}</span>
           </template>
         </div>
         <h1 lang="en" class="m-0 text-2xl leading-snug font-semibold text-highlighted">{{ data.title ?? t.untitled }}</h1>
@@ -101,12 +104,12 @@ const dependency = (item: Brief['dependencies'][number]): string =>
         <dd class="m-0 font-mono text-sm">{{ data.triage ?? t.none }}</dd>
         <dt class="text-muted">{{ t.roles }}</dt>
         <dd class="m-0">
-          <span class="font-mono text-sm">{{ data.roles.required.join(', ') }}</span>
+          <span>{{ data.roles.required.map((role) => said(t.taskRoles, role)).join(', ') }}</span>
           <span v-if="data.roles.source === 'default'" class="text-muted"> ({{ t.rolesDefault }})</span>
-          <div v-for="item in data.roles.suggested" :key="item.role" class="flex flex-wrap items-baseline gap-x-1.5" :title="t.suggestedReading">
+          <div v-for="item in data.roles.suggested" :key="item.role" class="flex flex-wrap items-baseline gap-x-1.5">
             <span class="text-muted">{{ t.suggestedRoles }}</span>
-            <span class="font-mono text-sm">{{ item.role }}</span>
-            <UBadge :label="t.calculated" color="neutral" variant="outline" size="sm" />
+            <span>{{ said(t.taskRoles, item.role) }}</span>
+            <span class="text-dimmed">({{ t.estimate }})</span>
             <span lang="en" class="text-dimmed">{{ item.reason }}</span>
           </div>
         </dd>
@@ -133,7 +136,7 @@ const dependency = (item: Brief['dependencies'][number]): string =>
         <dd class="m-0">
           <span v-if="data.request === null" class="text-dimmed">{{ t.noRequest }}</span>
           <template v-else-if="isUnavailable(data.request)">
-            <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="data.request.reason" /></span>
+            <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :said="data.request" /></span>
           </template>
           <div v-else class="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
             <a :href="data.request.url" target="_blank" rel="noopener noreferrer" class="font-mono text-sm text-default underline">#{{ data.request.number }}</a>
@@ -145,8 +148,8 @@ const dependency = (item: Brief['dependencies'][number]): string =>
           </div>
         </dd>
       </dl>
-      <div v-for="(item, index) in data.diagnostics" :key="index" lang="en" class="text-warning">
-        <code class="font-mono">{{ item.code }}</code> {{ item.message }}
+      <div v-for="(item, index) in data.diagnostics" :key="index" class="text-warning">
+        <DaemonReason :said="item" />
       </div>
 
       <section class="flex flex-col gap-2 rounded-xl border border-default bg-default px-5 py-4">
@@ -170,13 +173,13 @@ const dependency = (item: Brief['dependencies'][number]): string =>
             </p>
           </section>
           <section class="overflow-hidden rounded-lg border border-default bg-default">
-            <div class="border-b border-default px-3.5 py-2.5"><h2 class="m-0 text-base font-semibold">Review</h2></div>
+            <div class="border-b border-default px-3.5 py-2.5"><h2 class="m-0 text-base font-semibold">{{ t.roleReview }}</h2></div>
             <div v-if="data.review === null" class="flex items-center gap-2 px-3.5 py-3" :class="data.state === 'DONE' ? 'text-warning' : 'text-muted'">
               <UIcon name="i-lucide-triangle-alert" class="size-3.5 shrink-0" :class="data.state === 'DONE' ? 'text-(--warn)' : ''" />
               <span>{{ t.noReview }}</span>
             </div>
             <div v-else-if="isUnavailable(data.review)" class="px-3.5 py-3">
-              <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="data.review.reason" /></span>
+              <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :said="data.review" /></span>
             </div>
             <template v-else>
               <div lang="en" class="markdown p-3.5" v-html="review" />
@@ -188,7 +191,7 @@ const dependency = (item: Brief['dependencies'][number]): string =>
           <Widget page="task" widget="questions" :title="t.questions">
             <template #default="{ full }">
               <div v-if="isUnavailable(data.questions)" class="px-3.5 py-3">
-                <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :reason="data.questions.reason" /></span>
+                <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :said="data.questions" /></span>
               </div>
               <p v-else-if="data.questions.items.length === 0" class="m-0 px-3.5 py-3 text-muted">{{ t.noQuestions }}</p>
               <template v-else>
@@ -222,7 +225,7 @@ const dependency = (item: Brief['dependencies'][number]): string =>
               <span v-if="usage" class="font-mono text-sm text-dimmed">{{ number(usage.runs.items.length + usage.runs.remainder) }}</span>
             </template>
             <template #default="{ full }">
-              <p v-if="usageError" class="m-0 px-3.5 py-3 text-warning"><code>{{ usageError.code }}</code> {{ usageError.message }}</p>
+              <p v-if="usageError" class="m-0 px-3.5 py-3 text-warning"><DaemonReason :said="usageError" /></p>
               <USkeleton v-else-if="usage === null" class="m-3.5 h-24" />
               <template v-else>
                 <p v-if="usage.importing.incomplete" class="m-0 px-3.5 pt-3 text-warning">{{ t.importing }}</p>
@@ -240,9 +243,9 @@ const dependency = (item: Brief['dependencies'][number]): string =>
                         </div>
                         <div class="flex min-w-0 flex-col gap-1.5 pt-2.5 pb-3">
                           <div class="flex flex-wrap items-center gap-2">
-                            <span class="font-mono text-sm font-medium">{{ run.harness }} · {{ run.model ?? t.modelNotReported }} · {{ run.role }}</span>
-                            <span class="text-sm" :class="run.active.value ? 'text-success' : 'text-dimmed'" :title="t.runningReading">
-                              {{ run.active.value ? t.activeNow : t.notActiveNow }}
+                            <span class="font-mono text-sm font-medium">{{ run.harness }} · {{ run.model ?? t.modelNotReported }} · <span class="font-sans">{{ runRole(t, run.role) }}</span></span>
+                            <span class="text-sm" :class="run.active.value ? 'text-success' : 'text-dimmed'">
+                              {{ run.active.value ? t.activeNow : t.notActiveNow }} <span class="text-dimmed">({{ t.fromActivity }})</span>
                             </span>
                           </div>
                           <dl class="m-0 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3.5 gap-y-0.5 text-sm">
@@ -279,11 +282,11 @@ const dependency = (item: Brief['dependencies'][number]): string =>
             <div class="border-b border-default px-3.5 py-2.5"><h2 class="m-0 text-base font-semibold">{{ t.usage }}</h2></div>
             <div class="flex flex-col gap-2 px-3.5 py-3">
               <div>
-                <span class="font-medium">{{ t.usageByRole }}</span>
+                <span class="font-medium">{{ t.usageByRole }}</span> <span class="text-sm text-dimmed">({{ t.estimate }})</span>
                 <span v-if="usage" class="text-sm text-dimmed">, {{ usage.importing.windowStart === null ? t.wholeWindow : t.sinceWindow(usage.importing.windowStart) }}</span>
               </div>
               <p v-if="usageError" class="m-0 text-sm">
-                <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <code>{{ usageError.code }}</code></span>
+                <span class="font-medium">{{ t.notAvailable }}</span> <span class="text-muted">· <DaemonReason :said="usageError" /></span>
               </p>
               <USkeleton v-else-if="usage === null" class="h-24" />
               <template v-else>
@@ -296,9 +299,8 @@ const dependency = (item: Brief['dependencies'][number]): string =>
                     ]"
                   />
                 </div>
-                <p class="m-0 text-sm leading-snug text-dimmed">{{ t.rolesReading }}</p>
                 <p v-if="usage.reworkUnread" class="m-0 text-sm">
-                  <span class="font-medium">{{ t.reworkUnread }}</span> <span class="text-muted">· <DaemonReason :reason="usage.reworkUnread" /></span>
+                  <span class="font-medium">{{ t.reworkUnread }}</span> <span class="text-muted">· <DaemonReason :said="{ reason: usage.reworkUnread }" /></span>
                 </p>
               </template>
             </div>

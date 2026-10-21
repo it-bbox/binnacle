@@ -19,7 +19,7 @@ type Section = { items: SnapshotTask[]; remainder: number };
 type Epic = { number: number; title: string; status: string; spec: string | null; progress: { done: number; all: number } | null };
 type Unavailable = { available: false; reason: string };
 /** No `graphify` on the test daemon's search path, so no conflict risk is calculated. */
-const NO_GRAPH = { available: false, reason: "graphify is not on the daemon's PATH, so no graph is built or read." };
+const NO_GRAPH = { available: false, reason: "graphify is not on the daemon's PATH, so no graph is built or read.", code: 'graph.unavailable', params: { kind: 'no_graphify' } };
 
 type Snapshot = {
   checkout: { root: string; registered: boolean };
@@ -584,7 +584,7 @@ describe('recent decisions, Git and the unavailable sections', () => {
   it('marks CI state as unavailable, with no content', async () => {
     await withDaemon(async (daemon) => {
       const body = await snapshot(daemon, makeRepository());
-      assert.deepEqual(Object.keys(body.ci).sort(), ['available', 'reason']);
+      assert.deepEqual(Object.keys(body.ci).sort(), ['available', 'code', 'reason']);
       assert.equal(body.ci.available, false);
     });
   });

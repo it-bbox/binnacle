@@ -18,6 +18,7 @@ type Totals = { records: number; input: FieldTotal; cachedInput: FieldTotal; cac
 type Level = { harness: string; level: number | null; reason: string | null };
 type Run = { harness: string; provider: string | null; model: string | null; parentRunId: string | null; totals: Totals };
 
+const NO_EXPORT_CODE = { code: 'harness.no_export', params: { kind: 'database', harness: 'ZCode' } };
 const NO_EXPORT = 'ZCode documents no OpenTelemetry export, so Binnacle counts it only from its database, each call once it has finished.';
 const PROVIDER = 'account:zai-individual-coding-plan';
 
@@ -125,7 +126,7 @@ describe('ZCode usage', () => {
     await withDaemon(async (daemon, zcode) => {
       const root = makeProject();
       assert.equal((await daemon.call('project.register', { path: root })).status, 200);
-      assert.deepEqual(await level(daemon, root), { harness: 'zcode', level: null, reason: `No ZCode session of this project was found under ${zcode}.` });
+      assert.deepEqual(await level(daemon, root), { harness: 'zcode', level: null, reason: `No ZCode session of this project was found under ${zcode}.`, code: 'harness.no_sessions', params: { harness: 'ZCode', path: zcode } });
 
       zcodeSession(zcode, root, 'sess_main');
       // A subagent it started, and a session launched in a subdirectory, are the project's.
@@ -139,7 +140,7 @@ describe('ZCode usage', () => {
       assert.equal(recent.length, 3);
       assert.ok(recent.every((run) => run.harness === 'zcode' && run.provider === PROVIDER && run.model === 'GLM-5.3'));
       assert.equal(recent.filter((run) => run.parentRunId !== null).length, 1);
-      assert.deepEqual(await level(daemon, root), { harness: 'zcode', level: 3, reason: NO_EXPORT });
+      assert.deepEqual(await level(daemon, root), { harness: 'zcode', level: 3, reason: NO_EXPORT, ...NO_EXPORT_CODE });
 
       const rows = stored(daemon);
       assert.equal(rows.length, 6);
@@ -170,10 +171,11 @@ describe('ZCode usage', () => {
         harness: 'zcode',
         level: 1,
         reason: `ZCode could not read ${join(zcode, 'db.sqlite')} at call usage_title_sess_broken: a call without the time it completed, and nothing after it in its session is counted until Binnacle can read that call.`,
+        code: 'telemetry.unreadable',
       });
       assert.equal((await call<{ totals: Totals }>(daemon, 'usage.get', root)).totals.records, 1);
       assert.deepEqual((await call<{ totals: Totals }>(daemon, 'usage.get', other)).totals, calls(1));
-      assert.deepEqual(await level(daemon, other), { harness: 'zcode', level: 3, reason: NO_EXPORT });
+      assert.deepEqual(await level(daemon, other), { harness: 'zcode', level: 3, reason: NO_EXPORT, ...NO_EXPORT_CODE });
     });
   });
 

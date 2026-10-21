@@ -50,6 +50,9 @@ importers:
 
   apps/dashboard:
     dependencies:
+      '@binnacle/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@iconify-json/lucide':
         specifier: ^1.2.137
         version: 1.2.137

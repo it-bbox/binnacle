@@ -17,6 +17,7 @@ type FieldTotal = { tokens: number | null; partial: boolean; provenance: string 
 type Totals = { records: number; input: FieldTotal; cachedInput: FieldTotal; cacheCreation: FieldTotal; output: FieldTotal; reasoning: FieldTotal };
 type Level = { harness: string; level: number | null; reason: string | null };
 
+const NO_EXPORT_CODE = { code: 'harness.no_export', params: { kind: 'database', harness: 'opencode' } };
 const NO_EXPORT = 'opencode documents no OpenTelemetry export, so Binnacle counts it only from its database, each call once it has finished.';
 
 const roots: string[] = [];
@@ -135,7 +136,7 @@ describe('opencode usage', () => {
     await withDaemon(async (daemon, opencode) => {
       const root = makeProject();
       assert.equal((await daemon.call('project.register', { path: root })).status, 200);
-      assert.deepEqual(await level(daemon, root), { harness: 'opencode', level: null, reason: `No opencode session of this project was found under ${opencode}.` });
+      assert.deepEqual(await level(daemon, root), { harness: 'opencode', level: null, reason: `No opencode session of this project was found under ${opencode}.`, code: 'harness.no_sessions', params: { harness: 'opencode', path: opencode } });
 
       opencodeSession(opencode, root, 'ses_main');
       // A subagent it started, and a session launched in a subdirectory, are the project's.
@@ -146,7 +147,7 @@ describe('opencode usage', () => {
 
       const usage = await call<{ totals: Totals }>(daemon, 'usage.get', root);
       assert.deepEqual(usage.totals, calls(3));
-      assert.deepEqual(await level(daemon, root), { harness: 'opencode', level: 3, reason: NO_EXPORT });
+      assert.deepEqual(await level(daemon, root), { harness: 'opencode', level: 3, reason: NO_EXPORT, ...NO_EXPORT_CODE });
 
       const rows = stored(daemon);
       assert.equal(rows.length, 6);
@@ -178,10 +179,11 @@ describe('opencode usage', () => {
         harness: 'opencode',
         level: 1,
         reason: `opencode could not read ${join(opencode, 'opencode.db')} at step prt_b_ses_broken: a part that is not JSON, and nothing after it in its session is counted until Binnacle can read that step.`,
+        code: 'telemetry.unreadable',
       });
       assert.equal((await call<{ totals: Totals }>(daemon, 'usage.get', root)).totals.records, 1);
       assert.deepEqual((await call<{ totals: Totals }>(daemon, 'usage.get', other)).totals, calls(1));
-      assert.deepEqual(await level(daemon, other), { harness: 'opencode', level: 3, reason: NO_EXPORT });
+      assert.deepEqual(await level(daemon, other), { harness: 'opencode', level: 3, reason: NO_EXPORT, ...NO_EXPORT_CODE });
     });
   });
 

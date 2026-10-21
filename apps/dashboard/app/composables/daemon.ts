@@ -4,17 +4,22 @@
  * daemon's answers; it computes nothing beyond formatting them.
  */
 
+import type { Params } from '@binnacle/core';
+
 const TOKEN_KEY = 'binnacle.token';
 export const REFRESH_MS = 15_000;
 
-export type Failure = { code: string; message: string };
+/** An attention item, a diagnostic or an error, as the daemon gives it: shown in the page's language from its code and params. */
+export type Failure = { code: string; message: string; params?: Params };
 
 export class DaemonError extends Error {
   code: string;
+  params: Params | undefined;
 
-  constructor({ code, message }: Failure) {
+  constructor({ code, message, params }: Failure) {
     super(message);
     this.code = code;
+    this.params = params;
   }
 }
 
@@ -60,7 +65,7 @@ export async function call<T>(operation: string, body: object = {}): Promise<T> 
 
 const failure = (error: unknown): Failure =>
   error instanceof DaemonError
-    ? { code: error.code, message: error.message }
+    ? { code: error.code, message: error.message, ...(error.params && { params: error.params }) }
     : { code: 'daemon.unreachable', message: 'The Binnacle daemon did not answer. Start it with `binn daemon start`.' };
 
 /** Loads now, then every 15 seconds while the page is visible, and at once when it becomes visible again or `refresh` is called. */

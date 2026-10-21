@@ -1,7 +1,8 @@
 /**
  * The English dictionary, which the Russian one is typed against: a key missing there fails
- * the typecheck. The domain terms stay English in both: Task, Epic, Next action, Suggested
- * step, Backlog, Ready, In progress, Done, Review, Unmet dependency.
+ * the typecheck. Each language says the domain's terms in its own words (ADR-0045), the Russian
+ * ones `CONTEXT.md`'s *Russian words*; commands, ids, branches, paths and a file's own markers,
+ * such as `Status:` or `Roles:`, stay as written.
  */
 
 /** A count's forms by `Intl.PluralRules` category; `other` is the fallback, `#` the count. */
@@ -64,7 +65,10 @@ export const en = {
   nextActionMissing: 'The roadmap gives no Next action with a command. Check its current focus.',
   nextActionStale: 'The Next action names finished work, or an epic with no ticket left for an agent. Check the roadmap before running it.',
   or: 'or',
-  calculation: "Binnacle's calculation",
+  /** The marks of calculation: one word in brackets beside a value Binnacle calculated, or read from runs; an unknown value is `noData`, never zero. */
+  estimate: 'estimate',
+  fromActivity: 'from activity',
+  noData: 'no data',
   /** An alternative's title and reason, from its kind and the Task ids it names (`ids`, as a list, and how many). */
   alternatives: {
     wait: (ids: string, count: number) => ({
@@ -107,40 +111,7 @@ export const en = {
   noModules: 'no module of the graph',
   /** A pair's reason in another language than the daemon's; none in English, where the daemon's own is shown. */
   pairReasons: null as PairReasons | null,
-  /**
-   * The daemon's reasons that have no part of their own, keyed. The English is the daemon's text,
-   * which the page matches to show the reason in its language; a reason not here stays as the daemon wrote it.
-   */
-  daemonReasons: {
-    trackerUnreadable: 'The tracker cannot be read.',
-    noManifest: 'Tasks cannot be read without a readable manifest.',
-    noTrackerProvider: 'This project declares no tracker.provider.',
-    noLocalIssues: 'tracker.provider is local, and this project declares no tracker.local.issues.',
-    noForge: 'There is no forge to read CI from: the tracker is not GitHub or GitLab, and there is no Git remote on GitHub or GitLab.',
-    reviewOnRemote: 'Binnacle reads only questions and answers from an issue’s comments, so no Review is read on GitHub or GitLab.',
-    noGraph: 'There is no graph.',
-    graphifyOff: 'This project does not use Graphify: capabilities.graphify is false in its manifest.',
-    graphifyMissing: "graphify is not on the daemon's PATH, so no graph is built or read.",
-    graphNotBuilt: 'No graph has been built yet: there is no graphify-out/graph.json.',
-    graphUnreadable: 'graphify-out/graph.json cannot be read as a graph.',
-    importNotReached: 'The import of this project has not reached a record yet.',
-    opencodeNoExport: 'opencode documents no OpenTelemetry export, so Binnacle counts it only from its database, each call once it has finished.',
-    piNoExport: 'pi has no built-in OpenTelemetry export, so Binnacle counts it only from its session files, each call once it has finished.',
-    zcodeNoExport: 'ZCode documents no OpenTelemetry export, so Binnacle counts it only from its database, each call once it has finished.',
-    antigravityNoTokens:
-      'Antigravity has no OpenTelemetry export and keeps its conversations encrypted, so Binnacle sees only its sessions and their directories, from its window state, and no model or token counts.',
-    roadmapNoDocs: 'The roadmap is <knowledge.docs>/roadmap.md, and this project declares no knowledge.docs.',
-    roadmapNoFocus: 'The roadmap has no "## Current focus" section.',
-    roadmapNoTable: 'The roadmap has no table headed "| # | Epic | Status | Spec |".',
-    ponytailNoCommit: 'No commit on the default branch adds Ponytail to AGENTS.md or CLAUDE.md, so there is no before and after.',
-    ponytailUnread: "Git cannot read the default branch's history, so Ponytail's date is not known.",
-    ponytailNoneBefore: 'No Task with runs was completed before Ponytail, so there is nothing to compare.',
-    ponytailNoneAfter: 'No Task with runs has been completed since Ponytail, so there is nothing to compare.',
-    ponytailNeither: 'No Task with runs was set DONE by a commit on the default branch, so there is nothing to compare.',
-    ponytailRemote: 'On GitHub or GitLab a Task is DONE by its issue, not by a commit, so no Task is before or after Ponytail.',
-  },
   runningNow: 'Running now',
-  runningNote: '“Running” is Binnacle’s reading of recent activity.',
   noTask: 'no Task',
   nothing: 'Nothing',
   more: (count: string) => `and ${count} more`,
@@ -149,7 +120,6 @@ export const en = {
   today: 'today',
   last7Days: 'last 7 days',
   noRecords: 'no records',
-  notReported: 'not reported',
   partial: 'partial',
 
   copy: 'Copy',
@@ -182,19 +152,36 @@ export const en = {
   unmetDependency: 'Unmet dependency',
   reviewRecorded: 'The ticket records a Review.',
   noReview: 'no Review yet',
-  fromRuns: 'In progress: it has runs',
-  fromRunsReading: "Binnacle's reading: the ticket says READY, and runs are attributed to this Task (ADR-0032).",
   ticketSays: (state: string) => `the ticket says ${state}`,
   runningFor: (time: string) => `running ${time}`,
   activeAgo: (ago: string) => `active ${ago}`,
   activeNow: 'running now',
   notActiveNow: 'not running now',
-  runningReading: "“Running” means active in the last ten minutes: Binnacle's reading of the latest activity, not a state the harness reports.",
-  modelNotReported: 'model not reported',
+  modelNotReported: 'model: no data',
   showMore: { other: 'Show # more' } as Forms,
   showFewer: 'Show fewer',
   cancelled: { other: '# cancelled, not listed.' } as Forms,
   unknownState: 'Unknown state',
+  /** A Task's state, by the `Status:` value it reads from; a value not here is shown as written. */
+  states: {
+    BACKLOG: 'backlog',
+    READY: 'ready',
+    ACTIVE: 'in progress',
+    BLOCKED: 'blocked',
+    READY_FOR_REVIEW: 'in review',
+    APPROVED: 'approved',
+    MERGE_READY: 'merge ready',
+    MERGED: 'merged',
+    DONE: 'done',
+    CANCELLED: 'cancelled',
+  } as Record<string, string>,
+  /** A roadmap status, by its cell's value; a value not here is shown as written. */
+  roadmapStatuses: { 'not started': 'not started', spec: 'spec', tickets: 'tickets', 'in progress': 'in progress', done: 'done' } as Record<string, string>,
+  /** The board's columns. */
+  columns: { backlog: 'Backlog', ready: 'Ready', inProgress: 'In progress', done: 'Done' },
+  /** A role a ticket's `Roles:` line names, by its name there; a name not here is shown as written. */
+  taskRoles: { Developer: 'Developer', Reviewer: 'Reviewer', Architect: 'Architect', QA: 'QA', Security: 'Security', DevOps: 'DevOps', Analyst: 'Analyst' } as Record<string, string>,
+  nextAction: 'Next action',
   usageByRole: 'Usage by role',
   roleProduct: 'Product',
   roleImplementation: 'Implementation',
@@ -222,7 +209,7 @@ export const en = {
   unansweredQuestions: { one: '# unanswered question', other: '# unanswered questions' } as Forms,
   ci: 'CI',
   /** A commit's CI state, as the forge reports it. */
-  ciStates: { passing: 'passing', failing: 'failing', running: 'running', none: 'no CI' },
+  ciStates: { passing: 'passing', failing: 'failing', running: 'running', none: 'no checks' },
   ciReported: (forge: string) => `As ${forge} reports it.`,
   openRequests: 'Open pull requests',
   openRequestsCount: { one: '# open pull request', other: '# open pull requests' } as Forms,
@@ -246,7 +233,6 @@ export const en = {
   roles: 'Roles',
   rolesDefault: 'the default: the ticket has no Roles: line',
   suggestedRoles: 'Binnacle suggests',
-  suggestedReading: "Binnacle's calculation from the graph and the ticket's text. It never changes the Roles: line.",
   none: 'none',
   met: 'met',
   notMet: 'not met',
@@ -278,11 +264,7 @@ export const en = {
   cacheCreation: 'Cache creation',
   output: 'Output',
   reasoning: 'of which reasoning',
-  calculated: 'calculated',
-  estimated: 'estimated',
   questions: 'Questions and answers',
-  rolesReading:
-    "Binnacle's calculation from the Task branch's runs and commits: review is the work of a subagent starting after the branch's first commit changing anything but the ticket, rework the other work after the first such subagent ends or, with none, after the commit that first records the Review, or, on GitHub or GitLab, after a review on its pull or merge request requested changes.",
   reworkUnread: 'Rework not read',
   noQuestions: 'The ticket records no question.',
   unanswered: 'Unanswered',
@@ -293,7 +275,7 @@ export const en = {
   noRequest: 'No open pull or merge request.',
 
   // The Usage page.
-  usageNote: "Tokens read from the harnesses' artifacts. A kind no record reports is not reported, never zero.",
+  usageNote: "Tokens read from the harnesses' artifacts. A kind no record reports is no data, never zero.",
   tokensByKind: 'Tokens by kind',
   importWindow: 'Import window',
   sinceDate: (date: string) => `since ${date}`,
@@ -301,7 +283,7 @@ export const en = {
   barsShow: 'Bars show',
   usageOf: 'Usage of',
   wholeProject: 'the whole project',
-  epicAverages: "The Epic's Tasks, every one listed, and their averages, Binnacle's calculation.",
+  epicAverages: "The Epic's Tasks, every one listed, and their averages.",
   byModel: 'By model',
   byProvider: 'By provider',
   byTask: 'By Task',
@@ -310,7 +292,6 @@ export const en = {
   recordsCount: { one: '# record', other: '# records' } as Forms,
   noTaskRuns: 'No run is attributed to a Task.',
   derived: 'Derived metrics',
-  derivedNote: "Binnacle's calculation from the same records, not a figure any harness reports.",
   perCompletedTask: 'Tokens per completed Task',
   meanOverDone: { one: 'mean over # DONE Task with runs', other: 'mean over # DONE Tasks with runs' } as Forms,
   noDoneTask: 'No Task is DONE.',
@@ -387,8 +368,7 @@ export const en = {
   activeThen: { one: '# run active then', other: '# runs active then' } as Forms,
   noUsageLimit: 'none recorded',
   notReporting: (harnesses: string) => `Not reporting usage limits: ${harnesses}.`,
-  carriedNote:
-    "Binnacle's calculation over every registered project's import window: a run is active within ten minutes of its latest call. The usage limits are the ones Claude Code records.",
+  carriedNote: "Over every registered project's import window: a run is active within ten minutes of its latest call. The usage limits are the ones Claude Code records.",
   daemon: 'Daemon',
   version: 'Version',
   address: 'Address',

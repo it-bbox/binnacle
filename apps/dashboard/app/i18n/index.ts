@@ -1,9 +1,10 @@
 /**
  * The dashboard's languages, as dictionaries of our own (ADR-0033): no i18n module, and
  * `Intl` for plurals, numbers and relative times in the current language. The page's own text
- * is translated, and the daemon's reasons the page knows by their kind or text; commands, ids,
- * branches, models, repository text and every other message of the daemon stay as they are.
+ * is translated; what the daemon says is worded by `@binnacle/core` from its code and params,
+ * as `binn` words it. Commands, ids, branches, models and repository text stay as they are.
  */
+import { wordMessage, type Params } from '@binnacle/core';
 import { en, type Forms } from './en.ts';
 import { ru } from './ru.ts';
 
@@ -54,12 +55,18 @@ export function duration(language: Language, seconds: number): string {
   return new Intl.NumberFormat(language, { style: 'unit', unit, unitDisplay: 'short' }).format(Math.max(0, Math.floor(value)));
 }
 
-type ReasonKey = keyof typeof en.daemonReasons;
+/**
+ * What the daemon said: an attention item's or an error's `message`, or an unavailable section's
+ * `reason`, with its `code` and `params` when it has them.
+ */
+export type Said = { code?: string | undefined; params?: Params | undefined; message?: string | undefined; reason?: string | null | undefined };
 
-/** A reason the daemon wrote, in the language when the page knows it, and as the daemon wrote it otherwise. */
-export function daemonReason(language: Language, reason: string): string {
-  const key = (Object.keys(en.daemonReasons) as ReasonKey[]).find((name) => en.daemonReasons[name] === reason);
-  return key === undefined ? reason : DICTIONARIES[language].daemonReasons[key];
+/**
+ * What the daemon said, in the language: core's wording of its code and params, or the daemon's
+ * own English, `english` then true for the page to mark, when core has no wording for it.
+ */
+export function daemonSaid(language: Language, said: Said): { text: string; english: boolean } {
+  return wordMessage(language, { code: said.code ?? '', message: said.message ?? said.reason ?? '', ...(said.params && { params: said.params }) });
 }
 
 // The parts of `Impact` (`composables/projects.ts`) the reason is written from, spelled here so

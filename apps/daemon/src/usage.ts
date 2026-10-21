@@ -84,12 +84,12 @@ export const ANTIGRAVITY_NO_TOKENS =
 /** Why pi never reaches level 4: an extension of its own could export, and `binn init` installs none. */
 export const PI_NO_EXPORT = 'pi has no built-in OpenTelemetry export, so Binnacle counts it only from its session files, each call once it has finished';
 
-/** Why `derived.ponytail` compares nothing, in the words the dashboard translates. */
+/** Why `derived.ponytail` compares nothing; each key, in snake case, is its `ponytail.no_comparison` kind. */
 export const PONYTAIL_REASONS = {
-  noCommit: 'No commit on the default branch adds Ponytail to AGENTS.md or CLAUDE.md, so there is no before and after.',
+  no_commit: 'No commit on the default branch adds Ponytail to AGENTS.md or CLAUDE.md, so there is no before and after.',
   unread: "Git cannot read the default branch's history, so Ponytail's date is not known.",
-  noneBefore: 'No Task with runs was completed before Ponytail, so there is nothing to compare.',
-  noneAfter: 'No Task with runs has been completed since Ponytail, so there is nothing to compare.',
+  none_before: 'No Task with runs was completed before Ponytail, so there is nothing to compare.',
+  none_after: 'No Task with runs has been completed since Ponytail, so there is nothing to compare.',
   neither: 'No Task with runs was set DONE by a commit on the default branch, so there is nothing to compare.',
   remote: 'On GitHub or GitLab a Task is DONE by its issue, not by a commit, so no Task is before or after Ponytail.',
 } as const;
@@ -102,7 +102,7 @@ const INSTRUCTION_FILES = ['AGENTS.md', 'CLAUDE.md'];
  * artifact roots, and, for one that exports no OpenTelemetry, why it never reaches level 4, or,
  * for one without token counts, level 3.
  */
-const HARNESSES: { harness: Harness; name: string; root: keyof ArtifactRoots; noExport?: string }[] = [
+const HARNESSES: { harness: Harness; name: string; root: keyof ArtifactRoots; noExport?: { reason: string; kind: 'database' | 'session_files' | 'encrypted' } }[] = [
   { harness: 'claude-code', name: 'Claude Code', root: 'claudeCode' },
   { harness: 'codex', name: 'Codex', root: 'codex' },
   { harness: 'gemini-cli', name: 'Gemini CLI', root: 'geminiCli' },
@@ -110,11 +110,11 @@ const HARNESSES: { harness: Harness; name: string; root: keyof ArtifactRoots; no
     harness: 'opencode',
     name: 'opencode',
     root: 'opencode',
-    noExport: `${OPENCODE_NO_EXPORT}.`,
+    noExport: { reason: `${OPENCODE_NO_EXPORT}.`, kind: 'database' },
   },
-  { harness: 'zcode', name: 'ZCode', root: 'zcode', noExport: `${ZCODE_NO_EXPORT}.` },
-  { harness: 'antigravity', name: 'Antigravity', root: 'antigravity', noExport: `${ANTIGRAVITY_NO_TOKENS}.` },
-  { harness: 'pi', name: 'pi', root: 'pi', noExport: `${PI_NO_EXPORT}.` },
+  { harness: 'zcode', name: 'ZCode', root: 'zcode', noExport: { reason: `${ZCODE_NO_EXPORT}.`, kind: 'database' } },
+  { harness: 'antigravity', name: 'Antigravity', root: 'antigravity', noExport: { reason: `${ANTIGRAVITY_NO_TOKENS}.`, kind: 'encrypted' } },
+  { harness: 'pi', name: 'pi', root: 'pi', noExport: { reason: `${PI_NO_EXPORT}.`, kind: 'session_files' } },
 ];
 
 /** Per harness, why its artifacts of a project cannot be read, if they cannot: its `telemetry.unreadable` attention item. */
@@ -180,6 +180,9 @@ export type HarnessLevel = {
   level: 1 | 2 | 3 | 4 | null;
   /** Why the level is below 2, or, at 2 or 3, why a harness that exports no OpenTelemetry never reaches 4, or one without token counts 3; null otherwise. */
   reason: string | null;
+  /** The reason's code and params, when core words it. */
+  code?: string;
+  params?: Params;
 };
 
 export type Usage = {
@@ -447,7 +450,7 @@ export type Derived = {
    * Ponytail's date, `since`, the first commit on the default branch adding the word to the
    * instruction files, and the mean totals of the `DONE` Tasks with runs completed before and
    * after it, each by the commit that set it `DONE`; `undated` counts those no such commit
-   * dates. Without a date, no sides; `reason` says why a comparison is missing.
+   * dates. Without a date, no sides; `reason` says why a comparison is missing, with its `code` and `params`.
    */
   ponytail:
     | {
@@ -457,6 +460,8 @@ export type Derived = {
         after: PonytailSide | null;
         undated: number;
         reason: string | null;
+        code?: string;
+        params?: Params;
       }
     | Unavailable;
 };
@@ -1043,16 +1048,19 @@ async function ponytailEffect(projectPath: string, remote: boolean, completed: {
   });
   const undated = completed.length - dated.length;
   if (adoption.first === null) {
-    return { provenance: 'calculated', since: null, before: null, after: null, undated, reason: adoption.known ? PONYTAIL_REASONS.noCommit : PONYTAIL_REASONS.unread };
+    return { provenance: 'calculated', since: null, before: null, after: null, undated, ...noComparison(adoption.known ? 'no_commit' : 'unread') };
   }
   const since = adoption.first.at;
   const side = (tasks: { totals: Totals }[]): PonytailSide => ({ tasks: tasks.length, mean: tasks.length === 0 ? null : mean(tasks.map((task) => task.totals)) });
   const before = side(dated.filter((task) => task.at < since));
   const after = side(dated.filter((task) => task.at >= since));
-  const reason =
-    before.tasks + after.tasks === 0 ? (remote ? PONYTAIL_REASONS.remote : PONYTAIL_REASONS.neither) : before.tasks === 0 ? PONYTAIL_REASONS.noneBefore : after.tasks === 0 ? PONYTAIL_REASONS.noneAfter : null;
-  return { provenance: 'calculated', since: { commit: adoption.first.commit, at: new Date(since).toISOString() }, before, after, undated, reason };
+  const missing = before.tasks + after.tasks === 0 ? (remote ? 'remote' : 'neither') : before.tasks === 0 ? 'none_before' : after.tasks === 0 ? 'none_after' : null;
+  const why = missing === null ? { reason: null } : noComparison(missing);
+  return { provenance: 'calculated', since: { commit: adoption.first.commit, at: new Date(since).toISOString() }, before, after, undated, ...why };
 }
+
+/** Why Ponytail's comparison is missing, with its code. */
+const noComparison = (kind: keyof typeof PONYTAIL_REASONS) => ({ reason: PONYTAIL_REASONS[kind], code: 'ponytail.no_comparison', params: { kind } });
 
 /** Each run's context growth, the run with the largest context first, one whose calls report none last. */
 function contextGrowth(attributed: (ObservedRun & { records: RunRecord[] })[]): Derived['contextGrowth'] {
@@ -1127,13 +1135,15 @@ function level(
   failure: Diagnostic | null,
   incomplete: boolean,
 ): HarnessLevel {
-  if (failure !== null) return { harness, level: 1, reason: failure.message };
+  if (failure !== null) return { harness, level: 1, reason: failure.message, code: failure.code, ...(failure.params && { params: failure.params }) };
   const { records, withTokens, live } = context.store.usageCounts(projectPath, harness, new Date(Date.now() - ACTIVE_WITHIN_MS).toISOString());
+  const why = noExport === undefined ? { reason: null } : { reason: noExport.reason, code: 'harness.no_export', params: { kind: noExport.kind, harness: name } };
   if (live > 0) return { harness, level: 4, reason: null };
-  if (withTokens > 0) return { harness, level: 3, reason: noExport ?? null };
-  if (records > 0) return { harness, level: 2, reason: noExport ?? null };
-  if (incomplete) return { harness, level: null, reason: 'The import of this project has not reached a record yet.' };
-  return { harness, level: null, reason: `No ${name} session of this project was found under ${context.runtime.artifacts[root]}.` };
+  if (withTokens > 0) return { harness, level: 3, ...why };
+  if (records > 0) return { harness, level: 2, ...why };
+  if (incomplete) return { harness, level: null, reason: 'The import of this project has not reached a record yet.', code: 'usage.import_pending' };
+  const path = context.runtime.artifacts[root];
+  return { harness, level: null, reason: `No ${name} session of this project was found under ${path}.`, code: 'harness.no_sessions', params: { harness: name, path } };
 }
 
 const windowOf = (manifest: ProjectManifest | null): ImportWindow => manifest?.telemetry.import.windowDays ?? DEFAULT_WINDOW_DAYS;

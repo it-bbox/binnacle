@@ -1,3 +1,4 @@
+import type { Params } from '@binnacle/core';
 import type { Dictionary } from '~/i18n';
 import type { Run, Unavailable } from './projects';
 
@@ -15,7 +16,7 @@ export type SnapshotUsage = {
   last7Days: Totals;
   byModel: Limited<{ model: string | null; totals: Totals }>;
   byProvider: Limited<{ provider: string | null; totals: Totals }>;
-  harnesses: { harness: string; level: number | null; reason: string | null }[];
+  harnesses: { harness: string; level: number | null; reason: string | null; code?: string; params?: Params }[];
 };
 
 /** `usage.get` without a Task: everything ingested, over the import window. */
@@ -52,6 +53,8 @@ export type Derived = {
         after: PonytailSide | null;
         undated: number;
         reason: string | null;
+        code?: string;
+        params?: Params;
       }
     | Unavailable;
 };
@@ -75,10 +78,10 @@ export type TaskUsage = {
 /** A run of a Task, as `usage.get` gives it. */
 export type TaskRun = Omit<Run, 'taskTitle'> & { startedAt: string; active: { value: boolean }; totals: Totals };
 
-/** What marks a field's total besides its number: partial, and calculated or estimated rather than read (ADR-0007). */
-export function marks(field: FieldTotal): ('partial' | 'calculated' | 'estimated')[] {
-  const found: ('partial' | 'calculated' | 'estimated')[] = field.partial ? ['partial'] : [];
-  if (field.provenance === 'calculated' || field.provenance === 'estimated') found.push(field.provenance);
+/** What marks a field's total besides its number: partial, and an estimate when calculated or estimated rather than read (ADR-0007). */
+export function marks(field: FieldTotal): ('partial' | 'estimate')[] {
+  const found: ('partial' | 'estimate')[] = field.partial ? ['partial'] : [];
+  if (field.provenance === 'calculated' || field.provenance === 'estimated') found.push('estimate');
   return found;
 }
 
@@ -93,7 +96,7 @@ export function tokensLine(totals: Totals, t: Dictionary, number: (value: number
   if (totals.records === 0) return t.noRecords;
   return FIELDS.map((name) => {
     const field = totals[name];
-    const value = field.tokens === null ? t.notReported : number(Math.round(field.tokens));
+    const value = field.tokens === null ? t.noData : number(Math.round(field.tokens));
     const noted = marks(field).map((mark) => t[mark]);
     return `${t[name]} ${value}${noted.length === 0 ? '' : ` (${noted.join(', ')})`}`;
   }).join(' · ');

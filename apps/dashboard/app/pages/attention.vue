@@ -27,7 +27,7 @@ const recent = computed((): ProjectRun[] =>
     .sort((a, b) => Date.parse(b.run.lastActivityAt) - Date.parse(a.run.lastActivityAt)),
 );
 /** The projects whose runs cannot be read, with why. */
-const unread = computed(() => activities.value.flatMap(({ view, activity }) => (isUnavailable(activity) ? [{ view, reason: activity.reason }] : [])));
+const unread = computed(() => activities.value.flatMap(({ view, activity }) => (isUnavailable(activity) ? [{ view, reason: activity }] : [])));
 
 const overview = (view: ProjectView) => ({ path: '/', query: { project: view.project.path } });
 </script>
@@ -57,7 +57,7 @@ const overview = (view: ProjectView) => ({ path: '/', query: { project: view.pro
             <p v-if="view.project.unavailable !== null" class="px-3.5 py-3">
               <span class="font-medium">{{ t.notAvailable }}</span> <span lang="en" class="text-muted">· {{ view.project.unavailable }}</span>
             </p>
-            <p v-else-if="view.failure" class="px-3.5 py-3 text-warning"><code>{{ view.failure.code }}</code> <span lang="en">{{ view.failure.message }}</span></p>
+            <p v-else-if="view.failure" class="px-3.5 py-3 text-warning"><DaemonReason :said="view.failure" /></p>
             <template v-else-if="view.snapshot">
               <p v-if="view.snapshot.attention.length === 0" class="px-3.5 py-3 text-muted">{{ t.nothing }}</p>
               <AttentionItems v-else :items="view.snapshot.attention" :full="full" />
@@ -69,6 +69,7 @@ const overview = (view: ProjectView) => ({ path: '/', query: { project: view.pro
       <div class="flex min-w-0 flex-col gap-3.5">
         <Widget page="attention" widget="running" :title="t.runningNow">
           <template #aside>
+            <span class="text-sm text-dimmed">({{ t.fromActivity }})</span>
             <span class="font-mono text-sm text-dimmed">{{ number(running.length + runningRemainder) }}</span>
           </template>
           <template #default="{ full }">
@@ -82,12 +83,9 @@ const overview = (view: ProjectView) => ({ path: '/', query: { project: view.pro
               <li v-if="runningRemainder > 0" class="px-3.5 py-2.5 text-muted">{{ t.more(number(runningRemainder)) }}</li>
               <li v-for="{ view, reason } in unread" :key="view.project.path" class="px-3.5 py-2.5">
                 <span class="text-muted">{{ projectName(view.project) }}</span> · <span class="font-medium">{{ t.notAvailable }}</span>
-                <span class="text-muted"> · <DaemonReason :reason="reason" /></span>
+                <span class="text-muted"> · <DaemonReason :said="reason" /></span>
               </li>
             </ul>
-          </template>
-          <template #footer>
-            <p class="text-sm leading-snug text-dimmed">{{ t.runningReading }}</p>
           </template>
         </Widget>
 

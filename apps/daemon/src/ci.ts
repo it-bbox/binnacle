@@ -69,12 +69,15 @@ export async function readCi(
   keep?: (branch: string) => boolean,
 ): Promise<(tasks: TrackerTask[] | null) => Ci | Unavailable> {
   const forge = forgeOf(manifest, git);
-  const unavailable = (reason: string) => (): Unavailable => ({ available: false, reason });
-  if (forge === null) return unavailable(NO_FORGE);
+  const unavailable = (reason: string, coded?: Pick<Unavailable, 'code' | 'params'>) => (): Unavailable => ({ available: false, reason, ...coded });
+  if (forge === null) return unavailable(NO_FORGE, { code: 'ci.no_forge' });
   // A remote names its own host, which no one declared: on any but the provider's own, only the
   // credentials file's entry for that host is sent there, never the environment's token.
   const credential = trackerToken(home, forge.provider, forge.host, forge.from === 'remote' && forge.host !== null ? {} : process.env);
-  if ('failure' in credential) return unavailable(credential.failure.message);
+  if ('failure' in credential) {
+    const { message, ...coded } = credential.failure;
+    return unavailable(message, coded);
+  }
   const read = forge.provider === 'github' ? readGitHubCi : readGitLabCi;
   const reading = await (keep === undefined
     ? fromForge(['ci', forge.provider, forge.host, forge.repository, credential.token, limit], () => read(forge.repository, forge.host, credential.token, limit), (answer) => !('reason' in answer))

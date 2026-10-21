@@ -165,7 +165,7 @@ describe('GitLab issues as Tasks in the Product Snapshot', () => {
           remainder: 0,
         },
         counts: { BACKLOG: 0, READY: 0, MERGED: 0, DONE: 1, CANCELLED: 0, unknown: 0 },
-        parallel: { limit: 2, mode: 'number', source: 'default', inProgress: 1, free: 1, provenance: 'calculated', impact: { available: false, reason: "graphify is not on the daemon's PATH, so no graph is built or read." } },
+        parallel: { limit: 2, mode: 'number', source: 'default', inProgress: 1, free: 1, provenance: 'calculated', impact: { available: false, reason: "graphify is not on the daemon's PATH, so no graph is built or read.", code: 'graph.unavailable', params: { kind: 'no_graphify' } } },
       });
       assert.deepEqual(codes(body), []);
       const requested = fake.requests.map((path) => [path.split('?')[0], new URL(path, fake.base).searchParams.get('page') ?? '1']);
@@ -510,7 +510,7 @@ describe('the task brief on a GitLab tracker', () => {
         body: { text: '**What to build:** GitLab.\n\nStatus: DONE', truncated: false },
         branch: 'feat/3-read-gitlab-issues-by-iid',
         start: `/binnacle:task run https://gitlab.com/${REPOSITORY}/-/issues/3`,
-        review: { available: false, reason: 'Binnacle reads only questions and answers from an issue’s comments, so no Review is read on GitHub or GitLab.' },
+        review: { available: false, reason: 'Binnacle reads only questions and answers from an issue’s comments, so no Review is read on GitHub or GitLab.', code: 'review.remote' },
         questions: { branch: null, items: [] },
         roles: { required: ['Developer', 'Reviewer'], source: 'default', suggested: [] },
         diagnostics: [],

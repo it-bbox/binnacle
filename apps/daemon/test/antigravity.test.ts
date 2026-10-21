@@ -92,7 +92,7 @@ describe('Antigravity usage', () => {
     await withDaemon(async (daemon, antigravity, state) => {
       const root = makeProject();
       assert.equal((await daemon.call('project.register', { path: root })).status, 200);
-      assert.deepEqual(await level(daemon, root), { harness: 'antigravity', level: null, reason: `No Antigravity session of this project was found under ${antigravity}.` });
+      assert.deepEqual(await level(daemon, root), { harness: 'antigravity', level: null, reason: `No Antigravity session of this project was found under ${antigravity}.`, code: 'harness.no_sessions', params: { harness: 'Antigravity', path: antigravity } });
 
       conversations(antigravity, state, {
         'c0000000-0000-4000-8000-000000000001': root,
@@ -113,7 +113,7 @@ describe('Antigravity usage', () => {
       );
       assert.deepEqual(
         snapshot.usage.harnesses.find((entry) => entry.harness === 'antigravity'),
-        { harness: 'antigravity', level: 2, reason: `${ANTIGRAVITY_NO_TOKENS}.` },
+        { harness: 'antigravity', level: 2, reason: `${ANTIGRAVITY_NO_TOKENS}.`, code: 'harness.no_export', params: { kind: 'encrypted', harness: 'Antigravity' } },
       );
 
       const rows = stored(daemon);
@@ -141,6 +141,8 @@ describe('Antigravity usage', () => {
         harness: 'antigravity',
         level: 1,
         reason: `Antigravity could not read ${state}: its trajectory summaries are not base64 of a protobuf.`,
+        code: 'telemetry.unreadable',
+        params: { harness: 'Antigravity', what: `${state}: its trajectory summaries are not base64 of a protobuf`, others: 0 },
       });
     });
   });

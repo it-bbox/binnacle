@@ -218,6 +218,8 @@ describe('waiting for the owner', () => {
       assert.deepEqual((await snapshot(daemon, root)).pendingDecisions, {
         available: false,
         reason: 'tracker.provider is local, and this project declares no tracker.local.issues.',
+        code: 'tracker.unavailable',
+        params: { kind: 'issues' },
       });
     });
   });

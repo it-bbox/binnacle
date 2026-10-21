@@ -1,6 +1,7 @@
+import type { Params } from '@binnacle/core';
 import type { InjectionKey, Ref } from 'vue';
 import { call, DaemonError, type Failure } from './daemon';
-import type { Dictionary } from '~/i18n';
+import { daemonSaid, type Dictionary, type Language } from '~/i18n';
 import type { SnapshotUsage } from './usage';
 
 /** The parts of `project.list` and `project.snapshot` the pages render. */
@@ -14,7 +15,7 @@ export type EpicWithProgress = Epic & { progress: { done: number; all: number } 
 
 type GitFacts =
   | { available: true; branch: string | null; detached: boolean; commit: string | null; dirty: boolean }
-  | { available: false; reason: string };
+  | { available: false; reason: string; code: string; params: Params };
 
 export type SnapshotTask = { id: string; title: string | null; state: string | null; unmetDependencies: string[]; start: string | null };
 export type Section<T> = { items: T[]; remainder: number };
@@ -22,7 +23,8 @@ export type Section<T> = { items: T[]; remainder: number };
 /** How many a section holds: the items it lists and the remainder it leaves out. */
 export const count = (section: Section<unknown>): number => section.items.length + section.remainder;
 
-export type Unavailable = { available: false; reason: string };
+/** A section the daemon cannot fill, with why; `code` and `params`, when it has them, word the reason in the page's language. */
+export type Unavailable = { available: false; reason: string; code?: string; params?: Params };
 
 /** A run as the snapshot's `activity` gives it. */
 export type Run = {
@@ -63,6 +65,8 @@ export type Impact = {
 export type GraphSection = {
   available: boolean;
   reason: string | null;
+  code?: string;
+  params?: Params;
   builtFrom: { commit: string; at: string } | null;
   behind: boolean | null;
   lastRun: { commit: string; at: string; outcome: 'built' | 'failed'; reason: string | null } | null;
@@ -127,7 +131,7 @@ export async function loadProjects(previous: ProjectView[] | null, read: (path: 
         return { project, snapshot: await call<Snapshot>('project.snapshot', { path: project.path }), failure: null };
       } catch (error) {
         if (!(error instanceof DaemonError)) throw error;
-        return { project, snapshot: null, failure: { code: error.code, message: error.message } };
+        return { project, snapshot: null, failure: { code: error.code, message: error.message, ...(error.params && { params: error.params }) } };
       }
     }),
   );
@@ -152,11 +156,18 @@ export function initials(project: ProjectRow): string {
 export const isUnavailable = (section: object): section is Unavailable => 'available' in section && section.available === false;
 
 /** The registered checkout's Git state in one line: its head, commit, and whether it is clean. */
-export function gitLine(git: GitFacts, t: Dictionary): string {
-  if (!git.available) return `${t.gitUnavailable} ${git.reason}`;
+export function gitLine(git: GitFacts, t: Dictionary, language: Language): string {
+  if (!git.available) return `${t.gitUnavailable} ${daemonSaid(language, git).text}`;
   const head = git.detached ? t.detachedHead : (git.branch ?? t.noBranch);
   return [head, git.commit?.slice(0, 12) ?? t.noCommits, git.dirty ? t.dirty : t.clean].join(' · ');
 }
+
+/** A Task's state, a roadmap status or a ticket's role in the page's language, or as written when the dictionary has no word for it. */
+export const said = (words: Record<string, string>, value: string): string => words[value] ?? value;
+
+/** A run's role in the page's language. */
+export const runRole = (t: Dictionary, role: string): string =>
+  ({ product: t.roleProduct, implementation: t.roleImplementation, review: t.roleReview, rework: t.roleRework, unknown: t.roleUnknown })[role] ?? role;
 
 /** A roadmap status as a badge: done is quiet, in progress is the accent, the rest are outlined. */
 export const statusBadge = (status: string) =>
