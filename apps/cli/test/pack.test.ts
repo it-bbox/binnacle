@@ -880,3 +880,21 @@ test('the five reporting skills open with three to six lines, show no code and l
     for (const [term, russian] of words) assert.ok(brief.includes(`${term} — ${russian}`), `${name}: ${term} — ${russian}`);
   }
 });
+
+/** Human-output/10 (ADR-0045): every skill speaks the person's language and shows no code; a skill that writes into a repository writes in its language, its markers English. */
+test('every skill words each code in the person\'s language, and the writing skills read the repository language from the manifest', () => {
+  const words = /^Speak to the person in the language of this conversation; .*$/m.exec(skillText('product'))?.[0] ?? '';
+  assert.ok(words.includes('Task — задача'), 'the Words paragraph');
+  for (const name of ACTIONS) {
+    const skill = skillText(name);
+    assert.ok(skill.includes(words), `${name}: the Words paragraph`);
+    assert.doesNotMatch(skill, /item with its code|its code and message|Quote the error's code|quote its code|report `daemon\.unreachable`|show each one \(`/, name);
+  }
+  const task = skillText('task');
+  for (const [name, text] of [['roadmap', skillText('roadmap')], ['checkpoint', skillText('checkpoint')], ['autopilot', skillText('autopilot')], ['task run', task.slice(task.indexOf('\n## run\n'))]] as const) {
+    assert.match(text, /read `knowledge\.language` from `\.binnacle\/project\.yaml`: `ru` is Russian, and `en`, any other value or none is English/, name);
+    assert.match(text, /markers Binnacle parses stay English/, name);
+  }
+  assert.match(skillText('answer'), /whatever the repository language/);
+  for (const name of ['register', 'daemon', 'init']) assert.match(skillText(name), /in the person's language, briefly/, name);
+});
