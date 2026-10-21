@@ -1,9 +1,9 @@
 import type { Tree } from '@binnacle/adapters';
 import { boardColumn, currentEpic, startCommand, type BoardColumn, type Diagnostic, type Epic, type ObservedRun, type ResolvedTask } from '@binnacle/core';
-import { OperationError } from './errors.ts';
 import type { OperationContext } from './operations.ts';
 import type { Projected } from './projection.ts';
 import { limited, questionCount, readQuestions, readState, type QuestionCount } from './snapshot.ts';
+import { trackerError } from './task.ts';
 import { latestRuns } from './usage.ts';
 
 /** A Task on the board, with its column and what the column is read from; both null for one listed apart. */
@@ -45,8 +45,7 @@ export type TaskList = {
 export async function taskList(context: OperationContext, projected: Projected, tree: Tree, spec: string | null | undefined): Promise<TaskList> {
   const { tasks, unreadable, roadmap, attention } = await readState(context.home, tree, projected, []);
   if (tasks === null) {
-    const failure = unreadable[0];
-    throw new OperationError(failure?.code ?? 'tracker.unavailable', failure?.message ?? 'The tracker cannot be read.', 503);
+    throw trackerError(unreadable[0]);
   }
 
   const epics = roadmap?.epics ?? [];

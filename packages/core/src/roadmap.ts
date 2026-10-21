@@ -1,6 +1,7 @@
 import type { ObservedRun } from './domain.ts';
 import { pairRisk, type Impact } from './impact.ts';
 import { boardColumn, startCommand, type Diagnostic, type ResolvedTask, type TrackerTask } from './tracker.ts';
+import type { Params } from './wording.ts';
 
 /**
  * The roadmap of a project, `<knowledge.docs>/roadmap.md` whatever its tracker (ADR-0025),
@@ -53,18 +54,18 @@ export function parseRoadmap(text: string): { roadmap: Roadmap; diagnostics: Dia
     }
   }
   if (focus === null) {
-    diagnostics.push({ code: 'roadmap.focus_missing', message: `The roadmap has no "## ${FOCUS}" section.` });
+    diagnostics.push({ code: 'roadmap.focus_missing', message: `The roadmap has no "## ${FOCUS}" section.`, params: {} });
   }
 
   const header = lines.findIndex((line) => sameCells(cells(line), HEADER));
   const epics: Epic[] = [];
   if (header === -1 || !SEPARATOR.test(lines[header + 1]?.trim() ?? '')) {
-    diagnostics.push({ code: 'roadmap.table_missing', message: `The roadmap has no table headed "| ${HEADER.join(' | ')} |".` });
+    diagnostics.push({ code: 'roadmap.table_missing', message: `The roadmap has no table headed "| ${HEADER.join(' | ')} |".`, params: {} });
   } else {
     for (let index = header + 2; index < lines.length && lines[index]!.trim().startsWith('|'); index++) {
       const parsed = parseRow(cells(lines[index]!)!);
-      if (typeof parsed === 'string') {
-        diagnostics.push({ code: 'roadmap.row_invalid', message: `Roadmap line ${index + 1} is left out: ${parsed}.` });
+      if ('why' in parsed) {
+        diagnostics.push({ code: 'roadmap.row_invalid', message: `Roadmap line ${index + 1} is left out: ${parsed.why}.`, params: { line: index + 1, ...parsed.params } });
       } else {
         epics.push(parsed);
       }
@@ -74,17 +75,18 @@ export function parseRoadmap(text: string): { roadmap: Roadmap; diagnostics: Dia
   return { roadmap: { epics, focus: focus === null ? null : focus.join('\n').trim(), sections }, diagnostics };
 }
 
-/** An epic, or why the row is not one. */
-function parseRow(row: string[]): Epic | string {
-  if (row.length !== HEADER.length) return `it has ${row.length} cells, not ${HEADER.length}`;
+/** An epic, or why the row is not one, with the values that say it. */
+function parseRow(row: string[]): Epic | { why: string; params: Params } {
+  if (row.length !== HEADER.length) return { why: `it has ${row.length} cells, not ${HEADER.length}`, params: { kind: 'cells', cells: row.length, expected: HEADER.length } };
   const [number, title, status, spec] = row as [string, string, string, string];
-  if (!/^\d+$/.test(number)) return `# ${JSON.stringify(number)} is not a number`;
-  if (title === '') return 'its Epic cell is empty';
+  if (!/^\d+$/.test(number)) return { why: `# ${JSON.stringify(number)} is not a number`, params: { kind: 'number', value: number } };
+  if (title === '') return { why: 'its Epic cell is empty', params: { kind: 'title' } };
   if (!(ROADMAP_STATUSES as readonly string[]).includes(status)) {
-    return `Status ${JSON.stringify(status)} is not one of ${ROADMAP_STATUSES.map((value) => `"${value}"`).join(', ')}`;
+    const allowed = ROADMAP_STATUSES.map((value) => `"${value}"`).join(', ');
+    return { why: `Status ${JSON.stringify(status)} is not one of ${allowed}`, params: { kind: 'status', value: status, allowed } };
   }
   const link = SPEC_LINK.exec(spec);
-  if (spec !== '—' && !link) return `Spec ${JSON.stringify(spec)} is neither "—" nor a link to specs/<slug>/spec.md`;
+  if (spec !== '—' && !link) return { why: `Spec ${JSON.stringify(spec)} is neither "—" nor a link to specs/<slug>/spec.md`, params: { kind: 'spec', value: spec } };
   return { number: Number(number), title, status: status as RoadmapStatus, spec: link ? link[1]! : null };
 }
 
@@ -121,24 +123,27 @@ export function roadmapAttention(epics: Epic[], tasks: TrackerTask[], specs: { s
     if (epic.spec === null) {
       // A `done` epic without a spec is history, often older than Binnacle, not missing work.
       if (rank(epic.status) >= rank('spec') && epic.status !== 'done') {
-        attention.push({ code: 'roadmap.spec_missing', message: `${name} is at "${epic.status}" on the roadmap, but its Spec cell is "—".` });
+        attention.push({ code: 'roadmap.spec_missing', message: `${name} is at "${epic.status}" on the roadmap, but its Spec cell is "—".`, params: { epic: epic.number, title: epic.title, status: epic.status } });
       }
       continue;
     }
 
     const own = tasks.filter((task) => task.specSlug === epic.spec);
-    const mismatch = (message: string): void => void attention.push({ code: 'roadmap.status_mismatch', message: `${name} ${message}` });
+    const mismatch = (message: string, params: Params): void =>
+      void attention.push({ code: 'roadmap.status_mismatch', message: `${name} ${message}`, params: { epic: epic.number, title: epic.title, ...params } });
     if (epic.status === 'done') {
       const open = own.filter((task) => !finished(task)).map((task) => task.id);
-      if (open.length > 0) mismatch(`is "done" on the roadmap, but these tickets are not DONE or CANCELLED: ${open.join(', ')}.`);
+      if (open.length > 0) mismatch(`is "done" on the roadmap, but these tickets are not DONE or CANCELLED: ${open.join(', ')}.`, { kind: 'done', tasks: open.join(', ') });
     } else if (epic.status === 'not started') {
-      if (own.length > 0) mismatch(`is "not started" on the roadmap, but its spec ${epic.spec} already has ${own.length} ticket${own.length === 1 ? '' : 's'}.`);
+      if (own.length > 0) {
+        mismatch(`is "not started" on the roadmap, but its spec ${epic.spec} already has ${own.length} ticket${own.length === 1 ? '' : 's'}.`, { kind: 'not_started', spec: epic.spec, count: own.length });
+      }
     } else if ((epic.status === 'tickets' || epic.status === 'in progress') && own.length > 0 && own.every(finished)) {
-      mismatch(`is "${epic.status}" on the roadmap, but every ticket of ${epic.spec} is DONE or CANCELLED.`);
+      mismatch(`is "${epic.status}" on the roadmap, but every ticket of ${epic.spec} is DONE or CANCELLED.`, { kind: 'finished', status: epic.status, spec: epic.spec });
     }
   }
   for (const { slug, path } of specs) {
-    if (!epics.some((epic) => epic.spec === slug)) attention.push({ code: 'roadmap.spec_unlisted', message: `${path} is a spec no roadmap row links.` });
+    if (!epics.some((epic) => epic.spec === slug)) attention.push({ code: 'roadmap.spec_unlisted', message: `${path} is a spec no roadmap row links.`, params: { path } });
   }
   return attention;
 }
@@ -181,6 +186,7 @@ export function nextActionAttention(roadmap: Roadmap, tasks: TrackerTask[] | nul
       {
         code: 'next_action.missing',
         message: `${where} does not end with a Next action: a paragraph that starts with "Next action:" and ends with the command in backticks.`,
+        params: { kind: roadmap.focus === null ? 'focus' : 'paragraph' },
       },
     ];
   }
@@ -189,8 +195,12 @@ export function nextActionAttention(roadmap: Roadmap, tasks: TrackerTask[] | nul
   // hand-written commands miss a stale focus in practice.
   const words = next.command.split(/\s+/);
   const why: string[] = [];
+  const params: Params = { command: next.command };
   const named = (tasks ?? []).filter((task) => finished(task) && words.some((word) => word === task.id || word === task.ticket));
-  if (named.length > 0) why.push(`names finished work: ${named.map((task) => `${task.id} (${task.ticket}) is ${task.state}`).join(', ')}`);
+  if (named.length > 0) {
+    why.push(`names finished work: ${named.map((task) => `${task.id} (${task.ticket}) is ${task.state}`).join(', ')}`);
+    params.tasks = named.map((task) => `${task.id} (${task.ticket})`).join(', ');
+  }
   // ponytail: the epic is the second word, exactly its number or spec slug as autopilot's argument
   // takes it; read `02`, `#2` or `epic 2` too if a hand-written Next action ever spells it so.
   const epic = AUTOPILOT.test(words[0]!) ? roadmap.epics.find((row) => row.spec !== null && (String(row.number) === words[1] || row.spec === words[1])) : undefined;
@@ -198,9 +208,12 @@ export function nextActionAttention(roadmap: Roadmap, tasks: TrackerTask[] | nul
   if (epic !== undefined && own.length > 0 && own.every((task) => finished(task) || task.triage === 'ready-for-human')) {
     const human = own.filter((task) => !finished(task)).map((task) => `${task.id} is ready-for-human`);
     why.push(`runs Epic ${epic.number} (${epic.title}), but no ticket of ${epic.spec} is left for an agent: every one is DONE, CANCELLED or ready-for-human${human.length > 0 ? `, and ${human.join(', ')}` : ''}`);
+    Object.assign(params, { epic: epic.number, title: epic.title, spec: epic.spec! });
+    const ready = own.filter((task) => !finished(task)).map((task) => task.id);
+    if (ready.length > 0) params.human = ready.join(', ');
   }
   if (why.length === 0) return [];
-  return [{ code: 'next_action.stale', message: `The Next action's command, ${next.command}, ${why.join('; it also ')}.` }];
+  return [{ code: 'next_action.stale', message: `The Next action's command, ${next.command}, ${why.join('; it also ')}.`, params }];
 }
 
 /**

@@ -128,6 +128,7 @@ describe('Context pressure', () => {
         {
           code: 'context.pressure',
           message: `The Product session product in Claude Code read ${GRILL_CONTEXT} tokens of context in its latest call, at least telemetry.context_pressure.tokens, 60000. ${SUGGESTION}`,
+          params: { session: 'product', harness: 'Claude Code', tokens: GRILL_CONTEXT, threshold: 60000 },
         },
       ]);
       const [running] = body.activity.running.items;
@@ -161,7 +162,11 @@ describe('Context pressure', () => {
       // No checkpoint was ever recorded, so every compaction is after it.
       const first = await snapshot(daemon, root);
       assert.deepEqual(pressure(first.attention), [
-        { code: 'context.pressure', message: `The Product session compacted in Claude Code read ${GRILL_CONTEXT} tokens of context in its latest call, and compacted (auto) at ${compactedAt}, and no checkpoint has been recorded. ${SUGGESTION}` },
+        {
+          code: 'context.pressure',
+          message: `The Product session compacted in Claude Code read ${GRILL_CONTEXT} tokens of context in its latest call, and compacted (auto) at ${compactedAt}, and no checkpoint has been recorded. ${SUGGESTION}`,
+          params: { session: 'compacted', harness: 'Claude Code', tokens: GRILL_CONTEXT, at: compactedAt, trigger: 'auto' },
+        },
       ]);
       assert.deepEqual(first.activity.running.items[0]?.contextPressure?.compactions, { count: 1, latest: { at: compactedAt, trigger: 'auto', provenance: 'provider_reported' } });
 
@@ -176,6 +181,7 @@ describe('Context pressure', () => {
         {
           code: 'context.pressure',
           message: `The Product session compacted in Claude Code read ${GRILL_CONTEXT} tokens of context in its latest call, and compacted (manual) at ${again}, after the last checkpoint at ${checkpoint.occurredAt}. ${SUGGESTION}`,
+          params: { session: 'compacted', harness: 'Claude Code', tokens: GRILL_CONTEXT, at: again, trigger: 'manual', checkpoint: checkpoint.occurredAt },
         },
       ]);
     });
@@ -203,7 +209,11 @@ describe('Context pressure', () => {
 
       const body = await snapshot(daemon, root);
       assert.deepEqual(pressure(body.attention), [
-        { code: 'context.pressure', message: `The Product session rotated in Codex read 500 tokens of context in its latest call, and compacted (trigger not reported) at ${rotatedAt}, and no checkpoint has been recorded. ${SUGGESTION}` },
+        {
+          code: 'context.pressure',
+          message: `The Product session rotated in Codex read 500 tokens of context in its latest call, and compacted (trigger not reported) at ${rotatedAt}, and no checkpoint has been recorded. ${SUGGESTION}`,
+          params: { session: 'rotated', harness: 'Codex', tokens: 500, at: rotatedAt },
+        },
       ]);
       // The latest call's input, the difference of the running totals, is Binnacle's calculation.
       assert.deepEqual(body.activity.running.items[0]?.contextPressure, {

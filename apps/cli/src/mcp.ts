@@ -21,8 +21,8 @@ const callDaemon = (home: string): CallDaemon => async (operation, body) => {
   } catch (error) {
     if (error instanceof DaemonUnreachableError) return unreachable(error.message);
     if (error instanceof OperationFailedError) {
-      const { code, message, details } = error;
-      return { error: details ? { code, message, details } : { code, message } };
+      const { code, message, details, params } = error;
+      return { error: { code, message, ...(details && { details }), ...(params && { params }) } };
     }
     throw error;
   }

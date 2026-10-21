@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { realpathSync, statSync } from 'node:fs';
 import { posix, resolve } from 'node:path';
+import type { Params } from '@binnacle/core';
 import type { Tree } from './tree.ts';
 
 /**
@@ -37,7 +38,7 @@ export type GitFacts =
       dirty: boolean;
       remotes: GitRemote[];
     }
-  | { available: false; code: UnavailableCode; reason: string };
+  | { available: false; code: UnavailableCode; reason: string; params: Params };
 
 export type UnavailableCode = 'git.not_found' | 'git.not_a_repository' | 'git.timeout' | 'git.failed';
 
@@ -49,13 +50,13 @@ export async function readGitFacts(cwd: string, timeoutMs: number): Promise<GitF
   // Checked first because a missing working directory makes the spawn fail with the
   // same ENOENT as a missing git binary, and the reason would then name the wrong thing.
   if (!statSync(cwd, { throwIfNoEntry: false })?.isDirectory()) {
-    return unavailable('git.not_a_repository', `No directory at ${cwd}.`);
+    return unavailable('git.not_a_repository', `No directory at ${cwd}.`, { kind: 'directory', path: cwd });
   }
   try {
     const top = await git(cwd, timeoutMs, ['rev-parse', '--show-toplevel']);
     if (top.code !== 0) {
       throw /not a git repository/i.test(top.stderr)
-        ? unavailable('git.not_a_repository', `${cwd} is not inside a Git repository.`)
+        ? unavailable('git.not_a_repository', `${cwd} is not inside a Git repository.`, { kind: 'repository', path: cwd })
         : failed('rev-parse', top);
     }
 
@@ -508,12 +509,12 @@ function git(cwd: string, timeoutMs: number, args: string[]): Promise<Run> {
     // its pipes, and waiting for that is the hang this exists to avoid.
     const timer = setTimeout(() => {
       child.kill('SIGKILL');
-      reject(unavailable('git.timeout', `git ${args[0]} did not answer within ${timeoutMs} ms.`));
+      reject(unavailable('git.timeout', `git ${args[0]} did not answer within ${timeoutMs} ms.`, { command: args[0]!, timeout: timeoutMs }));
     }, timeoutMs);
 
     child.on('error', (error: NodeJS.ErrnoException) => {
       clearTimeout(timer);
-      reject(error.code === 'ENOENT' ? unavailable('git.not_found', 'git is not on PATH.') : error);
+      reject(error.code === 'ENOENT' ? unavailable('git.not_found', 'git is not on PATH.', {}) : error);
     });
     child.on('close', (code) => {
       clearTimeout(timer);
@@ -540,10 +541,10 @@ function acceptExit(run: Run, command: string, codes: number[]): Run {
 
 function failed(command: string, run: Run): Unavailable {
   const detail = run.stderr.trim().split('\n')[0] || (run.code === null ? 'ended by a signal' : `exit code ${run.code}`);
-  return unavailable('git.failed', `git ${command} failed: ${detail}`);
+  return unavailable('git.failed', `git ${command} failed: ${detail}`, { command, detail });
 }
 
-const unavailable = (code: UnavailableCode, reason: string): Unavailable => ({ available: false, code, reason });
+const unavailable = (code: UnavailableCode, reason: string, params: Params): Unavailable => ({ available: false, code, reason, params });
 
 /** Whether a thrown value is Git reporting itself unavailable, which callers turn into their own error. */
 export function isGitUnavailable(value: unknown): value is Unavailable {

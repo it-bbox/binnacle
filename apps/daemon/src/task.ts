@@ -106,12 +106,18 @@ export async function findTask(home: string, tree: Tree, manifest: ProjectManife
   const { tasks, diagnostics } = await readTracker(home, tree, manifest);
   // A missing issues directory reads as no Tasks, which the snapshot and the daily need; here it is a broken tracker, not a typo.
   const failure = diagnostics.find((item) => tasks === null || item.code === 'tracker.issues_missing');
-  if (failure || tasks === null) throw new OperationError(failure?.code ?? 'tracker.unavailable', failure?.message ?? 'The tracker cannot be read.', 503);
+  if (failure || tasks === null) throw trackerError(failure);
 
   const task = tasks.find((known) => known.id === normalized(id));
-  if (!task) throw new OperationError('task.not_found', `This project's tracker holds no Task ${JSON.stringify(id)}.`, 404);
+  if (!task) throw new OperationError('task.not_found', `This project's tracker holds no Task ${JSON.stringify(id)}.`, 404, undefined, { id });
   return { tasks, task };
 }
+
+/** A tracker that cannot be read, as an error: the diagnostic that says why, with its values, or the plain fact. */
+export const trackerError = (failure: Diagnostic | undefined): OperationError =>
+  failure === undefined
+    ? new OperationError('tracker.unavailable', 'The tracker cannot be read.', 503, undefined, { kind: 'unreadable' })
+    : new OperationError(failure.code, failure.message, 503, undefined, failure.params);
 
 function normalized(id: string): string {
   const remote = /^#?(\d+)$/.exec(id);

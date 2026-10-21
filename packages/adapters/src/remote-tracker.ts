@@ -7,6 +7,7 @@ import {
   TRIAGE_ROLES,
   unquote,
   type Diagnostic,
+  type Params,
   type Question,
   type TaskReading,
   type TaskState,
@@ -127,7 +128,7 @@ export async function readPages(forge: Forge, firstPage: string, where: string, 
   try {
     url = new URL(firstPage);
   } catch {
-    return failed('tracker.unreachable', `tracker.host gives no URL for ${where}.`);
+    return failed('tracker.unreachable', `tracker.host gives no URL for ${where}.`, { kind: 'url', where });
   }
   const origin = url.origin;
   const entries: unknown[] = [];
@@ -135,13 +136,13 @@ export async function readPages(forge: Forge, firstPage: string, where: string, 
     const read = await readResponse(forge, url, where, token, what);
     if ('code' in read) return read;
     const { response, body: page } = read;
-    if (!Array.isArray(page)) return failed('tracker.unreachable', `${forge.name} answered for ${where} with something other than a list of ${what}.`);
+    if (!Array.isArray(page)) return failed('tracker.unreachable', `${forge.name} answered for ${where} with something other than a list of ${what}.`, { kind: 'list', forge: forge.name, where, what });
     entries.push(...page);
 
     const next = /<([^>]*)>\s*;\s*rel="next"/.exec(response.headers.get('link') ?? '')?.[1];
     if (next === undefined || entries.length >= until) return entries;
     url = new URL(next, url);
-    if (url.origin !== origin) return failed('tracker.unreachable', `${forge.name} pointed the next page of ${where} at another host, ${url.origin}, which is not read.`);
+    if (url.origin !== origin) return failed('tracker.unreachable', `${forge.name} pointed the next page of ${where} at another host, ${url.origin}, which is not read.`, { kind: 'host', forge: forge.name, where, origin: url.origin });
   }
 }
 
@@ -154,17 +155,17 @@ export async function readObject(forge: Forge, url: string, where: string, token
   try {
     parsed = new URL(url);
   } catch {
-    return { failure: failed('tracker.unreachable', `tracker.host gives no URL for ${where}.`) };
+    return { failure: failed('tracker.unreachable', `tracker.host gives no URL for ${where}.`, { kind: 'url', where }) };
   }
   const read = await readResponse(forge, parsed, where, token, what);
   if ('code' in read) return { failure: read };
   if (typeof read.body !== 'object' || read.body === null || Array.isArray(read.body)) {
-    return { failure: failed('tracker.unreachable', `${forge.name} answered for ${where} with something other than its ${what}.`) };
+    return { failure: failed('tracker.unreachable', `${forge.name} answered for ${where} with something other than its ${what}.`, { kind: 'object', forge: forge.name, where, what }) };
   }
   return { entry: read.body as Record<string, unknown> };
 }
 
-const failed = (code: string, message: string): Diagnostic => ({ code, message });
+const failed = (code: string, message: string, params: Params): Diagnostic => ({ code, message, params });
 
 /** One request, with `token` when there is one, and its JSON body; the diagnostic that says why when it fails. */
 async function readResponse(forge: Forge, url: URL, where: string, token: string | null, what: Listed): Promise<{ response: Response; body: unknown } | Diagnostic> {
@@ -174,7 +175,7 @@ async function readResponse(forge: Forge, url: URL, where: string, token: string
     if (!response.ok) return failed(...statusFailure(forge.name, response, where, token !== null, what));
     return { response, body: await response.json() };
   } catch (error) {
-    return failed('tracker.unreachable', `${forge.name} could not be read for ${where}: ${(error as Error).message}.`);
+    return failed('tracker.unreachable', `${forge.name} could not be read for ${where}: ${(error as Error).message}.`, { kind: 'error', forge: forge.name, where, error: (error as Error).message });
   }
 }
 
@@ -315,16 +316,17 @@ export async function readChangesRequested(forge: Forge, where: string, token: s
  * the one there is. GitHub signals its primary rate limit as a 403 with no requests
  * remaining; GitLab uses 429.
  */
-function statusFailure(name: Forge['name'], response: Response, where: string, authenticated: boolean, what: Listed): [string, string] {
+function statusFailure(name: Forge['name'], response: Response, where: string, authenticated: boolean, what: Listed): [string, string, Params] {
   const { status, headers } = response;
   const used = authenticated ? 'a token was used' : 'no token was used';
+  const params = { forge: name, where, status, what, token: authenticated ? 'used' : 'none' };
   if (status === 429 || (status === 403 && (headers.get('x-ratelimit-remaining') === '0' || headers.has('retry-after')))) {
-    return ['tracker.rate_limited', `${name} rate-limited the reading of ${where} (${status}).`];
+    return ['tracker.rate_limited', `${name} rate-limited the reading of ${where} (${status}).`, params];
   }
-  if (status === 401) return ['tracker.unauthorized', `${name} refused the request for ${where} (401); ${used}.`];
-  if (status === 403) return ['tracker.forbidden', `${name} gave no read access to the ${what} of ${where} (403); ${used}.`];
-  if (status === 404 || status === 410) return ['tracker.not_found', `${name} has nothing at ${where} with ${what} visible to this request (${status}); ${used}.`];
-  return ['tracker.unreachable', `${name} answered ${status} for ${where}.`];
+  if (status === 401) return ['tracker.unauthorized', `${name} refused the request for ${where} (401); ${used}.`, params];
+  if (status === 403) return ['tracker.forbidden', `${name} gave no read access to the ${what} of ${where} (403); ${used}.`, params];
+  if (status === 404 || status === 410) return ['tracker.not_found', `${name} has nothing at ${where} with ${what} visible to this request (${status}); ${used}.`, params];
+  return ['tracker.unreachable', `${name} answered ${status} for ${where}.`, { ...params, kind: 'status' }];
 }
 
 /** Closing outranks `Status:`. With no close reason reported, `Status: CANCELLED` still says abandoned. */
@@ -338,8 +340,8 @@ function toTask(issue: RemoteIssue, questions: TrackerTask['questions'], diagnos
   const id = `#${issue.number}`;
   const named = `${id} (${issue.url})`;
   const { status, blockedBy, spec: specLine, roles } = parseTicketHeader(issue.body ?? '');
-  const mismatch = (message: string): void => {
-    diagnostics.push({ code: 'tracker.state_mismatch', message: `${named} ${message}` });
+  const mismatch = (message: string, params: Params): void => {
+    diagnostics.push({ code: 'tracker.state_mismatch', message: `${named} ${message}`, params: { task: id, ticket: issue.url, ...params } });
   };
 
   let state: TaskState | null;
@@ -349,13 +351,14 @@ function toTask(issue: RemoteIssue, questions: TrackerTask['questions'], diagnos
       diagnostics.push({
         code: 'task.unknown_state',
         message: status === null ? `${named} has no Status: line.` : `${named} has Status: ${JSON.stringify(status)}, which is not a Task state.`,
+        params: status === null ? { task: id, ticket: issue.url } : { task: id, ticket: issue.url, status },
       });
     } else if (state === 'DONE' || state === 'CANCELLED') {
-      mismatch(`is open, but its Status: is ${state}.`);
+      mismatch(`is open, but its Status: is ${state}.`, { state });
     }
   } else {
     state = closedState(issue.closeReason, status);
-    if (status !== null && status !== state) mismatch(`is closed as ${state}, but its Status: is ${status}.`);
+    if (status !== null && status !== state) mismatch(`is closed as ${state}, but its Status: is ${status}.`, { state, status });
   }
 
   const spec = unquote(specLine);
@@ -371,6 +374,6 @@ function toTask(issue: RemoteIssue, questions: TrackerTask['questions'], diagnos
     body: ticketBody(issue.body ?? ''),
     review: null,
     questions,
-    roles: headerRoles(roles, named, diagnostics),
+    roles: headerRoles(roles, { id, ticket: issue.url }, diagnostics),
   };
 }

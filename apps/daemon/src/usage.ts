@@ -34,7 +34,7 @@ import {
   type TelemetryRecord,
   type Tree,
 } from '@binnacle/adapters';
-import { branchTask, type Diagnostic, type Epic, type ImportWindow, type ObservedRun, type ProjectManifest, type RunRole, type TaskRole, type TrackerTask } from '@binnacle/core';
+import { branchTask, type Diagnostic, type Epic, type ImportWindow, type ObservedRun, type Params, type ProjectManifest, type RunRole, type TaskRole, type TrackerTask } from '@binnacle/core';
 import {
   ACTIVE_WITHIN_MS,
   callContext,
@@ -57,7 +57,7 @@ import { readManifest } from './manifest.ts';
 import type { OperationContext } from './operations.ts';
 import { containingEntry, readRegistry } from './registry.ts';
 import { limited, readRoadmap, readTracker, SECTION_LIMIT, trackerUnavailable, type Unavailable } from './snapshot.ts';
-import { findTask } from './task.ts';
+import { findTask, trackerError } from './task.ts';
 import type { Ingested, IngestCursor } from './store.ts';
 
 /** The import window when the manifest writes none: the horizon of Git's own reflog. */
@@ -117,8 +117,8 @@ const HARNESSES: { harness: Harness; name: string; root: keyof ArtifactRoots; no
   { harness: 'pi', name: 'pi', root: 'pi', noExport: `${PI_NO_EXPORT}.` },
 ];
 
-/** Per harness, why its artifacts of a project cannot be read, if they cannot. */
-type Unreadable = Record<Harness, string | null>;
+/** Per harness, why its artifacts of a project cannot be read, if they cannot: its `telemetry.unreadable` attention item. */
+type Unreadable = Record<Harness, Diagnostic | null>;
 
 /**
  * The daemon's ingests: one at a time on this machine, each queued behind the one before,
@@ -203,7 +203,7 @@ export type Usage = {
  * Reads what is new in the Claude Code, Codex, Gemini CLI, opencode, ZCode, Antigravity and pi artifacts of `projectPath`, for as long as
  * the time budget allows, and answers the snapshot's `usage` and `activity` sections from
  * everything stored, attributed to `tasks`, the tracker's current Tasks, or unavailable with
- * why they cannot be read, and its `context.pressure` attention items. What the budget does
+ * why they cannot be read, and its `telemetry.unreadable` and `context.pressure` attention items. What the budget does
  * not cover goes on in the background. "Today" and "the last seven days" are calendar days in
  * the daemon's local time zone.
  */
@@ -254,7 +254,8 @@ export async function usageAndActivity(
     },
     activity,
     runs: Array.isArray(tasks) ? observed : [],
-    attention: pressureAttention(observed, pressureOf, threshold, checkpointAt),
+    // A harness whose artifacts cannot be read is at level 1, and says why.
+    attention: [...HARNESSES.flatMap((entry) => failures[entry.harness] ?? []), ...pressureAttention(observed, pressureOf, threshold, checkpointAt)],
   };
 }
 
@@ -325,18 +326,23 @@ function pressureAttention(
     const compaction = pressure?.compactions.latest;
     const compacted = compaction != null && (checkpointAt === null || compaction.at > checkpointAt);
     if (!crossed && !compacted) continue;
+    const name = HARNESSES.find((entry) => entry.harness === session.harness)!.name;
     const reasons: string[] = [];
+    const params: Params = { session: session.sessionId, harness: name };
     if (pressure?.context) {
       reasons.push(`read ${pressure.context.tokens} tokens of context in its latest call${crossed ? `, at least telemetry.context_pressure.tokens, ${threshold}` : ''}`);
+      params.tokens = pressure.context.tokens;
+      if (crossed) params.threshold = threshold;
     }
     if (compacted) {
       const since = checkpointAt === null ? 'and no checkpoint has been recorded' : `after the last checkpoint at ${checkpointAt}`;
       reasons.push(`compacted (${compaction.trigger ?? 'trigger not reported'}) at ${compaction.at}, ${since}`);
+      Object.assign(params, { at: compaction.at }, compaction.trigger && { trigger: compaction.trigger }, checkpointAt && { checkpoint: checkpointAt });
     }
-    const name = HARNESSES.find((entry) => entry.harness === session.harness)!.name;
     raised.set(sessionKey(session), {
       code: 'context.pressure',
       message: `The Product session ${session.sessionId} in ${name} ${reasons.join(', and ')}. Run /binnacle:checkpoint, then go on in a fresh session.`,
+      params,
     });
   }
   return [...raised.values()];
@@ -503,7 +509,7 @@ export async function usageGet(
     tasks = reading.tasks ?? trackerUnavailable(reading.diagnostics);
     // An epic's Tasks are the tracker's: without it there is nothing to answer, as for a Task.
     if (epic !== null && reading.tasks === null) {
-      throw new OperationError(reading.diagnostics[0]?.code ?? 'tracker.unavailable', reading.diagnostics[0]?.message ?? 'The tracker cannot be read.', 503);
+      throw trackerError(reading.diagnostics[0]);
     }
   }
 
@@ -550,11 +556,14 @@ async function roadmapEpic(tree: Tree, manifest: ProjectManifest | null, number:
   const unread: Diagnostic[] = [];
   const roadmap = await readRoadmap(tree, manifest, unread);
   if (roadmap === null) {
-    throw new OperationError(unread[0]?.code ?? 'roadmap.missing', unread[0]?.message ?? 'Without a readable manifest, the project has no roadmap.', 409);
+    const why = unread[0] ?? { code: 'roadmap.missing', message: 'Without a readable manifest, the project has no roadmap.', params: { kind: 'manifest' } };
+    throw new OperationError(why.code, why.message, 409, undefined, why.params);
   }
   const epic = roadmap.epics.find((row) => row.number === number);
-  if (epic === undefined) throw new OperationError('epic.unknown', `The roadmap lists no epic ${number}.`, 404);
-  if (epic.spec === null) throw new OperationError('epic.no_spec', `Epic ${number} (${epic.title}) has no spec on the roadmap, so it has no Tasks yet.`, 409);
+  if (epic === undefined) throw new OperationError('epic.unknown', `The roadmap lists no epic ${number}.`, 404, undefined, { epic: number });
+  if (epic.spec === null) {
+    throw new OperationError('epic.no_spec', `Epic ${number} (${epic.title}) has no spec on the roadmap, so it has no Tasks yet.`, 409, undefined, { epic: number, title: epic.title });
+  }
   return epic;
 }
 
@@ -714,7 +723,7 @@ function unreadableArtifacts(context: OperationContext, directoriesOfProject: st
   const pi = piSessions(artifacts.pi, directoriesOfProject);
   // opencode's and ZCode's one database holds every project's sessions, so its failure is every project's,
   // and a session's failure is the project's it was launched in.
-  const database = (harness: DatabaseHarness, name: string): string | null => {
+  const database = (harness: DatabaseHarness, name: string): Diagnostic | null => {
     const path = databasePath(artifacts, harness);
     const ours = [...unreadable].filter(([key]) => key.startsWith(sessionFailureKey(path, '')) && containingEntry(key.slice(sessionFailureKey(path, '').length), places) !== undefined);
     return summary(name, [...failed([path]), ...ours.map(([, failure]) => failure)]);
@@ -739,11 +748,11 @@ function unreadableArtifacts(context: OperationContext, directoriesOfProject: st
   };
 }
 
-function summary(name: string, failures: string[]): string | null {
+function summary(name: string, failures: string[]): Diagnostic | null {
   if (failures.length === 0) return null;
   const others = failures.length - 1;
   const rest = others === 0 ? '' : ` It could not read ${others} other ${others === 1 ? 'file or directory' : 'files or directories'} either.`;
-  return `${name} could not read ${failures[0]}.${rest}`;
+  return { code: 'telemetry.unreadable', message: `${name} could not read ${failures[0]}.${rest}`, params: { harness: name, what: failures[0]!, others } };
 }
 
 /**
@@ -1111,10 +1120,10 @@ function level(
   context: OperationContext,
   projectPath: string,
   { harness, name, root, noExport }: (typeof HARNESSES)[number],
-  failure: string | null,
+  failure: Diagnostic | null,
   incomplete: boolean,
 ): HarnessLevel {
-  if (failure !== null) return { harness, level: 1, reason: failure };
+  if (failure !== null) return { harness, level: 1, reason: failure.message };
   const { records, withTokens, live } = context.store.usageCounts(projectPath, harness, new Date(Date.now() - ACTIVE_WITHIN_MS).toISOString());
   if (live > 0) return { harness, level: 4, reason: null };
   if (withTokens > 0) return { harness, level: 3, reason: noExport ?? null };

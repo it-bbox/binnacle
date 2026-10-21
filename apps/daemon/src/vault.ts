@@ -1,7 +1,7 @@
 import { accessSync, constants, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, posix, relative, sep } from 'node:path';
 import { commitTree, type Tree } from '@binnacle/adapters';
-import type { Diagnostic, ProjectManifest } from '@binnacle/core';
+import type { Diagnostic, Params, ProjectManifest } from '@binnacle/core';
 import type { Daily } from './daily.ts';
 import { defaultCommit, GRAPH_DIRECTORY, lastBuild, manifestOf } from './graph.ts';
 import { resolveGitTimeout, settingsPath } from './home.ts';
@@ -31,25 +31,27 @@ const ROADMAP_NOTE = 'Product/roadmap.md';
 const GRAPH_REPORT = `${GRAPH_DIRECTORY}/GRAPH_REPORT.md`;
 const REPORT_NOTE = '90-Graphify/GRAPH_REPORT.md';
 
-/** The vault this machine names, `null` when it names none, or why it cannot be written. */
-function readVault(home: string): { path: string } | { reason: string } | null {
+/** The vault this machine names, `null` when it names none, or why it cannot be written: its `vault.unwritable` attention item. */
+function readVault(home: string): { path: string } | Diagnostic | null {
+  const unwritable = (message: string, params: Params): Diagnostic => ({ code: 'vault.unwritable', message, params });
   const file = settingsPath(home);
   let settings: unknown;
   try {
     settings = JSON.parse(readFileSync(file, 'utf8'));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
-    return { reason: `${file} cannot be read as JSON, so no vault is projected.` };
+    return unwritable(`${file} cannot be read as JSON, so no vault is projected.`, { kind: 'settings', file });
   }
   const obsidian = typeof settings === 'object' && settings !== null ? (settings as { obsidian?: unknown }).obsidian : undefined;
   const path = typeof obsidian === 'object' && obsidian !== null ? (obsidian as { vaultPath?: unknown }).vaultPath : undefined;
   if (path === undefined || path === null) return null;
-  if (typeof path !== 'string' || !isAbsolute(path)) return { reason: `obsidian.vaultPath in ${file} is not an absolute path, so no vault is projected.` };
+  if (typeof path !== 'string' || !isAbsolute(path)) return unwritable(`obsidian.vaultPath in ${file} is not an absolute path, so no vault is projected.`, { kind: 'path', file });
   try {
-    if (!statSync(path).isDirectory()) return { reason: `The vault ${path} is not a directory, so nothing is projected into it.` };
+    if (!statSync(path).isDirectory()) return unwritable(`The vault ${path} is not a directory, so nothing is projected into it.`, { kind: 'directory', path });
     accessSync(path, constants.W_OK);
   } catch (error) {
-    return { reason: `The vault ${path} cannot be written (${(error as NodeJS.ErrnoException).code ?? 'error'}), so nothing is projected into it.` };
+    const code = (error as NodeJS.ErrnoException).code ?? 'error';
+    return unwritable(`The vault ${path} cannot be written (${code}), so nothing is projected into it.`, { kind: 'write', path, error: code });
   }
   return { path };
 }
@@ -63,7 +65,7 @@ function readVault(home: string): { path: string } | { reason: string } | null {
  */
 export function vaultAttention(home: string): Diagnostic[] {
   const vault = readVault(home);
-  return vault !== null && 'reason' in vault ? [{ code: 'vault.unwritable', message: vault.reason }] : [];
+  return vault !== null && 'code' in vault ? [vault] : [];
 }
 
 /**
@@ -91,7 +93,7 @@ export function startVaultProjector(home: string, store: Store, pollMs: number):
   function tick(): void {
     if (ticking || stopped) return;
     const vault = readVault(home);
-    if (vault === null || 'reason' in vault) return;
+    if (vault === null || 'code' in vault) return;
     ticking = (async () => {
       for (const entry of readRegistry(home)) {
         // One project failing is logged and tried again on the next poll; the rest go on.
@@ -305,7 +307,7 @@ const folderName = (manifest: ProjectManifest): string =>
  */
 export function writeServed(home: string, manifest: ProjectManifest | null, served: { snapshot: Snapshot } | { daily: Daily }): void {
   const vault = readVault(home);
-  if (vault === null || 'reason' in vault || manifest === null) return;
+  if (vault === null || 'code' in vault || manifest === null) return;
   try {
     const link = linker(manifest);
     const name = manifest.project.name ?? manifest.project.id;

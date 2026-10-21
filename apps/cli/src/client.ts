@@ -1,3 +1,4 @@
+import type { Params } from '@binnacle/core';
 import { HEALTH_PATH, OPS_PREFIX, isErrorEnvelope, type ErrorDetail, type Runtime } from '@binnacle/daemon';
 
 /** The daemon is not answering on the address its runtime file claims. */
@@ -12,12 +13,14 @@ export class DaemonUnreachableError extends Error {
 export class OperationFailedError extends Error {
   code: string;
   details: ErrorDetail[] | undefined;
+  params: Params | undefined;
 
-  constructor(code: string, message: string, details?: ErrorDetail[]) {
+  constructor(code: string, message: string, details?: ErrorDetail[], params?: Params) {
     super(message);
     this.name = 'OperationFailedError';
     this.code = code;
     this.details = details;
+    this.params = params;
   }
 }
 
@@ -44,7 +47,7 @@ export async function callOperation<T>(
   const payload: unknown = await response.json().catch(() => null);
   if (response.ok) return payload as T;
   if (isErrorEnvelope(payload)) {
-    throw new OperationFailedError(payload.error.code, payload.error.message, payload.error.details);
+    throw new OperationFailedError(payload.error.code, payload.error.message, payload.error.details, payload.error.params);
   }
   throw new OperationFailedError('internal.error', `The daemon answered ${response.status} with no error envelope.`);
 }

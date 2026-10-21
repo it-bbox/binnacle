@@ -19,7 +19,7 @@ export async function readLocalTasks(tree: Tree, issues: string): Promise<TaskRe
   if (specs === null) {
     return {
       tasks: [],
-      diagnostics: [{ code: 'tracker.issues_missing', message: `tracker.local.issues names ${issues}, which is not a directory.` }],
+      diagnostics: [{ code: 'tracker.issues_missing', message: `tracker.local.issues names ${issues}, which is not a directory.`, params: { path: issues } }],
     };
   }
 
@@ -58,6 +58,7 @@ function parseTicket(spec: string, file: string, ticket: string, text: string, d
         status === null
           ? `${id} (${ticket}) has no Status: line.`
           : `${id} (${ticket}) has Status: ${JSON.stringify(status)}, which is not a Task state.`,
+      params: status === null ? { task: id, ticket } : { task: id, ticket, status },
     });
   }
   return {
@@ -72,7 +73,7 @@ function parseTicket(spec: string, file: string, ticket: string, text: string, d
     ticket,
     body: ticketBody(text.split(COMMENTS)[0]!),
     ...ticketComments(text),
-    roles: headerRoles(roles, `${id} (${ticket})`, diagnostics),
+    roles: headerRoles(roles, { id, ticket }, diagnostics),
   };
 }
 

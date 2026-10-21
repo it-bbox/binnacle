@@ -225,7 +225,7 @@ async function handle(
   // of Object.prototype, and each of those would otherwise answer as an operation.
   const operation = Object.hasOwn(operations, name) ? operations[name] : undefined;
   if (!operation) {
-    return fail(response, new OperationError('operation.unknown', `Unknown operation ${JSON.stringify(name)}.`, 404));
+    return fail(response, new OperationError('operation.unknown', `Unknown operation ${JSON.stringify(name)}.`, 404, undefined, { operation: name }));
   }
 
   send(response, 200, await operation(await readJsonBody(request), context));
@@ -244,7 +244,8 @@ async function receiveOtlp(request: IncomingMessage, response: ServerResponse, c
   const encoding = (request.headers['content-encoding'] ?? 'identity').trim().toLowerCase();
   if (type !== 'application/json' || encoding !== 'identity') {
     const received = `${type || 'no content type'}${encoding === 'identity' ? '' : `, ${encoding}`}`;
-    return fail(response, new OperationError('request.unsupported_media_type', `Binnacle accepts OTLP over HTTP as uncompressed JSON (application/json) only, not ${received}: set the exporter's protocol to http/json.`, 415));
+    const message = `Binnacle accepts OTLP over HTTP as uncompressed JSON (application/json) only, not ${received}: set the exporter's protocol to http/json.`;
+    return fail(response, new OperationError('request.unsupported_media_type', message, 415, undefined, { received }));
   }
   const body = await readJsonBody(request, MAX_OTLP_BODY_BYTES);
   if (path === OTLP_LOGS_PATH) await receiveTelemetry(context, readOtlpLogs(body));
@@ -270,9 +271,9 @@ const CONTENT_TYPES: Record<string, string> = {
  * the read; the files are small and the one client is local. Stream them if that shows.
  */
 function serveStatic(request: IncomingMessage, response: ServerResponse, dashboard: string): void {
-  if (request.method !== 'GET' && request.method !== 'HEAD') return fail(response, methodNotAllowed(request.method, 'GET or HEAD'));
+  if (request.method !== 'GET' && request.method !== 'HEAD') return fail(response, methodNotAllowed(request.method, 'GET', 'HEAD'));
   const path = staticPath(request.url ?? '/');
-  if (path === null) return fail(response, new OperationError('request.not_found', `No route ${JSON.stringify(request.url)}.`, 404));
+  if (path === null) return fail(response, new OperationError('request.not_found', `No route ${JSON.stringify(request.url)}.`, 404, undefined, { route: request.url ?? '' }));
 
   let file = join(dashboard, path === '/' ? 'index.html' : path);
   if (!isFile(join(dashboard, 'index.html'))) {
@@ -353,23 +354,25 @@ function checkHost(request: IncomingMessage, runtime: Runtime): OperationError |
     'request.forbidden_host',
     `Host ${JSON.stringify(request.headers.host ?? '')} is not ${boundAddress(runtime)}, the address this daemon bound.`,
     403,
+    undefined,
+    { host: request.headers.host ?? '', address: boundAddress(runtime) },
   );
 }
 
 function checkOrigin(request: IncomingMessage, runtime: Runtime): OperationError | null {
   const origin = request.headers.origin?.toLowerCase();
   if (origin === undefined || origin === `http://${boundAddress(runtime)}`) return null;
-  return new OperationError('request.forbidden_origin', `Origin ${JSON.stringify(origin)} is not allowed.`, 403);
+  return new OperationError('request.forbidden_origin', `Origin ${JSON.stringify(origin)} is not allowed.`, 403, undefined, { origin });
 }
 
 function checkToken(request: IncomingMessage, token: string): OperationError | null {
   const header = request.headers.authorization;
   if (!header) {
-    return new OperationError('auth.missing', 'This operation requires the Binnacle API token.', 401);
+    return new OperationError('auth.missing', 'This operation requires the Binnacle API token.', 401, undefined, {});
   }
   const presented = /^bearer\s+(\S+)$/i.exec(header.trim())?.[1];
   if (!presented || !secretsMatch(presented, token)) {
-    return new OperationError('auth.invalid', 'The presented Binnacle API token is not valid.', 401);
+    return new OperationError('auth.invalid', 'The presented Binnacle API token is not valid.', 401, undefined, {});
   }
   return null;
 }
@@ -387,7 +390,7 @@ async function readJsonBody(request: IncomingMessage, limit = MAX_BODY_BYTES): P
     const buffer = chunk as Buffer;
     size += buffer.length;
     if (size > limit) {
-      throw new OperationError('request.body_too_large', `Request body exceeds ${limit} bytes.`, 413);
+      throw new OperationError('request.body_too_large', `Request body exceeds ${limit} bytes.`, 413, undefined, { limit });
     }
     chunks.push(buffer);
   }
@@ -396,16 +399,15 @@ async function readJsonBody(request: IncomingMessage, limit = MAX_BODY_BYTES): P
   try {
     return JSON.parse(raw);
   } catch {
-    throw new OperationError('request.body_invalid', 'Request body must be a JSON document.', 400);
+    throw new OperationError('request.body_invalid', 'Request body must be a JSON document.', 400, undefined, {});
   }
 }
 
-function methodNotAllowed(method: string | undefined, allowed: string): OperationError {
-  return new OperationError(
-    'request.method_not_allowed',
-    `Method ${JSON.stringify(method ?? '')} is not allowed here; use ${allowed}.`,
-    405,
-  );
+function methodNotAllowed(method: string | undefined, ...allowed: string[]): OperationError {
+  return new OperationError('request.method_not_allowed', `Method ${JSON.stringify(method ?? '')} is not allowed here; use ${allowed.join(' or ')}.`, 405, undefined, {
+    method: method ?? '',
+    allowed: allowed.join(', '),
+  });
 }
 
 function send(response: ServerResponse, status: number, payload: unknown): void {
@@ -420,7 +422,7 @@ function send(response: ServerResponse, status: number, payload: unknown): void 
 
 function fail(response: ServerResponse, error: unknown): void {
   const failure =
-    error instanceof OperationError ? error : new OperationError('internal.error', 'Internal daemon error.', 500);
+    error instanceof OperationError ? error : new OperationError('internal.error', 'Internal daemon error.', 500, undefined, {});
   if (!(error instanceof OperationError)) console.error(error);
   if (!response.headersSent) send(response, failure.status, failure.toEnvelope());
 }

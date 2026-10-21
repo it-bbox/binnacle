@@ -161,6 +161,63 @@ In v1 the system analyses and recommends actions, but does not start full AgentR
 ### Autopilot
 A human-started skill that runs the remaining tickets of one already planned epic to the end: one agent per ticket, each branch verified before it is merged. Starting it is the explicit human decision for that epic's AgentRuns and merges. It stops at any question only the owner can answer, and never plans an epic or moves to the next one (ADR-0022).
 
+## Russian words
+
+Each term's Russian word, the one Binnacle uses for a Russian-speaking person in the chat, in `binn` and on the dashboard, and `@binnacle/core`'s wording of the daemon's messages (ADR-0045). Commands, paths, Task ids, branch names, model names, a file's own markers such as `Status: DONE`, and the names Binnacle, Graphify, Obsidian, Serena and the harnesses are never translated.
+
+| Term | Russian |
+|---|---|
+| Task | задача |
+| Epic | эпик |
+| Current Epic | текущий эпик |
+| Next action | следующий шаг |
+| Suggested step | предложенный шаг |
+| Product Snapshot | снимок проекта |
+| Product session | продуктовая сессия |
+| Product Steward | продуктовый агент |
+| roadmap | роадмап |
+| Spec | спецификация |
+| Ticket | тикет |
+| Epic brief | бриф эпика |
+| Task brief | бриф задачи |
+| Vision | видение |
+| Backlog | бэклог |
+| Ready | готова к старту |
+| In progress | в работе |
+| BLOCKED | заблокирована |
+| Review | ревью |
+| Done | готово |
+| Unmet dependency | невыполненная зависимость |
+| Question | вопрос |
+| Answer | ответ |
+| Waiting for the owner | ждёт владельца |
+| Conflict risk | риск конфликта |
+| Parallel limit | лимит параллельной работы |
+| Checkout | рабочая копия |
+| Harness | клиент агента |
+| Provider | провайдер |
+| AgentRun | запуск |
+| Review run | запуск ревью |
+| Rework run | доработка |
+| Unassigned | без задачи |
+| Roles | роли: разработчик, ревьюер, архитектор, тестировщик, безопасность, DevOps, аналитик |
+| CI state | состояние CI |
+| Audit | аудит |
+| Finding | находка |
+| Migration plan | план перехода |
+| Stranded document | бесхозный документ |
+| Checkpoint | чекпойнт |
+| Autopilot | автопилот |
+| Autostart | автозапуск |
+| Vault projection | проекция в Obsidian |
+| Context pressure | заполненность контекста |
+| Session artifact | файл сессии |
+| Harness support level | уровень поддержки |
+| Project registry | реестр проектов |
+| Project Brain | знания проекта |
+
+The roadmap's statuses read не начат, спецификация, тикеты, в работе, готов. A Task's states read бэклог (`BACKLOG`), готова (`READY`), в работе (`ACTIVE`), заблокирована (`BLOCKED`), на ревью (`READY_FOR_REVIEW`), одобрена (`APPROVED`), готова к слиянию (`MERGE_READY`), слита (`MERGED`), готово (`DONE`), отменена (`CANCELLED`). CI reads проходит, падает, идёт, нет проверок; a finding reads в порядке, пробел, неизвестно. Git's words take their usual Russian, ветка and коммит; `worktree` stays.
+
 ## Current product boundary
 
 Binnacle v1 = Project + Task + AgentRun + Review + Snapshots + Telemetry + Human approvals + Adapters.

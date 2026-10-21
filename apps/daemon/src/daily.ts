@@ -1,7 +1,7 @@
 import { commitTree, EMPTY_TREE, isAncestor, isGitUnavailable, readCommit, readCommitBefore, readLog, type Commit, type Tree } from '@binnacle/adapters';
 import type { Diagnostic, ProjectManifest, ResolvedTask, RoadmapStatus, TaskState } from '@binnacle/core';
 import { ciAttention, readCi, type Ci } from './ci.ts';
-import { OperationError } from './errors.ts';
+import { invalidRequest, OperationError } from './errors.ts';
 import { resolveGitTimeout } from './home.ts';
 import type { Projected } from './projection.ts';
 import {
@@ -161,7 +161,7 @@ export async function daily(
     // An unreadable tracker records no states, so that the next delta says so instead of guessing.
     return { delta, states: remote && after.tasks ? taskStates(after.tasks) : null };
   } catch (error) {
-    if (isGitUnavailable(error)) throw new OperationError(error.code, error.reason, 503);
+    if (isGitUnavailable(error)) throw new OperationError(error.code, error.reason, 503, undefined, error.params);
     throw error;
   }
 }
@@ -186,9 +186,8 @@ async function startingPoint(
     const commit = await readCommit(cwd, baseline.commit, timeout);
     const usable = commit !== null && (await isAncestor(cwd, commit, head, timeout));
     if (!usable && baseline.source === 'since') {
-      throw new OperationError('request.invalid', `"since" ${baseline.commit} ${commit === null ? 'names no commit here' : 'is not an ancestor of HEAD'}.`, 400, [
-        { path: 'since', message: 'expected a commit HEAD descends from' },
-      ]);
+      const why = commit === null ? 'names no commit here' : 'is not an ancestor of HEAD';
+      throw invalidRequest('since', `"since" ${baseline.commit} ${why}.`, 'expected a commit HEAD descends from', 'expected.ancestor');
     }
     if (commit === null) {
       fallback = { reason: 'baseline_missing', message: `${named} is not a commit in this repository.` };
@@ -208,8 +207,8 @@ async function startingPoint(
 
 /** The caller's HEAD, which a delta runs to and a checkpoint records; refused when there is none. */
 export function committedHead({ git }: CallerCheckout): { head: string; dirty: boolean } {
-  if (!git.available) throw new OperationError(git.code, git.reason, 409);
-  if (git.commit === null) throw new OperationError('git.no_commits', 'This checkout has no commits yet.', 409);
+  if (!git.available) throw new OperationError(git.code, git.reason, 409, undefined, git.params);
+  if (git.commit === null) throw new OperationError('git.no_commits', 'This checkout has no commits yet.', 409, undefined, {});
   return { head: git.commit, dirty: git.dirty };
 }
 

@@ -194,6 +194,7 @@ export async function graphSection(
     attention.push({
       code: 'graph.update_failed',
       message: `The graph update for ${short(lastRun.commit)} failed: ${lastRun.reason}${builtFrom ? ` The graph built from ${short(builtFrom.commit)} is kept.` : ''}`,
+      params: { commit: short(lastRun.commit), reason: String(lastRun.reason), ...(builtFrom && { kept: short(builtFrom.commit) }) },
     });
   }
 
@@ -205,6 +206,7 @@ export async function graphSection(
       attention.push({
         code: 'graph.not_ignored',
         message: `Git does not ignore ${GRAPH_DIRECTORY}/ in ${path}, so the daemon does not run Graphify there. Add ${GRAPH_DIRECTORY}/ to .gitignore.`,
+        params: { directory: GRAPH_DIRECTORY, path },
       });
     }
     if (!existsSync(join(path, GRAPH_FILE))) reason = `No graph has been built yet: there is no ${GRAPH_FILE}.`;

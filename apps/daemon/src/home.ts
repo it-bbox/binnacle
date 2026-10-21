@@ -85,7 +85,7 @@ export function trackerToken(
   const variable = `BINNACLE_${provider.toUpperCase()}_TOKEN`;
   const path = credentialsPath(home);
   const unusable = (source: string): { failure: Diagnostic } => ({
-    failure: { code: 'tracker.unavailable', message: `${source} is not a usable token, so nothing was read with it.` },
+    failure: { code: 'tracker.unavailable', message: `${source} is not a usable token, so nothing was read with it.`, params: { kind: 'token', source } },
   });
 
   const fromEnv = env[variable]?.trim();
@@ -102,6 +102,7 @@ export function trackerToken(
           failure: {
             code: 'tracker.credentials_insecure',
             message: `${path} can be read by others than its owner, so it was not read; make it owner-only (chmod 600).`,
+            params: { path },
           },
         };
       }
@@ -112,7 +113,7 @@ export function trackerToken(
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === 'ENOENT') return { token: null };
-    return { failure: { code: 'tracker.unavailable', message: `${path} could not be read (${code ?? 'error'}).` } };
+    return { failure: { code: 'tracker.unavailable', message: `${path} could not be read (${code ?? 'error'}).`, params: { kind: 'credentials_unreadable', path, error: code ?? 'error' } } };
   }
 
   let entries: unknown;
@@ -123,7 +124,9 @@ export function trackerToken(
     entries = null;
   }
   if (typeof entries !== 'object' || entries === null || Array.isArray(entries)) {
-    return { failure: { code: 'tracker.unavailable', message: `${path} is not a JSON object of host to token, so nothing was read with its tokens.` } };
+    return {
+      failure: { code: 'tracker.unavailable', message: `${path} is not a JSON object of host to token, so nothing was read with its tokens.`, params: { kind: 'credentials_invalid', path } },
+    };
   }
   const key = credentialsKey(provider, host);
   if (!Object.hasOwn(entries, key)) return { token: null };

@@ -48,7 +48,7 @@ function rawRequest(
   });
 }
 
-type Envelope = { error: { code: string; message: string } };
+type Envelope = { error: { code: string; message: string; params?: Record<string, string | number> } };
 
 describe('daemon operations', () => {
   it('answers daemon.status with pid, host, port, start time and version', async () => {
@@ -72,8 +72,8 @@ describe('daemon operations', () => {
     await withDaemon(async (daemon) => {
       const { status, body } = await daemon.call<Envelope>('daemon.explode');
       assert.equal(status, 404);
-      assert.equal(body.error.code, 'operation.unknown');
-      assert.ok(body.error.message.length > 0);
+      // The values its English is written from ride beside it, for a person's surface to word it in their language.
+      assert.deepEqual(body, { error: { code: 'operation.unknown', message: 'Unknown operation "daemon.explode".', params: { operation: 'daemon.explode' } } });
     });
   });
 

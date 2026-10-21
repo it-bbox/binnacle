@@ -2,7 +2,7 @@ import { existsSync, realpathSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative } from 'node:path';
 import { readGitFacts, readGitLocation, workingTree, type GitFacts } from '@binnacle/adapters';
 import { taskRoles, trackerRemoteMismatch, type Diagnostic, type ProjectManifest, type TrackerTask } from '@binnacle/core';
-import { OperationError, pathNotFound } from './errors.ts';
+import { invalidRequest, OperationError, pathNotFound } from './errors.ts';
 import { resolveGitTimeout, type Runtime } from './home.ts';
 import { readManifest } from './manifest.ts';
 import { projectRegistry, reproject, type Projected } from './projection.ts';
@@ -84,7 +84,12 @@ export const operations: Record<string, Operation> = {
     projectRegistry(context.home, context.store);
     const sharing = context.store.projects().filter((other) => other.path !== path && row.id !== null && other.id === row.id);
     for (const other of sharing) {
-      warnings.push({ path: 'project.id', message: `"${row.id}" is also the id of the project registered at ${other.path}.` });
+      warnings.push({
+        path: 'project.id',
+        message: `"${row.id}" is also the id of the project registered at ${other.path}.`,
+        code: 'project.shared_id',
+        params: { id: row.id!, other: other.path },
+      });
     }
     return { project: row, warnings };
   },
@@ -213,7 +218,7 @@ export const operations: Record<string, Operation> = {
     const task = optionalString((body as { task?: unknown } | null)?.task, 'task');
     const epic = epicNumber(body);
     if (task !== undefined && epic !== undefined) {
-      throw new OperationError('request.invalid', 'Give "task" or "epic", not both.', 400, [{ path: 'epic', message: 'not with "task"' }]);
+      throw invalidRequest('epic', 'Give "task" or "epic", not both.', 'not with "task"', 'expected.alone', { other: 'task' });
     }
     const projected = reproject(context.store, await resolveEntry(path, context));
     const caller = await callerCheckout(path, projected.row.path);
@@ -225,7 +230,7 @@ export const operations: Record<string, Operation> = {
     const entries = readRegistry(context.home);
     const remaining = entries.filter((entry) => entry.path !== path);
     if (remaining.length === entries.length) {
-      throw new OperationError('project.not_registered', `${path} is not a registered Binnacle project.`, 404);
+      throw new OperationError('project.not_registered', `${path} is not a registered Binnacle project.`, 404, undefined, { kind: 'registered', path });
     }
 
     writeRegistry(context.home, remaining);
@@ -269,7 +274,7 @@ async function resolveEntry(path: string, context: OperationContext): Promise<Re
   }
 
   if (!existsSync(path)) throw pathNotFound(path);
-  throw new OperationError('project.not_registered', `No registered Binnacle project contains ${path}.`, 404);
+  throw new OperationError('project.not_registered', `No registered Binnacle project contains ${path}.`, 404, undefined, { kind: 'contains', path });
 }
 
 async function callerCheckout(path: string, projectPath: string): Promise<CallerCheckout> {
@@ -326,9 +331,7 @@ function recordedBaseline(store: Store, projectPath: string, types: readonly Bas
 function sinceCommit(body: unknown): string | undefined {
   const since = optionalString((body as { since?: unknown } | null)?.since, 'since');
   if (since !== undefined && !/^[0-9a-f]{4,64}$/i.test(since)) {
-    throw new OperationError('request.invalid', `"since" must be a commit hash; got ${JSON.stringify(since)}.`, 400, [
-      { path: 'since', message: 'expected 4 to 64 hexadecimal digits' },
-    ]);
+    throw invalidRequest('since', `"since" must be a commit hash; got ${JSON.stringify(since)}.`, 'expected 4 to 64 hexadecimal digits', 'expected.hash');
   }
   return since;
 }
@@ -336,7 +339,7 @@ function sinceCommit(body: unknown): string | undefined {
 function taskId(body: unknown): string {
   const id = (body as { id?: unknown } | null)?.id;
   if (typeof id !== 'string' || id.trim() === '') {
-    throw new OperationError('request.invalid', 'This operation needs an "id".', 400, [{ path: 'id', message: 'expected a non-empty string' }]);
+    throw invalidRequest('id', 'This operation needs an "id".', 'expected a non-empty string', 'expected.non_empty_string');
   }
   return id.trim();
 }
@@ -346,9 +349,7 @@ function epicNumber(body: unknown): number | undefined {
   const epic = (body as { epic?: unknown } | null)?.epic;
   if (epic === undefined || epic === null) return undefined;
   if (Number.isInteger(epic) && (epic as number) > 0) return epic as number;
-  throw new OperationError('request.invalid', `"epic" must be an epic's number on the roadmap; got ${JSON.stringify(epic)}.`, 400, [
-    { path: 'epic', message: 'expected a positive integer' },
-  ]);
+  throw invalidRequest('epic', `"epic" must be an epic's number on the roadmap; got ${JSON.stringify(epic)}.`, 'expected a positive integer', 'expected.positive_integer');
 }
 
 /** A spec slug, `null` for the Tasks that carry none, or absent for the current epic. */
@@ -356,18 +357,14 @@ function specSlug(body: unknown): string | null | undefined {
   const spec = (body as { spec?: unknown } | null)?.spec;
   if (spec === undefined || spec === null) return spec;
   if (typeof spec === 'string' && spec.trim() !== '') return spec.trim();
-  throw new OperationError('request.invalid', '"spec" must be a spec slug, or null for the Tasks without one.', 400, [
-    { path: 'spec', message: 'expected a non-empty string or null' },
-  ]);
+  throw invalidRequest('spec', '"spec" must be a spec slug, or null for the Tasks without one.', 'expected a non-empty string or null', 'expected.string_or_null');
 }
 
 function eventFilter(body: unknown): EventFilter {
   const raw = (body ?? {}) as Record<string, unknown>;
   const limit = raw.limit;
   if (limit !== undefined && (!Number.isInteger(limit) || (limit as number) < 1 || (limit as number) > EVENT_LIMIT_MAX)) {
-    throw new OperationError('request.invalid', `"limit" must be a positive integer up to ${EVENT_LIMIT_MAX}.`, 400, [
-      { path: 'limit', message: `expected 1 to ${EVENT_LIMIT_MAX}` },
-    ]);
+    throw invalidRequest('limit', `"limit" must be a positive integer up to ${EVENT_LIMIT_MAX}.`, `expected 1 to ${EVENT_LIMIT_MAX}`, 'expected.range', { min: 1, max: EVENT_LIMIT_MAX });
   }
   return {
     path: optionalString(raw.path, 'path'),
@@ -380,9 +377,7 @@ function eventFilter(body: unknown): EventFilter {
 function optionalString(value: unknown, field: string): string | undefined {
   if (value === undefined || value === null) return undefined;
   if (typeof value !== 'string') {
-    throw new OperationError('request.invalid', `"${field}" must be a string.`, 400, [
-      { path: field, message: 'expected a string' },
-    ]);
+    throw invalidRequest(field, `"${field}" must be a string.`, 'expected a string', 'expected.string');
   }
   return value;
 }
@@ -399,14 +394,10 @@ function optionalString(value: unknown, field: string): string | undefined {
 function repositoryPath(body: unknown, options: { mustExist?: boolean } = {}): string {
   const raw = (body as { path?: unknown })?.path;
   if (typeof raw !== 'string' || raw.trim() === '') {
-    throw new OperationError('request.invalid', 'This operation needs a "path".', 400, [
-      { path: 'path', message: 'expected a non-empty string' },
-    ]);
+    throw invalidRequest('path', 'This operation needs a "path".', 'expected a non-empty string', 'expected.non_empty_string');
   }
   if (!isAbsolute(raw)) {
-    throw new OperationError('request.invalid', `"path" must be absolute; got ${JSON.stringify(raw)}.`, 400, [
-      { path: 'path', message: 'expected an absolute path, resolved by the caller' },
-    ]);
+    throw invalidRequest('path', `"path" must be absolute; got ${JSON.stringify(raw)}.`, 'expected an absolute path, resolved by the caller', 'expected.absolute_path');
   }
   const candidate = raw;
   try {

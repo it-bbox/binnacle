@@ -262,7 +262,11 @@ describe('the board', () => {
             review: false,
             questions: { asked: 0, unanswered: 0 },
             latestRun: null,
-            diagnostic: { code: 'task.unknown_state', message: `second/09 (${unknown}) has Status: "WIP", which is not a Task state.` },
+            diagnostic: {
+              code: 'task.unknown_state',
+              message: `second/09 (${unknown}) has Status: "WIP", which is not a Task state.`,
+              params: { task: 'second/09', ticket: unknown, status: 'WIP' },
+            },
           },
         ],
         remainder: 0,
@@ -419,6 +423,7 @@ describe('the board on a remote tracker', () => {
         assert.deepEqual(without.unknown.items[0]!.diagnostic, {
           code: 'task.unknown_state',
           message: '#4 (https://github.com/octo/repo/issues/4) has Status: "WIP", which is not a Task state.',
+          params: { task: '#4', ticket: 'https://github.com/octo/repo/issues/4', status: 'WIP' },
         });
         assert.deepEqual(without.columns.ready.items[0]!.start, '/binnacle:task run https://github.com/octo/repo/issues/2');
         // Unavailable, since an issue's comments are read for questions only.

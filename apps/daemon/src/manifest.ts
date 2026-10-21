@@ -35,6 +35,8 @@ export function readManifest(root: string): ReadManifest {
         'manifest.missing',
         `No ${MANIFEST_RELATIVE} in ${root}. \`binn init\` writes one.`,
         400,
+        undefined,
+        { path: root },
       );
     }
     throw error;
@@ -44,9 +46,8 @@ export function readManifest(root: string): ReadManifest {
   try {
     document = parse(contents);
   } catch (error) {
-    throw new OperationError('manifest.invalid', `${path} is not valid YAML.`, 400, [
-      { path: '(document)', message: (error as Error).message },
-    ]);
+    const reason = (error as Error).message;
+    throw new OperationError('manifest.invalid', `${path} is not valid YAML.`, 400, [{ path: '(document)', message: reason, code: 'yaml.syntax', params: { error: reason } }], { path });
   }
 
   const validation = validateManifest(document);
@@ -61,6 +62,7 @@ export function readManifest(root: string): ReadManifest {
       `${path} does not declare version ${MANIFEST_VERSION}, which is the version this Binnacle supports.`,
       400,
       validation.problems.filter((problem) => problem.path === 'version'),
+      { path, version: MANIFEST_VERSION },
     );
   }
 
@@ -70,6 +72,7 @@ export function readManifest(root: string): ReadManifest {
       `${path} has ${validation.problems.length} problem${validation.problems.length === 1 ? '' : 's'}.`,
       400,
       validation.problems,
+      { path, count: validation.problems.length },
     );
   }
 

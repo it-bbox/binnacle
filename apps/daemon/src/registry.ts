@@ -30,6 +30,8 @@ export class RegistryUnreadableError extends OperationError {
       'registry.unreadable',
       `The Binnacle project registry at ${path} is unreadable (${reason}). Repair or remove the file.`,
       500,
+      undefined,
+      { path, reason },
     );
     this.name = 'RegistryUnreadableError';
   }

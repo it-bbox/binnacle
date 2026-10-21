@@ -1,3 +1,5 @@
+import type { Params } from './wording.ts';
+
 /**
  * Validation of `.binnacle/project.yaml`, as a pure function over an already-parsed
  * document. Reading the file and parsing YAML happen outside this package, which is
@@ -20,6 +22,9 @@ export type ManifestProblem = {
   /** The field's dotted path in the file the user wrote, not in any internal shape. */
   path: string;
   message: string;
+  /** What is wrong, worded by `wording.ts` from `params`. */
+  code: string;
+  params: Params;
 };
 
 export type TrackerProvider = 'github' | 'gitlab' | 'local';
@@ -97,6 +102,8 @@ export function validateManifest(document: unknown): ManifestValidation {
     notes.problems.push({
       path: 'version',
       message: `expected ${MANIFEST_VERSION}, got ${describe(root.version)}`,
+      code: 'expected.version',
+      params: { expected: MANIFEST_VERSION, got: describe(root.version) },
     });
   }
 
@@ -159,7 +166,7 @@ function readKnowledge(value: unknown, notes: Notes): ProjectManifest['knowledge
 function readLanguage(value: unknown, notes: Notes): Language | null {
   if (value === undefined || value === null) return null;
   if (typeof value === 'string' && (LANGUAGES as string[]).includes(value)) return value as Language;
-  notes.warnings.push({ path: 'knowledge.language', message: `expected one of ${LANGUAGES.join(', ')}; read as en` });
+  notes.warnings.push({ path: 'knowledge.language', message: `expected one of ${LANGUAGES.join(', ')}; read as en`, code: 'manifest.unknown_language', params: { allowed: LANGUAGES.join(', ') } });
   return null;
 }
 
@@ -185,7 +192,7 @@ function readCapabilities(value: unknown, notes: Notes): Record<string, Capabili
       capabilities[name] = raw;
       continue;
     }
-    notes.problems.push({ path: `capabilities.${name}`, message: 'expected true, false or "optional"' });
+    notes.problems.push({ path: `capabilities.${name}`, message: 'expected true, false or "optional"', code: 'expected.capability', params: {} });
   }
   return capabilities;
 }
@@ -217,7 +224,7 @@ function readTelemetry(value: unknown, notes: Notes): ProjectManifest['telemetry
     // it falls back to belongs to whoever imports, not to validation.
     import: {
       windowDays:
-        importing.window_days === 'all' ? 'all' : positiveInteger(importing.window_days, 'telemetry.import.window_days', notes, 'or all'),
+        importing.window_days === 'all' ? 'all' : positiveInteger(importing.window_days, 'telemetry.import.window_days', notes, 'all'),
     },
     contextPressure: { tokens: positiveInteger(pressure.tokens, 'telemetry.context_pressure.tokens', notes) },
   };
@@ -226,7 +233,7 @@ function readTelemetry(value: unknown, notes: Notes): ProjectManifest['telemetry
 /** Records a problem and returns null when the value is not a mapping at all. */
 function requireMapping(value: unknown, path: string, notes: Notes): Record<string, unknown> | null {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    notes.problems.push({ path: path || '(document)', message: `expected a YAML mapping, got ${describe(value)}` });
+    notes.problems.push({ path: path || '(document)', message: `expected a YAML mapping, got ${describe(value)}`, code: 'expected.mapping', params: { got: describe(value) } });
     return null;
   }
   return value as Record<string, unknown>;
@@ -244,13 +251,15 @@ function warnUnknownKeys(section: Record<string, unknown>, prefix: string, names
     notes.warnings.push({
       path: prefix ? `${prefix}.${name}` : name,
       message: 'unknown key, ignored — written by a newer Binnacle, or a typo',
+      code: 'manifest.unknown_key',
+      params: {},
     });
   }
 }
 
 function requiredString(value: unknown, path: string, notes: Notes): string | null {
   if (typeof value === 'string' && value.trim() !== '') return value.trim();
-  notes.problems.push({ path, message: 'expected a non-empty string' });
+  notes.problems.push({ path, message: 'expected a non-empty string', code: 'expected.non_empty_string', params: {} });
   return null;
 }
 
@@ -262,14 +271,19 @@ function optionalString(value: unknown, path: string, notes: Notes): string | nu
 function oneOf<T extends string>(value: unknown, path: string, allowed: T[], notes: Notes): T | null {
   if (value === undefined || value === null) return null;
   if (typeof value === 'string' && (allowed as string[]).includes(value)) return value as T;
-  notes.problems.push({ path, message: `expected one of ${allowed.join(', ')}` });
+  notes.problems.push({ path, message: `expected one of ${allowed.join(', ')}`, code: 'expected.one_of', params: { allowed: allowed.join(', ') } });
   return null;
 }
 
 function positiveInteger(value: unknown, path: string, notes: Notes, alternative = ''): number | null {
   if (value === undefined || value === null) return null;
   if (Number.isInteger(value) && (value as number) > 0) return value as number;
-  notes.problems.push({ path, message: `expected a positive integer${alternative ? ` ${alternative}` : ''}` });
+  notes.problems.push({
+    path,
+    message: `expected a positive integer${alternative ? ` or ${alternative}` : ''}`,
+    code: 'expected.positive_integer',
+    params: alternative ? { or: alternative } : {},
+  });
   return null;
 }
 

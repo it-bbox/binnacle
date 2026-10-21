@@ -125,5 +125,5 @@ export function ciAttention(ci: Ci | Unavailable): Diagnostic[] {
   if ('available' in ci || ci.defaultBranch.state.value !== 'failing') return [];
   const { branch, commit, url } = ci.defaultBranch;
   const forge = ci.forge.provider === 'github' ? 'GitHub' : 'GitLab';
-  return [{ code: 'ci.failing', message: `CI is failing on ${branch} at ${commit.slice(0, 12)}, as ${forge} reports it: ${url}` }];
+  return [{ code: 'ci.failing', message: `CI is failing on ${branch} at ${commit.slice(0, 12)}, as ${forge} reports it: ${url}`, params: { branch, commit: commit.slice(0, 12), forge, url } }];
 }

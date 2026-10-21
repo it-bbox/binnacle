@@ -34,7 +34,7 @@ type Snapshot = {
   decisions: { items: { title: string | null; path: string }[]; remainder: number } | null;
   ci: Unavailable;
   autostart: { state: string; platform: string; home: string; command: string } | Unavailable;
-  attention: { code: string; message: string }[];
+  attention: { code: string; message: string; params?: Record<string, string | number> }[];
 };
 
 const MANIFEST = `version: 1
@@ -478,6 +478,15 @@ describe('the roadmap in the Product Snapshot', () => {
       assert.match(inProgress!, /Epic 3 .*in progress/);
       assert.match(tickets!, /Epic 4 .*tickets/);
       assert.match(specMissing!, /Epic 5 .*spec/);
+      // Each carries the values its English is written from, for a person's surface to word it in their language.
+      assert.deepEqual(body.attention.map((item) => item.params), [
+        { epic: 1, title: 'Done too early', kind: 'done', tasks: 'a/02' },
+        { epic: 2, title: 'Not started, but sliced', kind: 'not_started', spec: 'b', count: 1 },
+        { epic: 3, title: 'In progress, but finished', kind: 'finished', status: 'in progress', spec: 'c' },
+        { epic: 4, title: 'Sliced, but finished', kind: 'finished', status: 'tickets', spec: 'd' },
+        { epic: 5, title: 'Specified without a link', status: 'spec' },
+        { epic: 10, title: 'Under way without a spec', status: 'in progress' },
+      ]);
       // A `done` epic without a spec is history, not an attention item; one still under way is.
       assert.match(underWay!, /Epic 10 .*in progress/);
 
@@ -594,7 +603,13 @@ describe('recent decisions, Git and the unavailable sections', () => {
         // The roadmap is expected on every tracker (ADR-0025), and this project declares no knowledge.docs.
         'roadmap.missing',
       ]);
-      assert.match(body.attention[0]!.message, /project\.colour/);
+      assert.deepEqual(body.attention[0], {
+        code: 'manifest.warning',
+        message: 'project.colour: unknown key, ignored — written by a newer Binnacle, or a typo',
+        params: { path: 'project.colour', warning: 'manifest.unknown_key' },
+      });
+      assert.deepEqual(body.attention[1]!.params, { tracker: 'github.com', remotes: 'https://git.example.com/example/project.git' });
+      assert.deepEqual(body.attention[2]!.params, { kind: 'repository', provider: 'github' });
     });
   });
 });

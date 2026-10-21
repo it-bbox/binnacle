@@ -215,13 +215,11 @@ export async function snapshot(
   const { tasks, unreadable, roadmap, adrs, attention } = await readState(home, tree, projected, diagnostics);
   const ci = (await forge)(tasks);
   attention.push(...ciAttention(ci));
-  const { usage: usageSection, activity, runs, attention: pressure } = await usageAndActivity(tasks ?? trackerUnavailable(unreadable));
+  const { usage: usageSection, activity, runs, attention: usageAttention } = await usageAndActivity(tasks ?? trackerUnavailable(unreadable));
   const workflow = projected.manifest?.workflow.provider ?? null;
-  // A harness whose artifacts cannot be read is at level 1, and says why.
-  for (const { level, reason } of usageSection.harnesses) if (level === 1 && reason !== null) attention.push({ code: 'telemetry.unreadable', message: reason });
   const limit = parallelLimit(home, projected.manifest);
   const autostart = autostartSection(home);
-  attention.push(...pressure, ...graph.attention, ...vaultAttention(home), ...limit.attention, ...autostart.attention);
+  attention.push(...usageAttention, ...graph.attention, ...vaultAttention(home), ...limit.attention, ...autostart.attention);
   const attributed = new Set(runs.flatMap((run) => run.taskId ?? []));
   const questions = tasks && (await readQuestions(projected.row.path, projected.manifest, tasks));
   const listed = tasks && taskSections(tasks, attributed);
@@ -261,7 +259,15 @@ function autostartSection(home: string): { section: Snapshot['autostart']; atten
     const { state, platform, missing } = readAutostart(home);
     const command = autostartCommand(state);
     const attention =
-      state === 'broken' ? [{ code: 'daemon.autostart_broken', message: `Autostart is broken for ${home}: ${missing.join(' and ')} no longer exists. Repair it with \`${command}\`.` }] : [];
+      state === 'broken'
+        ? [
+            {
+              code: 'daemon.autostart_broken',
+              message: `Autostart is broken for ${home}: ${missing.join(' and ')} no longer exists. Repair it with \`${command}\`.`,
+              params: { home, missing: missing.join(', '), command },
+            },
+          ]
+        : [];
     return { section: { state, platform, home, command }, attention };
   } catch (error) {
     return { section: { available: false, reason: `Autostart cannot be read: ${(error as Error).message}` }, attention: [] };
@@ -304,7 +310,7 @@ export async function readState(
   { readRemoteTracker = true } = {},
 ): Promise<State> {
   const attention: Diagnostic[] = [
-    ...warnings.map((warning) => ({ code: 'manifest.warning', message: `${warning.path}: ${warning.message}` })),
+    ...warnings.map((warning) => ({ code: 'manifest.warning', message: `${warning.path}: ${warning.message}`, params: { ...warning.params, path: warning.path, warning: warning.code } })),
     ...diagnostics,
   ];
   const tracker: Diagnostic[] = [];
@@ -318,7 +324,7 @@ export async function readState(
   if (tasks && manifest?.tracker.provider === 'local') {
     for (const task of tasks) {
       if (task.state === 'DONE' && task.review === null && task.triage !== 'ready-for-human') {
-        attention.push({ code: 'review.missing', message: `${task.id} (${task.ticket}) is DONE, and its ticket records no Review under ## Comments.` });
+        attention.push({ code: 'review.missing', message: `${task.id} (${task.ticket}) is DONE, and its ticket records no Review under ## Comments.`, params: { task: task.id, ticket: task.ticket } });
       }
     }
   }
@@ -360,14 +366,14 @@ export async function readTracker(home: string, tree: Tree, manifest: ProjectMan
     const read = provider === 'github' ? readGitHubTasks : readGitLabTasks;
     return fromForge(['tasks', provider, host, repository, credential.token], () => read(repository, host, credential.token), (answer) => answer.tasks !== null);
   }
-  return { tasks: null, diagnostics: [{ code: 'tracker.unavailable', message: unavailable(tracker) }] };
+  return { tasks: null, diagnostics: [{ code: 'tracker.unavailable', ...unavailable(tracker) }] };
 }
 
-function unavailable(tracker: ProjectManifest['tracker'] | undefined): string {
-  if (tracker === undefined) return 'Tasks cannot be read without a readable manifest.';
-  if (tracker.provider === null) return 'This project declares no tracker.provider.';
-  if (tracker.provider === 'local') return 'tracker.provider is local, and this project declares no tracker.local.issues.';
-  return `tracker.provider is ${tracker.provider}, and this project declares no tracker.repository.`;
+function unavailable(tracker: ProjectManifest['tracker'] | undefined): Pick<Diagnostic, 'message' | 'params'> {
+  if (tracker === undefined) return { message: 'Tasks cannot be read without a readable manifest.', params: { kind: 'manifest' } };
+  if (tracker.provider === null) return { message: 'This project declares no tracker.provider.', params: { kind: 'provider' } };
+  if (tracker.provider === 'local') return { message: 'tracker.provider is local, and this project declares no tracker.local.issues.', params: { kind: 'issues' } };
+  return { message: `tracker.provider is ${tracker.provider}, and this project declares no tracker.repository.`, params: { kind: 'repository', provider: tracker.provider } };
 }
 
 /**
@@ -509,14 +515,14 @@ export async function readRoadmap(tree: Tree, manifest: ProjectManifest | null, 
   if (manifest === null) return null;
   const docs = manifest.knowledge.docs;
   if (docs === null) {
-    attention.push({ code: 'roadmap.missing', message: 'The roadmap is <knowledge.docs>/roadmap.md, and this project declares no knowledge.docs.' });
+    attention.push({ code: 'roadmap.missing', message: 'The roadmap is <knowledge.docs>/roadmap.md, and this project declares no knowledge.docs.', params: { kind: 'docs' } });
     return null;
   }
 
   const path = posix.join(docs, 'roadmap.md');
   const text = await tree.read(path);
   if (text === null) {
-    attention.push({ code: 'roadmap.missing', message: `There is no roadmap at ${path}.` });
+    attention.push({ code: 'roadmap.missing', message: `There is no roadmap at ${path}.`, params: { kind: 'path', path } });
     return null;
   }
   const { roadmap, diagnostics } = parseRoadmap(text);
@@ -543,7 +549,7 @@ async function readAdrs(tree: Tree, manifest: ProjectManifest | null, attention:
   if (adr === null) return null;
   const files = await tree.list(adr);
   if (files === null) {
-    attention.push({ code: 'adr.missing', message: `knowledge.adr names ${adr}, which is not a directory.` });
+    attention.push({ code: 'adr.missing', message: `knowledge.adr names ${adr}, which is not a directory.`, params: { path: adr } });
     return null;
   }
   return { dir: adr, paths: files.filter((entry) => !entry.directory && entry.name.endsWith('.md')).map((entry) => posix.join(adr, entry.name)) };

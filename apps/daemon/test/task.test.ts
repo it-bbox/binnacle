@@ -330,8 +330,16 @@ describe('the Review', () => {
       assert.deepEqual(
         snapshot.body.attention.filter((item) => item.code === 'review.missing'),
         [
-          { code: 'review.missing', message: 'epic/02 (docs/specs/epic/issues/02-unreviewed.md) is DONE, and its ticket records no Review under ## Comments.' },
-          { code: 'review.missing', message: 'epic/03 (docs/specs/epic/issues/03-empty.md) is DONE, and its ticket records no Review under ## Comments.' },
+          {
+            code: 'review.missing',
+            message: 'epic/02 (docs/specs/epic/issues/02-unreviewed.md) is DONE, and its ticket records no Review under ## Comments.',
+            params: { task: 'epic/02', ticket: 'docs/specs/epic/issues/02-unreviewed.md' },
+          },
+          {
+            code: 'review.missing',
+            message: 'epic/03 (docs/specs/epic/issues/03-empty.md) is DONE, and its ticket records no Review under ## Comments.',
+            params: { task: 'epic/03', ticket: 'docs/specs/epic/issues/03-empty.md' },
+          },
         ],
       );
 

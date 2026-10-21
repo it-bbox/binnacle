@@ -1,4 +1,5 @@
 import type { TrackerProvider } from './manifest.ts';
+import type { Params } from './wording.ts';
 
 /**
  * The entities of `docs/06-data-model.md` and the three state machines of
@@ -147,7 +148,7 @@ export type Review = {
  */
 export type TransitionResult<S extends string> =
   | { ok: true; state: S }
-  | { ok: false; code: 'transition.unknown_state' | 'transition.terminal' | 'transition.not_allowed'; message: string };
+  | { ok: false; code: 'transition.unknown_state' | 'transition.terminal' | 'transition.not_allowed'; message: string; params: Params };
 
 /**
  * The edges are the diagram's and nothing more. Where the diagram is silent, this machine
@@ -223,17 +224,19 @@ function transition<S extends string>(
   // `Object.hasOwn`, so that `toString` and friends are not mistaken for states.
   const unknown = [from, to].filter((state) => typeof state !== 'string' || !Object.hasOwn(edges, state));
   if (unknown.length > 0) {
+    const states = unknown.map((state) => JSON.stringify(state) ?? String(state));
     return {
       ok: false,
       code: 'transition.unknown_state',
-      message: `${entity} has no state ${unknown.map((state) => JSON.stringify(state) ?? String(state)).join(' or ')}.`,
+      message: `${entity} has no state ${states.join(' or ')}.`,
+      params: { entity, states: states.join(', ') },
     };
   }
 
   const next = edges[from];
   if (next.includes(to)) return { ok: true, state: to };
   if (next.length === 0) {
-    return { ok: false, code: 'transition.terminal', message: `${entity} ${from} is terminal; it cannot move to ${to}.` };
+    return { ok: false, code: 'transition.terminal', message: `${entity} ${from} is terminal; it cannot move to ${to}.`, params: { entity, from, to } };
   }
-  return { ok: false, code: 'transition.not_allowed', message: `${entity} cannot move from ${from} to ${to}.` };
+  return { ok: false, code: 'transition.not_allowed', message: `${entity} cannot move from ${from} to ${to}.`, params: { entity, from, to } };
 }

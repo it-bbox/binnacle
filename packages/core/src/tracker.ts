@@ -1,8 +1,13 @@
 import type { ProjectManifest } from './manifest.ts';
 import type { TaskState } from './domain.ts';
+import type { Params } from './wording.ts';
 
-/** A disagreement Binnacle reports and does not resolve. `code` is part of the API contract. */
-export type Diagnostic = { code: string; message: string };
+/**
+ * A disagreement Binnacle reports and does not resolve. `code` is part of the API contract;
+ * `params`, the values the English `message` is written from, let a person's surface word it
+ * in their language (`wording.ts`).
+ */
+export type Diagnostic = { code: string; message: string; params?: Params };
 
 /**
  * The manifest's declared tracker is authoritative; a Git remote that disagrees with it
@@ -19,9 +24,11 @@ export function trackerRemoteMismatch(tracker: ProjectManifest['tracker'], remot
   const host = declaredHostname(provider, tracker.host);
   const path = repository === null ? null : trimPath(repository);
   if (remoteUrls.some((url) => agrees(remoteLocation(url), host, path))) return null;
+  const declared = `${host}${repository === null ? '' : `/${repository}`}`;
   return {
     code: 'tracker.remote_mismatch',
-    message: `The tracker is declared at ${host}${repository === null ? '' : `/${repository}`}, but no Git remote is: ${remoteUrls.join(', ')}.`,
+    message: `The tracker is declared at ${declared}, but no Git remote is: ${remoteUrls.join(', ')}.`,
+    params: { tracker: declared, remotes: remoteUrls.join(', ') },
   };
 }
 
@@ -196,14 +203,18 @@ export type Role = (typeof ROLES)[number];
  * The roles a `Roles:` value names, comma-separated, matched case-insensitively against `ROLES`
  * and written in its form, once each, in the order written; null when it names none, which needs
  * the default roles. Each other word is `task.unknown_role`, pushed to `diagnostics` for the Task
- * `named`, and left out.
+ * `task`, and left out.
  */
-export function headerRoles(value: string | null, named: string, diagnostics: Diagnostic[]): Role[] | null {
+export function headerRoles(value: string | null, task: { id: string; ticket: string }, diagnostics: Diagnostic[]): Role[] | null {
   const roles: Role[] = [];
   for (const word of (value ?? '').split(',').map((item) => item.trim()).filter(Boolean)) {
     const role = ROLES.find((known) => known.toLowerCase() === word.toLowerCase());
     if (role === undefined) {
-      diagnostics.push({ code: 'task.unknown_role', message: `${named} has Roles: ${JSON.stringify(word)}, which is not one of ${ROLES.join(', ')}, and is left out.` });
+      diagnostics.push({
+        code: 'task.unknown_role',
+        message: `${task.id} (${task.ticket}) has Roles: ${JSON.stringify(word)}, which is not one of ${ROLES.join(', ')}, and is left out.`,
+        params: { task: task.id, ticket: task.ticket, role: word, roles: ROLES.join(', ') },
+      });
     } else if (!roles.includes(role)) roles.push(role);
   }
   return roles.length > 0 ? roles : null;
@@ -321,11 +332,11 @@ export function sharedBranch<T extends Pick<TrackerTask, 'id' | 'title' | 'ticke
   // By ticket, not id: `03-a.md` and `3-a.md` in one spec are both `<spec>/03`, and both are on its branch.
   const others = tasksOnBranch(branch, tasks, remote).filter((other) => other.ticket !== task.ticket);
   if (others.length === 0) return null;
+  const named = others.map((other) => `${other.id} (${other.ticket})`).join(', ');
   return {
     code: 'task.shared_branch',
-    message:
-      `${branch}, the branch of ${task.id}, is also the branch of ${others.map((other) => `${other.id} (${other.ticket})`).join(', ')}, ` +
-      "so the work on it is credited to no Task. A ticket's slug is meant to be unique across epics.",
+    message: `${branch}, the branch of ${task.id}, is also the branch of ${named}, so the work on it is credited to no Task. A ticket's slug is meant to be unique across epics.`,
+    params: { branch, task: task.id, others: named },
   };
 }
 
@@ -365,6 +376,7 @@ export function resolveDependencies(tasks: TrackerTask[]): { tasks: ResolvedTask
         diagnostics.push({
           code: 'task.dangling_dependency',
           message: `${task.id} (${task.ticket}) is declared blocked by ${id}, which is not a known Task.`,
+          params: { task: task.id, ticket: task.ticket, dependency: id },
         });
       } else if (dependency.state !== 'DONE') {
         unmetDependencies.push(id);

@@ -343,8 +343,14 @@ describe('what the daemon refuses to guess or swallow', () => {
       for (const path of ['.', 'some/repo', '../up']) {
         const { status, body } = await daemon.call<Envelope>('project.register', { path });
         assert.equal(status, 400, `${path} was not refused`);
-        assert.equal(body.error.code, 'request.invalid');
-        assert.match(body.error.message, /absolute/);
+        assert.deepEqual(body, {
+          error: {
+            code: 'request.invalid',
+            message: `"path" must be absolute; got ${JSON.stringify(path)}.`,
+            details: [{ path: 'path', message: 'expected an absolute path, resolved by the caller', code: 'expected.absolute_path', params: {} }],
+            params: { field: 'path' },
+          },
+        });
       }
     });
   });
@@ -358,7 +364,15 @@ describe('what the daemon refuses to guess or swallow', () => {
 
       const { status, body } = await daemon.call<Envelope>('project.register', { path: root });
       assert.equal(status, 400);
-      assert.equal(body.error.code, 'manifest.unsupported_version');
+      const file = join(root, '.binnacle', 'project.yaml');
+      assert.deepEqual(body, {
+        error: {
+          code: 'manifest.unsupported_version',
+          message: `${file} does not declare version 1, which is the version this Binnacle supports.`,
+          details: [{ path: 'version', message: 'expected 1, got number', code: 'expected.version', params: { expected: 1, got: 'number' } }],
+          params: { path: file, version: 1 },
+        },
+      });
     });
   });
 

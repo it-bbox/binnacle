@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { hasUncommittedChanges, isGitUnavailable } from '@binnacle/adapters';
 import type { Diagnostic, ProjectManifest } from '@binnacle/core';
-import { OperationError } from './errors.ts';
+import { invalidRequest, OperationError } from './errors.ts';
 import { resolveGitTimeout } from './home.ts';
 
 /**
@@ -43,22 +43,21 @@ export type Promoted = { type: PromotionType; path: string };
 /** `promoted` from a `checkpoint.record` body: an array, possibly empty, of `{ type, path }`. */
 export function promotedItems(body: unknown): Promoted[] {
   const promoted = (body as { promoted?: unknown } | null)?.promoted;
-  if (!Array.isArray(promoted)) throw invalid('promoted', '"promoted" must be an array of { type, path }, empty when nothing was promoted.', 'expected an array');
+  if (!Array.isArray(promoted)) throw invalidRequest('promoted', '"promoted" must be an array of { type, path }, empty when nothing was promoted.', 'expected an array', 'expected.array');
   return promoted.map((item: unknown, index) => {
     const { type, path } = (item ?? {}) as { type?: unknown; path?: unknown };
     if (!PROMOTION_TYPES.includes(type as PromotionType)) {
-      throw invalid(`promoted.${index}.type`, `"promoted[${index}].type" must be one of ${PROMOTION_TYPES.join(', ')}.`, `expected one of ${PROMOTION_TYPES.join(', ')}`);
+      throw invalidRequest(`promoted.${index}.type`, `"promoted[${index}].type" must be one of ${PROMOTION_TYPES.join(', ')}.`, `expected one of ${PROMOTION_TYPES.join(', ')}`, 'expected.one_of', {
+        allowed: PROMOTION_TYPES.join(', '),
+      });
     }
     // Relative and inside the project: it is looked up in the caller's checkout, and nowhere else.
     if (typeof path !== 'string' || path.trim() === '' || posix.isAbsolute(path) || posix.normalize(path).split('/')[0] === '..') {
-      throw invalid(`promoted.${index}.path`, `"promoted[${index}].path" must be a path relative to the project directory.`, 'expected a relative path inside the project');
+      throw invalidRequest(`promoted.${index}.path`, `"promoted[${index}].path" must be a path relative to the project directory.`, 'expected a relative path inside the project', 'expected.relative_path');
     }
     return { type: type as PromotionType, path };
   });
 }
-
-const invalid = (path: string, message: string, detail: string): OperationError =>
-  new OperationError('request.invalid', message, 400, [{ path, message: detail }]);
 
 /**
  * One diagnostic per promoted path that is not committed at HEAD as it stands: one with
@@ -73,7 +72,7 @@ export async function promotionDiagnostics(cwd: string, promoted: Promoted[], he
     dirty = await Promise.all(promoted.map(({ path }) => hasUncommittedChanges(cwd, path, timeout)));
   } catch (error) {
     // Nothing is recorded: a checkpoint whose check failed would look like a clean one.
-    if (isGitUnavailable(error)) throw new OperationError(error.code, error.reason, 503);
+    if (isGitUnavailable(error)) throw new OperationError(error.code, error.reason, 503, undefined, error.params);
     throw error;
   }
   const diagnostics: Diagnostic[] = [];
@@ -82,10 +81,11 @@ export async function promotionDiagnostics(cwd: string, promoted: Promoted[], he
       diagnostics.push({
         code: 'checkpoint.uncommitted',
         message: `${path} has uncommitted changes, so it is not in the recorded head ${head} and will show again in the next delta. Commit it and record the checkpoint again.`,
+        params: { path, head },
       });
       // A clean path missing from the working tree is missing from HEAD too, or Git would report its deletion.
     } else if (!existsSync(join(cwd, path))) {
-      diagnostics.push({ code: 'checkpoint.path_missing', message: `${path} names nothing in this checkout, so nothing was promoted there.` });
+      diagnostics.push({ code: 'checkpoint.path_missing', message: `${path} names nothing in this checkout, so nothing was promoted there.`, params: { path } });
     }
   });
   return diagnostics;

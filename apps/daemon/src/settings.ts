@@ -54,7 +54,8 @@ export function machineParallelLimit(home: string): { parallel: ParallelLimit; a
   const fallback: ParallelLimit = { limit: DEFAULT_PARALLEL_LIMIT, mode: 'number', source: 'default' };
   if (settings !== null && value === undefined) return { parallel: fallback, attention: [] };
   const why = settings === null ? `${file} cannot be read as a JSON object` : `${RULE}, and ${KEY} in ${file} is not one`;
-  return { parallel: fallback, attention: [{ code: 'parallel_limit.invalid', message: `${why}, so the limit is ${DEFAULT_PARALLEL_LIMIT}.` }] };
+  const params = settings === null ? { kind: 'file', file, limit: DEFAULT_PARALLEL_LIMIT } : { kind: 'setting', file, max: PARALLEL_BOUND, limit: DEFAULT_PARALLEL_LIMIT };
+  return { parallel: fallback, attention: [{ code: 'parallel_limit.invalid', message: `${why}, so the limit is ${DEFAULT_PARALLEL_LIMIT}.`, params }] };
 }
 
 /** The limit a project works under: its manifest's, or else the machine's. */
@@ -70,10 +71,12 @@ export function parallelLimit(home: string, manifest: ProjectManifest | null): {
  */
 export function setParallelLimit(home: string, body: unknown): ParallelLimit {
   const value = typeof body === 'object' && body !== null ? (body as { limit?: unknown }).limit : undefined;
-  if (!usable(value)) throw new OperationError('parallel_limit.invalid', `${RULE}; ${describe(value)} is not.`);
+  if (!usable(value)) {
+    throw new OperationError('parallel_limit.invalid', `${RULE}; ${describe(value)} is not.`, 400, undefined, { kind: 'value', max: PARALLEL_BOUND, got: describe(value) });
+  }
   const file = settingsPath(home);
   const settings = readSettings(file);
-  if (settings === null) throw new OperationError('settings.unreadable', `${file} cannot be read as a JSON object, so it is not rewritten. Fix it by hand.`, 409);
+  if (settings === null) throw new OperationError('settings.unreadable', `${file} cannot be read as a JSON object, so it is not rewritten. Fix it by hand.`, 409, undefined, { file });
   // A fresh temporary file, so that one left behind, or a link in its place, never decides the mode or the target.
   const temporary = `${file}.tmp`;
   rmSync(temporary, { force: true });
