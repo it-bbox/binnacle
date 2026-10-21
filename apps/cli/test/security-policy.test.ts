@@ -47,11 +47,13 @@ test("Dependabot's npm cooldown is the workspace's minimumReleaseAge", () => {
 /** Ticket 02 of release: the policy and its Russian twin, linking each other and the boundary rather than repeating it. */
 test("SECURITY.md and SECURITY.ru.md link each other and the architecture's security boundary", () => {
   assert.match(read('docs/01-architecture.md'), /^## Security boundary$/m);
+  // The line released now, `0.2.x` for 0.2.0: a minor release moves it, and this test says so.
+  const line = JSON.parse(read('apps/cli/package.json')).version.replace(/\.\d+$/, '.x');
   for (const [page, twin] of [['SECURITY.md', 'SECURITY.ru.md'], ['SECURITY.ru.md', 'SECURITY.md']] as const) {
     const text = read(page);
     assert.ok(text.includes(`](${twin})`), `${page} links ${twin}`);
     assert.ok(text.includes('](docs/01-architecture.md#security-boundary)'), `${page} links the security boundary`);
-    assert.match(text, /0\.1\.x/, `${page} names the supported version`);
+    assert.ok(text.includes(line), `${page} names the supported version, ${line}`);
     assert.ok(text.includes('/security/advisories/new'), `${page} links private vulnerability reporting`);
   }
 });
