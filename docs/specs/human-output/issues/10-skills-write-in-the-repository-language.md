@@ -1,6 +1,6 @@
 # 10: Every other skill in the person's language, writing in the repository's
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 01, 09
 Spec: `docs/specs/human-output/spec.md`
