@@ -426,7 +426,7 @@ test('/binnacle:init shows the plan from --plan --json, asks once, applies only 
   assert.match(skill, /`--language en` or `--language ru` once the human answered/);
   assert.match(skill, /the same window, autostart answer, language,/);
   assert.match(skill, /`binn init --apply <id>`/);
-  assert.match(skill, /`init\.plan_changed`/);
+  assert.match(skill, /Exit 3 with nothing on stdout means the plan is no longer the one shown/);
   assert.match(skill, /show the new plan and ask again/);
   assert.match(skill, /Never commit/);
 });

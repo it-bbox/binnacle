@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import type { Language } from '@binnacle/core';
 import { ANTIGRAVITY_NO_TOKENS, isAlive, OPENCODE_NO_EXPORT, PI_NO_EXPORT, readRuntime, resolvePort, ZCODE_NO_EXPORT } from '@binnacle/daemon';
 import { isRecord } from './history.ts';
 import { CONFIG_HOME, onPath, VSCODE_USER_DIRECTORY } from './tools.ts';
@@ -139,10 +140,10 @@ export const NO_EXPORT: { name: string; code: string; executable: string; userDi
   { name: 'VS Code', code: 'vscode', executable: 'code', userDirectory: VSCODE_USER_DIRECTORY, reason: 'Binnacle configures no OpenTelemetry export for VS Code, and reads none of its sessions' },
 ];
 
-/** Why a harness is taken as installed, as `binn init` detects one: its executable on PATH, or its user directory. Null when it is not. */
-export function detected({ executable, userDirectory }: { executable: string; userDirectory: string }): string | null {
-  if (onPath(executable)) return `${executable} is on PATH`;
-  if (existsSync(userDirectory)) return `${userDirectory} exists`;
+/** Why a harness is taken as installed, as `binn init` detects one, in `language`: its executable on PATH, or its user directory. Null when it is not. */
+export function detected({ executable, userDirectory }: { executable: string; userDirectory: string }, language: Language = 'en'): string | null {
+  if (onPath(executable)) return language === 'ru' ? `${executable} есть в PATH` : `${executable} is on PATH`;
+  if (existsSync(userDirectory)) return language === 'ru' ? `${userDirectory} существует` : `${userDirectory} exists`;
   return null;
 }
 

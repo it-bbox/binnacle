@@ -32,16 +32,17 @@ import { EXIT, type ExitCode } from './exit.ts';
 import { daemonAddress, detected, exporters, NO_EXPORT, settingsText } from './export.ts';
 import { isRecord, sessionHistory } from './history.ts';
 import { agentSkillsBlock, agentsFile, AGENT_SKILLS_HEADING, conventionFiles, ticketHeaderSection } from './conventions.ts';
-import { describeSets, hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, mattPocockFiles, ROADMAP_SKELETON, roadmapGaps } from './layout.ts';
-import { parseLanguage, proposeLanguage } from './language.ts';
+import { hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, mattPocockFiles, ROADMAP_SKELETON, roadmapGaps } from './layout.ts';
+import { INIT_TEXT, type InitText, type Next, type NoClaude, type Outcome } from './init-text.ts';
+import { LANGUAGE, parseLanguage, proposeLanguage } from './language.ts';
 import { register } from './project-commands.ts';
+import { say, TEXT } from './text.ts';
 import { binnacleSkills, CONFIG_HOME, declaredCapabilities, INSTALLED_SKILLS, mcpSources, onPath, PACKAGE_DIR, registeredWith, SKILLS_COPY, tilde, TOOLS, VSCODE_USER_DIRECTORY, type Tool } from './tools.ts';
-
-type Outcome = 'created' | 'extended' | 'updated' | 'printed' | 'ran' | 'found' | 'checked' | 'failed' | 'declined' | 'skipped' | 'warned';
 
 /** One write the plan proposes: shown in full before the one question, applied only after a yes. */
 type PlanItem = {
-  heading: string;
+  /** In English for `--plan --json` and the plan's id, in the person's language when shown. */
+  heading(w: InitText): string;
   body: string;
   /** What the Summary says when the plan is not confirmed. */
   declined: string;
@@ -54,10 +55,16 @@ type Session = {
   /** The next line of input after `prompt`, or null at the end of input. */
   answer(prompt: string): Promise<string | null>;
   say(text: string): void;
+  /** The language init speaks: the person's, or English for `--plan --json`, which the chat words. */
+  speaks: Language;
+  w: InitText;
   plan: PlanItem[];
   outcomes: { outcome: Outcome; what: string }[];
   /** The harnesses other than Claude Code that were detected: the Summary says how to continue in each. */
   otherHarnesses: Harness[];
+  claudeCode: boolean;
+  /** The command the Summary opens with, once a step has decided it; otherwise Binnacle's own skill. */
+  next: Next | null;
   /** Once `skills add` ran: the harnesses it said it installed Binnacle's skills into, Claude Code apart, and the `--skip-harness` ids the removal named. */
   skills: { into: string[]; skipped: string[] } | null;
   /** Only the plan is worked out, for `--plan --json`: nothing is asked, and what is said is kept as notes. */
@@ -94,13 +101,15 @@ export async function init(
     skipHarness?: string[];
   } = {},
 ): Promise<ExitCode> {
+  const planOnly = options.plan === true;
+  const speaks = planOnly ? 'en' : LANGUAGE;
+  const w = INIT_TEXT[speaks];
   const git = await readGitFacts(resolve(path ?? process.cwd()), resolveGitTimeout());
   if (!git.available) {
-    console.error(`binn: ${git.reason} binn init works at the root of a Git repository.`);
+    console.error(`binn: ${w.notGit(say({ code: git.code, message: git.reason, params: git.params }, speaks))}`);
     return EXIT.failed;
   }
 
-  const planOnly = options.plan === true;
   const { apply } = options;
   // Only the interactive form asks: the window, the language, autostart, then the plan.
   const asks = !planOnly && apply === undefined;
@@ -121,9 +130,13 @@ export async function init(
     answer,
     // A note keeps its first line's indentation, as in a printed entry; only blank lines around it go.
     say: planOnly ? (text) => void (text.trim() && notes.push(text.replace(/^\s*\n|\s+$/g, ''))) : (text) => console.log(text),
+    speaks,
+    w,
     plan: [],
     outcomes: [],
     otherHarnesses: [],
+    claudeCode: false,
+    next: null,
     skills: null,
     planOnly,
     history: [],
@@ -133,7 +146,7 @@ export async function init(
   };
 
   try {
-    if (asks) session.say(`Setting up Binnacle in ${session.root}. Nothing is written until you have seen the whole plan and confirmed it.\n`);
+    if (asks) session.say(w.setUp(session.root));
     const manifest = manifestStep(session);
     session.say('');
     // `--plan` and `--apply` ask nothing: without --window, the default, as Enter at the question gives it.
@@ -144,7 +157,7 @@ export async function init(
     const autostartWanted = await autostartStep(session, home, options.autostart, asks, process.stdin.isTTY === true);
     // Read before the manifest is proposed, which declares what is found or installed; planned after the other writes.
     const plugins = listClaudePlugins(session);
-    const tools = detectTools(session.root, plugins);
+    const tools = detectTools(session, plugins);
     const toDeclare = tools.filter(({ state }) => state === 'found' || state === 'install').map(({ tool }) => tool.name);
     if (manifest === 'new') planFile(session, MANIFEST_RELATIVE, proposeManifest(session.root, git.remotes, toDeclare, language) + (windowSection ? `\n${windowSection}` : ''));
     session.say('');
@@ -183,16 +196,16 @@ export async function init(
     if (autostartWanted) planAutostart(session, home);
     if (planOnly) {
       const { root, history, window, language, autostart } = session;
-      const plan = session.plan.map(({ heading, body }) => ({ heading, body }));
+      const plan = english(session.plan);
       console.log(JSON.stringify({ root, id: planId(root, plan), plan, notes, history, window, language, autostart }, null, 2));
       return EXIT.ok;
     }
     // The same plan shown has the same id; a change to a file that leaves every item as shown is left to ADR-0026's guards.
-    if (apply !== undefined && apply !== planId(session.root, session.plan)) {
-      console.error('binn: init.plan_changed: the plan is not the one confirmed, so nothing is written. Run binn init --plan --json to see it, and confirm it again.');
+    if (apply !== undefined && apply !== planId(session.root, english(session.plan))) {
+      console.error(`binn: ${w.planChanged}`);
       return EXIT.failed;
     }
-    if (session.plan.length === 0) session.say('There is nothing to write.');
+    if (session.plan.length === 0) session.say(w.nothingToWrite);
     else if (apply === undefined) await confirmPlan(session, process.stdin.isTTY === true);
     else await applyPlan(session);
     session.say('');
@@ -204,53 +217,71 @@ export async function init(
     lines?.close();
   }
 
-  session.say('Summary:');
-  for (const { outcome, what } of session.outcomes) session.say(`  ${outcome.padEnd(8)}  ${what}`);
-  session.say('Nothing was committed. Review what binn init wrote, and commit it yourself.');
-  session.say('To see how far this repository is from the way Binnacle works, run `binn audit`. It reads and writes nothing.');
+  // The command to run next first, then what was written, skipped, printed or declined.
+  const next: Next =
+    session.next ?? (session.claudeCode ? { kind: 'claudeCode' } : session.otherHarnesses[0] ? { kind: 'harness', name: session.otherHarnesses[0].name } : { kind: 'audit' });
+  session.say(w.summary);
+  session.say(`${w.next(next, MANIFEST_RELATIVE)}\n\n${NEXT_COMMANDS[next.kind].map((command) => `  ${command}\n`).join('')}`);
+  const width = Math.max(...Object.values(w.outcome).map((label) => label.length));
+  for (const { outcome, what } of session.outcomes) session.say(`  ${w.outcome[outcome].padEnd(width)}  ${what}`);
+  session.say(w.notCommitted);
+  if (next.kind !== 'audit') session.say(w.audit);
   if (session.skills && session.skills.into.length > 0) {
     // The removal names skills CLI ids, the add's output display names: the skipped are named apart rather than matched.
-    const skipped = session.skills.skipped.length > 0 ? `, then removed from ${inSentence(session.skills.skipped)}` : '';
-    session.say(`Binnacle's skills are installed into ${inSentence(session.skills.into)}${skipped}: run \`binnacle-product\` there.`);
+    const { into, skipped } = session.skills;
+    session.say(w.skillsInto(w.inSentence(into), skipped.length > 0 ? w.inSentence(skipped) : null));
   }
   for (const harness of session.otherHarnesses) nextSteps(session, harness);
   return EXIT.ok;
 }
 
+/** The command each kind of next step runs, which the Summary opens with. */
+const NEXT_COMMANDS: Record<Next['kind'], string[]> = {
+  init: ['binn init'],
+  fixManifest: ['binn project register'],
+  startDaemon: ['binn daemon start', 'binn project register'],
+  register: ['binn project register'],
+  claudeCode: ['/binnacle:product'],
+  harness: ['binnacle-product'],
+  audit: ['binn audit'],
+};
+
+/** The plan as `--plan --json` shows it and its id hashes it: English headings whatever the person's language, so that a plan shown in one locale is applied from another. */
+const english = (plan: PlanItem[]): { heading: string; body: string }[] => plan.map(({ heading, body }) => ({ heading: heading(INIT_TEXT.en), body }));
+
 /** A plan's id (ADR-0037): a hash of the repository root and every item's heading and body, in order, so that no state is kept between showing a plan and confirming it. */
-const planId =(root: string, plan: { heading: string; body: string }[]): string =>
+const planId = (root: string, plan: { heading: string; body: string }[]): string =>
   createHash('sha256')
     .update(JSON.stringify([root, ...plan.map(({ heading, body }) => [heading, body])]))
     .digest('hex');
 
 /** What to do next to work from a harness other than Claude Code, which has the plugin: the skills step gave it `binnacle-<action>` skills. */
 function nextSteps(session: Session, harness: Harness): void {
-  const steps = [
-    harness.note,
-    harness.open,
-    harness.offPath && !onPath(harness.executable) ? harness.offPath : undefined,
-    session.skills
-      ? `Run \`binnacle-product\` in ${harness.name}.`
-      : `Once binn init has installed Binnacle's skills, run \`binnacle-product\` in ${harness.name}.`,
-  ].filter((step): step is string => step !== undefined);
-  session.say(`\nTo work from ${harness.name}, once its configuration names binnacle:`);
+  const { w } = session;
+  const { note, open, offPath } = w.harness[harness.executable] ?? {};
+  const steps = [note, open, offPath && !onPath(harness.executable) ? offPath : undefined, session.skills ? w.runProduct(harness.name) : w.onceSkills(harness.name)].filter(
+    (step): step is string => step !== undefined,
+  );
+  session.say(w.toWorkFrom(harness.name));
   steps.forEach((step, index) => session.say(`  ${index + 1}. ${step}`));
 }
 
 /** Shows the plan whole and asks once. Without a terminal there is no one to confirm it, so nothing is written. */
 async function confirmPlan(session: Session, terminal: boolean): Promise<void> {
-  const { plan } = session;
-  session.say('The plan. Nothing is written until you confirm it:\n');
-  plan.forEach(({ heading, body }, index) => session.say(`${index + 1}. ${heading}:\n\n${body.trimEnd()}\n`));
+  const { plan, w } = session;
+  session.say(w.planIntro);
+  plan.forEach(({ heading, body }, index) => session.say(`${index + 1}. ${heading(w)}:\n\n${body.trimEnd()}\n`));
 
   const declineAll = (why: string): void => {
-    session.say(`${why} Nothing is written.`);
+    session.say(w.nothingWritten(why));
     for (const { declined } of plan) record(session, 'declined', declined);
+    // Nothing was written: the next step is init again, at a terminal.
+    session.next = { kind: 'init' };
   };
-  if (!terminal) return declineAll('stdin is not a terminal, so there is no one to confirm the plan.');
-  const reply = await session.answer('Write this plan? [Y/n] ');
+  if (!terminal) return declineAll(w.noTerminal);
+  const reply = await session.answer(w.writePlan);
   // Enter or yes accepts; anything else, and the end of input, declines.
-  if (reply === null || !/^\s*(y(es)?)?\s*$/i.test(reply)) return declineAll('The plan was declined.');
+  if (reply === null || !/^\s*(y(es)?)?\s*$/i.test(reply)) return declineAll(w.planDeclined);
   await applyPlan(session);
 }
 
@@ -261,10 +292,14 @@ async function applyPlan(session: Session): Promise<void> {
     try {
       await item.apply();
     } catch (error) {
-      record(session, 'failed', `${item.declined}: ${error instanceof Error ? error.message : String(error)}`);
+      const why = error instanceof Changed ? session.w.changedSince : session.w.foreign(error instanceof Error ? error.message : String(error));
+      record(session, 'failed', `${item.declined}: ${why}`);
     }
   }
 }
+
+/** A file that changed since the plan showed it, which the Summary words in the person's language. */
+class Changed extends Error {}
 
 /**
  * Where `binn init` plans its writes into the repository, and the rules it writes by
@@ -277,11 +312,12 @@ function planFile(session: Session, relative: string, text: string): void {
   const path = join(session.root, relative);
   const existing = existsSync(path) ? readFileSync(path, 'utf8') : null;
 
+  const { w } = session;
   if (existing === null) {
     session.plan.push({
-      heading: `Create ${relative}`,
+      heading: (words) => words.create(relative),
       body: text,
-      declined: `create ${relative}`,
+      declined: w.createWhat(relative),
       apply() {
         mkdirSync(dirname(path), { recursive: true });
         // `wx`: a file that appeared since it was read is still never overwritten.
@@ -293,18 +329,18 @@ function planFile(session: Session, relative: string, text: string): void {
   }
 
   if (/\.jsonc?$/.test(relative)) {
-    session.say(`${relative} exists, and binn init never rewrites a JSON file. Add this yourself:\n\n${text}`);
-    return record(session, 'printed', `the entry for ${relative}`);
+    session.say(w.jsonExists(relative, text));
+    return record(session, 'printed', w.entryFor(relative));
   }
 
   const addition = existing === '' || existing.endsWith('\n') ? text : `\n${text}`;
   session.plan.push({
-    heading: `Append to the end of ${relative}`,
+    heading: (words) => words.append(relative),
     body: addition,
-    declined: `append to ${relative}`,
+    declined: w.appendWhat(relative),
     apply() {
       // Only the section the human saw: a file that changed since it was read is not extended.
-      if (readFileSync(path, 'utf8') !== existing) throw new Error('the file changed since the plan was shown');
+      if (readFileSync(path, 'utf8') !== existing) throw new Changed();
       appendFileSync(path, addition);
       record(session, 'extended', relative);
     },
@@ -323,22 +359,24 @@ type ManifestState = 'new' | 'valid' | 'invalid';
  * from facts, which the plan shows. Registration needs a usable manifest.
  */
 function manifestStep(session: Session): ManifestState {
+  const { w, speaks } = session;
   try {
     const { warnings } = readManifest(session.root);
-    session.say(`${MANIFEST_RELATIVE} exists and is valid. It is left as it is.`);
-    for (const warning of warnings) session.say(`  ${warning.path}: ${warning.message}`);
-    record(session, 'skipped', `${MANIFEST_RELATIVE}: it exists`);
+    session.say(w.manifestValid(MANIFEST_RELATIVE));
+    for (const warning of warnings) session.say(`  ${warning.path}: ${say(warning, speaks)}`);
+    record(session, 'skipped', w.manifestExists(MANIFEST_RELATIVE));
     return 'valid';
   } catch (error) {
     if (!(error instanceof OperationError)) throw error;
     if (error.code === 'manifest.missing') {
-      session.say(`There is no ${MANIFEST_RELATIVE}. A new one is proposed in the plan.`);
+      session.say(w.manifestMissing(MANIFEST_RELATIVE));
       return 'new';
     }
-    session.say(`${MANIFEST_RELATIVE} exists and has problems. It is left as it is; fix it by hand.`);
-    session.say(`  ${error.code}: ${error.message}`);
-    for (const detail of error.details ?? []) session.say(`  ${detail.path}: ${detail.message}`);
-    record(session, 'skipped', `${MANIFEST_RELATIVE}: it exists, with problems`);
+    session.say(w.manifestProblems(MANIFEST_RELATIVE));
+    // `--plan --json`'s notes keep the code for the chat, which words it; a person reads the sentence.
+    session.say(`  ${session.planOnly ? `${error.code}: ${error.message}` : say(error, speaks)}`);
+    for (const detail of error.details ?? []) session.say(`  ${detail.path}: ${say(detail, speaks)}`);
+    record(session, 'skipped', w.manifestWithProblems(MANIFEST_RELATIVE));
     return 'invalid';
   }
 }
@@ -381,50 +419,44 @@ const scalar = (value: string): string =>
  * default and declares nothing. A `given` window is taken as the answer, and nothing is asked.
  */
 async function windowStep(session: Session, manifest: ManifestState, given: ImportWindow | undefined): Promise<string | null> {
-  const what = 'import window';
+  const { w } = session;
+  const what = w.window;
   const history = await sessionHistory(session.root);
   session.history = history.map(({ name, sessions, oldest }) => ({ harness: name, sessions, oldest: sessions === 0 ? null : localDate(oldest) }));
   // `--plan --json` carries the history as its own field, not as notes.
   if (!session.planOnly) {
-    session.say('Session history in this repository, which Binnacle imports for its usage figures:');
-    for (const { harness, sessions, oldest } of session.history) {
-      session.say(`  ${harness}: ${sessions === 0 ? 'no sessions' : `${sessions} session${sessions === 1 ? '' : 's'}, the oldest from ${oldest}`}`);
-    }
+    session.say(w.history);
+    for (const { harness, sessions, oldest } of session.history) session.say(`  ${harness}: ${w.sessions(sessions, oldest)}`);
   }
 
   const declared = manifest === 'valid' ? (declaredManifest(session.root)?.telemetry.import.windowDays ?? null) : null;
   if (declared !== null) {
     session.window = { days: declared, declared: true, default: declared === DEFAULT_WINDOW_DAYS };
-    session.say(`${MANIFEST_RELATIVE} declares telemetry.import.window_days: ${declared}. It is left as it is.`);
-    record(session, 'skipped', `${what}: ${MANIFEST_RELATIVE} declares ${declared}`);
+    session.say(w.windowDeclared(MANIFEST_RELATIVE, declared));
+    record(session, 'skipped', `${what}: ${w.windowDeclaredWhat(MANIFEST_RELATIVE, declared)}`);
     return null;
   }
 
   let window = given ?? null;
   if (window === null) {
-    session.say(
-      `How much of it should Binnacle import? ${DEFAULT_WINDOW_DAYS} days (the default), another number of days, or all. ` +
-        (manifest === 'new'
-          ? `The answer goes into the new ${MANIFEST_RELATIVE} in the plan, as telemetry.import.window_days.`
-          : `${MANIFEST_RELATIVE} exists, so the line to add is printed and nothing is written.`),
-    );
+    session.say(w.windowAsk(DEFAULT_WINDOW_DAYS, MANIFEST_RELATIVE, manifest === 'new'));
     do {
-      const answer = await session.answer(`Import window [${DEFAULT_WINDOW_DAYS}]: `);
+      const answer = await session.answer(w.windowPrompt(DEFAULT_WINDOW_DAYS));
       if (answer === null) {
-        session.say(`No answer: Binnacle imports the default of ${DEFAULT_WINDOW_DAYS} days, and the manifest declares none.`);
-        record(session, 'skipped', `${what}: no answer, so the default of ${DEFAULT_WINDOW_DAYS} days applies`);
+        session.say(w.windowNoAnswer(DEFAULT_WINDOW_DAYS));
+        record(session, 'skipped', `${what}: ${w.windowNoAnswerWhat(DEFAULT_WINDOW_DAYS)}`);
         return null;
       }
       window = importWindow(answer);
-      if (window === null) session.say(`Answer ${DEFAULT_WINDOW_DAYS}, a number of days, or all.`);
+      if (window === null) session.say(w.windowAgain(DEFAULT_WINDOW_DAYS));
     } while (window === null);
   }
   session.window = { days: window, declared: false, default: window === DEFAULT_WINDOW_DAYS };
 
   const section = `telemetry:\n  import:\n    window_days: ${window}\n`;
   if (manifest === 'new') return section;
-  session.say(`Add this to ${MANIFEST_RELATIVE} yourself:\n\n${section}`);
-  record(session, 'printed', `the telemetry.import.window_days line for ${MANIFEST_RELATIVE}`);
+  session.say(w.addYourself(MANIFEST_RELATIVE, section));
+  record(session, 'printed', w.windowLine(MANIFEST_RELATIVE));
   return null;
 }
 
@@ -436,29 +468,24 @@ async function windowStep(session: Session, manifest: ManifestState, given: Impo
  * `given` language is taken as the answer, and the forms that ask nothing take the proposal.
  */
 async function languageStep(session: Session, manifest: ManifestState, given: Language | undefined, asks: boolean): Promise<Language> {
+  const { w } = session;
   const { language: proposal, source } = proposeLanguage(session.root);
   const declared = manifest === 'valid' ? declaredLanguage(session.root) : null;
   if (declared !== null) {
     session.language = { value: declared, proposal, source, declared: true };
-    session.say(`${MANIFEST_RELATIVE} declares knowledge.language. It is left as it is.\n`);
-    record(session, 'skipped', `documentation language: ${MANIFEST_RELATIVE} declares it`);
+    session.say(w.languageDeclared(MANIFEST_RELATIVE));
+    record(session, 'skipped', w.languageDeclaredWhat(MANIFEST_RELATIVE));
     return declared;
   }
 
   let language = given ?? (asks ? null : proposal);
   if (language === null) {
-    const from = source === 'readme' ? 'README.md' : 'your locale, as there is no README.md';
-    session.say(
-      `Binnacle proposes ${proposal} as this repository's documentation language, from ${from}. Answer en or ru. ` +
-        (manifest === 'new'
-          ? `The answer goes into the new ${MANIFEST_RELATIVE} in the plan, as knowledge.language.`
-          : `${MANIFEST_RELATIVE} exists, so the line to add is printed when the answer is not en, and nothing is written.`),
-    );
+    session.say(w.languageAsk(proposal, source === 'readme', MANIFEST_RELATIVE, manifest === 'new'));
     do {
-      const answer = await session.answer(`Documentation language [${proposal}]: `);
+      const answer = await session.answer(w.languagePrompt(proposal));
       // The end of input takes the proposal, as Enter does.
       language = answer === null || answer.trim() === '' ? proposal : parseLanguage(answer);
-      if (language === null) session.say('Answer en or ru.');
+      if (language === null) session.say(w.languageAgain);
     } while (language === null);
     session.say('');
   }
@@ -466,8 +493,8 @@ async function languageStep(session: Session, manifest: ManifestState, given: La
 
   // A manifest without the field already reads as English, so only another answer is worth a line.
   if (manifest !== 'new' && language !== 'en') {
-    session.say(`Add this to ${MANIFEST_RELATIVE} yourself, in its knowledge section:\n\nknowledge:\n  language: ${language}\n`);
-    record(session, 'printed', `the knowledge.language line for ${MANIFEST_RELATIVE}`);
+    session.say(w.languageAdd(MANIFEST_RELATIVE, language));
+    record(session, 'printed', w.languageLine(MANIFEST_RELATIVE));
   }
   return language;
 }
@@ -488,38 +515,33 @@ const AUTOSTART_ON = '`binn daemon autostart on`';
  * and nothing is installed: the Summary names the command instead.
  */
 async function autostartStep(session: Session, home: string, given: boolean | undefined, asks: boolean, terminal: boolean): Promise<boolean> {
+  const { w } = session;
   const skip = (said: string, why: string): false => {
     session.say(said);
-    record(session, 'skipped', `autostart: ${why}`);
+    record(session, 'skipped', `${w.autostart}: ${why}`);
     return false;
   };
   let reason: string | null;
   try {
     const current = readAutostart(home);
-    if (current.state === 'on') return skip(`The daemon already starts at login for ${home}.`, `it is on for ${home}`);
-    if (current.state === 'broken') {
-      return skip(
-        `Autostart is broken for ${home}: ${current.missing.join(' and ')} no longer exists. Repair it with ${AUTOSTART_ON}.`,
-        `broken, ${AUTOSTART_ON} repairs it`,
-      );
-    }
-    reason = autostartUnavailable(current);
+    if (current.state === 'on') return skip(w.autostartOn(home), w.autostartOnWhat(home));
+    if (current.state === 'broken') return skip(w.autostartBroken(home, current.missing, AUTOSTART_ON), w.autostartBrokenWhat(AUTOSTART_ON));
+    reason = autostartUnavailable(current, TEXT[session.speaks]);
   } catch (error) {
-    reason = (error as Error).message;
+    reason = w.foreign((error as Error).message);
   }
-  if (reason !== null) return skip(`Autostart is not available here: ${reason}.`, `not available here, ${reason}`);
+  if (reason !== null) return skip(w.autostartUnavailable(reason), w.autostartUnavailableWhat(reason));
   session.autostart = { ask: true };
-  const later = `${AUTOSTART_ON} turns it on later`;
   let yes = given;
   if (yes === undefined) {
-    if (!asks) return skip(`This form of binn init asks nothing, so the daemon is not set to start at login: ${later}.`, `not asked, ${later}`);
-    if (!terminal) return skip(`With no terminal to ask, the daemon is not set to start at login: ${later}.`, `no terminal to ask, ${later}`);
-    const reply = await session.answer('Start the daemon at login? [Y/n] ');
+    if (!asks) return skip(w.asksNothing(AUTOSTART_ON), w.asksNothingWhat(AUTOSTART_ON));
+    if (!terminal) return skip(w.noTerminalAutostart(AUTOSTART_ON), w.noTerminalAutostartWhat(AUTOSTART_ON));
+    const reply = await session.answer(w.autostartPrompt);
     // Enter or yes accepts, as the plan's question does; anything else, and the end of input, declines.
     yes = reply !== null && /^\s*(y(es)?)?\s*$/i.test(reply);
   }
-  if (!yes) return skip(`The daemon is not set to start at login: ${later}.`, `declined, ${later}`);
-  session.say('Turning autostart on is in the plan, as its last item.');
+  if (!yes) return skip(w.autostartDeclined(AUTOSTART_ON), w.autostartDeclinedWhat(AUTOSTART_ON));
+  session.say(w.autostartInPlan);
   return true;
 }
 
@@ -535,14 +557,16 @@ function autostartIsOn(home: string): boolean {
 /** The plan's item for a yes to the autostart question: `binn daemon autostart on`, as the command runs it. */
 function planAutostart(session: Session, home: string): void {
   session.plan.push({
-    heading: `Start the Binnacle daemon at login, and again when it fails, through this user's service manager, for ${home}, outside the repository, by running`,
+    heading: (w) => w.autostartHeading(home),
     body: '  binn daemon autostart on',
-    declined: `autostart: ${AUTOSTART_ON} turns it on later`,
+    declined: session.w.autostartLater(AUTOSTART_ON),
     async apply() {
       // Its warnings, such as a tracker token the service will not see, go to the Summary.
       const warnings: string[] = [];
       const code = await autostart(home, 'on', { warn: (text) => warnings.push(text), root: session.root });
       record(session, code === EXIT.ok ? 'ran' : 'failed', 'binn daemon autostart on');
+      // The service started the daemon that registration waited for: only the registration is left.
+      if (code === EXIT.ok && session.next?.kind === 'startDaemon') session.next = { kind: 'register' };
       for (const warning of warnings) record(session, 'warned', warning);
     },
   });
@@ -562,25 +586,28 @@ const localDate = (time: number): string => new Date(time).toLocaleDateString('e
 
 /** Step 3: registration through `project.register`, a write outside the repository, so it is in the plan too. */
 function registrationStep(session: Session, home: string, manifestUsable: boolean): void {
-  const what = 'project registration';
+  const { w } = session;
+  const what = w.registration;
   if (!manifestUsable) {
-    session.say(`There is no usable ${MANIFEST_RELATIVE}, so the project is not registered. Once there is, run \`binn project register\` from ${session.root}.`);
-    return record(session, 'skipped', `${what}: no usable manifest`);
+    session.say(w.noUsableManifest(MANIFEST_RELATIVE, session.root));
+    session.next = { kind: 'fixManifest' };
+    return record(session, 'skipped', `${what}: ${w.noUsableManifestWhat}`);
   }
 
   const runtime = readRuntime(home);
   if (!runtime || !isAlive(runtime.pid)) {
-    session.say(`The Binnacle daemon is not running, so the project is not registered. From ${session.root}, run:\n\n  binn daemon start\n  binn project register`);
-    return record(session, 'skipped', `${what}: the daemon is not running`);
+    session.say(w.daemonNotRunning(session.root));
+    session.next = { kind: 'startDaemon' };
+    return record(session, 'skipped', `${what}: ${w.daemonNotRunningWhat}`);
   }
 
   session.plan.push({
-    heading: 'Register the project with the running Binnacle daemon, outside the repository',
-    body: `  binn project register   (project.register, for ${session.root})`,
+    heading: (words) => words.registerHeading,
+    body: `  binn project register ${quoted(session.root)}`,
     declined: what,
     async apply() {
       const code = await register(home, session.root);
-      record(session, code === EXIT.ok ? 'ran' : 'failed', 'project.register');
+      record(session, code === EXIT.ok ? 'ran' : 'failed', 'binn project register');
     },
   });
 }
@@ -604,15 +631,10 @@ type Harness = {
    * The harness's own CLI call that registers the stdio server `name` outside the repository,
    * at user scope or for this project only, as the harness's docs give it (read through
    * Context7 on 2026-10-02), run in the project root; null where it has no such scope.
-   * Absent where it has no CLI for adding a server.
+   * Absent where it has no CLI for adding a server. What is said of it, its note before the
+   * entry and its next steps in the Summary, is `binn init`'s text, by its executable.
    */
   add?(name: string, command: string[], scope: 'user' | 'project'): string[] | null;
-  /** Said before the entry is offered. */
-  note?: string;
-  /** How to start the harness in the project, for the Summary's next step. */
-  open?: string;
-  /** Said in the next step when `executable` is not on PATH. */
-  offPath?: string;
 };
 
 const json = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
@@ -631,7 +653,6 @@ const HARNESSES: Harness[] = [
     files: ['.mcp.json'],
     entry: (name, command) => json({ mcpServers: { [name]: stdio(command) } }),
     add: (name, command, scope) => ['claude', 'mcp', 'add', '--scope', scope === 'user' ? 'user' : 'local', name, '--', ...command],
-    note: "Claude Code reads .mcp.json only when a session starts: once it is written, open a new session in the repository and approve the project's binnacle server when Claude Code offers it.",
   },
   {
     name: 'Codex',
@@ -642,9 +663,6 @@ const HARNESSES: Harness[] = [
     entry: (name, [command, ...args]) => `[mcp_servers.${name}]\ncommand = ${JSON.stringify(command)}\nargs = ${JSON.stringify(args)}\n`,
     // Its only scope outside the repository is the user's config.toml.
     add: (name, command, scope) => (scope === 'user' ? ['codex', 'mcp', 'add', name, '--', ...command] : null),
-    note: 'Codex reads .codex/config.toml only in a trusted project: trust this project in Codex for the entry to take effect.',
-    open: 'Run `codex` in the repository root, or open the repository in the Codex desktop app.',
-    offPath: '`codex` is not on PATH. The Codex desktop app ships its CLI outside it; on Linux it is /usr/lib/chatgpt/resources/codex.',
   },
   {
     name: 'opencode',
@@ -653,7 +671,6 @@ const HARNESSES: Harness[] = [
     files: ['opencode.json', 'opencode.jsonc'],
     entry: (name, command) => json({ $schema: 'https://opencode.ai/config.json', mcp: { [name]: { type: 'local', command } } }),
     // No `add`: its documented `opencode mcp add` is an interactive wizard.
-    open: 'Run `opencode` in the repository root.',
   },
   {
     name: 'VS Code',
@@ -663,33 +680,33 @@ const HARNESSES: Harness[] = [
     entry: (name, command) => json({ servers: { [name]: stdio(command) } }),
     // `--add-mcp` adds to the user profile; its only per-project place is .vscode/mcp.json, in the repository.
     add: (name, [command, ...args], scope) => (scope === 'user' ? ['code', '--add-mcp', JSON.stringify({ name, command, args })] : null),
-    open: 'Open the repository in VS Code, start the binnacle server listed in .vscode/mcp.json and chat in agent mode.',
   },
 ];
 
 /** Step 4: the MCP registration for each detected harness, then a generic snippet for any other. Returns the detected harnesses. */
 function harnessStep(session: Session): Harness[] {
-  const found = HARNESSES.map((harness) => ({ harness, reason: detected(harness) })).filter(({ reason }) => reason !== null);
-  if (found.length === 0) session.say(`No known harness is installed (${HARNESSES.map(({ name }) => name).join(', ')}).\n`);
+  const { w, speaks } = session;
+  const found = HARNESSES.map((harness) => ({ harness, reason: detected(harness, speaks) })).filter(({ reason }) => reason !== null);
+  if (found.length === 0) session.say(w.noHarness(HARNESSES.map(({ name }) => name).join(', ')));
 
   for (const { harness, reason } of found) {
     const file = harness.files.find((candidate) => existsSync(join(session.root, candidate))) ?? harness.files[0]!;
-    if (harness.executable !== 'claude') session.otherHarnesses.push(harness);
-    session.say(`${harness.name} is installed (${reason}). It reads this project's MCP servers from ${file}.`);
+    if (harness.executable === 'claude') session.claudeCode = true;
+    else session.otherHarnesses.push(harness);
+    session.say(w.harnessInstalled(harness.name, reason!, file));
     const path = join(session.root, file);
     if (existsSync(path) && namesBinnacle(readFileSync(path, 'utf8'))) {
-      session.say(`${file} already names binnacle. It is left as it is.`);
-      record(session, 'skipped', `${file}: it already names binnacle`);
+      session.say(w.namesBinnacle(file));
+      record(session, 'skipped', w.namesBinnacleWhat(file));
     } else {
-      if (harness.note) session.say(harness.note);
+      const { note } = w.harness[harness.executable] ?? {};
+      if (note) session.say(note);
       planFile(session, file, harness.entry('binnacle', BINNACLE));
     }
     session.say('');
   }
 
-  session.say(
-    `For any other harness that speaks MCP, register a stdio server named binnacle that runs \`binn mcp\`, for example:\n\n${json({ mcpServers: { binnacle: stdio(BINNACLE) } }).trimEnd()}`,
-  );
+  session.say(w.generic(json({ mcpServers: { binnacle: stdio(BINNACLE) } }).trimEnd()));
   return found.map(({ harness }) => harness);
 }
 
@@ -709,24 +726,25 @@ const namesBinnacle = (text: string): boolean =>
  * the plugins are never written into Claude Code's settings files by hand.
  */
 function pluginStep(session: Session, plugins: ClaudePlugins): void {
-  const what = 'the binnacle plugin';
+  const { w } = session;
+  const what = w.plugin;
   // A skills-directory plugin loads as `<directory>@skills-dir` (ADR-0023): a user-scope copy would show every skill twice.
   const own = join('.claude', 'skills', 'binnacle');
   if (existsSync(join(session.root, own, '.claude-plugin', 'plugin.json'))) {
-    session.say(`The project provides its own binnacle plugin, at ${own}, so no copy is installed.`);
-    return record(session, 'skipped', `${what}: the project provides its own, at ${own}`);
+    session.say(w.ownPlugin(own));
+    return record(session, 'skipped', `${what}: ${w.ownPluginWhat(own)}`);
   }
   if ('reason' in plugins) {
-    session.say(`${plugins.reason}, so the binnacle plugin is not installed.`);
-    return record(session, 'skipped', `${what}: ${plugins.reason}`);
+    session.say(w.noPlugin(w.noClaude[plugins.reason]));
+    return record(session, 'skipped', `${what}: ${w.noClaude[plugins.reason]}`);
   }
   const listed = listedAs(plugins.ids, 'binnacle@binnacle');
   if (listed) {
-    session.say(`Claude Code already lists ${listed}. It is left as it is.`);
-    return record(session, 'skipped', `${what}: Claude Code already lists ${listed}`);
+    session.say(w.pluginListed(listed));
+    return record(session, 'skipped', `${what}: ${w.pluginListedWhat(listed)}`);
   }
 
-  planClaude(session, 'Install the binnacle plugin from this Binnacle package, at user scope, outside the repository, by running', what, [
+  planClaude(session, (words) => words.pluginHeading, what, [
     ['plugin', 'marketplace', 'add', PACKAGE_DIR, '--scope', 'user'],
     ['plugin', 'install', 'binnacle@binnacle', '--scope', 'user'],
   ]);
@@ -742,17 +760,16 @@ function pluginStep(session: Session, plugins: ClaudePlugins): void {
  * next still runs. An add is read by what it installed, not by its exit status alone.
  */
 function skillsStep(session: Session, harnesses: Harness[], tools: ToolState[], skipHarness: string[]): void {
+  const { w } = session;
   const sets: SkillSet[] = [
-    { what: "Binnacle's skills", claudeCodeHas: 'the binnacle plugin', source: SKILLS_COPY, skills: readdirSync(SKILLS_COPY).sort() },
+    { what: w.binnacleSkills, claudeCodeHas: w.binnaclePlugin, source: SKILLS_COPY, skills: readdirSync(SKILLS_COPY).sort() },
     ...tools.flatMap(({ tool: { title, plugin }, state }) =>
-      plugin && state !== 'declared-false' ? [{ what: title, claudeCodeHas: 'its plugin', source: plugin.source, skills: null }] : [],
+      plugin && state !== 'declared-false' ? [{ what: title, claudeCodeHas: w.itsPlugin, source: plugin.source, skills: null }] : [],
     ),
   ];
   if (harnesses.length === 0) {
-    session.say(
-      `No harness is detected, so ${inSentence(sets.map(({ what }) => what))} are not installed: the skills CLI would install into every harness it knows. Install a harness, then run binn init again.`,
-    );
-    for (const { what } of sets) record(session, 'skipped', `${what}: no harness is detected`);
+    session.say(w.skillsNoHarness(w.inSentence(sets.map(({ what }) => what))));
+    for (const { what } of sets) record(session, 'skipped', `${what}: ${w.noHarnessWhat}`);
     return;
   }
   for (const set of sets) planSkillSet(session, set, skipHarness);
@@ -766,6 +783,7 @@ function skillsStep(session: Session, harnesses: Harness[], tools: ToolState[], 
 type SkillSet = { what: string; claudeCodeHas: string; source: string; skills: string[] | null };
 
 function planSkillSet(session: Session, { what, claudeCodeHas, source, skills }: SkillSet, skipHarness: string[]): void {
+  const { w } = session;
   const binnacle = skills !== null;
   const add = ['skills', 'add', source, '-g', '-y', '--json'];
   const fromClaudeCode = ['skills', 'remove', '-g', '-a', 'claude-code', ...skipHarness];
@@ -774,29 +792,30 @@ function planSkillSet(session: Session, { what, claudeCodeHas, source, skills }:
   const body = `  ${shownSkills(add)}\n  ${shownRemoval}`;
   // Binnacle's set alone is versioned by Binnacle (spec, *Freshness*): a current one is installed again all the same, for a harness installed since.
   const installed = binnacle ? binnacleSkills() : null;
-  const where = `${what} in ${tilde(INSTALLED_SKILLS)}`;
+  const where = tilde(INSTALLED_SKILLS);
   if (installed?.state === 'current') {
-    session.say(`${where} are current. The plan installs them again, so that a harness installed since they were gets them.`);
-    record(session, 'found', `${what}: current`);
-  } else if (installed?.state === 'stale') session.say(`${where} are stale: ${installed.reason}. The plan installs them again.`);
+    session.say(w.skillsCurrent(what, where));
+    record(session, 'found', `${what}: ${w.current}`);
+  } else if (installed?.state === 'stale') session.say(w.skillsStale(what, where, installed));
   if (!onPath('npx')) {
-    session.say(`\`npx\` is not on PATH, so binn init does not install ${what}. Once it is, run:\n\n${body}\n`);
-    return record(session, 'printed', `${what}: \`npx\` is not on PATH`);
+    session.say(w.noNpx(what, body));
+    return record(session, 'printed', `${what}: ${w.noNpxWhat}`);
   }
+  // The heading's names are its words' own: a set named in English is named so in the heading the id hashes.
+  const named = (words: InitText): { what: string; has: string } =>
+    binnacle ? { what: words.binnacleSkills, has: words.binnaclePlugin } : { what, has: words.itsPlugin };
   session.plan.push({
-    heading:
-      `Install ${what}${binnacle ? '' : ` from ${source}`} into every harness the skills CLI detects, at user scope, outside the repository, then remove them from Claude Code, which has ${claudeCodeHas}` +
-      `${skipHarness.length > 0 ? `, and from ${inSentence(skipHarness)}` : ''}, by running`,
+    heading: (words) => words.skillsHeading(named(words).what, binnacle ? null : source, named(words).has, skipHarness.length > 0 ? words.inSentence(skipHarness) : null),
     body,
-    declined: binnacle ? `install ${what}` : `install ${what} into every harness`,
+    declined: binnacle ? w.install(what) : w.installEverywhere(what),
     apply() {
       const added = addSkills(session, what, add);
       if (binnacle && added) session.skills = { into: added.into, skipped: skipHarness };
       const names = skills ?? added?.names ?? [];
       if (names.length === 0) {
-        const why = added ? 'its add named no skills it installed' : 'its add failed';
-        session.say(`${what} are not removed from Claude Code: ${why}.`);
-        return record(session, 'skipped', `removing ${what} from Claude Code: ${why}`);
+        const why = added ? w.addNamedNone : w.addFailed;
+        session.say(w.notRemoved(what, why));
+        return record(session, 'skipped', w.notRemovedWhat(what, why));
       }
       runSkills(session, removal(names));
     },
@@ -807,7 +826,7 @@ const shownSkills = (args: string[]): string => `npx ${args.map(quoted).join(' '
 
 /** Runs one `skills` CLI call through `npx`, said before it runs; its status and output. */
 function spawnSkills(session: Session, args: string[]): { status: number | null; stdout: string; stderr: string } {
-  session.say(`Running ${shownSkills(args)}...`);
+  session.say(session.w.running(shownSkills(args)));
   // ponytail: no shell, so a --skip-harness id and the package's path pass as they are; Windows' `npx.cmd` would need one, as in the servers step.
   const run = spawnSync('npx', args, { cwd: session.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   return { status: run.status, stdout: run.stdout ?? '', stderr: run.stderr ?? '' };
@@ -816,7 +835,7 @@ function spawnSkills(session: Session, args: string[]): { status: number | null;
 /** A failed `skills` call, reported with its output and recorded. */
 function skillsFailed(session: Session, args: string[], { stdout, stderr }: { stdout: string; stderr: string }): void {
   const output = `${stdout}${stderr}`.trim();
-  session.say(`${shownSkills(args)} failed${output ? `:\n${output}` : '.'}`);
+  session.say(session.w.commandFailed(shownSkills(args), output));
   record(session, 'failed', shownSkills(args));
 }
 
@@ -865,8 +884,8 @@ function addSkills(session: Session, what: string, args: string[]): { into: stri
   }
   record(session, 'ran', shownSkills(args));
   const reasons = [...new Set(report.flatMap(({ status, error }) => (status === 'failed' && typeof error === 'string' ? [error] : [])))];
-  session.say(`${shownSkills(args)} installed ${what}, but not into every harness:\n${reasons.join('\n')}`);
-  for (const reason of reasons) record(session, 'failed', `${what} for a harness: ${reason}`);
+  session.say(session.w.notEveryHarness(shownSkills(args), what, reasons));
+  for (const reason of reasons) record(session, 'failed', session.w.forAHarness(what, reason));
   return {
     into: [...new Set(installed.flatMap(({ agents }) => agents))].filter((agent) => agent !== 'Claude Code'),
     names: installed.filter(({ agents }) => agents.includes('Claude Code')).map(({ name }) => name),
@@ -907,7 +926,7 @@ const installedInto = (output: string): string[] =>
     .filter((name) => name !== '' && name !== 'Claude Code');
 
 /** What Claude Code lists, asked once for every plugin init installs: the plugin ids, or why it could not be asked. */
-type ClaudePlugins = { ids: string[] } | { reason: string };
+type ClaudePlugins = { ids: string[] } | { reason: NoClaude };
 
 const shownClaude = (args: string[]): string => `claude ${args.join(' ')}`;
 
@@ -919,28 +938,28 @@ const listedAs = (ids: string[], id: string): string | undefined => ids.find((li
  * manifest is proposed, which declares what is found. A failed listing is reported here.
  */
 function listClaudePlugins(session: Session): ClaudePlugins {
-  if (!detected(HARNESSES.find(({ executable }) => executable === 'claude')!)) return { reason: 'Claude Code is not detected' };
+  if (!detected(HARNESSES.find(({ executable }) => executable === 'claude')!)) return { reason: 'undetected' };
   const listing = ['plugin', 'list', '--json'];
-  session.say(`Asking Claude Code for its plugins (${shownClaude(listing)})...`);
+  session.say(session.w.asking);
   const list = spawnSync('claude', listing, { cwd: session.root, encoding: 'utf8' });
   // Detected by its user directory alone, Claude Code may have no `claude` to run.
-  if ((list.error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') return { reason: '`claude` is not on PATH' };
+  if ((list.error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') return { reason: 'offPath' };
   const ids = list.status === 0 ? pluginIds(list.stdout) : null;
   if (ids) return { ids };
-  session.say(`\`${shownClaude(listing)}\` failed, so no Claude Code plugin is installed.${list.stderr ? `\n${list.stderr.trim()}` : ''}`);
+  session.say(session.w.listingFailed(list.stderr?.trim() ?? ''));
   record(session, 'failed', shownClaude(listing));
-  return { reason: `\`${shownClaude(listing)}\` failed` };
+  return { reason: 'failed' };
 }
 
 /** A plan item running Claude Code's plugin CLI, outside the repository: each command in turn, stopping at the first that fails. */
-function planClaude(session: Session, heading: string, declined: string, commands: string[][]): void {
+function planClaude(session: Session, heading: PlanItem['heading'], declined: string, commands: string[][]): void {
   session.plan.push({
     heading,
     body: commands.map((args) => `  ${shownClaude(args)}`).join('\n'),
     declined,
     apply() {
       for (const args of commands) {
-        session.say(`Running ${shownClaude(args)}...`);
+        session.say(session.w.running(shownClaude(args)));
         // stdin stays with binn init's own questions; Claude Code's output is shown as it comes.
         const run = spawnSync('claude', args, { cwd: session.root, stdio: ['ignore', 'inherit', 'inherit'] });
         if (run.status !== 0) return record(session, 'failed', shownClaude(args));
@@ -988,27 +1007,28 @@ const declaredLayout = ({ tracker, knowledge }: ProjectManifest): Layout => ({
  * format is left to `binn audit` to explain.
  */
 function layoutStep(session: Session, { issues, docs }: Layout, language: Language): void {
+  const { w } = session;
   if (issues !== null && !existsSync(join(session.root, issues))) {
-    session.say(`The tracker reads tickets from ${issues}/, which does not exist. The plan creates it.`);
+    session.say(w.noIssues(issues));
     planFile(session, posix.join(issues, '.gitkeep'), '');
   }
   if (docs === null) {
-    session.say(`${MANIFEST_RELATIVE} declares no knowledge.docs, so Binnacle reads no roadmap. Declare it to have one.`);
-    return record(session, 'skipped', `the roadmap: ${MANIFEST_RELATIVE} declares no knowledge.docs`);
+    session.say(w.noDocs(MANIFEST_RELATIVE));
+    return record(session, 'skipped', w.noDocsWhat(MANIFEST_RELATIVE));
   }
   const path = posix.join(docs, 'roadmap.md');
   const existing = join(session.root, path);
   if (!existsSync(existing)) {
-    session.say(`There is no roadmap at ${path}. The plan creates a skeleton in Binnacle's format.`);
+    session.say(w.noRoadmap(path));
     return planFile(session, path, ROADMAP_SKELETON[language]);
   }
   const gaps = roadmapGaps(readFileSync(existing, 'utf8'));
   if (gaps.length === 0) {
-    session.say(`${path} is in Binnacle's format. It is left as it is.`);
-    return record(session, 'skipped', `${path}: it exists`);
+    session.say(w.roadmapInFormat(path));
+    return record(session, 'skipped', w.roadmapExists(path));
   }
-  session.say(`${path} is not in Binnacle's format, and binn init never rewrites it. ${gaps.map(({ message }) => message).join(' ')}`);
-  record(session, 'skipped', `${path}: it exists, and is not in Binnacle's format; binn audit names what is missing`);
+  session.say(w.roadmapNotInFormat(path, gaps.map((gap) => say(gap, session.speaks)).join(' ')));
+  record(session, 'skipped', w.roadmapNotInFormatWhat(path));
 }
 
 /**
@@ -1022,16 +1042,17 @@ function layoutStep(session: Session, { issues, docs }: Layout, language: Langua
 function conventionsStep(session: Session, provider: TrackerProvider, language: Language): void {
   const found = mattPocockFiles(session.root);
   const missing = Object.entries(conventionFiles(provider, language)).filter(([path]) => !found.includes(path));
-  if (missing.length > 0) session.say(`The planning skills read their conventions from ${missing.map(([path]) => path).join(', ')}, which the plan creates.`);
+  const { w } = session;
+  if (missing.length > 0) session.say(w.conventions(missing.map(([path]) => path).join(', ')));
   for (const [path, text] of missing) planFile(session, path, text);
   if (found.includes(ISSUE_TRACKER)) {
-    if (hasTicketHeaderSection(session.root)) record(session, 'skipped', `ticket-header section: ${ISSUE_TRACKER} has it`);
+    if (hasTicketHeaderSection(session.root)) record(session, 'skipped', w.ticketHeaderHas(ISSUE_TRACKER));
     else planFile(session, ISSUE_TRACKER, ticketHeaderSection(provider, language));
   }
 
   const files = instructionFiles(session.root);
   const holder = Object.keys(files).find((name) => AGENT_SKILLS_HEADING.test(files[name]!));
-  if (holder) return record(session, 'skipped', `the Agent skills block: ${holder} has it`);
+  if (holder) return record(session, 'skipped', w.agentSkillsHas(holder));
   const target = 'CLAUDE.md' in files && !('AGENTS.md' in files) ? 'CLAUDE.md' : 'AGENTS.md';
   planFile(session, target, target in files ? agentSkillsBlock(provider, language) : agentsFile(provider, language));
 }
@@ -1040,9 +1061,8 @@ function conventionsStep(session: Session, provider: TrackerProvider, language: 
 function instructionsStep(session: Session): void {
   const files = instructionFiles(session.root);
   const sets = instructionSets(files);
-  if (sets.length === 0) return session.say('There is no AGENTS.md or CLAUDE.md, so there are no agent instructions to report.');
-  const count = sets.length === 1 ? 'one instruction set' : 'two instruction sets';
-  session.say(`Agent instructions: ${count}: ${describeSets(sets)}.`);
+  if (sets.length === 0) return session.say(session.w.noInstructions);
+  session.say(session.w.instructions(sets));
 }
 
 /**
@@ -1051,45 +1071,31 @@ function instructionsStep(session: Session): void {
  * never asks for, stores or prints one. `manifest` is the readable manifest, if any.
  */
 async function trackerStep(session: Session, home: string, manifest: ProjectManifest | null): Promise<void> {
-  if (!manifest) return session.say('There is no usable manifest, so no tracker is checked.');
+  const { w } = session;
+  if (!manifest) return session.say(w.noTrackerManifest);
   const { provider, repository, host } = manifest.tracker;
-  if (provider !== 'github' && provider !== 'gitlab') return session.say('The tracker is not a remote one, so there is nothing to check.');
-  const name = repository ?? `the ${provider} tracker`;
+  if (provider !== 'github' && provider !== 'gitlab') return session.say(w.notRemote);
+  const name = repository ?? w.trackerOf(provider);
   const variable = `BINNACLE_${provider.toUpperCase()}_TOKEN`;
   // The check reads binn init's own environment; the daemon reads the one it was started with.
   // A daemon the service manager starts has only the BINNACLE_HOME and PATH its definition carries.
-  const fromShell = !process.env[variable]?.trim()
-    ? ''
-    : autostartIsOn(home)
-      ? `\nThis check used ${variable} from this shell. The daemon starts through the service manager, which does not carry it, so use the credentials file.`
-      : `\nThis check used ${variable} from this shell. The daemon reads it only from the environment it starts with, so start it from a shell that has it, or use the credentials file.`;
+  const fromShell = !process.env[variable]?.trim() ? '' : autostartIsOn(home) ? w.shellService(variable) : w.shell(variable);
 
   // A remote tracker is read from its host, never from the tree.
-  session.say(`Reading ${name}...`);
+  session.say(w.reading(name));
   const reading = await readTracker(home, workingTree(session.root), manifest);
   if (reading.tasks !== null) {
-    session.say(`${name} is readable: ${reading.tasks.length} issues read.${fromShell}`);
-    return record(session, 'checked', 'tracker: readable');
+    session.say(w.readable(name, reading.tasks.length, fromShell));
+    return record(session, 'checked', w.readableWhat);
   }
-  const failure = reading.diagnostics[0]!;
-  record(session, 'failed', `tracker check: ${failure.code}`);
-  session.say(`${name} could not be read. ${failure.code}: ${failure.message}`);
+  const failure = say(reading.diagnostics[0]!, session.speaks);
+  record(session, 'failed', w.unreadableWhat(failure));
+  session.say(w.unreadable(name, failure));
   // Without a repository the fix is in the manifest, not a token.
   if (repository === null) return;
 
-  const how =
-    provider === 'github'
-      ? `On GitHub, create a fine-grained personal access token with read-only access to the issues of ${repository} ` +
-        '(Settings, Developer settings, Personal access tokens, Fine-grained tokens; Repository permissions, Issues: Read-only), ' +
-        "and Actions, Commit statuses and Pull requests: Read-only for the snapshot's CI."
-      : "On GitLab, create a personal, group or project access token with the read_api scope and nothing else (User settings, or the project's Settings, then Access tokens).";
-  session.say(
-    `\n${how} A public repository needs none.\n` +
-      `Put it in ${variable} in the environment the daemon starts with, or in ${credentialsPath(home)} ` +
-      `under the key ${JSON.stringify(credentialsKey(provider, host))}, owner-only (chmod 600). ` +
-      `Generic variables such as ${provider.toUpperCase()}_TOKEN are not read: they commonly hold tokens that can write. ` +
-      `Binnacle's docs/operations/05-installation-checklist.md, under Tracker credentials, has the details.${fromShell}`,
-  );
+  const how = provider === 'github' ? w.githubToken(repository) : w.gitlabToken;
+  session.say(w.tokenWhere(how, variable, credentialsPath(home), JSON.stringify(credentialsKey(provider, host)), `${provider.toUpperCase()}_TOKEN`, fromShell));
 }
 
 /**
@@ -1101,23 +1107,20 @@ async function trackerStep(session: Session, home: string, manifest: ProjectMani
 type ToolState = { tool: Tool; state: 'declared-false' | 'found' | 'no-prerequisite' | 'no-channel' | 'install' | 'server-only'; why?: string };
 
 /** ponytail: PATH and Claude Code's plugin list only, so a tool installed off PATH is proposed again; a per-tool probe if that bites. */
-function detectTools(root: string, plugins: ClaudePlugins): ToolState[] {
+function detectTools({ root, w }: Session, plugins: ClaudePlugins): ToolState[] {
   const declared = declaredCapabilities(root);
   return TOOLS.map((tool): ToolState => {
     if (declared[tool.name] === false) return { tool, state: 'declared-false' };
-    if (tool.executable && onPath(tool.executable)) return { tool, state: 'found', why: `${tool.executable} is on PATH` };
+    if (tool.executable && onPath(tool.executable)) return { tool, state: 'found', why: w.toolOnPath(tool.executable) };
     if (tool.plugin) {
-      if ('reason' in plugins) return { tool, state: 'no-channel', why: `a Claude Code plugin, and ${plugins.reason}` };
+      if ('reason' in plugins) return { tool, state: 'no-channel', why: w.toolNoChannel(w.noClaude[plugins.reason]) };
       const listed = listedAs(plugins.ids, tool.plugin.id);
-      return listed ? { tool, state: 'found', why: `Claude Code lists ${listed}` } : { tool, state: 'install' };
+      return listed ? { tool, state: 'found', why: w.toolListed(listed) } : { tool, state: 'install' };
     }
     if (tool.prerequisite && !onPath(tool.prerequisite.executable)) return { tool, state: 'no-prerequisite' };
     return { tool, state: tool.install ? 'install' : 'server-only' };
   });
 }
-
-/** Names as a sentence lists them: `A`, `A and B`, `A, B and C`. */
-const inSentence = (names: string[]): string => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`);
 
 /**
  * Step 8: the tools of the Standard setup (ADR-0035), installed outside the repository: the
@@ -1128,39 +1131,40 @@ const inSentence = (names: string[]): string => (names.length < 2 ? names.join('
  * that fails leaves the others to run.
  */
 function toolsStep(session: Session, tools: ToolState[]): void {
+  const { w } = session;
   const named = new Set<string>();
   for (const { tool, state, why } of tools) {
     const { title, name, executable, install, prerequisite, plugin } = tool;
     if (state === 'declared-false') {
-      session.say(`${MANIFEST_RELATIVE} declares ${name}: false, so ${title} is not proposed.`);
-      record(session, 'skipped', `${title}: ${MANIFEST_RELATIVE} declares it false`);
+      session.say(w.declaredFalse(MANIFEST_RELATIVE, name, title));
+      record(session, 'skipped', w.declaredFalseWhat(title, MANIFEST_RELATIVE));
     } else if (state === 'found') {
-      session.say(`${title} is installed (${why}). It is left as it is.`);
-      record(session, 'found', `${title}: ${why}`);
+      session.say(w.toolFound(title, why!));
+      record(session, 'found', w.toolWhy(title, why!));
     } else if (state === 'no-channel') {
-      session.say(`${title} is ${why}, so its Claude Code plugin is not installed.`);
-      record(session, 'skipped', `${title}: ${why}`);
+      session.say(w.noChannel(title, why!));
+      record(session, 'skipped', w.toolWhy(title, why!));
     } else if (state === 'install' && plugin) {
-      session.say(`Claude Code does not list ${title}. Its install is in the plan.`);
-      planClaude(session, `Install ${title}'s Claude Code plugin, at user scope, outside the repository, by running`, `install ${title}`, [
+      session.say(w.notListed(title));
+      planClaude(session, (words) => words.pluginInstallHeading(title), w.install(title), [
         ...(plugin.marketplace ? [['plugin', 'marketplace', 'add', plugin.marketplace, '--scope', 'user']] : []),
         ['plugin', 'install', plugin.id, '--scope', 'user'],
       ]);
     } else if (state === 'no-prerequisite') {
       const { executable: needed, how } = prerequisite!;
-      if (!named.has(needed)) session.say(`${needed} is not on PATH, and binn init does not install it. Install it with ${how}, then run binn init again.`);
+      if (!named.has(needed)) session.say(w.noPrerequisite(needed, w.how[needed] ?? how));
       named.add(needed);
-      session.say(`${title} needs ${needed}, so it is not proposed.`);
-      record(session, 'skipped', `${title}: ${needed} is not on PATH`);
+      session.say(w.needs(title, needed));
+      record(session, 'skipped', w.needsWhat(title, needed));
     } else if (state === 'install') {
       const shown = install!.join(' ');
-      session.say(`${title} is not installed (no ${executable} on PATH). Its install is in the plan.`);
+      session.say(w.notInstalled(title, executable));
       session.plan.push({
-        heading: `Install ${title}, outside the repository, by running`,
+        heading: (words) => words.installHeading(title),
         body: `  ${shown}`,
-        declined: `install ${title}`,
+        declined: w.install(title),
         apply() {
-          session.say(`Running ${shown}...`);
+          session.say(w.running(shown));
           // stdin stays with binn init's own questions; the installer's output is shown as it comes.
           // Through the shell, so that Windows runs `npm.cmd`; the command is the table's own, never input.
           const run = spawnSync(shown, { cwd: session.root, shell: true, stdio: ['ignore', 'inherit', 'inherit'] });
@@ -1193,6 +1197,7 @@ const quoted = (arg: string): string => (/^[\w@%+=:,./-]+$/.test(arg) ? arg : `'
  */
 function serversStep(session: Session, tools: ToolState[], harnesses: Harness[]): void {
   if (harnesses.length === 0) return;
+  const { w } = session;
   const served = tools
     .filter(({ tool, state }) => tool.server && state !== 'declared-false' && state !== 'no-prerequisite')
     .map(({ tool }) => tool)
@@ -1200,52 +1205,48 @@ function serversStep(session: Session, tools: ToolState[], harnesses: Harness[])
       // A tool found on PATH may still lack what its server runs through, such as Graphify installed without uv.
       const needed = server!.prerequisite?.executable;
       if (!needed || onPath(needed)) return true;
-      session.say(`${title}'s MCP server runs through ${needed}, which is not on PATH, so it is not registered. Install it with ${server!.prerequisite!.how}.`);
-      record(session, 'skipped', `${title}'s MCP server: ${needed} is not on PATH`);
+      session.say(w.serverNeeds(title, needed, w.how[needed] ?? server!.prerequisite!.how));
+      record(session, 'skipped', w.serverNeedsWhat(title, needed));
       return false;
     });
   for (const harness of harnesses) {
     const commands: string[][] = [];
     for (const { name, title, server } of served) {
-      const what = `${title}'s MCP server`;
+      const what = w.server(title);
       const registered = registeredWith(harness.executable, session.root, name);
       // Serena with Claude Code's context in Codex: corrected where `codex mcp add` writes, the user's file; the repository's is the owner's.
       const userFile = registered !== null && mcpSources().user.some(({ file }) => file === registered);
       const claudeContext = registered !== null && harness.executable === 'codex' && name === 'serena' && hasClaudeContext(readFileSync(userFile ? registered : join(session.root, registered), 'utf8'));
       const replace = claudeContext && userFile;
       if (registered && !replace) {
-        const context = claudeContext ? `, with Claude Code's context` : '';
-        session.say(`${what} is already registered with ${harness.name}, in ${registered}${context}. It is left as it is.`);
-        record(session, 'found', `${what}: registered with ${harness.name} in ${registered}${context}`);
+        const context = claudeContext ? w.claudeContext : '';
+        session.say(w.registered(what, harness.name, registered, context));
+        record(session, 'found', w.registeredWhat(what, harness.name, registered, context));
         continue;
       }
-      if (replace) session.say(`${what} is registered with ${harness.name} in ${registered} with Claude Code's context.`);
+      if (replace) session.say(w.withClaudeContext(what, harness.name, registered));
       const command = server!.command(harness.executable, session.root);
       const scope = server!.project ? 'project' : 'user';
       const add = harness.add?.(name, command, scope);
       if (add && onPath(harness.executable)) {
-        if (replace) session.say(`The plan registers it again with ${harness.name}'s, which replaces it.`);
+        if (replace) session.say(w.registersAgain(harness.name));
         commands.push(add);
         continue;
       }
-      const why = !harness.add
-        ? `${harness.name} has no command for adding an MCP server`
-        : !add
-          ? `${title} serves this project only, and ${harness.name} keeps per-project servers only in the repository, which binn init does not write for it`
-          : `\`${harness.executable}\` is not on PATH`;
-      const where = scope === 'project' ? `this project's ${harness.name} configuration yourself, if you want it in the repository` : `${harness.name}'s user configuration yourself`;
-      session.say(`${why}, so binn init does not register ${what} with it. Add this to ${where}:\n\n${harness.entry(name, command).trimEnd()}\n`);
-      record(session, 'printed', `${what} for ${harness.name}`);
+      const why = !harness.add ? w.noAddCommand(harness.name) : !add ? w.projectOnly(title, harness.name) : w.offPath(harness.executable);
+      const where = scope === 'project' ? w.intoProject(harness.name) : w.intoUser(harness.name);
+      session.say(w.notRegistered(why, what, where, harness.entry(name, command).trimEnd()));
+      record(session, 'printed', w.printedFor(what, harness.name));
     }
     if (commands.length === 0) continue;
     const shown = commands.map((argv) => argv.map(quoted).join(' '));
     session.plan.push({
-      heading: `Register MCP servers with ${harness.name}, outside the repository, by running`,
+      heading: (words) => words.serversHeading(harness.name),
       body: shown.map((line) => `  ${line}`).join('\n'),
-      declined: `register MCP servers with ${harness.name}`,
+      declined: w.registerWith(harness.name),
       apply() {
         commands.forEach(([executable, ...args], index) => {
-          session.say(`Running ${shown[index]}...`);
+          session.say(w.running(shown[index]!));
           // ponytail: no shell, so the JSON and paths pass as they are; Windows' `code.cmd` would need one, as for `claude` in the plugin step.
           const run = spawnSync(executable!, args, { cwd: session.root, stdio: ['ignore', 'inherit', 'inherit'] });
           record(session, run.status === 0 ? 'ran' : 'failed', shown[index]!);
@@ -1263,46 +1264,46 @@ function serversStep(session: Session, tools: ToolState[], harnesses: Harness[])
  * printed. A detected harness without an export is named with its reason.
  */
 function telemetryStep(session: Session, home: string): void {
+  const { w, speaks } = session;
   const address = daemonAddress(home);
   for (const exporter of exporters()) {
-    const why = detected(exporter);
+    const why = detected(exporter, speaks);
     if (why === null) continue;
     const { name, file } = exporter;
-    const what = `${name}'s OpenTelemetry export`;
+    const what = w.export(name);
     const where = tilde(file);
     if (address === null) {
-      session.say(`${name} is installed (${why}), but the Binnacle daemon is not running and BINNACLE_PORT is 0, so there is no address to export to. Start the daemon, then run binn init again.`);
-      record(session, 'skipped', `${what}: the daemon's address is not known`);
+      session.say(w.noAddress(name, why));
+      record(session, 'skipped', w.noAddressWhat(what));
       continue;
     }
     const text = settingsText(file);
     const state = exporter.read(text, address);
     if (state.state === 'binnacle') {
-      session.say(`${name} already exports OpenTelemetry to Binnacle at ${address}, in ${where}. It is left as it is.`);
-      record(session, 'skipped', `${what}: it already exports to Binnacle`);
+      session.say(w.exportsToBinnacle(name, address, where));
+      record(session, 'skipped', w.exportsToBinnacleWhat(what));
       continue;
     }
     if (state.state === 'elsewhere') {
-      session.say(`${name} already has OpenTelemetry settings of its own in ${where}: ${state.what}. They are left as they are.`);
-      record(session, 'skipped', `${what}: ${where} already has settings of its own (${state.what})`);
+      session.say(w.exportsElsewhere(name, where, state.what));
+      record(session, 'skipped', w.exportsElsewhereWhat(what, where, state.what));
       continue;
     }
     const change = exporter.change(address);
     if (state.state === 'unreadable') {
-      session.say(`${where} cannot be read as ${name}'s settings: ${state.why}. binn init does not rewrite it. To export to Binnacle, add this yourself:\n\n${change.trimEnd()}\n`);
-      record(session, 'printed', `${what} for ${where}`);
+      session.say(w.settingsUnreadable(where, name, state.why, change.trimEnd()));
+      record(session, 'printed', w.printedFor(what, where));
       continue;
     }
-    session.say(`${name} is installed (${why}) and does not export OpenTelemetry. Pointing it at the Binnacle daemon is in the plan.`);
+    session.say(w.noExport(name, why));
+    const merges = exporter.how === 'merging into';
     session.plan.push({
-      heading:
-        `Export ${name}'s OpenTelemetry to the Binnacle daemon at ${address}, JSON over HTTP, prompts not logged, at user scope, outside the repository, ` +
-        `by ${exporter.how} ${where}${exporter.how === 'merging into' ? ', keeping the rest of it' : ''}`,
+      heading: (words) => words.exportHeading(name, address, merges, where),
       body: change,
-      declined: `configure ${what}`,
+      declined: w.configure(what),
       apply() {
         // Only the settings the human saw: a file that changed since it was read is not written.
-        if (settingsText(file) !== text) throw new Error('the file changed since the plan was shown');
+        if (settingsText(file) !== text) throw new Changed();
         mkdirSync(dirname(file), { recursive: true });
         writeFileSync(file, exporter.next(text, address), { flag: text === null ? 'wx' : 'w' });
         record(session, text === null ? 'created' : 'updated', where);
@@ -1311,8 +1312,9 @@ function telemetryStep(session: Session, home: string): void {
   }
   for (const harness of NO_EXPORT) {
     if (detected(harness) === null) continue;
-    session.say(`${harness.name} is not configured to export OpenTelemetry: ${harness.reason}.`);
-    record(session, 'skipped', `${harness.name}'s OpenTelemetry export: ${harness.reason}`);
+    const reason = w.noExportReason(harness);
+    session.say(w.cannotExport(harness.name, reason));
+    record(session, 'skipped', w.cannotExportWhat(harness.name, reason));
   }
 }
 
@@ -1327,7 +1329,7 @@ const isGraphIgnored = (root: string): Promise<boolean | null> => isIgnored(root
 async function graphIgnoreStep(session: Session, tools: ToolState[]): Promise<boolean> {
   const { state } = tools.find(({ tool }) => tool.name === 'graphify')!;
   if (state !== 'found' && state !== 'install') return false;
-  if (await isGraphIgnored(session.root)) session.say(`Git already ignores ${GRAPH_DIRECTORY}/, Graphify's output directory, so .gitignore is left as it is.`);
+  if (await isGraphIgnored(session.root)) session.say(session.w.graphIgnored(GRAPH_DIRECTORY));
   else planFile(session, '.gitignore', `${GRAPH_DIRECTORY}/\n`);
   return true;
 }
@@ -1366,11 +1368,12 @@ function obsidianVaults(): string[] {
  * vault is had by declining the plan and editing the file, as with the tracker (ADR-0034).
  */
 function vaultStep(session: Session, home: string): void {
-  const what = 'the Obsidian vault';
+  const { w } = session;
+  const what = w.vault;
   const file = settingsPath(home);
   const unreadable = (): void => {
-    session.say(`${file} cannot be read as a JSON object of settings, so no vault path is proposed. Fix it by hand.`);
-    record(session, 'skipped', `${what}: ${file} cannot be read`);
+    session.say(w.vaultUnreadable(file));
+    record(session, 'skipped', `${what}: ${w.vaultUnreadableWhat(file)}`);
   };
   let text: string | null;
   try {
@@ -1393,33 +1396,26 @@ function vaultStep(session: Session, home: string): void {
   if (set !== undefined && set !== null) {
     // Left alone even when the daemon cannot use it, which it reports as `vault.unwritable`.
     const usable = typeof set === 'string' && isAbsolute(set);
-    session.say(
-      `${file} already names the Obsidian vault ${typeof set === 'string' ? set : JSON.stringify(set)}. It is left as it is` +
-        (usable ? '.' : `, though it is not an absolute path, so the daemon projects nothing; fix it by hand.`),
-    );
-    return record(session, 'skipped', `${what}: ${file} names one`);
+    session.say(w.vaultSet(file, typeof set === 'string' ? set : JSON.stringify(set), usable));
+    return record(session, 'skipped', `${what}: ${w.vaultSetWhat(file)}`);
   }
 
   const vaults = obsidianVaults();
   if (vaults.length !== 1) {
-    const found = vaults.length === 0 ? 'Obsidian lists no vault on this machine' : `Obsidian lists ${vaults.length} vaults on this machine: ${inSentence(vaults)}`;
-    session.say(
-      `${found}, so no vault path is proposed. For the Binnacle daemon to project the Project Brain into a vault, ` +
-        `put its absolute path in ${file}, owner-only (chmod 600):\n\n${json({ obsidian: { vaultPath: '/absolute/path/to/vault' } }).trimEnd()}`,
-    );
-    return record(session, 'skipped', `${what}: ${vaults.length === 0 ? 'Obsidian lists none' : 'Obsidian lists several'}; set obsidian.vaultPath in ${file}`);
+    session.say(w.vaultHow(vaults, file, json({ obsidian: { vaultPath: '/absolute/path/to/vault' } }).trimEnd()));
+    return record(session, 'skipped', `${what}: ${w.vaultHowWhat(vaults.length === 0, file)}`);
   }
 
   const next = json({ ...settings, obsidian: { ...obsidian, vaultPath: vaults[0] } });
-  session.say(`Obsidian lists one vault on this machine, ${vaults[0]}. Setting it is in the plan; for another, decline the plan and edit ${file}.`);
+  session.say(w.vaultOne(vaults[0]!, file));
   session.plan.push({
-    heading: `Set the Obsidian vault in ${file}, owner-only, outside the repository, to`,
+    heading: (words) => words.vaultHeading(file),
     body: next,
-    declined: 'set the Obsidian vault',
+    declined: w.vaultDeclined,
     apply() {
       ensureHome(home);
       // Only the settings the human saw: a file that changed since it was read is not rewritten.
-      if ((existsSync(file) ? readFileSync(file, 'utf8') : null) !== text) throw new Error('the file changed since the plan was shown');
+      if ((existsSync(file) ? readFileSync(file, 'utf8') : null) !== text) throw new Changed();
       writeFileSync(file, next, { mode: OWNER_ONLY_FILE, flag: text === null ? 'wx' : 'w' });
       // An existing file keeps its mode through a write.
       chmodSync(file, OWNER_ONLY_FILE);
@@ -1437,18 +1433,19 @@ function vaultStep(session: Session, home: string): void {
 function graphBuildStep(session: Session): void {
   const shown = `graphify ${GRAPH_EXTRACT.join(' ')}`;
   const report = `graphify ${GRAPH_CLUSTER.join(' ')}`;
-  session.say('Graphify builds the first graph and its report in the plan, code-only: no API key, no model.');
+  const { w } = session;
+  session.say(w.graphIntro);
   session.plan.push({
-    heading: `Build the first graph and its report into ${GRAPH_DIRECTORY}/, code-only, with no API key and no model, by running in the repository root`,
+    heading: (words) => words.graphHeading(GRAPH_DIRECTORY),
     body: `  ${shown}\n  ${report}`,
-    declined: 'build the first graph',
+    declined: w.graphDeclined,
     async apply() {
       // The `.gitignore` append of step 10 failed: Graphify would leave untracked files in the repository (ADR-0036).
-      if ((await isGraphIgnored(session.root)) === false) return record(session, 'skipped', `the first graph: Git does not ignore ${GRAPH_DIRECTORY}/`);
+      if ((await isGraphIgnored(session.root)) === false) return record(session, 'skipped', w.graphNotIgnored(GRAPH_DIRECTORY));
       // Its install in this plan failed, or put it in a directory that is not on PATH.
-      if (!onPath('graphify')) return record(session, 'skipped', 'the first graph: graphify is not on PATH. The Binnacle daemon builds the graph once it is.');
-      const built = runGraphify(session, GRAPH_EXTRACT, 'The Binnacle daemon builds the graph once graphify runs.');
-      if (built) runGraphify(session, GRAPH_CLUSTER, 'The graph is kept, and the Binnacle daemon builds the report with its next graph run.');
+      if (!onPath('graphify')) return record(session, 'skipped', w.graphOffPath);
+      const built = runGraphify(session, GRAPH_EXTRACT, w.graphLater);
+      if (built) runGraphify(session, GRAPH_CLUSTER, w.reportLater);
     },
   });
 }
@@ -1456,7 +1453,7 @@ function graphBuildStep(session: Session): void {
 /** Runs `graphify` with `args` in the repository root and records the outcome; `failed` follows a failure's reason. */
 function runGraphify(session: Session, args: string[], failed: string): boolean {
   const shown = `graphify ${args.join(' ')}`;
-  session.say(`Running ${shown}...`);
+  session.say(session.w.running(shown));
   // Its progress is shown as it comes; stderr is kept for a failure's reason, and shown after. The daemon's ceiling for one step.
   const run = spawnSync('graphify', args, { cwd: session.root, encoding: 'utf8', stdio: ['ignore', 'inherit', 'pipe'], timeout: GRAPH_RUN_TIMEOUT_MS });
   if (run.stderr) process.stderr.write(run.stderr);
@@ -1464,7 +1461,7 @@ function runGraphify(session: Session, args: string[], failed: string): boolean 
     record(session, 'ran', shown);
     return true;
   }
-  const reason = run.error?.message || run.stderr?.trim().split('\n').at(-1)?.trim() || `graphify exited with code ${run.status}`;
-  record(session, 'failed', `${shown}: ${reason}. ${failed}`);
+  const told = run.error?.message || run.stderr?.trim().split('\n').at(-1)?.trim();
+  record(session, 'failed', session.w.graphFailed(shown, told ? session.w.foreign(told) : session.w.graphExited(run.status), failed));
   return false;
 }

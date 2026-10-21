@@ -27,7 +27,7 @@ import {
 import { callOperation, isListening } from './client.ts';
 import { EXIT, type ExitCode } from './exit.ts';
 import { reportFailure, requireToken } from './report.ts';
-import { marked, row, say, T } from './text.ts';
+import { marked, row, say, T, type Text } from './text.ts';
 
 const START_TIMEOUT_MS = 10_000;
 const STOP_TIMEOUT_MS = 10_000;
@@ -189,8 +189,8 @@ export async function autostart(
 
 /** One platform's service manager: each step a sequence of calls that reports the first refusal. */
 type Manager = {
-  /** Why autostart cannot be turned on here, or null when it can. */
-  unavailable(): string | null;
+  /** Why autostart cannot be turned on here, worded by `text`, or null when it can. */
+  unavailable(text?: Text): string | null;
   /** Registered and its daemon running, so that `on` has nothing to do once the definition is current. */
   isOn(): boolean;
   /** What makes the manager read a rewritten definition. */
@@ -226,9 +226,9 @@ function managerFor({ platform, path, home }: Autostart): Manager {
     // The task's daemon is this home's: whether it runs is read from the home, since schtasks words its status in the system's language.
     const end = () => !daemonAlive(home) || runAll('schtasks', ['/End', ...task]);
     return {
-      unavailable() {
+      unavailable(text = T) {
         const scheduler = runManager('schtasks', ['/Query']);
-        return scheduler.ok ? null : T.noScheduler(scheduler.message);
+        return scheduler.ok ? null : text.noScheduler(scheduler.message);
       },
       isOn: () => registered() && daemonAlive(home),
       // Task Scheduler keeps the definition it was given: a rewritten one is created again over it.
@@ -254,9 +254,9 @@ function managerFor({ platform, path, home }: Autostart): Manager {
     // Out first: launchd keeps the definition it loaded, and refuses to bootstrap a loaded one.
     const load = () => unload() && runAll('launchctl', ['bootstrap', domain, path]);
     return {
-      unavailable() {
+      unavailable(text = T) {
         const session = runManager('launchctl', ['print', domain]);
-        return session.ok ? null : T.noGuiSession(session.message);
+        return session.ok ? null : text.noGuiSession(session.message);
       },
       isOn() {
         const print = runManager('launchctl', ['print', target]);
@@ -278,9 +278,9 @@ function managerFor({ platform, path, home }: Autostart): Manager {
   const user = (...args: string[]) => ['--user', ...args];
   const systemctl = (...calls: string[][]) => runAll('systemctl', ...calls.map((args) => user(...args)));
   return {
-    unavailable() {
+    unavailable(text = T) {
       const manager = runManager('systemctl', user('show-environment'));
-      return manager.ok ? null : T.noSystemd(manager.message);
+      return manager.ok ? null : text.noSystemd(manager.message);
     },
     isOn: () => runManager('systemctl', user('is-enabled', SERVICE_NAME)).ok && runManager('systemctl', user('is-active', SERVICE_NAME)).ok,
     reload: () => systemctl(['daemon-reload']),
@@ -297,8 +297,8 @@ function managerFor({ platform, path, home }: Autostart): Manager {
   };
 }
 
-/** Why autostart cannot be turned on here, or null when it can: no service manager answering. */
-export const autostartUnavailable = (current: Autostart): string | null => managerFor(current).unavailable();
+/** Why autostart cannot be turned on here, in `text`'s language, or null when it can: no service manager answering. */
+export const autostartUnavailable = (current: Autostart, text: Text = T): string | null => managerFor(current).unavailable(text);
 
 async function autostartOn(current: Autostart, warn: (text: string) => void, root: string | undefined): Promise<ExitCode> {
   const { home, path } = current;

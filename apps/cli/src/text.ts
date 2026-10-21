@@ -1,4 +1,4 @@
-import { wordMessage, type Params } from '@binnacle/core';
+import { wordMessage, type Language, type Params } from '@binnacle/core';
 import { LANGUAGE } from './language.ts';
 
 /**
@@ -319,8 +319,13 @@ ${tools}
   rewrote: (path: string) => `${path} переписан с текущими путями к Node, демону и PATH.`,
 };
 
+export type Text = typeof en;
+
+/** `binn`'s text in each language. */
+export const TEXT: Record<Language, Text> = { en, ru };
+
 /** `binn`'s text in the person's language, read once per run. */
-export const T = LANGUAGE === 'ru' ? ru : en;
+export const T = TEXT[LANGUAGE];
 
 /** A report's row: its label, padded to the longest label of the language, and its value. */
 export const row = (label: keyof typeof en.label, value: string, indent = '  '): string => {
@@ -334,8 +339,9 @@ export const marked = (text: string): string => `${text}${T.english}`;
 /**
  * A daemon's message for a person, without its code: in English as the daemon wrote it, in
  * Russian from core's wording and `params`, or the daemon's English marked when there is none.
+ * `language` is the person's unless the text is for the chat, which is English.
  */
-export function say({ code, message, params }: { code: string; message: string; params?: Params | undefined }): string {
-  const { text, english } = wordMessage(LANGUAGE, { code, message, ...(params && { params }) });
-  return english ? marked(text) : text;
+export function say({ code, message, params }: { code: string; message: string; params?: Params | undefined }, language: Language = LANGUAGE): string {
+  const { text, english } = wordMessage(language, { code, message, ...(params && { params }) });
+  return english ? `${text}${TEXT[language].english}` : text;
 }

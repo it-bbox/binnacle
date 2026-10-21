@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { test, type TestContext } from 'node:test';
 import { isAlive, readManifest, readRuntime, readToken } from '@binnacle/daemon';
-import { parseRoadmap } from '@binnacle/core';
+import { parseRoadmap, WORDED_CODES } from '@binnacle/core';
 import { callOperation } from '../src/client.ts';
 import { fakeSystemctl } from './fake-systemctl.ts';
 
@@ -218,7 +218,8 @@ ${windowSection('90')}`,
   assert.match(result.stdout, /binn project register/);
   assert.match(result.stdout, /created\s+\.binnacle\/project\.yaml/);
   // The new manifest's tracker is checked, here against the refusing proxy.
-  assert.match(result.stdout, /failed\s+tracker check: tracker\.unreachable/);
+  assert.match(result.stdout, /failed\s+tracker check: \S/);
+  assert.doesNotMatch(result.stdout, /tracker\.unreachable/);
   assert.match(result.stdout, /Nothing was committed/);
   assert.equal(commits(root), before);
 });
@@ -299,8 +300,8 @@ test('an existing manifest with problems is reported, left alone, and not offere
 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(manifestOf(root), existing);
-  assert.match(result.stdout, /manifest\.invalid/);
-  assert.match(result.stdout, /tracker\.provider/);
+  assert.match(result.stdout, /tracker\.provider: expected one of/);
+  assert.doesNotMatch(result.stdout, /manifest\.invalid/);
   assert.match(result.stdout, /skipped\s+project registration: no usable manifest/);
 });
 
@@ -434,6 +435,8 @@ test('with stdin not a terminal the plan is shown and nothing is written', (t) =
 
 test('registration with a running daemon', async (t) => {
   const home = makeHome(t);
+  // Claude Code is detected, so that the Summary's next step is its skill.
+  fakeClaude(home);
   const binn = binnIn(home);
   const root = makeRepository(t, 'tracked');
   assert.equal(binn(root, '', 'daemon', 'start').status, 0);
@@ -450,13 +453,14 @@ test('registration with a running daemon', async (t) => {
     assert.match(binn(root, '', 'project', 'list').stdout, /No projects/);
   });
 
-  await t.test('confirming writes the manifest, then registers the project through project.register', () => {
+  await t.test('confirming writes the manifest, then registers the project through project.register, and the Summary opens with /binnacle:product', () => {
     const before = commits(root);
     const result = binn(root, '\n\n\n', 'init');
     assert.equal(result.status, 0, result.stderr);
     assert.match(manifestOf(root), /id: tracked/);
     assert.match(result.stdout, /created\s+\.binnacle\/project\.yaml/);
-    assert.match(result.stdout, /ran\s+project\.register/);
+    assert.match(result.stdout, /ran\s+binn project register/);
+    assert.match(result.stdout, /Summary:\nNext, in a new Claude Code session:\n\n {2}\/binnacle:product\n\n/);
     const list = binn(root, '', 'project', 'list');
     assert.match(list.stdout, /tracked/);
     assert.ok(list.stdout.includes(root), list.stdout);
@@ -798,12 +802,13 @@ test('a remote tracker with no repository is reported as the manifest to fix, no
   const result = binnIn(home)(root, '', 'init');
 
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /tracker\.unavailable: .*no tracker\.repository/);
+  assert.match(result.stdout, /could not be read\. .*no tracker\.repository/);
   assert.doesNotMatch(result.stdout, /fine-grained/);
-  assert.match(result.stdout, /failed\s+tracker check: tracker\.unavailable/);
+  assert.match(result.stdout, /failed\s+tracker check: .*no tracker\.repository/);
+  assert.doesNotMatch(result.stdout, /tracker\.unavailable/);
 });
 
-test('an unreadable remote tracker gives the failure code and how to make a read-only token, and never the token', async (t) => {
+test('an unreadable remote tracker gives the failure and how to make a read-only token, and never the token', async (t) => {
   const home = makeHome(t);
   const gitlab = await trackerStandIn(t, 401, { message: '401 Unauthorized' });
   const root = makeRepository(t, 'remote', {
@@ -819,13 +824,13 @@ test('an unreadable remote tracker gives the failure code and how to make a read
   assert.equal(gitlab.requests.length, 1);
   // The token came from this shell, which the daemon does not share.
   assert.match(stdout, /This check used BINNACLE_GITLAB_TOKEN from this shell/);
-  assert.match(stdout, /tracker\.unauthorized/);
+  assert.doesNotMatch(stdout, /tracker\.unauthorized/);
   assert.match(stdout, /a token was used/);
   assert.match(stdout, /read_api/);
   assert.match(stdout, /BINNACLE_GITLAB_TOKEN/);
   assert.ok(stdout.includes(join(home.binnacleHome, 'credentials.json')), stdout);
   assert.ok(stdout.includes(JSON.stringify(gitlab.base)), 'the key the token goes under');
-  assert.match(stdout, /failed\s+tracker check: tracker\.unauthorized/);
+  assert.match(stdout, /failed\s+tracker check: .*a token was used/);
   assert.ok(!stdout.includes(token) && !stderr.includes(token));
   assert.equal(existsSync(join(home.binnacleHome, 'credentials.json')), false);
 });
@@ -1110,7 +1115,7 @@ test("on an empty repository the confirmed plan leaves a layout the Product Snap
   }
   assert.match(manifestOf(root), /\nknowledge:\n  docs: docs\n  specs: docs\/specs\n  language: en\n/);
   assert.match(read(root, 'docs/roadmap.md'), /^\| # \| Epic \| Status \| Spec \|$/m);
-  assert.match(result.stdout, /ran\s+project\.register/);
+  assert.match(result.stdout, /ran\s+binn project register/);
 
   const snapshot = await callOperation<ProductSnapshot>(readRuntime(home.binnacleHome)!, readToken(home.binnacleHome)!, 'project.snapshot', { path: root });
   const codes = snapshot.attention.map(({ code }) => code);
@@ -2267,6 +2272,106 @@ test('the Agent skills block names Russian on a Russian repository and says noth
   assert.doesNotMatch(await block(), /language|English|Russian/i);
 });
 
+/** The locale that makes `binn` speak Russian; the other tests run under `LC_ALL=C`. */
+const RUSSIAN = { LC_ALL: 'ru_RU.UTF-8' };
+
+/** No code a person could be shown: the daemon's, core's and the CLI's own. */
+const CODES = [...WORDED_CODES, 'daemon.unreachable', 'init.plan_changed'];
+
+function assertNoCode(text: string, what: string): void {
+  for (const code of CODES) assert.ok(!text.includes(code), `${what} shows ${code}:\n${text}`);
+}
+
+/** English words a Russian run must not print outside the plan's bodies, which are in the repository's language. */
+const ENGLISH = /\b(the|is|are|was|and|not|with|from|this|its)\b/i;
+
+/** A manifest with a problem, and one with a warning: both are reported, from a code. */
+const BROKEN_MANIFEST = { '.binnacle/project.yaml': 'version: 1\n\nproject:\n  id: kept\n\ntracker:\n  provider: jira\n' };
+const WARNED_MANIFEST = { '.binnacle/project.yaml': 'version: 1\nproject:\n  id: kept\nfuture_section: {}\n' };
+
+test('the interactive form speaks Russian under ru_RU.UTF-8 and English otherwise, with no code in its text', (t) => {
+  for (const [language, env] of [['ru', RUSSIAN], ['en', {}]] as const) {
+    const home: Home = { ...makeHome(t), env };
+    fakeClaude(home);
+    installExecutable(home, 'codex');
+    installExecutable(home, 'opencode');
+    // A Russian README, so that the plan's bodies, the templates, are Russian under either locale.
+    const root = makeRepository(t, `spoken-${language}`, { 'README.md': '# Магазин\n\nМагазин для своих.\n', '.mcp.json': '{}\n' });
+    git(root, 'remote', 'add', 'origin', 'git@github.com:Acme/Spoken.git');
+
+    const runs = {
+      confirmed: binnIn(home)(root, '\n\n\n', 'init'),
+      broken: binnIn(home)(makeRepository(t, `broken-${language}`, BROKEN_MANIFEST), '\n\nn\n', 'init'),
+      warned: binnIn(home)(makeRepository(t, `warned-${language}`, WARNED_MANIFEST), '\n\nn\n', 'init'),
+      outside: binnIn(home)(home.home, '', 'init'),
+    };
+    for (const [name, { stdout, stderr }] of Object.entries(runs)) {
+      const text = `${stdout}${stderr}`;
+      assertNoCode(text, `${language} ${name}`);
+      // Without the plan's items, whose bodies are the repository's, the commands and entries shown to run or paste, and the system's own error text.
+      const said = text
+        .replace(/^\d+\. [^\n]*:\n\n[^]*?\n(?=\d+\. |Записать этот план|Write this plan)/gm, '')
+        .replace(/^ {2}(npx|claude|codex|binn|uv|npm|graphify) [^\n]*$/gm, '')
+        .replace(/^[{}[\]"].*$|^\s+".*$|^\w+ = .*$/gm, '')
+        .replace(/\(\w+ was not found on PATH\)/g, '');
+      assert.doesNotMatch(said, language === 'ru' ? ENGLISH : /[а-яё]/i, `${language} ${name}\n${said}`);
+    }
+    const { stdout } = runs.confirmed;
+    const shown =
+      language === 'ru'
+        ? [/^Настраиваем Binnacle в /m, /Окно импорта \[90\]: /, /Язык документации \[ru\]: /, /^План\. /m, /Записать этот план\? \[Y\/n\] /, /^Итог:$/m, /создан\s+\.binnacle\/project\.yaml/]
+        : [/^Setting up Binnacle in /m, /Import window \[90\]: /, /Documentation language \[ru\]: /, /^The plan\. /m, /Write this plan\? \[Y\/n\] /, /^Summary:$/m, /created\s+\.binnacle\/project\.yaml/];
+    for (const pattern of shown) assert.match(stdout, pattern);
+    assert.equal(runs.outside.status, 3);
+  }
+});
+
+test('the Summary opens with the command to run next, in either language', (t) => {
+  const cases: [string, string, string[], Record<string, string>][] = [
+    // The daemon is not running: it is started, and the project registered.
+    ['confirmed', '\n\n\n', ['binn daemon start', 'binn project register'], {}],
+    // Nothing was written: binn init again, at a terminal.
+    ['declined', '\n\nn\n', ['binn init'], {}],
+    // A manifest with problems: the project is registered once it is fixed.
+    ['broken', '\n\n\n', ['binn project register'], BROKEN_MANIFEST],
+  ];
+  for (const [language, env, header] of [['ru', RUSSIAN, 'Итог:'], ['en', {}, 'Summary:']] as const) {
+    const home: Home = { ...makeHome(t), env };
+    for (const [name, input, commands, files] of cases) {
+      const { status, stdout } = binnIn(home)(makeRepository(t, `${name}-${language}`, files), input, 'init');
+      assert.equal(status, 0, stdout);
+      const summary = stdout.slice(stdout.lastIndexOf(`${header}\n`));
+      const block = commands.map((command) => `  ${command}\n`).join('');
+      assert.ok(new RegExp(`^${header}\\n[^\\n]+:\\n\\n`).test(summary) && summary.split('\n\n')[1] === block.trimEnd(), `${language} ${name}\n${summary}`);
+    }
+  }
+});
+
+test('--plan --json is byte for byte the same under either locale, and --apply with its id writes under either', (t) => {
+  for (const [planned, applied] of [[RUSSIAN, {}], [{}, RUSSIAN]] as const) {
+    const home = makeHome(t);
+    fakeClaude(home);
+    installExecutable(home, 'codex');
+    installExecutable(home, 'opencode');
+    const root = makeRepository(t, 'either', { '.mcp.json': '{}\n' });
+    const plan = (env: NodeJS.ProcessEnv, cwd: string): string => {
+      const result = binnIn({ ...home, env }, false)(cwd, '', 'init', '--plan', '--json');
+      assert.equal(result.status, 0, result.stderr);
+      return result.stdout;
+    };
+
+    for (const cwd of [root, makeRepository(t, 'warned', WARNED_MANIFEST)]) {
+      const russian = plan(RUSSIAN, cwd);
+      assert.equal(russian, plan({}, cwd));
+      assert.doesNotMatch(russian, /[а-яё]/i);
+    }
+    const { id } = JSON.parse(plan(planned, root)) as PlanJson;
+    const result = binnIn({ ...home, env: applied }, false)(root, '', 'init', '--apply', id);
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.match(manifestOf(root), /id: either/);
+  }
+});
+
 test('--apply with the id from --plan --json writes that plan with stdin not a terminal, runs the tracker check and prints the Summary', async (t) => {
   const home = makeHome(t);
   const claude = fakeClaude(home);
@@ -2291,7 +2396,7 @@ test('--apply with the id from --plan --json writes that plan with stdin not a t
   assert.equal(commits(root), before);
 });
 
-test('--apply after a file in the plan was created or changed exits 3 with init.plan_changed and writes nothing', async (t) => {
+test('--apply after a file in the plan was created or changed exits 3, says the plan changed and writes nothing', async (t) => {
   const changes = {
     // A file the plan would create appears.
     created: (root: string) => writeFileSync(join(root, '.mcp.json'), '{}\n'),
@@ -2310,7 +2415,7 @@ test('--apply after a file in the plan was created or changed exits 3 with init.
     const result = binnIn(home, false)(root, '', 'init', '--apply', id);
 
     assert.equal(result.status, 3, `${name}\n${result.stdout}\n${result.stderr}`);
-    assert.match(result.stderr, /init\.plan_changed/);
+    assert.match(result.stderr, /the plan is not the one confirmed/);
     assert.doesNotMatch(result.stdout, /Summary:/);
     assert.equal(git(root, 'status', '--porcelain'), status);
     assert.equal(read(root, 'docs/agents/issue-tracker.md'), tracker);
@@ -2329,7 +2434,7 @@ test('--apply with a made-up id, or with another --window than the plan had, wri
   for (const args of [['--apply', '0'.repeat(64), '--window', '7'], ['--apply', id], ['--apply', id, '--window', 'all']]) {
     const result = binnIn(home, false)(root, '', 'init', ...args);
     assert.equal(result.status, 3, `${args.join(' ')}\n${result.stdout}\n${result.stderr}`);
-    assert.match(result.stderr, /init\.plan_changed/);
+    assert.match(result.stderr, /the plan is not the one confirmed/);
   }
   assert.equal(git(root, 'status', '--porcelain'), '');
   assert.ok(claude().every((call) => call.join(' ') === 'plugin list --json'), JSON.stringify(claude()));

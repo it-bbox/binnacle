@@ -17,7 +17,7 @@ Run `git init`. If the project will live on GitHub or GitLab, add the remote now
 
 ## 2. Set it up with `binn init`
 
-Run `binn init` in the repository. It works everything out first, shows it as one plan and asks once: Enter or `y` writes it, anything else writes nothing (ADR-0034). It never overwrites a file, extends one only by the section the plan shows, and never commits. Review and commit what it wrote yourself.
+Run `binn init` in the repository. It works everything out first, shows it as one plan and asks once: Enter or `y` writes it, anything else writes nothing (ADR-0034). It never overwrites a file, extends one only by the section the plan shows, and never commits. Review and commit what it wrote yourself. Like the rest of `binn`, it speaks your locale's language, Russian or English; `--plan --json` stays English, so a plan shown in one locale is applied from another.
 
 Before the plan, it asks up to three questions:
 
@@ -35,7 +35,7 @@ For a new repository, the plan holds:
 
 The roadmap, the planning conventions and a new `AGENTS.md` are written in the documentation language. In Russian, the words Binnacle reads stay English: the roadmap's table header and statuses, `## Current focus`, `Next action:`, the ticket header's fields and states, the triage labels, `## Ticket header` and `## Agent skills`. The *Agent skills* block then also says the documentation is in Russian, so that any agent writes its specs and tickets in it.
 
-Each item in detail: [Existing project](02-existing-project-adopt.md#the-plan-item-by-item), *The plan, item by item*. After the plan, a GitHub or GitLab tracker is read once, and init says whether it was readable and, if not, how to give it a read-only token. The Summary then lists what was created, extended, run, failed or skipped.
+Each item in detail: [Existing project](02-existing-project-adopt.md#the-plan-item-by-item), *The plan, item by item*. After the plan, a GitHub or GitLab tracker is read once, and init says whether it was readable and, if not, how to give it a read-only token. The Summary then opens with the command to run next, such as `/binnacle:product`, or `binn daemon start` and `binn project register` when the daemon was not running, and lists what was created, extended, run, failed or skipped.
 
 ### Workflow tools
 
@@ -58,7 +58,7 @@ Without `uv`, init names the command that installs it, and leaves Serena and Gra
 In Claude Code, `/binnacle:init [path]` does the same from the chat:
 
 1. It runs `binn init --plan --json`. Where autostart is available and not yet on, it first asks whether the daemon starts at login, and passes your answer to init as `--autostart`. Unless the manifest already states one, it shows the documentation language init proposes and where the proposal comes from, asks you, and passes your answer as `--language`. Then it shows the whole plan, every item in full, with the session history and the import window. Name another window, a harness to keep out of Binnacle's skills, the other autostart answer or another language, to see the plan again with it.
-2. Only your yes in the chat writes it, through `binn init --apply <id>`. If the plan changed since it was shown, that writes nothing (`init.plan_changed`), and the skill shows the new plan and asks again (ADR-0037).
+2. Only your yes in the chat writes it, through `binn init --apply <id>`. If the plan changed since it was shown, that writes nothing and exits 3, and the skill shows the new plan and asks again (ADR-0037).
 3. It shows what init printed, the Summary included.
 
 The skill needs no daemon and never commits. With the daemon stopped, registration is left out of the plan: `/binnacle:daemon start`, then `/binnacle:register`, adds it. A yes to autostart makes `binn daemon autostart on` the plan's last item; with a no, nothing is installed and the Summary names that command for later.

@@ -13,7 +13,7 @@ const r = (reason: string, recommendation?: string): Wording => (recommendation 
 
 const PLURAL = new Intl.PluralRules('ru');
 /** `count` with its Russian noun in the right form: one, few, many. */
-const counted = (count: number, [one, few, many]: [string, string, string]): string => {
+export const counted = (count: number, [one, few, many]: [string, string, string]): string => {
   const form = PLURAL.select(count);
   return `${count} ${form === 'one' ? one : form === 'few' ? few : many}`;
 };
@@ -209,10 +209,19 @@ const en = {
 
 type FindingWords = typeof en;
 
+/** Why Binnacle's skills are stale, in Russian: which differ from this package's version, and which are missing. */
+export const staleRu = ({ differ, missing, version }: Omit<Stale, 'where' | 'reason'>): string =>
+  [
+    differ.length > 0 ? `${differ.map(({ skill, version: at }) => `${skill} (${at === null ? 'без версии' : `версия ${at}`})`).join(', ')} не совпадают с версией этого пакета ${version}` : '',
+    missing.length > 0 ? `${missing.join(', ')} отсутству${missing.length === 1 ? 'ет' : 'ют'}` : '',
+  ]
+    .filter(Boolean)
+    .join(', а ');
+
 const HISTORY_RU = 'Если коммит хоть раз пушили, значение осталось в истории Git, и переписывать ли её — решать вам. Аудит читает только отслеживаемые файлы в их нынешнем виде; историю сканирует gitleaks.';
 
 /** Why a harness exports nothing to Binnacle, by its code, in Russian; one not listed keeps its English, marked. */
-const NO_EXPORT_RU: Record<string, string> = {
+export const NO_EXPORT_RU: Record<string, string> = {
   opencode: 'opencode не документирует экспорт OpenTelemetry, поэтому Binnacle считает его только по его базе данных, каждый вызов — после его завершения',
   zcode: 'ZCode не документирует экспорт OpenTelemetry, поэтому Binnacle считает его только по его базе данных, каждый вызов — после его завершения',
   antigravity:
@@ -307,16 +316,11 @@ const ru: FindingWords = {
       `Настройка ${title} не найдена ни в ${looked} (репозиторий), ни в ${user} (уровень пользователя). Возможно, ${title} настроен где-то ещё.`,
       `Если агенту здесь нужен ${title}, объявите его в разделе capabilities файла ${manifest}.`,
     ),
-  'skills.stale': ({ where, differ, missing, version }) => {
-    const parts = [
-      differ.length > 0 ? `${differ.map(({ skill, version: at }) => `${skill} (${at === null ? 'без версии' : `версия ${at}`})`).join(', ')} не совпадают с версией этого пакета ${version}` : '',
-      missing.length > 0 ? `${missing.join(', ')} отсутству${missing.length === 1 ? 'ет' : 'ют'}` : '',
-    ];
-    return r(
-      `Скиллы Binnacle в ${where} устарели: ${parts.filter(Boolean).join(', а ')}. Каждый клиент агента, куда их поставил skills CLI, запускает старые.`,
+  'skills.stale': (stale) =>
+    r(
+      `Скиллы Binnacle в ${stale.where} устарели: ${staleRu(stale)}. Каждый клиент агента, куда их поставил skills CLI, запускает старые.`,
       'Запустите binn init и подтвердите его план: он заново поставит скиллы Binnacle.',
-    );
-  },
+    ),
 
   'instructions.none': () => r('Нет ни AGENTS.md, ни CLAUDE.md: первый агент начнёт без инструкций.', 'Напишите AGENTS.md; если Claude Code нужен свой файл, пусть CLAUDE.md содержит @AGENTS.md.'),
   'instructions.one': ({ sets }) => r(`Один набор инструкций: ${setsRu(sets)}.`),
@@ -399,7 +403,7 @@ const ru: FindingWords = {
 };
 
 /** The instruction sets as one sentence part, in Russian, as `describeSets` writes them in English. */
-const setsRu = (sets: string[][]): string => sets.map(([entry, ...imported]) => (imported.length === 0 ? entry : `${entry}, который импортирует ${imported.join(' и ')}`)).join('; ');
+export const setsRu = (sets: string[][]): string => sets.map(([entry, ...imported]) => (imported.length === 0 ? entry : `${entry}, который импортирует ${imported.join(' и ')}`)).join('; ');
 
 const FINDING_WORDS: Record<Language, FindingWords> = { en, ru };
 
