@@ -22,7 +22,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 10 | Telemetry for any harness | done | [`telemetry-for-any-harness`](specs/telemetry-for-any-harness/spec.md) |
 | 11 | The state of work | done | [`the-state-of-work`](specs/the-state-of-work/spec.md) |
 | 12 | Audit, completed | done | [`audit-completed`](specs/audit-completed/spec.md) |
-| 13 | Human output | tickets | [`human-output`](specs/human-output/spec.md) |
+| 13 | Human output | in progress | [`human-output`](specs/human-output/spec.md) |
 | 14 | Skills in any harness | done | [`skills-in-any-harness`](specs/skills-in-any-harness/spec.md) |
 | 15 | Daemon autostart | done | [`daemon-autostart`](specs/daemon-autostart/spec.md) |
 | 16 | Dashboard redesign | done | [`dashboard-redesign`](specs/dashboard-redesign/spec.md) |
@@ -42,7 +42,7 @@ Done: epics 1 to 12 and 14 to 19.
 
 **Released** (the owner): `@it-bbox/binnacle` 0.1.0 on 2026-10-13, with `it-bbox/binnacle` public, private vulnerability reporting and Dependabot alerts on; 0.2.0, epic 12, on 2026-10-21, installed from the registry into a clean container (`specs/audit-completed/issues/11-audit-completed-exit-demonstration.md`).
 
-**Now: epic 13, Human output, released as 0.3.0, the last epic of v1** (the owner, 2026-10-13). Grilled on 2026-10-21 (`specs/human-output/brief.md`, ADR-0045) and specified the same day (`specs/human-output/spec.md`), in eleven tickets; autopilot runs them in a session of its own.
+**Now: epic 13, Human output, released as 0.3.0, the last epic of v1** (the owner, 2026-10-13). Specified on 2026-10-21 (`specs/human-output/spec.md`, ADR-0045). Autopilot merged tickets 01 to 10 the same day: the manifest's language, the daemon's `params` worded in core, `binn`, `binn audit`, `binn init` and its templates, the vault, the dashboard and every skill in the person's language or the repository's. Left: ticket 11, the exit demonstration in a Russian chat and the 0.3.0 release, the owner's.
 
 **Left open:**
 
@@ -50,7 +50,7 @@ Done: epics 1 to 12 and 14 to 19.
 - epic 11, ticket 14: waits on a merge that shrinks the graph;
 - Dependabot's major updates, pull requests #3 (`@types/node` 26) and #4 (`typescript` 7), fail CI: the owner's to take or close.
 
-Next action: run epic 13's tickets, starting with those blocked by none. `/binnacle:autopilot 13`
+Next action: run epic 13's exit demonstration and release 0.3.0. `/binnacle:task run docs/specs/human-output/issues/11-human-output-exit-demonstration.md`
 
 ## Later
 
