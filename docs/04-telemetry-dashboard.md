@@ -139,7 +139,7 @@ The page shows the whole project, or one epic picked among the roadmap's epics w
 
 ### Attention/current activity
 
-- every project's attention items with their codes, grouped by project, beside the runs running now and the recent runs of every project. Each project's items, in *Brief*, are their count and first three messages, and each run its Task or role, its project and its latest activity; its harness, model, role, branch and checkout wait for *Full*.
+- every project's attention items, each in the page's language without its code,, grouped by project, beside the runs running now and the recent runs of every project. Each project's items, in *Brief*, are their count and first three messages, and each run its Task or role, its project and its latest activity; its harness, model, role, branch and checkout wait for *Full*.
 
 ### Settings
 
@@ -148,7 +148,7 @@ The page writes the machine's Parallel limit, through the daemon, and nothing el
 - the language, a choice among the dashboard's dictionaries, kept in the browser;
 - the Parallel limit on this machine, from `parallel.get`, with whether it is set or the default: a number or *auto*, set with `parallel.set`. A value the daemon refuses is shown with its reason, in the page's language. When the selected project's manifest sets `max_parallel_development_tasks`, the page says that value wins for it;
 - beside the limit, what this machine has carried, from `parallel.get`'s `informer`, marked as an estimate: over every registered project's import window, the most runs active at once and when, and each usage limit Claude Code hit, its time, the limit it names and how many runs were active then, a run being active within ten minutes of its latest record, and at its own usage limit. Claude Code records a usage limit as a synthetic record with `"error":"rate_limit"`, which the store keeps as a usage-limit marker, its message never read; a harness among the runs that records none is listed as not reporting usage limits, never as zero;
-- the selected project's settings from `project.status`'s manifest: tracker, workflow, capabilities, automation with `max_parallel_development_tasks` (where the manifest writes none, the limit the snapshot uses) and telemetry, under the keys `.binnacle/project.yaml` spells them with. The page names that file as the one to edit, and says the daemon reads a change on its next refresh. The status's diagnostics follow with their codes. A project whose manifest cannot be read says so with the daemon's reason, and `binn init` to copy;
+- the selected project's settings from `project.status`'s manifest: tracker, workflow, capabilities, automation with `max_parallel_development_tasks` (where the manifest writes none, the limit the snapshot uses) and telemetry, under the keys `.binnacle/project.yaml` spells them with. The page names that file as the one to edit, and says the daemon reads a change on its next refresh. The status's diagnostics follow, in the page's language, without their codes. A project whose manifest cannot be read says so with the daemon's reason, and `binn init` to copy;
 - the daemon's version and address, from `daemon.status`, with `binn daemon stop` and `binn daemon start` to copy; its port is `BINNACLE_PORT`, read when it starts;
 - beside them, autostart, from the selected project's snapshot: on, off or broken, for which Binnacle home and platform, and the command that changes or repairs it, to copy. Nothing on the page switches it (ADR-0043).
 

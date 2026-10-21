@@ -163,7 +163,7 @@ export function gitLine(git: GitFacts, t: Dictionary, language: Language): strin
 }
 
 /** A Task's state, a roadmap status or a ticket's role in the page's language, or as written when the dictionary has no word for it. */
-export const said = (words: Record<string, string>, value: string): string => words[value] ?? value;
+export const wordFor = (words: Record<string, string>, value: string): string => words[value] ?? value;
 
 /** A run's role in the page's language. */
 export const runRole = (t: Dictionary, role: string): string =>

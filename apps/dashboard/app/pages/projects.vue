@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useLanguage } from '~/composables/language';
-import { count, gitLine, initials, isUnavailable, PROJECT_VIEWS, projectName, said, statusBadge, unregisterCommand, type ProjectView } from '~/composables/projects';
+import { count, gitLine, initials, isUnavailable, PROJECT_VIEWS, projectName, wordFor, statusBadge, unregisterCommand, type ProjectView } from '~/composables/projects';
 
 /**
  * Every registered project, from the shell's views. *Brief* gives each its name, current Epic, Next
@@ -91,7 +91,7 @@ const cell = 'border-b border-default px-3.5 py-2.5 align-top';
                     </div>
                     <div v-else-if="row.epic" class="flex flex-col items-start gap-1">
                       <span lang="en">{{ row.epic.number }} {{ row.epic.title }}</span>
-                      <UBadge v-if="full" :label="said(t.roadmapStatuses, row.epic.status)" v-bind="statusBadge(row.epic.status)" size="sm" />
+                      <UBadge v-if="full" :label="wordFor(t.roadmapStatuses, row.epic.status)" v-bind="statusBadge(row.epic.status)" size="sm" />
                     </div>
                     <span v-else class="text-muted">{{ row.snapshot.roadmap.epics.length === 0 ? t.noEpics : t.everyEpicDone }}</span>
                   </td>

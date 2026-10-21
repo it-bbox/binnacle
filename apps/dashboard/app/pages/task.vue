@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { call, usePolling, type Failure } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
-import { CI_TONE, forgeName, isUnavailable, runRole, said, type CiForge, type CiRequest, type Unavailable } from '~/composables/projects';
+import { CI_TONE, forgeName, isUnavailable, runRole, wordFor, type CiForge, type CiRequest, type Unavailable } from '~/composables/projects';
 import { tokensLine, type TaskUsage } from '~/composables/usage';
 import { markdown } from '~/markdown';
 import { BRIEF_ROWS, LIST_FOLD } from '~/widget';
@@ -75,7 +75,7 @@ const questions = computed(() => (data.value === null || isUnavailable(data.valu
 const unanswered = computed(() => questions.value.filter((item) => item.answer === null));
 
 /** A Task's state in the page's language, or that it has none. */
-const state = (value: string | null): string => (value === null ? t.value.noState : said(t.value.states, value));
+const state = (value: string | null): string => (value === null ? t.value.noState : wordFor(t.value.states, value));
 
 const dependency = (item: Brief['dependencies'][number]): string =>
   item.dangling ? t.value.dangling : `${state(item.state)}, ${item.met ? t.value.met : t.value.notMet}`;
@@ -93,7 +93,7 @@ const dependency = (item: Brief['dependencies'][number]): string =>
           <UBadge :label="state(data.state)" v-bind="stateBadge(data.state)" />
           <template v-if="fromRuns">
             <UBadge :label="t.states.ACTIVE" color="primary" variant="soft" />
-            <span class="text-sm text-muted">({{ t.fromActivity }}), {{ t.ticketSays(state(data.state)) }}</span>
+            <span class="text-sm text-muted">({{ t.fromActivity }}), {{ t.ticketSays(data.state ?? t.noState) }}</span>
           </template>
         </div>
         <h1 lang="en" class="m-0 text-2xl leading-snug font-semibold text-highlighted">{{ data.title ?? t.untitled }}</h1>
@@ -104,11 +104,11 @@ const dependency = (item: Brief['dependencies'][number]): string =>
         <dd class="m-0 font-mono text-sm">{{ data.triage ?? t.none }}</dd>
         <dt class="text-muted">{{ t.roles }}</dt>
         <dd class="m-0">
-          <span>{{ data.roles.required.map((role) => said(t.taskRoles, role)).join(', ') }}</span>
+          <span>{{ data.roles.required.map((role) => wordFor(t.taskRoles, role)).join(', ') }}</span>
           <span v-if="data.roles.source === 'default'" class="text-muted"> ({{ t.rolesDefault }})</span>
           <div v-for="item in data.roles.suggested" :key="item.role" class="flex flex-wrap items-baseline gap-x-1.5">
             <span class="text-muted">{{ t.suggestedRoles }}</span>
-            <span>{{ said(t.taskRoles, item.role) }}</span>
+            <span>{{ wordFor(t.taskRoles, item.role) }}</span>
             <span class="text-dimmed">({{ t.estimate }})</span>
             <span lang="en" class="text-dimmed">{{ item.reason }}</span>
           </div>

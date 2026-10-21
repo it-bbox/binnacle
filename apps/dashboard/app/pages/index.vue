@@ -2,7 +2,7 @@
 import { call, usePolling } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
 import { pairReason } from '~/i18n';
-import { count, isUnavailable, runRole, said, SELECTED_VIEW, statusBadge, type Alternative, type Board, type ConflictRisk } from '~/composables/projects';
+import { count, isUnavailable, runRole, wordFor, SELECTED_VIEW, statusBadge, type Alternative, type Board, type ConflictRisk } from '~/composables/projects';
 import type { Totals } from '~/composables/usage';
 
 /**
@@ -193,7 +193,7 @@ function outputTokens(totals: Totals): string {
                   <td class="border-b border-default px-3.5 py-2 font-mono text-sm text-dimmed">{{ epic.number }}</td>
                   <td lang="en" class="border-b border-default px-3.5 py-2" :class="step === 'current' ? 'font-semibold' : step === 'later' ? 'text-muted' : ''">{{ epic.title }}</td>
                   <td class="border-b border-default px-3.5 py-2">
-                    <UBadge :label="said(t.roadmapStatuses, epic.status)" v-bind="statusBadge(epic.status)" size="sm" />
+                    <UBadge :label="wordFor(t.roadmapStatuses, epic.status)" v-bind="statusBadge(epic.status)" size="sm" />
                   </td>
                   <td class="border-b border-default px-3.5 py-2 font-mono text-sm whitespace-nowrap text-muted">
                     <span v-if="epic.progress === null" class="text-dimmed">—</span>
@@ -209,7 +209,7 @@ function outputTokens(totals: Totals): string {
               <li
                 v-for="{ epic, step } in steps"
                 :key="epic.number"
-                :title="`${epic.number} ${epic.title} · ${said(t.roadmapStatuses, epic.status)}`"
+                :title="`${epic.number} ${epic.title} · ${wordFor(t.roadmapStatuses, epic.status)}`"
                 :aria-current="step === 'current' ? 'step' : undefined"
                 class="flex min-w-0 flex-1 flex-col gap-1"
               >

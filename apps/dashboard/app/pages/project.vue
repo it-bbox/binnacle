@@ -9,7 +9,7 @@ import {
   isUnavailable,
   projectName,
   runRole,
-  said,
+  wordFor,
   SELECTED_VIEW,
   statusBadge,
   type Board,
@@ -239,7 +239,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
               <h2 class="m-0 text-base font-semibold">{{ t.board }}</h2>
               <template v-if="shownEpic">
                 <span lang="en" class="font-medium">{{ shownEpic.number }} {{ shownEpic.title }}</span>
-                <UBadge :label="said(t.roadmapStatuses, shownEpic.status)" v-bind="statusBadge(shownEpic.status)" size="sm" />
+                <UBadge :label="wordFor(t.roadmapStatuses, shownEpic.status)" v-bind="statusBadge(shownEpic.status)" size="sm" />
               </template>
               <span v-else-if="route.query.withoutSpec !== undefined" class="font-medium">{{ t.tasksWithoutSpec }}</span>
               <span v-else-if="board.data.value?.spec" class="font-mono text-sm">{{ board.data.value.spec }}</span>
@@ -284,7 +284,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
                         <span class="font-mono text-xs break-words text-muted">{{ card.id }}</span>
                         <span class="flex-1" />
                         <UBadge v-if="card.state === 'BLOCKED'" :label="t.states.BLOCKED" color="error" variant="soft" size="sm" />
-                        <span v-else-if="full && card.state !== null && card.state !== plain && card.source !== 'runs'" class="text-xs text-dimmed">{{ said(t.states, card.state) }}</span>
+                        <span v-else-if="full && card.state !== null && card.state !== plain && card.source !== 'runs'" class="text-xs text-dimmed">{{ wordFor(t.states, card.state) }}</span>
                         <template v-if="!full">
                           <UIcon
                             v-if="card.unmetDependencies.length > 0"
@@ -330,7 +330,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
                           <span class="text-muted">{{ runTime(card.latestRun) }}</span>
                         </div>
                         <div class="font-mono break-words text-muted">{{ runLabel(card.latestRun, full) }}</div>
-                        <div v-if="full && card.source === 'runs'" class="text-dimmed">{{ t.ticketSays(card.state === null ? t.noState : said(t.states, card.state)) }}</div>
+                        <div v-if="full && card.source === 'runs'" class="text-dimmed">{{ t.ticketSays(card.state ?? t.noState) }}</div>
                       </div>
                     </NuxtLink>
                     <UButton
@@ -382,7 +382,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
                 v-for="epic in epics"
                 :key="epic.number"
                 :label="String(epic.number)"
-                :title="`${epic.number} ${epic.title} · ${said(t.roadmapStatuses, epic.status)}`"
+                :title="`${epic.number} ${epic.title} · ${wordFor(t.roadmapStatuses, epic.status)}`"
                 :disabled="!pickable(epic)"
                 :aria-current="picked(epic) ? 'true' : undefined"
                 :color="picked(epic) ? 'primary' : 'neutral'"
@@ -430,7 +430,7 @@ const roadmapAttention = computed(() => snapshot.value?.attention.filter((item) 
                         <span v-else :aria-current="picked(epic) ? 'true' : undefined" :class="{ 'text-dimmed': !pickable(epic) }">{{ epic.title }}</span>
                       </td>
                       <td class="border-default py-1.5 ps-2 pe-3.5 whitespace-nowrap" :class="{ 'border-b': !full }">
-                        <UBadge :label="said(t.roadmapStatuses, epic.status)" v-bind="statusBadge(epic.status)" size="sm" />
+                        <UBadge :label="wordFor(t.roadmapStatuses, epic.status)" v-bind="statusBadge(epic.status)" size="sm" />
                       </td>
                     </tr>
                     <tr v-if="full" :class="{ 'bg-primary/10': picked(epic) }">

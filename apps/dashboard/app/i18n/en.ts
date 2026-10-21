@@ -275,7 +275,7 @@ export const en = {
   noRequest: 'No open pull or merge request.',
 
   // The Usage page.
-  usageNote: "Tokens read from the harnesses' artifacts. A kind no record reports is no data, never zero.",
+  usageNote: "Tokens read from the harnesses' artifacts. A kind no record reports is shown as “no data”, never zero.",
   tokensByKind: 'Tokens by kind',
   importWindow: 'Import window',
   sinceDate: (date: string) => `since ${date}`,
