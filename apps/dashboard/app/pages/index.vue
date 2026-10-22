@@ -213,7 +213,9 @@ function outputTokens(totals: Totals): string {
                 :aria-current="step === 'current' ? 'step' : undefined"
                 class="flex min-w-0 flex-1 flex-col gap-1"
               >
-                <div class="h-1 rounded-sm" :class="step === 'done' ? 'bg-(--ui-text-muted)' : step === 'current' ? 'bg-primary' : 'bg-accented'" />
+                <!-- The epic in progress half filled, in the accent, so that it stands apart from the done ones. -->
+                <div v-if="step === 'current'" class="h-1 rounded-sm bg-accented"><div class="h-full w-1/2 rounded-sm bg-primary" /></div>
+                <div v-else class="h-1 rounded-sm" :class="step === 'done' ? 'bg-(--ui-text-muted)' : 'bg-accented'" />
                 <span class="font-mono text-xs" :class="step === 'current' ? 'font-semibold text-primary' : step === 'done' ? 'text-muted' : 'text-dimmed'">{{ epic.number }}</span>
               </li>
             </ol>
