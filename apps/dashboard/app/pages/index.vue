@@ -53,7 +53,7 @@ const ICONS: Record<Alternative['kind'], string> = {
 /** The roadmap's epics as steps: done, the current one (the daemon's), and the others not done. */
 const steps = computed(() => {
   const roadmap = snapshot.value?.roadmap;
-  return (roadmap?.epics ?? []).map((epic) => ({ epic, step: epic.number === roadmap?.current?.number ? 'current' : epic.status === 'done' ? 'done' : 'later' }));
+  return (roadmap?.epics ?? []).map((epic) => ({ epic, step: epic.number === roadmap?.current?.number ? ('current' as const) : epic.status === 'done' ? ('done' as const) : ('later' as const) }));
 });
 const current = computed(() => snapshot.value?.roadmap?.current ?? null);
 
@@ -205,20 +205,7 @@ function outputTokens(totals: Totals): string {
             </table>
           </div>
           <div v-else class="flex flex-col gap-3 px-3.5 py-3">
-            <ol v-if="steps.length > 0" class="flex gap-1" lang="en">
-              <li
-                v-for="{ epic, step } in steps"
-                :key="epic.number"
-                :title="`${epic.number} ${epic.title} · ${wordFor(t.roadmapStatuses, epic.status)}`"
-                :aria-current="step === 'current' ? 'step' : undefined"
-                class="flex min-w-0 flex-1 flex-col gap-1"
-              >
-                <!-- The epic in progress half filled, in the accent, so that it stands apart from the done ones. -->
-                <div v-if="step === 'current'" class="h-1 rounded-sm bg-accented"><div class="h-full w-1/2 rounded-sm bg-primary" /></div>
-                <div v-else class="h-1 rounded-sm" :class="step === 'done' ? 'bg-(--ui-text-muted)' : 'bg-accented'" />
-                <span class="font-mono text-xs" :class="step === 'current' ? 'font-semibold text-primary' : step === 'done' ? 'text-muted' : 'text-dimmed'">{{ epic.number }}</span>
-              </li>
-            </ol>
+            <EpicStrip v-if="steps.length > 0" :steps="steps" />
             <div class="flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
               <span class="text-sm whitespace-nowrap text-muted">{{ t.currentEpic }}</span>
               <template v-if="current === null">
