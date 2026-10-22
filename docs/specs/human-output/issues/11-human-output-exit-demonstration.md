@@ -8,7 +8,21 @@ Spec: `docs/specs/human-output/spec.md`
 **What to build:** epic 13's exit criterion, demonstrated by the owner, then the 0.3.0 release (spec, the exit criterion).
 
 - [ ] `/binnacle:product` in a Russian chat on this repository opens with three to six Russian lines, no attention code and no English domain term; the files it would write stay English.
-- [ ] `binn audit` with `LANG=ru_RU.UTF-8` speaks Russian and leads with its plan.
+- [x] `binn audit` with `LANG=ru_RU.UTF-8` speaks Russian and leads with its plan.
 - [ ] The dashboard in Russian shows Russian terms and no codes.
-- [ ] On a fixture documented in Russian, `binn init` proposes Russian and writes its templates in it, the vault is projected in it, and `binn audit` reads the markers back with no gap.
+- [x] On a fixture documented in Russian, `binn init` proposes Russian and writes its templates in it, the vault is projected in it, and `binn audit` reads the markers back with no gap.
 - [ ] 0.3.0 published by `CONTRIBUTING.md`'s *Releasing*, and installed from the registry.
+
+## Comments
+
+- Run on 2026-10-22, from `feat/human-output-exit-demonstration`, with the built package and a temporary `BINNACLE_HOME` (and, for the fixture, a temporary `HOME`) under `.scratch/demo-ru/`:
+  - **0.3.0, steps 1 to 4 of *Releasing***: `apps/cli/package.json` is `0.3.0`, and `SECURITY.md` and its twin name `0.3.x` as the supported line, which `security-policy.test.ts` asks for; `pnpm install`, `pnpm typecheck` and `pnpm test` (895 passed) pass; the build writes `@it-bbox/binnacle` 0.3.0 to `apps/cli/dist/`; `node --test apps/cli/test/tarball.live.ts` passes.
+  - **`binn audit`**, criterion 2, holds: with `LANG=ru_RU.UTF-8` on this repository it speaks Russian, opens with its one-line count and then the three-step migration plan (Git и трекер, Документация, Телеметрия), then the gaps and the findings in order, with no code in its text.
+  - **The fixture**, criterion 4, holds: a fresh repository at `.scratch/demo-ru/fixture` whose README is Russian. `binn init --plan --json` proposes `ru` from the README (`language.source: readme`) and writes `knowledge.language: ru`; applied, `docs/agents/*.md`, `AGENTS.md` and `docs/roadmap.md` are Russian, with the roadmap's table header, statuses, `## Current focus`, `Next action:`, the ticket header's fields, `## Ticket header`, `## Agent skills` and the triage labels English. With a Russian spec and ticket committed (a `### Question` with options among its comments) and a vault set, the daemon projected `Product/`, `Specs/` and `Research/`, and the snapshot and daily notes in Russian. `binn audit` reads the roadmap as Binnacle's format, finds the ticket-header section and the layout, and `task_get` reads the ticket and its question: none of its gaps is a marker (they are the fixture's missing `CONTEXT.md`, ADRs, CI, lockfile, update tool, security policy and telemetry export).
+- Found on the way:
+  - The Russian vault notes keep two of the daemon's reasons in English, marked `(англ.)` as story 27 allows: the snapshot's suggested alternative "Epic 1 (…) has Tasks ready to start. Run its remaining tickets." (`packages/core/src/roadmap.ts`) and the CI line's "There is no forge to read CI from…" (`apps/daemon/src/ci.ts`). Candidates for wording, for the product inbox.
+  - Under the temporary `HOME` the skills CLI detected no harness and failed on PromptScript, which "does not support global skill installation", and `claude-plugins-official` was not a known marketplace: artefacts of the empty home, not of init.
+- For the owner, the criteria left unticked:
+  - **`/binnacle:product`**, criterion 1: in a fresh session on this repository, in Russian, run `/binnacle:product`. It opens with three to six Russian lines, with no attention code and no English domain term (Task, Epic, Next action read задача, эпик, следующий шаг); if it proposes a file, the text it would write is English.
+  - **The dashboard**, criterion 3: `/binnacle:dashboard`, switch the language to Russian in its settings, and look at the overview, a project's page and a Task's page: Russian terms (эпик, задача, следующий шаг, ждёт владельца), and no code such as `next_action.stale`.
+  - **0.3.0**, criterion 5: after the merge and the push, with CI's `check`, `tarball-live` and `autostart-live` green at `main`'s head, rebuild there (*Releasing* steps 3 and 4), then step 5 (`npm login`, `cd apps/cli/dist`, `npm publish --access public`); `npm view @it-bbox/binnacle version` prints `0.3.0`, and the installation checklist installs it from the registry.
