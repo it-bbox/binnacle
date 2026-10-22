@@ -42,11 +42,7 @@ Done: epics 1 to 19. **v1 is complete.**
 
 **Released** (the owner): `@it-bbox/binnacle` 0.1.0 on 2026-10-13, with `it-bbox/binnacle` public, private vulnerability reporting and Dependabot alerts on; 0.2.0, epic 12, on 2026-10-21; 0.3.0, epic 13, on 2026-10-22, the last of v1, installed from the registry into a clean container (`specs/human-output/issues/11-human-output-exit-demonstration.md`).
 
-**Left open:**
-
-- epic 15 (ADR-0043): a reboot that finds the daemon answering is still to be seen;
-- epic 11, ticket 14: waits on a merge that shrinks the graph;
-- Dependabot's major updates, pull requests #3 (`@types/node` 26) and #4 (`typescript` 7), fail CI: the owner's to take or close.
+**Left open:** Dependabot's pull request #4 (`typescript` 7), weighed in the product inbox's *TypeScript 7*.
 
 Next action: v1 is done; choose what follows it from `docs/product-inbox.md` and *Later* in a Product session. `/binnacle:product`
 

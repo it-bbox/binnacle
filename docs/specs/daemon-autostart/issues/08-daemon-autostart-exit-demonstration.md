@@ -27,14 +27,9 @@ Run by this ticket's agent in the owner's session, on the owner's Linux machine,
 
 - **`binn init` and the login, ticked without a reboot.** With autostart off, `binn init` asked "Start the daemon at login?", the owner answered yes, and its plan's last item ran `binn daemon autostart on`: the unit was written with the `# Written by binn daemon autostart` header, enabled through `default.target.wants/binnacle.service`, and the daemon started through it (pid 2410111). In place of the reboot: `systemctl --user kill -s KILL` on the service, and systemd started it again by itself (pid 2415807, `NRestarts=1`), still one daemon. Not checked: a real login starting the user manager and the unit finding Node at its nvm path. The machine was not rebooted; the steps below check that part.
 
-### Steps for the owner: the reboot, still to do
+### The reboot, 2026-10-22
 
-Autostart is off now, so `binn init` asks for it.
-
-1. In a terminal, in this checkout: `binn init`. Answer Enter (yes) to "Start the daemon at login? [Y/n]" and yes to the plan. Expect `~/.config/systemd/user/binnacle.service` written with the `# Written by binn daemon autostart` header and the daemon started through it.
-2. Reboot. Log in and start nothing.
-3. `binn daemon status`: expect *running* and *Autostart is on*; `systemctl --user status binnacle.service` shows it `active` since the login.
-4. Tick criterion 1, or one line on what went wrong, to become a ticket.
+The owner rebooted the same Linux machine with autostart on, logged in and started nothing. The system booted at 19:22:14 MSK (`uptime -s`); `binnacle.service` became `active` at 19:22:25, with `NRestarts=0`, its `ExecStart` the Node at `~/.nvm/versions/node/v24.16.0`. `binn daemon status` said the daemon is running (pid 1908) and autostart for `~/.binnacle` is on, through `~/.config/systemd/user/binnacle.service`. A real login started the user manager, and the unit found Node at its nvm path: what the check of 2026-10-13 left open, so criterion 1 holds as ticked.
 
 ### Review
 
