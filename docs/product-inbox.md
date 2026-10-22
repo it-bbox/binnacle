@@ -2,31 +2,9 @@
 
 Ideas the owner wants a Product session to weigh. None is decided: each goes to `/grill-with-docs` before it becomes a spec, a ticket, a *Later* item in `docs/roadmap.md` or a rejection, and is removed from here when it does (`docs/workflow/01-product-workflow.md`).
 
-## Embeddings over the documentation (2026-10-07)
-
-A sceptic proposed a vector store and RAG in place of Git and Markdown. Exact state stays in Git: a vector search returns a decision and the one that superseded it as equally similar. Search by meaning could still help in three places:
-
-- **"Was this decided already?"** With 39 ADRs and over a hundred tickets, grep misses a decision worded differently.
-- **Duplicate tickets.** A defect filed by a demonstration or autopilot could be checked against similar open tickets.
-- **Checkpoint.** It must leave out decisions already written down; today that is the model's judgement.
-
-An index over `docs/` would be a rebuildable local projection, which fits the principle that canonical knowledge lives in Markdown, but it adds a dependency, an embedding model, and so needs an ADR. Measure first: how often an agent finds the right ADR, and at what token cost, with and without it. If the difference is small, do not build it.
-
-## Ideas from beads (2026-10-07)
-
-[beads](https://github.com/steveyegge/beads) is an issue tracker for coding agents. A sceptic named it as already solving project state. What Binnacle could take, most useful first:
-
-1. **An explicit claim of a Task.** `bd update <id> --claim` atomically sets the assignee and the in-progress state. Binnacle infers a Task in progress from its runs, so two sessions can take the same ticket despite the rule of one primary agent per Task.
-2. **Ticket numbers that cannot collide.** beads uses hash ids such as `bd-a1b2`. Ticket numbers here are sequential, so two agents filing a defect at once both take the next number. A parallel autopilot run makes this real.
-3. **Typed links.** beads has `supersedes`, `duplicates`, `relates-to` and discovered-from. Here they are prose: "Extends ADR-0011", "a defect found in epic 8's exit demonstration". Typed, the snapshot and the dashboard could show them.
-4. **Summarising what is closed.** beads compacts closed issues into summaries. The roadmap's current focus grows with every epic and reaches a fresh session only up to 2000 characters; a short summary per done epic would keep it compact.
-5. **beads as a tracker.** Binnacle reads Tasks from GitHub, GitLab and local Markdown; beads could be a fourth source.
-
-Not to take: Dolt as the source of truth, since canonical knowledge lives in Markdown and Git and the database is a projection; and `bd remember`, an agent storing facts on its own, since here a decision reaches the repository only after the owner confirms it.
-
-A one-command context dump like `bd prime` is already epic 14's `binn call` (`specs/skills-in-any-harness/spec.md`).
-
 ## Ideas from nick-vels/skills (2026-10-09)
+
+**Planned on 2026-10-22:** ideas 1 and 2, and items 4 and 6 below, into epic 23; items 1, 2, 3, 5 and 8 into epic 22; item 7 into epic 21.
 
 [nick-vels/skills](https://github.com/nick-vels/skills) is a single `/autopilot` skill that builds a project from a brief: rounds of questions at the brief's forks, a spec, tasks built by parallel agents, an offline HTML dashboard, and a final acceptance. It aims at an owner who reads neither the spec nor the code; Binnacle keeps the human in control of a long-lived project (ADR-0022). Two of its ideas could close a gap here, where a spec's link to its brief and its tickets is prose:
 
@@ -50,6 +28,8 @@ Not to take: rounds of questions (the owner grills one question at a time), para
 
 ## A Binnacle mod for Claude Code (2026-10-11)
 
+**Planned as epic 21 on 2026-10-22.**
+
 **Decided by the owner on 2026-10-11: after the release**, in the roadmap's *Later*; kept here for its grilling.
 
 Claude Code's mods (plugins of function hooks, 2.1.295) can draw a pane, a band above the prompt, the status line and toasts, add slash commands, and call the `binnacle` MCP server's tools themselves. The owner wants an optional Binnacle mod, off by default and switched on and off by the user, **after the release**:
@@ -63,11 +43,15 @@ Read-only and silent without the daemon; Claude Code only, beside the skills (AD
 
 ## Binnacle's own planning skills (2026-10-11)
 
+**Planned as epic 23 on 2026-10-22.**
+
 Planning runs on Matt Pocock Skills today: `/grill-with-docs`, `/to-spec` and `/to-tickets`, which `binn init` installs and the workflow depends on (ADR-0035). They are good and maintained, but the owner hears from developers that not all of them like these skills. After the release, Binnacle could ship its own skills for the same chain, written for its formats: grilling against the Project Brain, a spec, tickets with `Roles:`, dependencies and criteria, and whatever else planning needs. Not now: Matt Pocock Skills stay for v1. The owner, 2026-10-12, grilling epic 19: Binnacle should not ask its users to run someone else's skills for its own work. The ticket command comes first, `/binnacle:task run` in epic 19; planning follows after the release.
 
 The course "Один как команда" already tells participants that planning uses Matt Pocock Skills for now and that Binnacle's own skills will come later, without a date. Its prompts and templates do not depend on either, so the switch would not break it.
 
 ## A smarter conflict risk (2026-10-12)
+
+**Planned into epic 23 on 2026-10-22**, where `/to-tickets` is replaced.
 
 The conflict risk beside the parallel limit reads a ready Task's modules only from the file names its ticket writes (`conflictRisk`, `packages/core/src/impact.ts`). Epic 19's tickets name commands and behaviour, not files, so every pair came out `unknown` and autopilot ran them one after the other. A new project gets the opposite: with no graph `impact` is unavailable, the number alone decides, and every ready ticket runs side by side whatever it touches. Neither is right.
 
@@ -78,11 +62,9 @@ Ways to weigh:
 - before the run, an agent estimates the touched modules, as a calculated reading;
 - without a graph, a cautious fallback instead of a full parallel run.
 
-## A unit that uses systemd's specifiers (2026-10-13)
-
-Binnacle reads a systemd unit's `Environment=BINNACLE_HOME=` literally. A unit written by hand that says `%h/.binnacle`, as the one an agent session wrote on the owner's machine on 2026-10-09 does, reads as serving `…/%h/.binnacle`, so `binn daemon autostart` calls autostart off for `~/.binnacle`. Harmless: nothing is changed, and `binn daemon autostart on` replaces such a unit with Binnacle's own, written with absolute paths. Expanding `%h` and the other specifiers would fix it for units written by hand, which are rare; likely not worth doing.
-
 ## Stricter autopilot and review (2026-10-15)
+
+**Planned on 2026-10-22:** ideas 1, 7 and 8 into epic 23; ideas 2, 3, 6, 9 and 12 into epic 22. Ideas 4, 5, 10 and 11 wait here.
 
 Ideas to weigh, most useful first:
 
@@ -103,6 +85,8 @@ Not to take: running without a human by default, which ADR-0022 rules out; and a
 
 ## Derived roadmap state without a yes (2026-10-16)
 
+**Planned into epic 20 on 2026-10-22.**
+
 The owner leans towards it, but wants the options weighed first. Today a Product session, a checkpoint or autopilot's end writes the roadmap only on the owner's yes (`docs/roadmap.md`, *Keeping this current*). After autopilot merged epic 12's tickets 01 to 10, the owner was asked to confirm an epic's status and the *Done* line, which follow from the tickets' statuses alone, beside the `Next action:`, which is a real choice of course.
 
 Options to weigh:
@@ -115,13 +99,19 @@ To decide: which statuses are truly derived (a `tickets` epic with one ticket me
 
 ## A shared sanitizer for manifest text in output (2026-10-16)
 
+**Planned into epic 20 on 2026-10-22.**
+
 From `audit-completed/05`'s Review (5): a manifest's `tracker.host` is quoted back through `JSON.stringify`, which leaves C1 controls and bidi overrides in, and the tracker check already prints it the same way. One sanitizer for manifest values printed to a terminal would cover both. Low risk: the manifest is the user's own file.
 
 ## A session named so a person knows it (2026-10-21)
 
+**Planned into epic 20 on 2026-10-22.**
+
 The `context.pressure` item names a session by its UUID only. On 2026-10-21 the owner read "the Product session 13401315-… read 212007 tokens" as being about the session they were in, which had 121,781; the 212k one was another, started at 12:17. Naming the session by its start time and its latest activity, and saying when it is not the caller's own, would tell them apart. Epic 13's short reports may cover it; check there first.
 
 ## Wording left after epic 13 (2026-10-22)
+
+**Planned into epic 20 on 2026-10-22.**
 
 Found in epic 13's exit demonstration (`specs/human-output/issues/11-human-output-exit-demonstration.md`):
 
@@ -131,4 +121,12 @@ Found in epic 13's exit demonstration (`specs/human-output/issues/11-human-outpu
 
 ## TypeScript 7 (2026-10-22)
 
+**Planned into epic 20 on 2026-10-22**, if its grilling keeps it there.
+
 Dependabot's pull request #4 moves `typescript` from 5.9.3 to 7.0.2, the compiler rewritten natively. Its `check` failed on 2026-10-20, on a `main` since moved on: the typecheck passed, and one test failed, `apps/cli/test/autostart.test.ts:569`, "Windows: with autostart on, start and stop go through schtasks", which expected `/End /TN binnacle` among the calls and got none. Whether that is the new compiler emitting something differently or a timing flake is not known. A major compiler change is a decision of its own, not a dependency bump: rebuild the pull request on the current `main`, find the test's cause, and weigh what else changes, such as the dashboard's own `typescript` (`^5.9.0`), which `vue-tsc` runs on, and the build speed it promises. Until then the pull request stays open.
+
+## The daemon's own version (2026-10-22)
+
+**Planned into epic 20 on 2026-10-22.**
+
+`binn daemon status` on the owner's machine, after the reboot of 2026-10-22, gave the daemon's version as 0.1.0 while 0.3.0 is released: the daemon reads `apps/daemon/package.json`, still 0.1.0, and only `apps/cli/package.json` carries 0.3.0. Whether the daemon installed from npm says the same is not checked.

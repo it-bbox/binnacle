@@ -6,7 +6,7 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 
 **Status vocabulary:** `not started` → `spec` (being specified) → `tickets` (sliced, not yet built) → `in progress` → `done`.
 
-## v1
+Epics 1 to 19 are v1.
 
 | # | Epic | Status | Spec |
 | --- | --- | --- | --- |
@@ -29,6 +29,19 @@ This is the roadmap's single home, whatever the tracker (`ADR-0025`).
 | 17 | Release: npm and open source | done | [`release`](specs/release/spec.md) |
 | 18 | Lean flow | done | [`lean-flow`](specs/lean-flow/spec.md) |
 | 19 | Starting a project: new and existing | done | [`starting-a-project`](specs/starting-a-project/spec.md) |
+| 20 | Hygiene after v1 | not started | — |
+| 21 | A Binnacle mod for Claude Code | not started | — |
+| 22 | Cheaper runs | not started | — |
+| 23 | Binnacle's own planning skills | not started | — |
+
+## Epics
+
+After v1, cut from the product inbox on 2026-10-22; what epics 1 to 19 contain is in `docs/05-mvp-plan.md`.
+
+- **20 Hygiene after v1**: the roadmap's derived state written without a yes, a shared sanitizer for manifest text, a session named so a person knows it, the wording left after epic 13, the daemon reporting its own version, and `/binnacle:roadmap` reading the product inbox; whether TypeScript 7 belongs here is the grilling's to decide. Small enough for autopilot.
+- **21 A Binnacle mod for Claude Code**: a status line, a *Waiting for you* band, a pane and toasts, read-only and off by default; an ADR first. Taken early, by the owner, 2026-10-22.
+- **22 Cheaper runs**: measure first, from Binnacle's own usage per role and per Task; then a model per ticket, review where it pays, ticket size by volume, autopilot reading no full diff, hard stops, review markers, classes of a red CI and stop reasons from facts; measure again. Before 23, so it runs cheaper.
+- **23 Binnacle's own planning skills**: grilling, a spec and tickets in place of Matt Pocock Skills, with requirements traced end to end, blind acceptance, a depth checklist, a red proof, tests-first, delivery signals, a check owned by a role that can perform it, and the modules a ticket expects to touch for the conflict risk.
 
 Epics are ordered by dependency, not by preference:
 
@@ -44,7 +57,9 @@ Done: epics 1 to 19. **v1 is complete.**
 
 **Left open:** Dependabot's pull request #4 (`typescript` 7), weighed in the product inbox's *TypeScript 7*.
 
-Next action: v1 is done; choose what follows it from `docs/product-inbox.md` and *Later* in a Product session. `/binnacle:product`
+Next: epics 20 to 23, cut from the product inbox on 2026-10-22.
+
+Next action: grill epic 20, *Hygiene after v1*, from its entries in `docs/product-inbox.md`; the grilling ends with its Epic brief, `docs/specs/<slug>/brief.md`. `/grill-with-docs`
 
 ## Later
 
@@ -60,8 +75,9 @@ Deferred deliberately, each with the decision that deferred it and when it comes
 | Forking the Matt Pocock skills into the `binnacle` plugin | — | a skill's procedure, not just its conventions in `docs/agents/`, has to change |
 | Reading a record's branch again from a checkout's reflog, for records stored before ADR-0029's order or whose lookup failed | `ADR-0030` | it matters in practice |
 | Autopilot resuming by itself once a usage limit resets (done by hand on 2026-09-25) | `ADR-0022` | limits interrupt runs often |
-| An optional Binnacle mod for Claude Code: a status line, a *Waiting for you* band, a pane and toasts, read-only, off by default | the owner, 2026-10-11; an ADR first (`docs/product-inbox.md`) | after the release |
-| Advanced optimisation rules | — | after real measurement |
+| Embeddings over the documentation, for "was this decided already?", duplicate tickets and the checkpoint | the owner, 2026-10-22 (`docs/product-inbox.md`) | a measurement shows an agent misses the right ADR without them |
+| An explicit claim of a Task, and ticket numbers that cannot collide, after beads | the owner, 2026-10-22 (`docs/product-inbox.md`) | parallel autopilot runs collide on a Task or a ticket number |
+| Typed links, summaries of done epics, and beads as a tracker | the owner, 2026-10-22 (`docs/product-inbox.md`) | — |
 
 Graphify, Obsidian, worktree conflict analysis, further harnesses, OpenTelemetry, CI state, context pressure and everything from the chat left this list on 2026-10-02: they are baseline items, epics 8 to 12 (`docs/baseline.md`).
 
