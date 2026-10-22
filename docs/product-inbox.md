@@ -33,6 +33,21 @@ A one-command context dump like `bd prime` is already epic 14's `binn call` (`sp
 1. **Requirements traced end to end.** The brief is split into numbered requirements, recorded word for word. Every requirement has a section of the spec and a task, every task a requirement, which catches work nobody asked for, and only the owner can drop a requirement. Here a story of a spec could carry a number that its tickets and their criteria name, and the snapshot or `binn audit` could report a story with no ticket and a ticket with no story.
 2. **Blind acceptance.** At the end, a separate agent checks the result against the owner's original words only, without the spec, so that what was lost on the way from brief to spec to tickets shows. Here an epic's exit demonstration could start from such a check against the grilling's record.
 
+### Revisited on 2026-10-22, version 2.2.0
+
+Versions 2.1.0 and 2.2.0 tuned the process by measuring their own runs (`docs/autopilot/design.md`, `tools/measure-run.py`). Both ideas above gained a detail: commits carry a `Requirements: R02` trailer, so `git log --grep="R02"` finds every change a requirement caused, and the blind acceptance runs from a clean clone, which catches an unrecorded dependency or a step only this machine knows. What else could apply here, the cost levers first:
+
+1. **A model per ticket.** A ticket says `Model: strong` or `ordinary`, and an ordinary one runs on a cheaper model. In the week to 2026-10-22, 1795 of Binnacle's 1797 usage records were `claude-opus-5-5`. A `Model:` line that `/binnacle:autopilot` passes to the agent it starts may be the largest saving available; usage by Task shows it.
+2. **Review where it pays.** Their review took up to half a run's spend. Now a point review runs only for the foundation ticket and tickets whose own code is sign-in, keys, money or deleting data, after the commit and without holding the next tickets, and one review of the whole branch runs at the end. Review fell by 51%. Here every ticket is reviewed before `DONE`; in the same week review and rework took about 26% of cached input, rework (47M) more than review (37M). Measure per epic before changing anything.
+3. **Ticket size by volume.** About 3,000 changed lines per agent, at most 12 tickets per run: every ticket is a cold start of 60–100K tokens or more, and a fine cut buys spend, not safety. Binnacle has 220 tickets over 19 epics, each a fresh session; usage by Task can show what a cold start costs here.
+4. **A short return contract with a red proof.** An agent reports in at most 25 lines: status, files, tests, interfaces, concerns, and `REDPROOF`, how each new test failed before the code, which shows it could fail at all. It fits `/binnacle:task run`'s report.
+5. **A list of excuses and red flags** (`skills/autopilot/phases/rationalizations.md`), read on a failed gate and before the report: "the agent could not, I will finish it myself" and the like, each with why it fails.
+6. **A depth checklist for a spec.** First run, empty, wrong input, failure, interruption, growth, permissions, aftermath. Material for *Binnacle's own planning skills* below.
+7. **"Waiting for you" as a state.** Their dashboard's header changes colour when the run waits for the owner, and working time excludes the wait. Binnacle has `pendingDecisions`; the dashboard and the mod below could show it this way.
+8. **Autopilot reads no full diff.** Their orchestrator sees only `--stat`, since a diff read on one ticket stays in its context for the rest of the run. `/binnacle:autopilot`'s step 9 reads `git diff main...<branch>`; scope and dependencies could be checked from `--name-only` and the lockfile alone.
+
+Not to take: rounds of questions (the owner grills one question at a time), parallel agents in one working tree (a worktree each is safer), and a run the owner never watches (ADR-0022).
+
 ## A Binnacle mod for Claude Code (2026-10-11)
 
 **Decided by the owner on 2026-10-11: after the release**, in the roadmap's *Later*; kept here for its grilling.
