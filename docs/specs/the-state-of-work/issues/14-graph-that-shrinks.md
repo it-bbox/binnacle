@@ -10,7 +10,7 @@ Roles: Developer, Reviewer, Security
 
 - [x] A test with a stand-in `graphify` executable shows the daemon's and `binn init`'s extraction pass the flag, and a refusal still gives a failed run with its reason.
 - [x] The graphify that `binn init` installs (`uv tool install graphifyy`) accepts the flag; the document that names graphify's commands says so.
-- [ ] On this repository, after a merge that shrinks the graph, the snapshot's `graph` is current, not behind.
+- [x] On this repository, after a merge that shrinks the graph, the snapshot's `graph` is current, not behind.
 
 ## Comments
 
@@ -66,3 +66,7 @@ The third criterion needs a merge to `main` that shrinks the graph, with the own
 2. After the next merge to `main` whose extract deduplicates nodes (the one of 2026-10-11 did), wait a minute for the daemon's poll and its run.
 3. `/binnacle:status`, or `project_snapshot`: the `graph` section's `builtFrom.commit` is `main`'s commit, `behind` is `false`, and there is no `graph.update_failed` attention item.
 4. If a run failed, its reason is graphify's last stderr line; `graphify --version` names the version, which must be 0.9.76 or later.
+
+### The owner's check, 2026-10-22
+
+Ticked from the daemon's own record, the `graph.built` and `graph.failed` events in `~/.binnacle/binnacle.db`. Before the fix, six runs failed, from 2026-10-10 to 2026-10-11 11:54 UTC, every one with graphify's refusal ("dedup merged 2 node(s); writing would shrink the graph from 2316 nodes to 2315 nodes"). From 2026-10-11 12:00 UTC to 2026-10-22, 162 runs built and none failed, and the snapshot's `graph` is current at `8deaf1b`, `behind` false, with no `graph.update_failed` item. With the flag graphify writes a smaller graph silently, so the record cannot show which of those merges shrank it; the refusal that blocked every update since 2026-10-10 has not recurred.
