@@ -1,4 +1,4 @@
-import { wordMessage, type Diagnostic, type Language } from '@binnacle/core';
+import { wordMessage, type Diagnostic, type Coded, type Language, type Params } from '@binnacle/core';
 import { FALLBACK_DAYS } from './daily.ts';
 
 /**
@@ -17,7 +17,8 @@ export type VaultWords = {
   /** An English sentence from the daemon, marked as such in Russian. */
   english: (text: string) => string;
   attention: (item: Diagnostic) => string;
-  notAvailable: (reason: string) => string;
+  /** A value not available, worded from its code when it has one. */
+  notAvailable: (value: { reason: string; code?: string; params?: Params }) => string;
   waiting: string;
   questions: string;
   onBranch: (branch: string) => string;
@@ -73,7 +74,7 @@ const ENGLISH: VaultWords = {
   state: (state) => state ?? 'unknown',
   english: (text) => text,
   attention: (item) => `\`${item.code}\`: ${item.message}`,
-  notAvailable: (reason) => `Not available: ${reason}`,
+  notAvailable: (value) => `Not available: ${value.reason}`,
   waiting: '## Waiting for the owner',
   questions: '### Questions',
   onBranch: (branch) => ` on \`${branch}\``,
@@ -149,6 +150,10 @@ const DAYS: Partial<Record<Intl.LDMLPluralRule, string>> = { one: 'день', fe
 /** A value the table does not know is written as it came. */
 const word = (table: Record<string, string>, value: string): string => table[value] ?? value;
 const english = (text: string): string => `${text} (англ.)`;
+const worded = (item: Coded): string => {
+  const { text, english: marked } = wordMessage('ru', item);
+  return marked ? english(text) : text;
+};
 
 const RUSSIAN: VaultWords = {
   none: 'Нет.',
@@ -156,11 +161,8 @@ const RUSSIAN: VaultWords = {
   untitled: 'без названия',
   state: (state) => (state === null ? 'неизвестно' : word(TASK_STATE, state)),
   english,
-  attention: (item) => {
-    const { text, english: marked } = wordMessage('ru', item);
-    return marked ? english(text) : text;
-  },
-  notAvailable: (reason) => `Нет данных: ${english(reason)}`,
+  attention: (item) => worded(item),
+  notAvailable: (value) => `Нет данных: ${value.code === undefined ? english(value.reason) : worded({ code: value.code, message: value.reason, ...(value.params && { params: value.params }) })}`,
   waiting: '## Ждёт владельца',
   questions: '### Вопросы',
   onBranch: (branch) => ` в ветке \`${branch}\``,

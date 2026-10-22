@@ -350,7 +350,7 @@ function notes(w: VaultWords, link: Link): { snapshot(name: string, snapshot: Sn
   }
   const ticket = (item: Pick<TaskLine, 'id' | 'title' | 'ticket'>): string => link(item.ticket, `${item.id}: ${item.title ?? w.untitled}`);
   const task = (item: TaskLine): string => `${ticket(item)} — ${w.state(item.state)}`;
-  const notAvailable = (value: Unavailable): string => w.notAvailable(value.reason);
+  const notAvailable = (value: Unavailable): string => w.notAvailable(value);
 
   /** *Waiting for the owner*, each question under its Task, with the branch it was read from, its later lines indented into the item. */
   function waiting(pending: PendingDecisions | Unavailable): string[] {
