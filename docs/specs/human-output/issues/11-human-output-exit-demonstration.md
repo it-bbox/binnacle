@@ -7,11 +7,11 @@ Spec: `docs/specs/human-output/spec.md`
 
 **What to build:** epic 13's exit criterion, demonstrated by the owner, then the 0.3.0 release (spec, the exit criterion).
 
-- [ ] `/binnacle:product` in a Russian chat on this repository opens with three to six Russian lines, no attention code and no English domain term; the files it would write stay English.
+- [x] `/binnacle:product` in a Russian chat on this repository opens with three to six Russian lines, no attention code and no English domain term; the files it would write stay English.
 - [x] `binn audit` with `LANG=ru_RU.UTF-8` speaks Russian and leads with its plan.
-- [ ] The dashboard in Russian shows Russian terms and no codes.
+- [x] The dashboard in Russian shows Russian terms and no codes.
 - [x] On a fixture documented in Russian, `binn init` proposes Russian and writes its templates in it, the vault is projected in it, and `binn audit` reads the markers back with no gap.
-- [ ] 0.3.0 published by `CONTRIBUTING.md`'s *Releasing*, and installed from the registry.
+- [x] 0.3.0 published by `CONTRIBUTING.md`'s *Releasing*, and installed from the registry.
 
 ## Comments
 
@@ -25,10 +25,10 @@ Spec: `docs/specs/human-output/spec.md`
   - Under the temporary `HOME` the skills CLI detected no harness and failed on PromptScript, which "does not support global skill installation", and `claude-plugins-official` was not a known marketplace: artefacts of the empty home, not of init.
 - Found by the owner at the dashboard, 2026-10-22: the overview's epic strip filled the epic in progress in full, like a done one, so it hardly stood apart. **Fixed** for 0.3.0 at the owner's word: it is now half filled, in the accent, on the empty track; checked in a browser against a temporary daemon.
 - Asked by the owner, 2026-10-22, for 0.3.0: with many epics the strip's segments and numbers would crowd into each other. The strip, now `EpicStrip.vue`, shows twenty epics across its width and scrolls past them with a thin scrollbar, centred on the current epic when it opens, is resized or the current epic changes, and faded at an edge with more beyond. Checked in a browser on a 60-epic roadmap (epic 44 centred, 35 to 53 in view) and on this repository's 19 (the full width, no scroll).
-- For the owner, the criteria left unticked. Criteria 1 and 3 need epic 13 in the owner's own Binnacle first: after the merge, *After a pull or a merge* in `CONTRIBUTING.md` (the dashboard regenerated, the daemon restarted, the plugin refreshed). Delete `.scratch/demo-ru/` once the demonstration no longer needs the fixture.
-  - **`/binnacle:product`**, criterion 1: in a fresh session on this repository, in Russian, run `/binnacle:product`. It opens with three to six Russian lines, with no attention code and no English domain term (Task, Epic, Next action read задача, эпик, следующий шаг); if it proposes a file, the text it would write is English.
-  - **The dashboard**, criterion 3: `/binnacle:dashboard`, switch the language to Russian in its settings, and look at the overview, a project's page and a Task's page: Russian terms (эпик, задача, следующий шаг, ждёт владельца), and no code such as `next_action.stale`.
-  - **0.3.0**, criterion 5: after the merge and the push, with CI's `check`, `tarball-live` and `autostart-live` green at `main`'s head, rebuild there (*Releasing* steps 3 and 4), then step 5 (`npm login`, `cd apps/cli/dist`, `npm publish --dry-run`, then `npm publish --access public`); `npm view @it-bbox/binnacle version` prints `0.3.0`, and the installation checklist installs it from the registry, for example in a clean `node:24-slim` container, where `binn --version` prints `0.3.0`.
+- For the owner, the criteria an agent cannot check. Criteria 1 and 3 need epic 13 in the owner's own Binnacle first: after the merge, *After a pull or a merge* in `CONTRIBUTING.md` (the dashboard regenerated, the daemon restarted, the plugin refreshed). Delete `.scratch/demo-ru/` once the demonstration no longer needs the fixture.
+  - **`/binnacle:product`**, criterion 1, holds (the owner, 2026-10-22): in a fresh Russian session it opened with five Russian lines, where the project stands, what is broken, what is running, the next action and Binnacle's suggested step, then one line on what else it can show; no attention code, the terms Russian (текущий эпик, продуктовая сессия, доработка, следующий шаг, "(по активности)"), and no file proposed. Two wording slips for the product inbox: "3 запуска… Две из них" (for "Два из них"), and "по pull request'ам", an English term in a Russian line.
+  - **The dashboard**, criterion 3, holds (the owner, 2026-10-22): the overview in Russian shows Russian terms (Следующий шаг, Текущий эпик, Идёт сейчас, Продуктовая сессия, без задачи, "(по активности)", "(оценка)") and no code; the English left is this repository's own text, its roadmap's next action, the epic's name and the ticket's title, as the repository is English. The attention line on context pressure names the manifest key `telemetry.context_pressure.tokens`, a setting's name rather than a code, which reads as technical: for the product inbox. The epic strip was changed at the owner's word, above.
+  - **0.3.0**, criterion 5, holds (2026-10-22): `main` pushed at `74da033`, CI's `check`, `tarball-live` and `autostart-live` green on Linux, macOS and Windows there; rebuilt at that commit, `tarball.live.ts` passes. `npm publish --dry-run`, then the owner's `npm publish --access public` from `apps/cli/dist/`, 76 files, 898 kB, the second factor confirmed in the browser. `latest` moved from `0.2.0` to `0.3.0` about two and a half minutes later. From the registry, in a `node:24-slim` container: `npm i -g @it-bbox/binnacle@0.3.0`, then `binn --version` prints `0.3.0`, and the daemon starts, answers `binn daemon status` with version `0.3.0`, and stops.
 
 ### Review
 
