@@ -17,7 +17,7 @@
     "dashboard:generate": "pnpm --filter @binnacle/dashboard generate"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
+    "@types/node": "^24.19.2",
     "esbuild": "^0.28.2",
     "typescript": "^5.9.0"
   }
