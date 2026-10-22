@@ -152,3 +152,11 @@ From `audit-completed/05`'s Review (5): a manifest's `tracker.host` is quoted ba
 ## A session named so a person knows it (2026-10-21)
 
 The `context.pressure` item names a session by its UUID only. On 2026-10-21 the owner read "the Product session 13401315-… read 212007 tokens" as being about the session they were in, which had 121,781; the 212k one was another, started at 12:17. Naming the session by its start time and its latest activity, and saying when it is not the caller's own, would tell them apart. Epic 13's short reports may cover it; check there first.
+
+## Wording left after epic 13 (2026-10-22)
+
+Found in epic 13's exit demonstration (`specs/human-output/issues/11-human-output-exit-demonstration.md`):
+
+- `/binnacle:product`'s Russian report wrote "3 запуска… Две из них" (for "Два из них") and "по pull request'ам", an English term in a Russian line.
+- The context-pressure attention item names the manifest key `telemetry.context_pressure.tokens`, which reads as technical in a Russian line; it also still names the session by its UUID only (*A session named so a person knows it*, above: epic 13 did not cover it).
+- Reasons with no code reach a Russian vault in English, marked `(англ.)` as story 27 allows: the snapshot's alternative "Epic N (…) has Tasks ready to start…" (`packages/core/src/roadmap.ts`) and the graph's "graphify is not on the daemon's PATH…" (`apps/daemon/src/graph.ts`), whose `kind` core already words under `graph.unavailable`.
