@@ -15,7 +15,7 @@ Ideas the owner wants a Product session to weigh. None is decided: each goes to 
 
 Versions 2.1.0 and 2.2.0 tuned the process by measuring their own runs (`docs/autopilot/design.md`, `tools/measure-run.py`). Both ideas above gained a detail: commits carry a `Requirements: R02` trailer, so `git log --grep="R02"` finds every change a requirement caused, and the blind acceptance runs from a clean clone, which catches an unrecorded dependency or a step only this machine knows. What else could apply here, the cost levers first:
 
-1. **A model per ticket.** A ticket says `Model: strong` or `ordinary`, and an ordinary one runs on a cheaper model. In the week to 2026-10-22, 1795 of Binnacle's 1797 usage records were `claude-opus-5-5`. A `Model:` line that `/binnacle:autopilot` passes to the agent it starts may be the largest saving available; usage by Task shows it.
+1. **A model per ticket.** A ticket says `Model: strong` or `ordinary`, and an ordinary one runs on a cheaper model. In the week to 2026-10-22, 1795 of Binnacle's 1797 usage records were `claude-opus-5-5`. A `Model:` line that `/binnacle:autopilot` passes to the agent it starts may be the largest saving available; usage by Task shows it. In Claude Code, an agent definition in the `binnacle` plugin can name its own model, and the harness can set one model for every sub-agent, as ECC does (2026-10-23): two ways to put a review or an exploration on a cheaper model without touching the developer's.
 2. **Review where it pays.** Their review took up to half a run's spend. Now a point review runs only for the foundation ticket and tickets whose own code is sign-in, keys, money or deleting data, after the commit and without holding the next tickets, and one review of the whole branch runs at the end. Review fell by 51%. Here every ticket is reviewed before `DONE`; in the same week review and rework took about 26% of cached input, rework (47M) more than review (37M). Measure per epic before changing anything.
 3. **Ticket size by volume.** About 3,000 changed lines per agent, at most 12 tickets per run: every ticket is a cold start of 60–100K tokens or more, and a fine cut buys spend, not safety. Binnacle has 220 tickets over 19 epics, each a fresh session; usage by Task can show what a cold start costs here.
 4. **A short return contract with a red proof.** An agent reports in at most 25 lines: status, files, tests, interfaces, concerns, and `REDPROOF`, how each new test failed before the code, which shows it could fail at all. It fits `/binnacle:task run`'s report.
@@ -34,7 +34,7 @@ Not to take: rounds of questions (the owner grills one question at a time), para
 
 Claude Code's mods (plugins of function hooks, 2.1.295) can draw a pane, a band above the prompt, the status line and toasts, add slash commands, and call the `binnacle` MCP server's tools themselves. The owner wants an optional Binnacle mod, off by default and switched on and off by the user, **after the release**:
 
-- the status line per chat: the session's Task and role, its tokens and context;
+- the status line per chat: the session's Task and role, its tokens and context, and the usage limits' windows where the harness passes them to the status line, as ECC's does (2026-10-23);
 - a *Waiting for you* band, shown only when there is something: unanswered questions, `main`'s CI failing, a stale Next action;
 - a pane with a compact snapshot and buttons that put a command (`/binnacle:answer`, `/binnacle:autopilot`, `/binnacle:checkpoint`) in the prompt for the human to send;
 - toasts on a change: CI failed, a question answered, context pressure.
@@ -60,7 +60,8 @@ Ways to weigh:
 - `/to-tickets` writes the modules a ticket expects to touch;
 - a ticket's commands and terms are matched to modules through the graph's labels, not only file names (`binn audit` → `apps/cli/src/audit.ts`);
 - before the run, an agent estimates the touched modules, as a calculated reading;
-- without a graph, a cautious fallback instead of a full parallel run.
+- without a graph, a cautious fallback instead of a full parallel run;
+- while tickets run, the files each agent's worktree has already changed: two working sets that start to overlap are a risk the graph could not see before the start. ECC sketches this as advisories between live agents (2026-10-23), uncalibrated by its own account.
 
 ## Stricter autopilot and review (2026-10-15)
 
@@ -72,7 +73,7 @@ Ideas to weigh, most useful first:
 2. **Hard stops for autopilot.** Binnacle shows runs per Task and the rework share but stops nothing. Past a threshold of rework runs, a ticket could stop under *Waiting for the owner* with its reason instead of another correction run; review iterations could have a cap, and every CI job one retry budget across runs.
 3. **Classes of a red CI.** An infrastructure failure (runner lost, registry or network) is retried within the budget; a failed test is never retried, since a green rerun on the same commit is flaky evidence, not a pass; an unknown cause is treated as the change's. Binnacle reads a Task's CI; what autopilot does on red is not written down.
 4. **A complexity gate in review.** A complexity reading of the touched code is recorded before development, and review checks it did not grow. A calculated reading that sits well beside Ponytail.
-5. **Tests on the instructions themselves.** Checks over Binnacle's own skills and instruction files: a length budget for each skill description and for all of them together, a size limit for a router entrypoint, every reference file named with the condition that loads it, no procedure copied into two places. They would catch drift and duplication without a reviewer.
+5. **Tests on the instructions themselves.** Checks over Binnacle's own skills and instruction files: a length budget for each skill description and for all of them together, a size limit for a router entrypoint, every reference file named with the condition that loads it, no procedure copied into two places. They would catch drift and duplication without a reviewer. Beside these static checks, a skill's behaviour can be pinned by recorded scenarios replayed against it, each step labelled with what the skill must do, so that a regression such as a Russian report's wrong agreement fails a test; ECC checks its edit gate this way (2026-10-23).
 6. **Machine-readable markers.** `### Question` and `### Answer` are already parsed. A parsable first line for a Review's verdict, a stop and a rework, such as `REVIEW:<task>:<run>:<iteration>:<verdict>`, would make first-pass review acceptance and stop reasons exact, counted without a model.
 7. **Delivery signals at slicing.** `/to-tickets` could ask whether a ticket changes a schema, stored data, an API or consumer contract, or background processing; such a ticket carries a rollout step.
 8. **A check belongs to a role that can perform it.** Each check in a ticket names the role that performs it, and grilling asks whether that role can: a "before" screenshot can only be taken where the old version still runs, test accounts on a stage only by whoever administers it. A check handed to a role that cannot do it stalls the ticket.
@@ -130,3 +131,13 @@ Dependabot's pull request #4 moves `typescript` from 5.9.3 to 7.0.2, the compile
 **Planned into epic 20 on 2026-10-22.**
 
 `binn daemon status` on the owner's machine, after the reboot of 2026-10-22, gave the daemon's version as 0.1.0 while 0.3.0 is released: the daemon reads `apps/daemon/package.json`, still 0.1.0, and only `apps/cli/package.json` carries 0.3.0. Whether the daemon installed from npm says the same is not checked.
+
+## Ideas from affaan-m/everything-claude-code (2026-10-23)
+
+[ECC](https://github.com/affaan-m/everything-claude-code), 2.2.3, is a large toolbox installed into a harness: agents, skills, hooks, a memory vault and, in alpha, a control pane of its own. Where it touches what is already planned, the entries above name it. Three ideas are new here, each to be built Binnacle's way, not copied:
+
+1. **Where the project stands, at a session's start.** A fresh session knows nothing until someone runs `/binnacle:product`. A `SessionStart` hook in the `binnacle` plugin could add two or three lines from the snapshot: the current epic, what waits for the owner, and the Next action with its command. Bounded in size, silent without the daemon, and off with one setting; progressive disclosure, not the whole snapshot. A candidate for epic 21.
+2. **The agent's own configuration in `binn audit`.** The audit reads the project's code, secrets and supply chain, not what drives the agents: `.mcp.json` and each harness's MCP settings, hooks and the commands they run, permission modes that skip approval, and secrets or tokens written into `AGENTS.md`, `CLAUDE.md` or a skill. A new area, read-only as every audit check, which also reports when the harnesses of one project register different MCP servers. Not planned yet; a candidate for epic 20.
+3. **A trap as a checkpoint target.** `/binnacle:checkpoint` promotes a term, a trade-off, new work, a product rule or the position. A sixth kind has no place: a non-obvious fact that already cost time, such as a command that must run before another or a version pin. It belongs in the instruction file, `AGENTS.md`, one line each, written on the owner's yes like every promotion. Not planned yet.
+
+Not to take: a catalogue of hundreds of skills and agents, learned "instincts" injected into a session without the owner's yes, and a desktop dashboard beside the web one.
