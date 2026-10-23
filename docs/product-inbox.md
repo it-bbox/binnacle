@@ -4,7 +4,7 @@ Ideas the owner wants a Product session to weigh. None is decided: each goes to 
 
 ## Ideas from nick-vels/skills (2026-10-09)
 
-**Planned on 2026-10-22:** ideas 1 and 2, and items 4 and 6 below, into epic 23; items 1, 2, 3, 5 and 8 into epic 22; item 7 into epic 21.
+**Planned on 2026-10-22:** ideas 1 and 2, and items 4 and 6 below, into epic 24; items 1, 2, 3, 5 and 8 into epic 23; item 7 into epic 21.
 
 [nick-vels/skills](https://github.com/nick-vels/skills) is a single `/autopilot` skill that builds a project from a brief: rounds of questions at the brief's forks, a spec, tasks built by parallel agents, an offline HTML dashboard, and a final acceptance. It aims at an owner who reads neither the spec nor the code; Binnacle keeps the human in control of a long-lived project (ADR-0022). Two of its ideas could close a gap here, where a spec's link to its brief and its tickets is prose:
 
@@ -43,7 +43,7 @@ Read-only and silent without the daemon; Claude Code only, beside the skills (AD
 
 ## Binnacle's own planning skills (2026-10-11)
 
-**Planned as epic 23 on 2026-10-22.**
+**Planned as epic 24 on 2026-10-22.**
 
 Planning runs on Matt Pocock Skills today: `/grill-with-docs`, `/to-spec` and `/to-tickets`, which `binn init` installs and the workflow depends on (ADR-0035). They are good and maintained, but the owner hears from developers that not all of them like these skills. After the release, Binnacle could ship its own skills for the same chain, written for its formats: grilling against the Project Brain, a spec, tickets with `Roles:`, dependencies and criteria, and whatever else planning needs. Not now: Matt Pocock Skills stay for v1. The owner, 2026-10-12, grilling epic 19: Binnacle should not ask its users to run someone else's skills for its own work. The ticket command comes first, `/binnacle:task run` in epic 19; planning follows after the release.
 
@@ -51,7 +51,7 @@ The course "Один как команда" already tells participants that plan
 
 ## A smarter conflict risk (2026-10-12)
 
-**Planned into epic 23 on 2026-10-22**, where `/to-tickets` is replaced.
+**Planned into epic 24 on 2026-10-22**, where `/to-tickets` is replaced.
 
 The conflict risk beside the parallel limit reads a ready Task's modules only from the file names its ticket writes (`conflictRisk`, `packages/core/src/impact.ts`). Epic 19's tickets name commands and behaviour, not files, so every pair came out `unknown` and autopilot ran them one after the other. A new project gets the opposite: with no graph `impact` is unavailable, the number alone decides, and every ready ticket runs side by side whatever it touches. Neither is right.
 
@@ -65,7 +65,7 @@ Ways to weigh:
 
 ## Stricter autopilot and review (2026-10-15)
 
-**Planned on 2026-10-22:** ideas 1, 7 and 8 into epic 23; ideas 2, 3, 6, 9 and 12 into epic 22. Ideas 4, 5, 10 and 11 wait here.
+**Planned on 2026-10-22:** ideas 1, 7 and 8 into epic 24; ideas 2, 3, 6, 9 and 12 into epic 23. Ideas 4, 5, 10 and 11 wait here.
 
 Ideas to weigh, most useful first:
 
@@ -141,3 +141,11 @@ Dependabot's pull request #4 moves `typescript` from 5.9.3 to 7.0.2, the compile
 3. **A trap as a checkpoint target.** `/binnacle:checkpoint` promotes a term, a trade-off, new work, a product rule or the position. A sixth kind has no place: a non-obvious fact that already cost time, such as a command that must run before another or a version pin. It belongs in the instruction file, `AGENTS.md`, one line each, written on the owner's yes like every promotion. Not planned yet.
 
 Not to take: a catalogue of hundreds of skills and agents, learned "instincts" injected into a session without the owner's yes, and a desktop dashboard beside the web one.
+
+## Showcase and launch (2026-10-23)
+
+**Planned as epic 22 on 2026-10-23**, after the mod (the owner).
+
+Binnacle has 4 stars on 2026-10-23, and its repository has no description, no topics and no image in the README: a visitor from a post sees a wall of text. Projects of its kind grow through a storefront that shows the tool in seconds, launch posts close together (GitHub's trending list counts stars over a day or two), listings where people look for tools, and write-ups with real data. Binnacle's own usage data is the material others do not have: what 220 tickets cost and where the tokens went.
+
+The epic is what the repository can carry: the description and topics, a demo and dashboard screenshots in the README, the Claude plugin marketplace, MCP directories, awesome lists, npm keywords, a write-up and a launch checklist. Posting on Reddit, Hacker News, X, Habr and Telegram is the owner's. A subreddit of its own waits until users ask questions; until then GitHub Discussions is the place for them.

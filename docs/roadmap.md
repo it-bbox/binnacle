@@ -31,8 +31,9 @@ Epics 1 to 19 are v1.
 | 19 | Starting a project: new and existing | done | [`starting-a-project`](specs/starting-a-project/spec.md) |
 | 20 | Hygiene after v1 | not started | — |
 | 21 | A Binnacle mod for Claude Code | not started | — |
-| 22 | Cheaper runs | not started | — |
-| 23 | Binnacle's own planning skills | not started | — |
+| 22 | Showcase and launch | not started | — |
+| 23 | Cheaper runs | not started | — |
+| 24 | Binnacle's own planning skills | not started | — |
 
 ## Epics
 
@@ -40,8 +41,9 @@ After v1, cut from the product inbox on 2026-10-22; what epics 1 to 19 contain i
 
 - **20 Hygiene after v1**: the roadmap's derived state written without a yes, a shared sanitizer for manifest text, a session named so a person knows it, the wording left after epic 13, the daemon reporting its own version, and `/binnacle:roadmap` reading the product inbox; whether TypeScript 7 belongs here is the grilling's to decide. Small enough for autopilot.
 - **21 A Binnacle mod for Claude Code**: a status line, a *Waiting for you* band, a pane and toasts, read-only and off by default; an ADR first. Taken early, by the owner, 2026-10-22.
-- **22 Cheaper runs**: measure first, from Binnacle's own usage per role and per Task; then a model per ticket, review where it pays, ticket size by volume, autopilot reading no full diff, hard stops, review markers, classes of a red CI and stop reasons from facts; measure again. Before 23, so it runs cheaper.
-- **23 Binnacle's own planning skills**: grilling, a spec and tickets in place of Matt Pocock Skills, with requirements traced end to end, blind acceptance, a depth checklist, a red proof, tests-first, delivery signals, a check owned by a role that can perform it, and the modules a ticket expects to touch for the conflict risk.
+- **22 Showcase and launch**: what a visitor from a post sees and where Binnacle can be found: the repository's description and topics, a demo and screenshots of the dashboard in the README, listings in the Claude plugin marketplace, MCP directories and awesome lists, npm keywords, a write-up from Binnacle's own usage data, and a launch checklist. The posts themselves are the owner's. After the mod, so its pane and status line can be shown (the owner, 2026-10-23).
+- **23 Cheaper runs**: measure first, from Binnacle's own usage per role and per Task; then a model per ticket, review where it pays, ticket size by volume, autopilot reading no full diff, hard stops, review markers, classes of a red CI and stop reasons from facts; measure again. Before 24, so it runs cheaper.
+- **24 Binnacle's own planning skills**: grilling, a spec and tickets in place of Matt Pocock Skills, with requirements traced end to end, blind acceptance, a depth checklist, a red proof, tests-first, delivery signals, a check owned by a role that can perform it, and the modules a ticket expects to touch for the conflict risk.
 
 Epics are ordered by dependency, not by preference:
 
@@ -57,7 +59,7 @@ Done: epics 1 to 19. **v1 is complete.**
 
 **Left open:** Dependabot's pull request #4 (`typescript` 7), weighed in the product inbox's *TypeScript 7*.
 
-Next: epics 20 to 23, cut from the product inbox on 2026-10-22.
+Next: epics 20 to 24, cut from the product inbox on 2026-10-22 and 2026-10-23.
 
 Next action: grill epic 20, *Hygiene after v1*, from its entries in `docs/product-inbox.md`; the grilling ends with its Epic brief, `docs/specs/<slug>/brief.md`. `/grill-with-docs`
 
