@@ -61,7 +61,7 @@ Done: epics 1 to 19. **v1 is complete.**
 
 Next: epics 20 to 24, cut from the product inbox on 2026-10-22 and 2026-10-23.
 
-Next action: specify epic 20, Hygiene after v1, from its grilling's brief, `docs/specs/hygiene-after-v1/brief.md`. `/to-spec`
+Next action: cut epic 20's spec, `docs/specs/hygiene-after-v1/spec.md`, into tickets. `/to-tickets`
 
 ## Later
 
