@@ -57,7 +57,7 @@ Done: epics 1 to 19. **v1 is complete.**
 
 **Released** (the owner): `@it-bbox/binnacle` 0.1.0 on 2026-10-13, with `it-bbox/binnacle` public, private vulnerability reporting and Dependabot alerts on; 0.2.0, epic 12, on 2026-10-21; 0.3.0, epic 13, on 2026-10-22, the last of v1, installed from the registry into a clean container (`specs/human-output/issues/11-human-output-exit-demonstration.md`).
 
-**Left open:** Dependabot's pull request #4 (`typescript` 7), weighed in the product inbox's *TypeScript 7*.
+**Left open:** Dependabot's pull request #4 (`typescript` 7), which a ticket of epic 20 closes (`specs/hygiene-after-v1/brief.md`).
 
 Next: epics 20 to 24, cut from the product inbox on 2026-10-22 and 2026-10-23.
 

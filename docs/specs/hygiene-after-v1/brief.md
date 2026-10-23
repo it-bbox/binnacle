@@ -1,6 +1,6 @@
 # Hygiene after v1: what the grilling decided
 
-Epic 20's material is `docs/product-inbox.md`: *Derived roadmap state without a yes* (2026-10-16), *A shared sanitizer for manifest text in output* (2026-10-16), *A session named so a person knows it* (2026-10-21), *Wording left after epic 13*, *TypeScript 7* and *The daemon's own version* (2026-10-22), and the roadmap's line for epic 20, which adds `/binnacle:roadmap` reading the product inbox. This brief is what `/to-spec` starts from.
+Epic 20's material is `docs/product-inbox.md`: *Derived roadmap state without a yes* (2026-10-16), *A shared sanitizer for manifest text in output* (2026-10-16), *A session named so a person knows it* (2026-10-21), *Wording left after epic 13*, *TypeScript 7* and *The daemon's own version* (2026-10-22), *A flaky audit test* (2026-10-23), and the roadmap's line for epic 20, which adds `/binnacle:roadmap` reading the product inbox. This brief is what `/to-spec` starts from.
 
 ## The problem
 
@@ -20,6 +20,7 @@ The owner, who runs autopilot and Product sessions on this repository every day;
 - the `context.pressure` attention item in core, its wording in `packages/core/src/wording.ts`, and the `binnacle` MCP server, which learns the caller's session;
 - `/binnacle:product`'s Russian report, the reasons with no code in `packages/core/src/roadmap.ts` and `apps/daemon/src/graph.ts`;
 - `apps/daemon/src/version.ts` and the bundled package;
+- `apps/cli/test/audit.test.ts`'s fixture listing, which counts Git's own files;
 - the manifest values printed by `binn audit`'s tracker checks;
 - the root `typescript`, `apps/dashboard`'s, and `.github/dependabot.yml`;
 - `/binnacle:roadmap`'s *Again* entry.

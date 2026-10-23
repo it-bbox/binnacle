@@ -122,7 +122,7 @@ Found in epic 13's exit demonstration (`specs/human-output/issues/11-human-outpu
 
 ## TypeScript 7 (2026-10-22)
 
-**Planned into epic 20 on 2026-10-22**, if its grilling keeps it there.
+**Planned into epic 20 on 2026-10-22**; its grilling kept it there on 2026-10-23, as a ticket.
 
 Dependabot's pull request #4 moves `typescript` from 5.9.3 to 7.0.2, the compiler rewritten natively. Its `check` failed on 2026-10-20, on a `main` since moved on: the typecheck passed, and one test failed, `apps/cli/test/autostart.test.ts:569`, "Windows: with autostart on, start and stop go through schtasks", which expected `/End /TN binnacle` among the calls and got none. Whether that is the new compiler emitting something differently or a timing flake is not known. Dependabot rebuilt it on 2026-10-22 on `main` at `944f8ae` (head `4b9d75d`), and every check passed, the Windows test above included, which points to a flake on the older run rather than the compiler. A major compiler change is still a decision of its own, not a dependency bump: weigh what else changes, such as the dashboard's own `typescript` (`^5.9.0`), which `vue-tsc` runs on, and the build speed it promises. Until then the pull request stays open.
 
@@ -131,6 +131,12 @@ Dependabot's pull request #4 moves `typescript` from 5.9.3 to 7.0.2, the compile
 **Planned into epic 20 on 2026-10-22.**
 
 `binn daemon status` on the owner's machine, after the reboot of 2026-10-22, gave the daemon's version as 0.1.0 while 0.3.0 is released: the daemon reads `apps/daemon/package.json`, still 0.1.0, and only `apps/cli/package.json` carries 0.3.0. Whether the daemon installed from npm says the same is not checked.
+
+## A flaky audit test (2026-10-23)
+
+**Planned into epic 20 on 2026-10-23.**
+
+CI failed on `main` at `d032715`, a commit that changed only the product inbox: `apps/cli/test/audit.test.ts:612`, "binn audit: stranded documents … nothing written", lists the fixture's whole tree before and after the audit, `.git` included, and Git's background maintenance wrote `.git/objects/maintenance.lock` in between. The test should compare the working tree without `.git`, or turn automatic maintenance off in the fixture, so that only a file the audit writes fails it.
 
 ## Ideas from affaan-m/everything-claude-code (2026-10-23)
 
