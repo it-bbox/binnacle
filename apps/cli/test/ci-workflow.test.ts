@@ -32,7 +32,8 @@ test('the repository workflow runs the typecheck and the offline tests on push t
 
   assert.deepEqual(
     job.steps.flatMap((step) => (step.run ? [step.run] : [])),
-    ['pnpm install --frozen-lockfile', 'pnpm typecheck', 'pnpm test'],
+    // The dashboard's own typecheck: it runs another compiler than the root's, TypeScript 5.x for `vue-tsc` (hygiene-after-v1, ticket 08).
+    ['pnpm install --frozen-lockfile', 'pnpm typecheck', 'pnpm --filter @binnacle/dashboard typecheck', 'pnpm test'],
   );
   assert.doesNotMatch(text, /secrets\./);
 });

@@ -26,6 +26,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+      # The dashboard runs TypeScript 5.x, which vue-tsc needs, and the root 7: each has its own typecheck.
+      - run: pnpm --filter @binnacle/dashboard typecheck
       - run: pnpm test
 
   # Autostart with each runner's real service manager: systemd, launchd, Task Scheduler.

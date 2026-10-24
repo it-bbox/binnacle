@@ -81,7 +81,7 @@ A new session then loads the changed skills. `/binnacle:autopilot` does this its
 
 ## Checking a change
 
-`pnpm typecheck` and `pnpm test` check a change; `pnpm test` is offline. The live tests run apart, with `pnpm test:live`:
+`pnpm typecheck`, `pnpm --filter @binnacle/dashboard typecheck` and `pnpm test` check a change; the dashboard has its own typecheck because it stays on TypeScript 5.x, which `vue-tsc` needs, while the workspace runs 7, and `pnpm test` is offline. The live tests run apart, with `pnpm test:live`:
 
 | Live test | What it needs |
 | --- | --- |
@@ -91,7 +91,7 @@ A new session then loads the changed skills. `/binnacle:autopilot` does this its
 
 CI runs in GitHub Actions on every push to `main` and every pull request (`.github/workflows/ci.yml`), without any secret:
 
-- the typecheck and `pnpm test`, on Linux;
+- the typecheck, the dashboard's typecheck and `pnpm test`, on Linux;
 - the autostart and tarball live tests, on Linux, macOS and Windows runners.
 
 The adapters' live tests, which need tokens, do not run there.

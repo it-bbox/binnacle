@@ -81,7 +81,7 @@ npx skills remove -g -a claude-code -s $(ls apps/cli/skills) -y
 
 ## Проверка изменения
 
-`pnpm typecheck` и `pnpm test` проверяют изменение; `pnpm test` работает без сети. Живые тесты запускаются отдельно, командой `pnpm test:live`:
+`pnpm typecheck`, `pnpm --filter @binnacle/dashboard typecheck` и `pnpm test` проверяют изменение. У dashboard свой typecheck: он остаётся на TypeScript 5.x, который нужен `vue-tsc`, а workspace работает на 7. `pnpm test` работает без сети. Живые тесты запускаются отдельно, командой `pnpm test:live`:
 
 | Живой тест | Что ему нужно |
 | --- | --- |
@@ -91,7 +91,7 @@ npx skills remove -g -a claude-code -s $(ls apps/cli/skills) -y
 
 CI работает в GitHub Actions на каждый push в `main` и на каждый pull request (`.github/workflows/ci.yml`), без каких-либо секретов:
 
-- typecheck и `pnpm test` — в Linux;
+- typecheck, typecheck dashboard и `pnpm test` — в Linux;
 - живые тесты автозапуска и tarball — на раннерах Linux, macOS и Windows.
 
 Живые тесты адаптеров, которым нужны токены, там не запускаются.
