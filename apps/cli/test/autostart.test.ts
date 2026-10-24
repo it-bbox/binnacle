@@ -666,7 +666,7 @@ test("autostart's token warning prints a registered manifest's tracker host with
   const on = binn('daemon', 'autostart', 'on');
   assert.equal(on.status, 0, on.stderr);
   assert.ok(on.stderr.includes('has no token for "gh.ex\\u{85}am\\u{202e}ple.com"'), on.stderr);
-  assert.ok(!/[\u0085‮]/.test(on.stderr), on.stderr);
+  assert.ok(!/[\u0085\u202e]/.test(on.stderr), on.stderr);
 });
 
 test('autostart speaks Russian under a Russian locale, its token warning too, with no code and the exit codes as in English', (t) => {

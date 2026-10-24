@@ -867,7 +867,7 @@ test("init prints a manifest's tracker repository with its control and bidi char
   const { stdout } = await binnInit(home, root, '\n\ny\n', { BINNACLE_GITHUB_TOKEN: 'ghp_never-printed' });
 
   assert.ok(stdout.includes('octo-org/oc\\u{85}to\\u{202e}repo'), stdout);
-  assert.ok(!/[\u0085‮]/.test(stdout), stdout);
+  assert.ok(!/[\u0085\u202e]/.test(stdout), stdout);
 });
 
 test('the advice on a GitHub token names the access the snapshot’s CI needs beside the issues', async (t) => {

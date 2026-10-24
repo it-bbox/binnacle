@@ -1,3 +1,4 @@
+import { terminalText } from '@binnacle/core';
 import { readToken } from '@binnacle/daemon';
 import { DaemonUnreachableError, OperationFailedError } from './client.ts';
 import { EXIT, type ExitCode } from './exit.ts';
@@ -34,8 +35,9 @@ export function reportFailure(error: unknown): ExitCode {
     return EXIT.failed;
   }
   if (error instanceof OperationFailedError) {
-    console.error(`binn: ${say(error)}`);
-    for (const detail of error.details ?? []) console.error(`  ${detail.path}: ${say(detail)}`);
+    // A detail can quote the user's manifest, a key or a line of it: no control or bidi character reaches the terminal.
+    console.error(terminalText(`binn: ${say(error)}`));
+    for (const detail of error.details ?? []) console.error(terminalText(`  ${detail.path}: ${say(detail)}`));
     return EXIT.failed;
   }
   throw error;

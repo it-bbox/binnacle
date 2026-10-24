@@ -838,7 +838,8 @@ function spawnSkills(session: Session, args: string[]): { status: number | null;
 
 /** A failed `skills` call, reported with its output and recorded. */
 function skillsFailed(session: Session, args: string[], { stdout, stderr }: { stdout: string; stderr: string }): void {
-  const output = `${stdout}${stderr}`.trim();
+  // Its colours stripped, as installedInto strips them: `say` would show them as escapes.
+  const output = `${stdout}${stderr}`.replace(/\x1b\[[0-9;]*m/g, '').trim();
   session.say(session.w.commandFailed(shownSkills(args), output));
   record(session, 'failed', shownSkills(args));
 }

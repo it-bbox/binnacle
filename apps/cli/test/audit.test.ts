@@ -128,20 +128,20 @@ test('the tracker provider is read from the remote, and the token is reported wi
 
 test('control and bidi characters in a tracker host or a manifest value are printed as escapes, and --json keeps them as they are', (t) => {
   // U+0085 is a C1 control, U+202E a right-to-left override; the host keeps its `gitlab` label so the tracker is recognised.
-  const host = 'gitlab.ex\u0085am‮ple.com';
+  const host = 'gitlab.ex\u0085am\u202eple.com';
   const root = fixture(t, `https://${host}/group/project.git`);
   mkdirSync(join(root, '.binnacle'));
   writeFileSync(join(root, '.binnacle', 'project.yaml'), 'version: 1\nproject:\n  id: fixture\nknowledge:\n  docs: "no\\u0085tes\\u202e"\n');
   for (const [language, env] of LANGUAGES) {
     const result = audit(t, [], env, root);
     assert.equal(result.status, 0, result.stderr);
-    assert.ok(!/[\u0085‮]/.test(result.stdout), `${language}: no raw control or bidi character`);
+    assert.ok(!/[\u0085\u202e]/.test(result.stdout), `${language}: no raw control or bidi character`);
     assert.ok(result.stdout.includes('gitlab.ex\\u{85}am\\u{202e}ple.com'), `${language}: the host's escapes`);
     assert.ok(result.stdout.includes('no\\u{85}tes\\u{202e}/roadmap.md'), `${language}: the manifest value's escapes`);
   }
   const json = findings(audit(t, ['--json'], {}, root).stdout);
   assert.ok(byCode(json, 'tracker.provider').reason.includes(host));
-  assert.ok(byCode(json, 'docs.roadmap').reason.includes('no\u0085tes‮/roadmap.md'));
+  assert.ok(byCode(json, 'docs.roadmap').reason.includes('no\u0085tes\u202e/roadmap.md'));
 });
 
 test('a token in the credentials file counts, and is not printed', (t) => {

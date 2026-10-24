@@ -4,6 +4,6 @@
  * controls, and the bidi controls U+061C, U+200E–U+200F, U+202A–U+202E and U+2066–U+2069. Escaped, never dropped, so
  * that a person sees their file holds one. JSON output does not use it: a script reads a value as it is.
  */
-const UNSAFE = /[\0-\x08\x0b-\x1f\x7f-\x9f؜‎‏‪-‮⁦-⁩]/g;
+const UNSAFE = /[\0-\x08\x0b-\x1f\x7f-\x9f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/g;
 
 export const terminalText = (text: string): string => text.replace(UNSAFE, (character) => `\\u{${character.codePointAt(0)!.toString(16)}}`);
