@@ -1,6 +1,6 @@
 # 05: The Suggested step and the graph's reason worded in Russian
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/hygiene-after-v1/spec.md`
