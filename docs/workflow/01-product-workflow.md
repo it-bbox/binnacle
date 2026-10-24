@@ -67,6 +67,10 @@ When a developer asks something not defined by spec:
 
 Ideas the owner wants weighed but has not decided wait in `docs/product-inbox.md`. A Product session goes through them when it plans the next epic, and removes each one it turns into a spec, a ticket, a *Later* item or a rejection.
 
+## The roadmap
+
+A Product session, a checkpoint and autopilot at the end of its run keep the roadmap current. Its derived part, an epic's status from `tickets` on and the focus's *Done* line, follows from the tickets' statuses, so it is written without a yes, committed alone with a subject that says it is derived from the tickets, only when something changed, and never pushed. The focus's other prose and the `Next action:` are the owner's course, written only on the owner's yes, in a commit of their own; so are `not started` and `spec`, a Product session's. `docs/roadmap.md`, *Who writes what*, has the rule in full.
+
 ## Session rotation
 
 Long Product chats are intentionally disposable.

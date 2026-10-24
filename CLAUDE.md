@@ -10,7 +10,7 @@
 - For Product work, start a fresh session with `/binnacle:product` (and `/binnacle:daily`) rather than relying on a long-lived chat.
 - A Product session commits to `main` directly, documentation only; code changes go through a ticket branch.
 - Prefer fresh sessions for distinct implementation tickets.
-- An implementation session starts by branching `feat/<slug>` from an up-to-date `main`, and never commits a ticket to `main`. Its last commit sets the ticket's `Status:` to `DONE` and touches nothing in the roadmap: the current focus, an epic's status and the `Next action:` paragraph are written by a Product session, a checkpoint or autopilot's end, on the owner's yes.
+- An implementation session starts by branching `feat/<slug>` from an up-to-date `main`, and never commits a ticket to `main`. Its last commit sets the ticket's `Status:` to `DONE` and touches nothing in the roadmap, which a Product session, a checkpoint or autopilot's end writes: the derived part, an epic's status from `tickets` on and the focus's *Done* line, which follow from the tickets, are written without a yes, in a commit of their own; the rest of the current focus and the `Next action:` paragraph only on the owner's yes (`docs/roadmap.md`, *Who writes what*).
 - Use `/binnacle:checkpoint` to persist only durable session delta before rotating a long Product session.
 - Do not spawn subagents unless the user explicitly approved that execution plan or the current task policy explicitly allows it.
 

@@ -779,17 +779,16 @@ test('autopilot reads main\'s CI after the last push and puts a failing or runni
   assert.match(report, /`main`'s CI failing or still running/);
 });
 
-/** Epic 11, ADR-0037: the course moves with the work, on the owner's yes; epic 18: with the whole current focus and the epic's status, which no ticket writes any more. */
-test('autopilot\'s report ends with the roadmap it proposes, the current focus, the epic\'s status and the Next action, written and committed only on the owner\'s yes after the run', () => {
+/** Epic 11, ADR-0037: the course moves with the work, on the owner's yes; epic 18: with the whole current focus, which no ticket writes any more; epic 20: the epic's status is the derived part, written without a yes. */
+test('autopilot\'s report ends with the roadmap it proposes, the current focus and the Next action, written and committed only on the owner\'s yes after the run', () => {
   const skill = skillText('autopilot');
   const items = step(skill, 13).split('\n').filter((line) => /^ {4}- \*\*/.test(line));
   const last = items.at(-1) ?? '';
   assert.match(last, /^ {4}- \*\*Roadmap\*\*, last:/);
   assert.match(last, /the whole current focus/);
-  assert.match(last, /the epic's status in the table/);
   assert.match(last, /starts with `Next action:` and ends with exactly one command in backticks/);
-  assert.match(last, /Once the run has ended, and only on the owner's yes in this chat, write them into the roadmap/);
-  assert.match(last, /commit the roadmap alone to `main`, as a Product session would/);
+  assert.match(last, /Only on the owner's yes in this chat, write them into the roadmap/);
+  assert.match(last, /commit the roadmap alone to `main`, in a commit of their own, as a Product session would/);
   assert.match(last, /do not push it/);
   // Nothing is written during the run.
   assert.match(skill, /you write no file and make no commit of your own during the run/);
@@ -811,6 +810,41 @@ test('/binnacle:checkpoint offers the current focus as a candidate when the tick
   assert.match(three, /When the tickets' statuses have moved past the current focus[^.]*, draft its sentences on what is done and what can start as a `position` item/);
 });
 
+/** Epic 20, ticket 06: an epic's status from `tickets` on and the focus's *Done* line follow from the tickets alone, so no one asks the owner for them; the course stays the owner's. */
+const DERIVED =
+  "The roadmap's derived part follows from the tickets alone, so it is written without a yes: an epic's status from `tickets` on, which is `done` exactly when every one of its tickets is `DONE` or `CANCELLED`, `in progress` while some are `DONE` and some open, and `tickets` while none is `DONE`, a `ready-for-human` ticket counting as any other; and the focus's *Done* line, the epics marked `done`. Read each epic's `progress` and the `roadmap.status_mismatch` items from `project_snapshot`, or the tickets' `Status:` lines when the daemon is down, and count nothing yourself. Only when that changes the roadmap, commit the roadmap alone, on the branch you are on, with a subject that says it is derived from the tickets, following the project's instruction files for the message and authorship; never push it. `not started` and `spec` stay a Product session's to write on the owner's yes, and so do the focus's other prose and the `Next action:`, in a commit of their own.";
+test('autopilot, the checkpoint and /binnacle:product write the roadmap\'s derived part without a yes and keep the yes for the focus\'s prose and the Next action, in their texts and their copies', (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'binnacle-skills-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const target = join(dir, 'skills');
+  prepareSkills(PLUGIN_SOURCE, target, preparePlugin(PLUGIN_SOURCE, join(dir, 'plugin')));
+  for (const name of ['autopilot', 'checkpoint', 'product']) {
+    for (const [where, text] of [['plugin', skillText(name)], ['copy', readFileSync(join(target, `binnacle-${name}`, 'SKILL.md'), 'utf8')]] as const) {
+      assert.equal(text.split(DERIVED).length - 1, 1, `${name} ${where}`);
+    }
+  }
+  const roadmap = step(skillText('autopilot'), 13).split('\n').filter((line) => /^ {4}- \*\*/.test(line)).at(-1) ?? '';
+  assert.match(roadmap, /once the run has ended, write the roadmap's derived part without a yes, as the paragraph below says, and give it as written, with its commit, or say that nothing changed/);
+  assert.match(roadmap, /Say that they are written only on the owner's yes/);
+  const checkpoint = skillText('checkpoint');
+  assert.match(step(checkpoint, 3), /A `position` draft that is only derived needs no yes: write and commit it now, calling `project_snapshot` once, with no arguments, for it, and show it in step 4 as written, with its commit/);
+  assert.match(checkpoint, /and only what the human confirms, besides the roadmap's derived part \(step 3\)/);
+  assert.match(skillText('product'), /Later in the Product session it opens, when the snapshot shows the roadmap's derived part out of step with the tickets, such as a `roadmap\.status_mismatch`, correct it without asking/);
+});
+
+/** Epic 20, ticket 06: the documents say who writes the derived part, and that the course still waits for the owner. */
+test('the roadmap\'s rules, both workflows and CLAUDE.md say the derived part is written without a yes and the rest of the focus on the owner\'s yes', () => {
+  const rules = docText('docs/roadmap.md').split('## Keeping this current')[1] ?? '';
+  assert.match(rules, /\*\*The derived part\*\*: an epic's status from `tickets` on, and the focus's \*Done\* line/);
+  assert.match(rules, /autopilot at the end of its run, a checkpoint and a Product session write it without a yes/);
+  assert.match(rules, /only when something changed; it never pushes/);
+  for (const path of ['docs/workflow/01-product-workflow.md', 'docs/workflow/02-development-workflow.md', 'CLAUDE.md']) {
+    const text = docText(path);
+    assert.match(text, /an epic's status from `tickets` on and the focus's \*Done\* line[^.]*written without a yes/, path);
+    assert.match(text, /`Next action:`[^.]*on the owner's yes/, path);
+  }
+});
+
 /** Epic 18: by hand as under autopilot, the same short process. */
 test('AGENTS.md, the workflow, the roadmap\'s rules and the issue-tracker conventions say what autopilot\'s brief says, and Per ticket points to /binnacle:task run', () => {
   assert.match(docText('AGENTS.md'), /an English subject of at most 72 characters, and a body only when the subject cannot carry the why/);
@@ -824,7 +858,7 @@ test('AGENTS.md, the workflow, the roadmap\'s rules and the issue-tracker conven
   assert.match(perTicket, /reaches `main` in the same step as the merge/);
   assert.match(workflow, /Nothing is left for the merge to edit: the current focus catches up at the next Product session or checkpoint/);
   assert.match(workflow, /`\/binnacle:autopilot` does the same once, after the last merge of its run/);
-  assert.match(docText('docs/roadmap.md'), /\*\*The current focus and an epic's status\*\*: a Product session, a checkpoint, or autopilot at the end of its run, on the owner's yes\. Never a ticket/);
+  assert.match(docText('docs/roadmap.md'), /\*\*The rest of the current focus\*\*: a Product session, a checkpoint, or autopilot at the end of its run, on the owner's yes, in a commit of its own\. Never a ticket/);
   const tracker = docText('docs/agents/issue-tracker.md');
   assert.match(tracker, /a finding to fix in full, with its place and its fix; a finding kept in one line, with its reason/);
   assert.match(tracker, /"checked in a browser" belongs only to a ticket that changes the dashboard/);
