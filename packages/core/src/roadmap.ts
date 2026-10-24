@@ -1,7 +1,7 @@
 import type { ObservedRun } from './domain.ts';
 import { pairRisk, type Impact } from './impact.ts';
 import { boardColumn, startCommand, type Diagnostic, type ResolvedTask, type TrackerTask } from './tracker.ts';
-import type { Params } from './wording.ts';
+import type { Coded, Params } from './wording.ts';
 
 /**
  * The roadmap of a project, `<knowledge.docs>/roadmap.md` whatever its tracker (ADR-0025),
@@ -229,18 +229,27 @@ const ALTERNATIVE_LIMIT = 3;
 
 /**
  * One of the Suggested step's alternatives (ADR-0032): Binnacle's own reading of a way to go on,
- * beside the Next action and never replacing it. The dashboard writes its title and reason from
- * `kind` and `tasks`; `description` is the English one, for the skills and MCP.
+ * beside the Next action and never replacing it. `description` is the English one, for the skills
+ * and MCP; `params` holds the values it names, which core words in Russian (`alternativeMessage`).
  */
 export type Alternative = {
   kind: 'wait' | 'parallel' | 'resume' | 'autopilot' | 'byHand' | 'owner' | 'blocked' | 'close' | 'plan' | 'finished';
   /** The Task ids it names, if it names any. */
   tasks: string[];
+  /**
+   * What the description names: one Task as `task` or several as `tasks`, each `<id> (<title>)`;
+   * the epic's `epic` and `title`; a `blocked` one's `waits`, each READY Task with its Unmet
+   * dependencies in brackets, joined by `; `; and a `plan` one's `need`: `epics`, `grilling`, `spec` or `tickets`.
+   */
+  params: Params;
   /** Null when it has none; a Matt Pocock Skills command is null under any `workflow.provider` but `matt-pocock`. */
   command: string | null;
   description: string;
   provenance: 'calculated';
 };
+
+/** An alternative as a message to word: its kind and params under one code, its description the English. */
+export const alternativeMessage = ({ kind, params, description }: Alternative): Coded => ({ code: 'next.alternative', message: description, params: { kind, ...params } });
 
 /** What the Suggested step reads of a run: its Task, its role, and whether and when it was last active. */
 type RunReading = Pick<ObservedRun, 'taskId' | 'role' | 'lastActivityAt' | 'active'>;
@@ -279,9 +288,10 @@ function byRule(epics: Epic[] | null, tasks: ResolvedTask[], runs: RunReading[],
     const title = byId.get(id)?.title;
     return title ? `${id} (${title})` : id;
   };
-  const alternative = (kind: Alternative['kind'], description: string, command: string | null = null, named: string[] = []): Alternative => ({
+  const alternative = (kind: Alternative['kind'], description: string, params: Params, command: string | null = null, ids: string[] = []): Alternative => ({
     kind,
-    tasks: named,
+    tasks: ids,
+    params,
     command,
     description,
     provenance: 'calculated',
@@ -289,10 +299,12 @@ function byRule(epics: Epic[] | null, tasks: ResolvedTask[], runs: RunReading[],
   /** Ready Tasks as one alternative: one Task with its start command, several named with none, so that no order is implied. */
   /** A Matt Pocock Skills command, offered only under that workflow (ADR-0042). */
   const mattPocock = (command: string): string | null => (workflow === 'matt-pocock' ? command : null);
+  /** Tasks named by id and title, as `task` for one and `tasks` for several, so that the wording agrees with the count. */
+  const named = (ids: string[]): Params => (ids.length === 1 ? { task: name(ids[0]!) } : { tasks: ids.map(name).join(', ') });
   const take = (kind: 'parallel' | 'byHand', ready: ResolvedTask[], one: string, several: string): Alternative =>
     ready.length === 1
-      ? alternative(kind, `${name(ready[0]!.id)} ${one}`, startCommand(ready[0]!), [ready[0]!.id])
-      : alternative(kind, `${ready.map((task) => name(task.id)).join(', ')} ${several}`, null, ready.map((task) => task.id));
+      ? alternative(kind, `${name(ready[0]!.id)} ${one}`, named([ready[0]!.id]), startCommand(ready[0]!), [ready[0]!.id])
+      : alternative(kind, `${ready.map((task) => name(task.id)).join(', ')} ${several}`, named(ready.map((task) => task.id)), null, ready.map((task) => task.id));
 
   const forAgent = (task: ResolvedTask): boolean => task.triage !== 'ready-for-human';
   const attributed = new Set(runs.map((run) => run.taskId));
@@ -306,7 +318,7 @@ function byRule(epics: Epic[] | null, tasks: ResolvedTask[], runs: RunReading[],
   const worked = [...new Set(working.map((run) => run.taskId!))].filter((id) => boardColumn(byId.get(id)?.state ?? null, hasRuns)?.column === 'inProgress');
   if (worked.length > 0) {
     const [is, it] = worked.length === 1 ? ['is', 'it'] : ['are', 'them'];
-    const wait = alternative('wait', `${worked.map(name).join(', ')} ${is} being worked on: an implementation run is active. Wait for ${it} rather than start something on top.`, null, worked);
+    const wait = alternative('wait', `${worked.map(name).join(', ')} ${is} being worked on: an implementation run is active. Wait for ${it} rather than start something on top.`, named(worked), null, worked);
     // Ready to start, as the snapshot lists it: none waits on an Unmet dependency or has a run, so none blocks another.
     // With a graph, only a Task whose risk with every Task in flight is low.
     const inFlight = tasks.filter((task) => boardColumn(task.state, attributed.has(task.id))?.column === 'inProgress');
@@ -320,13 +332,14 @@ function byRule(epics: Epic[] | null, tasks: ResolvedTask[], runs: RunReading[],
   }
 
   const idle = tasks.find((task) => boardColumn(task.state, attributed.has(task.id))?.column === 'inProgress');
-  if (idle) return [alternative('resume', `${name(idle.id)} is in progress, and no run of it is active. Resume it.`, startCommand(idle), [idle.id])];
+  if (idle) return [alternative('resume', `${name(idle.id)} is in progress, and no run of it is active. Resume it.`, named([idle.id]), startCommand(idle), [idle.id])];
 
   if (epics === null) return [];
-  if (epics.length === 0) return [alternative('plan', 'The roadmap lists no epic. Propose its epics from the vision.', '/binnacle:roadmap')];
+  if (epics.length === 0) return [alternative('plan', 'The roadmap lists no epic. Propose its epics from the vision.', { need: 'epics' }, '/binnacle:roadmap')];
   const epic = currentEpic(epics);
-  if (epic === null) return [alternative('finished', 'Every epic on the roadmap is done.')];
+  if (epic === null) return [alternative('finished', 'Every epic on the roadmap is done.', {})];
   const epicName = `Epic ${epic.number} (${epic.title})`;
+  const ofEpic: Params = { epic: epic.number, title: epic.title };
   const own = epic.spec === null ? [] : tasks.filter((task) => task.specSlug === epic.spec);
   const ready = own.filter((task) => task.state === 'READY');
   const startable = ready.filter((task) => task.unmetDependencies.length === 0);
@@ -335,22 +348,24 @@ function byRule(epics: Epic[] | null, tasks: ResolvedTask[], runs: RunReading[],
     const agentReady = startable.filter(forAgent);
     if (agentReady.length === 0) {
       const [is, it] = startable.length === 1 ? ['is', 'it'] : ['are', 'them'];
-      return [alternative('owner', `${startable.map((task) => name(task.id)).join(', ')} ${is} ready to start and triaged ready-for-human: the owner does ${it}, not an agent.`, null, startable.map((task) => task.id))];
+      return [alternative('owner', `${startable.map((task) => name(task.id)).join(', ')} ${is} ready to start and triaged ready-for-human: the owner does ${it}, not an agent.`, named(startable.map((task) => task.id)), null, startable.map((task) => task.id))];
     }
     return [
-      alternative('autopilot', `${epicName} has Tasks ready to start. Run its remaining tickets.`, '/binnacle:autopilot'),
+      alternative('autopilot', `${epicName} has Tasks ready to start. Run its remaining tickets.`, ofEpic, '/binnacle:autopilot'),
       take('byHand', agentReady, 'is ready to start. Take it by hand, one ticket at a time.', 'are ready to start, in any order. Take one by hand from Ready to start.'),
     ];
   }
   if (ready.length > 0 && startable.length === 0) {
     const waits = ready.map((task) => `${task.id} waits on ${task.unmetDependencies.join(', ')}`).join('; ');
-    return [alternative('blocked', `No Task of ${epicName} can start: every READY one waits on an Unmet dependency. ${waits}.`, null, ready.map((task) => task.id))];
+    const params = { ...ofEpic, waits: ready.map((task) => `${task.id} (${task.unmetDependencies.join(', ')})`).join('; ') };
+    return [alternative('blocked', `No Task of ${epicName} can start: every READY one waits on an Unmet dependency. ${waits}.`, params, null, ready.map((task) => task.id))];
   }
   if (own.length > 0 && own.every((task) => task.state === 'DONE' || task.state === 'CANCELLED')) {
-    return [alternative('close', `Every Task of ${epicName} is DONE or CANCELLED, but the epic is not marked done. Close it in a Product session.`, '/binnacle:product')];
+    return [alternative('close', `Every Task of ${epicName} is DONE or CANCELLED, but the epic is not marked done. Close it in a Product session.`, ofEpic, '/binnacle:product')];
   }
-  if (epic.status === 'not started') return [alternative('plan', `${epicName} is not started. Grill it.`, mattPocock('/mattpocock-skills:grill-with-docs'))];
-  if (epic.status === 'spec' && epic.spec === null) return [alternative('plan', `${epicName} needs its spec.`, mattPocock('/mattpocock-skills:to-spec'))];
-  if (epic.status === 'spec' || (epic.status === 'tickets' && own.length === 0)) return [alternative('plan', `${epicName} needs its tickets.`, mattPocock('/mattpocock-skills:to-tickets'))];
+  if (epic.status === 'not started') return [alternative('plan', `${epicName} is not started. Grill it.`, { need: 'grilling', ...ofEpic }, mattPocock('/mattpocock-skills:grill-with-docs'))];
+  if (epic.status === 'spec' && epic.spec === null) return [alternative('plan', `${epicName} needs its spec.`, { need: 'spec', ...ofEpic }, mattPocock('/mattpocock-skills:to-spec'))];
+  if (epic.status === 'spec' || (epic.status === 'tickets' && own.length === 0))
+    return [alternative('plan', `${epicName} needs its tickets.`, { need: 'tickets', ...ofEpic }, mattPocock('/mattpocock-skills:to-tickets'))];
   return [];
 }

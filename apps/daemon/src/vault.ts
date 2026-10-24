@@ -400,8 +400,8 @@ function notes(w: VaultWords, link: Link): { snapshot(name: string, snapshot: Sn
         w.next,
         next.action ? w.nextAction(next.action.description, next.action.command) : w.noNextAction,
         unavailable(next.alternatives)
-          ? w.noSuggestedStep(next.alternatives.reason)
-          : list(next.alternatives, (item) => `${w.english(item.description)}${item.command ? ` \`${item.command}\`` : ''}`),
+          ? w.noSuggestedStep(next.alternatives)
+          : list(next.alternatives, (item) => `${w.alternative(item)}${item.command ? ` \`${item.command}\`` : ''}`),
         ...waiting(snapshot.pendingDecisions),
       ];
       if (tasks === null) parts.push(w.tasks, w.trackerUnreadable);
@@ -414,7 +414,7 @@ function notes(w: VaultWords, link: Link): { snapshot(name: string, snapshot: Sn
           list(tasks.readyToStart.items, task, tasks.readyToStart.remainder),
           w.parallel,
           w.limit(limit, mode === 'auto', source, inProgress, free),
-          unavailable(impact) ? w.noConflictRisk(impact.reason) : list(impact.pairs, (pair) => w.pair(pair.tasks, pair.risk, pair.reason)),
+          unavailable(impact) ? w.noConflictRisk(impact) : list(impact.pairs, (pair) => w.pair(pair.tasks, pair.risk, pair.reason)),
         );
       }
       parts.push(
@@ -422,7 +422,7 @@ function notes(w: VaultWords, link: Link): { snapshot(name: string, snapshot: Sn
         decisions === null ? w.noAdrDirectory : list(decisions.items, (item) => link(item.path, item.title ?? item.path), decisions.remainder),
         w.graph,
         [
-          graph.available ? w.graphAvailable : w.noGraph(`${graph.reason}`),
+          graph.available ? w.graphAvailable : w.noGraph({ ...graph, reason: `${graph.reason}` }),
           graph.builtFrom ? w.builtFrom(short(graph.builtFrom.commit), graph.builtFrom.at, Boolean(graph.behind)) : '',
           graph.lastRun ? w.lastRun(short(graph.lastRun.commit), graph.lastRun.at, graph.lastRun.outcome === 'built' ? null : `${graph.lastRun.reason}`) : '',
         ].join(''),

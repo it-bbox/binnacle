@@ -418,6 +418,9 @@ describe('the vault projection', () => {
     assert.match(russian.daily, /^С первого коммита \(запасное окно\) до `[0-9a-f]{7}`\. Для этого проекта на этой машине ещё не записан ни daily, ни чекпойнт\. Вместо этого — коммиты за последние 7 дней\.$/m);
     assert.match(russian.snapshot, /^## CI\n\nНет данных: CI читать неоткуда: .*нет\.$/m);
     assert.doesNotMatch(russian.snapshot, /There is no forge/);
+    // The Suggested step and the graph's reason worded from their codes and params: no English line is left to mark.
+    assert.doesNotMatch(russian.snapshot, /\(англ\.\)/);
+    assert.match(russian.snapshot, /^- alpha\/02 \(Asked\) в работе, но ни один её запуск не активен\. Продолжите её\. `\/binnacle:task run docs\/specs\/alpha\/issues\/02-asked\.md`$/m);
     // No English heading is left in either note.
     assert.doesNotMatch(`${russian.snapshot}\n${russian.daily}`, /^#+ [A-Z][a-z]/m);
 

@@ -52,9 +52,9 @@ const values = (params: Params): Values => {
   };
 };
 
-/** The sentence for the message's `kind`, when it names one of `kinds`: a code worded in several ways, as its English is. */
-const pick = (v: Values, kinds: Record<string, () => string>): string => {
-  const kind = v.s('kind');
+/** The sentence for the message's `kind`, or the value `name` names, when it is one of `kinds`: a code worded in several ways, as its English is. */
+const pick = (v: Values, kinds: Record<string, () => string>, name = 'kind'): string => {
+  const kind = v.s(name);
   if (!Object.hasOwn(kinds, kind)) throw new Unusable();
   return kinds[kind]!();
 };
@@ -194,6 +194,42 @@ const RUSSIAN: Record<string, (v: Values) => string> = {
     }
     if (why.length === 0) throw new Unusable();
     return `Команда следующего шага, ${v.s('command')}, ${why.join('; кроме того, она ')}.`;
+  },
+  // One of the Suggested step's alternatives: its kind, the Task it names as `task` or several as `tasks`, its epic.
+  'next.alternative': (v) => {
+    const one = (): boolean => v.o('task') !== null;
+    const tasks = (): string => (one() ? v.s('task') : v.s('tasks'));
+    const epic = (): string => `${v.s('epic')} (${v.s('title')})`;
+    return pick(v, {
+      wait: () =>
+        `Над ${tasks()} идёт работа: ${one() ? 'активен запуск' : 'активны запуски'} реализации. Лучше дождаться её конца, чем начинать что-то поверх.`,
+      parallel: () =>
+        one()
+          ? `${tasks()} готова к старту, и лимит параллельной работы позволяет: начните её рядом с текущей работой.`
+          : `${tasks()} готовы к старту, в любом порядке, и лимит параллельной работы позволяет: начните одну из них рядом с текущей работой.`,
+      resume: () => `${v.s('task')} в работе, но ни один её запуск не активен. Продолжите её.`,
+      autopilot: () => `У эпика ${epic()} есть задачи, готовые к старту. Пройдите его оставшиеся тикеты.`,
+      byHand: () =>
+        one()
+          ? `${tasks()} готова к старту. Возьмите её вручную, по одному тикету за раз.`
+          : `${tasks()} готовы к старту, в любом порядке. Возьмите одну из них вручную.`,
+      owner: () => `${tasks()} ${one() ? 'готова' : 'готовы'} к старту и в триаже ready-for-human: ${one() ? 'её' : 'их'} делает владелец, а не агент.`,
+      blocked: () =>
+        `Ни одна задача эпика ${epic()} не может стартовать: каждая готовая ждёт невыполненной зависимости, она в скобках: ${v.s('waits')}.`,
+      close: () => `Все задачи эпика ${epic()} готовы или отменены, но в роадмапе он не отмечен как «done». Закройте его в продуктовой сессии.`,
+      plan: () =>
+        pick(
+          v,
+          {
+            epics: () => 'В роадмапе нет ни одного эпика. Предложите эпики из видения.',
+            grilling: () => `Эпик ${epic()} не начат. Проведите грилинг.`,
+            spec: () => `Эпику ${epic()} нужна спецификация.`,
+            tickets: () => `Эпику ${epic()} нужны тикеты.`,
+          },
+          'need',
+        ),
+      finished: () => 'Все эпики роадмапа готовы.',
+    });
   },
 
   // Tasks and the tracker.

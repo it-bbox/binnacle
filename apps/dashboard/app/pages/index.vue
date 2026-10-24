@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { alternativeMessage } from '@binnacle/core';
 import { call, usePolling } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
 import { pairReason } from '~/i18n';
@@ -30,11 +31,15 @@ const trackerReasons = computed(() => reasons('tracker.'));
 /** `next_action.missing` or `next_action.stale`, shown inside What's next. */
 const nextActionWarnings = computed(() => reasons('next_action.'));
 
-/** The alternatives, each with its title and reason written by the page in its language from `kind` and `tasks`. */
+/** The alternatives, each with its title written by the page in its language from `kind` and `tasks`, and its reason, core's wording of the step. */
 const alternatives = computed(() => {
   const next = snapshot.value?.next.alternatives;
   if (!Array.isArray(next)) return [];
-  return next.map((alternative) => ({ ...alternative, ...t.value.alternatives[alternative.kind](list(alternative.tasks), alternative.tasks.length) }));
+  return next.map((alternative) => ({
+    ...alternative,
+    title: t.value.alternatives[alternative.kind](list(alternative.tasks), alternative.tasks.length),
+    reason: alternativeMessage(alternative),
+  }));
 });
 /** Written out, so that the build bundles each icon. */
 const ICONS: Record<Alternative['kind'], string> = {
@@ -160,7 +165,7 @@ function outputTokens(totals: Totals): string {
             <div class="flex min-w-0 flex-col gap-2">
               <div class="flex flex-col gap-0.5">
                 <div class="font-medium">{{ alternative.title }}</div>
-                <div class="leading-snug text-muted">{{ alternative.reason }}</div>
+                <div class="leading-snug text-muted"><DaemonReason :said="alternative.reason" /></div>
               </div>
               <CopyCommand v-if="alternative.command !== null" :command="alternative.command" />
             </div>

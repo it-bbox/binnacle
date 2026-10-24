@@ -37,6 +37,7 @@ export {
   type TrackerTask,
 } from './tracker.ts';
 export {
+  alternativeMessage,
   currentEpic,
   nextAction,
   nextActionAttention,

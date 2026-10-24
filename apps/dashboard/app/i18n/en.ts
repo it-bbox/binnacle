@@ -69,30 +69,18 @@ export const en = {
   estimate: 'estimate',
   fromActivity: 'from activity',
   noData: 'no data',
-  /** An alternative's title and reason, from its kind and the Task ids it names (`ids`, as a list, and how many). */
+  /** An alternative's title, from its kind and the Task ids it names (`ids`, as a list, and how many); its reason is core's wording of the step. */
   alternatives: {
-    wait: (ids: string, count: number) => ({
-      title: `Wait for ${ids}`,
-      reason: count === 1 ? 'A run is working on it: start nothing on top of it.' : 'Runs are working on them: start nothing on top of them.',
-    }),
-    parallel: (ids: string, count: number) => ({
-      title: 'Start a second Task in parallel',
-      reason: count === 1 ? `${ids} is ready and waits on nothing, and the parallel limit has room for it.` : `${ids} are ready and wait on nothing: pick one from Ready to start.`,
-    }),
-    resume: (ids: string) => ({ title: `Resume ${ids}`, reason: 'It is In progress, and no run of it is active.' }),
-    autopilot: () => ({ title: 'Run the whole Epic', reason: "The Epic's Tasks are ready to start: autopilot works through its remaining tickets." }),
-    byHand: (ids: string, count: number) =>
-      count === 1
-        ? { title: `Take ${ids} by hand`, reason: 'It is ready to start: one ticket at a time, in a fresh session.' }
-        : { title: 'Take one Task by hand', reason: `${ids} are ready, in any order: pick one from Ready to start.` },
-    owner: (ids: string, count: number) =>
-      count === 1
-        ? { title: `${ids} is yours to do`, reason: 'It is ready to start and triaged ready-for-human: no agent takes it.' }
-        : { title: `${ids} are yours to do`, reason: 'They are ready to start and triaged ready-for-human: no agent takes them.' },
-    blocked: (ids: string) => ({ title: 'Nothing can start yet', reason: `Every READY Task of the Epic waits on an Unmet dependency: ${ids}.` }),
-    close: () => ({ title: 'Close the Epic', reason: 'Every Task of it is DONE or CANCELLED, but the roadmap does not mark it done. Close it in a Product session.' }),
-    plan: () => ({ title: 'Plan the work', reason: "No Task is ready to start yet. The next step is the roadmap's Epics, or the current Epic's grilling, spec or tickets." }),
-    finished: () => ({ title: 'Every Epic is done', reason: 'Nothing is left on the roadmap. Plan what comes next.' }),
+    wait: (ids: string) => `Wait for ${ids}`,
+    parallel: () => 'Start a second Task in parallel',
+    resume: (ids: string) => `Resume ${ids}`,
+    autopilot: () => 'Run the whole Epic',
+    byHand: (ids: string, count: number) => (count === 1 ? `Take ${ids} by hand` : 'Take one Task by hand'),
+    owner: (ids: string, count: number) => (count === 1 ? `${ids} is yours to do` : `${ids} are yours to do`),
+    blocked: () => 'Nothing can start yet',
+    close: () => 'Close the Epic',
+    plan: () => 'Plan the work',
+    finished: () => 'Every Epic is done',
   },
   trackerUnreadable: 'The tracker cannot be read',
   epicProgress: 'Epic progress',

@@ -9,10 +9,11 @@ import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
 /**
  * The snapshot's `next` through the daemon's HTTP API: the roadmap's Next action, its two
  * attention items, and Binnacle's Suggested step beside it as alternatives, each of its eight
- * rules on a fixture where exactly that rule applies (ADR-0032). Runs come from Claude Code
+ * rules on a fixture where exactly that rule applies (ADR-0032), with the values its description
+ * names in `params`, which core words in Russian. Runs come from Claude Code
  * sessions, cut from real ones, that a real repository's reflog puts on their Tasks' branches.
  */
-type Alternative = { kind: string; tasks: string[]; command: string | null; description: string; provenance: string };
+type Alternative = { kind: string; tasks: string[]; params: Record<string, string | number>; command: string | null; description: string; provenance: string };
 type Next = { action: { description: string; command: string } | null; alternatives: Alternative[] | { available: false; reason: string } };
 type Snapshot = {
   roadmap: { current: { number: number } | null } | null;
@@ -279,6 +280,7 @@ describe("the Suggested step's alternatives", () => {
       assert.deepEqual(wait!.tasks, ['first/01']);
       assert.equal(wait!.command, null);
       assert.match(wait!.description, /first\/01/);
+      assert.deepEqual(wait!.params, { task: 'first/01 (worked)' });
     });
   });
 
@@ -295,12 +297,14 @@ describe("the Suggested step's alternatives", () => {
       assert.deepEqual(list[1]!.tasks, ['first/02']);
       assert.equal(list[1]!.command, `/binnacle:task run ${ready}`);
       assert.match(list[1]!.description, /first\/02/);
+      assert.deepEqual(list[1]!.params, { task: 'first/02 (ready)' });
 
       ticket(root, 'first', '03-also.md', 'Status: READY');
       const several = alternatives(await snapshot(daemon, root));
       assert.deepEqual(kinds(several), ['wait', 'parallel']);
       assert.deepEqual(several[1]!.tasks, ['first/02', 'first/03']);
       assert.equal(several[1]!.command, null);
+      assert.deepEqual(several[1]!.params, { tasks: 'first/02 (ready), first/03 (also)' });
     });
   });
 
@@ -330,6 +334,7 @@ describe("the Suggested step's alternatives", () => {
       assert.equal(wait!.kind, 'wait');
       assert.deepEqual(wait!.tasks, ['first/02']);
       assert.doesNotMatch(wait!.description, /first\/01/);
+      assert.deepEqual(wait!.params, { task: 'first/02 (worked)' });
     });
     await withDaemon(async (daemon, artifacts) => {
       const root = makeProject([row(1, 'First', 'in progress', 'first')]);
@@ -363,6 +368,7 @@ describe("the Suggested step's alternatives", () => {
       assert.deepEqual(kinds(list), ['resume']);
       assert.deepEqual(list[0]!.tasks, ['first/02']);
       assert.equal(list[0]!.command, `/binnacle:task run ${idle}`);
+      assert.deepEqual(list[0]!.params, { task: 'first/02 (idle)' });
     });
   });
 
@@ -394,9 +400,11 @@ describe("the Suggested step's alternatives", () => {
         assert.equal(autopilot!.command, '/binnacle:autopilot');
         assert.deepEqual(autopilot!.tasks, []);
         assert.match(autopilot!.description, /Epic 2/);
+        assert.deepEqual(autopilot!.params, { epic: 2, title: 'First' });
         assert.equal(byHand!.kind, 'byHand');
         assert.deepEqual(byHand!.tasks, ['first/01']);
         assert.equal(byHand!.command, `/binnacle:task run ${ready}`);
+        assert.deepEqual(byHand!.params, { task: 'first/01 (ready)' });
       }
     });
   });
@@ -412,6 +420,7 @@ describe("the Suggested step's alternatives", () => {
       assert.deepEqual(byHand!.tasks, ['first/01', 'first/02']);
       assert.equal(byHand!.command, null);
       assert.match(byHand!.description, /first\/01.*first\/02/);
+      assert.deepEqual(byHand!.params, { tasks: 'first/01 (ready), first/02 (also)' });
     });
   });
 
@@ -426,6 +435,7 @@ describe("the Suggested step's alternatives", () => {
       assert.deepEqual(list[0]!.tasks, ['first/01']);
       assert.equal(list[0]!.command, null);
       assert.match(list[0]!.description, /first\/01.*ready-for-human.*owner/);
+      assert.deepEqual(list[0]!.params, { task: 'first/01 (demo)' });
     });
   });
 
@@ -478,6 +488,7 @@ describe("the Suggested step's alternatives", () => {
       assert.deepEqual(list[0]!.tasks, ['first/02']);
       assert.equal(list[0]!.command, null);
       assert.match(list[0]!.description, /first\/02 waits on first\/01/);
+      assert.deepEqual(list[0]!.params, { epic: 1, title: 'First', waits: 'first/02 (first/01)' });
     });
   });
 
@@ -490,6 +501,7 @@ describe("the Suggested step's alternatives", () => {
       const list = alternatives(await snapshot(daemon, root));
       assert.deepEqual(kinds(list), ['close']);
       assert.equal(list[0]!.command, '/binnacle:product');
+      assert.deepEqual(list[0]!.params, { epic: 1, title: 'First' });
     });
   });
 
@@ -501,6 +513,7 @@ describe("the Suggested step's alternatives", () => {
       const list = alternatives(await snapshot(daemon, root));
       assert.deepEqual(kinds(list), ['plan']);
       assert.equal(list[0]!.command, '/mattpocock-skills:grill-with-docs');
+      assert.deepEqual(list[0]!.params, { need: 'grilling', epic: 2, title: 'Next' });
     });
   });
 
@@ -515,6 +528,7 @@ describe("the Suggested step's alternatives", () => {
         const list = alternatives(await snapshot(daemon, makeProject([row(1, 'First', status, spec)])));
         assert.deepEqual(kinds(list), ['plan'], `${status} ${spec}`);
         assert.equal(list[0]!.command, command);
+        assert.deepEqual(list[0]!.params, { need: spec === null ? 'spec' : 'tickets', epic: 1, title: 'First' }, `${status} ${spec}`);
       }
     });
   });
@@ -558,6 +572,7 @@ describe("the Suggested step's alternatives", () => {
       const list = alternatives(await snapshot(daemon, root));
       assert.deepEqual(kinds(list), ['finished']);
       assert.equal(list[0]!.command, null);
+      assert.deepEqual(list[0]!.params, {});
     });
   });
 
@@ -567,6 +582,7 @@ describe("the Suggested step's alternatives", () => {
         const list = alternatives(await snapshot(daemon, makeProject([], DAILY, workflow)));
         assert.deepEqual(kinds(list), ['plan'], workflow);
         assert.equal(list[0]!.command, '/binnacle:roadmap', workflow);
+        assert.deepEqual(list[0]!.params, { need: 'epics' }, workflow);
       }
 
       const root = makeProject([]);

@@ -9,7 +9,7 @@ import { WORDED_CODES, wordMessage, type Params } from '../src/index.ts';
  */
 
 /** Values the wording maps to Russian rather than passing through as written. */
-const MAPPED = new Set(['kind', 'token', 'what', 'got', 'entity', 'warning']);
+const MAPPED = new Set(['kind', 'token', 'what', 'got', 'entity', 'warning', 'need']);
 
 /** One message per code and variant, with params as the daemon writes them. */
 const EXAMPLES: [string, Params][] = [
@@ -130,6 +130,23 @@ const EXAMPLES: [string, Params][] = [
   ['context.pressure', { session: 's-1', harness: 'Claude Code', tokens: 180000, threshold: 150000 }],
   ['context.pressure', { session: 's-1', harness: 'Codex', at: '2026-10-21T10:00:00Z', trigger: 'auto', checkpoint: '2026-10-20T10:00:00Z' }],
   ['context.pressure', { session: 's-1', harness: 'Claude Code', tokens: 90000, at: '2026-10-21T10:00:00Z' }],
+  ['next.alternative', { kind: 'wait', task: 'a/01 (One)' }],
+  ['next.alternative', { kind: 'wait', tasks: 'a/01 (One), a/02 (Two)' }],
+  ['next.alternative', { kind: 'parallel', task: 'a/03 (Three)' }],
+  ['next.alternative', { kind: 'parallel', tasks: 'a/03 (Three), a/04 (Four)' }],
+  ['next.alternative', { kind: 'resume', task: 'a/01 (One)' }],
+  ['next.alternative', { kind: 'autopilot', epic: 2, title: 'Release' }],
+  ['next.alternative', { kind: 'byHand', task: 'a/03 (Three)' }],
+  ['next.alternative', { kind: 'byHand', tasks: 'a/03 (Three), a/04 (Four)' }],
+  ['next.alternative', { kind: 'owner', task: 'a/05 (Demo)' }],
+  ['next.alternative', { kind: 'owner', tasks: 'a/05 (Demo), a/06 (Video)' }],
+  ['next.alternative', { kind: 'blocked', epic: 2, title: 'Release', waits: 'a/02 (a/01); a/03 (a/01, a/04)' }],
+  ['next.alternative', { kind: 'close', epic: 2, title: 'Release' }],
+  ['next.alternative', { kind: 'plan', need: 'epics' }],
+  ['next.alternative', { kind: 'plan', need: 'grilling', epic: 2, title: 'Release' }],
+  ['next.alternative', { kind: 'plan', need: 'spec', epic: 2, title: 'Release' }],
+  ['next.alternative', { kind: 'plan', need: 'tickets', epic: 2, title: 'Release' }],
+  ['next.alternative', { kind: 'finished' }],
   ['parallel_limit.invalid', { kind: 'file', file: '/home/u/.binnacle/settings.json', limit: 2 }],
   ['parallel_limit.invalid', { kind: 'setting', file: '/home/u/.binnacle/settings.json', max: 16, limit: 2 }],
   ['parallel_limit.invalid', { kind: 'value', max: 16, got: '17' }],
@@ -196,6 +213,14 @@ describe("core's Russian wording", () => {
     assert.equal(russian('expected.mapping', { got: 'a list' }), 'ожидается YAML-отображение, а здесь список');
     assert.equal(russian('request.method_not_allowed', { method: 'PUT', allowed: 'GET, HEAD' }), 'Метод «PUT» здесь не разрешён; используйте GET или HEAD.');
     assert.equal(russian('transition.unknown_state', { entity: 'Task', states: '"LATER", "SOON"' }), 'У задачи нет состояния "LATER" или "SOON".');
+    // A Suggested step, one Task or several, agreeing with the count.
+    assert.equal(russian('next.alternative', { kind: 'resume', task: 'a/01 (One)' }), 'a/01 (One) в работе, но ни один её запуск не активен. Продолжите её.');
+    assert.equal(russian('next.alternative', { kind: 'owner', task: 'a/05 (Demo)' }), 'a/05 (Demo) готова к старту и в триаже ready-for-human: её делает владелец, а не агент.');
+    assert.equal(
+      russian('next.alternative', { kind: 'owner', tasks: 'a/05 (Demo), a/06 (Video)' }),
+      'a/05 (Demo), a/06 (Video) готовы к старту и в триаже ready-for-human: их делает владелец, а не агент.',
+    );
+    assert.equal(russian('next.alternative', { kind: 'plan', need: 'spec', epic: 2, title: 'Release' }), 'Эпику 2 (Release) нужна спецификация.');
   });
 
   it('gives English, as the daemon wrote it, in English', () => {
@@ -221,6 +246,9 @@ describe("core's Russian wording", () => {
       ['manifest.warning', { path: 'x', warning: 'manifest.warning' }],
       ['manifest.warning', { path: 'x', warning: 'toString' }],
       ['next_action.stale', { command: '/binnacle:product' }],
+      ['next.alternative', { kind: 'resume' }],
+      ['next.alternative', { kind: 'plan', need: 'nothing' }],
+      ['next.alternative', { kind: 'later' }],
     ];
     for (const [code, params] of unusable) {
       assert.deepEqual(wordMessage('ru', { code, message: 'As written.', ...(params && { params }) }), { text: 'As written.', english: true }, `${code} ${JSON.stringify(params)}`);

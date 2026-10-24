@@ -41,11 +41,16 @@ export type Run = {
 
 export type Activity = { running: { items: Run[]; remainder: number }; recent: Run[] };
 
-/** One of the Suggested step's alternatives, Binnacle's calculation (ADR-0032); the page writes its title and reason from `kind` and `tasks`. */
+/**
+ * One of the Suggested step's alternatives, Binnacle's calculation (ADR-0032), as core's `Alternative`:
+ * the page writes its title from `kind` and `tasks`, and its reason is core's wording of `kind` and `params`.
+ */
 export type Alternative = {
   kind: 'wait' | 'parallel' | 'resume' | 'autopilot' | 'byHand' | 'owner' | 'blocked' | 'close' | 'plan' | 'finished';
   tasks: string[];
+  params: Params;
   command: string | null;
+  description: string;
   provenance: 'calculated';
 };
 

@@ -205,6 +205,18 @@ test('/binnacle:product presents the graph\'s freshness in one line and each pai
   assert.match(skill, /When `impact` is marked `available: false`, say the risk was not assessed, with its reason, here rather than under \*\*Not available\*\*/);
 });
 
+/** Epic 13's exit demonstration: the Russian report said "pull request'ам" and "Две из них" for runs; the text and the copy every other harness runs carry the term and the agreement. */
+test('/binnacle:product says a pull request in Russian and agrees a counted phrase with its noun, in its text and its copy', (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'binnacle-skills-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const target = join(dir, 'skills');
+  prepareSkills(PLUGIN_SOURCE, target, preparePlugin(PLUGIN_SOURCE, join(dir, 'plugin')));
+  for (const [name, text] of [['plugin', skillText('product')], ['copy', readFileSync(join(target, 'binnacle-product', 'SKILL.md'), 'utf8')]] as const) {
+    assert.match(text, /pull request — пулл-реквест, as in "по пулл-реквестам"/, name);
+    assert.match(text, /a counted phrase agrees with its noun in number and gender: "3 запуска, два из них", "3 задачи, две из них"/, name);
+  }
+});
+
 /** Epic 19 (ADR-0042): the agent runs the ticket through `/binnacle:task run`, which holds the process; the brief adds only what being unattended asks. */
 test('autopilot\'s brief points to /binnacle:task run and keeps only what being unattended adds, with no copy of the process\'s rules', () => {
   const seven = step(skillText('autopilot'), 7);

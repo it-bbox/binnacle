@@ -1,4 +1,4 @@
-import { wordMessage, type Diagnostic, type Coded, type Language, type Params } from '@binnacle/core';
+import { alternativeMessage, wordMessage, type Alternative, type Diagnostic, type Coded, type Language, type Params } from '@binnacle/core';
 import { FALLBACK_DAYS } from './daily.ts';
 
 /**
@@ -8,17 +8,19 @@ import { FALLBACK_DAYS } from './daily.ts';
  * language. A value Binnacle reports only as an English sentence, a reason with no code, is
  * written as it is, and in Russian marked `(англ.)`.
  */
+
+/** Why a value is not available: the daemon's English, with its `code` and `params` when it has them. */
+type Reason = { reason: string; code?: string | undefined; params?: Params | undefined };
+
 export type VaultWords = {
   none: string;
   more: (count: number) => string;
   untitled: string;
   /** A Task's state; null when the tracker gave none. */
   state: (state: string | null) => string;
-  /** An English sentence from the daemon, marked as such in Russian. */
-  english: (text: string) => string;
   attention: (item: Diagnostic) => string;
   /** A value not available, worded from its code when it has one. */
-  notAvailable: (value: { reason: string; code?: string; params?: Params }) => string;
+  notAvailable: (value: Reason) => string;
   waiting: string;
   questions: string;
   onBranch: (branch: string) => string;
@@ -36,20 +38,22 @@ export type VaultWords = {
   next: string;
   nextAction: (description: string, command: string) => string;
   noNextAction: string;
-  noSuggestedStep: (reason: string) => string;
+  noSuggestedStep: (value: Reason) => string;
+  /** One of the Suggested step's alternatives, worded from its kind and params. */
+  alternative: (item: Alternative) => string;
   tasks: string;
   trackerUnreadable: string;
   inFlight: string;
   readyToStart: string;
   parallel: string;
   limit: (limit: number, auto: boolean, source: 'manifest' | 'machine' | 'default', inProgress: number, free: number) => string;
-  noConflictRisk: (reason: string) => string;
+  noConflictRisk: (value: Reason) => string;
   pair: (tasks: string[], risk: string, reason: string) => string;
   decisions: string;
   noAdrDirectory: string;
   graph: string;
   graphAvailable: string;
-  noGraph: (reason: string) => string;
+  noGraph: (value: Reason) => string;
   builtFrom: (commit: string, at: string, behind: boolean) => string;
   lastRun: (commit: string, at: string, failed: string | null) => string;
   attentionHeading: string;
@@ -72,7 +76,6 @@ const ENGLISH: VaultWords = {
   more: (count) => `and ${count} more`,
   untitled: 'untitled',
   state: (state) => state ?? 'unknown',
-  english: (text) => text,
   attention: (item) => `\`${item.code}\`: ${item.message}`,
   notAvailable: (value) => `Not available: ${value.reason}`,
   waiting: '## Waiting for the owner',
@@ -92,20 +95,21 @@ const ENGLISH: VaultWords = {
   next: '## Next',
   nextAction: (description, command) => `Next action: ${description} \`${command}\``,
   noNextAction: "The roadmap's focus names no Next action.",
-  noSuggestedStep: (reason) => `Suggested step not available: ${reason}`,
+  noSuggestedStep: ({ reason }) => `Suggested step not available: ${reason}`,
+  alternative: (item) => item.description,
   tasks: '## Tasks',
   trackerUnreadable: 'The tracker cannot be read; the attention says why.',
   inFlight: '## In flight',
   readyToStart: '## Ready to start',
   parallel: '## Parallel',
   limit: (limit, auto, source, inProgress, free) => `Limit ${limit}${auto ? ' (auto)' : ''}, from the ${source}, in progress ${inProgress}, free ${free} (calculated).`,
-  noConflictRisk: (reason) => `Conflict risk not available: ${reason}`,
+  noConflictRisk: ({ reason }) => `Conflict risk not available: ${reason}`,
   pair: (tasks, risk, reason) => `${tasks.join(' and ')}: ${risk} — ${reason} (calculated)`,
   decisions: '## Decisions',
   noAdrDirectory: 'This project declares no ADR directory.',
   graph: '## Graph',
   graphAvailable: 'A graph is available.',
-  noGraph: (reason) => `No graph: ${reason}`,
+  noGraph: ({ reason }) => `No graph: ${reason}`,
   builtFrom: (commit, at, behind) => ` Built from \`${commit}\` at ${at}${behind ? ', and the default branch has moved past it' : ''}.`,
   lastRun: (commit, at, failed) => ` The last run, of \`${commit}\` at ${at}, ${failed === null ? 'built' : `failed: ${failed}`}.`,
   attentionHeading: '## Attention',
@@ -154,15 +158,17 @@ const worded = (item: Coded): string => {
   const { text, english: marked } = wordMessage('ru', item);
   return marked ? english(text) : text;
 };
+/** A reason worded from its code, or as it is, marked, when it has none. */
+const because = (value: Reason): string =>
+  value.code === undefined ? english(value.reason) : worded({ code: value.code, message: value.reason, ...(value.params && { params: value.params }) });
 
 const RUSSIAN: VaultWords = {
   none: 'Нет.',
   more: (count) => `и ещё ${count}`,
   untitled: 'без названия',
   state: (state) => (state === null ? 'неизвестно' : word(TASK_STATE, state)),
-  english,
   attention: (item) => worded(item),
-  notAvailable: (value) => `Нет данных: ${value.code === undefined ? english(value.reason) : worded({ code: value.code, message: value.reason, ...(value.params && { params: value.params }) })}`,
+  notAvailable: (value) => `Нет данных: ${because(value)}`,
   waiting: '## Ждёт владельца',
   questions: '### Вопросы',
   onBranch: (branch) => ` в ветке \`${branch}\``,
@@ -181,20 +187,21 @@ const RUSSIAN: VaultWords = {
   next: '## Следующий шаг',
   nextAction: (description, command) => `Следующий шаг: ${description} \`${command}\``,
   noNextAction: 'Фокус роадмапа не называет следующего шага.',
-  noSuggestedStep: (reason) => `Предложенный шаг: нет данных — ${english(reason)}`,
+  noSuggestedStep: (value) => `Предложенный шаг: нет данных — ${because(value)}`,
+  alternative: (item) => worded(alternativeMessage(item)),
   tasks: '## Задачи',
   trackerUnreadable: 'Трекер не читается; почему — в разделе «Внимание».',
   inFlight: '## В работе',
   readyToStart: '## Готовы к старту',
   parallel: '## Параллельная работа',
   limit: (limit, auto, source, inProgress, free) => `Лимит ${limit}${auto ? ' (авто)' : ''}, ${LIMIT_SOURCE[source]}, в работе ${inProgress}, свободно ${free} (оценка).`,
-  noConflictRisk: (reason) => `Риск конфликта: нет данных — ${english(reason)}`,
+  noConflictRisk: (value) => `Риск конфликта: нет данных — ${because(value)}`,
   pair: (tasks, risk, reason) => `${tasks.join(' и ')}: риск конфликта ${word(RISK, risk)} (оценка) — ${english(reason)}`,
   decisions: '## Решения',
   noAdrDirectory: 'Проект не объявляет каталог ADR.',
   graph: '## Граф',
   graphAvailable: 'Граф есть.',
-  noGraph: (reason) => `Графа нет: ${english(reason)}`,
+  noGraph: (value) => `Графа нет: ${because(value)}`,
   builtFrom: (commit, at, behind) => ` Построен из \`${commit}\` в ${at}${behind ? ', и основная ветка ушла дальше' : ''}.`,
   lastRun: (commit, at, failed) => ` Последний запуск, по \`${commit}\` в ${at}, ${failed === null ? 'построил граф' : `упал: ${english(failed)}`}.`,
   attentionHeading: '## Внимание',
