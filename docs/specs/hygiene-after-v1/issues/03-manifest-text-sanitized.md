@@ -12,3 +12,10 @@ Roles: Developer, Reviewer, Security
 - [ ] `binn audit --json` keeps the value as it is.
 - [ ] `binn daemon`'s missing-token line and `binn init`'s plan, where they quote a manifest value, go through the same sanitizer.
 - [ ] `@binnacle/core` keeps no runtime dependency (its purity test).
+
+## Comments
+
+- Decisions where the ticket is silent:
+  - `terminalText` lives in `packages/core/src/terminal.ts`, exported from `@binnacle/core`. It escapes `\p{Cc}` but tab and newline, so DEL (U+007F) too, and the listed bidi controls, as `\u{<lowercase hex>}`.
+  - `binn audit` reads no `tracker.host` from the manifest: its tracker checks quote the remote's host and repository, as the spec's *One sanitizer in core* names them. The test puts the C1 control and the bidi override in the remote's host, and in the manifest's `knowledge.docs`, the manifest value the audit does quote (the roadmap's path).
+  - The sanitizer wraps each command's whole human output rather than each value, so that a value added later cannot miss it: `binn audit`'s report, every line `binn init` says (not `--plan`'s JSON), the autostart token warning (`binn daemon autostart on`, and `binn init`'s Summary through the same function), and `binn project register`, `list` and `status`, which print a manifest's id and name. The `--json` outputs are unchanged.
