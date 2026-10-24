@@ -22,6 +22,9 @@ type Project = {
   unavailable: string | null;
 };
 
+/** The version the release bumps (ADR-0044), which the daemon run from source reports as its own. */
+const CLI_VERSION = (JSON.parse(readFileSync(new URL('../../cli/package.json', import.meta.url), 'utf8')) as { version: string }).version;
+
 const manifest = (name: string): string => `version: 1\n\nproject:\n  id: example-project\n  name: ${name}\n`;
 
 const roots: string[] = [];
@@ -159,6 +162,7 @@ describe('the daemon lifecycle in the history', () => {
       for (const event of body.events) {
         assert.equal(event.projectPath, null);
         assert.equal(typeof event.payload.pid, 'number');
+        assert.equal(event.payload.version, CLI_VERSION);
       }
       assert.equal(body.events[0]?.payload.port, second.runtime.port);
     } finally {

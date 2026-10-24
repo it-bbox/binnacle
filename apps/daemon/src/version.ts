@@ -7,4 +7,8 @@ export function packageVersion(moduleUrl: string | URL): string {
   return typeof version === 'string' ? version : '0.0.0';
 }
 
-export const VERSION = packageVersion(import.meta.url);
+/**
+ * The Binnacle that runs: in the bundle, the published package's (one level above `bin/`); in a source
+ * checkout, the CLI package's, the one version the release bumps (ADR-0044), never this workspace package's.
+ */
+export const VERSION = packageVersion(import.meta.url.endsWith('.ts') ? new URL('../../cli/src/', import.meta.url) : import.meta.url);

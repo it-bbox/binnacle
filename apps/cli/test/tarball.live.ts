@@ -80,6 +80,7 @@ test('the packed @it-bbox/binnacle, installed into an empty prefix, runs binn, i
   const status = binn('daemon', 'status');
   const address = /address\s+(http:\/\/\S+)/.exec(status.stdout)?.[1];
   assert.ok(address, status.stdout);
+  assert.equal(/^\s*version\s+(\S+)$/m.exec(status.stdout)?.[1], manifest.version, "the bundled daemon reports the bundle's package.json version");
   const health = await fetch(`${address}/health`);
   assert.equal(health.status, 200);
   const page = await fetch(`${address}/`);

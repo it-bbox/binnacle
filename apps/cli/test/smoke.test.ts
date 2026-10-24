@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,6 +8,8 @@ import { test } from 'node:test';
 import { isAlive, readRuntime, tokenPath } from '@binnacle/daemon';
 
 const BINN = fileURLToPath(new URL('../src/bin.ts', import.meta.url));
+/** The version the release bumps, which the daemon run from source reports as its own. */
+const VERSION = (JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }).version;
 
 /**
  * The one test that drives the real CLI as a subprocess. It covers what the in-process
@@ -56,6 +58,7 @@ test('binn daemon start, an operation, and stop', async (t) => {
     assert.match(result.stdout, /Binnacle daemon is running/);
     assert.match(result.stdout, new RegExp(`pid\\s+${runtime.pid}`));
     assert.match(result.stdout, new RegExp(`http://127\\.0\\.0\\.1:${runtime.port}`));
+    assert.equal(/^\s*version\s+(\S+)$/m.exec(result.stdout)?.[1], VERSION, result.stdout);
   });
 
   await t.test('a second start reports the running instance instead of competing', () => {
