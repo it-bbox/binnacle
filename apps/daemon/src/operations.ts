@@ -119,14 +119,16 @@ export const operations: Record<string, Operation> = {
   },
 
   // Read now, on every call, from the caller's checkout; nothing in a snapshot is stored.
-  // Its usage is the one exception, read from the records the call first ingests.
+  // Its usage is the one exception, read from the records the call first ingests. The request's
+  // `session`, the harness session that asked, tells its own `context.pressure` item from another's.
   'project.snapshot': async (body, context) => {
     const path = repositoryPath(body, { mustExist: false });
     const projected = reproject(context.store, await resolveEntry(path, context));
     const caller = await callerCheckout(path, projected.row.path);
     const graph = await graphSection(context.store, context.searchPath, projected.row.path, projected.manifest);
+    const session = optionalString((body as { session?: unknown } | null)?.session, 'session');
     const served = await snapshot(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git), graph, (tasks) =>
-      usageAndActivity(context, projected.row.path, projected.manifest, tasks),
+      usageAndActivity(context, projected.row.path, projected.manifest, tasks, session),
     );
     writeServed(context.home, projected.manifest, { snapshot: served });
     return served;

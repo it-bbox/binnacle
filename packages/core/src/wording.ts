@@ -9,8 +9,8 @@ import type { Language } from './manifest.ts';
  * names and a file's own markers (`Status:`, `## Comments`, a roadmap cell) are never translated.
  */
 
-/** The values a message is written from: Task ids, paths, numbers and names. */
-export type Params = Record<string, string | number>;
+/** The values a message is written from: Task ids, paths, numbers, names and yes-or-no facts. */
+export type Params = Record<string, string | number | boolean>;
 
 /** A message for a person: a diagnostic, an error or one of an error's details. */
 export type Coded = { code: string; message: string; params?: Params };
@@ -28,6 +28,8 @@ type Values = {
   o(name: string): string | null;
   /** A value's Russian, from `table`. */
   of(name: string, table: Record<string, string>): string;
+  /** A yes or a no when it is there, null when it is not. */
+  flag(name: string): boolean | null;
 };
 
 const values = (params: Params): Values => {
@@ -49,8 +51,30 @@ const values = (params: Params): Values => {
       if (!Object.hasOwn(table, value)) throw new Unusable();
       return table[value]!;
     },
+    flag: (name) => {
+      const value = params[name];
+      if (value === undefined) return null;
+      if (typeof value !== 'boolean') throw new Unusable();
+      return value;
+    },
   };
 };
+
+/**
+ * A session's start and latest activity as a person reads them, in this process's local time:
+ * `15:30`, the start dated, `2026-10-24 15:30`, when it is not the latest activity's day. Null
+ * when either is not a time.
+ */
+export function sessionTimes(startedAt: string, lastActivityAt: string): { started: string; latest: string } | null {
+  const pad = (value: number): string => String(value).padStart(2, '0');
+  const local = (iso: string) => {
+    const at = new Date(iso);
+    return { day: `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`, time: `${pad(at.getHours())}:${pad(at.getMinutes())}` };
+  };
+  if (Number.isNaN(Date.parse(startedAt)) || Number.isNaN(Date.parse(lastActivityAt))) return null;
+  const [started, latest] = [local(startedAt), local(lastActivityAt)];
+  return { started: started.day === latest.day ? started.time : `${started.day} ${started.time}`, latest: latest.time };
+}
 
 /** The sentence for the message's `kind`, or the value `name` names, when it is one of `kinds`: a code worded in several ways, as its English is. */
 const pick = (v: Values, kinds: Record<string, () => string>, name = 'kind'): string => {
@@ -339,14 +363,17 @@ const RUSSIAN: Record<string, (v: Values) => string> = {
   'context.pressure': (v) => {
     const why: string[] = [];
     if (v.o('tokens') !== null) {
-      why.push(`прочитала ${counted(v.n('tokens'), ['токен', 'токена', 'токенов'])} контекста в последнем вызове${v.o('threshold') === null ? '' : `, не меньше telemetry.context_pressure.tokens, ${v.s('threshold')}`}`);
+      why.push(`прочитала ${counted(v.n('tokens'), ['токен', 'токена', 'токенов'])} контекста в последнем вызове${v.o('threshold') === null ? '' : `, не меньше порога в ${counted(v.n('threshold'), ['токен', 'токена', 'токенов'])}`}`);
     }
     if (v.o('at') !== null) {
       const since = v.o('checkpoint') === null ? 'а чекпойнт не записан' : `после последнего чекпойнта в ${v.s('checkpoint')}`;
       why.push(`сжала контекст (${v.o('trigger') ?? 'причина не сообщается'}) в ${v.s('at')}, ${since}`);
     }
-    if (why.length === 0) throw new Unusable();
-    return `Продуктовая сессия ${v.s('session')} в ${v.s('harness')} ${why.join(', а также ')}. Запустите /binnacle:checkpoint и продолжайте в новой сессии.`;
+    const times = sessionTimes(v.s('startedAt'), v.s('lastActivityAt'));
+    if (why.length === 0 || times === null) throw new Unusable();
+    const own = v.flag('own');
+    const session = own === true ? 'Эта продуктовая сессия' : own === false ? 'Другая продуктовая сессия' : 'Продуктовая сессия';
+    return `${session} в ${v.s('harness')}, начатая в ${times.started}, последняя активность в ${times.latest}, ${why.join(', а также ')}. Запустите /binnacle:checkpoint и продолжайте в новой сессии.`;
   },
   'parallel_limit.invalid': (v) => {
     const kinds: Record<string, () => string> = {

@@ -8,8 +8,17 @@ import { WORDED_CODES, wordMessage, type Params } from '../src/index.ts';
  * code with no wording or params it cannot use gives the daemon's English, marked.
  */
 
-/** Values the wording maps to Russian rather than passing through as written. */
-const MAPPED = new Set(['kind', 'token', 'what', 'got', 'entity', 'warning', 'need']);
+/** Values the wording maps to Russian, or leaves out, rather than passing through as written. */
+const MAPPED = new Set(['kind', 'token', 'what', 'got', 'entity', 'warning', 'need', 'session', 'startedAt', 'lastActivityAt', 'own']);
+
+/** A session's times, as the daemon gives them. */
+const SESSION = { session: 's-1', startedAt: '2026-10-21T09:30:00Z', lastActivityAt: '2026-10-21T10:45:00Z' };
+
+/** A time as the wording gives it, in this process's local time. */
+const clock = (iso: string): string => {
+  const at = new Date(iso);
+  return `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
+};
 
 /** One message per code and variant, with params as the daemon writes them. */
 const EXAMPLES: [string, Params][] = [
@@ -127,9 +136,11 @@ const EXAMPLES: [string, Params][] = [
   ['graph.not_ignored', { directory: 'graphify-out', path: '/work/demo' }],
   ['telemetry.unreadable', { harness: 'Claude Code', what: '/home/u/.claude/projects/x.jsonl (EACCES)', others: 0 }],
   ['telemetry.unreadable', { harness: 'Codex', what: '/home/u/.codex/sessions (EACCES)', others: 3 }],
-  ['context.pressure', { session: 's-1', harness: 'Claude Code', tokens: 180000, threshold: 150000 }],
-  ['context.pressure', { session: 's-1', harness: 'Codex', at: '2026-10-21T10:00:00Z', trigger: 'auto', checkpoint: '2026-10-20T10:00:00Z' }],
-  ['context.pressure', { session: 's-1', harness: 'Claude Code', tokens: 90000, at: '2026-10-21T10:00:00Z' }],
+  ['context.pressure', { ...SESSION, harness: 'Claude Code', tokens: 180000, threshold: 150000 }],
+  ['context.pressure', { ...SESSION, harness: 'Claude Code', tokens: 180000, threshold: 150000, own: true }],
+  ['context.pressure', { ...SESSION, harness: 'Claude Code', tokens: 180000, threshold: 150000, own: false }],
+  ['context.pressure', { ...SESSION, harness: 'Codex', at: '2026-10-21T10:00:00Z', trigger: 'auto', checkpoint: '2026-10-20T10:00:00Z' }],
+  ['context.pressure', { ...SESSION, harness: 'Claude Code', tokens: 90000, at: '2026-10-21T10:00:00Z' }],
   ['next.alternative', { kind: 'wait', task: 'a/01 (One)' }],
   ['next.alternative', { kind: 'wait', tasks: 'a/01 (One), a/02 (Two)' }],
   ['next.alternative', { kind: 'parallel', task: 'a/03 (Three)' }],
@@ -221,6 +232,17 @@ describe("core's Russian wording", () => {
       'a/05 (Demo), a/06 (Video) готовы к старту и в триаже ready-for-human: их делает владелец, а не агент.',
     );
     assert.equal(russian('next.alternative', { kind: 'plan', need: 'spec', epic: 2, title: 'Release' }), 'Эпику 2 (Release) нужна спецификация.');
+    // A session named by its times, as this one or another only when the request said which it is, and the threshold in words.
+    const pressure = { ...SESSION, harness: 'Claude Code', tokens: 180000, threshold: 150000 };
+    const why = `в Claude Code, начатая в ${clock(SESSION.startedAt)}, последняя активность в ${clock(SESSION.lastActivityAt)}, прочитала 180000 токенов контекста в последнем вызове, не меньше порога в 150000 токенов. Запустите /binnacle:checkpoint и продолжайте в новой сессии.`;
+    assert.equal(russian('context.pressure', pressure), `Продуктовая сессия ${why}`);
+    assert.equal(russian('context.pressure', { ...pressure, own: true }), `Эта продуктовая сессия ${why}`);
+    assert.equal(russian('context.pressure', { ...pressure, own: false }), `Другая продуктовая сессия ${why}`);
+    // A start on another day than the latest activity is dated.
+    const yesterday = { ...pressure, startedAt: '2026-10-20T09:30:00Z', lastActivityAt: '2026-10-21T21:30:00Z' };
+    const started = new Date(yesterday.startedAt);
+    const date = `${started.getFullYear()}-${String(started.getMonth() + 1).padStart(2, '0')}-${String(started.getDate()).padStart(2, '0')}`;
+    assert.match(russian('context.pressure', yesterday), new RegExp(`, начатая в ${date} ${clock(yesterday.startedAt)}, последняя активность в ${clock(yesterday.lastActivityAt)},`));
   });
 
   it('gives English, as the daemon wrote it, in English', () => {
@@ -249,6 +271,9 @@ describe("core's Russian wording", () => {
       ['next.alternative', { kind: 'resume' }],
       ['next.alternative', { kind: 'plan', need: 'nothing' }],
       ['next.alternative', { kind: 'later' }],
+      ['context.pressure', { session: 's-1', harness: 'Claude Code', tokens: 180000 }],
+      ['context.pressure', { ...SESSION, harness: 'Claude Code', tokens: 180000, startedAt: 'yesterday' }],
+      ['context.pressure', { ...SESSION, harness: 'Claude Code', tokens: 180000, own: 'yes' }],
     ];
     for (const [code, params] of unusable) {
       assert.deepEqual(wordMessage('ru', { code, message: 'As written.', ...(params && { params }) }), { text: 'As written.', english: true }, `${code} ${JSON.stringify(params)}`);

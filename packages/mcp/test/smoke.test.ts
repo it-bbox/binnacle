@@ -1,22 +1,36 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { runtimePath, tokenPath } from '@binnacle/daemon';
 import { startTestDaemon, type TestDaemon } from '@binnacle/daemon/testing';
+import { toolRequest } from '../src/index.ts';
 
 const BINN = fileURLToPath(new URL('../../../apps/cli/src/bin.ts', import.meta.url));
 
 type ToolResult = { isError?: boolean; content: { type: string; text: string }[] };
 
+/** The variables a harness names its session in, which a test run inside that harness inherits. */
+const SESSION_VARIABLES = ['CLAUDE_CODE_SESSION_ID', 'CODEX_THREAD_ID'];
+
+/** This process's environment, less any harness's session. */
+const withoutSession = (): Record<string, string> =>
+  Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined && !SESSION_VARIABLES.includes(entry[0])));
+
 /** `binn` as a process, asynchronously: the test daemon runs in this process and must keep answering. */
-const binn = (cwd: string, home: string, ...args: string[]): Promise<{ status: number; stdout: string; stderr: string }> =>
+const binn = (cwd: string, home: string, ...args: string[]): Promise<{ status: number; stdout: string; stderr: string }> => binnWith({}, cwd, home, ...args);
+
+/** `binn` with `env` over this process's own, and a harness's session variable only where `env` sets it. */
+const binnWith = (env: NodeJS.ProcessEnv, cwd: string, home: string, ...args: string[]): Promise<{ status: number; stdout: string; stderr: string }> =>
   new Promise((resolve) => {
-    execFile(process.execPath, [BINN, ...args], { cwd, env: { ...process.env, BINNACLE_HOME: home } }, (error, stdout, stderr) => {
+    execFile(process.execPath, [BINN, ...args], { cwd, env: { ...withoutSession(), ...env, BINNACLE_HOME: home } }, (error, stdout, stderr) => {
       resolve({ status: error ? Number(error.code) : 0, stdout, stderr });
     });
   });
@@ -38,7 +52,7 @@ test('binn mcp lists its tools, explains a stopped daemon, and proxies the snaps
   mkdirSync(join(project, 'docs', 'specs', 'epic', 'issues'), { recursive: true });
   writeFileSync(join(project, 'docs', 'specs', 'epic', 'issues', '01-first.md'), '# 01: First\n\nStatus: READY\nBlocked by: None\n');
 
-  const env = Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined));
+  const env = withoutSession();
   const client = new Client({ name: 'smoke', version: '0' });
   // The harness starts the server in the project; that directory is the path of every call.
   await client.connect(new StdioClientTransport({ command: process.execPath, args: [BINN, 'mcp'], cwd: project, env: { ...env, BINNACLE_HOME: home } }));
@@ -156,5 +170,59 @@ test('binn mcp lists its tools, explains a stopped daemon, and proxies the snaps
   for (const tool of tools) {
     assert.match(help.stdout, new RegExp(`^  ${tool.name}\\b`, 'm'), tool.name);
     for (const argument of Object.keys(tool.inputSchema.properties ?? {})) assert.match(help.stdout, new RegExp(`^      ${argument}\\b`, 'm'), `${tool.name} ${argument}`);
+  }
+});
+
+/**
+ * The caller's session, the one Claude Code sets in `CLAUDE_CODE_SESSION_ID` for the MCP server
+ * and its shell, and Codex in `CODEX_THREAD_ID` for its shell: in every daemon call's body as
+ * `session`, beside `path`, and absent without it. The daemon here answers each call with the body it was sent.
+ */
+test('toolRequest, binn call and binn mcp send the session the harness names, and none without it', async (t) => {
+  assert.deepEqual(toolRequest('project_snapshot', {}, '/work', 'a-session'), { operation: 'project.snapshot', body: { path: '/work', session: 'a-session' } });
+  assert.deepEqual(toolRequest('task_get', { id: 'epic/01' }, '/work', 'a-session'), { operation: 'task.get', body: { id: 'epic/01', path: '/work', session: 'a-session' } });
+  assert.deepEqual(toolRequest('project_snapshot', {}, '/work', undefined), { operation: 'project.snapshot', body: { path: '/work' } });
+  assert.deepEqual(toolRequest('task_get', { id: 'epic/01' }, '/work', undefined), { operation: 'task.get', body: { id: 'epic/01', path: '/work' } });
+
+  const home = mkdtempSync(join(tmpdir(), 'binnacle-session-home-'));
+  const project = realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-session-project-')));
+  const echo = createServer((request, response) => {
+    let body = '';
+    request.on('data', (chunk: Buffer) => (body += chunk.toString()));
+    request.on('end', () => response.writeHead(200, { 'content-type': 'application/json' }).end(body));
+  });
+  await new Promise<void>((resolve) => echo.listen(0, '127.0.0.1', resolve));
+  const { port } = echo.address() as AddressInfo;
+  writeFileSync(runtimePath(home), JSON.stringify({ pid: process.pid, host: '127.0.0.1', port, startedAt: new Date().toISOString(), version: '0' }));
+  writeFileSync(tokenPath(home), 'token');
+  const clients: Client[] = [];
+  t.after(async () => {
+    for (const client of clients) await client.close();
+    echo.close();
+    rmSync(home, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  });
+
+  const named = await binnWith({ CLAUDE_CODE_SESSION_ID: 'a-session' }, project, home, 'call', 'task_get', '{"id":"epic/01"}');
+  assert.equal(named.status, 0, named.stderr);
+  assert.deepEqual(JSON.parse(named.stdout), { id: 'epic/01', path: project, session: 'a-session' });
+  const codex = await binnWith({ CODEX_THREAD_ID: 'a-thread' }, project, home, 'call', 'project_snapshot');
+  assert.equal(codex.status, 0, codex.stderr);
+  assert.deepEqual(JSON.parse(codex.stdout), { path: project, session: 'a-thread' });
+  const unnamed = await binnWith({}, project, home, 'call', 'task_get', '{"id":"epic/01"}');
+  assert.equal(unnamed.status, 0, unnamed.stderr);
+  assert.deepEqual(JSON.parse(unnamed.stdout), { id: 'epic/01', path: project });
+
+  for (const [session, body] of [
+    ['a-session', { path: project, session: 'a-session' }],
+    [undefined, { path: project }],
+  ] as const) {
+    const client = new Client({ name: 'session', version: '0' });
+    clients.push(client);
+    const env = { ...withoutSession(), BINNACLE_HOME: home, ...(session && { CLAUDE_CODE_SESSION_ID: session }) };
+    await client.connect(new StdioClientTransport({ command: process.execPath, args: [BINN, 'mcp'], cwd: project, env }));
+    const result = (await client.callTool({ name: 'project_snapshot' })) as ToolResult;
+    assert.equal(result.isError, undefined, result.content[0]?.text);
+    assert.deepEqual(JSON.parse(result.content[0]!.text), body);
   }
 });

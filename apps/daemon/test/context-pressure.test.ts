@@ -101,14 +101,31 @@ async function withDaemon(body: (daemon: TestDaemon, roots: { claudeCode: string
   }
 }
 
-async function snapshot(daemon: TestDaemon, root: string): Promise<Snapshot> {
+/** The snapshot, asked for by the harness session `session` when one is given, as the MCP server and `binn call` ask in Claude Code. */
+async function snapshot(daemon: TestDaemon, root: string, session?: string): Promise<Snapshot> {
   assert.equal((await daemon.call('project.register', { path: root })).status, 200);
-  const result = await daemon.call<Snapshot>('project.snapshot', { path: root });
+  const result = await daemon.call<Snapshot>('project.snapshot', { path: root, ...(session && { session }) });
   assert.equal(result.status, 200, JSON.stringify(result.body));
   return result.body;
 }
 
 const pressure = (attention: Attention): Attention => attention.filter((item) => item.code === 'context.pressure');
+
+/** A time as the message gives it, in this process's local time, which is the test daemon's: `15:30`. */
+function clock(iso: string): string {
+  const at = new Date(iso);
+  return `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
+}
+
+/** A local date, as the message puts it before a start on another day than the latest activity. */
+function day(iso: string): string {
+  const at = new Date(iso);
+  return `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}`;
+}
+
+/** A session's start and latest activity, as the message names them. */
+const times = (startedAt: string, lastActivityAt: string): string =>
+  `started at ${day(startedAt) === day(lastActivityAt) ? '' : `${day(startedAt)} `}${clock(startedAt)}, latest activity ${clock(lastActivityAt)}`;
 const SUGGESTION = 'Run /binnacle:checkpoint, then go on in a fresh session.';
 
 describe('Context pressure', () => {
@@ -117,24 +134,27 @@ describe('Context pressure', () => {
       const root = makeProject(threshold(60000));
       gitAt(minutesAgo(9), root, 'switch', '--quiet', '-c', 'feat/first');
       gitAt(minutesAgo(5), root, 'switch', '--quiet', 'main');
-      claudeSession(claudeCode, root, 'product', call(minutesAgo(1), 'product'));
+      const startedAt = minutesAgo(4);
+      const lastActivityAt = minutesAgo(1);
+      claudeSession(claudeCode, root, 'product', [...call(startedAt, 'started'), ...call(lastActivityAt, 'product')]);
       // Product work, but no longer active.
       claudeSession(claudeCode, root, 'idle', call(minutesAgo(11), 'idle'));
       // Active, and over the threshold, but the Task's.
       claudeSession(claudeCode, root, 'ticket', call(minutesAgo(7), 'ticket'));
 
       const body = await snapshot(daemon, root);
-      assert.deepEqual(pressure(body.attention), [
-        {
-          code: 'context.pressure',
-          message: `The Product session product in Claude Code read ${GRILL_CONTEXT} tokens of context in its latest call, at least telemetry.context_pressure.tokens, 60000. ${SUGGESTION}`,
-          params: { session: 'product', harness: 'Claude Code', tokens: GRILL_CONTEXT, threshold: 60000 },
-        },
-      ]);
+      const params = { session: 'product', harness: 'Claude Code', startedAt, lastActivityAt, tokens: GRILL_CONTEXT, threshold: 60000 };
+      const why = `in Claude Code, ${times(startedAt, lastActivityAt)}, read ${GRILL_CONTEXT} tokens of context in its latest call, at least telemetry.context_pressure.tokens, 60000. ${SUGGESTION}`;
+      // Asked with no session of its own, it is neither this one nor another.
+      assert.deepEqual(pressure(body.attention), [{ code: 'context.pressure', message: `The Product session ${why}`, params }]);
       const [running] = body.activity.running.items;
-      assert.equal(running?.id, 'claude-code:msg_011CfLMEGjvuTXtzfiK6XfsV-product');
+      assert.equal(running?.id, 'claude-code:msg_011CfLMEGjvuTXtzfiK6XfsV-started');
       // Binnacle's sum of the counts Claude Code reports.
       assert.deepEqual(running.contextPressure, { context: { tokens: GRILL_CONTEXT, provenance: 'calculated' }, compactions: { count: 0, latest: null } });
+
+      // Asked by the session itself, then by another; the session's UUID never in the message.
+      assert.deepEqual(pressure((await snapshot(daemon, root, 'product')).attention), [{ code: 'context.pressure', message: `This Product session ${why}`, params: { ...params, own: true } }]);
+      assert.deepEqual(pressure((await snapshot(daemon, root, 'another')).attention), [{ code: 'context.pressure', message: `Another Product session ${why}`, params: { ...params, own: false } }]);
     });
   });
 
@@ -157,15 +177,16 @@ describe('Context pressure', () => {
     await withDaemon(async (daemon, { claudeCode }) => {
       const root = makeProject();
       const compactedAt = minutesAgo(5);
-      const file = claudeSession(claudeCode, root, 'compacted', [...call(minutesAgo(6), 'before'), boundary(compactedAt, 'b9151d72-35ae-462a-bf26-5ccb7807569f', 'auto'), ...call(minutesAgo(1), 'after')]);
+      const [startedAt, lastActivityAt] = [minutesAgo(6), minutesAgo(1)];
+      const file = claudeSession(claudeCode, root, 'compacted', [...call(startedAt, 'before'), boundary(compactedAt, 'b9151d72-35ae-462a-bf26-5ccb7807569f', 'auto'), ...call(lastActivityAt, 'after')]);
 
       // No checkpoint was ever recorded, so every compaction is after it.
       const first = await snapshot(daemon, root);
       assert.deepEqual(pressure(first.attention), [
         {
           code: 'context.pressure',
-          message: `The Product session compacted in Claude Code read ${GRILL_CONTEXT} tokens of context in its latest call, and compacted (auto) at ${compactedAt}, and no checkpoint has been recorded. ${SUGGESTION}`,
-          params: { session: 'compacted', harness: 'Claude Code', tokens: GRILL_CONTEXT, at: compactedAt, trigger: 'auto' },
+          message: `The Product session in Claude Code, ${times(startedAt, lastActivityAt)}, read ${GRILL_CONTEXT} tokens of context in its latest call, and compacted (auto) at ${compactedAt}, and no checkpoint has been recorded. ${SUGGESTION}`,
+          params: { session: 'compacted', harness: 'Claude Code', startedAt, lastActivityAt, tokens: GRILL_CONTEXT, at: compactedAt, trigger: 'auto' },
         },
       ]);
       assert.deepEqual(first.activity.running.items[0]?.contextPressure?.compactions, { count: 1, latest: { at: compactedAt, trigger: 'auto', provenance: 'provider_reported' } });
@@ -176,12 +197,13 @@ describe('Context pressure', () => {
       const checkpoint = (await daemon.call<{ events: { type: string; occurredAt: string }[] }>('event.list', { path: root })).body.events.find((event) => event.type === 'checkpoint')!;
       await setTimeout(5);
       const again = new Date().toISOString();
-      appendFileSync(file, claudeLines(root, 'compacted', [boundary(again, 'c0151d72-35ae-462a-bf26-5ccb7807569f', 'manual'), ...call(new Date().toISOString(), 'again')]));
+      const latest = new Date().toISOString();
+      appendFileSync(file, claudeLines(root, 'compacted', [boundary(again, 'c0151d72-35ae-462a-bf26-5ccb7807569f', 'manual'), ...call(latest, 'again')]));
       assert.deepEqual(pressure((await snapshot(daemon, root)).attention), [
         {
           code: 'context.pressure',
-          message: `The Product session compacted in Claude Code read ${GRILL_CONTEXT} tokens of context in its latest call, and compacted (manual) at ${again}, after the last checkpoint at ${checkpoint.occurredAt}. ${SUGGESTION}`,
-          params: { session: 'compacted', harness: 'Claude Code', tokens: GRILL_CONTEXT, at: again, trigger: 'manual', checkpoint: checkpoint.occurredAt },
+          message: `The Product session in Claude Code, ${times(startedAt, latest)}, read ${GRILL_CONTEXT} tokens of context in its latest call, and compacted (manual) at ${again}, after the last checkpoint at ${checkpoint.occurredAt}. ${SUGGESTION}`,
+          params: { session: 'compacted', harness: 'Claude Code', startedAt, lastActivityAt: latest, tokens: GRILL_CONTEXT, at: again, trigger: 'manual', checkpoint: checkpoint.occurredAt },
         },
       ]);
     });
@@ -191,6 +213,7 @@ describe('Context pressure', () => {
     await withDaemon(async (daemon, { codex }) => {
       const root = makeProject();
       const rotatedAt = minutesAgo(3);
+      const [startedAt, lastActivityAt] = [minutesAgo(9), minutesAgo(1)];
       const counts = (ordinal: number, timestamp: string, input: number): Record<string, unknown> => ({
         timestamp,
         ordinal,
@@ -200,9 +223,9 @@ describe('Context pressure', () => {
       const rollout = [
         { timestamp: minutesAgo(10), ordinal: 0, type: 'session_meta', payload: { id: 'rotated', cwd: root, model_provider: 'openai', context_window: { window_id: 'window-1' } } },
         { timestamp: minutesAgo(10), ordinal: 1, type: 'turn_context', payload: { model: 'gpt-5.6-sol', cwd: root } },
-        counts(2, minutesAgo(9), 1000),
+        counts(2, startedAt, 1000),
         { timestamp: rotatedAt, ordinal: 3, type: 'compacted', payload: { message: CONTENT, window_id: 'window-2' } },
-        counts(4, minutesAgo(1), 1500),
+        counts(4, lastActivityAt, 1500),
       ];
       mkdirSync(join(codex, '2026', '10', '07'), { recursive: true });
       writeFileSync(join(codex, '2026', '10', '07', 'rollout-2026-10-07T09-00-00-rotated.jsonl'), rollout.map((line) => `${JSON.stringify(line)}\n`).join(''));
@@ -211,8 +234,8 @@ describe('Context pressure', () => {
       assert.deepEqual(pressure(body.attention), [
         {
           code: 'context.pressure',
-          message: `The Product session rotated in Codex read 500 tokens of context in its latest call, and compacted (trigger not reported) at ${rotatedAt}, and no checkpoint has been recorded. ${SUGGESTION}`,
-          params: { session: 'rotated', harness: 'Codex', tokens: 500, at: rotatedAt },
+          message: `The Product session in Codex, ${times(startedAt, lastActivityAt)}, read 500 tokens of context in its latest call, and compacted (trigger not reported) at ${rotatedAt}, and no checkpoint has been recorded. ${SUGGESTION}`,
+          params: { session: 'rotated', harness: 'Codex', startedAt, lastActivityAt, tokens: 500, at: rotatedAt },
         },
       ]);
       // The latest call's input, the difference of the running totals, is Binnacle's calculation.

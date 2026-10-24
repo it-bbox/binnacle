@@ -34,7 +34,7 @@ import {
   type TelemetryRecord,
   type Tree,
 } from '@binnacle/adapters';
-import { branchTask, type Diagnostic, type Epic, type ImportWindow, type ObservedRun, type Params, type ProjectManifest, type RunRole, type TaskRole, type TrackerTask } from '@binnacle/core';
+import { branchTask, sessionTimes, type Diagnostic, type Epic, type ImportWindow, type ObservedRun, type Params, type ProjectManifest, type RunRole, type TaskRole, type TrackerTask } from '@binnacle/core';
 import {
   ACTIVE_WITHIN_MS,
   callContext,
@@ -206,7 +206,8 @@ export type Usage = {
  * Reads what is new in the Claude Code, Codex, Gemini CLI, opencode, ZCode, Antigravity and pi artifacts of `projectPath`, for as long as
  * the time budget allows, and answers the snapshot's `usage` and `activity` sections from
  * everything stored, attributed to `tasks`, the tracker's current Tasks, or unavailable with
- * why they cannot be read, and its `telemetry.unreadable` and `context.pressure` attention items. What the budget does
+ * why they cannot be read, and its `telemetry.unreadable` and `context.pressure` attention items, the latter saying
+ * whether each is about `caller`, the harness session that asked, when it named one. What the budget does
  * not cover goes on in the background. "Today" and "the last seven days" are calendar days in
  * the daemon's local time zone.
  */
@@ -215,6 +216,7 @@ export async function usageAndActivity(
   projectPath: string,
   manifest: ProjectManifest | null,
   tasks: TrackerTask[] | Unavailable,
+  caller?: string,
 ): Promise<{ usage: Usage; activity: Activity | Unavailable; runs: ObservedRun[]; attention: Diagnostic[] }> {
   const { importing, checkouts } = await ingested(context, projectPath, manifest);
   const failures = unreadableArtifacts(context, [projectPath, ...checkouts.linked]);
@@ -258,7 +260,7 @@ export async function usageAndActivity(
     activity,
     runs: Array.isArray(tasks) ? observed : [],
     // A harness whose artifacts cannot be read is at level 1, and says why.
-    attention: [...HARNESSES.flatMap((entry) => failures[entry.harness] ?? []), ...pressureAttention(observed, pressureOf, threshold, checkpointAt)],
+    attention: [...HARNESSES.flatMap((entry) => failures[entry.harness] ?? []), ...pressureAttention(observed, pressureOf, threshold, checkpointAt, caller)],
   };
 }
 
@@ -312,13 +314,16 @@ function contextPressures(records: UsageRecord[], markers: CompactionMarker[]): 
  * One `context.pressure` item per active Product session, a main session on the default
  * branch, whose latest call read at least `threshold` tokens of context, or whose latest
  * compaction is after `checkpointAt`, the project's last recorded checkpoint, or at all when
- * none was recorded. It names the session, its context where known, and that compaction.
+ * none was recorded. It names the session by its run's start and latest activity, as this one or
+ * another when `caller`, the session that asked, is known, its context where known, and that
+ * compaction; the session's id is in its params only.
  */
 function pressureAttention(
   observed: (ObservedRun & { records: RunRecord[] })[],
   pressureOf: PressureOf,
   threshold: number,
   checkpointAt: string | null,
+  caller: string | undefined,
 ): Diagnostic[] {
   const raised = new Map<string, Diagnostic>();
   for (const run of observed) {
@@ -331,7 +336,8 @@ function pressureAttention(
     if (!crossed && !compacted) continue;
     const name = HARNESSES.find((entry) => entry.harness === session.harness)!.name;
     const reasons: string[] = [];
-    const params: Params = { session: session.sessionId, harness: name };
+    const params: Params = { session: session.sessionId, harness: name, startedAt: run.startedAt, lastActivityAt: run.lastActivityAt };
+    if (caller !== undefined) params.own = caller === session.sessionId;
     if (pressure?.context) {
       reasons.push(`read ${pressure.context.tokens} tokens of context in its latest call${crossed ? `, at least telemetry.context_pressure.tokens, ${threshold}` : ''}`);
       params.tokens = pressure.context.tokens;
@@ -342,9 +348,11 @@ function pressureAttention(
       reasons.push(`compacted (${compaction.trigger ?? 'trigger not reported'}) at ${compaction.at}, ${since}`);
       Object.assign(params, { at: compaction.at }, compaction.trigger && { trigger: compaction.trigger }, checkpointAt && { checkpoint: checkpointAt });
     }
+    const which = params.own === true ? 'This' : params.own === false ? 'Another' : 'The';
+    const times = sessionTimes(run.startedAt, run.lastActivityAt)!;
     raised.set(sessionKey(session), {
       code: 'context.pressure',
-      message: `The Product session ${session.sessionId} in ${name} ${reasons.join(', and ')}. Run /binnacle:checkpoint, then go on in a fresh session.`,
+      message: `${which} Product session in ${name}, started at ${times.started}, latest activity ${times.latest}, ${reasons.join(', and ')}. Run /binnacle:checkpoint, then go on in a fresh session.`,
       params,
     });
   }

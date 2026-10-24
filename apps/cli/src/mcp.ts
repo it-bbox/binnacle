@@ -1,5 +1,5 @@
 import { isAlive, readRuntime, type ErrorEnvelope } from '@binnacle/daemon';
-import { serveStdio, toolRequest, type CallDaemon } from '@binnacle/mcp';
+import { callerSession, serveStdio, toolRequest, type CallDaemon } from '@binnacle/mcp';
 import { callOperation, DaemonUnreachableError, OperationFailedError } from './client.ts';
 import { EXIT, type ExitCode } from './exit.ts';
 import { requireToken } from './report.ts';
@@ -28,9 +28,9 @@ const callDaemon = (home: string): CallDaemon => async (operation, body) => {
   }
 };
 
-/** `binn mcp`: a stdio proxy to the running daemon. */
+/** `binn mcp`: a stdio proxy to the running daemon, for the harness session that started it, when it says which. */
 export async function mcp(home: string, version: string): Promise<void> {
-  await serveStdio(version, process.cwd(), callDaemon(home));
+  await serveStdio(version, process.cwd(), callerSession(process.env), callDaemon(home));
 }
 
 /**
@@ -46,7 +46,7 @@ export async function call(home: string, tool: string, json: string | undefined)
     console.error(`binn: the arguments are not JSON; give them as one JSON object, such as '{"id":"<task id>"}'.`);
     return EXIT.usage;
   }
-  const request = toolRequest(tool, args, process.cwd());
+  const request = toolRequest(tool, args, process.cwd(), callerSession(process.env));
   if ('refused' in request) {
     console.error(`binn: ${request.refused}. \`binn call --help\` lists the tools and their arguments.`);
     return EXIT.usage;

@@ -178,7 +178,7 @@ Binnacle normalises these into one signal per session, **context pressure**, car
 
 Where a harness reveals neither, the signal is absent rather than guessed. pi's compactions are not part of the signal: pi writes them with no trigger, so Binnacle reads no marker from them.
 
-An active Product session — a main session on the default branch — raises the attention item `context.pressure` when its latest call read at least the threshold, or when it compacted after the project's last recorded checkpoint, or at all, when none is recorded. The item names the session, its context and its compaction, and suggests `/binnacle:checkpoint`, then a fresh session. A subagent's session raises none. The threshold is `telemetry.context_pressure.tokens` in the manifest, 150 000 where it writes none: configuration, not a universal truth.
+An active Product session — a main session on the default branch — raises the attention item `context.pressure` when its latest call read at least the threshold, or when it compacted after the project's last recorded checkpoint, or at all, when none is recorded. The item names the session by its harness, when it started and its latest activity, in the daemon's local time, with its context and its compaction, and suggests `/binnacle:checkpoint`, then a fresh session; the session's id is in `params.session` only. Where the request names its own session (`03-mcp-and-skills.md`), the item says whether it is this session or another, `params.own`; elsewhere it says neither. A subagent's session raises none. The threshold is `telemetry.context_pressure.tokens` in the manifest, 150 000 where it writes none: configuration, not a universal truth.
 
 ## Historical import
 
