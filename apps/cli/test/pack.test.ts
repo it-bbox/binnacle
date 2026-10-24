@@ -603,14 +603,20 @@ test('/binnacle:roadmap\'s Again reads the product inbox, proposes or leaves out
   assert.match(again, /Leave no entry out silently/);
   // The marks, only on the yes, beside the roadmap's change; the entry stays.
   assert.match(again, /On the human's yes, beside the roadmap's change, write right under the heading of each entry taken `\*\*Planned as epic N on YYYY-MM-DD\.\*\*` for a new epic or `\*\*Planned into epic N on YYYY-MM-DD\.\*\*` for part of one/);
-  assert.match(again, /keep the entry in the inbox, where its epic's grilling reads it/);
+  assert.match(again, /Keep the entry in the inbox, where its epic's grilling reads it/);
+  // An entry planned in parts: only the parts no mark names are weighed, and a part taken leaves the rest unplanned.
+  assert.match(again, /One marked `\*\*Planned on YYYY-MM-DD:\*\*` with the parts it planned into epics is planned for those parts; weigh only the parts it names in none/);
+  assert.match(again, /for parts of an entry, a line of their own, `\*\*Planned on YYYY-MM-DD:\*\*` with each part taken and its epic, so that the parts not taken stay unplanned/);
+  assert.match(again, /When you renumber an epic that a mark names, change the number in that mark too/);
   assert.match(again, /Only \*Again\* reads the inbox's entries/);
   assert.doesNotMatch(section(plugin, 'New project'), /inbox/);
-  assert.match(section(plugin, 'Writing'), /the current focus, each inbox entry's mark,/);
+  // The last section, whose example holds headings of its own.
+  const writing = (skill: string): string => skill.slice(skill.indexOf('\n## Writing\n'));
+  assert.match(writing(plugin), /the current focus, each inbox entry's mark,/);
   // The copy every other harness runs carries the same text.
   const copy = readFileSync(join(target, 'binnacle-roadmap', 'SKILL.md'), 'utf8');
   assert.equal(section(copy, 'Again'), again);
-  assert.equal(section(copy, 'Writing'), section(plugin, 'Writing'));
+  assert.equal(writing(copy), writing(plugin).replaceAll(/\/binnacle:([a-z-]+)/g, 'binnacle-$1'));
 });
 
 /** Epic 19: both starts, in the order the user follows them, alike in both languages and the operations docs. */
