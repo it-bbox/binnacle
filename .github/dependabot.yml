@@ -2,6 +2,8 @@
 # Minor and patch updates come as one pull request per ecosystem; a major one comes on its own.
 # npm's cooldown is pnpm-workspace.yaml's minimumReleaseAge: change both together.
 # @types/node follows the Node baseline, 24 LTS: raise its ignored range with the baseline.
+# typescript: the root runs 7, apps/dashboard stays on 5.x, which vue-tsc needs. One pull request moves both
+# manifests, so the root's typescript is held too. Lift the rule, and move the dashboard to 7, once vue-tsc runs on 7.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -13,6 +15,8 @@ updates:
     ignore:
       - dependency-name: "@types/node"
         versions: [">=25"]
+      - dependency-name: typescript
+        versions: [">=6"]
     groups:
       minor-and-patch:
         update-types: [minor, patch]

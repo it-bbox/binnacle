@@ -14,7 +14,22 @@ type Update = {
   schedule: { interval: string };
   groups?: Record<string, { 'update-types'?: string[] }>;
   cooldown?: { 'default-days'?: number };
+  ignore?: { 'dependency-name': string; versions?: string[] }[];
 };
+
+/**
+ * Ticket 08 of hygiene-after-v1: the workspace runs TypeScript 7, while the dashboard stays on 5.x, which `vue-tsc`
+ * needs. Dependabot updates both manifests in one pull request, so its npm entry ignores `typescript` from 6 on for as
+ * long as the dashboard is held, and the ignore goes when the dashboard moves, or the root would never be updated.
+ */
+test("the root's typescript is 7 and Dependabot's ignore holds the dashboard's exactly while it is below 6", () => {
+  const major = (path: string) => Number(/\d+/.exec(JSON.parse(read(path)).devDependencies.typescript)?.[0]);
+  assert.equal(major('package.json'), 7);
+  const npm = (parseYaml(read('.github/dependabot.yml')) as { updates: Update[] }).updates.find((update) => update['package-ecosystem'] === 'npm');
+  const ignored = npm?.ignore?.find((rule) => rule['dependency-name'] === 'typescript');
+  if (major('apps/dashboard/package.json') < 6) assert.deepEqual(ignored?.versions, ['>=6'], 'the dashboard is held below 6');
+  else assert.equal(ignored, undefined, 'the dashboard moved: lift the ignore');
+});
 
 /** Ticket 02 of release: npm for the workspace and GitHub Actions, weekly, minor and patch grouped. */
 test('Dependabot updates npm at the workspace root and GitHub Actions weekly, grouping minor and patch', () => {
