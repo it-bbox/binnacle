@@ -2,27 +2,27 @@
 
 Ideas the owner wants a Product session to weigh. None is decided: each goes to `/grill-with-docs` before it becomes a spec, a ticket, a *Later* item in `docs/roadmap.md` or a rejection, and is removed from here when it does (`docs/workflow/01-product-workflow.md`).
 
-## Ideas from nick-vels/skills (2026-10-09)
+## Traced requirements, blind acceptance and cheaper runs (2026-10-09)
 
 **Planned on 2026-10-22:** ideas 1 and 2, and items 4 and 6 below, into epic 24; items 1, 2, 3, 5 and 8 into epic 23; item 7 into epic 21.
 
-[nick-vels/skills](https://github.com/nick-vels/skills) is a single `/autopilot` skill that builds a project from a brief: rounds of questions at the brief's forks, a spec, tasks built by parallel agents, an offline HTML dashboard, and a final acceptance. It aims at an owner who reads neither the spec nor the code; Binnacle keeps the human in control of a long-lived project (ADR-0022). Two of its ideas could close a gap here, where a spec's link to its brief and its tickets is prose:
+Two ideas could close a gap here, where a spec's link to its brief and its tickets is prose:
 
 1. **Requirements traced end to end.** The brief is split into numbered requirements, recorded word for word. Every requirement has a section of the spec and a task, every task a requirement, which catches work nobody asked for, and only the owner can drop a requirement. Here a story of a spec could carry a number that its tickets and their criteria name, and the snapshot or `binn audit` could report a story with no ticket and a ticket with no story.
 2. **Blind acceptance.** At the end, a separate agent checks the result against the owner's original words only, without the spec, so that what was lost on the way from brief to spec to tickets shows. Here an epic's exit demonstration could start from such a check against the grilling's record.
 
-### Revisited on 2026-10-22, version 2.2.0
+### More, 2026-10-22
 
-Versions 2.1.0 and 2.2.0 tuned the process by measuring their own runs (`docs/autopilot/design.md`, `tools/measure-run.py`). Both ideas above gained a detail: commits carry a `Requirements: R02` trailer, so `git log --grep="R02"` finds every change a requirement caused, and the blind acceptance runs from a clean clone, which catches an unrecorded dependency or a step only this machine knows. What else could apply here, the cost levers first:
+Both ideas above have a detail worth keeping: commits carry a `Requirements: R02` trailer, so `git log --grep="R02"` finds every change a requirement caused, and the blind acceptance runs from a clean clone, which catches an unrecorded dependency or a step only this machine knows. What else could apply here, the cost levers first:
 
-1. **A model per ticket.** A ticket says `Model: strong` or `ordinary`, and an ordinary one runs on a cheaper model. In the week to 2026-10-22, 1795 of Binnacle's 1797 usage records were `claude-opus-5-5`. A `Model:` line that `/binnacle:autopilot` passes to the agent it starts may be the largest saving available; usage by Task shows it. In Claude Code, an agent definition in the `binnacle` plugin can name its own model, and the harness can set one model for every sub-agent, as ECC does (2026-10-23): two ways to put a review or an exploration on a cheaper model without touching the developer's.
-2. **Review where it pays.** Their review took up to half a run's spend. Now a point review runs only for the foundation ticket and tickets whose own code is sign-in, keys, money or deleting data, after the commit and without holding the next tickets, and one review of the whole branch runs at the end. Review fell by 51%. Here every ticket is reviewed before `DONE`; in the same week review and rework took about 26% of cached input, rework (47M) more than review (37M). Measure per epic before changing anything.
+1. **A model per ticket.** A ticket says `Model: strong` or `ordinary`, and an ordinary one runs on a cheaper model. In the week to 2026-10-22, 1795 of Binnacle's 1797 usage records were `claude-opus-5-5`. A `Model:` line that `/binnacle:autopilot` passes to the agent it starts may be the largest saving available; usage by Task shows it. In Claude Code, an agent definition in the `binnacle` plugin can name its own model, and the harness can set one model for every sub-agent: two ways to put a review or an exploration on a cheaper model without touching the developer's.
+2. **Review where it pays.** A point review could run only for the foundation ticket and tickets whose own code is sign-in, keys, money or deleting data, after the commit and without holding the next tickets, with one review of the whole branch at the end. Here every ticket is reviewed before `DONE`; in the same week review and rework took about 26% of cached input, rework (47M) more than review (37M). Measure per epic before changing anything.
 3. **Ticket size by volume.** About 3,000 changed lines per agent, at most 12 tickets per run: every ticket is a cold start of 60–100K tokens or more, and a fine cut buys spend, not safety. Binnacle has 220 tickets over 19 epics, each a fresh session; usage by Task can show what a cold start costs here.
 4. **A short return contract with a red proof.** An agent reports in at most 25 lines: status, files, tests, interfaces, concerns, and `REDPROOF`, how each new test failed before the code, which shows it could fail at all. It fits `/binnacle:task run`'s report.
-5. **A list of excuses and red flags** (`skills/autopilot/phases/rationalizations.md`), read on a failed gate and before the report: "the agent could not, I will finish it myself" and the like, each with why it fails.
+5. **A list of excuses and red flags**, read on a failed gate and before the report: "the agent could not, I will finish it myself" and the like, each with why it fails.
 6. **A depth checklist for a spec.** First run, empty, wrong input, failure, interruption, growth, permissions, aftermath. Material for *Binnacle's own planning skills* below.
-7. **"Waiting for you" as a state.** Their dashboard's header changes colour when the run waits for the owner, and working time excludes the wait. Binnacle has `pendingDecisions`; the dashboard and the mod below could show it this way.
-8. **Autopilot reads no full diff.** Their orchestrator sees only `--stat`, since a diff read on one ticket stays in its context for the rest of the run. `/binnacle:autopilot`'s step 9 reads `git diff main...<branch>`; scope and dependencies could be checked from `--name-only` and the lockfile alone.
+7. **"Waiting for you" as a state.** The dashboard's header could change colour while a run waits for the owner, with working time excluding the wait. Binnacle has `pendingDecisions`; the dashboard and the mod below could show it this way.
+8. **Autopilot reads no full diff.** An orchestrator that sees only `--stat` keeps its context small, since a diff read on one ticket stays in its context for the rest of the run. `/binnacle:autopilot`'s step 9 reads `git diff main...<branch>`; scope and dependencies could be checked from `--name-only` and the lockfile alone.
 
 Not to take: rounds of questions (the owner grills one question at a time), parallel agents in one working tree (a worktree each is safer), and a run the owner never watches (ADR-0022).
 
@@ -34,7 +34,7 @@ Not to take: rounds of questions (the owner grills one question at a time), para
 
 Claude Code's mods (plugins of function hooks, 2.1.295) can draw a pane, a band above the prompt, the status line and toasts, add slash commands, and call the `binnacle` MCP server's tools themselves. The owner wants an optional Binnacle mod, off by default and switched on and off by the user, **after the release**:
 
-- the status line per chat: the session's Task and role, its tokens and context, and the usage limits' windows where the harness passes them to the status line, as ECC's does (2026-10-23);
+- the status line per chat: the session's Task and role, its tokens and context, and the usage limits' windows where the harness passes them to the status line;
 - a *Waiting for you* band, shown only when there is something: unanswered questions, `main`'s CI failing, a stale Next action;
 - a pane with a compact snapshot and buttons that put a command (`/binnacle:answer`, `/binnacle:autopilot`, `/binnacle:checkpoint`) in the prompt for the human to send;
 - toasts on a change: CI failed, a question answered, context pressure.
@@ -61,7 +61,7 @@ Ways to weigh:
 - a ticket's commands and terms are matched to modules through the graph's labels, not only file names (`binn audit` → `apps/cli/src/audit.ts`);
 - before the run, an agent estimates the touched modules, as a calculated reading;
 - without a graph, a cautious fallback instead of a full parallel run;
-- while tickets run, the files each agent's worktree has already changed: two working sets that start to overlap are a risk the graph could not see before the start. ECC sketches this as advisories between live agents (2026-10-23), uncalibrated by its own account.
+- while tickets run, the files each agent's worktree has already changed: two working sets that start to overlap are a risk the graph could not see before the start.
 
 ## Stricter autopilot and review (2026-10-15)
 
@@ -73,7 +73,7 @@ Ideas to weigh, most useful first:
 2. **Hard stops for autopilot.** Binnacle shows runs per Task and the rework share but stops nothing. Past a threshold of rework runs, a ticket could stop under *Waiting for the owner* with its reason instead of another correction run; review iterations could have a cap, and every CI job one retry budget across runs.
 3. **Classes of a red CI.** An infrastructure failure (runner lost, registry or network) is retried within the budget; a failed test is never retried, since a green rerun on the same commit is flaky evidence, not a pass; an unknown cause is treated as the change's. Binnacle reads a Task's CI; what autopilot does on red is not written down.
 4. **A complexity gate in review.** A complexity reading of the touched code is recorded before development, and review checks it did not grow. A calculated reading that sits well beside Ponytail.
-5. **Tests on the instructions themselves.** Checks over Binnacle's own skills and instruction files: a length budget for each skill description and for all of them together, a size limit for a router entrypoint, every reference file named with the condition that loads it, no procedure copied into two places. They would catch drift and duplication without a reviewer. Beside these static checks, a skill's behaviour can be pinned by recorded scenarios replayed against it, each step labelled with what the skill must do, so that a regression such as a Russian report's wrong agreement fails a test; ECC checks its edit gate this way (2026-10-23).
+5. **Tests on the instructions themselves.** Checks over Binnacle's own skills and instruction files: a length budget for each skill description and for all of them together, a size limit for a router entrypoint, every reference file named with the condition that loads it, no procedure copied into two places. They would catch drift and duplication without a reviewer. Beside these static checks, a skill's behaviour can be pinned by recorded scenarios replayed against it, each step labelled with what the skill must do, so that a regression such as a Russian report's wrong agreement fails a test.
 6. **Machine-readable markers.** `### Question` and `### Answer` are already parsed. A parsable first line for a Review's verdict, a stop and a rework, such as `REVIEW:<task>:<run>:<iteration>:<verdict>`, would make first-pass review acceptance and stop reasons exact, counted without a model.
 7. **Delivery signals at slicing.** `/to-tickets` could ask whether a ticket changes a schema, stored data, an API or consumer contract, or background processing; such a ticket carries a rollout step.
 8. **A check belongs to a role that can perform it.** Each check in a ticket names the role that performs it, and grilling asks whether that role can: a "before" screenshot can only be taken where the old version still runs, test accounts on a stage only by whoever administers it. A check handed to a role that cannot do it stalls the ticket.
@@ -138,9 +138,9 @@ Dependabot's pull request #4 moves `typescript` from 5.9.3 to 7.0.2, the compile
 
 CI failed on `main` at `d032715`, a commit that changed only the product inbox: `apps/cli/test/audit.test.ts:612`, "binn audit: stranded documents … nothing written", lists the fixture's whole tree before and after the audit, `.git` included, and Git's background maintenance wrote `.git/objects/maintenance.lock` in between. The test should compare the working tree without `.git`, or turn automatic maintenance off in the fixture, so that only a file the audit writes fails it.
 
-## Ideas from affaan-m/everything-claude-code (2026-10-23)
+## Session start, agent configuration and traps (2026-10-23)
 
-[ECC](https://github.com/affaan-m/everything-claude-code), 2.2.3, is a large toolbox installed into a harness: agents, skills, hooks, a memory vault and, in alpha, a control pane of its own. Where it touches what is already planned, the entries above name it. Three ideas are new here, each to be built Binnacle's way, not copied:
+Three ideas, each to be built Binnacle's way:
 
 1. **Where the project stands, at a session's start.** A fresh session knows nothing until someone runs `/binnacle:product`. A `SessionStart` hook in the `binnacle` plugin could add two or three lines from the snapshot: the current epic, what waits for the owner, and the Next action with its command. Bounded in size, silent without the daemon, and off with one setting; progressive disclosure, not the whole snapshot. A candidate for epic 21.
 2. **The agent's own configuration in `binn audit`.** The audit reads the project's code, secrets and supply chain, not what drives the agents: `.mcp.json` and each harness's MCP settings, hooks and the commands they run, permission modes that skip approval, and secrets or tokens written into `AGENTS.md`, `CLAUDE.md` or a skill. A new area, read-only as every audit check, which also reports when the harnesses of one project register different MCP servers. Not planned yet; a candidate for epic 20.
