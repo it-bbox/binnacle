@@ -396,7 +396,7 @@ function notes(w: VaultWords, link: Link): { snapshot(name: string, snapshot: Sn
       const { git, next, tasks, decisions, graph } = snapshot;
       const parts = [
         w.snapshotTitle(name),
-        git.available ? w.servedFrom(git.branch, git.commit ? short(git.commit) : null, git.dirty) : w.servedWithoutGit(git.reason),
+        git.available ? w.servedFrom(git.branch, git.commit ? short(git.commit) : null, git.dirty) : w.servedWithoutGit(git),
         w.next,
         next.action ? w.nextAction(next.action.description, next.action.command) : w.noNextAction,
         unavailable(next.alternatives)

@@ -30,7 +30,7 @@ export type VaultWords = {
   draft: string;
   snapshotTitle: (name: string) => string;
   servedFrom: (branch: string | null, commit: string | null, dirty: boolean) => string;
-  servedWithoutGit: (reason: string) => string;
+  servedWithoutGit: (value: Reason) => string;
   next: string;
   nextAction: (description: string, command: string) => string;
   noNextAction: string;
@@ -90,7 +90,7 @@ const ENGLISH: VaultWords = {
   draft: ' (draft)',
   snapshotTitle: (name) => `# Snapshot of ${name}`,
   servedFrom: (branch, commit, dirty) => `Served from \`${branch ?? 'a detached HEAD'}\` at \`${commit ?? 'no commit'}\`${dirty ? ', with uncommitted changes' : ''}.`,
-  servedWithoutGit: (reason) => `Served without Git: ${reason}`,
+  servedWithoutGit: ({ reason }) => `Served without Git: ${reason}`,
   next: '## Next',
   nextAction: (description, command) => `Next action: ${description} \`${command}\``,
   noNextAction: "The roadmap's focus names no Next action.",
@@ -182,7 +182,7 @@ const RUSSIAN: VaultWords = {
   snapshotTitle: (name) => `# Снимок проекта ${name}`,
   servedFrom: (branch, commit, dirty) =>
     `Снят с \`${branch ?? 'отсоединённого HEAD'}\` на \`${commit ?? 'без коммита'}\`${dirty ? ', с незакоммиченными изменениями' : ''}.`,
-  servedWithoutGit: (reason) => `Снят без Git: ${english(reason)}`,
+  servedWithoutGit: (value) => `Снят без Git: ${because(value)}`,
   next: '## Следующий шаг',
   nextAction: (description, command) => `Следующий шаг: ${description} \`${command}\``,
   noNextAction: 'Фокус роадмапа не называет следующего шага.',
