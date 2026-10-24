@@ -249,7 +249,7 @@ export type Alternative = {
 };
 
 /** An alternative as a message to word: its kind and params under one code, its description the English. */
-export const alternativeMessage = ({ kind, params, description }: Alternative): Coded => ({ code: 'next.alternative', message: description, params: { kind, ...params } });
+export const alternativeMessage = ({ kind, params, description }: Alternative): Coded => ({ code: 'next.alternative', message: description, params: { ...params, kind } });
 
 /** What the Suggested step reads of a run: its Task, its role, and whether and when it was last active. */
 type RunReading = Pick<ObservedRun, 'taskId' | 'role' | 'lastActivityAt' | 'active'>;

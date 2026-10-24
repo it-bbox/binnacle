@@ -8,10 +8,6 @@ import { FALLBACK_DAYS } from './daily.ts';
  * language. A value Binnacle reports only as an English sentence, a reason with no code, is
  * written as it is, and in Russian marked `(англ.)`.
  */
-
-/** Why a value is not available: the daemon's English, with its `code` and `params` when it has them. */
-type Reason = { reason: string; code?: string | undefined; params?: Params | undefined };
-
 export type VaultWords = {
   none: string;
   more: (count: number) => string;
@@ -70,6 +66,9 @@ export type VaultWords = {
   epic: (number: number, title: string, from: string | null, to: string) => string;
   change: (change: 'added' | 'changed') => string;
 };
+
+/** Why a value is not available: the daemon's English, with its `code` and `params` when it has them. */
+type Reason = { reason: string; code?: string | undefined; params?: Params | undefined };
 
 const ENGLISH: VaultWords = {
   none: 'None.',
