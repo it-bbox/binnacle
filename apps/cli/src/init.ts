@@ -5,7 +5,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, posix, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { isIgnored, readGitFacts, workingTree, type GitRemote } from '@binnacle/adapters';
-import { forgeRemote, instructionSets, type ImportWindow, type Language, type ProjectManifest, type TrackerProvider } from '@binnacle/core';
+import { forgeRemote, instructionSets, terminalText, type ImportWindow, type Language, type ProjectManifest, type TrackerProvider } from '@binnacle/core';
 import {
   credentialsKey,
   credentialsPath,
@@ -129,7 +129,8 @@ export async function init(
     root: git.root,
     answer,
     // A note keeps its first line's indentation, as in a printed entry; only blank lines around it go.
-    say: planOnly ? (text) => void (text.trim() && notes.push(text.replace(/^\s*\n|\s+$/g, ''))) : (text) => console.log(text),
+    // The plan quotes the manifest's values: no control or bidi character in them reaches the terminal. --plan's JSON keeps them as they are.
+    say: planOnly ? (text) => void (text.trim() && notes.push(text.replace(/^\s*\n|\s+$/g, ''))) : (text) => console.log(terminalText(text)),
     speaks,
     w,
     plan: [],

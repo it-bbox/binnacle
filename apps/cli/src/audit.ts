@@ -1,5 +1,5 @@
 import { readGitFacts, readGitLocation, type GitFacts } from '@binnacle/adapters';
-import { AUDIT_AREAS, forgeRemote, instructionSets, type AuditArea, type Finding, type Language } from '@binnacle/core';
+import { AUDIT_AREAS, forgeRemote, instructionSets, terminalText, type AuditArea, type Finding, type Language } from '@binnacle/core';
 import { MANIFEST_RELATIVE, OperationError, readManifest, resolveGitTimeout, trackerToken } from '@binnacle/daemon';
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -46,7 +46,8 @@ export async function audit(home: string, path: string | undefined, json: boolea
     }));
     console.log(JSON.stringify({ root: git.root, findings, plan: { steps, summary: en.summary(steps.length) } }, null, 2));
   } else {
-    console.log(report(git.root, all, LANGUAGE));
+    // The values the findings quote, a remote's host or a manifest's path, are the user's: no control or bidi character reaches the terminal.
+    console.log(terminalText(report(git.root, all, LANGUAGE)));
   }
   return EXIT.ok;
 }

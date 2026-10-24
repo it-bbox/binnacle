@@ -856,6 +856,20 @@ test('an unreadable remote tracker gives the failure and how to make a read-only
   assert.equal(existsSync(join(home.binnacleHome, 'credentials.json')), false);
 });
 
+test("init prints a manifest's tracker repository with its control and bidi characters escaped", async (t) => {
+  const home = makeHome(t);
+  const github = await trackerStandIn(t, 401, { message: 'Bad credentials' });
+  const root = makeRepository(t, 'remote', {
+    '.binnacle/project.yaml': `version: 1\nproject:\n  id: remote\ntracker:\n  provider: github\n  repository: "octo-org/oc\\u0085to\\u202erepo"\n  host: ${JSON.stringify(github.base)}\n`,
+    [TRACKER_FILE]: '# Issue tracker: GitHub\n',
+  });
+
+  const { stdout } = await binnInit(home, root, '\n\ny\n', { BINNACLE_GITHUB_TOKEN: 'ghp_never-printed' });
+
+  assert.ok(stdout.includes('octo-org/oc\\u{85}to\\u{202e}repo'), stdout);
+  assert.ok(!/[\u0085‮]/.test(stdout), stdout);
+});
+
 test('the advice on a GitHub token names the access the snapshot’s CI needs beside the issues', async (t) => {
   const home = makeHome(t);
   const github = await trackerStandIn(t, 401, { message: 'Bad credentials' });

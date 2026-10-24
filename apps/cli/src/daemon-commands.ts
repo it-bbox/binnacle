@@ -1,3 +1,4 @@
+import { terminalText } from '@binnacle/core';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { closeSync, openSync, readFileSync, rmSync } from 'node:fs';
 import {
@@ -368,7 +369,8 @@ function unseenTokenWarnings(home: string, root: string | undefined): string[] {
       return found.token ? [] : [T.noTokenFor(path, credentialsKey(provider, host))];
     });
     if (problems.length === 0) continue;
-    warnings.push(T.unseenToken(variable, [...new Set(problems)], path));
+    // The key is a manifest's tracker host: no control or bidi character in it reaches the terminal.
+    warnings.push(terminalText(T.unseenToken(variable, [...new Set(problems)], path)));
   }
   return warnings;
 }

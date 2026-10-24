@@ -653,6 +653,22 @@ test('autostart on warns that the service will not see a tracker token from this
   assert.doesNotMatch(again.stderr, /BINNACLE_GITHUB_TOKEN/);
 });
 
+test("autostart's token warning prints a registered manifest's tracker host with its control and bidi characters escaped", (t) => {
+  const { binn, env, home } = setup(t);
+  env.BINNACLE_GITHUB_TOKEN = 'github_pat_only-in-this-shell';
+  delete env.BINNACLE_GITLAB_TOKEN;
+  const project = join(home, '..', 'project');
+  mkdirSync(join(project, '.binnacle'), { recursive: true });
+  writeFileSync(join(project, '.binnacle', 'project.yaml'), 'version: 1\nproject:\n  id: fixture\ntracker:\n  provider: github\n  host: "gh.ex\\u0085am\\u202eple.com"\n');
+  mkdirSync(home);
+  writeFileSync(join(home, 'projects.json'), JSON.stringify({ version: 1, projects: [{ path: project, registeredAt: '2026-10-25T00:00:00.000Z' }] }));
+
+  const on = binn('daemon', 'autostart', 'on');
+  assert.equal(on.status, 0, on.stderr);
+  assert.ok(on.stderr.includes('has no token for "gh.ex\\u{85}am\\u{202e}ple.com"'), on.stderr);
+  assert.ok(!/[\u0085‮]/.test(on.stderr), on.stderr);
+});
+
 test('autostart speaks Russian under a Russian locale, its token warning too, with no code and the exit codes as in English', (t) => {
   const { binn, env, home } = setup(t);
   env.LC_ALL = 'ru_RU.UTF-8';
