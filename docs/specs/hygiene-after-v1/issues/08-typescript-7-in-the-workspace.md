@@ -1,6 +1,6 @@
 # 08: TypeScript 7 in the workspace
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 01, 02, 03, 04, 05, 06, 07
 Spec: `docs/specs/hygiene-after-v1/spec.md`
