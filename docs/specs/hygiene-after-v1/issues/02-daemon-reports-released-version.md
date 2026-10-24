@@ -1,6 +1,6 @@
 # 02: The daemon reports the released version
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/hygiene-after-v1/spec.md`
