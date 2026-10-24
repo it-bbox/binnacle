@@ -1,6 +1,6 @@
 # 07: `/binnacle:roadmap` proposes epics from the product inbox
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/hygiene-after-v1/spec.md`
