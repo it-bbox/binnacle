@@ -812,7 +812,7 @@ test('/binnacle:checkpoint offers the current focus as a candidate when the tick
 
 /** Epic 20, ticket 06: an epic's status from `tickets` on and the focus's *Done* line follow from the tickets alone, so no one asks the owner for them; the course stays the owner's. */
 const DERIVED =
-  "The roadmap's derived part follows from the tickets alone, so it is written without a yes: an epic's status from `tickets` on, which is `done` exactly when every one of its tickets is `DONE` or `CANCELLED`, `in progress` while some are `DONE` and some open, and `tickets` while none is `DONE`, a `ready-for-human` ticket counting as any other; and the focus's *Done* line, the epics marked `done`. Read each epic's `progress` and the `roadmap.status_mismatch` items from `project_snapshot`, or the tickets' `Status:` lines when the daemon is down, and count nothing yourself. Only when that changes the roadmap, commit the roadmap alone, on the branch you are on, with a subject that says it is derived from the tickets, following the project's instruction files for the message and authorship; never push it. `not started` and `spec` stay a Product session's to write on the owner's yes, and so do the focus's other prose and the `Next action:`, in a commit of their own.";
+  "The roadmap's derived part follows from the tickets alone, so it is written without a yes: an epic's status from `tickets` on, which is `done` exactly when every one of its tickets is `DONE` or `CANCELLED`, `in progress` while some are `DONE` and some open, and `tickets` while it has tickets and none is `DONE`, a `ready-for-human` ticket counting as any other; and the focus's *Done* line, the epics marked `done`. Read each epic's `progress` and the `roadmap.status_mismatch` items from `project_snapshot`, or the tickets' `Status:` lines when the daemon is down, and count nothing yourself. Only when that changes the roadmap, commit the roadmap alone, on the branch you are on, with a subject that says it is derived from the tickets, following the project's instruction files for the message and authorship; never push it. `not started` and `spec` stay a Product session's to write on the owner's yes, and so do the focus's other prose and the `Next action:`, in a commit of their own.";
 test('autopilot, the checkpoint and /binnacle:product write the roadmap\'s derived part without a yes and keep the yes for the focus\'s prose and the Next action, in their texts and their copies', (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'binnacle-skills-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
@@ -826,6 +826,9 @@ test('autopilot, the checkpoint and /binnacle:product write the roadmap\'s deriv
   const roadmap = step(skillText('autopilot'), 13).split('\n').filter((line) => /^ {4}- \*\*/.test(line)).at(-1) ?? '';
   assert.match(roadmap, /once the run has ended, write the roadmap's derived part without a yes, as the paragraph below says, and give it as written, with its commit, or say that nothing changed/);
   assert.match(roadmap, /Say that they are written only on the owner's yes/);
+  // The epic's status no longer waits for the yes.
+  assert.doesNotMatch(roadmap, /the epic's status in the table/);
+  assert.doesNotMatch(step(skillText('checkpoint'), 3), /epic's status in the table when it moved/);
   const checkpoint = skillText('checkpoint');
   assert.match(step(checkpoint, 3), /A `position` draft that is only derived needs no yes: write and commit it now, calling `project_snapshot` once, with no arguments, for it, and show it in step 4 as written, with its commit/);
   assert.match(checkpoint, /and only what the human confirms, besides the roadmap's derived part \(step 3\)/);

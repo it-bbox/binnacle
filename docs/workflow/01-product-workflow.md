@@ -89,4 +89,6 @@ human confirms
 write to canonical sources
 ```
 
+The roadmap's derived part is the one exception: it is written before the human confirms, as *The roadmap* above says.
+
 The next Product session rebuilds current state from Project Brain; it does not inherit a compressed transcript as its primary memory.
