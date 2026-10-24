@@ -72,9 +72,9 @@ function audit(t: TestContext, args: string[], env: Record<string, string> = {},
 const findings = (stdout: string): Finding[] => JSON.parse(stdout).findings;
 const byCode = (all: Finding[], code: string): Finding => all.find((finding) => finding.code === code)!;
 
-/** Every path under `dir` with its size, `.git` included. */
+/** Every path under `dir` with its size, the working tree only: Git's background maintenance may write into `.git` mid-test. */
 function listing(dir: string, prefix = ''): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+  return readdirSync(dir, { withFileTypes: true }).filter((entry) => entry.name !== '.git').flatMap((entry) =>
     entry.isDirectory()
       ? [`${prefix}${entry.name}/`, ...listing(join(dir, entry.name), `${prefix}${entry.name}/`)]
       : [`${prefix}${entry.name} ${statSync(join(dir, entry.name)).size}`],
