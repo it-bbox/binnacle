@@ -13,3 +13,19 @@ Roles: Developer, Reviewer
 - [ ] Through `wordMessage`: the Russian line names the threshold with no `telemetry.context_pressure.tokens`, and says "эта" or "другая" only when `own` is set.
 - [ ] Which other harnesses tell a child process their session is checked and written under `## Comments`; each one found is read the same way, none guessed.
 - [ ] `docs/03-mcp-and-skills.md` describes the `session` the server sends.
+
+## Comments
+
+- Which harnesses tell a child process their session, checked on 2026-10-25 against the installed harnesses and their sources:
+  - **Claude Code**: `CLAUDE_CODE_SESSION_ID`, for the MCP server and its shell (the spec).
+  - **Codex**: `CODEX_THREAD_ID`, set for its shell's commands (`codex-rs/protocol/src/shell_environment.rs`, `create_env`), not for MCP servers, whose environment is an allowlist (`codex-rs/rmcp-client/src/utils.rs`, `DEFAULT_ENV_VARS`). It is the rollout's `session_meta.id`, the session id Binnacle's Codex reader records (a local rollout carries the same value in `id` and `session_id`). **Read the same way**, after `CLAUDE_CODE_SESSION_ID`, so `binn call` in Codex's shell says this session or another. `CODEX_SESSION_ID`, the root session shared by its subagents, is not read: it is not the id a subagent's own records carry.
+  - **Gemini CLI**: `GEMINI_SESSION_ID` is set for its hooks only; its MCP servers get its own environment and `GEMINI_CLI=1`. Not read.
+  - **Antigravity**: its language server holds `ANTIGRAVITY_CONVERSATION_ID=%s` beside its `hooks.json` handling; nothing confirms it reaches a terminal command or an MCP server. Not read.
+  - **opencode** and **pi**: no session variable among the ones their bundles name. **ZCode**: its AppImage was not unpacked; its exec directory and logs name none. Not read.
+- Decisions where the ticket is silent:
+  - `callerSession(env)` in `packages/mcp` is the one place that names the variables; `binn mcp` reads it once at start, `binn call` on every call, and `toolRequest` takes the result beside `cwd`. Only `project.snapshot` reads `session`; every other operation ignores it, as the daemon ignores any field it does not read.
+  - Times are `HH:MM` in the local time of the process that words them (the daemon for English, whoever calls `wordMessage` for Russian), the start dated `YYYY-MM-DD HH:MM` when it is not on the latest activity's local day. `sessionTimes` in `packages/core/src/wording.ts` does it for both. `params.startedAt` and `params.lastActivityAt` stay ISO, the run's.
+  - `Params` admits a boolean, for `own`; the wording reads it through `flag`, and refuses (falls back to English) a non-boolean.
+  - The English line keeps `telemetry.context_pressure.tokens`: the ticket asks only the Russian to drop the key, and English names configuration as written.
+  - The vault's snapshot note is the snapshot served, so it carries the `own` of the session that asked for it.
+- For the next ticket: `context.pressure`'s Russian is now «Эта/Другая продуктовая сессия в <harness>, начатая в HH:MM, последняя активность в HH:MM, …»; ticket 05's wording work leaves it as is.
