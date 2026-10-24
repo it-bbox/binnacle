@@ -73,7 +73,7 @@ Run `/binnacle:roadmap`. It needs no daemon, but it needs the manifest and the r
 2. It proposes the epics in dependency order, the foundation first, each with one line of scope. Change, drop, merge or add epics before you say yes.
 3. On your yes, it writes the roadmap's rows, its `## Epics` section and a Next action that grills the first epic. It commits only those files, and never pushes.
 
-It takes this new-project entry when the history holds no commit beyond those that added `binn init`'s files, and Git tracks no source code; `/binnacle:roadmap new` takes it anyway. Run again, it proposes additions and reorders among the epics not started, never changes a `done` epic, and never removes a row that links a spec.
+It takes this new-project entry when the history holds no commit beyond those that added `binn init`'s files, and Git tracks no source code; `/binnacle:roadmap new` takes it anyway. Run again, it proposes additions and reorders among the epics not started, never changes a `done` epic, and never removes a row that links a spec. It also proposes each entry of `<knowledge.docs>/product-inbox.md` not yet planned as a new epic or part of one not started, or names it as left out, and on your yes marks each entry taken "Planned as epic N" or "Planned into epic N", keeping it in the inbox.
 
 ## 4. The first Product session
 

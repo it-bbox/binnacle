@@ -581,6 +581,38 @@ test('/binnacle:roadmap has two entries, needs no daemon, writes and commits onl
   assert.deepEqual(roadmapGaps(example), []);
 });
 
+/** Epic 20, ticket 07: run again, the roadmap skill proposes epics from the product inbox and marks the entries taken, only on the owner's yes. */
+test('/binnacle:roadmap\'s Again reads the product inbox, proposes or leaves out each entry not yet planned, and marks those taken on the yes, in its text and its copy', (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'binnacle-skills-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const target = join(dir, 'skills');
+  prepareSkills(PLUGIN_SOURCE, target, preparePlugin(PLUGIN_SOURCE, join(dir, 'plugin')));
+  const section = (skill: string, name: string): string => {
+    const start = skill.indexOf(`\n## ${name}\n`);
+    assert.ok(start >= 0, name);
+    const next = skill.indexOf('\n## ', start + 1);
+    return next < 0 ? skill.slice(start) : skill.slice(start, next);
+  };
+  const plugin = skillText('roadmap');
+  const again = section(plugin, 'Again');
+  assert.match(again, /the product inbox \(`<knowledge\.docs>\/product-inbox\.md`\)/);
+  // A marked entry is planned already, and never proposed again.
+  assert.match(again, /An entry marked `\*\*Planned as epic N` or `\*\*Planned into epic N` under its heading is planned already: never propose it again/);
+  // Every other entry: a new epic, part of a `not started` one, or left out, each with its reason.
+  assert.match(again, /as a new epic, with its line of scope; as part of an existing `not started` epic, by its number; or as left out, by its heading; each with its reason/);
+  assert.match(again, /Leave no entry out silently/);
+  // The marks, only on the yes, beside the roadmap's change; the entry stays.
+  assert.match(again, /On the human's yes, beside the roadmap's change, write right under the heading of each entry taken `\*\*Planned as epic N on YYYY-MM-DD\.\*\*` for a new epic or `\*\*Planned into epic N on YYYY-MM-DD\.\*\*` for part of one/);
+  assert.match(again, /keep the entry in the inbox, where its epic's grilling reads it/);
+  assert.match(again, /Only \*Again\* reads the inbox's entries/);
+  assert.doesNotMatch(section(plugin, 'New project'), /inbox/);
+  assert.match(section(plugin, 'Writing'), /the current focus, each inbox entry's mark,/);
+  // The copy every other harness runs carries the same text.
+  const copy = readFileSync(join(target, 'binnacle-roadmap', 'SKILL.md'), 'utf8');
+  assert.equal(section(copy, 'Again'), again);
+  assert.equal(section(copy, 'Writing'), section(plugin, 'Writing'));
+});
+
 /** Epic 19: both starts, in the order the user follows them, alike in both languages and the operations docs. */
 test('the README in both languages and the operations docs give the new and the existing project\'s short paths in order', () => {
   const inOrder = (text: string, steps: string[], where: string): void => {

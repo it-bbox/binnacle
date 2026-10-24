@@ -65,7 +65,7 @@ When a developer asks something not defined by spec:
 - architecture question → involve Architect role, possibly ADR;
 - incorrect spec → update canonical spec before resuming work.
 
-Ideas the owner wants weighed but has not decided wait in `docs/product-inbox.md`. A Product session goes through them when it plans the next epic, and removes each one it turns into a spec, a ticket, a *Later* item or a rejection.
+Ideas the owner wants weighed but has not decided wait in `docs/product-inbox.md`. A Product session goes through them when it plans the next epic, and removes each one it turns into a spec, a ticket, a *Later* item or a rejection. `/binnacle:roadmap`, run again, proposes each entry not yet planned as a new epic, as part of one not started, or as left out, and on the owner's yes marks each entry taken `**Planned as epic N on YYYY-MM-DD.**` or `**Planned into epic N on YYYY-MM-DD.**` under its heading; the entry stays until its epic's grilling reads it.
 
 ## The roadmap
 
