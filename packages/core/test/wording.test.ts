@@ -12,7 +12,8 @@ import { WORDED_CODES, wordMessage, type Params } from '../src/index.ts';
 const MAPPED = new Set(['kind', 'token', 'what', 'got', 'entity', 'warning', 'need', 'session', 'startedAt', 'lastActivityAt', 'own']);
 
 /** A session's times, as the daemon gives them. */
-const SESSION = { session: 's-1', startedAt: '2026-10-21T09:30:00Z', lastActivityAt: '2026-10-21T10:45:00Z' };
+// Fifteen minutes around noon UTC, the same local day in every time zone.
+const SESSION = { session: 's-1', startedAt: '2026-10-21T12:00:00Z', lastActivityAt: '2026-10-21T12:15:00Z' };
 
 /** A time as the wording gives it, in this process's local time. */
 const clock = (iso: string): string => {

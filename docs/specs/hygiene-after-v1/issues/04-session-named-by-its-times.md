@@ -29,3 +29,14 @@ Roles: Developer, Reviewer
   - The English line keeps `telemetry.context_pressure.tokens`: the ticket asks only the Russian to drop the key, and English names configuration as written.
   - The vault's snapshot note is the snapshot served, so it carries the `own` of the session that asked for it.
 - For the next ticket: `context.pressure`'s Russian is now «Эта/Другая продуктовая сессия в <harness>, начатая в HH:MM, последняя активность в HH:MM, …»; ticket 05's wording work leaves it as is.
+
+### Review
+
+Against `main`, in a sub-agent, on the standards and the spec. Typecheck and the full suite (900 tests) pass; criteria 1 to 3 are pinned through `toolRequest`, `binn call` and `binn mcp` against a daemon that echoes the body, `project.snapshot` and `wordMessage`; the Codex and Gemini CLI findings were re-checked against their sources.
+
+1. **The wording test failed in some time zones**: its session's times, 09:30Z and 10:45Z, fall on two local days under `TZ=Pacific/Honolulu` or `Pacific/Kiritimati`, so the start was dated and the expected line was not. **Fixed**: 12:00Z and 12:15Z in `packages/core/test/wording.test.ts`, the same local day in every zone; checked under five zones, the daemon's test too.
+2. The vault's snapshot note says "This"/"Эта" for the session that asked. **Kept**: the note is the snapshot as served, with its `served:` time, and the spec changes nothing else in it.
+3. Nested harnesses, such as `codex exec` run from Claude Code, whose shell inherits `CLAUDE_CODE_SESSION_ID`, give the outer session. **Kept**: no order of the two variables fixes both nestings, and a Product session is not run nested.
+4. `binn mcp` reads the session once, at start, as the spec says; whether Claude Code keeps one id across `/clear` or `--resume` is not known here. **Left** to the exit demonstration (ticket 09), which reads the warning from a second session.
+5. The `binn call` test is in `packages/mcp/test/smoke.test.ts`, not `apps/cli/test/locale.test.ts`. **Kept**: the same `binn` process seam, beside the MCP server's.
+6. No other finding: one author, no attribution, no dependency; `callerSession` and `sessionTimes` are the only new surface; the `Params` widening typechecks everywhere, the dashboard too.
