@@ -1,6 +1,6 @@
 # 01: The audit's test ignores Git's own files
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/hygiene-after-v1/spec.md`
