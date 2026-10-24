@@ -1,6 +1,6 @@
 # 03: Manifest text reaches a terminal sanitized
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/hygiene-after-v1/spec.md`
