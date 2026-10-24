@@ -155,3 +155,15 @@ Not to take: a catalogue of hundreds of skills and agents, learned "instincts" i
 Binnacle has 4 stars on 2026-10-23, and its repository has no description, no topics and no image in the README: a visitor from a post sees a wall of text. Projects of its kind grow through a storefront that shows the tool in seconds, launch posts close together (GitHub's trending list counts stars over a day or two), listings where people look for tools, and write-ups with real data. Binnacle's own usage data is the material others do not have: what 220 tickets cost and where the tokens went.
 
 The epic is what the repository can carry: the description and topics, a demo and dashboard screenshots in the README, the Claude plugin marketplace, MCP directories, awesome lists, npm keywords, a write-up and a launch checklist. Posting on Reddit, Hacker News, X, Habr and Telegram is the owner's. A subreddit of its own waits until users ask questions; until then GitHub Discussions is the place for them.
+
+## A context-pressure threshold per model, set from the dashboard (2026-10-24)
+
+The `context.pressure` threshold is one number per project, `telemetry.context_pressure.tokens`, 150 000 where the manifest writes none. Binnacle works with any harness and model, and their context windows differ: 150 000 is close to the edge of a 200K window and early for a much larger one. A Claude Code Product session on this repository already reads about 85 000 tokens in its first call, before any work. The owner wants the threshold to follow the session's model, and to change it from the dashboard's Settings page rather than by editing a file.
+
+Options to weigh:
+
+1. **A threshold per model.** A default and, beside it, a number for a model by name, such as `claude-opus-5-5`; the run's model, which Binnacle already reads, picks the number, and a model with none takes the default.
+2. **A share of the window.** Warn at, say, 60% of the model's context window, where the harness reports the window in its session artifact; where it does not, the window is not known (principle 5) and the default number applies. Which harnesses report it is to be checked.
+3. **From the dashboard.** The Settings page writes the threshold as it writes the Parallel limit: the machine's settings, `~/.binnacle/settings.json`, through the daemon, with a manifest that sets it still winning for that project. That narrows ADR-0041 to a second setting, which needs its own ADR or an amendment.
+
+To decide: per model, a share, or both; whether the threshold belongs to the machine, as the Parallel limit does, or to the project; and the default, which stays conservative for the smallest windows.
