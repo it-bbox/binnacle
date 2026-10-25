@@ -84,66 +84,12 @@ Ideas to weigh, most useful first:
 
 Not to take: running without a human by default, which ADR-0022 rules out; and a fixed pipeline of roles for every Task, since roles are recommended per Task.
 
-## Derived roadmap state without a yes (2026-10-16)
-
-**Planned into epic 20 on 2026-10-22.**
-
-The owner leans towards it, but wants the options weighed first. Today a Product session, a checkpoint or autopilot's end writes the roadmap only on the owner's yes (`docs/roadmap.md`, *Keeping this current*). After autopilot merged epic 12's tickets 01 to 10, the owner was asked to confirm an epic's status and the *Done* line, which follow from the tickets' statuses alone, beside the `Next action:`, which is a real choice of course.
-
-Options to weigh:
-
-1. **Write the derived part without a yes.** Autopilot and checkpoint set an epic's status (`tickets` → `in progress` → `done`) and the *Done* line from the tickets; the focus's prose and the `Next action:` stay on the owner's yes.
-2. **Stop writing the derived part at all.** The snapshot and the dashboard already derive progress from the tickets; the table's status could be read the same way, leaving only `not started` and `spec` for the owner to write.
-3. **Keep the rule.** One yes for the whole roadmap commit stays the cheapest check that nothing wrong reaches the text every fresh session reads first.
-
-To decide: which statuses are truly derived (a `tickets` epic with one ticket merged; an epic whose last ticket is `ready-for-human`), and whether a commit to `main` with no yes fits the rule that a decision reaches the repository only once the owner confirms it.
-
-## A shared sanitizer for manifest text in output (2026-10-16)
-
-**Planned into epic 20 on 2026-10-22.**
-
-From `audit-completed/05`'s Review (5): a manifest's `tracker.host` is quoted back through `JSON.stringify`, which leaves C1 controls and bidi overrides in, and the tracker check already prints it the same way. One sanitizer for manifest values printed to a terminal would cover both. Low risk: the manifest is the user's own file.
-
-## A session named so a person knows it (2026-10-21)
-
-**Planned into epic 20 on 2026-10-22.**
-
-The `context.pressure` item names a session by its UUID only. On 2026-10-21 the owner read "the Product session 13401315-… read 212007 tokens" as being about the session they were in, which had 121,781; the 212k one was another, started at 12:17. Naming the session by its start time and its latest activity, and saying when it is not the caller's own, would tell them apart. Epic 13's short reports may cover it; check there first.
-
-## Wording left after epic 13 (2026-10-22)
-
-**Planned into epic 20 on 2026-10-22.**
-
-Found in epic 13's exit demonstration (`specs/human-output/issues/11-human-output-exit-demonstration.md`):
-
-- `/binnacle:product`'s Russian report wrote "3 запуска… Две из них" (for "Два из них") and "по pull request'ам", an English term in a Russian line.
-- The context-pressure attention item names the manifest key `telemetry.context_pressure.tokens`, which reads as technical in a Russian line; it also still names the session by its UUID only (*A session named so a person knows it*, above: epic 13 did not cover it).
-- Reasons with no code reach a Russian vault in English, marked `(англ.)` as story 27 allows: the snapshot's alternative "Epic N (…) has Tasks ready to start…" (`packages/core/src/roadmap.ts`) and the graph's "graphify is not on the daemon's PATH…" (`apps/daemon/src/graph.ts`), whose `kind` core already words under `graph.unavailable`.
-
-## TypeScript 7 (2026-10-22)
-
-**Planned into epic 20 on 2026-10-22**; its grilling kept it there on 2026-10-23, as a ticket.
-
-Dependabot's pull request #4 moves `typescript` from 5.9.3 to 7.0.2, the compiler rewritten natively. Its `check` failed on 2026-10-20, on a `main` since moved on: the typecheck passed, and one test failed, `apps/cli/test/autostart.test.ts:569`, "Windows: with autostart on, start and stop go through schtasks", which expected `/End /TN binnacle` among the calls and got none. Whether that is the new compiler emitting something differently or a timing flake is not known. Dependabot rebuilt it on 2026-10-22 on `main` at `944f8ae` (head `4b9d75d`), and every check passed, the Windows test above included, which points to a flake on the older run rather than the compiler. A major compiler change is still a decision of its own, not a dependency bump: weigh what else changes, such as the dashboard's own `typescript` (`^5.9.0`), which `vue-tsc` runs on, and the build speed it promises. Until then the pull request stays open.
-
-## The daemon's own version (2026-10-22)
-
-**Planned into epic 20 on 2026-10-22.**
-
-`binn daemon status` on the owner's machine, after the reboot of 2026-10-22, gave the daemon's version as 0.1.0 while 0.3.0 is released: the daemon reads `apps/daemon/package.json`, still 0.1.0, and only `apps/cli/package.json` carries 0.3.0. Whether the daemon installed from npm says the same is not checked.
-
-## A flaky audit test (2026-10-23)
-
-**Planned into epic 20 on 2026-10-23.**
-
-CI failed on `main` at `d032715`, a commit that changed only the product inbox: `apps/cli/test/audit.test.ts:612`, "binn audit: stranded documents … nothing written", lists the fixture's whole tree before and after the audit, `.git` included, and Git's background maintenance wrote `.git/objects/maintenance.lock` in between. The test should compare the working tree without `.git`, or turn automatic maintenance off in the fixture, so that only a file the audit writes fails it.
-
 ## Session start, agent configuration and traps (2026-10-23)
 
 Three ideas, each to be built Binnacle's way:
 
 1. **Where the project stands, at a session's start.** A fresh session knows nothing until someone runs `/binnacle:product`. A `SessionStart` hook in the `binnacle` plugin could add two or three lines from the snapshot: the current epic, what waits for the owner, and the Next action with its command. Bounded in size, silent without the daemon, and off with one setting; progressive disclosure, not the whole snapshot. A candidate for epic 21.
-2. **The agent's own configuration in `binn audit`.** The audit reads the project's code, secrets and supply chain, not what drives the agents: `.mcp.json` and each harness's MCP settings, hooks and the commands they run, permission modes that skip approval, and secrets or tokens written into `AGENTS.md`, `CLAUDE.md` or a skill. A new area, read-only as every audit check, which also reports when the harnesses of one project register different MCP servers. Not planned yet; a candidate for epic 20.
+2. **The agent's own configuration in `binn audit`.** The audit reads the project's code, secrets and supply chain, not what drives the agents: `.mcp.json` and each harness's MCP settings, hooks and the commands they run, permission modes that skip approval, and secrets or tokens written into `AGENTS.md`, `CLAUDE.md` or a skill. A new area, read-only as every audit check, which also reports when the harnesses of one project register different MCP servers. Not planned: epic 20 left it out (its spec's `## Risks`).
 3. **A trap as a checkpoint target.** `/binnacle:checkpoint` promotes a term, a trade-off, new work, a product rule or the position. A sixth kind has no place: a non-obvious fact that already cost time, such as a command that must run before another or a version pin. It belongs in the instruction file, `AGENTS.md`, one line each, written on the owner's yes like every promotion. Not planned yet.
 
 Not to take: a catalogue of hundreds of skills and agents, learned "instincts" injected into a session without the owner's yes, and a desktop dashboard beside the web one.
@@ -178,3 +124,13 @@ A developer who studied Binnacle before installing it read the docs written for 
 - **Say why not Docker.** The daemon reads the harnesses' session artifacts in the home directory and the projects' checkouts through Git and Graphify; `binn init` writes the harnesses' user-scope settings; and the harness itself starts `binn mcp` on the host, so Node is needed there anyway. A container would add mounts at identical paths and remove no requirement. One sentence in the README, in both languages, saves the next reader the detour.
 - **The requirements up front**: Node 24 LTS, and the loopback port, `127.0.0.1:7717` by default, changed with `BINNACLE_PORT`.
 - **To check**: whether autostart's service keeps a `BINNACLE_PORT` other than the default; the daemon and `binn mcp` already follow it through the runtime file.
+
+## Left after epic 20's tickets (2026-10-25)
+
+Found while epic 20's tickets ran, for the exit demonstration or a later epic:
+
+- Two reasons with no code still reach a Russian vault marked `(англ.)`: a pair's conflict-risk reason and the output of a failed Graphify run.
+- The vault spells "пул-реквесты", `/binnacle:product` "пулл-реквест": one spelling for both.
+- The context-pressure item's "started at" is the latest run's start, not the session's, and gives no date: a session open for days reads as started this morning.
+- Dependabot's `typescript` rule holds the root's 7.x updates too, since one npm entry moves both manifests; 7.x patches are taken by hand until `vue-tsc` runs on 7.
+- `binn mcp` reads the caller's session once, at start; whether Claude Code keeps the id across `/clear` or `--resume` is for the exit demonstration.
