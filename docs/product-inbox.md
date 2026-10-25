@@ -134,3 +134,12 @@ Found while epic 20's tickets ran, for the exit demonstration or a later epic:
 - The context-pressure item's "started at" is the latest run's start, not the session's, and gives no date: a session open for days reads as started this morning.
 - Dependabot's `typescript` rule holds the root's 7.x updates too, since one npm entry moves both manifests; 7.x patches are taken by hand until `vue-tsc` runs on 7.
 - `binn mcp` reads the caller's session once, at start; whether Claude Code keeps the id across `/clear` or `--resume` is for the exit demonstration.
+
+## Binnacle in a dev container (2026-10-25)
+
+A developer who keeps every project's development, its harness included, in a container of its own, about 20 of them, and nothing on the host, asked how to run Binnacle that way. A single Binnacle container reaching the others cannot work in v1: the daemon reads the harness's session artifacts and the checkout from disk, the harness starts `binn mcp` as a local stdio process, and the daemon binds loopback only and refuses a `Host` other than the address it bound. So Binnacle goes inside each app container, beside the harness, which nothing describes yet. What it needs:
+
+- **A guide**: Node 24 and `npm i -g @it-bbox/binnacle` in the image; `binn daemon start` at the container's start, since there is no service manager for autostart; `~/.binnacle` and the harness's home (`~/.claude`, `~/.claude.json`) on a volume, so that a rebuild keeps the registration and the MCP settings; `binn init` once per project. Perhaps a dev container feature that does all of it.
+- **The dashboard from the host.** A published port does not reach a daemon bound to the container's loopback, and the `Host` check refuses a forwarded port with another number. Today it takes host networking with its own `BINNACLE_PORT` per container, or a forward that keeps the port number, such as an editor's dev container forwarding; neither is checked. A bind address and the allowed `Host` values set by the user, without weakening the token every dashboard call carries, would make it a published port.
+- **One view over many daemons.** Each container runs its own daemon and dashboard, so 20 projects are 20 dashboards. Whether a dashboard can list other daemons, read-only, is to weigh against principle 3 and ADR-0020.
+- **The footprint**: one daemon read about 160 MB of memory with five projects, and its home about 59 MB, on the owner's machine; twenty running at once is a cost worth stating in the guide, measured, not assumed.
