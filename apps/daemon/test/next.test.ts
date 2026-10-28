@@ -657,3 +657,87 @@ describe("the Suggested step's alternatives", () => {
     });
   });
 });
+
+describe('runs before a merge', () => {
+  type Read = Snapshot & {
+    tasks: { readyToStart: { items: { id: string }[] } };
+    pendingDecisions: { owner: { items: { id: string }[] } };
+    usage: { tasks: unknown };
+  };
+  const read = async (daemon: TestDaemon, root: string): Promise<Read> => (await snapshot(daemon, root)) as Read;
+  const inFlight = (body: Read): string[] => body.tasks.inFlight.items.map((task) => task.id);
+  const byRole = async (daemon: TestDaemon, root: string, id: string): Promise<unknown> => {
+    const result = await daemon.call<{ byRole: unknown }>('task.get', { path: root, id });
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    return result.body.byRole;
+  };
+  const commit = (at: string, root: string, message: string): void => gitAt(at, root, 'commit', '--quiet', '--allow-empty', '-m', message);
+
+  it('no longer keep a Task in flight once `git merge` merged its branch, and a run after the merge does, by the latest merge', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject([row(1, 'First', 'in progress', 'first')]);
+      ticket(root, 'first', '01-worked.md', 'Status: READY', 'Triage: ready-for-agent');
+      ticket(root, 'first', '02-human.md', 'Status: READY', 'Triage: ready-for-human');
+      repository(root, minutesAgo(120), [minutesAgo(60), 'feat/human']);
+      commit(minutesAgo(59), root, 'human');
+      session(artifacts, root, 'human', minutesAgo(58));
+      gitAt(minutesAgo(50), root, 'switch', '--quiet', 'main');
+      gitAt(minutesAgo(49), root, 'switch', '--quiet', '-C', 'feat/worked');
+      commit(minutesAgo(48), root, 'worked');
+      session(artifacts, root, 'working', minutesAgo(8));
+
+      const before = await read(daemon, root);
+      assert.deepEqual(inFlight(before), ['first/01', 'first/02']);
+      assert.deepEqual(before.pendingDecisions.owner.items, []);
+      assert.deepEqual(kinds(alternatives(before)), ['wait']);
+      assert.deepEqual(alternatives(before)[0]!.tasks, ['first/01']);
+      const roles = { worked: await byRole(daemon, root, 'first/01'), human: await byRole(daemon, root, 'first/02') };
+
+      gitAt(minutesAgo(7), root, 'switch', '--quiet', 'main');
+      gitAt(minutesAgo(6), root, 'merge', '--quiet', '--no-ff', '-m', 'merge worked', 'feat/worked');
+      gitAt(minutesAgo(6), root, 'merge', '--quiet', '--no-ff', '-m', 'merge human', 'feat/human');
+
+      const merged = await read(daemon, root);
+      assert.deepEqual(inFlight(merged), []);
+      assert.deepEqual(merged.tasks.readyToStart.items.map((task) => task.id), ['first/01', 'first/02']);
+      assert.deepEqual(merged.pendingDecisions.owner.items.map((task) => task.id), ['first/02']);
+      assert.deepEqual(kinds(alternatives(merged)), ['autopilot', 'byHand']);
+      // Usage keeps every attributed run.
+      assert.deepEqual(merged.usage.tasks, before.usage.tasks);
+      assert.deepEqual(await byRole(daemon, root, 'first/01'), roles.worked);
+      assert.deepEqual(await byRole(daemon, root, 'first/02'), roles.human);
+
+      // Rework after the merge puts the Task in flight again.
+      gitAt(minutesAgo(5), root, 'switch', '--quiet', 'feat/worked');
+      session(artifacts, root, 'rework', minutesAgo(4));
+      const again = await read(daemon, root);
+      assert.deepEqual(inFlight(again), ['first/01']);
+      assert.deepEqual(alternatives(again)[0]!.tasks, ['first/01']);
+
+      // Merged a second time, the branch reads by that merge.
+      commit(minutesAgo(3), root, 'rework');
+      gitAt(minutesAgo(2), root, 'switch', '--quiet', 'main');
+      gitAt(minutesAgo(1), root, 'merge', '--quiet', '--no-ff', '-m', 'merge rework', 'feat/worked');
+      assert.deepEqual(inFlight(await read(daemon, root)), []);
+    });
+  });
+
+  it('keep a Task in flight whose branch reached the default branch by a squash commit, with no merge entry', async () => {
+    await withDaemon(async (daemon, artifacts) => {
+      const root = makeProject([row(1, 'First', 'in progress', 'first')]);
+      ticket(root, 'first', '01-squashed.md', 'Status: READY', 'Triage: ready-for-agent');
+      repository(root, minutesAgo(120), [minutesAgo(60), 'feat/squashed']);
+      write(root, 'work.txt', 'work\n');
+      gitAt(minutesAgo(59), root, 'add', 'work.txt');
+      commit(minutesAgo(59), root, 'squashed');
+      session(artifacts, root, 'working', minutesAgo(8));
+      gitAt(minutesAgo(7), root, 'switch', '--quiet', 'main');
+      gitAt(minutesAgo(6), root, 'merge', '--quiet', '--squash', 'feat/squashed');
+      commit(minutesAgo(6), root, 'squash');
+
+      const body = await read(daemon, root);
+      assert.deepEqual(inFlight(body), ['first/01']);
+      assert.deepEqual(kinds(alternatives(body)), ['wait']);
+    });
+  });
+});

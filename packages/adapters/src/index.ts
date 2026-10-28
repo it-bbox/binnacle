@@ -27,6 +27,7 @@ export {
   readHeadHistory,
   readLastCommitTimes,
   readLog,
+  readMergeTimes,
   readOwnChangeTimes,
   readWorktrees,
   type Commit,

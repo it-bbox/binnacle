@@ -387,6 +387,36 @@ export async function readOwnChangeTimes(cwd: string, commits: string[], path: s
 }
 
 /**
+ * Per branch, the latest time, in milliseconds, `defaultBranch`'s reflog says `git merge`
+ * merged it there, from the `merge <branch>: …` entries it writes, as `readOwnChangeTimes`
+ * reads them. A branch that reached the default branch otherwise, by a squash or on the forge,
+ * has none. Null whenever Git cannot say, a default branch with no reflog included.
+ *
+ * ponytail: the reflog is this clone's and expires, after 90 days by default; read the forge's
+ * merged pull requests if a merge made elsewhere must count.
+ */
+export async function readMergeTimes(cwd: string, defaultBranch: string, timeoutMs: number): Promise<Map<string, number> | null> {
+  try {
+    // Under `refs/heads/`, the name can never be read as an option.
+    const run = await git(cwd, timeoutMs, ['log', '--walk-reflogs', '--date=unix', '--format=%gd%x00%gs', `refs/heads/${defaultBranch}`]);
+    if (run.code !== 0) return null;
+    const times = new Map<string, number>();
+    for (const line of run.stdout.split('\n')) {
+      const [selector = '', subject = ''] = line.split('\0');
+      const time = /@\{(\d+)\}$/.exec(selector)?.[1];
+      // A branch name holds no colon, so the first one ends it.
+      const branch = /^merge ([^:]+): /.exec(subject)?.[1];
+      if (time === undefined || branch === undefined) continue;
+      times.set(branch, Math.max(times.get(branch) ?? 0, Number(time) * 1000));
+    }
+    return times;
+  } catch (error) {
+    if (isGitUnavailable(error)) return null;
+    throw error;
+  }
+}
+
+/**
  * The full hash of the commit that `hash`, full or abbreviated, names; null when it names
  * none here. Anything but hexadecimal digits is null without asking Git, which is what
  * lets every other function here take the commits it returns.

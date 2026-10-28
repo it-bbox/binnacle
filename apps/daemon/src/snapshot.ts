@@ -4,10 +4,12 @@ import {
   isAncestor,
   isGitUnavailable,
   readBranches,
+  readDefaultBranch,
   readGitHubTasks,
   readGitLabTasks,
   readLastCommitTimes,
   readLocalTasks,
+  readMergeTimes,
   ticketComments,
   workingTree,
   type GitFacts,
@@ -225,7 +227,9 @@ export async function snapshot(
   const limit = parallelLimit(home, projected.manifest);
   const autostart = autostartSection(home);
   attention.push(...usageAttention, ...graph.attention, ...vaultAttention(home), ...limit.attention, ...autostart.attention);
-  const attributed = new Set(runs.flatMap((run) => run.taskId ?? []));
+  // The Tasks in flight, Waiting for the owner and the Suggested step read only the runs since their branch's latest merge; usage keeps every run.
+  const current = await sinceMerge(projected.row.path, runs);
+  const attributed = new Set(current.flatMap((run) => run.taskId ?? []));
   const questions = tasks && (await readQuestions(projected.row.path, projected.manifest, tasks));
   const listed = tasks && taskSections(tasks, attributed);
   const impact = listed && (await impactSection(projected.row.path, graph.graph, listed.inFlightAndReady, projected.manifest?.tracker.provider !== 'local'));
@@ -244,7 +248,7 @@ export async function snapshot(
     next: {
       action,
       alternatives:
-        tasks && sections ? suggestedStep(roadmap?.epics ?? null, tasks, runs, { workflow, free: sections.parallel.free, next: action, impact: impact?.available ? impact : null }) : trackerUnavailable(unreadable),
+        tasks && sections ? suggestedStep(roadmap?.epics ?? null, tasks, current, { workflow, free: sections.parallel.free, next: action, impact: impact?.available ? impact : null }) : trackerUnavailable(unreadable),
     },
     tasks: sections,
     decisions: adrs && (await recentDecisions(tree, caller.project, adrs)),
@@ -256,6 +260,21 @@ export async function snapshot(
     autostart: autostart.section,
     attention,
   };
+}
+
+/**
+ * `runs` without those that started before the latest `git merge` of their branch into the
+ * default branch, as its reflog records it (`readMergeTimes`): a merge ends the work they were
+ * on. A run that starts on the branch after it counts again, and a branch with no merge entry,
+ * squashed or merged on the forge, keeps all of its runs.
+ */
+async function sinceMerge(projectPath: string, runs: ObservedRun[]): Promise<ObservedRun[]> {
+  const timeout = resolveGitTimeout();
+  const merged = await readMergeTimes(projectPath, (await readDefaultBranch(projectPath, timeout)) ?? 'main', timeout);
+  return runs.filter((run) => {
+    const at = run.branch === null ? undefined : merged?.get(run.branch);
+    return at === undefined || Date.parse(run.startedAt) >= at;
+  });
 }
 
 /** Autostart for `home`, and a broken one's attention item with its repair; off is the user's choice, not an attention item. */
