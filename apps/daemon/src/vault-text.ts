@@ -200,7 +200,7 @@ const RUSSIAN: VaultWords = {
   noAdrDirectory: 'Проект не объявляет каталог ADR.',
   graph: '## Граф',
   graphAvailable: 'Граф есть.',
-  noGraph: (value) => `Графа нет: ${because(value)}`,
+  noGraph: (value) => because(value),
   builtFrom: (commit, at, behind) => ` Построен из \`${commit}\` в ${at}${behind ? ', и основная ветка ушла дальше' : ''}.`,
   lastRun: (commit, at, failed) => ` Последний запуск, по \`${commit}\` в ${at}, ${failed === null ? 'построил граф' : `упал: ${english(failed)}`}.`,
   attentionHeading: '## Внимание',
