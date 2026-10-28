@@ -67,7 +67,7 @@ Done: epics 1 to 20. **v1 is complete.**
 
 Next: epics 21 to 27, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28.
 
-Next action: grill epic 21, *Hygiene after 0.4.0*, from its entries in `docs/product-inbox.md`; the grilling ends with its Epic brief, `docs/specs/<slug>/brief.md`. `/grill-with-docs`
+Next action: specify epic 21, Hygiene after 0.4.0, from its grilling's brief, `docs/specs/hygiene-after-0-4-0/brief.md`. `/to-spec`
 
 ## Later
 
