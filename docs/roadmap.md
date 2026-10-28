@@ -63,11 +63,13 @@ Done: epics 1 to 20. **v1 is complete.**
 
 **Released** (the owner): `@it-bbox/binnacle` 0.1.0 on 2026-10-13, with `it-bbox/binnacle` public, private vulnerability reporting and Dependabot alerts on; 0.2.0, epic 12, on 2026-10-21; 0.3.0, epic 13, on 2026-10-22, the last of v1, installed from the registry into a clean container (`specs/human-output/issues/11-human-output-exit-demonstration.md`); 0.4.0, epic 20, on 2026-10-28, installed from the registry into a clean container (`specs/hygiene-after-v1/issues/09-hygiene-exit-demonstration.md`).
 
-**Epic 20 done**: tickets 01 to 08 merged by autopilot on 2026-10-25, ticket 09, the exit demonstration and 0.4.0, the owner's on 2026-10-28; the workspace on TypeScript 7, the dashboard held on 5.x until `vue-tsc` runs on 7; pull request #4 closed.
+**Epic 20 done** on 2026-10-28: tickets 01 to 08 by autopilot, the exit demonstration and 0.4.0 the owner's; the dashboard held on TypeScript 5.x until `vue-tsc` runs on 7.
 
-Next: epics 21 to 27, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28.
+**Epic 21 in progress**: tickets 01 to 07 merged by autopilot on 2026-10-28. `/binnacle:task` takes a ticket's path; a merge ends the runs that kept a `READY` Task in progress; the context-pressure item names the session's own start and warns at a threshold per model, set on the dashboard's Settings page, this repository's manifest no longer setting 250 000; the Russian vault has no `(англ.)`; `binn mcp` sends no session, its id going stale across `/clear` and `--continue`; `/binnacle:checkpoint` can promote a trap. Ticket 08, the exit demonstration and 0.5.0, is the owner's.
 
-Next action: run epic 21's tickets, `docs/specs/hygiene-after-0-4-0/issues/`, with autopilot; its exit demonstration, ticket 08, is the owner's. `/binnacle:autopilot`
+Next: epics 22 to 27, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28.
+
+Next action: run epic 21's exit demonstration and release 0.5.0, ticket 08, with its interactive check of `/clear` and `--resume` from ticket 06. `/binnacle:task run docs/specs/hygiene-after-0-4-0/issues/08-hygiene-after-0-4-0-exit-demonstration.md`
 
 ## Later
 
