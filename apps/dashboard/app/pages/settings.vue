@@ -277,7 +277,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
         <form class="flex flex-col gap-3" aria-labelledby="pressure" @submit.prevent="savePressure">
           <label class="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span class="text-muted">{{ t.pressureDefault }}</span>
-            <UInput v-model.number="pressureTokens" type="number" step="1000" class="w-36" @update:model-value="editPressure" />
+            <UInput v-model.number="pressureTokens" type="number" step="1000" class="w-36" :aria-label="t.pressureDefault" @update:model-value="editPressure" />
           </label>
           <p v-if="pressureRows.length === 0" class="text-sm text-dimmed">{{ t.pressureNoModels }}</p>
           <table v-else class="w-full max-w-xl text-sm">
