@@ -37,3 +37,16 @@ Codex sets `CODEX_THREAD_ID` for its shell only, never for an MCP server (ticket
 ### For the next ticket
 
 The exit demonstration's interactive check is under ticket 08's `## Comments`.
+
+### Review
+
+Reviewed in a sub-agent against `main`, on the project's standards and the spec; typecheck and the MCP smoke test pass.
+
+1. A ticket commit's subject ran to 74 characters. **Fixed**: the ticket's commits were redone under a shorter subject.
+2. `docs/03-mcp-and-skills.md` stated as fact that `--continue` or a picked `--resume` starts the server with the startup id, where Claude Code's docs say "may". **Fixed**: "can start it".
+3. `docs/04-telemetry-dashboard.md` read as if `binn call` always names its session. **Fixed**: "where the harness names it".
+4. The smoke test's comment said the server is kept across `--continue`; it is started anew with the startup id. **Fixed**: worded as `serveStdio`'s comment is.
+5. The whole MCP route drops `session`, not Claude Code's alone. **Kept**: Codex names none to an MCP server and no other harness is read, so the behaviour is the same (decision 1).
+6. A fresh `--resume <id>` loses `own` through MCP although its id holds. **Kept**: the spec's contested point accepts losing the word for the route; the server cannot tell the cases apart (decision 2).
+7. The shell column for `--resume` and `--continue` rests on the docs, not a probe. **Kept**: the probe's model call could not authenticate; ticket 08's script checks it in an interactive session.
+8. `toolRequest(name, args, cwd, undefined)` in `serveStdio` could drop the argument with an optional parameter. **Kept**: the explicit `undefined` sits beside the comment that says why.

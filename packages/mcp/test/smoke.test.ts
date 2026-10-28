@@ -177,7 +177,8 @@ test('binn mcp lists its tools, explains a stopped daemon, and proxies the snaps
  * The caller's session, the one Claude Code sets in `CLAUDE_CODE_SESSION_ID` for its shell's commands
  * and Codex in `CODEX_THREAD_ID`: in every daemon call `binn call` makes, as `session` beside `path`,
  * and absent without it. `binn mcp` sends none, even with the variable set: Claude Code keeps an MCP
- * server across `/clear` and `--continue`, so the id it was started with can name another session.
+ * server across `/clear` and starts it with the startup id under `--continue`, so the id it was
+ * started with can name another session.
  * The daemon here answers each call with the body it was sent.
  */
 test('toolRequest and binn call send the session the harness names, none without it, and binn mcp never', async (t) => {
