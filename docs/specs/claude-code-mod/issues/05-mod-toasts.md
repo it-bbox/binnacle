@@ -1,6 +1,6 @@
 # 05: The mod's toasts, once per machine
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 02
 Spec: `docs/specs/claude-code-mod/spec.md`
