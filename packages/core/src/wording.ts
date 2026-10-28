@@ -104,6 +104,7 @@ const SHAPES: Record<string, string> = {
   bigint: 'число',
   symbol: 'символ',
   function: 'функция',
+  'a string': 'строка',
   'a string other than "auto"': 'строка, но не "auto"',
 };
 
@@ -137,7 +138,7 @@ const NEXT_ACTION_SHAPE = 'абзац, который начинается с «
 
 const PARALLEL_RULE = (v: Values): string => `Лимит параллельной работы — целое число от 1 до ${v.s('max')} или "auto"`;
 const PRESSURE_RULE = (v: Values): string =>
-  `Пороги заполненности контекста — это tokens, порог по умолчанию, и models, число для каждого имени модели длиной от 1 до ${v.s('max')} символов; каждое — целое число не меньше ${v.s('min')}`;
+  `Пороги заполненности контекста — это tokens, порог по умолчанию, и models, число для каждого имени модели, непустого и не длиннее ${v.s('max')} символов; каждое — целое число не меньше ${v.s('min')}`;
 
 /** A `context.pressure` item's threshold, after «не меньше», by its source; as before sources were named when there is none. */
 const threshold = (v: Values): string => {

@@ -99,7 +99,7 @@ function writeKey(home: string, key: string, value: unknown): void {
 }
 
 /** Names a refused value by its shape, a number as it is, without quoting a string back. */
-function describe(value: unknown, string = 'string'): string {
+function describe(value: unknown, string = 'a string'): string {
   if (value === undefined) return 'nothing';
   if (typeof value === 'number') return String(value);
   if (typeof value === 'string') return string;
@@ -119,7 +119,7 @@ export const PRESSURE_FLOOR = 1000;
 /** The longest model name a threshold is kept under. */
 export const MODEL_NAME_BOUND = 200;
 const PRESSURE_KEY = 'contextPressure';
-const PRESSURE_RULE = `The context-pressure thresholds are tokens, the default, and models, a number for each model name of 1 to ${MODEL_NAME_BOUND} characters, each a whole number of at least ${PRESSURE_FLOOR}`;
+const PRESSURE_RULE = `The context-pressure thresholds are tokens, the default, and models, a number for each model name, not blank and at most ${MODEL_NAME_BOUND} characters, each a whole number of at least ${PRESSURE_FLOOR}`;
 
 /** The machine's thresholds: its default, `machine` when the file sets it, and its numbers by model name. */
 export type PressureThresholds = { tokens: number; models: Record<string, number>; source: 'machine' | 'default' };
@@ -176,7 +176,7 @@ export function setPressureThresholds(home: string, body: unknown): PressureThre
   if ('field' in read) {
     const which =
       read.field === 'name'
-        ? `a model name is empty or longer than ${MODEL_NAME_BOUND} characters`
+        ? `a model name is blank or longer than ${MODEL_NAME_BOUND} characters`
         : `${read.got}, given for ${read.field === 'model' ? "a model's number" : read.field}, is not`;
     throw new OperationError('context_pressure.invalid', `${PRESSURE_RULE}; ${which}.`, 400, undefined, { kind: 'value', min: PRESSURE_FLOOR, max: MODEL_NAME_BOUND, ...read });
   }

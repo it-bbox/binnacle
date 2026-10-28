@@ -111,7 +111,8 @@ const editPressure = (): void => {
 };
 /** A new row, or a new number for a model a row already names; the daemon judges the name and the number on save. */
 function addModel(): void {
-  const model = newModel.value;
+  // A name is matched exactly against a call's model, so spaces around it would never match.
+  const model = newModel.value.trim();
   if (model === '') return;
   const row = pressureRows.value.find((existing) => existing.model === model);
   if (row) row.tokens = newTokens.value;
@@ -306,7 +307,7 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
               <option v-for="model in offeredModels" :key="model" :value="model" />
             </datalist>
             <UInput v-model.number="newTokens" type="number" step="1000" class="w-36" :placeholder="t.pressureNewTokens" :aria-label="t.pressureNewTokens" />
-            <UButton type="button" color="neutral" variant="outline" :label="t.pressureAdd" :disabled="newModel === ''" @click="addModel" />
+            <UButton type="button" color="neutral" variant="outline" :label="t.pressureAdd" :disabled="newModel.trim() === ''" @click="addModel" />
           </div>
           <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
             <UButton type="submit" :loading="pressureSaving" :label="t.parallelSave" />

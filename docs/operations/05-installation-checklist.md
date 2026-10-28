@@ -171,6 +171,8 @@ The path is absolute: the vault's own directory. The daemon reads the file on ev
 
 The same file holds the Parallel limit, `parallelLimit` (ADR-0041): a whole number from 1 to 16, or `"auto"`; 2 when unset. The dashboard's Settings page writes it through the daemon, keeping every other key. A project manifest's `automation.max_parallel_development_tasks` wins for its project.
 
+It holds the context-pressure thresholds too, `contextPressure` (ADR-0046): `{ tokens, models: { <model name>: <tokens> } }`, the default and a number per model, each a whole number of at least 1 000; 150 000 when unset. The Settings page writes them the same way. A project manifest's `telemetry.context_pressure.tokens` wins for its project, for every model.
+
 ### The vault projection
 
 With a vault set, the daemon keeps a one-way projection of each registered project under `<Vault>/Projects/<Project>/`, `<Project>` being the manifest's `project.name`, or its id (ADR-0036):

@@ -469,12 +469,12 @@ describe('Context-pressure thresholds through the daemon', () => {
         [{ tokens: 200000 }, /nothing, given for models, is not\./],
         [{ tokens: 999, models: {} }, /999, given for tokens, is not\./],
         [{ tokens: 1500.5, models: {} }, /1500\.5, given for tokens, is not\./],
-        [{ tokens: '200000', models: {} }, /string, given for tokens, is not\./],
+        [{ tokens: '200000', models: {} }, /a string, given for tokens, is not\./],
         [{ tokens: 200000, models: [] }, /a list, given for models, is not\./],
         [{ tokens: 200000, models: { [MODEL]: 0 } }, /0, given for a model's number, is not\./],
         [{ tokens: 200000, models: { [MODEL]: null } }, /null, given for a model's number, is not\./],
-        [{ tokens: 200000, models: { ' ': 5000 } }, /a model name is empty or longer than 200 characters\./],
-        [{ tokens: 200000, models: { ['m'.repeat(201)]: 5000 } }, /a model name is empty or longer than 200 characters\./],
+        [{ tokens: 200000, models: { ' ': 5000 } }, /a model name is blank or longer than 200 characters\./],
+        [{ tokens: 200000, models: { ['m'.repeat(201)]: 5000 } }, /a model name is blank or longer than 200 characters\./],
       ];
       for (const [body, why] of refused) {
         const result = await daemon.call<Failure>('context_pressure.set', body);
