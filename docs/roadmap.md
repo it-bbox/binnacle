@@ -67,7 +67,7 @@ Done: epics 1 to 20. **v1 is complete.**
 
 Next: epics 21 to 27, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28.
 
-Next action: split epic 21, Hygiene after 0.4.0, into tickets from its spec, `docs/specs/hygiene-after-0-4-0/spec.md`. `/to-tickets`
+Next action: run epic 21's tickets, `docs/specs/hygiene-after-0-4-0/issues/`, with autopilot; its exit demonstration, ticket 08, is the owner's. `/binnacle:autopilot`
 
 ## Later
 
