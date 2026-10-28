@@ -133,7 +133,7 @@ A developer who studied Binnacle before installing it read the docs written for 
 
 ## Left after epic 20's tickets (2026-10-25)
 
-**Planned on 2026-10-28:** the first three items, the Russian wording and the context-pressure item's start, into epic 21.
+**Planned on 2026-10-28:** the Russian wording, the context-pressure item's start, `binn mcp` across `/clear` and `--resume`, and runs after a merge, into epic 21.
 
 Found while epic 20's tickets ran, for the exit demonstration or a later epic:
 
@@ -142,6 +142,7 @@ Found while epic 20's tickets ran, for the exit demonstration or a later epic:
 - The context-pressure item's "started at" is the latest run's start, not the session's, and gives no date: a session open for days reads as started this morning.
 - Dependabot's `typescript` rule holds the root's 7.x updates too, since one npm entry moves both manifests; 7.x patches are taken by hand until `vue-tsc` runs on 7.
 - `binn mcp` reads the caller's session once, at start; whether Claude Code keeps the id across `/clear` or `--resume` is for the exit demonstration.
+- A session's runs on a Task's branch after its merge keep the Task in progress, from activity, and the Suggested step then advises waiting for a run that is not the Task's work: on 2026-10-28 the snapshot read ticket hygiene-after-v1/09 in flight and said to wait, while its runs were the owner's sessions on its branch (the owner).
 
 ## Binnacle in a dev container (2026-10-25)
 
