@@ -69,7 +69,7 @@ Done: epics 1 to 21. **v1 is complete.**
 
 Next: epics 22 to 27, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28.
 
-Next action: specify epic 22, *A Binnacle mod for Claude Code*, from its grilling's brief, `docs/specs/claude-code-mod/brief.md`. `/to-spec`
+Next action: split epic 22, *A Binnacle mod for Claude Code*, into tickets from its spec, `docs/specs/claude-code-mod/spec.md`. `/to-tickets`
 
 ## Later
 
