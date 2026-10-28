@@ -14,3 +14,14 @@ Spec: `docs/specs/hygiene-after-0-4-0/spec.md`
 - [ ] In an interactive Claude Code session, after `/clear` and after `--resume`, the warning says "this" or "another" only where it is true.
 - [ ] `/binnacle:checkpoint` proposes a trap for a fact that cost time in the session, and writes it to `AGENTS.md` only on the owner's yes.
 - [ ] The CLI package's version is 0.5.0; 0.5.0 published by `CONTRIBUTING.md`'s *Releasing* and installed from the registry into a clean container, where `binn daemon status` gives 0.5.0.
+
+## Comments
+
+### For the `/clear` and `--resume` criterion (from ticket 06)
+
+`binn mcp` now sends no session, so through the MCP tools the context-pressure warning says neither "this" nor "another"; `binn call` in the shell still says which. In an interactive Claude Code session on this repository, with a Product session over the threshold:
+
+1. Run `/binnacle:product`: the warning names the session with neither word.
+2. Run `binn call project_snapshot` in the shell (`!binn call project_snapshot`): `params.own` is `true` for this session.
+3. Run `/clear`, then `binn call project_snapshot` again: `echo $CLAUDE_CODE_SESSION_ID` gives a new id, and an item still naming the session before `/clear` has `params.own` `false`; through `/binnacle:product` it still says neither word.
+4. Quit, start `claude --resume <the old id>`, and repeat step 2: `params.own` is `true` for it.
