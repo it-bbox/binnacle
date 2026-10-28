@@ -314,9 +314,9 @@ function contextPressures(records: UsageRecord[], markers: CompactionMarker[]): 
  * One `context.pressure` item per active Product session, a main session on the default
  * branch, whose latest call read at least `threshold` tokens of context, or whose latest
  * compaction is after `checkpointAt`, the project's last recorded checkpoint, or at all when
- * none was recorded. It names the session by its start, its earliest run's, and its run's latest activity, as this one or
- * another when `caller`, the session that asked, is known, its context where known, and that
- * compaction; the session's id is in its params only.
+ * none was recorded. It names the session by its start, its earliest run's, and its Product
+ * run's latest activity, as this one or another when `caller`, the session that asked, is
+ * known, its context where known, and that compaction; the session's id is in its params only.
  */
 function pressureAttention(
   observed: (ObservedRun & { records: RunRecord[] })[],
