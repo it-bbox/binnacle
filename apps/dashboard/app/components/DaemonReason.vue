@@ -4,14 +4,11 @@ import { daemonSaid, type Said } from '~/i18n';
 
 /**
  * What the daemon said, an attention item, an error or a reason, in the page's language from its
- * code and params, or `translated`, the page's own wording of it; otherwise as the daemon wrote
- * it, marked English. Its code is never shown.
+ * code and params; otherwise as the daemon wrote it, marked English. Its code is never shown.
  */
-const props = defineProps<{ said: Said; translated?: string }>();
+const props = defineProps<{ said: Said }>();
 const { language } = useLanguage();
-const shown = computed(() =>
-  props.translated === undefined ? daemonSaid(language.value, props.said) : { text: props.translated, english: props.translated === props.said.reason },
-);
+const shown = computed(() => daemonSaid(language.value, props.said));
 </script>
 
 <template>

@@ -3,7 +3,9 @@ import { execFileSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { after, describe, it } from 'node:test';
+import { storePath } from '../src/index.ts';
 import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
 
 /**
@@ -246,6 +248,35 @@ describe('the daemon keeps the graph current', () => {
       assert.match(body.graph.reason ?? '', /capabilities\.graphify is false/);
       assert.deepEqual(graphCodes(body), []);
     });
+  });
+
+  it('reads a failed run recorded before its failure was coded as its recorded reason', async () => {
+    const root = makeRepository();
+    const home = temporary('binnacle-graph-home-');
+    const head = git(root, ['rev-parse', 'HEAD']);
+    await withDaemon(
+      fakeGraphify('exit 1').dir,
+      async (daemon) => {
+        assert.equal((await daemon.call('project.register', { path: root })).status, 200);
+        await until(async () => (await snapshot(daemon, root)).graph.lastRun?.commit === head, 'the failed run');
+        assert.deepEqual((await snapshot(daemon, root)).graph.lastRun?.params, { kind: 'exit', exitCode: 1 });
+      },
+      home,
+    );
+    // The payload as an earlier release wrote it: its commit and its reason alone.
+    const db = new DatabaseSync(storePath(home));
+    db.exec(`update event set payload = json_remove(payload, '$.params') where type = 'graph.failed'`);
+    db.close();
+    await withDaemon(
+      temporary('binnacle-graph-empty-'),
+      async (daemon) => {
+        const body = await snapshot(daemon, root);
+        assert.equal(body.graph.lastRun?.code, 'graph.build_failed');
+        assert.deepEqual(body.graph.lastRun?.params, { kind: 'recorded', output: 'graphify exited with code 1.' });
+        assert.equal(body.attention.find((item) => item.code === 'graph.update_failed')?.params?.kind, 'recorded');
+      },
+      home,
+    );
   });
 
   it('keeps the last run across a daemon restart', async () => {

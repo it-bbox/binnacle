@@ -139,7 +139,7 @@ const EXAMPLES: [string, Params][] = [
   ['graph.build_failed', { kind: 'spawn', error: 'spawn /bin/graphify EACCES' }],
   ['graph.build_failed', { kind: 'signal', signal: 'SIGKILL' }],
   ['graph.build_failed', { kind: 'exit', exitCode: 2 }],
-  ['graph.build_failed', { kind: 'recorded', output: 'graphify exited with code 1.' }],
+  ['graph.build_failed', { kind: 'recorded', output: 'graphify exited with code 1' }],
   ['impact.pair', { kind: 'shared', modules: 'src/a.ts, src/b.ts' }],
   ['impact.pair', { kind: 'neighbours', neighbours: 'src/a.ts, src/b.ts; src/c.ts, src/d.ts' }],
   ['impact.pair', { kind: 'apart' }],
@@ -263,6 +263,7 @@ describe("core's Russian wording", () => {
       'Graphify на шаге `graphify cluster-only . --no-label` сообщил: «it broke».',
     );
     assert.equal(russian('graph.build_failed', { kind: 'exit', exitCode: 2 }), 'Graphify завершился с кодом 2.');
+    assert.equal(russian('graph.build_failed', { kind: 'recorded', output: 'graphify exited with code 1.' }), 'Graphify не построил граф; причина записана так: «graphify exited with code 1».');
     assert.equal(
       russian('graph.update_failed', { commit: '0123456', reason: 'it broke', kept: '89abcde', kind: 'output', output: 'it broke' }),
       'Обновление графа для 0123456 не удалось. Graphify сообщил: «it broke». Граф, построенный по 89abcde, сохранён.',

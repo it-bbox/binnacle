@@ -85,7 +85,6 @@ export const en = {
   fromBranch: 'from its branch',
   fromTicket: 'from its ticket',
   noModules: 'no module of the graph',
-  /** A pair's reason in another language than the daemon's; none in English, where the daemon's own is shown. */
   runningNow: 'Running now',
   noTask: 'no Task',
   nothing: 'Nothing',

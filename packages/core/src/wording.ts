@@ -145,12 +145,14 @@ const PARALLEL_RULE = (v: Values): string => `Лимит параллельно�
  */
 const graphFailure = (v: Values): string => {
   const at = v.o('command') === null ? '' : ` на шаге \`${v.s('command')}\``;
+  // One full stop, after the quote: the output's own last one is dropped.
+  const quoted = (): string => `«${v.s('output').replace(/\.$/, '')}».`;
   return pick(v, {
-    output: () => `Graphify${at} сообщил: «${v.s('output')}».`,
+    output: () => `Graphify${at} сообщил: ${quoted()}`,
     spawn: () => `Graphify${at} не удалось запустить (${v.s('error')}).`,
     signal: () => `Graphify${at} остановлен сигналом ${v.s('signal')}.`,
     exit: () => `Graphify${at} завершился с кодом ${v.s('exitCode')}.`,
-    recorded: () => `Graphify не построил граф; причина записана так: «${v.s('output')}».`,
+    recorded: () => `Graphify не построил граф; причина записана так: ${quoted()}`,
   });
 };
 
@@ -372,6 +374,7 @@ const RUSSIAN: Record<string, (v: Values) => string> = {
   'graph.update_failed': (v) =>
     `Обновление графа для ${v.s('commit')} не удалось. ${graphFailure(v)}${v.o('kept') === null ? '' : ` Граф, построенный по ${v.s('kept')}, сохранён.`}`,
   'graph.build_failed': (v) => graphFailure(v),
+  // ponytail: a module path holding ", " or "; " splits wrongly; pass the twos as a list if one ever does.
   'impact.pair': (v) => {
     const none = (task: string, from: string): string =>
       pick(v, { branch: () => `ветка ${v.s(task)} не меняет ни одного модуля графа`, ticket: () => `тикет ${v.s(task)} не называет ни одного модуля графа` }, from);
