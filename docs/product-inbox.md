@@ -146,3 +146,9 @@ A developer who keeps every project's development, its harness included, in a co
 - **What the developer found, 2026-10-25.** Host networking works for one container only: with several, it breaks the containers' routing. A reverse proxy on the host does not help, since the host's loopback is not the container's. In the end he patched the hard-coded `127.0.0.1` to `0.0.0.0` at install, which every package update undoes. A proxy inside the container, rewriting `Host` and `Origin` to `127.0.0.1:7717`, is untried. The smallest fix: a `BINNACLE_HOST` for the bind address and a list of allowed `Host` values, with a test, the token and the `Origin` check unchanged.
 - **One view over many daemons.** Each container runs its own daemon and dashboard, so 20 projects are 20 dashboards. Whether a dashboard can list other daemons, read-only, is to weigh against principle 3 and ADR-0020.
 - **The footprint**: one daemon read about 160 MB of memory with five projects, and its home about 59 MB, on the owner's machine; twenty running at once is a cost worth stating in the guide, measured, not assumed.
+
+## The ticket brief takes a ticket's path (2026-10-28)
+
+`/binnacle:task <ticket path>` without `run` fails with "no Task": the brief passes its argument to `task_get` as it is, and `findTask` (`apps/daemon/src/task.ts`) knows only `<spec-slug>/<NN>` and `#<number>`. With `run`, the skill turns the path into the id itself, so the same path works there. The owner met it twice, the second time on 2026-10-28 from a `Next action:` the checkpoint of 2026-10-25 had written without `run`.
+
+The smallest fix: `findTask` reads `<specs>/<spec-slug>/issues/NN-<name>.md` as `<spec-slug>/NN`, with a test, so every caller of `task_get`, the brief included, takes a path. To weigh beside it: whether the snapshot should flag a `Next action:` whose `/binnacle:task` command names no known Task.
