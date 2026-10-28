@@ -126,7 +126,7 @@ To decide: per model, a share, or both; whether the threshold belongs to the mac
 
 A developer who studied Binnacle before installing it read the docs written for agents, found them long, and set about working out a way of his own to install it, in Docker, before trying the one command the README gives. He asked whether the daemon takes port 80 and whether a project's paths would break in a container. What it shows:
 
-- **The human path is not obvious first.** One install command, `binn init`, then everything from the agent's skills, should be what a visitor sees before any reference page; the docs under `docs/` are for agents and need not be read. The storefront and the site of epic 22 are where this lands.
+- **The human path is not obvious first.** One install command, `binn init`, then everything from the agent's skills, should be what a visitor sees before any reference page; the docs under `docs/` are for agents and need not be read. The storefront and the site of epic 24 are where this lands.
 - **Say why not Docker.** The daemon reads the harnesses' session artifacts in the home directory and the projects' checkouts through Git and Graphify; `binn init` writes the harnesses' user-scope settings; and the harness itself starts `binn mcp` on the host, so Node is needed there anyway. A container would add mounts at identical paths and remove no requirement. One sentence in the README, in both languages, saves the next reader the detour.
 - **The requirements up front**: Node 24 LTS, and the loopback port, `127.0.0.1:7717` by default, changed with `BINNACLE_PORT`.
 - **To check**: whether autostart's service keeps a `BINNACLE_PORT` other than the default; the daemon and `binn mcp` already follow it through the runtime file.
