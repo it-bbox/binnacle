@@ -30,7 +30,7 @@ Epics 1 to 19 are v1.
 | 18 | Lean flow | done | [`lean-flow`](specs/lean-flow/spec.md) |
 | 19 | Starting a project: new and existing | done | [`starting-a-project`](specs/starting-a-project/spec.md) |
 | 20 | Hygiene after v1 | done | [`hygiene-after-v1`](specs/hygiene-after-v1/spec.md) |
-| 21 | Hygiene after 0.4.0 | not started | — |
+| 21 | Hygiene after 0.4.0 | spec | [`hygiene-after-0-4-0`](specs/hygiene-after-0-4-0/spec.md) |
 | 22 | A Binnacle mod for Claude Code | not started | — |
 | 23 | Binnacle in a dev container | not started | — |
 | 24 | Showcase and launch | not started | — |
