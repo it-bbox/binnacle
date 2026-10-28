@@ -202,11 +202,11 @@ A good test exercises behaviour through the seam a caller uses, never an interna
   - Claude Code's mod API (2.1.308) gives `$.mcp.call`, `$.session.id()`, `$.session.usage()` with `context` and `rateLimits`, `session.measure`, `prompt.context`, `$.prompt.fill`, `$.ui.status`, `$.ui.toast`, `$.ui.open`, `$.store` and `$.clock`, and refuses a module holding `import()`;
   - a pane asked for is placed at any width.
 - **Order**:
-  1. the snapshot's `session`, `activity.own` and `checkout.taskId` with the tool's argument, since everything reads them;
-  2. the view function with its tests, then the plugin's build, package and marketplace entry with the hooks that draw it, the status line, band, pane, toasts and session-start lines, split as `/to-tickets` sees fit;
-  3. `binn init`'s step, once the package holds the mod;
-  4. the guides in both languages;
-  5. the exit demonstration last.
+  1. ticket 01: the snapshot's `session`, `activity.own` and `checkout.taskId` with the tool's argument, since everything reads them;
+  2. ticket 02: the status line, the first path through the view function, the build, the package and the marketplace entry;
+  3. tickets 03, 04 and 05: the band with the session-start lines, the pane, and the toasts, each after 02, one after another, since all three change the view function and the hooks module;
+  4. ticket 06: `binn init`'s step with the guides in both languages, once the package holds the mod;
+  5. ticket 07: the exit demonstration last.
 - **The exit demonstration**, with the owner:
   - `binn init` asking, and installing on a yes;
   - in the terminal and the desktop app: the status line on a ticket's branch and on `main`, the band with a question waiting, the pane with its buttons filling the prompt, a toast for a failing CI in one of two sessions, and the session-start lines on `main` but not on a ticket's branch;
@@ -217,10 +217,10 @@ A good test exercises behaviour through the seam a caller uses, never an interna
 ## Risks
 
 - **What the epic can break.**
-  - The snapshot gains `activity.own` and `checkout.taskId`, shapes the dashboard and the skills read. Both are additive, and `own` exists only with `session`.
-  - `binn init` gains a question, and a wrong default would install a surface nobody chose. The tests pin "no".
-  - The package's marketplace gains a second plugin, and a broken entry could stop `binnacle` installing. `pack.test.ts` checks both entries.
-- **The riskiest step.** The hooks module against an early-access API that moves between Claude Code releases: a release can refuse a module that loaded the day before. The minimum version, `claude plugin validate` in the live test and the exit demonstration are the guard. A mod that does not load breaks nothing else.
+  - Ticket 01 gives the snapshot `activity.own` and `checkout.taskId`, shapes the dashboard and the skills read. Both are additive, and `own` exists only with `session`.
+  - Ticket 06 gives `binn init` a question, and a wrong default would install a surface nobody chose. The tests pin "no".
+  - Ticket 02 gives the package's marketplace a second plugin, and a broken entry could stop `binnacle` installing. `pack.test.ts` checks both entries.
+- **The riskiest step.** Ticket 02, the hooks module against an early-access API that moves between Claude Code releases: a release can refuse a module that loaded the day before. The minimum version, `claude plugin validate` in the live test and the exit demonstration are the guard. A mod that does not load breaks nothing else.
 - **What was dropped, and why.**
   - A new stale-Next-action item: the existing one is the owner's definition.
   - Claude Code in CI: the owner chose not to depend on it.
