@@ -174,11 +174,13 @@ test('binn mcp lists its tools, explains a stopped daemon, and proxies the snaps
 });
 
 /**
- * The caller's session, the one Claude Code sets in `CLAUDE_CODE_SESSION_ID` for the MCP server
- * and its shell, and Codex in `CODEX_THREAD_ID` for its shell: in every daemon call's body as
- * `session`, beside `path`, and absent without it. The daemon here answers each call with the body it was sent.
+ * The caller's session, the one Claude Code sets in `CLAUDE_CODE_SESSION_ID` for its shell's commands
+ * and Codex in `CODEX_THREAD_ID`: in every daemon call `binn call` makes, as `session` beside `path`,
+ * and absent without it. `binn mcp` sends none, even with the variable set: Claude Code keeps an MCP
+ * server across `/clear` and `--continue`, so the id it was started with can name another session.
+ * The daemon here answers each call with the body it was sent.
  */
-test('toolRequest, binn call and binn mcp send the session the harness names, and none without it', async (t) => {
+test('toolRequest and binn call send the session the harness names, none without it, and binn mcp never', async (t) => {
   assert.deepEqual(toolRequest('project_snapshot', {}, '/work', 'a-session'), { operation: 'project.snapshot', body: { path: '/work', session: 'a-session' } });
   assert.deepEqual(toolRequest('task_get', { id: 'epic/01' }, '/work', 'a-session'), { operation: 'task.get', body: { id: 'epic/01', path: '/work', session: 'a-session' } });
   assert.deepEqual(toolRequest('project_snapshot', {}, '/work', undefined), { operation: 'project.snapshot', body: { path: '/work' } });
@@ -213,16 +215,13 @@ test('toolRequest, binn call and binn mcp send the session the harness names, an
   assert.equal(unnamed.status, 0, unnamed.stderr);
   assert.deepEqual(JSON.parse(unnamed.stdout), { id: 'epic/01', path: project });
 
-  for (const [session, body] of [
-    ['a-session', { path: project, session: 'a-session' }],
-    [undefined, { path: project }],
-  ] as const) {
+  for (const session of ['a-session', undefined]) {
     const client = new Client({ name: 'session', version: '0' });
     clients.push(client);
     const env = { ...withoutSession(), BINNACLE_HOME: home, ...(session && { CLAUDE_CODE_SESSION_ID: session }) };
     await client.connect(new StdioClientTransport({ command: process.execPath, args: [BINN, 'mcp'], cwd: project, env }));
     const result = (await client.callTool({ name: 'project_snapshot' })) as ToolResult;
     assert.equal(result.isError, undefined, result.content[0]?.text);
-    assert.deepEqual(JSON.parse(result.content[0]!.text), body);
+    assert.deepEqual(JSON.parse(result.content[0]!.text), { path: project });
   }
 });

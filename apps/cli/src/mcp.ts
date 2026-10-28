@@ -28,9 +28,9 @@ const callDaemon = (home: string): CallDaemon => async (operation, body) => {
   }
 };
 
-/** `binn mcp`: a stdio proxy to the running daemon, for the harness session that started it, when it says which. */
+/** `binn mcp`: a stdio proxy to the running daemon, which names no session (`serveStdio`). */
 export async function mcp(home: string, version: string): Promise<void> {
-  await serveStdio(version, process.cwd(), callerSession(process.env), callDaemon(home));
+  await serveStdio(version, process.cwd(), callDaemon(home));
 }
 
 /**

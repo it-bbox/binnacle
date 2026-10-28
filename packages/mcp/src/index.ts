@@ -73,10 +73,11 @@ const TOOLS = {
 } as const;
 
 /**
- * The harness session this process runs for, as the harness tells a process it starts: Claude Code's
- * `CLAUDE_CODE_SESSION_ID`, set for the MCP server and its shell alike, or Codex's `CODEX_THREAD_ID`,
- * set for its shell's commands only, the id its rollout's `session_meta` records. Undefined where
- * neither is set; no other harness is known to tell a child process, and none is guessed.
+ * The harness session a shell command runs for, as the harness tells it: Claude Code's
+ * `CLAUDE_CODE_SESSION_ID`, set for each command and updated on `/clear`, or Codex's `CODEX_THREAD_ID`,
+ * the id its rollout's `session_meta` records. Undefined where neither is set; no other harness is
+ * known to tell a child process, and none is guessed. `binn call` reads it; the MCP server does not
+ * (`serveStdio`).
  */
 export const callerSession = (env: NodeJS.ProcessEnv): string | undefined => env.CLAUDE_CODE_SESSION_ID || env.CODEX_THREAD_ID || undefined;
 
@@ -115,18 +116,19 @@ export function toolsHelp(): string {
 }
 
 /**
- * Serves the tools on stdio until the client disconnects. Every call is made for `cwd`,
- * the directory the harness started the server in, and for `session`, the harness session it
- * started the server for, when it told one; a tool's own arguments, if it has any, are passed
- * to its operation unchanged.
+ * Serves the tools on stdio until the client disconnects. Every call is made for `cwd`, the
+ * directory the harness started the server in, and carries no `session`: Claude Code keeps an MCP
+ * server across `/clear` and starts it with the startup id under `--continue` or a picked `--resume`,
+ * so the id in its environment can name another session than the one it serves, and Codex names
+ * none to an MCP server. A tool's own arguments, if it has any, are passed to its operation unchanged.
  */
-export async function serveStdio(version: string, cwd: string, session: string | undefined, call: CallDaemon): Promise<void> {
+export async function serveStdio(version: string, cwd: string, call: CallDaemon): Promise<void> {
   const server = new McpServer({ name: 'binnacle', version });
 
   for (const [name, tool] of Object.entries(TOOLS)) {
     const run = async (args: Record<string, unknown> = {}) => {
       // The SDK has already checked the arguments against the same schema, so the request is never refused here.
-      const request = toolRequest(name, args, cwd, session) as { operation: string; body: { path: string } & Record<string, unknown> };
+      const request = toolRequest(name, args, cwd, undefined) as { operation: string; body: { path: string } & Record<string, unknown> };
       const answer = await call(request.operation, request.body);
       return 'error' in answer
         ? { isError: true, content: [{ type: 'text' as const, text: JSON.stringify(answer) }] }
