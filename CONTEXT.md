@@ -73,7 +73,7 @@ How far Binnacle can see into a given harness, graded rather than binary:
 What a harness writes to local disk about a session. The primary source of telemetry, because it exists without configuration and covers work already done.
 
 ### Context pressure
-The normalised signal for a session outgrowing its context: the context its latest call read (input, cached input and cache creation together), and the compactions seen in it — Claude Code's compaction boundaries with their trigger, Codex's change of context window — each with its provenance. Harnesses express this differently; the signal is normalised, the underlying values are never invented, and where a harness reveals neither it is absent. An active Product session over the manifest's threshold, or compacted since the last checkpoint, raises an attention item suggesting a checkpoint.
+The normalised signal for a session outgrowing its context: the context its latest call read (input, cached input and cache creation together), and the compactions seen in it — Claude Code's compaction boundaries with their trigger, Codex's change of context window — each with its provenance. Harnesses express this differently; the signal is normalised, the underlying values are never invented, and where a harness reveals neither it is absent. An active Product session over the threshold for its model, or compacted since the last checkpoint, raises an attention item suggesting a checkpoint.
 
 ### AgentRun
 One concrete run of a coding agent in a given role, harness/provider/model/profile. A single Task may have several AgentRuns.
