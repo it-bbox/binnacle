@@ -78,3 +78,4 @@ If the change introduces a new durable architectural trade-off, propose an ADR f
 ## Traps
 
 - A worktree under `.claude/worktrees/` starts without `node_modules`: run `pnpm install --frozen-lockfile --offline` in it before the typecheck or the tests.
+- `binn`'s human output, like Git's, follows the locale: under `ru_RU` `binn daemon status | grep version` finds nothing, since it prints `версия`. Prefix `LC_ALL=C` when a command's output is grepped.
