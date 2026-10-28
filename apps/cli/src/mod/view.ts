@@ -11,9 +11,25 @@ type Usage = { context: { window: number; tokens?: number; percent?: number }; r
 
 export type ViewInput = Usage & {
   /** The Product Snapshot asked with this session's id; null when it could not be read, which silences the mod. */
-  snapshot: Pick<Snapshot, 'activity' | 'checkout' | 'roadmap' | 'next' | 'tasks' | 'pendingDecisions' | 'ci' | 'attention'> | null;
+  snapshot: Pick<Snapshot, 'project' | 'activity' | 'checkout' | 'roadmap' | 'next' | 'tasks' | 'pendingDecisions' | 'ci' | 'attention'> | null;
   language: Language;
+  /** What this session saw at its last refresh; absent at its first, which toasts nothing. */
+  previous?: Seen | undefined;
+  /** What `$.store` holds for the project: the last change toasted on this machine, as JSON read back. */
+  store?: unknown;
 };
+
+/** A question by its Task id and its text. */
+type Asked = [id: string, question: string];
+
+/**
+ * What a session saw, for its toasts: the default branch's failing commit, null when it is not failing; the unanswered
+ * questions, in the snapshot's order, null before they could be read; whether this session's context pressure is raised.
+ */
+export type Seen = { failing: string | null; questions: Asked[] | null; pressure: boolean };
+
+/** The last project change toasted on the machine, kept in `$.store` per project: CI failing on a commit, the questions answered. */
+export type Shown = { ci?: string; answered?: Asked[] };
 
 /** The pane command's line in Claude Code's typeahead and `/help`. */
 export const PANE_COMMAND = { en: 'Open or close the Binnacle pane', ru: 'Открыть или закрыть панель Binnacle' } satisfies Record<Language, string>;
@@ -25,13 +41,18 @@ export type PaneButton = { key: 'next' | 'suggested' | 'answer' | 'checkpoint'; 
  * `status`: the status line's text, undefined to clear it. `band`: the *Waiting for you* band's title and items, undefined
  * when nothing waits. `startLines`: at most three lines for the context of a session whose branch maps to no Task,
  * undefined on a Task's branch or without a snapshot. `pane`: the pane's sections, each a heading with its lines, and its
- * buttons; undefined without a snapshot.
+ * buttons; undefined without a snapshot. `toasts`: the toasts to show now. `seen`: what the session saw, for its next
+ * refresh, kept from `previous` without a snapshot. `store`: what `$.store` holds for the project from now, undefined
+ * when no project change was toasted.
  */
 export type View = {
   status: string | undefined;
   band: { title: string; items: string[] } | undefined;
   startLines: string[] | undefined;
   pane: { sections: { heading: string; lines: string[] }[]; buttons: PaneButton[] } | undefined;
+  toasts: string[];
+  seen: Seen | undefined;
+  store: Shown | undefined;
 };
 
 type Own = NonNullable<Extract<Snapshot['activity'], { running: unknown }>['own']>;
@@ -63,6 +84,7 @@ const WORDS = {
     more: (count: number) => `and ${count} more`,
     ci: { passing: 'passing', failing: 'failing', running: 'running', none: 'no checks' },
     nextAction: 'Next action',
+    answered: (id: string) => `A question on ${id} was answered`,
   },
   ru: {
     role: { product: 'продуктовая сессия', implementation: 'реализация', review: 'ревью', rework: 'доработка' },
@@ -84,6 +106,7 @@ const WORDS = {
     more: (count: number) => `и ещё ${count}`,
     ci: { passing: 'проходит', failing: 'падает', running: 'идёт', none: 'нет проверок' },
     nextAction: 'Следующий шаг',
+    answered: (id: string) => `Получен ответ на вопрос по ${id}`,
   },
 } satisfies Record<Language, unknown>;
 
@@ -195,12 +218,52 @@ function pane(snapshot: NonNullable<ViewInput['snapshot']>, waiting: View['band'
   return { sections, buttons };
 }
 
+const same = (a: Asked) => (b: Asked) => a[0] === b[0] && a[1] === b[1];
+
+/**
+ * The toasts. A project's change, CI on the default branch turning `failing` on a commit or a question leaving the
+ * unanswered list, toasts unless the store already holds it, another session having toasted it; this session's own context
+ * pressure toasts when it first appears. A first refresh only records what it saw. CI or questions that cannot be read
+ * are no change: what was seen of them stays.
+ */
+function toasts(snapshot: NonNullable<ViewInput['snapshot']>, previous: Seen | undefined, stored: unknown, language: Language): Pick<View, 'toasts' | 'seen' | 'store'> {
+  const ci = snapshot.attention.find((item) => item.code === 'ci.failing');
+  const failing = 'available' in snapshot.ci ? (previous?.failing ?? null) : ci ? String(ci.params?.commit ?? ci.message) : null;
+  const pending = snapshot.pendingDecisions;
+  const listed = 'available' in pending || 'available' in pending.questions ? null : pending.questions;
+  const questions = listed ? listed.items.map((item): Asked => [item.id, item.question]) : (previous?.questions ?? null);
+  const own = snapshot.attention.find((item) => item.code === 'context.pressure' && item.params?.own === true);
+  const seen: Seen = { failing, questions, pressure: own !== undefined };
+  if (previous === undefined) return { toasts: [], seen, store: undefined };
+
+  const held = (typeof stored === 'object' && stored !== null ? stored : {}) as Shown;
+  const shown: Shown = {};
+  const out: string[] = [];
+  if (ci && failing !== previous.failing && held.ci !== failing) {
+    out.push(say(ci, language));
+    shown.ci = failing!;
+  }
+  if (listed && previous.questions) {
+    // A question past the last one still listed may only have been pushed into the remainder by a new one ahead of it.
+    // ponytail: a full list whose last listed question is answered toasts nothing; the whole list if it shows.
+    const still = previous.questions.map((asked) => questions!.some(same(asked)));
+    const last = still.lastIndexOf(true);
+    const answered = previous.questions.filter((asked, n) => !still[n] && (listed.remainder === 0 || n < last) && !(Array.isArray(held.answered) && held.answered.some(same(asked))));
+    if (answered.length > 0) {
+      out.push(...answered.map(([id]) => WORDS[language].answered(id)));
+      shown.answered = answered;
+    }
+  }
+  if (own && !previous.pressure) out.push(say(own, language));
+  return { toasts: out, seen, store: Object.keys(shown).length > 0 ? { ...held, ...shown } : undefined };
+}
+
 /**
  * The status line: the session's Task id and role, or its role alone; its output tokens as Binnacle counts them; its
  * context percentage; and each rate-limit window's use. A part with no data is left out, and no snapshot leaves no line.
  */
-export function view({ snapshot, context, rateLimits, language }: ViewInput): View {
-  if (snapshot === null) return { status: undefined, band: undefined, startLines: undefined, pane: undefined };
+export function view({ snapshot, context, rateLimits, language, previous, store }: ViewInput): View {
+  if (snapshot === null) return { status: undefined, band: undefined, startLines: undefined, pane: undefined, toasts: [], seen: previous, store: undefined };
   const words = WORDS[language];
   const own = 'own' in snapshot.activity ? snapshot.activity.own : null;
   const role = own && own.role !== 'unknown' ? words.role[own.role] : null;
@@ -211,5 +274,11 @@ export function view({ snapshot, context, rateLimits, language }: ViewInput): Vi
     ...rateLimits.map((limit) => `${words.window[limit.kind] ?? limit.kind} ${percent(limit.percentUsed, language)}`),
   ].filter(Boolean);
   const waiting = band(snapshot, language);
-  return { status: parts.length > 0 ? parts.join(' · ') : undefined, band: waiting, startLines: startLines(snapshot), pane: pane(snapshot, waiting, language) };
+  return {
+    status: parts.length > 0 ? parts.join(' · ') : undefined,
+    band: waiting,
+    startLines: startLines(snapshot),
+    pane: pane(snapshot, waiting, language),
+    ...toasts(snapshot, previous, store, language),
+  };
 }

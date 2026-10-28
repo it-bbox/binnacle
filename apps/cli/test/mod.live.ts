@@ -42,7 +42,7 @@ test('the status line at the session start, cleared without the daemon, and back
   await clock.settle()
   expect(lines).toEqual([undefined])
 
-  snapshot = { activity: { running: { items: [], remainder: 0 }, recent: [], own: OWN }, checkout: { taskId: 'claude-code-mod/02' }, roadmap: null, next: { action: null, alternatives: [] }, tasks: null, pendingDecisions: { questions: NOTHING, approvals: NOTHING, owner: NOTHING }, ci: NO_CI, attention: [] }
+  snapshot = { project: { path: '/project' }, activity: { running: { items: [], remainder: 0 }, recent: [], own: OWN }, checkout: { taskId: 'claude-code-mod/02' }, roadmap: null, next: { action: null, alternatives: [] }, tasks: null, pendingDecisions: { questions: NOTHING, approvals: NOTHING, owner: NOTHING }, ci: NO_CI, attention: [] }
   await clock.advance(60000)
   expect(lines.at(-1)).toBe('claude-code-mod/02 implementation · 500 output tokens (from activity) · context 42% · 5h 23%')
 
@@ -61,7 +61,7 @@ test('the band with a question waiting, on both surfaces that draw it, and nothi
   on('session.id', () => ({ value: 'session-1' }))
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
   on('mcp.call', () => {
-    const snapshot = { activity: { running: { items: [], remainder: 0 }, recent: [] }, checkout: { taskId: 'claude-code-mod/03' }, roadmap: null, next: { action: null, alternatives: [] }, tasks: null, pendingDecisions: { questions, approvals: NOTHING, owner: NOTHING }, ci: NO_CI, attention: [] }
+    const snapshot = { project: { path: '/project' }, activity: { running: { items: [], remainder: 0 }, recent: [] }, checkout: { taskId: 'claude-code-mod/03' }, roadmap: null, next: { action: null, alternatives: [] }, tasks: null, pendingDecisions: { questions, approvals: NOTHING, owner: NOTHING }, ci: NO_CI, attention: [] }
     return { value: { content: [{ type: 'text', text: JSON.stringify(snapshot) }], isError: false } }
   })
   on('command.register', () => ({ value: { command: 'binnacle-pane' } }))
@@ -103,7 +103,7 @@ test('the command opens the pane and closes it on a second run, and a button fil
   on('session.id', () => ({ value: 'session-1' }))
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
   on('mcp.call', () => {
-    const snapshot = { activity: { running: { items: [], remainder: 0 }, recent: [] }, checkout: { taskId: null }, roadmap: null, next: { action: { description: 'Start the pane with', command: '/binnacle:task run t.md' }, alternatives: [] }, tasks: null, pendingDecisions: { questions: NOTHING, approvals: NOTHING, owner: NOTHING }, ci: NO_CI, attention: [] }
+    const snapshot = { project: { path: '/project' }, activity: { running: { items: [], remainder: 0 }, recent: [] }, checkout: { taskId: null }, roadmap: null, next: { action: { description: 'Start the pane with', command: '/binnacle:task run t.md' }, alternatives: [] }, tasks: null, pendingDecisions: { questions: NOTHING, approvals: NOTHING, owner: NOTHING }, ci: NO_CI, attention: [] }
     return { value: { content: [{ type: 'text', text: JSON.stringify(snapshot) }], isError: false } }
   })
   on('command.register', () => ({ value: { command: 'binnacle-pane' } }))
@@ -136,6 +136,42 @@ test('the command opens the pane and closes it on a second run, and a button fil
   expect(filled).toEqual(['terminal', 'desktop', 'vscode', 'mobile'].map(() => ({ text: '/binnacle:checkpoint', mode: 'replace' })))
   expect(submitted).toBe(0)
 })
+
+// Each test loads the mod afresh, as a session does: two tests are two sessions, and this map the store they share.
+const STORE = new Map<string, unknown>()
+const TOASTS: string[][] = []
+const FAILING = { code: 'ci.failing', message: 'CI is failing on main at 0123456789ab.', params: { branch: 'main', commit: '0123456789ab' } }
+const ci = (state: string) => ({ forge: { provider: 'github' }, defaultBranch: { branch: 'main', commit: '0123456789ab', state: { value: state } }, requests: NOTHING })
+
+for (const session of ['session-1', 'session-2']) {
+  test(\`two sessions sharing one store, one CI change, one toast: \${session}\`, async ($, on) => {
+    mock.env(on, { LANG: 'C' })
+    const clock = mock.clock(on)
+    const toasts: string[] = []
+    TOASTS.push(toasts)
+    let failing = false
+    on('session.id', () => ({ value: session }))
+    on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
+    on('mcp.call', () => {
+      const snapshot = { project: { path: '/project' }, activity: { running: { items: [], remainder: 0 }, recent: [] }, checkout: { taskId: null }, roadmap: null, next: { action: null, alternatives: [] }, tasks: null, pendingDecisions: { questions: NOTHING, approvals: NOTHING, owner: NOTHING }, ci: ci(failing ? 'failing' : 'passing'), attention: failing ? [FAILING] : [] }
+      return { value: { content: [{ type: 'text', text: JSON.stringify(snapshot) }], isError: false } }
+    })
+    on('store.get', (_, e) => ({ value: STORE.get(e.key) }))
+    on('store.set', (_, e) => (STORE.set(e.key, e.value), { value: undefined }))
+    on('ui.toast', (_, e) => (toasts.push(e.text), { value: undefined }))
+    on('command.register', () => ({ value: { command: 'binnacle-pane' } }))
+    on('ui.status', () => ({ value: undefined }))
+    on('session.start', (_, e) => ({ cwd: e.cwd }))
+    on('session.measure', (_, e) => ({ changed: e.changed }))
+
+    await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+    await clock.settle()
+    failing = true
+    await clock.advance(60000)
+    await clock.advance(60000)
+    expect(TOASTS).toEqual(session === 'session-1' ? [['CI is failing on main at 0123456789ab.']] : [['CI is failing on main at 0123456789ab.'], []])
+  })
+}
 `;
 
 test('Claude Code validates the built mod and runs its hooks test', { skip, timeout: 5 * 60_000 }, (t) => {
@@ -158,5 +194,5 @@ test('Claude Code validates the built mod and runs its hooks test', { skip, time
   writeFileSync(join(mod, 'hooks.test.ts'), HOOKS_TEST);
   const run = spawnSync('claude', ['plugin', 'test', mod], { encoding: 'utf8' });
   assert.equal(run.status, 0, run.stdout + run.stderr);
-  assert.match(run.stdout + run.stderr, /3 pass/);
+  assert.match(run.stdout + run.stderr, /5 pass/);
 });

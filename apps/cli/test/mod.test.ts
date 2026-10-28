@@ -19,6 +19,7 @@ const NOTHING_PENDING = { questions: { items: [], remainder: 0 }, approvals: { i
 /** The snapshot as `project.snapshot` answers it for a named session, on a Task's branch, with nothing waiting: `rest` replaces a section. */
 const snapshot = (own: Own | null | undefined, rest: Record<string, unknown> = {}) =>
   ({
+    project: { id: 'binnacle', name: 'Binnacle', path: '/project' },
     activity: { running: { items: [], remainder: 0 }, recent: [], ...(own !== undefined && { own }) },
     checkout: { root: '/project', registered: true, taskId: 'claude-code-mod/03' },
     roadmap: null,
@@ -85,7 +86,7 @@ test('a part with no data is left out, never shown as zero', () => {
 });
 
 test('without a snapshot the line is cleared, and there is no band and no session-start line', () => {
-  assert.deepEqual(view({ snapshot: null, ...FULL, language: 'en' }), { status: undefined, band: undefined, startLines: undefined, pane: undefined });
+  assert.deepEqual(view({ snapshot: null, ...FULL, language: 'en' }), { status: undefined, band: undefined, startLines: undefined, pane: undefined, toasts: [], seen: undefined, store: undefined });
 });
 
 /** A Task item of the snapshot's *Waiting for the owner*, by its id. */
@@ -258,11 +259,92 @@ test('each button is shown or left out by its rule, and carries its command', ()
   assert.deepEqual(keys({ ...FILLED, checkout: { root: '/project', registered: true, taskId: 'spec/31' } }), ['next', 'suggested', 'answer']);
 });
 
+/** A refresh's toasts: `rest` replaces sections of a snapshot on `main`, `previous` is what the session saw last, `store` what the store holds. */
+const refresh = (rest: Record<string, unknown>, previous?: ReturnType<typeof view>['seen'], store?: unknown, language: 'en' | 'ru' = 'en') =>
+  view({ snapshot: snapshot(null, { ...ON_MAIN, ...rest }), ...NONE, language, previous, store });
+const PASSING = { ci: CI('passing') };
+const FAILING = { ci: CI('failing'), attention: [CI_FAILING] };
+/** The `context.pressure` item as the daemon raises it for a session asked by itself (`own`) or by another. */
+const pressure = (own: boolean) => ({
+  code: 'context.pressure',
+  message: `${own ? 'This' : 'Another'} Product session in Claude Code, started at 10:00, latest activity 10:30, read 160000 tokens of context in its latest call, at least the default threshold, 150000. Run /binnacle:checkpoint, then go on in a fresh session.`,
+  params: { session: 's', harness: 'Claude Code', startedAt: '2026-10-28T10:00:00Z', lastActivityAt: '2026-10-28T10:30:00Z', tokens: 160_000, threshold: 150_000, thresholdSource: 'default', own },
+});
+
+test("a session's first refresh records the state and toasts nothing", () => {
+  const first = refresh({ ...FAILING, attention: [CI_FAILING, pressure(true)], pendingDecisions: pending(2, 0, 0) });
+  assert.deepEqual(first.toasts, []);
+  assert.equal(first.store, undefined);
+  assert.deepEqual(first.seen, { failing: '0123456789ab', questions: [['spec/01', 'Which one?'], ['spec/02', 'Which one?']], pressure: true });
+  // Without a snapshot nothing is seen, and what was is kept.
+  assert.deepEqual(view({ snapshot: null, ...NONE, language: 'en', previous: first.seen }).seen, first.seen);
+  assert.deepEqual(view({ snapshot: null, ...NONE, language: 'en' }).toasts, []);
+});
+
+test("CI turning failing on main toasts once, and not again from a store that already holds it", () => {
+  const passing = refresh(PASSING).seen;
+  const failing = refresh(FAILING, passing);
+  assert.deepEqual(failing.toasts, [CI_FAILING.message]);
+  assert.deepEqual(failing.store, { ci: '0123456789ab' });
+  assert.deepEqual(refresh(FAILING, passing, undefined, 'ru').toasts, [CI_FAILING_RU]);
+  // Still failing: no turn.
+  assert.deepEqual(refresh(FAILING, failing.seen).toasts, []);
+  // Another session that finds the change already shown stays quiet, and writes nothing.
+  const quiet = refresh(FAILING, passing, failing.store);
+  assert.deepEqual([quiet.toasts, quiet.store], [[], undefined]);
+  // CI that cannot be read is no turn: the failing commit seen before stays.
+  const unread = refresh({ ci: { available: false, reason: NO_FORGE } }, failing.seen);
+  assert.deepEqual([unread.toasts, unread.seen?.failing], [[], '0123456789ab']);
+  assert.deepEqual(refresh(FAILING, unread.seen).toasts, []);
+  // A new commit failing is a turn of its own; a store holding another change does not silence it.
+  const next = { ...CI_FAILING, params: { ...CI_FAILING.params, commit: 'fedcba987654' } };
+  assert.deepEqual(refresh({ ci: CI('failing'), attention: [next] }, failing.seen, failing.store).store, { ci: 'fedcba987654' });
+});
+
+test('a question leaving the unanswered list toasts, in English and Russian, once per machine', () => {
+  const two = refresh({ pendingDecisions: pending(2, 0, 0) }).seen;
+  // spec/02's question was answered.
+  const answered = refresh({ pendingDecisions: pending(1, 0, 0) }, two);
+  assert.deepEqual(answered.toasts, ['A question on spec/02 was answered']);
+  assert.deepEqual(answered.store, { answered: [['spec/02', 'Which one?']] });
+  assert.deepEqual(refresh({ pendingDecisions: pending(1, 0, 0) }, two, undefined, 'ru').toasts, ['Получен ответ на вопрос по spec/02']);
+  assert.deepEqual(refresh({ pendingDecisions: pending(1, 0, 0) }, two, answered.store).toasts, []);
+  // Questions that could not be read are no change.
+  const unread = refresh({ pendingDecisions: { ...pending(0, 0, 0), questions: { available: false, reason: 'unread' } } }, two);
+  assert.deepEqual([unread.toasts, unread.seen?.questions], [[], two?.questions]);
+  // CI and a question at once, the store keeping both.
+  const both = refresh({ ...FAILING, pendingDecisions: pending(1, 0, 0) }, two);
+  assert.deepEqual(both.store, { ci: '0123456789ab', answered: [['spec/02', 'Which one?']] });
+});
+
+test('a question pushed off a full list by a new one is not answered', () => {
+  const listed = (ids: string[], remainder: number) => ({ pendingDecisions: { ...pending(0, 0, 0), questions: { items: ids.map(question), remainder } } });
+  const five = refresh(listed(['spec/01', 'spec/02', 'spec/03', 'spec/04', 'spec/05'], 0)).seen;
+  // A question asked ahead of them pushes spec/05 into the remainder.
+  assert.deepEqual(refresh(listed(['spec/00', 'spec/01', 'spec/02', 'spec/03', 'spec/04'], 1), five).toasts, []);
+  // spec/03, ahead of a question still listed, left the list.
+  assert.deepEqual(refresh(listed(['spec/01', 'spec/02', 'spec/04', 'spec/05', 'spec/06'], 1), five).toasts, ['A question on spec/03 was answered']);
+});
+
+test("context pressure toasts in its own session when it first appears, never for another session's item", () => {
+  const calm = refresh({}).seen;
+  assert.deepEqual(refresh({ attention: [pressure(true)] }, calm).toasts, [pressure(true).message]);
+  assert.match(refresh({ attention: [pressure(true)] }, calm, undefined, 'ru').toasts[0]!, /^Эта продуктовая сессия в Claude Code, .* Запустите \/binnacle:checkpoint/);
+  assert.deepEqual(refresh({ attention: [pressure(false)] }, calm).toasts, []);
+  // Once: still raised, no toast; and the store is not the session's to share.
+  const raised = refresh({ attention: [pressure(true)] }, calm);
+  assert.equal(raised.store, undefined);
+  assert.deepEqual(refresh({ attention: [pressure(true)] }, raised.seen).toasts, []);
+  // Gone, then back: it appears again.
+  const gone = refresh({}, raised.seen).seen;
+  assert.deepEqual(refresh({ attention: [pressure(true)] }, gone).toasts, [pressure(true).message]);
+});
+
 /**
  * The hooks module with a stand-in for Claude Code's `$`: the `binnacle` server's answers and the locale are the
  * test's, and every refresh draws the line from scratch.
  */
-function engine(locale: Record<string, string> = { LANG: 'C' }) {
+function engine(locale: Record<string, string> = { LANG: 'C' }, store = new Map<string, unknown>()) {
   type Answer = { content: { type: string; text?: string }[]; isError: boolean } | Error;
   const hooks = new Map<string, (...args: unknown[]) => unknown>();
   const state = {
@@ -275,6 +357,9 @@ function engine(locale: Record<string, string> = { LANG: 'C' }) {
     timers: [] as { ms: number; fn: () => void }[],
     invalidated: 0,
     commands: [] as unknown[],
+    /** The toasts shown; `store` is Claude Code's store of the plugin, which another session may share. */
+    toasts: [] as string[],
+    store,
     /** The panes open now, as `$.ui.panes()` lists them, and what the prompt box was filled with. */
     panes: [] as { id: string; title: string }[],
     filled: [] as unknown[],
@@ -291,7 +376,9 @@ function engine(locale: Record<string, string> = { LANG: 'C' }) {
     session: { id: async () => 'session-1', usage: async () => ({ startedAt: 0, ...FULL }) },
     env: { get: async (name: string) => locale[name] },
     clock: { every: (ms: number, fn: () => void) => (state.timers.push({ ms, fn }), { cancel: () => {} }), sleep: () => state.sleep },
+    store: { get: async (key: string) => store.get(key), set: async (key: string, value: unknown) => void store.set(key, JSON.parse(JSON.stringify(value))) },
     ui: {
+      toast: (text: string) => void state.toasts.push(text),
       status: (text: string | undefined) => void state.lines.push(text),
       invalidate: () => void (state.invalidated += 1),
       // Each element by its name, so that a test reads the tree the band would draw.
@@ -468,4 +555,41 @@ test("the pane draws the last view's sections and buttons, and a button fills th
   assert.deepEqual(buttons.map((node) => node.props?.key), ['next', 'checkpoint']);
   buttons[1]!.props!.onPress!();
   assert.deepEqual(state.filled, [{ text: '/binnacle:checkpoint', mode: 'replace' }]);
+});
+
+test("a project's change toasts in the first session that sees it, and the others sharing the store stay quiet", async () => {
+  const store = new Map<string, unknown>();
+  const sessions = [engine({ LANG: 'C' }, store), engine({ LANG: 'C' }, store)];
+  for (const { state, run } of sessions) {
+    state.answer = answered(snapshot(null, { ...ON_MAIN, ci: CI('passing') }));
+    await run('session.start', START);
+  }
+  // Opening a session replays nothing.
+  assert.deepEqual(sessions.map(({ state }) => state.toasts), [[], []]);
+
+  for (const { state, run } of sessions) {
+    state.answer = answered(snapshot(null, { ...ON_MAIN, ci: CI('failing'), attention: [CI_FAILING] }));
+    await run('session.measure', { ...FULL, changed: ['context'] });
+  }
+  assert.deepEqual(sessions.map(({ state }) => state.toasts), [[CI_FAILING.message], []]);
+  assert.deepEqual(store.get('shown /project'), { ci: '0123456789ab' });
+  // The next refresh, still failing, toasts nothing anywhere.
+  for (const { run } of sessions) await run('session.measure', { ...FULL, changed: ['context'] });
+  assert.deepEqual(sessions.map(({ state }) => state.toasts.length), [1, 0]);
+});
+
+test('context pressure toasts in its own session only, and a stopped daemon replays nothing when it comes back', async () => {
+  const { state, run } = engine();
+  state.answer = answered(snapshot(null, ON_MAIN));
+  await run('session.start', START);
+  state.answer = refused('daemon.unreachable');
+  await run('session.measure', { ...FULL, changed: ['context'] });
+  state.answer = answered(snapshot(null, { ...ON_MAIN, attention: [pressure(false)] }));
+  await run('session.measure', { ...FULL, changed: ['context'] });
+  assert.deepEqual(state.toasts, []);
+  state.answer = answered(snapshot(null, { ...ON_MAIN, attention: [pressure(true)] }));
+  await run('session.measure', { ...FULL, changed: ['context'] });
+  assert.deepEqual(state.toasts, [pressure(true).message]);
+  // Not the project's to share.
+  assert.deepEqual([...state.store.keys()], []);
 });
