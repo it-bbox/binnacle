@@ -314,7 +314,7 @@ function contextPressures(records: UsageRecord[], markers: CompactionMarker[]): 
  * One `context.pressure` item per active Product session, a main session on the default
  * branch, whose latest call read at least `threshold` tokens of context, or whose latest
  * compaction is after `checkpointAt`, the project's last recorded checkpoint, or at all when
- * none was recorded. It names the session by its run's start and latest activity, as this one or
+ * none was recorded. It names the session by its start, its earliest run's, and its run's latest activity, as this one or
  * another when `caller`, the session that asked, is known, its context where known, and that
  * compaction; the session's id is in its params only.
  */
@@ -325,6 +325,12 @@ function pressureAttention(
   checkpointAt: string | null,
   caller: string | undefined,
 ): Diagnostic[] {
+  // A session's start is its earliest run's, whatever branch or role that run had.
+  const started = new Map<string, string>();
+  for (const run of observed) {
+    const key = sessionKey(run.records[0]!);
+    if (!started.has(key) || run.startedAt < started.get(key)!) started.set(key, run.startedAt);
+  }
   const raised = new Map<string, Diagnostic>();
   for (const run of observed) {
     const session = run.records[0]!;
@@ -336,7 +342,8 @@ function pressureAttention(
     if (!crossed && !compacted) continue;
     const name = HARNESSES.find((entry) => entry.harness === session.harness)!.name;
     const reasons: string[] = [];
-    const params: Params = { session: session.sessionId, harness: name, startedAt: run.startedAt, lastActivityAt: run.lastActivityAt };
+    const startedAt = started.get(sessionKey(session))!;
+    const params: Params = { session: session.sessionId, harness: name, startedAt, lastActivityAt: run.lastActivityAt };
     if (caller !== undefined) params.own = caller === session.sessionId;
     if (pressure?.context) {
       reasons.push(`read ${pressure.context.tokens} tokens of context in its latest call${crossed ? `, at least telemetry.context_pressure.tokens, ${threshold}` : ''}`);
@@ -349,7 +356,7 @@ function pressureAttention(
       Object.assign(params, { at: compaction.at }, compaction.trigger && { trigger: compaction.trigger }, checkpointAt && { checkpoint: checkpointAt });
     }
     const which = params.own === true ? 'This' : params.own === false ? 'Another' : 'The';
-    const times = sessionTimes(run.startedAt, run.lastActivityAt)!;
+    const times = sessionTimes(startedAt, run.lastActivityAt)!;
     raised.set(sessionKey(session), {
       code: 'context.pressure',
       message: `${which} Product session in ${name}, started at ${times.started}, latest activity ${times.latest}, ${reasons.join(', and ')}. Run /binnacle:checkpoint, then go on in a fresh session.`,

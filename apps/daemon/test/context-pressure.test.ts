@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { setTimeout } from 'node:timers/promises';
 import { after, describe, it } from 'node:test';
+import { wordMessage, type Params } from '@binnacle/core';
 import { storePath } from '../src/home.ts';
 import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
 
@@ -16,7 +17,7 @@ import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
  * that read 2 + 39,225 + 29,831 tokens of context; Codex's and Gemini CLI's are written here.
  */
 type Line = Record<string, unknown> & { type: string; message?: Record<string, unknown> };
-type Attention = { code: string; message: string }[];
+type Attention = { code: string; message: string; params: Params }[];
 type Pressure = { context: { tokens: number; provenance: string } | null; compactions: { count: number; latest: { at: string; trigger: string | null; provenance: string } | null } } | null;
 type Run = { id: string; role: string; harness: string; contextPressure: Pressure };
 type Snapshot = { attention: Attention; activity: { running: { items: Run[] }; recent: Run[] } };
@@ -155,6 +156,42 @@ describe('Context pressure', () => {
       // Asked by the session itself, then by another; the session's UUID never in the message.
       assert.deepEqual(pressure((await snapshot(daemon, root, 'product')).attention), [{ code: 'context.pressure', message: `This Product session ${why}`, params: { ...params, own: true } }]);
       assert.deepEqual(pressure((await snapshot(daemon, root, 'another')).attention), [{ code: 'context.pressure', message: `Another Product session ${why}`, params: { ...params, own: false } }]);
+    });
+  });
+
+  it('names the session by its earliest run’s start, not its latest run’s', async () => {
+    await withDaemon(async (daemon, { claudeCode }) => {
+      const root = makeProject(threshold(60000));
+      gitAt(minutesAgo(9), root, 'switch', '--quiet', '-c', 'feat/first');
+      gitAt(minutesAgo(5), root, 'switch', '--quiet', 'main');
+      // One session: a run on the Task's branch, then the Product run on `main`.
+      const [startedAt, lastActivityAt] = [minutesAgo(8), minutesAgo(1)];
+      claudeSession(claudeCode, root, 'long', [...call(startedAt, 'ticket'), ...call(minutesAgo(4), 'product'), ...call(lastActivityAt, 'latest')]);
+
+      const body = await snapshot(daemon, root);
+      assert.equal(body.activity.running.items.length + body.activity.recent.length, 2);
+      assert.deepEqual(pressure(body.attention), [
+        {
+          code: 'context.pressure',
+          message: `The Product session in Claude Code, ${times(startedAt, lastActivityAt)}, read ${GRILL_CONTEXT} tokens of context in its latest call, at least telemetry.context_pressure.tokens, 60000. ${SUGGESTION}`,
+          params: { session: 'long', harness: 'Claude Code', startedAt, lastActivityAt, tokens: GRILL_CONTEXT, threshold: 60000 },
+        },
+      ]);
+    });
+  });
+
+  it('dates the session’s start when it was another day than its latest activity, in English and in Russian', async () => {
+    await withDaemon(async (daemon, { claudeCode }) => {
+      const root = makeProject(threshold(60000));
+      // Two days ago, before the repository's `HEAD` had a branch: a run of its own, still the session's.
+      const [startedAt, lastActivityAt] = [minutesAgo(2 * 24 * 60), minutesAgo(1)];
+      claudeSession(claudeCode, root, 'days', [...call(startedAt, 'first'), ...call(lastActivityAt, 'latest')]);
+
+      const [item] = pressure((await snapshot(daemon, root)).attention);
+      assert.ok(item);
+      assert.equal(item.params.startedAt, startedAt);
+      assert.match(item.message, new RegExp(`, started at ${day(startedAt)} ${clock(startedAt)}, latest activity ${clock(lastActivityAt)},`));
+      assert.match(wordMessage('ru', item).text, new RegExp(`, начатая в ${day(startedAt)} ${clock(startedAt)}, последняя активность в ${clock(lastActivityAt)},`));
     });
   });
 
