@@ -1,6 +1,6 @@
 # 02: The mod's status line
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 01
 Spec: `docs/specs/claude-code-mod/spec.md`
