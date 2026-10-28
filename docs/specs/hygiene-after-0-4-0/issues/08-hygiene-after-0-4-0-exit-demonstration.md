@@ -1,6 +1,6 @@
 # 08: The exit demonstration of epic 21, and 0.5.0
 
-Status: READY
+Status: DONE
 Triage: ready-for-human
 Blocked by: 01, 02, 03, 04, 05, 06, 07
 Spec: `docs/specs/hygiene-after-0-4-0/spec.md`
@@ -13,7 +13,7 @@ Spec: `docs/specs/hygiene-after-0-4-0/spec.md`
 - [x] The vault in Russian has no `(англ.)` for a pair or a failed Graphify run, and says "пулл-реквесты".
 - [x] In an interactive Claude Code session, after `/clear` and after `--resume`, the warning says "this" or "another" only where it is true.
 - [x] `/binnacle:checkpoint` proposes a trap for a fact that cost time in the session, and writes it to `AGENTS.md` only on the owner's yes.
-- [ ] The CLI package's version is 0.5.0; 0.5.0 published by `CONTRIBUTING.md`'s *Releasing* and installed from the registry into a clean container, where `binn daemon status` gives 0.5.0.
+- [x] The CLI package's version is 0.5.0; 0.5.0 published by `CONTRIBUTING.md`'s *Releasing* and installed from the registry into a clean container, where `binn daemon status` gives 0.5.0.
 
 ## Comments
 
@@ -49,6 +49,7 @@ The branch merged into `main` with `git merge --no-ff` (`7a97c27`) while this ti
 - **Criterion 3** holds (the owner, 2026-10-28): with `claude-opus-5-5`'s threshold set to 30 000 on the Settings page, `/binnacle:product` in a second session, in a Russian chat, warned about the Product session started at 19:18, which had more than one run, at 135 653 tokens over 30 000 for `claude-opus-5-5`, by its first start, not its latest run's; today's, so undated. No `(англ.)`, and "пулл-реквест" the one spelling.
 - **Criterion 5** holds (the owner, 2026-10-28), ticket 06's script in an interactive Claude Code session at a terminal, with that threshold. Step 1: `/binnacle:product` called the session "this" one; the agent read that from its own scratchpad path, as the MCP tools carry no `own`, and it was true. Step 2: `binn call project_snapshot` gave `own: true` for that session (`2f121931…`) and `false` for the other. Step 3: after `/clear` the id was `684af0f7…`, and the item naming `2f121931…` had `own: false`. Step 4: after `claude --resume 2f121931…`, `own: true` again. The threshold then went back to 250 000, the value before the demonstration, not 100 000, which had been set for a test.
 - **Criterion 6** holds (the owner, 2026-10-28), in a Product session: `binn daemon status | grep version` found nothing under `ru_RU`, worked around with `LC_ALL=C`; `binn daemon status --help` failed as an unknown command, worked around with `binn --help`. `/binnacle:checkpoint`, run twice, proposed each as one line for `AGENTS.md` and wrote nothing until the owner's yes; both answers were yes, so the no was not tried; the lines are in `main`'s `AGENTS.md`, `4060f10` and `e04b4a5`.
+- **Criterion 7** holds (the owner, 2026-10-28): `main` pushed at `a96c977`, CI's `check`, `tarball-live` and `autostart-live` green there on the three platforms; rebuilt at that commit, `npm whoami` gave the owner, `npm publish --dry-run` then `npm publish --access public` from `apps/cli/dist/`, 80 files, the second factor confirmed in the browser. `npm view @it-bbox/binnacle version` printed `0.5.0` a few minutes later. In a `node:24-slim` container, `npm i -g @it-bbox/binnacle@0.5.0`, `binn --version` gave `0.5.0`, `binn daemon start` started it, and `binn daemon status` gave `0.5.0`.
 
 ### For the `/clear` and `--resume` criterion (from ticket 06)
 
