@@ -30,20 +30,26 @@ Epics 1 to 19 are v1.
 | 18 | Lean flow | done | [`lean-flow`](specs/lean-flow/spec.md) |
 | 19 | Starting a project: new and existing | done | [`starting-a-project`](specs/starting-a-project/spec.md) |
 | 20 | Hygiene after v1 | in progress | [`hygiene-after-v1`](specs/hygiene-after-v1/spec.md) |
-| 21 | A Binnacle mod for Claude Code | not started | — |
-| 22 | Showcase and launch | not started | — |
-| 23 | Cheaper runs | not started | — |
-| 24 | Binnacle's own planning skills | not started | — |
+| 21 | Hygiene after 0.4.0 | not started | — |
+| 22 | A Binnacle mod for Claude Code | not started | — |
+| 23 | Binnacle in a dev container | not started | — |
+| 24 | Showcase and launch | not started | — |
+| 25 | Cheaper runs | not started | — |
+| 26 | Binnacle's own planning skills | not started | — |
+| 27 | The agents' configuration in the audit | not started | — |
 
 ## Epics
 
-After v1, cut from the product inbox on 2026-10-22; what epics 1 to 19 contain is in `docs/05-mvp-plan.md`.
+After v1, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28; what epics 1 to 19 contain is in `docs/05-mvp-plan.md`.
 
 - **20 Hygiene after v1**: the roadmap's derived state written without a yes, a shared sanitizer for manifest text, a session named so a person knows it, the wording left after epic 13, the daemon reporting its own version, and `/binnacle:roadmap` reading the product inbox; whether TypeScript 7 belongs here is the grilling's to decide. Small enough for autopilot.
-- **21 A Binnacle mod for Claude Code**: a status line, a *Waiting for you* band, a pane and toasts, read-only and off by default; an ADR first. Taken early, by the owner, 2026-10-22.
-- **22 Showcase and launch**: what a visitor from a post sees and where Binnacle can be found: the repository's description and topics, a demo and screenshots of the dashboard in the README, listings in the Claude plugin marketplace, MCP directories and awesome lists, npm keywords, a write-up from Binnacle's own usage data, and a launch checklist. The posts themselves are the owner's. After the mod, so its pane and status line can be shown (the owner, 2026-10-23).
-- **23 Cheaper runs**: measure first, from Binnacle's own usage per role and per Task; then a model per ticket, review where it pays, ticket size by volume, autopilot reading no full diff, hard stops, review markers, classes of a red CI and stop reasons from facts; measure again. Before 24, so it runs cheaper.
-- **24 Binnacle's own planning skills**: grilling, a spec and tickets in place of Matt Pocock Skills, with requirements traced end to end, blind acceptance, a depth checklist, a red proof, tests-first, delivery signals, a check owned by a role that can perform it, and the modules a ticket expects to touch for the conflict risk.
+- **21 Hygiene after 0.4.0**: `/binnacle:task` taking a ticket's path, and whether the snapshot flags a `Next action:` naming no known Task; the Russian wording left after epic 20 (a pair's conflict-risk reason and a failed Graphify run's output marked `(англ.)`, one spelling of "пулл-реквест", a reason's capital after a dash); the context-pressure item's start as the session's, with its date; a context-pressure threshold that follows the session's model, and whether the dashboard sets it, narrowing ADR-0041, is the grilling's to decide; a trap as a sixth checkpoint target. Small enough for autopilot.
+- **22 A Binnacle mod for Claude Code**: a status line, a *Waiting for you* band, a pane and toasts, and a `SessionStart` hook adding two or three lines from the snapshot, read-only and off by default; an ADR first. Taken early, by the owner, 2026-10-22.
+- **23 Binnacle in a dev container**: a bind address and the allowed `Host` values set by the user, with the token and the `Origin` check unchanged, an ADR first; a guide in both languages for Binnacle inside each app container, its port published on the host's loopback only, with its footprint measured; whether one dashboard lists other daemons is the grilling's to weigh against principle 3 and ADR-0020. Before the launch, so a visitor who works in containers is answered.
+- **24 Showcase and launch**: what a visitor from a post sees and where Binnacle can be found: the repository's description and topics, a demo and screenshots of the dashboard in the README, listings in the Claude plugin marketplace, MCP directories and awesome lists, npm keywords, a write-up from Binnacle's own usage data, and a launch checklist. The posts themselves are the owner's. After the mod, so its pane and status line can be shown (the owner, 2026-10-23).
+- **25 Cheaper runs**: measure first, from Binnacle's own usage per role and per Task; then a model per ticket, review where it pays, ticket size by volume, autopilot reading no full diff, hard stops, review markers, classes of a red CI and stop reasons from facts; measure again. Before 26, so it runs cheaper.
+- **26 Binnacle's own planning skills**: grilling, a spec and tickets in place of Matt Pocock Skills, with requirements traced end to end, blind acceptance, a depth checklist, a red proof, tests-first, delivery signals, a check owned by a role that can perform it, the modules a ticket expects to touch for the conflict risk, and tests on the skills and instruction files themselves.
+- **27 The agents' configuration in the audit**: a read-only audit area for what drives the agents: `.mcp.json` and each harness's MCP settings, hooks and the commands they run, permission modes that skip approval, secrets in instruction files and skills, and MCP servers that differ between a project's harnesses.
 
 Epics are ordered by dependency, not by preference:
 
@@ -59,7 +65,7 @@ Done: epics 1 to 19. **v1 is complete.**
 
 **Epic 20 in progress**: tickets 01 to 08 merged by autopilot on 2026-10-25; the workspace on TypeScript 7, the dashboard held on 5.x until `vue-tsc` runs on 7; pull request #4 closed. Left: ticket 09, the exit demonstration and 0.4.0, the owner's.
 
-Next: epics 21 to 24, cut from the product inbox on 2026-10-22 and 2026-10-23.
+Next: epics 21 to 27, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28.
 
 Next action: do epic 20's exit demonstration and release 0.4.0, `docs/specs/hygiene-after-v1/issues/09-hygiene-exit-demonstration.md`. `/binnacle:task run docs/specs/hygiene-after-v1/issues/09-hygiene-exit-demonstration.md`
 

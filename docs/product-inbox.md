@@ -4,7 +4,7 @@ Ideas the owner wants a Product session to weigh. None is decided: each goes to 
 
 ## Traced requirements, blind acceptance and cheaper runs (2026-10-09)
 
-**Planned on 2026-10-22:** ideas 1 and 2, and items 4 and 6 below, into epic 24; items 1, 2, 3, 5 and 8 into epic 23; item 7 into epic 21.
+**Planned on 2026-10-22:** ideas 1 and 2, and items 4 and 6 below, into epic 26; items 1, 2, 3, 5 and 8 into epic 25; item 7 into epic 22.
 
 Two ideas could close a gap here, where a spec's link to its brief and its tickets is prose:
 
@@ -28,7 +28,7 @@ Not to take: rounds of questions (the owner grills one question at a time), para
 
 ## A Binnacle mod for Claude Code (2026-10-11)
 
-**Planned as epic 21 on 2026-10-22.**
+**Planned as epic 22 on 2026-10-22.**
 
 **Decided by the owner on 2026-10-11: after the release**, in the roadmap's *Later*; kept here for its grilling.
 
@@ -43,7 +43,7 @@ Read-only and silent without the daemon; Claude Code only, beside the skills (AD
 
 ## Binnacle's own planning skills (2026-10-11)
 
-**Planned as epic 24 on 2026-10-22.**
+**Planned as epic 26 on 2026-10-22.**
 
 Planning runs on Matt Pocock Skills today: `/grill-with-docs`, `/to-spec` and `/to-tickets`, which `binn init` installs and the workflow depends on (ADR-0035). They are good and maintained, but the owner hears from developers that not all of them like these skills. After the release, Binnacle could ship its own skills for the same chain, written for its formats: grilling against the Project Brain, a spec, tickets with `Roles:`, dependencies and criteria, and whatever else planning needs. Not now: Matt Pocock Skills stay for v1. The owner, 2026-10-12, grilling epic 19: Binnacle should not ask its users to run someone else's skills for its own work. The ticket command comes first, `/binnacle:task run` in epic 19; planning follows after the release.
 
@@ -51,7 +51,7 @@ The course "Один как команда" already tells participants that plan
 
 ## A smarter conflict risk (2026-10-12)
 
-**Planned into epic 24 on 2026-10-22**, where `/to-tickets` is replaced.
+**Planned into epic 26 on 2026-10-22**, where `/to-tickets` is replaced.
 
 The conflict risk beside the parallel limit reads a ready Task's modules only from the file names its ticket writes (`conflictRisk`, `packages/core/src/impact.ts`). Epic 19's tickets name commands and behaviour, not files, so every pair came out `unknown` and autopilot ran them one after the other. A new project gets the opposite: with no graph `impact` is unavailable, the number alone decides, and every ready ticket runs side by side whatever it touches. Neither is right.
 
@@ -65,7 +65,9 @@ Ways to weigh:
 
 ## Stricter autopilot and review (2026-10-15)
 
-**Planned on 2026-10-22:** ideas 1, 7 and 8 into epic 24; ideas 2, 3, 6, 9 and 12 into epic 23. Ideas 4, 5, 10 and 11 wait here.
+**Planned on 2026-10-22:** ideas 1, 7 and 8 into epic 26; ideas 2, 3, 6, 9 and 12 into epic 25.
+
+**Planned on 2026-10-28:** idea 5 into epic 26. Ideas 4, 10 and 11 wait here.
 
 Ideas to weigh, most useful first:
 
@@ -86,9 +88,11 @@ Not to take: running without a human by default, which ADR-0022 rules out; and a
 
 ## Session start, agent configuration and traps (2026-10-23)
 
+**Planned on 2026-10-28:** idea 1 into epic 22, idea 2 as epic 27, idea 3 into epic 21.
+
 Three ideas, each to be built Binnacle's way:
 
-1. **Where the project stands, at a session's start.** A fresh session knows nothing until someone runs `/binnacle:product`. A `SessionStart` hook in the `binnacle` plugin could add two or three lines from the snapshot: the current epic, what waits for the owner, and the Next action with its command. Bounded in size, silent without the daemon, and off with one setting; progressive disclosure, not the whole snapshot. A candidate for epic 21.
+1. **Where the project stands, at a session's start.** A fresh session knows nothing until someone runs `/binnacle:product`. A `SessionStart` hook in the `binnacle` plugin could add two or three lines from the snapshot: the current epic, what waits for the owner, and the Next action with its command. Bounded in size, silent without the daemon, and off with one setting; progressive disclosure, not the whole snapshot. A candidate for epic 22.
 2. **The agent's own configuration in `binn audit`.** The audit reads the project's code, secrets and supply chain, not what drives the agents: `.mcp.json` and each harness's MCP settings, hooks and the commands they run, permission modes that skip approval, and secrets or tokens written into `AGENTS.md`, `CLAUDE.md` or a skill. A new area, read-only as every audit check, which also reports when the harnesses of one project register different MCP servers. Not planned: epic 20 left it out (its spec's `## Risks`).
 3. **A trap as a checkpoint target.** `/binnacle:checkpoint` promotes a term, a trade-off, new work, a product rule or the position. A sixth kind has no place: a non-obvious fact that already cost time, such as a command that must run before another or a version pin. It belongs in the instruction file, `AGENTS.md`, one line each, written on the owner's yes like every promotion. Not planned yet.
 
@@ -96,13 +100,15 @@ Not to take: a catalogue of hundreds of skills and agents, learned "instincts" i
 
 ## Showcase and launch (2026-10-23)
 
-**Planned as epic 22 on 2026-10-23**, after the mod (the owner).
+**Planned as epic 24 on 2026-10-23**, after the mod (the owner).
 
 Binnacle has 4 stars on 2026-10-23, and its repository has no description, no topics and no image in the README: a visitor from a post sees a wall of text. Projects of its kind grow through a storefront that shows the tool in seconds, launch posts close together (GitHub's trending list counts stars over a day or two), listings where people look for tools, and write-ups with real data. Binnacle's own usage data is the material others do not have: what 220 tickets cost and where the tokens went.
 
 The epic is what the repository can carry: the description and topics, a demo and dashboard screenshots in the README, the Claude plugin marketplace, MCP directories, awesome lists, npm keywords, a write-up and a launch checklist. Posting on Reddit, Hacker News, X, Habr and Telegram is the owner's. A subreddit of its own waits until users ask questions; until then GitHub Discussions is the place for them.
 
 ## A context-pressure threshold per model, set from the dashboard (2026-10-24)
+
+**Planned into epic 21 on 2026-10-28.**
 
 The `context.pressure` threshold is one number per project, `telemetry.context_pressure.tokens`, 150 000 where the manifest writes none. Binnacle works with any harness and model, and their context windows differ: 150 000 is close to the edge of a 200K window and early for a much larger one. A Claude Code Product session on this repository already reads about 85 000 tokens in its first call, before any work. The owner wants the threshold to follow the session's model, and to change it from the dashboard's Settings page rather than by editing a file.
 
@@ -116,7 +122,7 @@ To decide: per model, a share, or both; whether the threshold belongs to the mac
 
 ## A first reader's path to installing (2026-10-24)
 
-**Planned into epic 22 on 2026-10-24.**
+**Planned into epic 24 on 2026-10-24.**
 
 A developer who studied Binnacle before installing it read the docs written for agents, found them long, and set about working out a way of his own to install it, in Docker, before trying the one command the README gives. He asked whether the daemon takes port 80 and whether a project's paths would break in a container. What it shows:
 
@@ -127,6 +133,8 @@ A developer who studied Binnacle before installing it read the docs written for 
 
 ## Left after epic 20's tickets (2026-10-25)
 
+**Planned on 2026-10-28:** the first three items, the Russian wording and the context-pressure item's start, into epic 21.
+
 Found while epic 20's tickets ran, for the exit demonstration or a later epic:
 
 - Two reasons with no code still reach a Russian vault marked `(англ.)`: a pair's conflict-risk reason and the output of a failed Graphify run.
@@ -136,6 +144,8 @@ Found while epic 20's tickets ran, for the exit demonstration or a later epic:
 - `binn mcp` reads the caller's session once, at start; whether Claude Code keeps the id across `/clear` or `--resume` is for the exit demonstration.
 
 ## Binnacle in a dev container (2026-10-25)
+
+**Planned as epic 23 on 2026-10-28.**
 
 **A candidate for the next epic, or a ticket of its own** (2026-10-26): the developer below ran it in a container by patching the code, so the bind address is a real block, not a wish.
 
@@ -148,6 +158,8 @@ A developer who keeps every project's development, its harness included, in a co
 - **The footprint**: one daemon read about 160 MB of memory with five projects, and its home about 59 MB, on the owner's machine; twenty running at once is a cost worth stating in the guide, measured, not assumed.
 
 ## The ticket brief takes a ticket's path (2026-10-28)
+
+**Planned into epic 21 on 2026-10-28.**
 
 `/binnacle:task <ticket path>` without `run` fails with "no Task": the brief passes its argument to `task_get` as it is, and `findTask` (`apps/daemon/src/task.ts`) knows only `<spec-slug>/<NN>` and `#<number>`. With `run`, the skill turns the path into the id itself, so the same path works there. The owner met it twice, the second time on 2026-10-28 from a `Next action:` the checkpoint of 2026-10-25 had written without `run`.
 
