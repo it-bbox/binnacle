@@ -189,7 +189,7 @@ describe('the task brief on the local tracker', () => {
       const root = makeProject();
       write(root, 'docs/specs/epic/issues/03-build-the-thing.md', ticketText('03: Build the thing', ['Status: READY'], 'Body.'));
       const ticket = 'docs/specs/epic/issues/03-build-the-thing.md';
-      for (const id of [ticket, join(root, ticket), 'epic/issues/03-build-the-thing.md', 'epic/3']) {
+      for (const id of [ticket, join(root, ticket), 'epic/issues/03-build-the-thing.md', 'docs\\specs\\epic\\issues\\03-build-the-thing.md', 'epic/3']) {
         const result = await taskGet(daemon, root, id);
         assert.equal(result.status, 200, id);
         assert.equal(result.body.id, 'epic/03', id);
