@@ -855,6 +855,7 @@ test('/binnacle:checkpoint promotes a trap into the root instruction file, as it
   const TRAP = /- `trap`: a non-obvious fact that already cost time, such as a command that must run before another or a version pin, which goes into the project's instruction file at the root as one line\./;
   const three = step(skillText('checkpoint'), 3);
   assert.match(three, /one of the six `targets`/);
+  assert.match(step(skillText('checkpoint'), 1), /specs, roadmap and root instruction file, `AGENTS\.md` else `CLAUDE\.md`:/);
   assert.match(three, TRAP);
   const dir = mkdtempSync(join(tmpdir(), 'binnacle-skills-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));

@@ -25,7 +25,7 @@ export type PromotionTarget = { type: PromotionType; path: string | null };
  * the roadmap is `<knowledge.docs>/roadmap.md` whatever the tracker (ADR-0025). A trap goes
  * into the root instruction file in `project`, the caller's checkout: `AGENTS.md` when it
  * exists, else `CLAUDE.md`. A `CLAUDE.md` importing `AGENTS.md` is one set with it
- * (`instructionSets`), so it names `AGENTS.md`, which every harness reads.
+ * (`instructionSets`), so it names `AGENTS.md`, which Claude Code reads through the import.
  */
 export function promotionTargets(manifest: ProjectManifest | null, project: string): PromotionTarget[] {
   const local = manifest?.tracker.provider === 'local';
