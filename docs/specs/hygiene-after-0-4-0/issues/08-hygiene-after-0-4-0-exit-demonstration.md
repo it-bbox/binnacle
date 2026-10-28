@@ -9,10 +9,10 @@ Spec: `docs/specs/hygiene-after-0-4-0/spec.md`
 
 - [x] `/binnacle:task` with a ticket's path, without `run`, gives that Task's brief.
 - [x] A Task whose branch is merged with `git merge` leaves the Tasks in flight, and the Suggested step does not wait for it.
-- [ ] A context-pressure warning names its session's own start and the threshold for its model, a number set on the Settings page.
+- [x] A context-pressure warning names its session's own start and the threshold for its model, a number set on the Settings page.
 - [x] The vault in Russian has no `(англ.)` for a pair or a failed Graphify run, and says "пулл-реквесты".
-- [ ] In an interactive Claude Code session, after `/clear` and after `--resume`, the warning says "this" or "another" only where it is true.
-- [ ] `/binnacle:checkpoint` proposes a trap for a fact that cost time in the session, and writes it to `AGENTS.md` only on the owner's yes.
+- [x] In an interactive Claude Code session, after `/clear` and after `--resume`, the warning says "this" or "another" only where it is true.
+- [x] `/binnacle:checkpoint` proposes a trap for a fact that cost time in the session, and writes it to `AGENTS.md` only on the owner's yes.
 - [ ] The CLI package's version is 0.5.0; 0.5.0 published by `CONTRIBUTING.md`'s *Releasing* and installed from the registry into a clean container, where `binn daemon status` gives 0.5.0.
 
 ## Comments
@@ -46,6 +46,9 @@ The branch merged into `main` with `git merge --no-ff` (`7a97c27`) while this ti
 
 - **Criterion 1** holds (the owner, 2026-10-28): in a fresh session, `/binnacle:task` with this ticket's path opened with `hygiene-after-0-4-0/08`, its title, `READY`, `ready-for-human`, its epic, all seven dependencies met and no question, and offered the ticket, roles, dependencies, spec, Review and branch; nothing changed in the checkout.
 - **Criterion 2** holds (the owner, 2026-10-28): `/binnacle:product` in a fresh Product session put `hygiene-after-0-4-0/08` under *Waiting for the owner* as a Task the owner starts, not under *In progress*, although this ticket's runs were on its branch; the Suggested step named it as the owner's and did not say to wait for its run. Beside it, the context-pressure warning named a Product session started at 18:39 at 154 278 tokens over the default 150 000, with neither "this" nor "another", as `binn mcp` sends no session.
+- **Criterion 3** holds (the owner, 2026-10-28): with `claude-opus-5-5`'s threshold set to 30 000 on the Settings page, `/binnacle:product` in a second session, in a Russian chat, warned about the Product session started at 19:18, which had more than one run, at 135 653 tokens over 30 000 for `claude-opus-5-5`, by its first start, not its latest run's; today's, so undated. No `(англ.)`, and "пулл-реквест" the one spelling.
+- **Criterion 5** holds (the owner, 2026-10-28), ticket 06's script in an interactive Claude Code session at a terminal, with that threshold. Step 1: `/binnacle:product` called the session "this" one; the agent read that from its own scratchpad path, as the MCP tools carry no `own`, and it was true. Step 2: `binn call project_snapshot` gave `own: true` for that session (`2f121931…`) and `false` for the other. Step 3: after `/clear` the id was `684af0f7…`, and the item naming `2f121931…` had `own: false`. Step 4: after `claude --resume 2f121931…`, `own: true` again. The threshold then went back to 250 000, the value before the demonstration, not 100 000, which had been set for a test.
+- **Criterion 6** holds (the owner, 2026-10-28), in a Product session: `binn daemon status | grep version` found nothing under `ru_RU`, worked around with `LC_ALL=C`; `binn daemon status --help` failed as an unknown command, worked around with `binn --help`. `/binnacle:checkpoint`, run twice, proposed each as one line for `AGENTS.md` and wrote nothing until the owner's yes; both answers were yes, so the no was not tried; the lines are in `main`'s `AGENTS.md`, `4060f10` and `e04b4a5`.
 
 ### For the `/clear` and `--resume` criterion (from ticket 06)
 
