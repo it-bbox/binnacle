@@ -29,7 +29,7 @@ Epics 1 to 19 are v1.
 | 17 | Release: npm and open source | done | [`release`](specs/release/spec.md) |
 | 18 | Lean flow | done | [`lean-flow`](specs/lean-flow/spec.md) |
 | 19 | Starting a project: new and existing | done | [`starting-a-project`](specs/starting-a-project/spec.md) |
-| 20 | Hygiene after v1 | in progress | [`hygiene-after-v1`](specs/hygiene-after-v1/spec.md) |
+| 20 | Hygiene after v1 | done | [`hygiene-after-v1`](specs/hygiene-after-v1/spec.md) |
 | 21 | Hygiene after 0.4.0 | not started | — |
 | 22 | A Binnacle mod for Claude Code | not started | — |
 | 23 | Binnacle in a dev container | not started | — |
@@ -59,7 +59,7 @@ Epics are ordered by dependency, not by preference:
 
 ## Current focus
 
-Done: epics 1 to 19. **v1 is complete.**
+Done: epics 1 to 20. **v1 is complete.**
 
 **Released** (the owner): `@it-bbox/binnacle` 0.1.0 on 2026-10-13, with `it-bbox/binnacle` public, private vulnerability reporting and Dependabot alerts on; 0.2.0, epic 12, on 2026-10-21; 0.3.0, epic 13, on 2026-10-22, the last of v1, installed from the registry into a clean container (`specs/human-output/issues/11-human-output-exit-demonstration.md`).
 
