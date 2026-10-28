@@ -54,6 +54,7 @@ import {
 import { OperationError } from './errors.ts';
 import { resolveGitTimeout, trackerToken, type ArtifactRoots } from './home.ts';
 import { readManifest } from './manifest.ts';
+import { machinePressureThresholds } from './settings.ts';
 import type { OperationContext } from './operations.ts';
 import { containingEntry, readRegistry } from './registry.ts';
 import { limited, readRoadmap, readTracker, SECTION_LIMIT, trackerUnavailable, type Unavailable } from './snapshot.ts';
@@ -68,9 +69,6 @@ export const INGEST_BUDGET_MS = 1000;
 
 /** How long a Claude Code file must go unwritten before its last message is taken as finished. */
 export const SETTLED_AFTER_MS = 60_000;
-
-/** The context, in tokens, from which an active Product session raises `context.pressure` when the manifest states none. */
-export const DEFAULT_PRESSURE_TOKENS = 150_000;
 
 /** Why opencode never reaches level 4, which `binn init` and `binn audit` say too: it has no export to point at the daemon. */
 export const OPENCODE_NO_EXPORT = 'opencode documents no OpenTelemetry export, so Binnacle counts it only from its database, each call once it has finished';
@@ -230,7 +228,7 @@ export async function usageAndActivity(
   const today = week.filter((record) => record.timestamp >= since);
   let attributed: Pick<Usage, 'tasks' | 'unassigned' | 'byRole'>;
   let activity: Activity | Unavailable;
-  const pressureOf = contextPressures(all, context.store.compactions(projectPath));
+  const { pressureOf, modelOf } = contextPressures(all, context.store.compactions(projectPath));
   // Without the tracker no run is a Task's, but a Product session is still the default branch's.
   const observed = (await runs(all, projectPath, Array.isArray(tasks) ? tasks : [], context.home, manifest, checkouts)).runs;
   if (Array.isArray(tasks)) {
@@ -241,7 +239,15 @@ export async function usageAndActivity(
     attributed = { tasks, unassigned: tasks, byRole: tasks };
     activity = tasks;
   }
-  const threshold = manifest?.telemetry.contextPressure.tokens ?? DEFAULT_PRESSURE_TOKENS;
+  // The manifest's number wins for its project, so the machine's thresholds are read only without it (ADR-0046).
+  const own = manifest?.telemetry.contextPressure.tokens ?? null;
+  const machine = own === null ? machinePressureThresholds(context.home) : null;
+  const thresholdOf = (model: string | null): Threshold => {
+    if (own !== null) return { tokens: own, source: 'manifest' };
+    const { tokens, models, source } = machine!.thresholds;
+    if (model !== null && Object.hasOwn(models, model)) return { tokens: models[model]!, source: 'model' };
+    return { tokens, source };
+  };
   const checkpointAt = context.store.latestEvent(projectPath, ['checkpoint'])?.occurredAt ?? null;
 
   const byModel = grouped(week, 'model').map(([model, totals]) => ({ model, totals }));
@@ -260,7 +266,7 @@ export async function usageAndActivity(
     activity,
     runs: Array.isArray(tasks) ? observed : [],
     // A harness whose artifacts cannot be read is at level 1, and says why.
-    attention: [...HARNESSES.flatMap((entry) => failures[entry.harness] ?? []), ...pressureAttention(observed, pressureOf, threshold, checkpointAt, caller)],
+    attention: [...HARNESSES.flatMap((entry) => failures[entry.harness] ?? []), ...(machine?.attention ?? []), ...pressureAttention(observed, pressureOf, modelOf, thresholdOf, checkpointAt, caller)],
   };
 }
 
@@ -282,8 +288,14 @@ const sessionKey = ({ harness, sessionId, subagentId }: Session): string => [har
 /** A session's context pressure, as `contextPressures` reads it. */
 type PressureOf = (session: Session) => ContextPressure;
 
-/** Each session's context pressure among `records`, every one stored, and `markers`, oldest first. */
-function contextPressures(records: UsageRecord[], markers: CompactionMarker[]): PressureOf {
+/**
+ * The threshold a session is warned at, and where it comes from: the manifest's number, the
+ * machine's for the model of its latest call, the machine's default, or 150 000 (ADR-0046).
+ */
+type Threshold = { tokens: number; source: 'manifest' | 'model' | 'machine' | 'default' };
+
+/** Each session's context pressure among `records`, every one stored, and `markers`, oldest first, and the model of its latest call. */
+function contextPressures(records: UsageRecord[], markers: CompactionMarker[]): { pressureOf: PressureOf; modelOf: (session: Session) => string | null } {
   const latest = new Map<string, UsageRecord>();
   for (const record of records) {
     const known = latest.get(sessionKey(record));
@@ -297,7 +309,7 @@ function contextPressures(records: UsageRecord[], markers: CompactionMarker[]): 
     if (seen) seen.push(marker);
     else compactions.set(sessionKey(marker), [marker]);
   }
-  return (session) => {
+  const pressureOf: PressureOf = (session) => {
     const call = latest.get(sessionKey(session));
     const tokens = call === undefined ? null : callContext(call);
     const seen = compactions.get(sessionKey(session)) ?? [];
@@ -308,11 +320,12 @@ function contextPressures(records: UsageRecord[], markers: CompactionMarker[]): 
       compactions: { count: seen.length, latest: last === undefined ? null : { at: last.timestamp, trigger: last.trigger, provenance: last.provenance } },
     };
   };
+  return { pressureOf, modelOf: (session) => latest.get(sessionKey(session))?.model ?? null };
 }
 
 /**
  * One `context.pressure` item per active Product session, a main session on the default
- * branch, whose latest call read at least `threshold` tokens of context, or whose latest
+ * branch, whose latest call read at least the threshold for its model, `thresholdOf`, or whose latest
  * compaction is after `checkpointAt`, the project's last recorded checkpoint, or at all when
  * none was recorded. It names the session by its start, its earliest run's, and its Product
  * run's latest activity, as this one or another when `caller`, the session that asked, is
@@ -321,7 +334,8 @@ function contextPressures(records: UsageRecord[], markers: CompactionMarker[]): 
 function pressureAttention(
   observed: (ObservedRun & { records: RunRecord[] })[],
   pressureOf: PressureOf,
-  threshold: number,
+  modelOf: (session: Session) => string | null,
+  thresholdOf: (model: string | null) => Threshold,
   checkpointAt: string | null,
   caller: string | undefined,
 ): Diagnostic[] {
@@ -336,7 +350,9 @@ function pressureAttention(
     const session = run.records[0]!;
     if (run.role !== 'product' || !run.active.value || session.subagentId !== null || raised.has(sessionKey(session))) continue;
     const pressure = pressureOf(session);
-    const crossed = pressure?.context != null && pressure.context.tokens >= threshold;
+    const model = modelOf(session);
+    const threshold = thresholdOf(model);
+    const crossed = pressure?.context != null && pressure.context.tokens >= threshold.tokens;
     const compaction = pressure?.compactions.latest;
     const compacted = compaction != null && (checkpointAt === null || compaction.at > checkpointAt);
     if (!crossed && !compacted) continue;
@@ -346,9 +362,9 @@ function pressureAttention(
     const params: Params = { session: session.sessionId, harness: name, startedAt, lastActivityAt: run.lastActivityAt };
     if (caller !== undefined) params.own = caller === session.sessionId;
     if (pressure?.context) {
-      reasons.push(`read ${pressure.context.tokens} tokens of context in its latest call${crossed ? `, at least telemetry.context_pressure.tokens, ${threshold}` : ''}`);
+      reasons.push(`read ${pressure.context.tokens} tokens of context in its latest call${crossed ? `, at least ${THRESHOLD_NAMES[threshold.source](model)}, ${threshold.tokens}` : ''}`);
       params.tokens = pressure.context.tokens;
-      if (crossed) params.threshold = threshold;
+      if (crossed) Object.assign(params, { threshold: threshold.tokens, thresholdSource: threshold.source }, model !== null && { model });
     }
     if (compacted) {
       const since = checkpointAt === null ? 'and no checkpoint has been recorded' : `after the last checkpoint at ${checkpointAt}`;
@@ -365,6 +381,14 @@ function pressureAttention(
   }
   return [...raised.values()];
 }
+
+/** A threshold as the `context.pressure` message names it, by its source. */
+const THRESHOLD_NAMES: Record<Threshold['source'], (model: string | null) => string> = {
+  manifest: () => 'telemetry.context_pressure.tokens',
+  model: (model) => `the threshold for ${model} on this machine`,
+  machine: () => "this machine's default threshold",
+  default: () => 'the default threshold',
+};
 
 /** `records` totalled by `key`, largest first, then by key. */
 function grouped(records: UsageRecord[], key: 'model' | 'provider'): [string | null, Totals][] {
@@ -555,7 +579,7 @@ export async function usageGet(
     return { importing, epic, totals: sum(counted), ...byTask(attributed, scoped, limit), byRole: byRole(attributed, ROLES), derived };
   }
 
-  const pressureOf = contextPressures(records, context.store.compactions(projectPath));
+  const { pressureOf } = contextPressures(records, context.store.compactions(projectPath));
   // Runs come oldest first.
   const own = every.filter((run) => run.taskId === found.task.id).reverse();
   return {
@@ -700,6 +724,30 @@ export function usageLimitInformer(context: OperationContext): UsageLimitInforme
       .map((limit) => ({ at: limit.timestamp, harness: limit.harness, limit: limit.limit, active: activeAt(limit), provenance: 'calculated' })),
     notReporting: [...harnesses].filter((harness) => !RECORDS_USAGE_LIMITS.includes(harness)).sort(),
   };
+}
+
+/**
+ * Beside the machine's context-pressure thresholds (ADR-0046): the models of every registered
+ * project's stored records over the last seven days, sorted, for the Settings page to offer, and
+ * the projects whose manifest sets `telemetry.context_pressure.tokens`, which wins over them
+ * there. It reads what is stored and starts no import; a manifest that cannot be read overrides nothing.
+ */
+export function pressureInformer(context: OperationContext): { recentModels: string[]; overrides: { path: string; name: string; tokens: number }[] } {
+  const since = localMidnight(6).toISOString();
+  const models = new Set<string>();
+  const overrides: { path: string; name: string; tokens: number }[] = [];
+  for (const { path } of readRegistry(context.home)) {
+    for (const record of context.store.usage(path, since)) if (record.model !== null) models.add(record.model);
+    let manifest: ProjectManifest | null = null;
+    try {
+      manifest = readManifest(path).manifest;
+    } catch {
+      // Nothing to override with.
+    }
+    const tokens = manifest?.telemetry.contextPressure.tokens ?? null;
+    if (tokens !== null) overrides.push({ path, name: manifest!.project.name ?? manifest!.project.id, tokens });
+  }
+  return { recentModels: [...models].sort((a, b) => a.localeCompare(b, 'en')), overrides };
 }
 
 /**

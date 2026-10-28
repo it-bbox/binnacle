@@ -9,7 +9,7 @@ import { WORDED_CODES, wordMessage, type Params } from '../src/index.ts';
  */
 
 /** Values the wording maps to Russian, or leaves out, rather than passing through as written. */
-const MAPPED = new Set(['kind', 'token', 'what', 'got', 'entity', 'warning', 'need', 'session', 'startedAt', 'lastActivityAt', 'own', 'from', 'otherFrom', 'neighbours', 'reason']);
+const MAPPED = new Set(['kind', 'token', 'what', 'got', 'entity', 'warning', 'need', 'session', 'startedAt', 'lastActivityAt', 'own', 'from', 'otherFrom', 'neighbours', 'reason', 'thresholdSource', 'field']);
 
 /** A session's times, as the daemon gives them. */
 // Fifteen minutes around noon UTC, the same local day in every time zone.
@@ -153,6 +153,10 @@ const EXAMPLES: [string, Params][] = [
   ['context.pressure', { ...SESSION, harness: 'Claude Code', tokens: 180000, threshold: 150000, own: false }],
   ['context.pressure', { ...SESSION, harness: 'Codex', at: '2026-10-21T10:00:00Z', trigger: 'auto', checkpoint: '2026-10-20T10:00:00Z' }],
   ['context.pressure', { ...SESSION, harness: 'Claude Code', tokens: 90000, at: '2026-10-21T10:00:00Z' }],
+  ['context.pressure', { ...SESSION, harness: 'Claude Code', tokens: 180000, threshold: 150000, thresholdSource: 'manifest' }],
+  ['context.pressure', { ...SESSION, harness: 'Claude Code', tokens: 180000, threshold: 150000, thresholdSource: 'model', model: 'claude-opus-5-5' }],
+  ['context.pressure', { ...SESSION, harness: 'Claude Code', tokens: 180000, threshold: 150000, thresholdSource: 'machine' }],
+  ['context.pressure', { ...SESSION, harness: 'Claude Code', tokens: 180000, threshold: 150000, thresholdSource: 'default' }],
   ['next.alternative', { kind: 'wait', task: 'a/01 (One)' }],
   ['next.alternative', { kind: 'wait', tasks: 'a/01 (One), a/02 (Two)' }],
   ['next.alternative', { kind: 'parallel', task: 'a/03 (Three)' }],
@@ -175,6 +179,12 @@ const EXAMPLES: [string, Params][] = [
   ['parallel_limit.invalid', { kind: 'value', max: 16, got: '17' }],
   ['parallel_limit.invalid', { kind: 'value', max: 16, got: '-1.5' }],
   ['parallel_limit.invalid', { kind: 'value', max: 16, got: 'a string other than "auto"' }],
+  ['context_pressure.invalid', { kind: 'file', file: '/home/u/.binnacle/settings.json', tokens: 150000 }],
+  ['context_pressure.invalid', { kind: 'setting', file: '/home/u/.binnacle/settings.json', min: 1000, max: 200, tokens: 150000 }],
+  ['context_pressure.invalid', { kind: 'value', min: 1000, max: 200, field: 'tokens', got: '999' }],
+  ['context_pressure.invalid', { kind: 'value', min: 1000, max: 200, field: 'models', got: 'a list' }],
+  ['context_pressure.invalid', { kind: 'value', min: 1000, max: 200, field: 'model', got: 'null' }],
+  ['context_pressure.invalid', { kind: 'value', min: 1000, max: 200, field: 'name' }],
   ['settings.unreadable', { file: '/home/u/.binnacle/settings.json' }],
   ['vault.unwritable', { kind: 'settings', file: '/home/u/.binnacle/settings.json' }],
   ['vault.unwritable', { kind: 'path', file: '/home/u/.binnacle/settings.json' }],
@@ -279,6 +289,16 @@ describe("core's Russian wording", () => {
     const started = new Date(yesterday.startedAt);
     const date = `${started.getFullYear()}-${String(started.getMonth() + 1).padStart(2, '0')}-${String(started.getDate()).padStart(2, '0')}`;
     assert.match(russian('context.pressure', yesterday), new RegExp(`, начатая в ${date} ${clock(yesterday.startedAt)}, последняя активность в ${clock(yesterday.lastActivityAt)},`));
+    // The threshold named by its source (ADR-0046).
+    const named = (thresholdSource: string, model?: string): string => russian('context.pressure', { ...pressure, thresholdSource, ...(model && { model }) });
+    assert.match(named('manifest'), /, не меньше порога в 150000 токенов из telemetry\.context_pressure\.tokens\./);
+    assert.match(named('model', 'claude-opus-5-5'), /, не меньше порога в 150000 токенов для claude-opus-5-5 на этой машине\./);
+    assert.match(named('machine'), /, не меньше порога этой машины по умолчанию в 150000 токенов\./);
+    assert.match(named('default'), /, не меньше порога по умолчанию в 150000 токенов\./);
+    assert.equal(
+      russian('context_pressure.invalid', { kind: 'value', min: 1000, max: 200, field: 'model', got: '0' }),
+      'Пороги заполненности контекста — это tokens, порог по умолчанию, и models, число для каждого имени модели длиной от 1 до 200 символов; каждое — целое число не меньше 1000; 0 как число для модели не подходит.',
+    );
   });
 
   it('gives English, as the daemon wrote it, in English', () => {
@@ -310,6 +330,9 @@ describe("core's Russian wording", () => {
       ['context.pressure', { session: 's-1', harness: 'Claude Code', tokens: 180000 }],
       ['context.pressure', { ...SESSION, harness: 'Claude Code', tokens: 180000, startedAt: 'yesterday' }],
       ['context.pressure', { ...SESSION, harness: 'Claude Code', tokens: 180000, own: 'yes' }],
+      ['context.pressure', { ...SESSION, harness: 'Claude Code', tokens: 180000, threshold: 150000, thresholdSource: 'model' }],
+      ['context.pressure', { ...SESSION, harness: 'Claude Code', tokens: 180000, threshold: 150000, thresholdSource: 'table' }],
+      ['context_pressure.invalid', { kind: 'value', min: 1000, max: 200, field: 'everything', got: '0' }],
     ];
     for (const [code, params] of unusable) {
       assert.deepEqual(wordMessage('ru', { code, message: 'As written.', ...(params && { params }) }), { text: 'As written.', english: true }, `${code} ${JSON.stringify(params)}`);

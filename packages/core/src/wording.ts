@@ -136,6 +136,24 @@ const ENTITIES: Record<string, string> = { Task: 'задачи', AgentRun: 'за
 const NEXT_ACTION_SHAPE = 'абзац, который начинается с «Next action:» и заканчивается командой в обратных кавычках';
 
 const PARALLEL_RULE = (v: Values): string => `Лимит параллельной работы — целое число от 1 до ${v.s('max')} или "auto"`;
+const PRESSURE_RULE = (v: Values): string =>
+  `Пороги заполненности контекста — это tokens, порог по умолчанию, и models, число для каждого имени модели длиной от 1 до ${v.s('max')} символов; каждое — целое число не меньше ${v.s('min')}`;
+
+/** A `context.pressure` item's threshold, after «не меньше», by its source; as before sources were named when there is none. */
+const threshold = (v: Values): string => {
+  const tokens = counted(v.n('threshold'), ['токен', 'токена', 'токенов']);
+  if (v.o('thresholdSource') === null) return `порога в ${tokens}`;
+  return pick(
+    v,
+    {
+      manifest: () => `порога в ${tokens} из telemetry.context_pressure.tokens`,
+      model: () => `порога в ${tokens} для ${v.s('model')} на этой машине`,
+      machine: () => `порога этой машины по умолчанию в ${tokens}`,
+      default: () => `порога по умолчанию в ${tokens}`,
+    },
+    'thresholdSource',
+  );
+};
 
 /**
  * A failed Graphify run in words, the tool's own output quoted as its: what it wrote last
@@ -397,7 +415,7 @@ const RUSSIAN: Record<string, (v: Values) => string> = {
   'context.pressure': (v) => {
     const why: string[] = [];
     if (v.o('tokens') !== null) {
-      why.push(`прочитала ${counted(v.n('tokens'), ['токен', 'токена', 'токенов'])} контекста в последнем вызове${v.o('threshold') === null ? '' : `, не меньше порога в ${counted(v.n('threshold'), ['токен', 'токена', 'токенов'])}`}`);
+      why.push(`прочитала ${counted(v.n('tokens'), ['токен', 'токена', 'токенов'])} контекста в последнем вызове${v.o('threshold') === null ? '' : `, не меньше ${threshold(v)}`}`);
     }
     if (v.o('at') !== null) {
       const since = v.o('checkpoint') === null ? 'а чекпойнт не записан' : `после последнего чекпойнта в ${v.s('checkpoint')}`;
@@ -408,6 +426,24 @@ const RUSSIAN: Record<string, (v: Values) => string> = {
     const own = v.flag('own');
     const session = own === true ? 'Эта продуктовая сессия' : own === false ? 'Другая продуктовая сессия' : 'Продуктовая сессия';
     return `${session} в ${v.s('harness')}, начатая в ${times.started}, последняя активность в ${times.latest}, ${why.join(', а также ')}. Запустите /binnacle:checkpoint и продолжайте в новой сессии.`;
+  },
+  'context_pressure.invalid': (v) => {
+    const kinds: Record<string, () => string> = {
+      file: () => `${v.s('file')} не читается как JSON-объект, поэтому порог заполненности контекста — ${v.s('tokens')}.`,
+      setting: () => `${PRESSURE_RULE(v)}, а contextPressure в ${v.s('file')} не таков, поэтому порог — ${v.s('tokens')}.`,
+      value: () =>
+        `${PRESSURE_RULE(v)}; ${pick(
+          v,
+          {
+            tokens: () => `${shape(v, 'got')} для tokens не подходит`,
+            models: () => `${shape(v, 'got')} для models не подходит`,
+            model: () => `${shape(v, 'got')} как число для модели не подходит`,
+            name: () => `имя модели пустое или длиннее ${v.s('max')} символов`,
+          },
+          'field',
+        )}.`,
+    };
+    return pick(v, kinds);
   },
   'parallel_limit.invalid': (v) => {
     const kinds: Record<string, () => string> = {

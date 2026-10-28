@@ -59,7 +59,7 @@ export const storePath = (home: string): string => join(home, 'binnacle.db');
 /** Read-only tracker tokens, a JSON object keyed by host. Binnacle reads it and never writes it. */
 export const credentialsPath = (home: string): string => join(home, 'credentials.json');
 
-/** This machine's own settings, a JSON object the owner (or `binn init`) writes: `obsidian.vaultPath`, and `parallelLimit`, the one key the daemon writes (ADR-0041). */
+/** This machine's own settings, a JSON object the owner (or `binn init`) writes: `obsidian.vaultPath`, and `parallelLimit` and `contextPressure`, the keys the daemon writes (ADR-0041, ADR-0046). */
 export const settingsPath = (home: string): string => join(home, 'settings.json');
 
 /** The credentials file's key for a tracker: `tracker.host` as written, or the provider's default host. */

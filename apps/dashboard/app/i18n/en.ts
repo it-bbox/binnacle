@@ -325,7 +325,7 @@ export const en = {
   initNote: 'binn init sets up a missing manifest, asking before each write. A manifest with problems is fixed by hand.',
   parallelLimit: 'Parallel limit',
   parallelNote:
-    "How many Tasks autopilot works on at once on this machine: a number, or auto, which runs side by side every Task whose pairs are all at low conflict risk, up to 4, and one at a time when the risk cannot be assessed. Kept in this machine's Binnacle settings, the one setting the dashboard writes.",
+    "How many Tasks autopilot works on at once on this machine: a number, or auto, which runs side by side every Task whose pairs are all at low conflict risk, up to 4, and one at a time when the risk cannot be assessed. Kept in this machine's Binnacle settings, which the dashboard writes.",
   parallelNumber: 'A number',
   parallelAuto: 'Auto',
   parallelSave: 'Save',
@@ -335,6 +335,21 @@ export const en = {
   /** `limit` as `limitValue` reads it. */
   parallelNow: (limit: string, source: 'manifest' | 'machine' | 'default') => `Now ${limit}${source === 'default' ? ', the default' : ''}.`,
   parallelOverride: (limit: string) => `This project's manifest sets ${limit} in automation.max_parallel_development_tasks, which wins for it.`,
+  contextPressure: 'Context-pressure thresholds',
+  pressureNote:
+    "From how many tokens of context in its latest call an active Product session is warned to run a checkpoint: a model's own number, by the model's name, or else the default. Kept in this machine's Binnacle settings, beside the Parallel limit.",
+  /** The default as `context_pressure.get` gives it, and whether the machine sets it. */
+  pressureNow: (tokens: string, source: 'machine' | 'default') => `Default ${tokens}${source === 'default' ? ', Binnacle\'s own' : ''}.`,
+  pressureDefault: 'Default, in tokens',
+  pressureModel: 'Model',
+  pressureTokens: 'Tokens',
+  pressureNoModels: 'No model has a number of its own: every model takes the default.',
+  pressureNewModel: 'Model name',
+  pressureNewTokens: "The model's tokens",
+  pressureAdd: 'Add',
+  pressureRemove: (model: string) => `Remove ${model}`,
+  pressureUnsaved: 'Not saved yet.',
+  pressureOverrides: "These projects' manifests set telemetry.context_pressure.tokens, which wins for them, for every model:",
   carried: 'What this machine has carried',
   mostActive: 'Most runs active at once',
   noRunsCarried: 'No run is recorded in any registered project yet.',

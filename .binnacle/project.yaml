@@ -34,7 +34,5 @@ automation:
 
 telemetry:
   privacy: metadata
-  # A Claude Code Product session reads about 85 000 tokens in its first call; 250 000 leaves room for work (the owner, 2026-10-24).
-  context_pressure:
-    tokens: 250000
+  # No context_pressure: this machine's Settings page sets the thresholds per model (ADR-0046).
   # No import window: it is `binn init`'s question, and nobody has been asked it yet.

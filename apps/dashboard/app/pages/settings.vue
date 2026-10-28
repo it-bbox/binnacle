@@ -5,9 +5,10 @@ import { projectName, SELECTED_VIEW, type ParallelLimit, type ProjectRow } from 
 import { LANGUAGES, type Language } from '~/i18n';
 
 /**
- * The language, the machine's Parallel limit with what the machine has carried beside it, and
- * the selected project's and the daemon's settings to read. The Parallel limit is the one thing the page writes, through the daemon
- * (ADR-0041); the rest it only shows, each setting saying where it is changed (ADR-0020).
+ * The language, the machine's Parallel limit with what the machine has carried beside it, its
+ * context-pressure thresholds, and the selected project's and the daemon's settings to read. The
+ * Parallel limit (ADR-0041) and the thresholds (ADR-0046) are the two things the page writes,
+ * through the daemon; the rest it only shows, each setting saying where it is changed (ADR-0020).
  */
 const view = inject(SELECTED_VIEW, ref(null));
 const route = useRoute();
@@ -81,6 +82,70 @@ const choices = computed(() => [
   { value: 'number', label: t.value.parallelNumber },
   { value: 'auto', label: t.value.parallelAuto },
 ]);
+
+/** The machine's context-pressure thresholds, as `context_pressure.get` gives them, with the models to offer and the projects that override them. */
+type Thresholds = { tokens: number; models: Record<string, number>; source: 'machine' | 'default' };
+type PressureInformed = Thresholds & { recentModels: string[]; overrides: { path: string; name: string; tokens: number }[] };
+const pressure = usePolling(() => call<PressureInformed>('context_pressure.get'));
+/** The form, filled from the machine's thresholds until the owner edits it: numbers, or the inputs' text when they are not. */
+const pressureTokens = ref<number | string>('');
+const pressureRows = ref<{ model: string; tokens: number | string }[]>([]);
+const newModel = ref('');
+const newTokens = ref<number | string>('');
+const pressureEdited = ref(false);
+const fillPressure = (thresholds: Thresholds): void => {
+  pressureTokens.value = thresholds.tokens;
+  pressureRows.value = Object.entries(thresholds.models).map(([model, tokens]) => ({ model, tokens }));
+};
+watch(pressure.data, (thresholds) => {
+  if (thresholds !== null && !pressureEdited.value) fillPressure(thresholds);
+});
+/** The recent models no row names yet, for the new row's datalist. */
+const offeredModels = computed(() => (pressure.data.value?.recentModels ?? []).filter((model) => !pressureRows.value.some((row) => row.model === model)));
+const pressureSaving = ref(false);
+const pressureSaved = ref(false);
+const pressureRefused = ref<Failure | null>(null);
+const editPressure = (): void => {
+  pressureEdited.value = true;
+  pressureSaved.value = false;
+};
+/** A new row, or a new number for a model a row already names; the daemon judges the name and the number on save. */
+function addModel(): void {
+  const model = newModel.value;
+  if (model === '') return;
+  const row = pressureRows.value.find((existing) => existing.model === model);
+  if (row) row.tokens = newTokens.value;
+  else pressureRows.value.push({ model, tokens: newTokens.value });
+  newModel.value = '';
+  newTokens.value = '';
+  editPressure();
+}
+function removeModel(model: string): void {
+  pressureRows.value = pressureRows.value.filter((row) => row.model !== model);
+  editPressure();
+}
+/** Sends the form as it stands, the whole `{ tokens, models }`; the daemon alone decides whether it holds, and says why not. */
+async function savePressure(): Promise<void> {
+  pressureSaving.value = true;
+  pressureSaved.value = false;
+  pressureRefused.value = null;
+  try {
+    const entered = (value: number | string): number | string | null => (value === '' ? null : value);
+    const models = Object.fromEntries(pressureRows.value.map((row) => [row.model, entered(row.tokens)]));
+    const thresholds = await call<Thresholds>('context_pressure.set', { tokens: entered(pressureTokens.value), models });
+    if (pressure.data.value) pressure.data.value = { ...pressure.data.value, ...thresholds };
+    fillPressure(thresholds);
+    pressureEdited.value = false;
+    pressureSaved.value = true;
+  } catch (error) {
+    pressureRefused.value =
+      error instanceof DaemonError
+        ? { code: error.code, message: error.message, ...(error.params && { params: error.params }) }
+        : { code: 'daemon.unreachable', message: 'The Binnacle daemon did not answer.' };
+  } finally {
+    pressureSaving.value = false;
+  }
+}
 
 type Setting = { key: string; value: string | number | boolean | null; unwritten?: string };
 
@@ -197,6 +262,73 @@ const card = { root: 'rounded-[10px]', header: 'flex items-center justify-betwee
       <template #footer>
         <p class="text-sm leading-snug text-dimmed">{{ t.parallelNote }}</p>
         <p v-if="informer" class="mt-1.5 text-sm leading-snug text-dimmed">{{ t.carriedNote }}</p>
+      </template>
+    </UCard>
+
+    <UCard :ui="card">
+      <template #header>
+        <h2 id="pressure" class="text-base font-semibold">{{ t.contextPressure }}</h2>
+        <span v-if="pressure.data.value" class="text-sm text-dimmed">{{ t.pressureNow(number(pressure.data.value.tokens), pressure.data.value.source) }}</span>
+      </template>
+      <div class="flex flex-col gap-3">
+        <p v-if="pressure.error.value" class="text-warning">
+          <DaemonReason :said="pressure.error.value" />
+        </p>
+        <form class="flex flex-col gap-3" aria-labelledby="pressure" @submit.prevent="savePressure">
+          <label class="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span class="text-muted">{{ t.pressureDefault }}</span>
+            <UInput v-model.number="pressureTokens" type="number" step="1000" class="w-36" @update:model-value="editPressure" />
+          </label>
+          <p v-if="pressureRows.length === 0" class="text-sm text-dimmed">{{ t.pressureNoModels }}</p>
+          <table v-else class="w-full max-w-xl text-sm">
+            <thead>
+              <tr class="text-left text-muted">
+                <th class="py-1 pr-3 font-normal">{{ t.pressureModel }}</th>
+                <th class="py-1 pr-3 font-normal">{{ t.pressureTokens }}</th>
+                <th class="py-1" />
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in pressureRows" :key="row.model">
+                <td class="py-1 pr-3 font-mono wrap-anywhere">{{ row.model }}</td>
+                <td class="py-1 pr-3">
+                  <UInput v-model.number="row.tokens" type="number" step="1000" class="w-36" :aria-label="`${t.pressureTokens}: ${row.model}`" @update:model-value="editPressure" />
+                </td>
+                <td class="py-1">
+                  <UButton type="button" color="neutral" variant="ghost" icon="i-lucide-x" :aria-label="t.pressureRemove(row.model)" @click="removeModel(row.model)" />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <UInput v-model="newModel" list="recent-models" class="w-64" :placeholder="t.pressureNewModel" :aria-label="t.pressureNewModel" />
+            <datalist id="recent-models">
+              <option v-for="model in offeredModels" :key="model" :value="model" />
+            </datalist>
+            <UInput v-model.number="newTokens" type="number" step="1000" class="w-36" :placeholder="t.pressureNewTokens" :aria-label="t.pressureNewTokens" />
+            <UButton type="button" color="neutral" variant="outline" :label="t.pressureAdd" :disabled="newModel === ''" @click="addModel" />
+          </div>
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <UButton type="submit" :loading="pressureSaving" :label="t.parallelSave" />
+            <span v-if="pressureSaved" class="text-sm text-success" role="status">{{ t.parallelSaved }}</span>
+            <span v-else-if="pressureEdited" class="text-sm text-dimmed">{{ t.pressureUnsaved }}</span>
+          </div>
+        </form>
+        <p v-if="pressureRefused" class="text-warning" role="alert">
+          <DaemonReason :said="pressureRefused" />
+        </p>
+        <section v-if="pressure.data.value?.overrides.length" class="flex flex-col gap-1 border-t border-default pt-3">
+          <p class="text-warning">{{ t.pressureOverrides }}</p>
+          <ul class="flex flex-col gap-0.5 text-sm">
+            <li v-for="item in pressure.data.value.overrides" :key="item.path">
+              <span class="font-semibold">{{ item.name }}</span> · {{ number(item.tokens) }}
+              <span class="font-mono text-dimmed wrap-anywhere"> · {{ item.path }}</span>
+            </li>
+          </ul>
+        </section>
+      </div>
+      <template #footer>
+        <p class="text-sm leading-snug text-dimmed">{{ t.pressureNote }}</p>
       </template>
     </UCard>
 

@@ -164,6 +164,20 @@ describe('the Parallel limit on the Settings page', () => {
   });
 });
 
+describe('the context-pressure thresholds on the Settings page', () => {
+  it('read the default, saying when it is Binnacle’s own, and name the setting a manifest overrides them with, in both languages', () => {
+    const { en, ru } = DICTIONARIES;
+    assert.equal(en.pressureNow('150,000', 'default'), "Default 150,000, Binnacle's own.");
+    assert.equal(en.pressureNow('200,000', 'machine'), 'Default 200,000.');
+    assert.equal(ru.pressureNow('150 000', 'default'), 'По умолчанию 150 000, встроенное значение Binnacle.');
+    assert.equal(ru.pressureNow('200 000', 'machine'), 'По умолчанию 200 000.');
+    for (const dictionary of [en, ru]) {
+      assert.match(dictionary.pressureOverrides, /telemetry\.context_pressure\.tokens/);
+      assert.match(dictionary.pressureRemove('claude-opus-5-5'), /claude-opus-5-5$/);
+    }
+  });
+});
+
 describe('the informer beside the Parallel limit', () => {
   it('counts the runs active at a usage limit, in both languages', () => {
     const { en, ru } = DICTIONARIES;

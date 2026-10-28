@@ -26,6 +26,7 @@ const INPUT: Record<string, object> = {
   'task.get': { id: 'first/01' },
   'usage.get': { task: 'first/01' },
   'parallel.set': { limit: 3 },
+  'context_pressure.set': { tokens: 200000, models: {} },
 };
 
 const MANIFEST = `version: 1

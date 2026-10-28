@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -27,6 +27,7 @@ const GRILL = readFileSync(join(import.meta.dirname, 'fixtures', 'claude-code', 
   .split('\n')
   .map((line) => JSON.parse(line) as Line);
 const GRILL_CONTEXT = 2 + 39225 + 29831;
+const MODEL = 'claude-opus-5-5';
 const CONTENT = 'MUST-NOT-BE-STORED';
 
 const roots: string[] = [];
@@ -144,7 +145,7 @@ describe('Context pressure', () => {
       claudeSession(claudeCode, root, 'ticket', call(minutesAgo(7), 'ticket'));
 
       const body = await snapshot(daemon, root);
-      const params = { session: 'product', harness: 'Claude Code', startedAt, lastActivityAt, tokens: GRILL_CONTEXT, threshold: 60000 };
+      const params = { session: 'product', harness: 'Claude Code', startedAt, lastActivityAt, tokens: GRILL_CONTEXT, threshold: 60000, thresholdSource: 'manifest', model: MODEL };
       const why = `in Claude Code, ${times(startedAt, lastActivityAt)}, read ${GRILL_CONTEXT} tokens of context in its latest call, at least telemetry.context_pressure.tokens, 60000. ${SUGGESTION}`;
       // Asked with no session of its own, it is neither this one nor another.
       assert.deepEqual(pressure(body.attention), [{ code: 'context.pressure', message: `The Product session ${why}`, params }]);
@@ -174,7 +175,7 @@ describe('Context pressure', () => {
         {
           code: 'context.pressure',
           message: `The Product session in Claude Code, ${times(startedAt, lastActivityAt)}, read ${GRILL_CONTEXT} tokens of context in its latest call, at least telemetry.context_pressure.tokens, 60000. ${SUGGESTION}`,
-          params: { session: 'long', harness: 'Claude Code', startedAt, lastActivityAt, tokens: GRILL_CONTEXT, threshold: 60000 },
+          params: { session: 'long', harness: 'Claude Code', startedAt, lastActivityAt, tokens: GRILL_CONTEXT, threshold: 60000, thresholdSource: 'manifest', model: MODEL },
         },
       ]);
     });
@@ -206,7 +207,9 @@ describe('Context pressure', () => {
         line.type === 'assistant' ? { ...line, message: { ...line.message, usage: { input_tokens: 2, cache_read_input_tokens: 150000, cache_creation_input_tokens: 0, output_tokens: 1 } } } : line,
       );
       claudeSession(claudeCode, over, 'over', heavy);
-      assert.match(pressure((await snapshot(daemon, over)).attention)[0]?.message ?? '', /read 150002 tokens of context in its latest call, at least telemetry\.context_pressure\.tokens, 150000\./);
+      const [item] = pressure((await snapshot(daemon, over)).attention);
+      assert.match(item?.message ?? '', /read 150002 tokens of context in its latest call, at least the default threshold, 150000\./);
+      assert.deepEqual([item?.params.threshold, item?.params.thresholdSource, item?.params.model], [150000, 'default', MODEL]);
     });
   });
 
@@ -336,6 +339,188 @@ describe('Context pressure', () => {
       const result = await daemon.call<{ error: { code: string; details: { path: string }[] } }>('project.register', { path: root });
       assert.equal(result.body.error.code, 'manifest.invalid');
       assert.deepEqual(result.body.error.details.map((detail) => detail.path), ['telemetry.context_pressure.tokens']);
+    });
+  });
+});
+
+/** The fixture's call at `timestamp`, as a message of its own, by `model`. */
+const callBy = (model: string, timestamp: string, id: string): Line[] =>
+  call(timestamp, id).map((line) => (line.type === 'assistant' && line.message ? { ...line, message: { ...line.message, model } } : line));
+
+const writeSettings = (daemon: TestDaemon, settings: unknown): void => writeFileSync(join(daemon.home, 'settings.json'), JSON.stringify(settings), { mode: 0o600 });
+
+/** The one active Product session's threshold, with its source and model, or null when it raises nothing. */
+async function warnedAt(daemon: TestDaemon, root: string): Promise<[unknown, unknown, unknown] | null> {
+  const [item, ...rest] = pressure((await snapshot(daemon, root)).attention);
+  assert.equal(rest.length, 0);
+  return item === undefined ? null : [item.params.threshold, item.params.thresholdSource, item.params.model];
+}
+
+describe('Context-pressure thresholds per model (ADR-0046)', () => {
+  it('warns a session at its model’s own number, another model at the machine’s default, and a manifest’s number wins over both', async () => {
+    await withDaemon(async (daemon, { claudeCode }) => {
+      const mine = makeProject();
+      claudeSession(claudeCode, mine, 'mine', call(minutesAgo(1), 'mine'));
+      const other = makeProject();
+      claudeSession(claudeCode, other, 'other', callBy('other-model', minutesAgo(1), 'other'));
+
+      // The machine's default, below the session's context, and the model's own number above it.
+      writeSettings(daemon, { contextPressure: { tokens: 60000, models: { [MODEL]: 100000 } } });
+      assert.equal(await warnedAt(daemon, mine), null);
+      assert.deepEqual(await warnedAt(daemon, other), [60000, 'machine', 'other-model']);
+
+      writeSettings(daemon, { contextPressure: { tokens: 100000, models: { [MODEL]: 65000 } } });
+      const [item] = pressure((await snapshot(daemon, mine)).attention);
+      assert.deepEqual([item?.params.threshold, item?.params.thresholdSource, item?.params.model], [65000, 'model', MODEL]);
+      assert.match(item?.message ?? '', new RegExp(`read ${GRILL_CONTEXT} tokens of context in its latest call, at least the threshold for ${MODEL} on this machine, 65000\\.`));
+      assert.match(wordMessage('ru', item!).text, new RegExp(`не меньше порога в 65000 токенов для ${MODEL} на этой машине\\.`));
+      assert.equal(await warnedAt(daemon, other), null);
+
+      // Only models, the default unset: 150 000.
+      writeSettings(daemon, { contextPressure: { models: { [MODEL]: 200000 } } });
+      assert.equal(await warnedAt(daemon, other), null);
+
+      // A manifest's number, for every model.
+      const own = makeProject(threshold(60000));
+      claudeSession(claudeCode, own, 'own', call(minutesAgo(1), 'own'));
+      assert.deepEqual(await warnedAt(daemon, own), [60000, 'manifest', MODEL]);
+      const high = makeProject(threshold(200000));
+      claudeSession(claudeCode, high, 'high', call(minutesAgo(1), 'high'));
+      writeSettings(daemon, { contextPressure: { tokens: 1000, models: { [MODEL]: 1000 } } });
+      assert.equal(await warnedAt(daemon, high), null);
+    });
+  });
+
+  it('gives context_pressure.invalid for a value it cannot use, or a file it cannot read, and warns at 150 000', async () => {
+    await withDaemon(async (daemon, { claudeCode }) => {
+      const root = makeProject();
+      claudeSession(claudeCode, root, 'mine', call(minutesAgo(1), 'mine'));
+      const codes = async (own = root): Promise<string[]> =>
+        (await snapshot(daemon, own)).attention.map((item) => item.code).filter((code) => code.startsWith('context') || code.startsWith('parallel'));
+      for (const bad of [60000, { tokens: 999 }, { tokens: 60000, models: { [MODEL]: 999 } }, { tokens: 60000, models: [] }, { tokens: 150000.5 }, { models: { '': 60000 } }]) {
+        writeSettings(daemon, { contextPressure: bad, parallelLimit: 3 });
+        assert.deepEqual(await codes(), ['context_pressure.invalid'], JSON.stringify(bad));
+      }
+      const [item] = (await snapshot(daemon, root)).attention.filter((entry) => entry.code === 'context_pressure.invalid');
+      assert.match(item?.message ?? '', /contextPressure in .*settings\.json is not, so the context-pressure threshold is 150000\./);
+      assert.equal(wordMessage('ru', item!).english, false);
+
+      writeFileSync(join(daemon.home, 'settings.json'), '{ "contextPressure": ');
+      assert.deepEqual((await codes()).sort(), ['context_pressure.invalid', 'parallel_limit.invalid']);
+
+      // The fallback warns at 150 000, as with no setting.
+      const over = makeProject();
+      const heavy = call(minutesAgo(1), 'heavy').map((line) =>
+        line.type === 'assistant' ? { ...line, message: { ...line.message, usage: { input_tokens: 2, cache_read_input_tokens: 150000, cache_creation_input_tokens: 0, output_tokens: 1 } } } : line,
+      );
+      claudeSession(claudeCode, over, 'heavy', heavy);
+      writeSettings(daemon, { contextPressure: { tokens: 'many' } });
+      assert.deepEqual(await warnedAt(daemon, over), [150000, 'default', MODEL]);
+
+      // A manifest's number is read without the machine's settings, so they raise nothing there.
+      const own = makeProject(threshold(60000));
+      claudeSession(claudeCode, own, 'own', call(minutesAgo(1), 'own'));
+      assert.deepEqual(await codes(own), ['context.pressure']);
+    });
+  });
+});
+
+type Thresholds = { tokens: number; models: Record<string, number>; source: 'machine' | 'default' };
+type Informed = Thresholds & { recentModels: string[]; overrides: { path: string; name: string; tokens: number }[] };
+type Failure = { error: { code: string; message: string; params?: Params } };
+
+describe('Context-pressure thresholds through the daemon', () => {
+  const file = (daemon: TestDaemon): string => join(daemon.home, 'settings.json');
+
+  it('gives the default, 150 000, with no numbers per model, when nothing is set', async () => {
+    await withDaemon(async (daemon) => {
+      const result = await daemon.call<Informed>('context_pressure.get');
+      assert.equal(result.status, 200, JSON.stringify(result.body));
+      assert.deepEqual(result.body, { tokens: 150000, models: {}, source: 'default', recentModels: [], overrides: [] });
+    });
+  });
+
+  it('writes the default and the numbers per model, keeping every other key of the file, the Parallel limit included, owner-only', async () => {
+    await withDaemon(async (daemon) => {
+      writeSettings(daemon, { obsidian: { vaultPath: '/vault' }, parallelLimit: 3, other: 1 });
+      const set = await daemon.call<Thresholds>('context_pressure.set', { tokens: 200000, models: { [MODEL]: 400000, 'gpt-5.6-sol': 120000 } });
+      assert.equal(set.status, 200, JSON.stringify(set.body));
+      assert.deepEqual(set.body, { tokens: 200000, models: { [MODEL]: 400000, 'gpt-5.6-sol': 120000 }, source: 'machine' });
+      const written = JSON.parse(readFileSync(file(daemon), 'utf8'));
+      assert.deepEqual(written, { obsidian: { vaultPath: '/vault' }, parallelLimit: 3, other: 1, contextPressure: { tokens: 200000, models: { [MODEL]: 400000, 'gpt-5.6-sol': 120000 } } });
+      assert.equal(statSync(file(daemon)).mode & 0o777, 0o600);
+      assert.equal((await daemon.call<{ limit: number }>('parallel.get')).body.limit, 3);
+
+      // A name that would be a prototype's is kept as a name, and is read back as one.
+      const named = JSON.parse('{ "tokens": 150000, "models": { "__proto__": 90000 } }') as object;
+      assert.equal((await daemon.call('context_pressure.set', named)).status, 200);
+      const read = (await daemon.call<Informed>('context_pressure.get')).body;
+      assert.ok(Object.hasOwn(read.models, '__proto__'));
+      assert.deepEqual([read.tokens, read.source], [150000, 'machine']);
+    });
+  });
+
+  it('refuses a value that is not one, naming the rule and what breaks it, writing nothing', async () => {
+    await withDaemon(async (daemon) => {
+      writeSettings(daemon, { parallelLimit: 3, contextPressure: { tokens: 200000, models: {} } });
+      const before = readFileSync(file(daemon), 'utf8');
+      const refused: [object, RegExp][] = [
+        [{}, /nothing, given for tokens, is not\./],
+        [{ tokens: 200000 }, /nothing, given for models, is not\./],
+        [{ tokens: 999, models: {} }, /999, given for tokens, is not\./],
+        [{ tokens: 1500.5, models: {} }, /1500\.5, given for tokens, is not\./],
+        [{ tokens: '200000', models: {} }, /string, given for tokens, is not\./],
+        [{ tokens: 200000, models: [] }, /a list, given for models, is not\./],
+        [{ tokens: 200000, models: { [MODEL]: 0 } }, /0, given for a model's number, is not\./],
+        [{ tokens: 200000, models: { [MODEL]: null } }, /null, given for a model's number, is not\./],
+        [{ tokens: 200000, models: { ' ': 5000 } }, /a model name is empty or longer than 200 characters\./],
+        [{ tokens: 200000, models: { ['m'.repeat(201)]: 5000 } }, /a model name is empty or longer than 200 characters\./],
+      ];
+      for (const [body, why] of refused) {
+        const result = await daemon.call<Failure>('context_pressure.set', body);
+        assert.equal(result.status, 400, JSON.stringify(body));
+        assert.equal(result.body.error.code, 'context_pressure.invalid');
+        assert.match(result.body.error.message, /each a whole number of at least 1000; /);
+        assert.match(result.body.error.message, why);
+        assert.equal(wordMessage('ru', result.body.error).english, false, JSON.stringify(body));
+      }
+      assert.equal(readFileSync(file(daemon), 'utf8'), before);
+    });
+  });
+
+  it('refuses to rewrite a settings file it cannot read as a JSON object, leaving it as it is', async () => {
+    await withDaemon(async (daemon) => {
+      for (const text of ['{ "parallelLimit": ', '[1, 2]']) {
+        writeFileSync(file(daemon), text);
+        const result = await daemon.call<Failure>('context_pressure.set', { tokens: 200000, models: {} });
+        assert.equal(result.status, 409);
+        assert.equal(result.body.error.code, 'settings.unreadable');
+        assert.equal(readFileSync(file(daemon), 'utf8'), text);
+      }
+    });
+  });
+
+  it("needs the daemon's token, as every operation does", async () => {
+    await withDaemon(async (daemon) => {
+      for (const token of [null, 'not-the-token']) assert.equal((await daemon.call('context_pressure.set', { tokens: 200000, models: {} }, { token })).status, 401);
+      assert.equal((await daemon.call('context_pressure.get', {}, { token: null })).status, 401);
+    });
+  });
+
+  it('gives the models of the last seven days across registered projects, and the projects whose manifest overrides the thresholds', async () => {
+    await withDaemon(async (daemon, { claudeCode }) => {
+      const plain = makeProject();
+      claudeSession(claudeCode, plain, 'recent', [...call(minutesAgo(2), 'recent'), ...callBy('other-model', minutesAgo(1), 'other')]);
+      claudeSession(claudeCode, plain, 'old', callBy('old-model', minutesAgo(10 * 24 * 60), 'old'));
+      const own = makeProject(threshold(250000));
+      claudeSession(claudeCode, own, 'own', callBy('gpt-5.6-sol', minutesAgo(3), 'own'));
+      // The snapshot registers each project and imports its sessions.
+      await snapshot(daemon, plain);
+      await snapshot(daemon, own);
+
+      const body = (await daemon.call<Informed>('context_pressure.get')).body;
+      assert.deepEqual(body.recentModels, [MODEL, 'gpt-5.6-sol', 'other-model']);
+      assert.deepEqual(body.overrides, [{ path: own, name: 'pressure-project', tokens: 250000 }]);
     });
   });
 });

@@ -15,9 +15,9 @@ import { readTasks, snapshot, type CallerCheckout } from './snapshot.ts';
 import { EVENT_LIMIT_MAX, type EventFilter, type ProjectRow, type Store } from './store.ts';
 import { findTask, taskBrief, taskQuestions } from './task.ts';
 import { taskList } from './board.ts';
-import { machineParallelLimit, setParallelLimit } from './settings.ts';
+import { machineParallelLimit, machinePressureThresholds, setParallelLimit, setPressureThresholds } from './settings.ts';
 import { writeServed } from './vault.ts';
-import { forgetRead, latestRuns, taskByRole, usageAndActivity, usageGet, usageLimitInformer, type Importer } from './usage.ts';
+import { forgetRead, latestRuns, pressureInformer, taskByRole, usageAndActivity, usageGet, usageLimitInformer, type Importer } from './usage.ts';
 
 export type OperationContext = {
   home: string;
@@ -243,11 +243,17 @@ export const operations: Record<string, Operation> = {
 
   'event.list': (body, context) => ({ events: context.store.events(eventFilter(body)) }),
 
-  // The machine's Parallel limit (ADR-0041): the dashboard's Settings page reads it and sets it,
-  // the one setting the dashboard writes. No MCP tool calls either.
+  // The machine's Parallel limit (ADR-0041): the dashboard's Settings page reads it and sets it.
+  // No MCP tool calls either.
   // Beside the limit, what this machine has carried: the usage-limit informer.
   'parallel.get': (_body, context) => ({ ...machineParallelLimit(context.home).parallel, informer: usageLimitInformer(context) }),
   'parallel.set': (body, context) => setParallelLimit(context.home, body),
+
+  // The machine's context-pressure thresholds (ADR-0046), the dashboard's second setting: the
+  // default and a number per model, with the models of the last seven days to offer and the
+  // projects whose manifest overrides them. No MCP tool calls either.
+  'context_pressure.get': (_body, context) => ({ ...machinePressureThresholds(context.home).thresholds, ...pressureInformer(context) }),
+  'context_pressure.set': (body, context) => setPressureThresholds(context.home, body),
 };
 
 /**
