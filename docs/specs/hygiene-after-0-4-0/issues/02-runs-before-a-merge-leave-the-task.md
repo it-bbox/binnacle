@@ -1,6 +1,6 @@
 # 02: Runs before a merge no longer keep the Task in progress
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/hygiene-after-0-4-0/spec.md`
