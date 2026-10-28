@@ -1,6 +1,6 @@
 # 09: The exit demonstration of epic 20, and 0.4.0
 
-Status: READY
+Status: DONE
 Triage: ready-for-human
 Blocked by: 01, 02, 03, 04, 05, 06, 07, 08
 Spec: `docs/specs/hygiene-after-v1/spec.md`
