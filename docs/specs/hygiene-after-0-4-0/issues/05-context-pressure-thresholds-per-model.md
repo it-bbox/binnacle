@@ -1,6 +1,6 @@
 # 05: Context-pressure thresholds per model, set on the Settings page
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 03
 Spec: `docs/specs/hygiene-after-0-4-0/spec.md`
