@@ -117,7 +117,7 @@ A Task state: work started and now waits on something. It is not the same as an 
 A Ticket this Task is declared to be blocked by, which is not yet done. A Task with one can be in any state, `READY` included.
 
 ### In progress
-A Task in flight by its state (`ACTIVE`, `BLOCKED`, `READY_FOR_REVIEW`, `APPROVED` or `MERGE_READY`), or a `READY` Task with an AgentRun attributed to it. The second is Binnacle's reading of the runs: it is shown as such and never written back to the ticket. In the Product Snapshot a merge ends it: a run that started before the latest `git merge` of the Task's branch into the default branch, as this clone's reflog records it, no longer counts, and one that starts after it does. A branch squashed or merged on the forge leaves no such entry and keeps its runs. Usage keeps every run.
+A Task in flight by its state (`ACTIVE`, `BLOCKED`, `READY_FOR_REVIEW`, `APPROVED` or `MERGE_READY`), or a `READY` Task with an AgentRun attributed to it. The second is Binnacle's reading of the runs: it is shown as such and never written back to the ticket. In the Product Snapshot a merge ends it: a run that started before the latest `git merge` of the Task's branch into the default branch, as this clone's reflog records it, no longer counts, and one that starts after it does. A branch squashed, merged on the forge, or merged by a commit of its own after a conflict leaves no such entry and keeps its runs. Usage keeps every run.
 
 ### Review
 One review of a Task's work: its findings, and what was fixed or kept. It is recorded in the ticket, under a `### Review` heading.

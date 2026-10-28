@@ -4,7 +4,6 @@ import {
   isAncestor,
   isGitUnavailable,
   readBranches,
-  readDefaultBranch,
   readGitHubTasks,
   readGitLabTasks,
   readLastCommitTimes,
@@ -45,7 +44,7 @@ import {
 } from '@binnacle/core';
 import { ciAttention, fromForge, readCi, type Ci } from './ci.ts';
 import { resolveGitTimeout, trackerToken } from './home.ts';
-import { defaultCommit, impactSection, touchedBy, type GraphSection } from './graph.ts';
+import { defaultBranch, defaultCommit, impactSection, touchedBy, type GraphSection } from './graph.ts';
 import { autostartCommand, readAutostart, type AutostartState, type ServicePlatform } from './service.ts';
 import { parallelLimit, type ParallelLimit } from './settings.ts';
 import { vaultAttention } from './vault.ts';
@@ -151,11 +150,12 @@ export type Snapshot = {
   /** Null when the project's tracker cannot be read yet; `attention` says why. */
   tasks: {
     /**
-     * In progress, as the board reads it (ADR-0032): `ACTIVE`, `BLOCKED`, `READY_FOR_REVIEW`,
-     * `APPROVED`, `MERGE_READY`, and a `READY` Task with an AgentRun attributed to it.
+     * In progress, by the board's rule (ADR-0032): `ACTIVE`, `BLOCKED`, `READY_FOR_REVIEW`,
+     * `APPROVED`, `MERGE_READY`, and a `READY` Task with an AgentRun attributed to it since its
+     * branch's latest merge into the default branch (`sinceMerge`), which the board itself does not read.
      */
     inFlight: SectionWithStart;
-    /** `READY` with no Unmet dependencies and no attributed AgentRun. */
+    /** `READY` with no Unmet dependencies and no AgentRun attributed since its branch's latest merge. */
     readyToStart: SectionWithStart;
     /**
      * Every Task not listed by name, by state: `READY` here is a Task waiting on an Unmet
@@ -269,8 +269,8 @@ export async function snapshot(
  * squashed or merged on the forge, keeps all of its runs.
  */
 async function sinceMerge(projectPath: string, runs: ObservedRun[]): Promise<ObservedRun[]> {
-  const timeout = resolveGitTimeout();
-  const merged = await readMergeTimes(projectPath, (await readDefaultBranch(projectPath, timeout)) ?? 'main', timeout);
+  if (!runs.some((run) => run.taskId !== null && run.branch !== null)) return runs;
+  const merged = await readMergeTimes(projectPath, await defaultBranch(projectPath), resolveGitTimeout());
   return runs.filter((run) => {
     const at = run.branch === null ? undefined : merged?.get(run.branch);
     return at === undefined || Date.parse(run.startedAt) >= at;

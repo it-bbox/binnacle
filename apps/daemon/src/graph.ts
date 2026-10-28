@@ -309,7 +309,7 @@ function end(child: ChildProcess): void {
 const short = (commit: string): string => commit.slice(0, 7);
 
 /** As usage attribution reads it: `origin/HEAD`, or `main` when there is none. */
-const defaultBranch = async (path: string): Promise<string> => (await readDefaultBranch(path, resolveGitTimeout())) ?? 'main';
+export const defaultBranch = async (path: string): Promise<string> => (await readDefaultBranch(path, resolveGitTimeout())) ?? 'main';
 export const defaultCommit = async (path: string): Promise<string | null> => readBranchCommit(path, await defaultBranch(path), resolveGitTimeout());
 
 /** The manifest at `path`, or null when it cannot be read. */

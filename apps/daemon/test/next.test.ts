@@ -694,7 +694,8 @@ describe('runs before a merge', () => {
       const roles = { worked: await byRole(daemon, root, 'first/01'), human: await byRole(daemon, root, 'first/02') };
 
       gitAt(minutesAgo(7), root, 'switch', '--quiet', 'main');
-      gitAt(minutesAgo(6), root, 'merge', '--quiet', '--no-ff', '-m', 'merge worked', 'feat/worked');
+      // A fast-forward, as this repository merges, then a merge commit.
+      gitAt(minutesAgo(6), root, 'merge', '--quiet', '--ff-only', 'feat/worked');
       gitAt(minutesAgo(6), root, 'merge', '--quiet', '--no-ff', '-m', 'merge human', 'feat/human');
 
       const merged = await read(daemon, root);

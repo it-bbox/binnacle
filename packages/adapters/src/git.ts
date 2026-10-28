@@ -389,11 +389,14 @@ export async function readOwnChangeTimes(cwd: string, commits: string[], path: s
 /**
  * Per branch, the latest time, in milliseconds, `defaultBranch`'s reflog says `git merge`
  * merged it there, from the `merge <branch>: …` entries it writes, as `readOwnChangeTimes`
- * reads them. A branch that reached the default branch otherwise, by a squash or on the forge,
- * has none. Null whenever Git cannot say, a default branch with no reflog included.
+ * reads them. A branch that reached the default branch otherwise has none: by a squash, on the
+ * forge, or by a merge finished with `git commit` after a conflict or `--no-commit`, which
+ * writes `commit (merge): …`. Empty for a default branch with no reflog; null when it does not
+ * exist or Git cannot say.
  *
  * ponytail: the reflog is this clone's and expires, after 90 days by default; read the forge's
- * merged pull requests if a merge made elsewhere must count.
+ * merged pull requests if a merge made elsewhere must count. An octopus merge, or a branch
+ * named other than by its short name, is read as one name no Task's branch matches.
  */
 export async function readMergeTimes(cwd: string, defaultBranch: string, timeoutMs: number): Promise<Map<string, number> | null> {
   try {
