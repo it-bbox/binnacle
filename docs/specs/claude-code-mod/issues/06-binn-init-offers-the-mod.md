@@ -1,6 +1,6 @@
 # 06: `binn init` offers the mod, and the guides say how to turn it off
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 02
 Spec: `docs/specs/claude-code-mod/spec.md`
