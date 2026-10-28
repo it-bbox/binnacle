@@ -8,10 +8,10 @@ Spec: `docs/specs/hygiene-after-v1/spec.md`
 **What to build:** epic 20's exit criterion, demonstrated by the owner, then the 0.4.0 release (spec, the exit criterion, *The release*).
 
 - [ ] An autopilot run or a checkpoint commits the roadmap's derived part without a question and asks only about the focus and the `Next action:`.
-- [ ] A second Claude Code session's context-pressure warning, read from the first, names it as another Product session by its times.
-- [ ] `/binnacle:product` in a Russian chat has no English domain term and no wrong plural; the vault in Russian has no `(англ.)` for a Suggested step or the graph.
-- [ ] `/binnacle:roadmap` on this repository proposes epics from the product inbox.
-- [ ] The CLI package's version is 0.4.0; 0.4.0 published by `CONTRIBUTING.md`'s *Releasing* and installed from the registry into a clean container, where `binn daemon status` gives 0.4.0.
+- [x] A second Claude Code session's context-pressure warning, read from the first, names it as another Product session by its times.
+- [x] `/binnacle:product` in a Russian chat has no English domain term and no wrong plural; the vault in Russian has no `(англ.)` for a Suggested step or the graph.
+- [x] `/binnacle:roadmap` on this repository proposes epics from the product inbox.
+- [x] The CLI package's version is 0.4.0; 0.4.0 published by `CONTRIBUTING.md`'s *Releasing* and installed from the registry into a clean container, where `binn daemon status` gives 0.4.0.
 
 ## Comments
 
@@ -30,6 +30,12 @@ Spec: `docs/specs/hygiene-after-v1/spec.md`
   - **Criterion 3.** `/binnacle:product` in a fresh Russian session: no English domain term (пулл-реквест, not "pull request") and plurals that agree ("3 запуска, два из них"). With the threshold lowered as for criterion 2, the context-pressure line should give the number, not the key `telemetry.context_pressure.tokens`, and no reason should stand in English.
   - **Criterion 4.** `/binnacle:roadmap` in a Product session on this repository: it should propose an epic, or a part of one, for each product inbox entry not yet planned (such as *Session start, agent configuration and traps*, *A context-pressure threshold per model*, *Binnacle in a dev container*, *The ticket brief takes a ticket's path*), and mark an entry taken only on the owner's yes.
   - **Criterion 5.** Push `main` with this branch merged and wait for CI's `check`, `tarball-live` and `autostart-live` to go green there; rebuild at that commit, then `npm publish --dry-run` and `npm publish --access public` from `apps/cli/dist/`, confirming the second factor in the browser. Once `npm view @it-bbox/binnacle version` prints `0.4.0`, in a `node:24-slim` container: `npm i -g @it-bbox/binnacle@0.4.0`, `binn --version`, `binn daemon start`, then `binn daemon status` should give `0.4.0`.
+  - **Criterion 2** holds (the owner, 2026-10-28): with the threshold lowered to 50 000 in the working tree and restored afterwards, a second session's `/binnacle:product` named this one "другая продуктовая сессия в Claude Code (началась в 15:18, последняя активность в 15:21)", with its tokens and the threshold as a number, and its own warning as this session; the snapshot read from this session marked the two the other way round (`own: true` here, `false` there). The "started at" is the latest run's start, not the session's (15:04), as the product inbox already said; `/clear` and `--resume` were not tried, and both went into epic 21 (`docs/roadmap.md`, 2026-10-28).
+  - **Criterion 3** holds (the owner, 2026-10-28), from the same opening: Russian terms (пулл-реквестам, продуктовая сессия, предложенный шаг), plurals that agree ("5 запусков", "Три запуска", "8 задач из 9"), the threshold as a number with no manifest key, and no reason in English. The vault's part was the agent's, above.
+  - **Criterion 4** holds (the owner, 2026-10-28): `/binnacle:roadmap` read the product inbox, proposed epics 21, 23 and 27 and a place or a reason for every entry not yet planned, and wrote nothing before the owner's yes (`c455551`, `5681bf0`). It first dropped `binn mcp` across `/clear` as checked by criterion 2, which it was not; corrected at the owner's word.
+  - Found by the owner, 2026-10-28: after this ticket's branch was merged, its runs in the session still on `main` kept the Task in progress, from activity, and the Suggested step said to wait for its implementation run. In epic 21.
+  - **0.4.0**, criterion 5, holds (2026-10-28): `main` pushed at `6082506`, CI's `check`, `tarball-live` and `autostart-live` green on Linux, macOS and Windows there; rebuilt after it, with only documentation changed since, and `npm publish --dry-run` passed. The owner's first `npm publish` failed with `E404` on the `PUT`: npm's login had lapsed (`npm whoami` gave `401`), and a scoped package answers a write without one as not found. After `npm login`, `npm publish --access public` from `apps/cli/dist/`, 80 files, 915 kB, the second factor confirmed in the browser; `latest` moved from `0.3.0` to `0.4.0` about 105 seconds later. From the registry, in a `node:24-slim` container: `npm i -g @it-bbox/binnacle@0.4.0`, then `binn --version` prints `0.4.0`, and the daemon starts and answers `binn daemon status` with version `0.4.0`. Once, without `--init`, `binn daemon stop` reported the daemon had not stopped within 10 seconds; three runs after it, with `--init` and twice without, stopped it at once, and 0.3.0 did the same.
+  - **Criterion 1** is left for the checkpoint that follows `DONE`, as its script says.
 
 ### Review
 
