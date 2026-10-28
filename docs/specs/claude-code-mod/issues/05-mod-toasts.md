@@ -17,4 +17,3 @@ A project's change is CI's state on the default branch's commit turning `failing
   - context pressure toasts for `own` and never for another session's item;
   - English and Russian.
 - [ ] The hooks test run by `claude plugin test`: two sessions sharing one store, one CI change, one toast.
-- [ ] Checked by hand with two terminal sessions open: a failing CI on `main` toasts in one of them.

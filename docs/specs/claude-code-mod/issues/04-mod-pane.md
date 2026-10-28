@@ -22,4 +22,3 @@ The pane never opens by itself.
   - each button shown or left out by its rule;
   - a section marked `available: false` left out.
 - [ ] The hooks test run by `claude plugin test`: the command opens the pane and closes it on a second run, and a button fills the prompt box without submitting.
-- [ ] Checked by hand in a terminal narrower than 144 columns and in the desktop app: the command opens the pane, and each button puts its command in the prompt box for Enter.

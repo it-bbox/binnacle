@@ -19,4 +19,3 @@ The session-start lines are a `prompt.context` hook. It adds one context block w
   - a section marked `available: false` left out.
 - [ ] The view function: the session-start lines are at most three, absent when `checkout.taskId` is set, and absent when the snapshot did not answer.
 - [ ] The hooks test run by `claude plugin test` renders the band with a question waiting and draws nothing without one.
-- [ ] Checked by hand in a terminal session: the band appears with a question recorded on a ticket's branch and goes once it is answered; a session on `main` starts with the lines, and one on a ticket's branch without them.

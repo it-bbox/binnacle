@@ -24,4 +24,3 @@ The hooks read `project_snapshot` through `$.mcp.call` on the `binnacle` server,
   - the marketplace lists both plugins;
   - the hooks module is one file with no dynamic `import()`.
 - [ ] A live test, run only where `claude` is on PATH: `claude plugin validate` on the built mod reports nothing the engine refuses, and `claude plugin test` runs a hooks test that drives `session.start` and a refresh.
-- [ ] Checked by hand: installed with `claude plugin marketplace add` on the built package and `claude plugin install binnacle-mod@binnacle`, the line shows in a terminal session on a ticket's branch, beside the person's own `statusLine`, and nothing shows with the daemon stopped.
