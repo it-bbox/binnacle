@@ -88,13 +88,12 @@ Not to take: running without a human by default, which ADR-0022 rules out; and a
 
 ## Session start, agent configuration and traps (2026-10-23)
 
-**Planned on 2026-10-28:** idea 1 into epic 22, idea 2 as epic 27, idea 3 into epic 21.
+**Planned on 2026-10-28:** idea 1 into epic 22, idea 2 as epic 27.
 
-Three ideas, each to be built Binnacle's way:
+Two ideas, each to be built Binnacle's way:
 
 1. **Where the project stands, at a session's start.** A fresh session knows nothing until someone runs `/binnacle:product`. A `SessionStart` hook in the `binnacle` plugin could add two or three lines from the snapshot: the current epic, what waits for the owner, and the Next action with its command. Bounded in size, silent without the daemon, and off with one setting; progressive disclosure, not the whole snapshot. A candidate for epic 22.
 2. **The agent's own configuration in `binn audit`.** The audit reads the project's code, secrets and supply chain, not what drives the agents: `.mcp.json` and each harness's MCP settings, hooks and the commands they run, permission modes that skip approval, and secrets or tokens written into `AGENTS.md`, `CLAUDE.md` or a skill. A new area, read-only as every audit check, which also reports when the harnesses of one project register different MCP servers. Not planned: epic 20 left it out (its spec's `## Risks`).
-3. **A trap as a checkpoint target.** `/binnacle:checkpoint` promotes a term, a trade-off, new work, a product rule or the position. A sixth kind has no place: a non-obvious fact that already cost time, such as a command that must run before another or a version pin. It belongs in the instruction file, `AGENTS.md`, one line each, written on the owner's yes like every promotion. Not planned yet.
 
 Not to take: a catalogue of hundreds of skills and agents, learned "instincts" injected into a session without the owner's yes, and a desktop dashboard beside the web one.
 
@@ -105,20 +104,6 @@ Not to take: a catalogue of hundreds of skills and agents, learned "instincts" i
 Binnacle has 4 stars on 2026-10-23, and its repository has no description, no topics and no image in the README: a visitor from a post sees a wall of text. Projects of its kind grow through a storefront that shows the tool in seconds, launch posts close together (GitHub's trending list counts stars over a day or two), listings where people look for tools, and write-ups with real data. Binnacle's own usage data is the material others do not have: what 220 tickets cost and where the tokens went.
 
 The epic is what the repository can carry: the description and topics, a demo and dashboard screenshots in the README, the Claude plugin marketplace, MCP directories, awesome lists, npm keywords, a write-up and a launch checklist. Posting on Reddit, Hacker News, X, Habr and Telegram is the owner's. A subreddit of its own waits until users ask questions; until then GitHub Discussions is the place for them.
-
-## A context-pressure threshold per model, set from the dashboard (2026-10-24)
-
-**Planned into epic 21 on 2026-10-28.**
-
-The `context.pressure` threshold is one number per project, `telemetry.context_pressure.tokens`, 150 000 where the manifest writes none. Binnacle works with any harness and model, and their context windows differ: 150 000 is close to the edge of a 200K window and early for a much larger one. A Claude Code Product session on this repository already reads about 85 000 tokens in its first call, before any work. The owner wants the threshold to follow the session's model, and to change it from the dashboard's Settings page rather than by editing a file.
-
-Options to weigh:
-
-1. **A threshold per model.** A default and, beside it, a number for a model by name, such as `claude-opus-5-5`; the run's model, which Binnacle already reads, picks the number, and a model with none takes the default.
-2. **A share of the window.** Warn at, say, 60% of the model's context window, where the harness reports the window in its session artifact; where it does not, the window is not known (principle 5) and the default number applies. Which harnesses report it is to be checked.
-3. **From the dashboard.** The Settings page writes the threshold as it writes the Parallel limit: the machine's settings, `~/.binnacle/settings.json`, through the daemon, with a manifest that sets it still winning for that project. That narrows ADR-0041 to a second setting, which needs its own ADR or an amendment.
-
-To decide: per model, a share, or both; whether the threshold belongs to the machine, as the Parallel limit does, or to the project; and the default, which stays conservative for the smallest windows.
 
 ## A first reader's path to installing (2026-10-24)
 
@@ -133,16 +118,9 @@ A developer who studied Binnacle before installing it read the docs written for 
 
 ## Left after epic 20's tickets (2026-10-25)
 
-**Planned on 2026-10-28:** the Russian wording, the context-pressure item's start, `binn mcp` across `/clear` and `--resume`, and runs after a merge, into epic 21.
+Found while epic 20's tickets ran, not planned yet:
 
-Found while epic 20's tickets ran, for the exit demonstration or a later epic:
-
-- Two reasons with no code still reach a Russian vault marked `(англ.)`: a pair's conflict-risk reason and the output of a failed Graphify run.
-- The vault spells "пул-реквесты", `/binnacle:product` "пулл-реквест": one spelling for both.
-- The context-pressure item's "started at" is the latest run's start, not the session's, and gives no date: a session open for days reads as started this morning.
 - Dependabot's `typescript` rule holds the root's 7.x updates too, since one npm entry moves both manifests; 7.x patches are taken by hand until `vue-tsc` runs on 7.
-- `binn mcp` reads the caller's session once, at start; whether Claude Code keeps the id across `/clear` or `--resume` is for the exit demonstration.
-- A session's runs on a Task's branch after its merge keep the Task in progress, from activity, and the Suggested step then advises waiting for a run that is not the Task's work: on 2026-10-28 the snapshot read ticket hygiene-after-v1/09 in flight and said to wait, while its runs were the owner's sessions on its branch (the owner).
 
 ## Binnacle in a dev container (2026-10-25)
 
@@ -157,11 +135,3 @@ A developer who keeps every project's development, its harness included, in a co
 - **What the developer found, 2026-10-25.** Host networking works for one container only: with several, it breaks the containers' routing. A reverse proxy on the host does not help, since the host's loopback is not the container's. In the end he patched the hard-coded `127.0.0.1` to `0.0.0.0` at install, which every package update undoes. A proxy inside the container, rewriting `Host` and `Origin` to `127.0.0.1:7717`, is untried. The smallest fix: a `BINNACLE_HOST` for the bind address and a list of allowed `Host` values, with a test, the token and the `Origin` check unchanged.
 - **One view over many daemons.** Each container runs its own daemon and dashboard, so 20 projects are 20 dashboards. Whether a dashboard can list other daemons, read-only, is to weigh against principle 3 and ADR-0020.
 - **The footprint**: one daemon read about 160 MB of memory with five projects, and its home about 59 MB, on the owner's machine; twenty running at once is a cost worth stating in the guide, measured, not assumed.
-
-## The ticket brief takes a ticket's path (2026-10-28)
-
-**Planned into epic 21 on 2026-10-28.**
-
-`/binnacle:task <ticket path>` without `run` fails with "no Task": the brief passes its argument to `task_get` as it is, and `findTask` (`apps/daemon/src/task.ts`) knows only `<spec-slug>/<NN>` and `#<number>`. With `run`, the skill turns the path into the id itself, so the same path works there. The owner met it twice, the second time on 2026-10-28 from a `Next action:` the checkpoint of 2026-10-25 had written without `run`.
-
-The smallest fix: `findTask` reads `<specs>/<spec-slug>/issues/NN-<name>.md` as `<spec-slug>/NN`, with a test, so every caller of `task_get`, the brief included, takes a path. To weigh beside it: whether the snapshot should flag a `Next action:` whose `/binnacle:task` command names no known Task.
