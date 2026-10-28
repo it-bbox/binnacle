@@ -24,7 +24,15 @@ npm i -g @it-bbox/binnacle
 binn daemon start
 ```
 
-Для разового запуска без установки — `npx -p @it-bbox/binnacle binn`. `binn init` предлагает запускать daemon при входе в систему. Если harness не находит `binn`, см. [чек-лист установки](docs/operations/05-installation-checklist.ru.md#когда-harness-не-находит-binn). Разработка самого Binnacle — в [CONTRIBUTING.ru.md](CONTRIBUTING.ru.md#из-этого-репозитория).
+Для разового запуска без установки — `npx -p @it-bbox/binnacle binn`. `binn init` предлагает запускать daemon при входе в систему, а в Claude Code — ещё и необязательный мод Binnacle: состояние Binnacle рядом с чатом, по умолчанию не ставится. Поставить мод позже, выключить или удалить его:
+
+```bash
+claude plugin install binnacle-mod@binnacle --scope user
+claude plugin disable binnacle-mod
+claude plugin uninstall binnacle-mod
+```
+
+Подробнее: [Мод Binnacle для Claude Code](docs/operations/05-installation-checklist.ru.md#мод-binnacle-для-claude-code). Если harness не находит `binn`, см. [чек-лист установки](docs/operations/05-installation-checklist.ru.md#когда-harness-не-находит-binn). Разработка самого Binnacle — в [CONTRIBUTING.ru.md](CONTRIBUTING.ru.md#из-этого-репозитория).
 
 ## Быстрый путь нового проекта
 

@@ -66,6 +66,24 @@ binn call project_detect
 
 Первая команда показывает репозиторий в списке; вторая печатает его таким, каким его видят MCP-инструменты Binnacle. Если демон остановлен, init оставляет регистрацию вне плана, и её добавляет `binn project register`. Что настраивает init, шаг за шагом: [Новый проект](01-new-project.ru.md#2-настроить-через-binn-init) и [Существующий проект](02-existing-project-adopt.ru.md#план-пункт-за-пунктом).
 
+### Мод Binnacle для Claude Code
+
+`binnacle-mod` — необязательный плагин Claude Code из того же пакета (ADR-0047): строка состояния с задачей сессии, токенами, контекстом и лимитами, полоса *Ждёт вас*, панель, которая открывается своей командой, и всплывающие уведомления, всё — из демона. Он ничего не пишет и без демона ничего не показывает.
+
+`binn init` спрашивает, ставить ли его, по умолчанию — нет, и только там, где найден Claude Code 2.1.308 или новее и мод ещё не стоит. `--mod yes` или `--mod no` отвечают без вопроса; `--plan` и `--apply` без флага мод не ставят. Почему вопрос не задан, init пишет в итоге. Поставить мод позже:
+
+```bash
+claude plugin install binnacle-mod@binnacle --scope user
+```
+
+Выключить его и включить снова или удалить — командами самого Claude Code:
+
+```bash
+claude plugin disable binnacle-mod
+claude plugin enable binnacle-mod
+claude plugin uninstall binnacle-mod
+```
+
 ### Когда harness не находит binn
 
 Harness, который отвечает `command not found` на `binn`, не видит в своём `PATH` глобальный каталог исполняемых файлов npm. `npm prefix -g` печатает глобальный префикс npm:
@@ -89,7 +107,7 @@ Development-ссылка из checkout запускает `binn` иначе, ч�
 1. `binn daemon stop`: запущенный демон держал бы старую версию до перезапуска.
 2. `npm i -g @it-bbox/binnacle@latest` заменяет CLI, демон, dashboard и плагин разом.
 3. `binn daemon start`, затем `binn --version` печатает новую версию.
-4. Если `claude plugin list --json` показывает `binnacle@binnacle`, выполните `claude plugin marketplace update binnacle`, затем `claude plugin update binnacle@binnacle`, чтобы Claude Code взял новые навыки. Они есть у сессии, открытой после этого шага.
+4. Если `claude plugin list --json` показывает `binnacle@binnacle`, выполните `claude plugin marketplace update binnacle`, затем `claude plugin update binnacle@binnacle`, а если стоит и мод — `claude plugin update binnacle-mod@binnacle`, чтобы Claude Code взял новые навыки и мод. Они есть у сессии, открытой после этого шага.
 5. Выполните `binn init` в проекте ещё раз, чтобы заново поставить навыки Binnacle во все остальные harness. `binn audit` сообщает о них, пока они устарели.
 
 ## Настройка

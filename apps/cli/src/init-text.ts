@@ -173,6 +173,15 @@ const en = {
   asking: `Asking Claude Code for its plugins (${LISTING})...`,
   listingFailed: (stderr: string) => `\`${LISTING}\` failed, so no Claude Code plugin is installed.${stderr ? `\n${stderr}` : ''}`,
 
+  mod: 'the Binnacle mod',
+  modOld: (version: string, minimum: string) => `Claude Code ${version} is older than ${minimum}, the oldest it runs on`,
+  modNoVersion: '`claude --version` names no version',
+  modNotAsked: (install: string) => `not asked, ${install} installs it later`,
+  modDeclined: (install: string) => `declined, ${install} installs it later`,
+  modPrompt: "Install binnacle-mod, Binnacle's state beside the chat in Claude Code? [y/N] ",
+  modInPlan: 'Installing binnacle-mod is in the plan.',
+  modHeading: "Install binnacle-mod, Binnacle's state beside the chat, from this Binnacle package, at user scope, outside the repository, by running",
+
   binnacleSkills: "Binnacle's skills",
   binnaclePlugin: 'the binnacle plugin',
   itsPlugin: 'its plugin',
@@ -465,6 +474,15 @@ const ru: InitText = {
   pluginHeading: 'Поставить плагин binnacle из этого пакета Binnacle, на уровне пользователя, вне репозитория, командами',
   asking: `Спрашиваем у Claude Code его плагины (${LISTING})...`,
   listingFailed: (stderr) => `\`${LISTING}\` — ошибка, поэтому плагины Claude Code не ставятся.${stderr ? `\n${stderr} (англ.)` : ''}`,
+
+  mod: 'мод Binnacle',
+  modOld: (version, minimum) => `Claude Code ${version} старше ${minimum}, самой ранней версии, на которой он работает`,
+  modNoVersion: '`claude --version` не называет версию',
+  modNotAsked: (install) => `не спрошен, поставить его можно позже командой ${install}`,
+  modDeclined: (install) => `отклонён, поставить его можно позже командой ${install}`,
+  modPrompt: 'Поставить binnacle-mod, состояние Binnacle рядом с чатом в Claude Code? [y/N] ',
+  modInPlan: 'Установка binnacle-mod есть в плане.',
+  modHeading: 'Поставить binnacle-mod, состояние Binnacle рядом с чатом, из этого пакета Binnacle, на уровне пользователя, вне репозитория, командами',
 
   binnacleSkills: 'скиллы Binnacle',
   binnaclePlugin: 'плагин binnacle',

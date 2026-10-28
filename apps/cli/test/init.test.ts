@@ -86,15 +86,17 @@ function makeHome(t: TestContext): Home {
 
 /**
  * A fake `claude` first on PATH, recording each call's arguments one per line, tab-separated.
- * `plugin list --json` prints `listed`; any other call exits with `exitCode`.
+ * `plugin list --json` prints `listed`; any other call exits with `exitCode`. `--version` prints
+ * `version`, or nothing, so that init offers no mod, and is not recorded: the calls are the plugin CLI's.
  */
-function fakeClaude(home: Home, listed: string[] = [], exitCode = 0): () => string[][] {
+function fakeClaude(home: Home, listed: string[] = [], exitCode = 0, version?: string): () => string[][] {
   const calls = join(home.home, 'claude-calls');
   const list = JSON.stringify(listed.map((id) => ({ id, scope: 'user', enabled: true })));
   // Shell builtins only: the PATH it runs with holds nothing but git and this script.
   writeFileSync(
     join(home.bin, 'claude'),
     `#!/bin/sh
+if [ "$1" = "--version" ]; then ${version ? `echo '${version} (Claude Code)'; ` : ''}exit 0; fi
 for arg in "$@"; do printf '%s\\t' "$arg"; done >> '${calls}'
 echo >> '${calls}'
 if [ "$1 $2 $3" = "plugin list --json" ]; then printf '%s\\n' '${list}'; exit 0; fi
@@ -165,7 +167,7 @@ const CONVENTIONS_IN_PLACE = {
 test('binn --help lists binn init', () => {
   const result = spawnSync(process.execPath, [BINN, '--help'], { encoding: 'utf8' });
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /binn init \[--window <days\|all>\] \[--language <en\|ru>\] \[--autostart <yes\|no>\] \[--skip-harness <id>\]\.\.\. \[path\]/);
+  assert.match(result.stdout, /binn init \[--window <days\|all>\] \[--language <en\|ru>\] \[--autostart <yes\|no>\] \[--mod <yes\|no>\] \[--skip-harness <id>\]\.\.\. \[path\]/);
 });
 
 test('binn init refuses a directory outside any Git repository and writes nothing', (t) => {
@@ -2080,8 +2082,8 @@ test('binn init refuses a bad --window, and --plan or --json alone, as usage err
 
 test('binn --help names --plan, --json and --window for binn init', () => {
   const { stdout } = spawnSync(process.execPath, [BINN, '--help'], { encoding: 'utf8' });
-  assert.match(stdout, /binn init \[--window <days\|all>\] \[--language <en\|ru>\] \[--autostart <yes\|no>\] \[--skip-harness <id>\]\.\.\. \[path\]/);
-  assert.match(stdout, /binn init --plan --json \[--window <days\|all>\] \[--language <en\|ru>\] \[--autostart <yes\|no>\] \[--skip-harness <id>\]\.\.\. \[path\]/);
+  assert.match(stdout, /binn init \[--window <days\|all>\] \[--language <en\|ru>\] \[--autostart <yes\|no>\] \[--mod <yes\|no>\] \[--skip-harness <id>\]\.\.\. \[path\]/);
+  assert.match(stdout, /binn init --plan --json \[--window <days\|all>\] \[--language <en\|ru>\] \[--autostart <yes\|no>\] \[--mod <yes\|no>\] \[--skip-harness <id>\]\.\.\. \[path\]/);
 });
 
 /** The new manifest's body in a plan. */
@@ -2492,7 +2494,7 @@ test('binn init refuses --apply with --plan, or without an id, as usage errors',
 
 test('binn --help names --apply for binn init', () => {
   const { stdout } = spawnSync(process.execPath, [BINN, '--help'], { encoding: 'utf8' });
-  assert.match(stdout, /binn init --apply <id> \[--window <days\|all>\] \[--language <en\|ru>\] \[--autostart <yes\|no>\] \[--skip-harness <id>\]\.\.\. \[path\]/);
+  assert.match(stdout, /binn init --apply <id> \[--window <days\|all>\] \[--language <en\|ru>\] \[--autostart <yes\|no>\] \[--mod <yes\|no>\] \[--skip-harness <id>\]\.\.\. \[path\]/);
 });
 
 /** The `binnacle-<action>` skills of the package's copy for the `skills` CLI, built by its prepare script. */
@@ -3204,4 +3206,121 @@ test('binn init refuses an --autostart other than yes or no as a usage error', (
     assert.equal(result.status, 2, `${args.join(' ')}\n${result.stdout}`);
   }
   assert.equal(git(root, 'status', '--porcelain'), '');
+});
+
+/** The mod question (spec `claude-code-mod`, *`binn init`'s mod step*): asked before the plan, no by default. */
+const MOD_QUESTION = /Install binnacle-mod[^\n]*\? \[y\/N\] /;
+const MOD_INSTALL = ['plugin', 'install', 'binnacle-mod@binnacle', '--scope', 'user'];
+const MARKETPLACE_ADD = ['plugin', 'marketplace', 'add', PACKAGE, '--scope', 'user'];
+const installsMod = (calls: string[][]): boolean => calls.some((call) => call.join(' ') === MOD_INSTALL.join(' '));
+/** The calls that add Binnacle's marketplace or install from it, in order. */
+const binnacleCalls = (calls: string[][]): string[][] => calls.filter((call) => call.includes(PACKAGE) || /@binnacle$/.test(call[2] ?? ''));
+
+test('mod: asked before the plan where Claude Code loads mods, and Enter declines it', (t) => {
+  const home = makeHome(t);
+  const claude = fakeClaude(home, [], 0, '2.1.308');
+  const root = makeRepository(t, 'mod-declined');
+
+  // The window, the language, Enter at the mod question, then yes to the plan.
+  const result = binnIn(home)(root, '\n\n\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  const asked = result.stdout.search(MOD_QUESTION);
+  assert.ok(asked >= 0 && asked < result.stdout.indexOf('The plan. '), result.stdout);
+  assert.ok(!shownHeadings(result.stdout).some((heading) => /binnacle-mod/.test(heading)), result.stdout);
+  assert.ok(!installsMod(claude()), JSON.stringify(claude()));
+  assert.match(summaryOf(result.stdout), /skipped\s+the Binnacle mod: declined, `claude plugin install binnacle-mod@binnacle --scope user` installs it later/);
+});
+
+test('mod: a yes plans the install right after the binnacle plugin, and the confirmed plan runs it', (t) => {
+  const home = makeHome(t);
+  const claude = fakeClaude(home, [], 0, '2.1.400');
+  const root = makeRepository(t, 'mod-yes');
+
+  const result = binnIn(home)(root, '\n\ny\n\n', 'init');
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, MOD_QUESTION);
+  const headings = shownHeadings(result.stdout);
+  const plugin = headings.findIndex((heading) => /Install the binnacle plugin/.test(heading));
+  assert.ok(plugin >= 0 && /Install binnacle-mod/.test(headings[plugin + 1] ?? ''), headings.join('\n'));
+  // The plugin step added the package's marketplace: the mod's item only installs, after the plugin.
+  const calls = binnacleCalls(claude());
+  assert.deepEqual(calls, [MARKETPLACE_ADD, ['plugin', 'install', 'binnacle@binnacle', '--scope', 'user'], MOD_INSTALL]);
+  assert.match(summaryOf(result.stdout), /ran\s+claude plugin install binnacle-mod@binnacle --scope user/);
+});
+
+test('mod: --mod yes and --mod no answer it unasked; with the binnacle plugin listed, the yes adds the marketplace itself', async (t) => {
+  const home = makeHome(t);
+  const claude = fakeClaude(home, ['binnacle@binnacle'], 0, '2.1.308');
+  const root = makeRepository(t, 'mod-flag');
+
+  const yes = binnIn(home)(root, '\n\n\n', 'init', '--mod', 'yes');
+  assert.equal(yes.status, 0, yes.stderr);
+  assert.doesNotMatch(yes.stdout, MOD_QUESTION);
+  assert.deepEqual(
+    binnacleCalls(claude()),
+    [MARKETPLACE_ADD, MOD_INSTALL],
+  );
+
+  const no = binnIn(home)(makeRepository(t, 'mod-flag-no'), '\n\n\n', 'init', '--mod', 'no');
+  assert.equal(no.status, 0, no.stderr);
+  assert.doesNotMatch(no.stdout, MOD_QUESTION);
+  assert.match(summaryOf(no.stdout), /skipped\s+the Binnacle mod: declined/);
+
+  // From the chat: --mod yes is in --plan, and --apply with it installs.
+  const { id, plan } = await planJson(t, home, root, '--mod', 'yes');
+  assert.ok(plan.some(({ body }) => body.includes('claude plugin install binnacle-mod@binnacle --scope user')), JSON.stringify(plan, null, 2));
+  const applied = binnIn(home, false)(root, '', 'init', '--apply', id, '--mod', 'yes');
+  assert.equal(applied.status, 0, applied.stderr);
+  assert.match(summaryOf(applied.stdout), /ran\s+claude plugin install binnacle-mod@binnacle --scope user/);
+});
+
+test('mod: --plan and --apply without --mod decline it, asking nothing', async (t) => {
+  const home = makeHome(t);
+  const claude = fakeClaude(home, [], 0, '2.1.308');
+  const root = makeRepository(t, 'mod-plan');
+
+  const { id, plan } = await planJson(t, home, root);
+  assert.ok(!plan.some(({ body }) => body.includes('binnacle-mod')), JSON.stringify(plan, null, 2));
+  const applied = binnIn(home, false)(root, '', 'init', '--apply', id);
+  assert.equal(applied.status, 0, applied.stderr);
+  assert.doesNotMatch(applied.stdout, MOD_QUESTION);
+  assert.match(summaryOf(applied.stdout), /skipped\s+the Binnacle mod: not asked, `claude plugin install binnacle-mod@binnacle --scope user` installs it later/);
+  assert.ok(!installsMod(claude()), JSON.stringify(claude()));
+});
+
+test('mod: not asked without Claude Code, below its minimum version, or with binnacle-mod listed, and the Summary says why in either language', (t) => {
+  const cases: [string, (home: Home) => void, RegExp, RegExp][] = [
+    ['none', () => {}, /skipped\s+the Binnacle mod: Claude Code is not detected/, /пропущено\s+мод Binnacle: Claude Code не обнаружен/],
+    [
+      'old',
+      (home) => void fakeClaude(home, [], 0, '2.1.40'),
+      /skipped\s+the Binnacle mod: Claude Code 2\.1\.40 is older than 2\.1\.308, the oldest it runs on/,
+      /пропущено\s+мод Binnacle: Claude Code 2\.1\.40 старше 2\.1\.308, самой ранней версии, на которой он работает/,
+    ],
+    ['unread', (home) => void fakeClaude(home), /skipped\s+the Binnacle mod: `claude --version` names no version/, /пропущено\s+мод Binnacle: `claude --version` не называет версию/],
+    [
+      'listed',
+      (home) => void fakeClaude(home, ['binnacle-mod@binnacle'], 0, '2.1.308'),
+      /skipped\s+the Binnacle mod: Claude Code already lists binnacle-mod@binnacle/,
+      /пропущено\s+мод Binnacle: Claude Code уже показывает binnacle-mod@binnacle/,
+    ],
+  ];
+  for (const [name, setUp, english, russian] of cases) {
+    for (const [language, env, said] of [['en', {}, english], ['ru', RUSSIAN, russian]] as const) {
+      const home: Home = { ...makeHome(t), env };
+      setUp(home);
+      const result = binnIn(home)(makeRepository(t, `mod-${name}-${language}`), '\n\nn\n', 'init');
+      assert.equal(result.status, 0, result.stderr);
+      assert.doesNotMatch(result.stdout, /\[y\/N\]/);
+      assert.match(result.stdout, said);
+    }
+  }
+});
+
+test('binn init refuses a --mod other than yes or no as a usage error', (t) => {
+  const home = makeHome(t);
+  const root = makeRepository(t, 'misused-mod');
+  for (const args of [['--mod', 'maybe'], ['--mod', ''], ['--mod']]) assert.equal(binnIn(home)(root, '', 'init', ...args).status, 2, args.join(' '));
 });

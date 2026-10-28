@@ -35,6 +35,7 @@ import { agentSkillsBlock, agentsFile, AGENT_SKILLS_HEADING, conventionFiles, ti
 import { hasTicketHeaderSection, instructionFiles, ISSUE_TRACKER, mattPocockFiles, ROADMAP_SKELETON, roadmapGaps } from './layout.ts';
 import { INIT_TEXT, type InitText, type Next, type NoClaude, type Outcome } from './init-text.ts';
 import { LANGUAGE, parseLanguage, proposeLanguage } from './language.ts';
+import { MINIMUM_CLAUDE_CODE } from './mod/hooks.ts';
 import { register } from './project-commands.ts';
 import { say, TEXT } from './text.ts';
 import { binnacleSkills, CONFIG_HOME, declaredCapabilities, INSTALLED_SKILLS, mcpSources, onPath, PACKAGE_DIR, registeredWith, SKILLS_COPY, tilde, TOOLS, VSCODE_USER_DIRECTORY, type Tool } from './tools.ts';
@@ -98,6 +99,7 @@ export async function init(
     window?: ImportWindow | undefined;
     language?: Language | undefined;
     autostart?: boolean | undefined;
+    mod?: boolean | undefined;
     skipHarness?: string[];
   } = {},
 ): Promise<ExitCode> {
@@ -158,6 +160,7 @@ export async function init(
     const autostartWanted = await autostartStep(session, home, options.autostart, asks, process.stdin.isTTY === true);
     // Read before the manifest is proposed, which declares what is found or installed; planned after the other writes.
     const plugins = listClaudePlugins(session);
+    const modWanted = await modStep(session, plugins, options.mod, asks);
     const tools = detectTools(session, plugins);
     const toDeclare = tools.filter(({ state }) => state === 'found' || state === 'install').map(({ tool }) => tool.name);
     if (manifest === 'new') planFile(session, MANIFEST_RELATIVE, proposeManifest(session.root, git.remotes, toDeclare, language) + (windowSection ? `\n${windowSection}` : ''));
@@ -166,7 +169,8 @@ export async function init(
     session.say('');
     const harnesses = harnessStep(session);
     session.say('');
-    pluginStep(session, plugins);
+    const marketplaceAdded = pluginStep(session, plugins);
+    if (modWanted) planMod(session, marketplaceAdded);
     session.say('');
     skillsStep(session, harnesses, tools, options.skipHarness ?? []);
     session.say('');
@@ -727,31 +731,66 @@ const namesBinnacle = (text: string): boolean =>
 /**
  * Step 5: the `binnacle` plugin from this very package, so that the skills match the `binn`
  * that serves their tools (ADR-0027). Only through Claude Code's own CLI, at user scope:
- * the plugins are never written into Claude Code's settings files by hand.
+ * the plugins are never written into Claude Code's settings files by hand. Returns whether it
+ * planned adding the package's marketplace, which the mod's item then needs not add.
  */
-function pluginStep(session: Session, plugins: ClaudePlugins): void {
+function pluginStep(session: Session, plugins: ClaudePlugins): boolean {
   const { w } = session;
   const what = w.plugin;
   // A skills-directory plugin loads as `<directory>@skills-dir` (ADR-0023): a user-scope copy would show every skill twice.
   const own = join('.claude', 'skills', 'binnacle');
-  if (existsSync(join(session.root, own, '.claude-plugin', 'plugin.json'))) {
-    session.say(w.ownPlugin(own));
-    return record(session, 'skipped', `${what}: ${w.ownPluginWhat(own)}`);
-  }
-  if ('reason' in plugins) {
-    session.say(w.noPlugin(w.noClaude[plugins.reason]));
-    return record(session, 'skipped', `${what}: ${w.noClaude[plugins.reason]}`);
-  }
+  const skip = (said: string, why: string): false => {
+    session.say(said);
+    record(session, 'skipped', `${what}: ${why}`);
+    return false;
+  };
+  if (existsSync(join(session.root, own, '.claude-plugin', 'plugin.json'))) return skip(w.ownPlugin(own), w.ownPluginWhat(own));
+  if ('reason' in plugins) return skip(w.noPlugin(w.noClaude[plugins.reason]), w.noClaude[plugins.reason]);
   const listed = listedAs(plugins.ids, 'binnacle@binnacle');
-  if (listed) {
-    session.say(w.pluginListed(listed));
-    return record(session, 'skipped', `${what}: ${w.pluginListedWhat(listed)}`);
-  }
+  if (listed) return skip(w.pluginListed(listed), w.pluginListedWhat(listed));
 
-  planClaude(session, (words) => words.pluginHeading, what, [
-    ['plugin', 'marketplace', 'add', PACKAGE_DIR, '--scope', 'user'],
-    ['plugin', 'install', 'binnacle@binnacle', '--scope', 'user'],
-  ]);
+  planClaude(session, (words) => words.pluginHeading, what, [MARKETPLACE_ADD, ['plugin', 'install', 'binnacle@binnacle', '--scope', 'user']]);
+  return true;
+}
+
+const MARKETPLACE_ADD = ['plugin', 'marketplace', 'add', PACKAGE_DIR, '--scope', 'user'];
+const MOD_INSTALL = ['plugin', 'install', 'binnacle-mod@binnacle', '--scope', 'user'];
+
+/**
+ * Step 2c, asked after autostart and before the plan: whether to install `binnacle-mod` (ADR-0047), no by
+ * default. Only where Claude Code is detected, its version is at least the mod's minimum, and it does not
+ * list the mod already. A `given` answer is taken unasked; without one, the forms that ask nothing decline
+ * it. Each skip goes to the Summary with its reason.
+ */
+async function modStep(session: Session, plugins: ClaudePlugins, given: boolean | undefined, asks: boolean): Promise<boolean> {
+  const { w } = session;
+  const install = `\`${shownClaude(MOD_INSTALL)}\``;
+  const skip = (why: string): false => {
+    record(session, 'skipped', `${w.mod}: ${why}`);
+    return false;
+  };
+  if ('reason' in plugins) return skip(w.noClaude[plugins.reason]);
+  const listed = listedAs(plugins.ids, 'binnacle-mod@binnacle');
+  if (listed) return skip(w.pluginListedWhat(listed));
+  const version = /\d+\.\d+\.\d+/.exec(spawnSync('claude', ['--version'], { cwd: session.root, encoding: 'utf8' }).stdout ?? '')?.[0];
+  if (version === undefined) return skip(w.modNoVersion);
+  // Numeric collation compares each run of digits as a number: 2.1.40 is before 2.1.308.
+  if (version.localeCompare(MINIMUM_CLAUDE_CODE, 'en', { numeric: true }) < 0) return skip(w.modOld(version, MINIMUM_CLAUDE_CODE));
+  let yes = given;
+  if (yes === undefined) {
+    if (!asks) return skip(w.modNotAsked(install));
+    const reply = await session.answer(w.modPrompt);
+    // Only a yes accepts: Enter, anything else and the end of input decline.
+    yes = reply !== null && /^\s*y(es)?\s*$/i.test(reply);
+  }
+  if (!yes) return skip(w.modDeclined(install));
+  session.say(w.modInPlan);
+  return true;
+}
+
+/** The plan's item for a yes to the mod: the install, after adding the package's marketplace when the plugin step did not. */
+function planMod(session: Session, marketplaceAdded: boolean): void {
+  planClaude(session, (words) => words.modHeading, session.w.mod, [...(marketplaceAdded ? [] : [MARKETPLACE_ADD]), MOD_INSTALL]);
 }
 
 /**

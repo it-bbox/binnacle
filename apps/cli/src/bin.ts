@@ -83,7 +83,7 @@ async function run(argv: string[]): Promise<ExitCode> {
 /**
  * `binn init`'s arguments, or null when they are not its usage: `--plan` and `--json` only together,
  * `--apply` with an id and without them, a window as the window question takes it, though not empty,
- * `--language` `en` or `ru`, `--autostart` `yes` or `no`, and any number of `--skip-harness` ids, none empty.
+ * `--language` `en` or `ru`, `--autostart` and `--mod` `yes` or `no`, and any number of `--skip-harness` ids, none empty.
  */
 function initOptions(
   args: string[],
@@ -94,6 +94,7 @@ function initOptions(
   window: ImportWindow | undefined;
   language: Language | undefined;
   autostart: boolean | undefined;
+  mod: boolean | undefined;
   skipHarness: string[];
 } | null {
   try {
@@ -107,12 +108,12 @@ function initOptions(
         window: { type: 'string' },
         language: { type: 'string' },
         autostart: { type: 'string' },
+        mod: { type: 'string' },
         'skip-harness': { type: 'string', multiple: true },
       },
     });
-    const answer = values.autostart?.trim();
-    if (answer !== undefined && answer !== 'yes' && answer !== 'no') return null;
-    const autostart = answer === undefined ? undefined : answer === 'yes';
+    const [autostart, mod] = [values.autostart, values.mod].map(yesOrNo);
+    if (autostart === null || mod === null) return null;
     const plan = values.plan === true;
     const apply = values.apply?.trim();
     if (plan !== (values.json === true) || positionals.length > 1) return null;
@@ -122,11 +123,17 @@ function initOptions(
     const window = values.window === undefined ? undefined : values.window.trim() === '' ? null : importWindow(values.window);
     const language = values.language === undefined ? undefined : parseLanguage(values.language);
     if (language === null) return null;
-    return window === null ? null : { path: positionals[0], plan, apply, window, language, autostart, skipHarness };
+    return window === null ? null : { path: positionals[0], plan, apply, window, language, autostart, mod, skipHarness };
   } catch {
     // An unknown option, or --window without its value.
     return null;
   }
+}
+
+/** A `yes` or `no` flag's answer: undefined when it is not given, null for anything else. */
+function yesOrNo(value: string | undefined): boolean | undefined | null {
+  const answer = value?.trim();
+  return answer === undefined ? undefined : answer === 'yes' ? true : answer === 'no' ? false : null;
 }
 
 function usage(command: string): ExitCode {

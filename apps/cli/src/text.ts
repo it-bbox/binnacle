@@ -11,16 +11,16 @@ const en = {
   usage: `binn — Binnacle, a local AI engineering control plane.
 
 Usage:
-  binn init [--window <days|all>] [--language <en|ru>] [--autostart <yes|no>] [--skip-harness <id>]... [path]
+  binn init [--window <days|all>] [--language <en|ru>] [--autostart <yes|no>] [--mod <yes|no>] [--skip-harness <id>]... [path]
                         Set up the Git repository containing path (default: the working directory):
                         show the whole plan and ask once before writing; it never overwrites a file
                         and never commits. --window sets the history import window without asking;
                         --language answers the repository's documentation language, en or ru;
                         --autostart answers whether the daemon starts at login, where it is asked;
                         --skip-harness keeps Binnacle's skills out of that skills CLI harness id
-  binn init --plan --json [--window <days|all>] [--language <en|ru>] [--autostart <yes|no>] [--skip-harness <id>]... [path]
+  binn init --plan --json [--window <days|all>] [--language <en|ru>] [--autostart <yes|no>] [--mod <yes|no>] [--skip-harness <id>]... [path]
                         Print that plan and its id as JSON, writing, running and asking nothing
-  binn init --apply <id> [--window <days|all>] [--language <en|ru>] [--autostart <yes|no>] [--skip-harness <id>]... [path]
+  binn init --apply <id> [--window <days|all>] [--language <en|ru>] [--autostart <yes|no>] [--mod <yes|no>] [--skip-harness <id>]... [path]
                         Write the plan whose id is <id>, as a confirmed run does, without asking;
                         if the plan is no longer that one, write nothing and exit 3
 
@@ -170,16 +170,16 @@ const ru: typeof en = {
   usage: `binn — Binnacle, локальная панель управления разработкой с ИИ-агентами.
 
 Использование:
-  binn init [--window <days|all>] [--language <en|ru>] [--autostart <yes|no>] [--skip-harness <id>]... [path]
+  binn init [--window <days|all>] [--language <en|ru>] [--autostart <yes|no>] [--mod <yes|no>] [--skip-harness <id>]... [path]
                         Настроить Git-репозиторий, в котором лежит path (по умолчанию — текущий каталог):
                         показать весь план и один раз спросить перед записью; файлы не перезаписываются,
                         коммитов нет. --window задаёт окно импорта истории без вопроса;
                         --language отвечает, на каком языке документация репозитория, en или ru;
                         --autostart отвечает, запускать ли демон при входе в систему, там, где это спрашивается;
                         --skip-harness не ставит скиллы Binnacle в клиент агента с этим id в skills CLI
-  binn init --plan --json [--window <days|all>] [--language <en|ru>] [--autostart <yes|no>] [--skip-harness <id>]... [path]
+  binn init --plan --json [--window <days|all>] [--language <en|ru>] [--autostart <yes|no>] [--mod <yes|no>] [--skip-harness <id>]... [path]
                         Напечатать этот план и его id в JSON, ничего не записывая, не запуская и не спрашивая
-  binn init --apply <id> [--window <days|all>] [--language <en|ru>] [--autostart <yes|no>] [--skip-harness <id>]... [path]
+  binn init --apply <id> [--window <days|all>] [--language <en|ru>] [--autostart <yes|no>] [--mod <yes|no>] [--skip-harness <id>]... [path]
                         Записать план с id <id>, как после подтверждения, без вопросов;
                         если план уже не тот, ничего не записать и выйти с кодом 3
 
