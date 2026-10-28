@@ -23,10 +23,13 @@ const snapshot = (own: Own | null | undefined, rest: Record<string, unknown> = {
     checkout: { root: '/project', registered: true, taskId: 'claude-code-mod/03' },
     roadmap: null,
     next: { action: null, alternatives: [] },
+    tasks: null,
     pendingDecisions: NOTHING_PENDING,
+    ci: { available: false, reason: NO_FORGE, code: 'ci.no_forge' },
     attention: [],
     ...rest,
   }) as unknown as NonNullable<ViewInput['snapshot']>;
+const NO_FORGE = 'There is no forge to read CI from.';
 const onTask: Own = { taskId: 'claude-code-mod/02', taskTitle: "The mod's status line", role: 'implementation', totals: totals(80_000) };
 const product: Own = { taskId: null, taskTitle: null, role: 'product', totals: totals(520) };
 const FULL = { context: { window: 200_000, tokens: 84_000, percent: 42 }, rateLimits: [{ kind: 'five_hour', percentUsed: 23.5 }, { kind: 'seven_day', percentUsed: 7 }] };
@@ -82,7 +85,7 @@ test('a part with no data is left out, never shown as zero', () => {
 });
 
 test('without a snapshot the line is cleared, and there is no band and no session-start line', () => {
-  assert.deepEqual(view({ snapshot: null, ...FULL, language: 'en' }), { status: undefined, band: undefined, startLines: undefined });
+  assert.deepEqual(view({ snapshot: null, ...FULL, language: 'en' }), { status: undefined, band: undefined, startLines: undefined, pane: undefined });
 });
 
 /** A Task item of the snapshot's *Waiting for the owner*, by its id. */
@@ -191,6 +194,70 @@ test("no session-start lines on a Task's branch, or when the snapshot did not an
   assert.equal(view({ snapshot: null, ...NONE, language: 'en' }).startLines, undefined);
 });
 
+/** A Task in flight, as the snapshot's `tasks.inFlight` lists it. */
+const flying = (id: string, state: string) => ({ ...task(id), state, start: null, roles: { required: [], source: 'default', suggested: [] } });
+const CI = (state: string) => ({
+  forge: { provider: 'github', host: 'github.com', repository: 'o/r', from: 'remote' },
+  defaultBranch: { branch: 'main', commit: '0123456789ab', state: { value: state, provenance: 'provider_reported' }, url: 'https://github.com/o/r', at: null },
+  requests: { items: [], remainder: 0 },
+});
+const AUTOPILOT = { kind: 'autopilot', tasks: [], params: {}, command: '/binnacle:autopilot claude-code-mod', description: 'Run autopilot.' };
+/** A session on `main` with every section of the pane filled. */
+const FILLED = {
+  ...ON_MAIN,
+  tasks: { inFlight: { items: [flying('spec/31', 'ACTIVE'), flying('spec/32', 'READY_FOR_REVIEW')], remainder: 2 } },
+  ci: CI('passing'),
+  next: { ...ON_MAIN.next, alternatives: [AUTOPILOT] },
+  pendingDecisions: pending(1, 0, 0),
+};
+const pane = (rest: Record<string, unknown>, language: 'en' | 'ru' = 'en') => view({ snapshot: snapshot(null, rest), ...NONE, language }).pane;
+const keys = (rest: Record<string, unknown>) => pane(rest)?.buttons.map((button) => button.key);
+
+test("the pane's sections from a snapshot, in English and Russian", () => {
+  assert.deepEqual(pane(FILLED)?.sections, [
+    { heading: 'Current epic', lines: ['22, A Binnacle mod for Claude Code (in progress, 2 of 7 Tasks done)'] },
+    { heading: 'Waiting for you', lines: ['Unanswered questions: 1 (spec/01)'] },
+    { heading: 'In progress', lines: ['spec/31 Ticket spec/31 (in progress)', 'spec/32 Ticket spec/32 (in review)', 'and 2 more'] },
+    { heading: 'CI', lines: ['main: passing'] },
+    { heading: 'Next action', lines: ['start the band with `/binnacle:task run docs/specs/claude-code-mod/issues/03-x.md`'] },
+  ]);
+  assert.deepEqual(pane({ ...FILLED, ci: CI('failing'), attention: [CI_FAILING] }, 'ru')?.sections, [
+    { heading: 'Текущий эпик', lines: ['22, A Binnacle mod for Claude Code (в работе, готово 2 из 7)'] },
+    { heading: 'Ждёт вас', lines: ['Вопросы без ответа: 1 (spec/01)', CI_FAILING_RU] },
+    { heading: 'В работе', lines: ['spec/31 Ticket spec/31 (в работе)', 'spec/32 Ticket spec/32 (на ревью)', 'и ещё 2'] },
+    { heading: 'CI', lines: ['main: падает'] },
+    { heading: 'Следующий шаг', lines: ['start the band with `/binnacle:task run docs/specs/claude-code-mod/issues/03-x.md`'] },
+  ]);
+});
+
+test('a section marked available: false, or with nothing in it, is left out of the pane', () => {
+  const unavailable = { available: false, reason: 'unread' };
+  assert.deepEqual(pane({ tasks: null, ci: unavailable, pendingDecisions: unavailable }), { sections: [], buttons: [] });
+  assert.deepEqual(pane({ tasks: { inFlight: { items: [], remainder: 0 } }, ci: CI('none') })?.sections, [{ heading: 'CI', lines: ['main: no checks'] }]);
+  assert.equal(view({ snapshot: null, ...NONE, language: 'en' }).pane, undefined);
+});
+
+test('each button is shown or left out by its rule, and carries its command', () => {
+  assert.deepEqual(pane(FILLED)?.buttons, [
+    { key: 'next', command: '/binnacle:task run docs/specs/claude-code-mod/issues/03-x.md' },
+    { key: 'suggested', command: '/binnacle:autopilot claude-code-mod' },
+    { key: 'answer', command: '/binnacle:answer' },
+    { key: 'checkpoint', command: '/binnacle:checkpoint' },
+  ]);
+  // No Next action: no button for it, the Suggested step's stays.
+  assert.deepEqual(keys({ ...FILLED, next: { action: null, alternatives: [AUTOPILOT] } }), ['suggested', 'answer', 'checkpoint']);
+  // The first Suggested step only, and none when it is the Next action's command, has none, or cannot be read.
+  const same = { ...AUTOPILOT, command: ON_MAIN.next.action.command };
+  assert.deepEqual(keys({ ...FILLED, next: { ...ON_MAIN.next, alternatives: [same, AUTOPILOT] } }), ['next', 'answer', 'checkpoint']);
+  assert.deepEqual(keys({ ...FILLED, next: { ...ON_MAIN.next, alternatives: [{ ...AUTOPILOT, command: null }] } }), ['next', 'answer', 'checkpoint']);
+  assert.deepEqual(keys({ ...FILLED, next: { ...ON_MAIN.next, alternatives: { available: false, reason: 'unread' } } }), ['next', 'answer', 'checkpoint']);
+  // `/binnacle:answer` only while a question is unanswered.
+  assert.deepEqual(keys({ ...FILLED, pendingDecisions: pending(0, 1, 1) }), ['next', 'suggested', 'checkpoint']);
+  assert.deepEqual(keys({ ...FILLED, pendingDecisions: { ...pending(0, 0, 0), questions: { available: false, reason: 'unread' } } }), ['next', 'suggested', 'checkpoint']);
+  // `/binnacle:checkpoint` only off a Task's branch.
+  assert.deepEqual(keys({ ...FILLED, checkout: { root: '/project', registered: true, taskId: 'spec/31' } }), ['next', 'suggested', 'answer']);
+});
+
 /**
  * The hooks module with a stand-in for Claude Code's `$`: the `binnacle` server's answers and the locale are the
  * test's, and every refresh draws the line from scratch.
@@ -207,6 +274,10 @@ function engine(locale: Record<string, string> = { LANG: 'C' }) {
     calls: [] as unknown[][],
     timers: [] as { ms: number; fn: () => void }[],
     invalidated: 0,
+    commands: [] as unknown[],
+    /** The panes open now, as `$.ui.panes()` lists them, and what the prompt box was filled with. */
+    panes: [] as { id: string; title: string }[],
+    filled: [] as unknown[],
   };
   const $ = {
     mcp: {
@@ -224,11 +295,19 @@ function engine(locale: Record<string, string> = { LANG: 'C' }) {
       status: (text: string | undefined) => void state.lines.push(text),
       invalidate: () => void (state.invalidated += 1),
       // Each element by its name, so that a test reads the tree the band would draw.
-      resolve: () => ({ Box: 'Box', Text: 'Text' }),
+      resolve: () => ({ Box: 'Box', Text: 'Text', Button: 'Button' }),
+      open: async (pane: { id: string; title: string }) => (state.panes.push(pane), { isPlaced: true }),
+      close: async ({ id }: { id: string }) => void (state.panes = state.panes.filter((pane) => pane.id !== id)),
+      panes: async () => state.panes,
     },
+    command: { register: async (command: unknown) => (state.commands.push(command), { command: 'binnacle-pane' }) },
+    prompt: { fill: async (args: unknown) => (state.filled.push(args), { isFilled: true, text: '', cursor: 0 }) },
   };
-  // A matcher, when there is one, stands before the hook.
-  register(((event: string, ...rest: unknown[]) => void hooks.set(event, rest.at(-1) as (...args: unknown[]) => unknown)) as never);
+  // A hook by its event and, when its matcher names one, its component: a matcher stands before the hook.
+  register(((event: string, ...rest: unknown[]) => {
+    const component = rest.length > 1 ? (rest[0] as { component?: string }).component : undefined;
+    hooks.set(component ? `${event} ${component}` : event, rest.at(-1) as (...args: unknown[]) => unknown);
+  }) as never);
   /** Raises an event, then lets the refresh it started finish. */
   const run = async (event: string, e: unknown) => {
     const result = await hooks.get(event)!($, e, async (input: unknown) => input);
@@ -237,8 +316,10 @@ function engine(locale: Record<string, string> = { LANG: 'C' }) {
   };
   /** The band's tree, or what lies beneath it when the mod passes. */
   const band = (props: Record<string, unknown> = {}) =>
-    hooks.get('ui.render')!($, { surface: 'terminal', component: 'AbovePrompt', props: { hasSurvey: false, ...props } }, async () => 'beneath');
-  return { state, run, band };
+    hooks.get('ui.render AbovePrompt')!($, { surface: 'terminal', component: 'AbovePrompt', props: { hasSurvey: false, ...props } }, async () => 'beneath');
+  /** The pane's tree. */
+  const pane = () => hooks.get('ui.render Pane')!($, { surface: 'terminal', component: 'Pane', requestId: 'binnacle', props: {} }, async () => 'beneath');
+  return { state, run, band, pane };
 }
 /** Claude Code's global JSX factory, giving plain data. */
 (globalThis as { h?: unknown }).h = (type: string, props: object | null, ...children: unknown[]) => ({ type, props, children });
@@ -283,11 +364,12 @@ test('the band is drawn with a question waiting, and passes beneath without one 
   state.answer = answered(snapshot(onTask));
   await run('session.start', START);
   assert.equal(await band(), 'beneath');
-  assert.equal(state.invalidated, 0);
+  // The first snapshot gives the pane its content, though not the band.
+  assert.equal(state.invalidated, 1);
 
   state.answer = answered(snapshot(onTask, { pendingDecisions: pending(1, 0, 0) }));
   await run('session.measure', { ...FULL, changed: ['context'] });
-  assert.equal(state.invalidated, 1);
+  assert.equal(state.invalidated, 2);
   assert.deepEqual(await band(), {
     type: 'Box',
     props: { flexDirection: 'column' },
@@ -299,10 +381,10 @@ test('the band is drawn with a question waiting, and passes beneath without one 
   assert.equal(await band({ hasSurvey: true }), 'beneath');
   // The same band again asks for no redraw; a stopped daemon takes it away.
   await run('session.measure', { ...FULL, changed: ['context'] });
-  assert.equal(state.invalidated, 1);
+  assert.equal(state.invalidated, 2);
   state.answer = refused('daemon.unreachable');
   await run('session.measure', { ...FULL, changed: ['context'] });
-  assert.equal(state.invalidated, 2);
+  assert.equal(state.invalidated, 3);
   assert.equal(await band(), 'beneath');
 });
 
@@ -335,4 +417,50 @@ test('the session-start lines wait on the refresh under way, and give up inside 
   state.sleep = Promise.resolve();
   await run('session.measure', { ...FULL, changed: ['context'] });
   assert.deepEqual(await run('prompt.context', { blocks: [core] }), { blocks: [core] });
+});
+
+test('the command is registered at the start, opens the pane, and closes it on a second run; the pane never opens by itself', async () => {
+  const { state, run } = engine();
+  state.answer = answered(snapshot(null, FILLED));
+  await run('session.start', START);
+  assert.deepEqual(state.commands, [{ name: 'binnacle-pane', description: 'Open or close the Binnacle pane' }]);
+  assert.deepEqual(state.panes, []);
+  const command = { command: 'binnacle-pane', args: '', origin: { kind: 'composer' }, presentation: {} };
+  assert.deepEqual(await run('command.run', command), {});
+  assert.deepEqual(state.panes, [{ id: 'binnacle', title: 'Binnacle' }]);
+  await run('command.run', command);
+  assert.deepEqual(state.panes, []);
+  await run('command.run', command);
+  assert.deepEqual(state.panes, [{ id: 'binnacle', title: 'Binnacle' }]);
+});
+
+test("the pane draws the last view's sections and buttons, and a button fills the prompt box without sending it", async () => {
+  const { state, run, pane } = engine();
+  state.answer = refused('daemon.unreachable');
+  await run('session.start', START);
+  // Without the daemon, no content.
+  assert.deepEqual(await pane(), { type: 'Box', props: null, children: [] });
+
+  state.answer = answered(snapshot(null, { ...ON_MAIN, pendingDecisions: NOTHING_PENDING }));
+  await run('session.measure', { ...FULL, changed: ['context'] });
+  // A pane that changed asks for a redraw.
+  assert.equal(state.invalidated, 1);
+  type Drawn = { type: string; props: { key?: string; onPress?: () => void } | null; children: Drawn[] };
+  const tree = (await pane()) as Drawn;
+  assert.equal(tree.type, 'Box');
+  assert.deepEqual(
+    tree.children.map((node) => [node.type, ...node.children]),
+    [
+      ['Text', 'Current epic'],
+      ['Text', '22, A Binnacle mod for Claude Code (in progress, 2 of 7 Tasks done)'],
+      ['Text', 'Next action'],
+      ['Text', 'start the band with `/binnacle:task run docs/specs/claude-code-mod/issues/03-x.md`'],
+      ['Button', '/binnacle:task run docs/specs/claude-code-mod/issues/03-x.md'],
+      ['Button', '/binnacle:checkpoint'],
+    ],
+  );
+  const buttons = tree.children.filter((node) => node.type === 'Button');
+  assert.deepEqual(buttons.map((node) => node.props?.key), ['next', 'checkpoint']);
+  buttons[1]!.props!.onPress!();
+  assert.deepEqual(state.filled, [{ text: '/binnacle:checkpoint', mode: 'replace' }]);
 });

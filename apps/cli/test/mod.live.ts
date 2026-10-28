@@ -18,6 +18,7 @@ const skip = spawnSync('claude', ['--version']).error !== undefined && '`claude`
 const HOOKS_TEST = `import { expect, mock, test } from 'claude-code/testing'
 
 const NOTHING = { items: [], remainder: 0 }
+const NO_CI = { available: false, reason: 'There is no forge to read CI from.' }
 const OWN = { taskId: 'claude-code-mod/02', taskTitle: 'The mod', role: 'implementation', totals: { records: 1, input: { tokens: 1000 }, cachedInput: { tokens: null }, cacheCreation: { tokens: null }, output: { tokens: 500 }, reasoning: { tokens: null } } }
 
 test('the status line at the session start, cleared without the daemon, and back at the next refreshes', async ($, on) => {
@@ -32,6 +33,7 @@ test('the status line at the session start, cleared without the daemon, and back
     const text = JSON.stringify(snapshot ?? { error: { code: 'daemon.unreachable', message: 'The daemon is not running.' } })
     return { value: { content: [{ type: 'text', text }], isError: snapshot === null } }
   })
+  on('command.register', () => ({ value: { command: 'binnacle-pane' } }))
   on('ui.status', (_, e) => (lines.push(e.text), { value: undefined }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('session.measure', (_, e) => ({ changed: e.changed }))
@@ -40,7 +42,7 @@ test('the status line at the session start, cleared without the daemon, and back
   await clock.settle()
   expect(lines).toEqual([undefined])
 
-  snapshot = { activity: { running: { items: [], remainder: 0 }, recent: [], own: OWN }, checkout: { taskId: 'claude-code-mod/02' }, roadmap: null, next: { action: null, alternatives: [] }, pendingDecisions: { questions: NOTHING, approvals: NOTHING, owner: NOTHING }, attention: [] }
+  snapshot = { activity: { running: { items: [], remainder: 0 }, recent: [], own: OWN }, checkout: { taskId: 'claude-code-mod/02' }, roadmap: null, next: { action: null, alternatives: [] }, tasks: null, pendingDecisions: { questions: NOTHING, approvals: NOTHING, owner: NOTHING }, ci: NO_CI, attention: [] }
   await clock.advance(60000)
   expect(lines.at(-1)).toBe('claude-code-mod/02 implementation · 500 output tokens (from activity) · context 42% · 5h 23%')
 
@@ -59,9 +61,10 @@ test('the band with a question waiting, on both surfaces that draw it, and nothi
   on('session.id', () => ({ value: 'session-1' }))
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
   on('mcp.call', () => {
-    const snapshot = { activity: { running: { items: [], remainder: 0 }, recent: [] }, checkout: { taskId: 'claude-code-mod/03' }, roadmap: null, next: { action: null, alternatives: [] }, pendingDecisions: { questions, approvals: NOTHING, owner: NOTHING }, attention: [] }
+    const snapshot = { activity: { running: { items: [], remainder: 0 }, recent: [] }, checkout: { taskId: 'claude-code-mod/03' }, roadmap: null, next: { action: null, alternatives: [] }, tasks: null, pendingDecisions: { questions, approvals: NOTHING, owner: NOTHING }, ci: NO_CI, attention: [] }
     return { value: { content: [{ type: 'text', text: JSON.stringify(snapshot) }], isError: false } }
   })
+  on('command.register', () => ({ value: { command: 'binnacle-pane' } }))
   on('ui.status', () => ({ value: undefined }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('session.measure', (_, e) => ({ changed: e.changed }))
@@ -88,6 +91,51 @@ test('the band with a question waiting, on both surfaces that draw it, and nothi
     await ui.unmount()
   }
 })
+
+const PANE = { plugin: 'binnacle-mod', component: 'Pane', requestId: 'binnacle', props: { title: 'Binnacle', isFocused: false, bodyColumns: 80, placement: 'dock', scroll: { offset: 0, bodyRows: 20 }, view: {} } } as const
+
+test('the command opens the pane and closes it on a second run, and a button fills the prompt box without submitting', async ($, on) => {
+  mock.env(on, { LANG: 'C' })
+  const clock = mock.clock(on)
+  const open: string[] = []
+  const filled: unknown[] = []
+  let submitted = 0
+  on('session.id', () => ({ value: 'session-1' }))
+  on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
+  on('mcp.call', () => {
+    const snapshot = { activity: { running: { items: [], remainder: 0 }, recent: [] }, checkout: { taskId: null }, roadmap: null, next: { action: { description: 'Start the pane with', command: '/binnacle:task run t.md' }, alternatives: [] }, tasks: null, pendingDecisions: { questions: NOTHING, approvals: NOTHING, owner: NOTHING }, ci: NO_CI, attention: [] }
+    return { value: { content: [{ type: 'text', text: JSON.stringify(snapshot) }], isError: false } }
+  })
+  on('command.register', () => ({ value: { command: 'binnacle-pane' } }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.panes', () => ({ value: open.map((id) => ({ id, title: 'Binnacle', isShown: true, isFocused: false, isPlaced: true })) }))
+  on('ui.open', (_, e) => (open.push(e.id), { value: { isPlaced: true } }))
+  on('ui.close', (_, e) => (open.splice(open.indexOf(e.id), 1), { value: undefined }))
+  on('prompt.fill', (_, e) => (filled.push({ text: e.text, mode: e.mode }), { isFilled: true }))
+  on('prompt.submit', (_, e) => (submitted++, e))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('session.measure', (_, e) => ({ changed: e.changed }))
+
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await clock.settle()
+  // The pane never opens by itself.
+  expect(open).toEqual([])
+  await $.command.run({ command: 'binnacle-pane' })
+  expect(open).toEqual(['binnacle'])
+  await $.command.run({ command: 'binnacle-pane' })
+  expect(open).toEqual([])
+  await $.command.run({ command: 'binnacle-pane' })
+
+  for (const surface of ['terminal', 'desktop', 'vscode', 'mobile'] as const) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    expect((await ui.find({ type: 'Text', text: /Next action/ }))?.text).toBe('Next action')
+    expect((await ui.find({ type: 'Text', text: /Start the pane with .\\/binnacle:task run t\\.md.$/ }))).toBeDefined()
+    await ui.press({ key: 'checkpoint' })
+    await ui.unmount()
+  }
+  expect(filled).toEqual(['terminal', 'desktop', 'vscode', 'mobile'].map(() => ({ text: '/binnacle:checkpoint', mode: 'replace' })))
+  expect(submitted).toBe(0)
+})
 `;
 
 test('Claude Code validates the built mod and runs its hooks test', { skip, timeout: 5 * 60_000 }, (t) => {
@@ -103,10 +151,12 @@ test('Claude Code validates the built mod and runs its hooks test', { skip, time
   // submission rules (a README, a licence beside the plugin), which the result does not depend on.
   const engine = validate.stdout.split('Plugin directory checks')[0]!;
   assert.doesNotMatch(engine, /✘/, validate.stdout);
-  assert.match(engine, /hooks: session\.start, session\.measure, ui\.render\{component=AbovePrompt\}, prompt\.context/, validate.stdout);
+  assert.match(engine, /hooks: session\.start, command\.run\{command=binnacle-pane\}, ui\.render\{component=Pane, requestId=binnacle\}, session\.measure, ui\.render\{component=AbovePrompt\}, prompt\.context/, validate.stdout);
+  // The command's hook answers for itself, rather than standing as a gate on every command run.
+  assert.match(engine, /answers its own command: command\.run\{command=binnacle-pane\}/, validate.stdout);
 
   writeFileSync(join(mod, 'hooks.test.ts'), HOOKS_TEST);
   const run = spawnSync('claude', ['plugin', 'test', mod], { encoding: 'utf8' });
   assert.equal(run.status, 0, run.stdout + run.stderr);
-  assert.match(run.stdout + run.stderr, /2 pass/);
+  assert.match(run.stdout + run.stderr, /3 pass/);
 });

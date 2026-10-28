@@ -25,10 +25,15 @@ type Engine = {
   session: { id: () => Promise<string>; usage: () => Promise<Pick<ViewInput, 'context' | 'rateLimits'>> };
   env: { get: (name: string) => Promise<string | undefined | null> };
   clock: { every: (ms: number, fn: () => void) => unknown; sleep: (ms: number) => Promise<void> };
+  command: { register: (command: { name: string; description: string }) => Promise<unknown> };
+  prompt: { fill: (args: { text: string; mode: 'replace' }) => Promise<unknown> };
   ui: {
     status: (text: string | undefined) => void;
     invalidate: (event: 'ui.render') => void;
-    resolve: (e: Render) => Record<'Box' | 'Text', (props: never) => Node>;
+    resolve: (e: Render) => Record<'Box' | 'Text' | 'Button', (props: never) => Node>;
+    open: (pane: { id: string; title: string }) => Promise<unknown>;
+    close: (pane: { id: string }) => Promise<void>;
+    panes: () => Promise<readonly { id: string }[]>;
   };
 };
 /** A tree's node, built by Claude Code's global JSX factory: the mod's source is `.ts`, so it calls `h` by name. */
@@ -39,8 +44,9 @@ type Blocks = { blocks: readonly { name: string; text: string }[] };
 type Hook<E = never> = ($: Engine, e: E, next: (e: E) => Promise<unknown>) => Promise<unknown>;
 type On = {
   (event: 'session.start' | 'session.measure', hook: Hook): unknown;
-  (event: 'ui.render', matcher: { component: 'AbovePrompt' }, hook: Hook<Render>): unknown;
+  (event: 'ui.render', matcher: { component: 'AbovePrompt' } | { component: 'Pane'; requestId: string }, hook: Hook<Render>): unknown;
   (event: 'prompt.context', hook: Hook<Blocks>): unknown;
+  (event: 'command.run', matcher: { command: string }, hook: Hook): unknown;
 };
 
 /** The snapshot asked with this session's id, or null on any failure: an MCP error, no `binnacle` server, a stopped daemon, an unregistered project. */
@@ -56,12 +62,12 @@ async function readSnapshot($: Engine): Promise<ViewInput['snapshot']> {
 
 /**
  * What a session keeps between its hooks: `latest`, the refresh under way or the last one; `shown`, the last view a
- * refresh drew, null before the first and after a failure; `band`, that view's band as text, so that a refresh that
- * changes nothing redraws nothing.
+ * refresh drew, null before the first and after a failure; `drawn`, that view's band and pane as text, so that a refresh
+ * that changes neither redraws nothing.
  */
-type Kept = { latest: Promise<View | null>; shown: View | null; band: string };
+type Kept = { latest: Promise<View | null>; shown: View | null; drawn: string };
 
-/** Reads the snapshot and Claude Code's figures, draws the line and asks for the band when it changed; on any failure, clears both. Never throws. */
+/** Reads the snapshot and Claude Code's figures, draws the line and asks for the band and the pane when they changed; on any failure, clears them. Never throws. */
 async function draw($: Engine, kept: Kept): Promise<View | null> {
   let shown: View | null = null;
   try {
@@ -74,13 +80,13 @@ async function draw($: Engine, kept: Kept): Promise<View | null> {
     $.ui.status(undefined);
   }
   kept.shown = shown;
-  const band = JSON.stringify(shown?.band ?? null);
-  if (band !== kept.band) {
-    kept.band = band;
+  const drawn = JSON.stringify([shown?.band ?? null, shown?.pane ?? null]);
+  if (drawn !== kept.drawn) {
+    kept.drawn = drawn;
     try {
       $.ui.invalidate('ui.render');
     } catch {
-      // The band shows at the engine's next redraw instead.
+      // They show at the engine's next redraw instead.
     }
   }
   return shown;
@@ -96,11 +102,35 @@ function refresh($: Engine, kept: Kept): void {
 // cache takes seconds. ponytail: two refreshes may finish out of order and an older line stand until the next one; a
 // sequence number if it shows.
 export function register(on: On): void {
-  const kept: Kept = { latest: Promise.resolve(null), shown: null, band: 'null' };
+  const kept: Kept = { latest: Promise.resolve(null), shown: null, drawn: '[null,null]' };
   on('session.start', async ($, e, next) => {
     refresh($, kept);
     $.clock.every(REFRESH_MS, () => refresh($, kept));
+    try {
+      await $.command.register({ name: 'binnacle-pane', description: 'Open or close the Binnacle pane' });
+    } catch {
+      // Without its command the pane cannot open; the rest of the mod goes on.
+    }
     return next(e);
+  });
+  // The pane opens only by its command, which closes it when it is open. The command, the pane's id and the matchers are
+  // literals: `claude plugin validate` reads a matcher's values off the source, and a named one reads as `?`.
+  on('command.run', { command: 'binnacle-pane' }, async ($) => {
+    if ((await $.ui.panes()).some((pane) => pane.id === 'binnacle')) await $.ui.close({ id: 'binnacle' });
+    else await $.ui.open({ id: 'binnacle', title: 'Binnacle' });
+    return {};
+  });
+  // The pane's snapshot from the last view drawn, nothing without one; each button puts its command in the prompt box and sends nothing.
+  on('ui.render', { component: 'Pane', requestId: 'binnacle' }, async ($, e) => {
+    const { Box, Text, Button } = $.ui.resolve(e);
+    const pane = kept.shown?.pane;
+    if (pane === undefined) return h(Box, null);
+    return h(
+      Box,
+      { flexDirection: 'column' },
+      ...pane.sections.flatMap((section) => [h(Text, { bold: true }, section.heading), ...section.lines.map((line) => h(Text, null, line))]),
+      ...pane.buttons.map(({ key, command }) => h(Button, { key, onPress: () => void $.prompt.fill({ text: command, mode: 'replace' }) }, command)),
+    );
   });
   // After each turn: Claude Code measures the session and the snapshot may have moved with it.
   on('session.measure', async ($, e, next) => {

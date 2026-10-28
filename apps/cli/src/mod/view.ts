@@ -11,16 +11,25 @@ type Usage = { context: { window: number; tokens?: number; percent?: number }; r
 
 export type ViewInput = Usage & {
   /** The Product Snapshot asked with this session's id; null when it could not be read, which silences the mod. */
-  snapshot: Pick<Snapshot, 'activity' | 'checkout' | 'roadmap' | 'next' | 'pendingDecisions' | 'attention'> | null;
+  snapshot: Pick<Snapshot, 'activity' | 'checkout' | 'roadmap' | 'next' | 'tasks' | 'pendingDecisions' | 'ci' | 'attention'> | null;
   language: Language;
 };
+
+/** A pane button's address, and the command it puts in the prompt box. */
+export type PaneButton = { key: 'next' | 'suggested' | 'answer' | 'checkpoint'; command: string };
 
 /**
  * `status`: the status line's text, undefined to clear it. `band`: the *Waiting for you* band's title and items, undefined
  * when nothing waits. `startLines`: at most three lines for the context of a session whose branch maps to no Task,
- * undefined on a Task's branch or without a snapshot.
+ * undefined on a Task's branch or without a snapshot. `pane`: the pane's sections, each a heading with its lines, and its
+ * buttons; undefined without a snapshot.
  */
-export type View = { status: string | undefined; band: { title: string; items: string[] } | undefined; startLines: string[] | undefined };
+export type View = {
+  status: string | undefined;
+  band: { title: string; items: string[] } | undefined;
+  startLines: string[] | undefined;
+  pane: { sections: { heading: string; lines: string[] }[]; buttons: PaneButton[] } | undefined;
+};
 
 type Own = NonNullable<Extract<Snapshot['activity'], { running: unknown }>['own']>;
 
@@ -43,6 +52,14 @@ const WORDS = {
     /** A count with the first Task's id. */
     first: (count: number, id: string) => (count === 1 ? `${count} (${id})` : `${count} (${id} first)`),
     english: '',
+    epic: 'Current epic',
+    progress: (done: number, all: number) => `${done} of ${all} Tasks done`,
+    statuses: {} as Record<string, string>,
+    inFlight: 'In progress',
+    states: { ACTIVE: 'in progress', BLOCKED: 'blocked', READY: 'ready', READY_FOR_REVIEW: 'in review', APPROVED: 'approved', MERGE_READY: 'merge ready' } as Record<string, string>,
+    more: (count: number) => `and ${count} more`,
+    ci: { passing: 'passing', failing: 'failing', running: 'running', none: 'no checks' },
+    nextAction: 'Next action',
   },
   ru: {
     role: { product: 'продуктовая сессия', implementation: 'реализация', review: 'ревью', rework: 'доработка' },
@@ -56,6 +73,14 @@ const WORDS = {
     owner: 'Начать вам',
     first: (count: number, id: string) => (count === 1 ? `${count} (${id})` : `${count} (сначала ${id})`),
     english: ' (англ.)',
+    epic: 'Текущий эпик',
+    progress: (done: number, all: number) => `готово ${done} из ${all}`,
+    statuses: { 'not started': 'не начат', spec: 'спецификация', tickets: 'тикеты', 'in progress': 'в работе', done: 'готов' } as Record<string, string>,
+    inFlight: 'В работе',
+    states: { ACTIVE: 'в работе', BLOCKED: 'заблокирована', READY: 'готова', READY_FOR_REVIEW: 'на ревью', APPROVED: 'одобрена', MERGE_READY: 'готова к слиянию' } as Record<string, string>,
+    more: (count: number) => `и ещё ${count}`,
+    ci: { passing: 'проходит', failing: 'падает', running: 'идёт', none: 'нет проверок' },
+    nextAction: 'Следующий шаг',
   },
 } satisfies Record<Language, unknown>;
 
@@ -127,11 +152,51 @@ function startLines(snapshot: NonNullable<ViewInput['snapshot']>): View['startLi
 }
 
 /**
+ * The pane: the current epic with its progress, the band's items, the Tasks in flight, CI on the default branch and the
+ * Next action, each left out without data; and its buttons, each by its rule.
+ */
+function pane(snapshot: NonNullable<ViewInput['snapshot']>, waiting: View['band'], language: Language): View['pane'] {
+  const words = WORDS[language];
+  const sections: NonNullable<View['pane']>['sections'] = [];
+  const epic = snapshot.roadmap?.current ?? null;
+  if (epic) {
+    const progress = epic.progress ? `, ${words.progress(epic.progress.done, epic.progress.all)}` : '';
+    sections.push({ heading: words.epic, lines: [`${epic.number}, ${epic.title} (${words.statuses[epic.status] ?? epic.status}${progress})`] });
+  }
+  if (waiting) sections.push({ heading: waiting.title, lines: waiting.items });
+  const inFlight = snapshot.tasks?.inFlight;
+  if (inFlight && inFlight.items.length > 0) {
+    const lines = inFlight.items.map((task) => {
+      // A state the tracker gives as none of a Task's is no data, and left out.
+      const state = task.state && (words.states[task.state] ?? task.state);
+      return `${task.id} ${task.title}${state ? ` (${state})` : ''}`;
+    });
+    if (inFlight.remainder > 0) lines.push(words.more(inFlight.remainder));
+    sections.push({ heading: words.inFlight, lines });
+  }
+  if (!('available' in snapshot.ci)) {
+    const main = snapshot.ci.defaultBranch;
+    sections.push({ heading: 'CI', lines: [`${main.branch}: ${words.ci[main.state.value]}`] });
+  }
+  const action = snapshot.next.action;
+  if (action) sections.push({ heading: words.nextAction, lines: [`${action.description} \`${action.command}\``] });
+
+  const buttons: PaneButton[] = [];
+  if (action) buttons.push({ key: 'next', command: action.command });
+  const suggested = Array.isArray(snapshot.next.alternatives) ? (snapshot.next.alternatives[0]?.command ?? null) : null;
+  if (suggested !== null && suggested !== action?.command) buttons.push({ key: 'suggested', command: suggested });
+  const pending = snapshot.pendingDecisions;
+  if (!('available' in pending) && !('available' in pending.questions) && count(pending.questions) > 0) buttons.push({ key: 'answer', command: '/binnacle:answer' });
+  if (snapshot.checkout.taskId === null) buttons.push({ key: 'checkpoint', command: '/binnacle:checkpoint' });
+  return { sections, buttons };
+}
+
+/**
  * The status line: the session's Task id and role, or its role alone; its output tokens as Binnacle counts them; its
  * context percentage; and each rate-limit window's use. A part with no data is left out, and no snapshot leaves no line.
  */
 export function view({ snapshot, context, rateLimits, language }: ViewInput): View {
-  if (snapshot === null) return { status: undefined, band: undefined, startLines: undefined };
+  if (snapshot === null) return { status: undefined, band: undefined, startLines: undefined, pane: undefined };
   const words = WORDS[language];
   const own = 'own' in snapshot.activity ? snapshot.activity.own : null;
   const role = own && own.role !== 'unknown' ? words.role[own.role] : null;
@@ -141,5 +206,6 @@ export function view({ snapshot, context, rateLimits, language }: ViewInput): Vi
     context.percent !== undefined ? `${words.context} ${percent(context.percent, language)}` : null,
     ...rateLimits.map((limit) => `${words.window[limit.kind] ?? limit.kind} ${percent(limit.percentUsed, language)}`),
   ].filter(Boolean);
-  return { status: parts.length > 0 ? parts.join(' · ') : undefined, band: band(snapshot, language), startLines: startLines(snapshot) };
+  const waiting = band(snapshot, language);
+  return { status: parts.length > 0 ? parts.join(' · ') : undefined, band: waiting, startLines: startLines(snapshot), pane: pane(snapshot, waiting, language) };
 }
