@@ -17,12 +17,13 @@ Speak to the person in the language of this conversation; these instructions sta
 
    Binnacle is optional. Until it answers, the decisions still belong in the project's context file, ADRs, tickets, specs and roadmap: offer to draft, confirm and commit them as in steps 3 to 5, and skip step 6.
 2. Call `checkpoint_prepare`, with no arguments. It records nothing. It returns the delta since the last checkpoint (the same fields as `daily_get`), `targets` and `attention`.
-3. Draft the promotions. First read `knowledge.language` from `.binnacle/project.yaml`: `ru` is Russian, and `en`, any other value or none is English. Every draft is written in that repository language, whatever language this conversation is in, while the markers Binnacle parses stay English in every language: the roadmap's table header, its statuses, the Spec cell's `—`, `## Current focus` and `Next action:`, a ticket's header fields `Status:`, `Triage:`, `Blocked by:`, `Spec:` and `Roles:` with their values, the triage labels, and a spec's `## Risks`. Look at this session's conversation and at the delta, and find each durable decision that no canonical source holds yet. Leave out what is already written down, and anything that is not a decision. Classify each decision under one of the five `targets`, and write it into that target's path:
+3. Draft the promotions. First read `knowledge.language` from `.binnacle/project.yaml`: `ru` is Russian, and `en`, any other value or none is English. Every draft is written in that repository language, whatever language this conversation is in, while the markers Binnacle parses stay English in every language: the roadmap's table header, its statuses, the Spec cell's `—`, `## Current focus` and `Next action:`, a ticket's header fields `Status:`, `Triage:`, `Blocked by:`, `Spec:` and `Roles:` with their values, the triage labels, and a spec's `## Risks`. Look at this session's conversation and at the delta, and find each durable decision that no canonical source holds yet. Leave out what is already written down, and anything that is not a decision. Classify each decision under one of the six `targets`, and write it into that target's path:
    - `vocabulary`: a domain term, which goes into the context file;
    - `trade_off`: a durable architectural trade-off, which gets a new ADR in the ADR directory;
    - `new_work`: a ticket in the tracker's issues directory, following the format of the tickets already there;
    - `product_rule`: a change to a spec in the specs directory;
-   - `position`: the roadmap, meaning its status column and `## Current focus`.
+   - `position`: the roadmap, meaning its status column and `## Current focus`;
+   - `trap`: a non-obvious fact that already cost time, such as a command that must run before another or a version pin, which goes into the project's instruction file at the root as one line.
 
    If a target's `path` is null, this project has no file for it. Show the decision anyway, and say that it cannot be written here.
 

@@ -164,7 +164,7 @@ export const operations: Record<string, Operation> = {
     const recorded = ['checkpoint'] as const;
     const baseline = recordedBaseline(context.store, projected.row.path, recorded);
     const { delta } = await daily(context.home, projected, caller, remoteMismatch(projected.manifest, caller.git), baseline, readAttributed(context, projected), recorded);
-    return { ...delta, targets: promotionTargets(projected.manifest) };
+    return { ...delta, targets: promotionTargets(projected.manifest, caller.project) };
   },
 
   /**

@@ -66,6 +66,7 @@ Question/answer → if durable product rule → spec/product docs
 Question/answer → if architectural trade-off → ADR
 New work discovered → tracker task
 Vocabulary clarified → CONTEXT.md
+Trap that already cost time → one line in AGENTS.md, else CLAUDE.md
 Temporary investigation → discard
 ```
 

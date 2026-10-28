@@ -13,7 +13,7 @@ import { resolveGitTimeout } from './home.ts';
  * The kinds of durable knowledge a session promotes before it closes, from the knowledge
  * promotion rule (`docs/02-project-brain.md`).
  */
-export const PROMOTION_TYPES = ['vocabulary', 'trade_off', 'new_work', 'product_rule', 'position'] as const;
+export const PROMOTION_TYPES = ['vocabulary', 'trade_off', 'new_work', 'product_rule', 'position', 'trap'] as const;
 export type PromotionType = (typeof PROMOTION_TYPES)[number];
 
 /** Relative to the project directory; null when this project declares no place for it. */
@@ -22,9 +22,12 @@ export type PromotionTarget = { type: PromotionType; path: string | null };
 /**
  * Where each kind lands in this project, from the manifest's `knowledge` section and its
  * tracker. New work has a path only on the local Markdown tracker, where tickets are files;
- * the roadmap is `<knowledge.docs>/roadmap.md` whatever the tracker (ADR-0025).
+ * the roadmap is `<knowledge.docs>/roadmap.md` whatever the tracker (ADR-0025). A trap goes
+ * into the root instruction file in `project`, the caller's checkout: `AGENTS.md` when it
+ * exists, else `CLAUDE.md`. A `CLAUDE.md` importing `AGENTS.md` is one set with it
+ * (`instructionSets`), so it names `AGENTS.md`, which every harness reads.
  */
-export function promotionTargets(manifest: ProjectManifest | null): PromotionTarget[] {
+export function promotionTargets(manifest: ProjectManifest | null, project: string): PromotionTarget[] {
   const local = manifest?.tracker.provider === 'local';
   const docs = manifest?.knowledge.docs ?? null;
   const paths: Record<PromotionType, string | null> = {
@@ -33,6 +36,7 @@ export function promotionTargets(manifest: ProjectManifest | null): PromotionTar
     new_work: local ? manifest.tracker.local.issues : null,
     product_rule: manifest?.knowledge.specs ?? null,
     position: docs === null ? null : posix.join(docs, 'roadmap.md'),
+    trap: ['AGENTS.md', 'CLAUDE.md'].find((name) => existsSync(join(project, name))) ?? null,
   };
   return PROMOTION_TYPES.map((type) => ({ type, path: paths[type] }));
 }

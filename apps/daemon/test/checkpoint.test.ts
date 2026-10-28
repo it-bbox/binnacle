@@ -118,6 +118,8 @@ describe('the checkpoint', () => {
         { type: 'new_work', path: 'work/tickets' },
         { type: 'product_rule', path: 'work/tickets' },
         { type: 'position', path: 'notes/roadmap.md' },
+        // No instruction file at the root.
+        { type: 'trap', path: null },
       ]);
       assert.equal(body.fallback?.reason, 'no_baseline');
       assert.match(body.fallback!.message, /No checkpoint has been recorded/);
@@ -220,6 +222,30 @@ describe('the checkpoint', () => {
     });
   });
 
+  it('names the root instruction file as the trap target, AGENTS.md first, and records a trap', async () => {
+    await withDaemon(async (daemon) => {
+      const trap = async (files: Record<string, string>): Promise<string | null | undefined> => {
+        const root = makeRepository();
+        for (const [name, text] of Object.entries(files)) write(root, name, text);
+        commitAll(root, 'Add the instruction files');
+        await register(daemon, root);
+        return (await prepare(daemon, root)).targets.find((target) => target.type === 'trap')?.path;
+      };
+      assert.equal(await trap({ 'AGENTS.md': '# Agents\n' }), 'AGENTS.md');
+      assert.equal(await trap({ 'AGENTS.md': '# Agents\n', 'CLAUDE.md': '@AGENTS.md\n' }), 'AGENTS.md');
+      assert.equal(await trap({ 'CLAUDE.md': '# Claude\n' }), 'CLAUDE.md');
+      assert.equal(await trap({}), null);
+
+      const root = makeRepository();
+      write(root, 'AGENTS.md', '# Agents\n\n- Run `pnpm build` before `pnpm test`.\n');
+      commitAll(root, 'Promote a trap');
+      await register(daemon, root);
+      const recorded = await record(daemon, root, [{ type: 'trap', path: 'AGENTS.md' }]);
+      assert.deepEqual(recorded.promoted, [{ type: 'trap', path: 'AGENTS.md' }]);
+      assert.deepEqual(recorded.diagnostics, []);
+    });
+  });
+
   it('gives a null path for a target this project does not declare', async () => {
     await withDaemon(async (daemon) => {
       const root = makeRepository('version: 1\n\nproject:\n  id: bare-project\n');
@@ -228,7 +254,7 @@ describe('the checkpoint', () => {
       const body = await prepare(daemon, root);
       assert.deepEqual(
         body.targets.map((target) => target.path),
-        [null, null, null, null, null],
+        [null, null, null, null, null, null],
       );
       assert.ok(body.attention.some((item) => item.code === 'tracker.unavailable'));
     });

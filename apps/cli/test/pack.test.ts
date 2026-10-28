@@ -850,6 +850,21 @@ test('/binnacle:checkpoint offers the current focus as a candidate when the tick
   assert.match(three, /When the tickets' statuses have moved past the current focus[^.]*, draft its sentences on what is done and what can start as a `position` item/);
 });
 
+/** Hygiene after 0.4.0, ticket 07: a trap is the sixth kind, in the skill, its copy, the MCP tool and the promotion rule. */
+test('/binnacle:checkpoint promotes a trap into the root instruction file, as its copy, the MCP tool and the promotion rule say', (t) => {
+  const TRAP = /- `trap`: a non-obvious fact that already cost time, such as a command that must run before another or a version pin, which goes into the project's instruction file at the root as one line\./;
+  const three = step(skillText('checkpoint'), 3);
+  assert.match(three, /one of the six `targets`/);
+  assert.match(three, TRAP);
+  const dir = mkdtempSync(join(tmpdir(), 'binnacle-skills-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const target = join(dir, 'skills');
+  prepareSkills(PLUGIN_SOURCE, target, preparePlugin(PLUGIN_SOURCE, join(dir, 'plugin')));
+  assert.match(readFileSync(join(target, 'binnacle-checkpoint', 'SKILL.md'), 'utf8'), TRAP);
+  assert.match(docText('packages/mcp/src/index.ts'), /type is vocabulary, trade_off, new_work, product_rule, position or trap;/);
+  assert.match(docText('docs/02-project-brain.md'), /^Trap that already cost time → one line in AGENTS\.md, else CLAUDE\.md$/m);
+});
+
 /** Epic 20, ticket 06: an epic's status from `tickets` on and the focus's *Done* line follow from the tickets alone, so no one asks the owner for them; the course stays the owner's. */
 const DERIVED =
   "The roadmap's derived part follows from the tickets alone, so it is written without a yes: an epic's status from `tickets` on, which is `done` exactly when every one of its tickets is `DONE` or `CANCELLED`, `in progress` while some are `DONE` and some open, and `tickets` while it has tickets and none is `DONE`, a `ready-for-human` ticket counting as any other; and the focus's *Done* line, the epics marked `done`. Read each epic's `progress` and the `roadmap.status_mismatch` items from `project_snapshot`, or the tickets' `Status:` lines when the daemon is down, and count nothing yourself. Only when that changes the roadmap, commit the roadmap alone, on the branch you are on, with a subject that says it is derived from the tickets, following the project's instruction files for the message and authorship; never push it. `not started` and `spec` stay a Product session's to write on the owner's yes, and so do the focus's other prose and the `Next action:`, in a commit of their own.";

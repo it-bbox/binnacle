@@ -67,7 +67,7 @@ const TOOLS = {
       // The daemon validates both fields; the types are listed here only to guide the caller.
       promoted: z
         .array(z.object({ type: z.string(), path: z.string() }))
-        .describe('What was promoted, empty if nothing: type is vocabulary, trade_off, new_work, product_rule or position; path is relative to the project directory.'),
+        .describe('What was promoted, empty if nothing: type is vocabulary, trade_off, new_work, product_rule, position or trap; path is relative to the project directory.'),
     },
   },
 } as const;
