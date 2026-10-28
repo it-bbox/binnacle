@@ -40,15 +40,9 @@ const WORDS = {
     questions: 'Unanswered questions',
     approvals: 'Waiting for an approval',
     owner: 'Yours to start',
-    /** A count with the first Task's id, and how many more there are. */
-    first: (count: number, id: string) => (count === 1 ? `${count} (${id})` : `${count} (${id} and ${count - 1} more)`),
+    /** A count with the first Task's id. */
+    first: (count: number, id: string) => (count === 1 ? `${count} (${id})` : `${count} (${id} first)`),
     english: '',
-    epic: (number: number, title: string, status: string, progress: { done: number; all: number } | null) =>
-      `Current epic: ${number}, ${title} (${status}${progress ? `, ${progress.done} of ${progress.all} Tasks done` : ''})`,
-    status: { 'not started': 'not started', spec: 'spec', tickets: 'tickets', 'in progress': 'in progress', done: 'done' } as Record<string, string>,
-    waiting: (questions: number | null, approvals: number, owner: number) =>
-      `Waiting for the owner: ${questions === null ? '' : `unanswered questions ${questions}, `}waiting for an approval ${approvals}, yours to start ${owner}`,
-    next: 'Next action',
   },
   ru: {
     role: { product: 'продуктовая сессия', implementation: 'реализация', review: 'ревью', rework: 'доработка' },
@@ -60,14 +54,8 @@ const WORDS = {
     questions: 'Вопросы без ответа',
     approvals: 'Ждут одобрения',
     owner: 'Начать вам',
-    first: (count: number, id: string) => (count === 1 ? `${count} (${id})` : `${count} (${id} и ещё ${count - 1})`),
+    first: (count: number, id: string) => (count === 1 ? `${count} (${id})` : `${count} (сначала ${id})`),
     english: ' (англ.)',
-    epic: (number: number, title: string, status: string, progress: { done: number; all: number } | null) =>
-      `Текущий эпик: ${number}, ${title} (${status}${progress ? `, готово ${progress.done} из ${progress.all}` : ''})`,
-    status: { 'not started': 'не начат', spec: 'спецификация', tickets: 'тикеты', 'in progress': 'в работе', done: 'готов' } as Record<string, string>,
-    waiting: (questions: number | null, approvals: number, owner: number) =>
-      `Ждёт владельца: ${questions === null ? '' : `вопросы без ответа ${questions}, `}ждут одобрения ${approvals}, начать вам ${owner}`,
-    next: 'Следующий шаг',
   },
 } satisfies Record<Language, unknown>;
 
@@ -120,18 +108,20 @@ function band(snapshot: NonNullable<ViewInput['snapshot']>, language: Language):
 
 /**
  * The session-start lines, for a session whose branch maps to no Task: the current epic with its status and progress,
- * what waits for the owner as counts, and the Next action with its command; a line with no data is left out.
+ * what waits for the owner as counts, and the Next action with its command; a line with no data is left out. In English
+ * whatever the person's language: the agent reads them, and text for an agent stays English (ADR-0045).
  */
-function startLines(snapshot: NonNullable<ViewInput['snapshot']>, language: Language): View['startLines'] {
+function startLines(snapshot: NonNullable<ViewInput['snapshot']>): View['startLines'] {
   if (snapshot.checkout.taskId !== null) return undefined;
-  const words = WORDS[language];
   const epic = snapshot.roadmap?.current ?? null;
   const pending = snapshot.pendingDecisions;
   const action = snapshot.next.action;
   const lines = [
-    epic && words.epic(epic.number, epic.title, words.status[epic.status] ?? epic.status, epic.progress),
-    'available' in pending ? null : words.waiting('available' in pending.questions ? null : count(pending.questions), count(pending.approvals), count(pending.owner)),
-    action && `${words.next}: ${action.description} \`${action.command}\``,
+    epic && `Current epic: ${epic.number}, ${epic.title} (${epic.status}${epic.progress ? `, ${epic.progress.done} of ${epic.progress.all} Tasks done` : ''})`,
+    'available' in pending
+      ? null
+      : `Waiting for the owner: ${'available' in pending.questions ? '' : `unanswered questions ${count(pending.questions)}, `}waiting for an approval ${count(pending.approvals)}, yours to start ${count(pending.owner)}`,
+    action && `Next action: ${action.description} \`${action.command}\``,
   ].filter((line): line is string => Boolean(line));
   return lines.length > 0 ? lines : undefined;
 }
@@ -151,5 +141,5 @@ export function view({ snapshot, context, rateLimits, language }: ViewInput): Vi
     context.percent !== undefined ? `${words.context} ${percent(context.percent, language)}` : null,
     ...rateLimits.map((limit) => `${words.window[limit.kind] ?? limit.kind} ${percent(limit.percentUsed, language)}`),
   ].filter(Boolean);
-  return { status: parts.length > 0 ? parts.join(' · ') : undefined, band: band(snapshot, language), startLines: startLines(snapshot, language) };
+  return { status: parts.length > 0 ? parts.join(' · ') : undefined, band: band(snapshot, language), startLines: startLines(snapshot) };
 }

@@ -115,11 +115,11 @@ test('no band with nothing waiting', () => {
 
 test('each kind of item alone, counted with the first Task id, in English and Russian', () => {
   assert.deepEqual(band({ pendingDecisions: pending(1, 0, 0) }), { title: 'Waiting for you', items: ['Unanswered questions: 1 (spec/01)'] });
-  assert.deepEqual(band({ pendingDecisions: pending(2, 0, 0, 3) }, 'ru'), { title: 'Ждёт вас', items: ['Вопросы без ответа: 5 (spec/01 и ещё 4)'] });
-  assert.deepEqual(band({ pendingDecisions: pending(0, 2, 0) })?.items, ['Waiting for an approval: 2 (spec/11 and 1 more)']);
+  assert.deepEqual(band({ pendingDecisions: pending(2, 0, 0, 3) }, 'ru'), { title: 'Ждёт вас', items: ['Вопросы без ответа: 5 (сначала spec/01)'] });
+  assert.deepEqual(band({ pendingDecisions: pending(0, 2, 0) })?.items, ['Waiting for an approval: 2 (spec/11 first)']);
   assert.deepEqual(band({ pendingDecisions: pending(0, 1, 0) }, 'ru')?.items, ['Ждут одобрения: 1 (spec/11)']);
   assert.deepEqual(band({ pendingDecisions: pending(0, 0, 1) })?.items, ['Yours to start: 1 (spec/21)']);
-  assert.deepEqual(band({ pendingDecisions: pending(0, 0, 3) }, 'ru')?.items, ['Начать вам: 3 (spec/21 и ещё 2)']);
+  assert.deepEqual(band({ pendingDecisions: pending(0, 0, 3) }, 'ru')?.items, ['Начать вам: 3 (сначала spec/21)']);
   assert.deepEqual(band({ attention: [CI_FAILING] })?.items, [CI_FAILING.message]);
   assert.deepEqual(band({ attention: [CI_FAILING] }, 'ru')?.items, [CI_FAILING_RU]);
 });
@@ -163,7 +163,7 @@ const ON_MAIN = {
   next: { action: { description: 'start the band with', command: '/binnacle:task run docs/specs/claude-code-mod/issues/03-x.md' }, alternatives: [] },
   pendingDecisions: pending(1, 0, 2),
 };
-const START_LINES_EN = [
+const START_LINES = [
   'Current epic: 22, A Binnacle mod for Claude Code (in progress, 2 of 7 Tasks done)',
   'Waiting for the owner: unanswered questions 1, waiting for an approval 0, yours to start 2',
   'Next action: start the band with `/binnacle:task run docs/specs/claude-code-mod/issues/03-x.md`',
@@ -171,12 +171,9 @@ const START_LINES_EN = [
 const lines = (rest: Record<string, unknown>, language: 'en' | 'ru' = 'en') => view({ snapshot: snapshot(null, { ...ON_MAIN, ...rest }), ...NONE, language }).startLines;
 
 test('the session-start lines: the current epic, what waits as counts and the Next action, at most three', () => {
-  assert.deepEqual(lines({}), START_LINES_EN);
-  assert.deepEqual(lines({}, 'ru'), [
-    'Текущий эпик: 22, A Binnacle mod for Claude Code (в работе, готово 2 из 7)',
-    'Ждёт владельца: вопросы без ответа 1, ждут одобрения 0, начать вам 2',
-    'Следующий шаг: start the band with `/binnacle:task run docs/specs/claude-code-mod/issues/03-x.md`',
-  ]);
+  assert.deepEqual(lines({}), START_LINES);
+  // The agent reads them, and text for an agent stays English (ADR-0045).
+  assert.deepEqual(lines({}, 'ru'), START_LINES);
   // A line with no data is left out: an epic with no progress keeps its status alone, questions that could not be read are not counted.
   assert.deepEqual(
     lines({
@@ -201,18 +198,28 @@ test("no session-start lines on a Task's branch, or when the snapshot did not an
 function engine(locale: Record<string, string> = { LANG: 'C' }) {
   type Answer = { content: { type: string; text?: string }[]; isError: boolean } | Error;
   const hooks = new Map<string, (...args: unknown[]) => unknown>();
-  const state = { answer: null as Answer | null, lines: [] as (string | undefined)[], calls: [] as unknown[][], timers: [] as { ms: number; fn: () => void }[], invalidated: 0 };
+  const state = {
+    answer: null as Answer | null,
+    /** Holds the server's answer back until it settles; `sleep` settles a `$.clock.sleep`, never by default. */
+    held: Promise.resolve(),
+    sleep: new Promise<void>(() => {}),
+    lines: [] as (string | undefined)[],
+    calls: [] as unknown[][],
+    timers: [] as { ms: number; fn: () => void }[],
+    invalidated: 0,
+  };
   const $ = {
     mcp: {
       call: async (...args: unknown[]) => {
         state.calls.push(args);
+        await state.held;
         if (state.answer instanceof Error) throw state.answer;
         return state.answer!;
       },
     },
     session: { id: async () => 'session-1', usage: async () => ({ startedAt: 0, ...FULL }) },
     env: { get: async (name: string) => locale[name] },
-    clock: { every: (ms: number, fn: () => void) => (state.timers.push({ ms, fn }), { cancel: () => {} }) },
+    clock: { every: (ms: number, fn: () => void) => (state.timers.push({ ms, fn }), { cancel: () => {} }), sleep: () => state.sleep },
     ui: {
       status: (text: string | undefined) => void state.lines.push(text),
       invalidate: () => void (state.invalidated += 1),
@@ -307,7 +314,25 @@ test("the session-start lines join the conversation's context off a Task's branc
     await run('session.start', START);
     return run('prompt.context', { blocks: [core] });
   };
-  assert.deepEqual(await context(answered(snapshot(null, ON_MAIN))), { blocks: [core, { name: 'binnacle', text: START_LINES_EN.join('\n') }] });
+  assert.deepEqual(await context(answered(snapshot(null, ON_MAIN))), { blocks: [core, { name: 'binnacle', text: START_LINES.join('\n') }] });
   assert.deepEqual(await context(answered(snapshot(null))), { blocks: [core] });
   assert.deepEqual(await context(refused('daemon.unreachable')), { blocks: [core] });
+});
+
+test('the session-start lines wait on the refresh under way, and give up inside the hook budget', async () => {
+  const core = { name: 'currentDate', text: 'Today' };
+  const { state, run } = engine();
+  let answer = () => {};
+  state.held = new Promise((resolve) => (answer = resolve));
+  state.answer = answered(snapshot(null, ON_MAIN));
+  await run('session.start', START);
+  const context = run('prompt.context', { blocks: [core] });
+  answer();
+  assert.deepEqual(await context, { blocks: [core, { name: 'binnacle', text: START_LINES.join('\n') }] });
+
+  // A daemon slower than the wait adds nothing.
+  state.held = new Promise(() => {});
+  state.sleep = Promise.resolve();
+  await run('session.measure', { ...FULL, changed: ['context'] });
+  assert.deepEqual(await run('prompt.context', { blocks: [core] }), { blocks: [core] });
 });

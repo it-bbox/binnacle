@@ -52,7 +52,7 @@ test('the status line at the session start, cleared without the daemon, and back
 
 const BAND = { plugin: 'binnacle-mod', component: 'AbovePrompt', requestId: 'band', props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 80, scroll: { offset: 0, bodyRows: 10 }, view: {} } } as const
 
-test('the band with a question waiting, on every surface, and nothing without one', async ($, on) => {
+test('the band with a question waiting, on both surfaces that draw it, and nothing without one', async ($, on) => {
   mock.env(on, { LANG: 'C' })
   const clock = mock.clock(on)
   let questions: unknown = NOTHING
@@ -73,7 +73,7 @@ test('the band with a question waiting, on every surface, and nothing without on
 
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
   await clock.settle()
-  for (const surface of ['terminal', 'desktop', 'vscode', 'mobile'] as const) {
+  for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ ...BAND, surface })
     expect(await ui.find({ type: 'Text', text: /Waiting for you/ })).toBe(undefined)
     await ui.unmount()
@@ -81,7 +81,7 @@ test('the band with a question waiting, on every surface, and nothing without on
 
   questions = { items: [{ id: 'claude-code-mod/03', title: 'The band', ticket: 't.md', question: 'Which?', branch: null }], remainder: 0 }
   await clock.advance(60000)
-  for (const surface of ['terminal', 'desktop', 'vscode', 'mobile'] as const) {
+  for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ ...BAND, surface })
     expect((await ui.find({ type: 'Text', text: /Waiting for you/ }))?.text).toBe('Waiting for you')
     expect((await ui.find({ type: 'Text', text: /Unanswered/ }))?.text).toBe('Unanswered questions: 1 (claude-code-mod/03)')

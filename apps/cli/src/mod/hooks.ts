@@ -13,6 +13,9 @@ export const MINIMUM_CLAUDE_CODE = '2.1.308';
 /** How often a session refreshes on its own: the daemon's forge cache period, so sessions add no forge calls. */
 const REFRESH_MS = 60_000;
 
+/** How long the session-start lines wait on the refresh under way, inside Claude Code's 10-second budget for a hook. */
+const START_WAIT_MS = 8_000;
+
 /**
  * The few parts of Claude Code's `$` the mod uses, typed here: the engine's own declarations are written by
  * Claude Code beside a mod it loads, not shipped to this repository.
@@ -21,7 +24,7 @@ type Engine = {
   mcp: { call: (server: string, tool: string, args?: Record<string, unknown>) => Promise<{ content: { type: string; text?: string }[]; isError: boolean }> };
   session: { id: () => Promise<string>; usage: () => Promise<Pick<ViewInput, 'context' | 'rateLimits'>> };
   env: { get: (name: string) => Promise<string | undefined | null> };
-  clock: { every: (ms: number, fn: () => void) => unknown };
+  clock: { every: (ms: number, fn: () => void) => unknown; sleep: (ms: number) => Promise<void> };
   ui: {
     status: (text: string | undefined) => void;
     invalidate: (event: 'ui.render') => void;
@@ -115,7 +118,8 @@ export function register(on: On): void {
   // Once per conversation, when its first message's context is computed: the project's position, off a Task's branch only.
   on('prompt.context', async ($, e, next) => {
     const result = (await next(e)) as Blocks;
-    const lines = (await kept.latest)?.startLines;
+    // A daemon slower than the wait adds nothing, rather than fail the hook.
+    const lines = (await Promise.race([kept.latest, $.clock.sleep(START_WAIT_MS).then(() => null)]))?.startLines;
     return lines === undefined ? result : { ...result, blocks: [...result.blocks, { name: 'binnacle', text: lines.join('\n') }] };
   });
 }
