@@ -16,6 +16,7 @@ import {
 } from '@binnacle/adapters';
 import {
   boardColumn,
+  branchTask,
   currentEpic,
   nextAction,
   nextActionAttention,
@@ -127,7 +128,8 @@ export type Unavailable = { available: false; reason: string; code?: string; par
 
 export type Snapshot = {
   project: ProjectRow;
-  checkout: CallerCheckout['checkout'];
+  /** `taskId`: the Task the checkout's branch maps to, by the rule that attributes runs to Tasks (`branchTask`); null without one, or without the tracker. */
+  checkout: CallerCheckout['checkout'] & { taskId: string | null };
   /** The facts of the caller's checkout, as `project.status` gives them. */
   git: GitFacts;
   /** Null when there is no roadmap to read: without a readable manifest, or with a diagnostic. */
@@ -240,9 +242,12 @@ export async function snapshot(
     return { ...epic, progress: own && { done: own.filter((task) => task.state === 'DONE').length, all: own.length } };
   });
 
+  const branch = caller.git.available ? caller.git.branch : null;
+  const taskId = tasks && branch !== null ? (branchTask(branch, tasks, projected.manifest?.tracker.provider !== 'local')?.id ?? null) : null;
+
   return {
     project: projected.row,
-    checkout: caller.checkout,
+    checkout: { ...caller.checkout, taskId },
     git: caller.git,
     roadmap: roadmap && epics && { ...roadmap, epics, current: currentEpic(epics), focus: roadmap.focus == null ? null : cut(roadmap.focus, FOCUS_LIMIT) },
     next: {

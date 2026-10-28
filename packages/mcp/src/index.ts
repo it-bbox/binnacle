@@ -27,7 +27,10 @@ const TOOLS = {
   },
   project_snapshot: {
     operation: 'project.snapshot',
-    description: "The compact Product Snapshot: roadmap with its current epic (`current`: the first at the furthest-along status, `in progress`, `tickets`, `spec`, then `not started`, never `done`), the roadmap's Next action with its command and Binnacle's alternatives beside it (the Suggested step), Tasks in flight and ready to start with the command that starts each and their roles (`roles`: `required`, from the ticket's `Roles:` line or Developer and Reviewer by `default`, and `suggested`, Binnacle's `calculated` suggestions, each with its reason) and their `questions` (`asked`, `unanswered`), what waits for the owner (`pendingDecisions`: the unanswered `questions`, each with its Task and the branch it was read from, the `approvals` in READY_FOR_REVIEW and the `owner`'s ready-for-human Tasks ready to start), the runs running now and recently, recent decisions, CI as the forge reports it (`ci`: the default branch's latest commit and the open pull or merge requests, each with its state and the Task its branch maps to), the daemon's autostart (`autostart`: `on`, `off` or `broken`, with the command that changes or repairs it), usage, Git and attention items.",
+    description: "The compact Product Snapshot: roadmap with its current epic (`current`: the first at the furthest-along status, `in progress`, `tickets`, `spec`, then `not started`, never `done`), the roadmap's Next action with its command and Binnacle's alternatives beside it (the Suggested step), Tasks in flight and ready to start with the command that starts each and their roles (`roles`: `required`, from the ticket's `Roles:` line or Developer and Reviewer by `default`, and `suggested`, Binnacle's `calculated` suggestions, each with its reason) and their `questions` (`asked`, `unanswered`), what waits for the owner (`pendingDecisions`: the unanswered `questions`, each with its Task and the branch it was read from, the `approvals` in READY_FOR_REVIEW and the `owner`'s ready-for-human Tasks ready to start), the runs running now and recently, recent decisions, CI as the forge reports it (`ci`: the default branch's latest commit and the open pull or merge requests, each with its state and the Task its branch maps to), the daemon's autostart (`autostart`: `on`, `off` or `broken`, with the command that changes or repairs it), usage, Git (`checkout.taskId`: the Task the checkout's branch maps to, or null) and attention items. With `session`, `activity.own` is that session's latest run, with its Task id and title or null and its role, and its tokens summed over its runs, or null when none is stored; the context-pressure attention item says whether it is that session's (`own`).",
+    inputSchema: {
+      session: z.string().optional().describe("Your harness session's id, which names your own run (`activity.own`) and your own context-pressure attention item; omit it to ask as no session."),
+    },
   },
   daily_get: {
     operation: 'daily.get',
@@ -100,7 +103,8 @@ export function toolRequest(
   if (!('inputSchema' in tool)) return { operation: tool.operation, body: caller };
   const parsed = z.object(tool.inputSchema as Record<string, z.ZodType>).safeParse(args);
   if (!parsed.success) return { refused: `${name} does not take these arguments: ${z.prettifyError(parsed.error).replaceAll('\n', ' ')}` };
-  return { operation: tool.operation, body: { ...parsed.data, ...caller } };
+  // A `session` the arguments name is the caller's own word, and wins over the one its environment gives.
+  return { operation: tool.operation, body: { ...caller, ...parsed.data } };
 }
 
 /** Every tool with its description, then each argument with its description and whether it may be left out: `binn call --help`. */
@@ -120,7 +124,8 @@ export function toolsHelp(): string {
  * directory the harness started the server in, and carries no `session`: Claude Code keeps an MCP
  * server across `/clear` and starts it with the startup id under `--continue` or a picked `--resume`,
  * so the id in its environment can name another session than the one it serves, and Codex names
- * none to an MCP server. A tool's own arguments, if it has any, are passed to its operation unchanged.
+ * none to an MCP server. A tool's own arguments, if it has any, are passed to its operation unchanged, `project_snapshot`'s
+ * `session` among them, which a caller that knows its own session names explicitly.
  */
 export async function serveStdio(version: string, cwd: string, call: CallDaemon): Promise<void> {
   const server = new McpServer({ name: 'binnacle', version });

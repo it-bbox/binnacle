@@ -234,7 +234,7 @@ export async function usageAndActivity(
   if (Array.isArray(tasks)) {
     const ofWeek = observed.map((run) => ({ ...run, records: run.records.filter((record) => record.timestamp >= weekStart) }));
     attributed = { ...byTask(ofWeek.filter((run) => run.records.length > 0), tasks), byRole: byRole(ofWeek, ROLES) };
-    activity = activityOf(observed, tasks, pressureOf);
+    activity = activityOf(observed, tasks, pressureOf, caller);
   } else {
     attributed = { tasks, unassigned: tasks, byRole: tasks };
     activity = tasks;
@@ -401,22 +401,37 @@ function grouped(records: UsageRecord[], key: 'model' | 'provider'): [string | n
 /** A run as the snapshot's `activity` shows it: as `usage.get` gives it, with its Task's title, null when unassigned. */
 export type ActivityRun = RunUsage & { taskTitle: string | null };
 
-/** The snapshot's `activity`: the project's runs active now, and its latest other runs, latest activity first. */
-export type Activity = { running: { items: ActivityRun[]; remainder: number }; recent: ActivityRun[] };
+/**
+ * The run of the harness session that asked, when it named one: its latest run's Task, null when unassigned, with its title
+ * and role, and its tokens summed over every run of the session itself, its subagents' left out. Null when none is stored.
+ */
+export type OwnRun = Pick<ActivityRun, 'taskId' | 'taskTitle' | 'role'> & { totals: Totals };
+
+/**
+ * The snapshot's `activity`: the project's runs active now, and its latest other runs, latest activity first; and `own`
+ * only when the caller named its session.
+ */
+export type Activity = { running: { items: ActivityRun[]; remainder: number }; recent: ActivityRun[]; own?: OwnRun | null };
 
 function activityOf(
   observed: (ObservedRun & { records: RunRecord[] })[],
   tasks: Pick<TrackerTask, 'id' | 'title'>[],
   pressureOf: PressureOf,
+  caller?: string,
 ): Activity {
   const titles = new Map(tasks.map((task) => [task.id, task.title]));
   const shown = (run: (typeof observed)[number]): ActivityRun => ({ ...runUsage(run, pressureOf), taskTitle: run.taskId === null ? null : (titles.get(run.taskId) ?? null) });
   const latest = [...observed].sort((a, b) => (a.lastActivityAt !== b.lastActivityAt ? (a.lastActivityAt < b.lastActivityAt ? 1 : -1) : a.id < b.id ? -1 : 1));
   const running = limited(latest.filter((run) => run.active.value));
-  return {
+  const activity: Activity = {
     running: { items: running.items.map(shown), remainder: running.remainder },
     recent: latest.filter((run) => !run.active.value).slice(0, SECTION_LIMIT).map(shown),
   };
+  if (caller === undefined) return activity;
+  const own = latest.filter(({ records: [first] }) => first!.sessionId === caller && first!.subagentId === null);
+  const [run] = own;
+  activity.own = run === undefined ? null : { taskId: run.taskId, taskTitle: run.taskId === null ? null : (titles.get(run.taskId) ?? null), role: run.role, totals: sum(own.flatMap((each) => each.records)) };
+  return activity;
 }
 
 const runUsage = ({ records, projectPath: _project, ...run }: ObservedRun & { records: RunRecord[] }, pressureOf: PressureOf): RunUsage => ({

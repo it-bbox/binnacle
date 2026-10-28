@@ -186,6 +186,9 @@ test('toolRequest and binn call send the session the harness names, none without
   assert.deepEqual(toolRequest('task_get', { id: 'epic/01' }, '/work', 'a-session'), { operation: 'task.get', body: { id: 'epic/01', path: '/work', session: 'a-session' } });
   assert.deepEqual(toolRequest('project_snapshot', {}, '/work', undefined), { operation: 'project.snapshot', body: { path: '/work' } });
   assert.deepEqual(toolRequest('task_get', { id: 'epic/01' }, '/work', undefined), { operation: 'task.get', body: { id: 'epic/01', path: '/work' } });
+  // `project_snapshot` takes the session as an argument too, as the mod passes it, and the argument wins over the environment's.
+  assert.deepEqual(toolRequest('project_snapshot', { session: 'the-mod' }, '/work', undefined), { operation: 'project.snapshot', body: { path: '/work', session: 'the-mod' } });
+  assert.deepEqual(toolRequest('project_snapshot', { session: 'the-mod' }, '/work', 'a-session'), { operation: 'project.snapshot', body: { path: '/work', session: 'the-mod' } });
 
   const home = mkdtempSync(join(tmpdir(), 'binnacle-session-home-'));
   const project = realpathSync(mkdtempSync(join(tmpdir(), 'binnacle-session-project-')));
@@ -215,6 +218,9 @@ test('toolRequest and binn call send the session the harness names, none without
   const unnamed = await binnWith({}, project, home, 'call', 'task_get', '{"id":"epic/01"}');
   assert.equal(unnamed.status, 0, unnamed.stderr);
   assert.deepEqual(JSON.parse(unnamed.stdout), { id: 'epic/01', path: project });
+  const viaCall = await binnWith({ CLAUDE_CODE_SESSION_ID: 'a-session' }, project, home, 'call', 'project_snapshot');
+  assert.equal(viaCall.status, 0, viaCall.stderr);
+  assert.deepEqual(JSON.parse(viaCall.stdout), { path: project, session: 'a-session' });
 
   for (const session of ['a-session', undefined]) {
     const client = new Client({ name: 'session', version: '0' });
@@ -224,5 +230,9 @@ test('toolRequest and binn call send the session the harness names, none without
     const result = (await client.callTool({ name: 'project_snapshot' })) as ToolResult;
     assert.equal(result.isError, undefined, result.content[0]?.text);
     assert.deepEqual(JSON.parse(result.content[0]!.text), { path: project });
+    // Named as an argument, the session reaches the daemon as `binn call` sends it, so the snapshot's `own` reads the same.
+    const passed = (await client.callTool({ name: 'project_snapshot', arguments: { session: 'a-session' } })) as ToolResult;
+    assert.equal(passed.isError, undefined, passed.content[0]?.text);
+    assert.deepEqual(JSON.parse(passed.content[0]!.text), JSON.parse(viaCall.stdout));
   }
 });

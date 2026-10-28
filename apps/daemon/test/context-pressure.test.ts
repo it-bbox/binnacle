@@ -19,8 +19,10 @@ import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
 type Line = Record<string, unknown> & { type: string; message?: Record<string, unknown> };
 type Attention = { code: string; message: string; params: Params }[];
 type Pressure = { context: { tokens: number; provenance: string } | null; compactions: { count: number; latest: { at: string; trigger: string | null; provenance: string } | null } } | null;
-type Run = { id: string; role: string; harness: string; contextPressure: Pressure };
-type Snapshot = { attention: Attention; activity: { running: { items: Run[] }; recent: Run[] } };
+type Totals = { records: number; output: { tokens: number | null } };
+type Run = { id: string; role: string; harness: string; taskId: string | null; contextPressure: Pressure; totals: Totals };
+type Own = { taskId: string | null; taskTitle: string | null; role: string; totals: Totals } | null;
+type Snapshot = { attention: Attention; activity: { running: { items: Run[] }; recent: Run[]; own?: Own } };
 
 const GRILL = readFileSync(join(import.meta.dirname, 'fixtures', 'claude-code', 'grill-on-main.jsonl'), 'utf8')
   .trim()
@@ -178,6 +180,32 @@ describe('Context pressure', () => {
           params: { session: 'long', harness: 'Claude Code', startedAt, lastActivityAt, tokens: GRILL_CONTEXT, threshold: 60000, thresholdSource: 'manifest', model: MODEL },
         },
       ]);
+    });
+  });
+
+  it('gives the asking session its latest run’s Task, title and role, with its tokens summed over its runs, and null for a session never stored', async () => {
+    await withDaemon(async (daemon, { claudeCode }) => {
+      const root = makeProject();
+      gitAt(minutesAgo(9), root, 'switch', '--quiet', '-c', 'feat/first');
+      gitAt(minutesAgo(5), root, 'switch', '--quiet', 'main');
+      gitAt(minutesAgo(3), root, 'switch', '--quiet', 'feat/first');
+      // One session: on the Task's branch, then a Product run on `main`, then back on the Task.
+      claudeSession(claudeCode, root, 'mine', [...call(minutesAgo(8), 'ticket'), ...call(minutesAgo(4), 'product'), ...call(minutesAgo(2), 'back')]);
+      claudeSession(claudeCode, root, 'other', call(minutesAgo(1), 'other'));
+
+      const body = await snapshot(daemon, root, 'mine');
+      const runs = [...body.activity.running.items, ...body.activity.recent];
+      const mine = runs.filter((run) => run.id.endsWith('-ticket') || run.id.endsWith('-product') || run.id.endsWith('-back'));
+      assert.equal(mine.length, 3);
+      const own = body.activity.own;
+      assert.ok(own);
+      assert.deepEqual([own.taskId, own.taskTitle, own.role], ['epic/01', 'First', 'implementation']);
+      assert.equal(own.totals.records, mine.reduce((total, run) => total + run.totals.records, 0));
+      assert.equal(own.totals.output.tokens, mine.reduce((total, run) => total + run.totals.output.tokens!, 0));
+
+      assert.equal((await snapshot(daemon, root, 'unknown')).activity.own, null);
+      // Without a session of its own, `activity` has no `own` at all.
+      assert.equal('own' in (await snapshot(daemon, root)).activity, false);
     });
   });
 

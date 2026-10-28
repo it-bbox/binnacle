@@ -22,7 +22,7 @@ type Unavailable = { available: false; reason: string };
 const NO_GRAPH = { available: false, reason: "graphify is not on the daemon's PATH, so no graph is built or read.", code: 'graph.unavailable', params: { kind: 'no_graphify' } };
 
 type Snapshot = {
-  checkout: { root: string; registered: boolean };
+  checkout: { root: string; registered: boolean; taskId: string | null };
   git: { available: true; branch: string | null; commit: string | null; dirty: boolean } | { available: false };
   roadmap: { epics: Epic[]; current: Epic | null; focus: { text: string; truncated: boolean } | null; sections: string[] } | null;
   tasks: {
@@ -562,7 +562,7 @@ describe('recent decisions, Git and the unavailable sections', () => {
       ticket(worktree, 'epic', '01-thing.md', { title: '01: Thing', status: 'READY' });
 
       const main = await snapshot(daemon, root);
-      assert.deepEqual(main.checkout, { root, registered: true });
+      assert.deepEqual(main.checkout, { root, registered: true, taskId: null });
       assert.ok(main.git.available);
       assert.equal(main.git.branch, 'main');
       assert.equal(main.roadmap?.epics[0]?.status, 'in progress');
@@ -570,12 +570,25 @@ describe('recent decisions, Git and the unavailable sections', () => {
 
       const result = await daemon.call<Snapshot>('project.snapshot', { path: worktree });
       assert.equal(result.status, 200, JSON.stringify(result.body));
-      assert.deepEqual(result.body.checkout, { root: worktree, registered: false });
+      // `feat/probe` maps to no Task: ticket 01 is `feat/thing`'s.
+      assert.deepEqual(result.body.checkout, { root: worktree, registered: false, taskId: null });
       assert.ok(result.body.git.available);
       assert.equal(result.body.git.branch, 'feat/probe');
       assert.equal(result.body.git.dirty, true);
       assert.equal(result.body.roadmap?.epics[0]?.status, 'done');
       assert.deepEqual(ids(result.body.tasks!.readyToStart), ['epic/01']);
+    });
+  });
+
+  it("names the Task the checkout's branch maps to, and none on the default branch", async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeRepository({ roadmap: roadmapText([row(1, 'Core', 'in progress', 'epic')]) });
+      ticket(root, 'epic', '01-thing.md', { title: '01: Thing', status: 'ACTIVE' });
+      commitAll(root, 'Add the ticket');
+      assert.equal((await snapshot(daemon, root)).checkout.taskId, null);
+
+      git(root, ['switch', '--quiet', '-c', 'feat/thing']);
+      assert.equal((await snapshot(daemon, root)).checkout.taskId, 'epic/01');
     });
   });
 
