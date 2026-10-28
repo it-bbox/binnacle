@@ -70,7 +70,7 @@ The first lists the repository; the second prints it as Binnacle's MCP tools see
 
 `binnacle-mod` is an optional Claude Code plugin from the same package (ADR-0047): a status line with the session's Task, tokens, context and usage limits, a *Waiting for you* band, a pane opened by its own command, and toasts, all read from the daemon. It writes nothing, and shows nothing without the daemon.
 
-`binn init` asks whether to install it, no by default, only where Claude Code 2.1.308 or later is found and does not list it yet. `--mod yes` or `--mod no` answers unasked; `--plan` and `--apply` without it leave the mod out. Each reason it was not asked is in the Summary. To install it later:
+`binn init` asks whether to install it, no by default, only where Claude Code 2.1.308 or later is found and does not list it yet. `--mod yes` or `--mod no` answers unasked; `--plan` and `--apply` without it leave the mod out. Each reason it was not asked is in the Summary. To install it later, from the `binnacle` marketplace that `binn init` adds with the `binnacle` plugin:
 
 ```bash
 claude plugin install binnacle-mod@binnacle --scope user
