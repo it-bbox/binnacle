@@ -61,13 +61,13 @@ Epics are ordered by dependency, not by preference:
 
 Done: epics 1 to 20. **v1 is complete.**
 
-**Released** (the owner): `@it-bbox/binnacle` 0.1.0 on 2026-10-13, with `it-bbox/binnacle` public, private vulnerability reporting and Dependabot alerts on; 0.2.0, epic 12, on 2026-10-21; 0.3.0, epic 13, on 2026-10-22, the last of v1, installed from the registry into a clean container (`specs/human-output/issues/11-human-output-exit-demonstration.md`).
+**Released** (the owner): `@it-bbox/binnacle` 0.1.0 on 2026-10-13, with `it-bbox/binnacle` public, private vulnerability reporting and Dependabot alerts on; 0.2.0, epic 12, on 2026-10-21; 0.3.0, epic 13, on 2026-10-22, the last of v1, installed from the registry into a clean container (`specs/human-output/issues/11-human-output-exit-demonstration.md`); 0.4.0, epic 20, on 2026-10-28, installed from the registry into a clean container (`specs/hygiene-after-v1/issues/09-hygiene-exit-demonstration.md`).
 
-**Epic 20 in progress**: tickets 01 to 08 merged by autopilot on 2026-10-25; the workspace on TypeScript 7, the dashboard held on 5.x until `vue-tsc` runs on 7; pull request #4 closed. Left: ticket 09, the exit demonstration and 0.4.0, the owner's.
+**Epic 20 done**: tickets 01 to 08 merged by autopilot on 2026-10-25, ticket 09, the exit demonstration and 0.4.0, the owner's on 2026-10-28; the workspace on TypeScript 7, the dashboard held on 5.x until `vue-tsc` runs on 7; pull request #4 closed.
 
 Next: epics 21 to 27, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28.
 
-Next action: do epic 20's exit demonstration and release 0.4.0, `docs/specs/hygiene-after-v1/issues/09-hygiene-exit-demonstration.md`. `/binnacle:task run docs/specs/hygiene-after-v1/issues/09-hygiene-exit-demonstration.md`
+Next action: grill epic 21, *Hygiene after 0.4.0*, from its entries in `docs/product-inbox.md`; the grilling ends with its Epic brief, `docs/specs/<slug>/brief.md`. `/grill-with-docs`
 
 ## Later
 
