@@ -1,6 +1,6 @@
 # 01: The snapshot names this session and its checkout's Task
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/claude-code-mod/spec.md`
