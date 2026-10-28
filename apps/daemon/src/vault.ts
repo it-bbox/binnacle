@@ -414,7 +414,7 @@ function notes(w: VaultWords, link: Link): { snapshot(name: string, snapshot: Sn
           list(tasks.readyToStart.items, task, tasks.readyToStart.remainder),
           w.parallel,
           w.limit(limit, mode === 'auto', source, inProgress, free),
-          unavailable(impact) ? w.noConflictRisk(impact) : list(impact.pairs, (pair) => w.pair(pair.tasks, pair.risk, pair.reason)),
+          unavailable(impact) ? w.noConflictRisk(impact) : list(impact.pairs, w.pair),
         );
       }
       parts.push(
@@ -424,7 +424,7 @@ function notes(w: VaultWords, link: Link): { snapshot(name: string, snapshot: Sn
         [
           graph.available ? w.graphAvailable : w.noGraph({ ...graph, reason: `${graph.reason}` }),
           graph.builtFrom ? w.builtFrom(short(graph.builtFrom.commit), graph.builtFrom.at, Boolean(graph.behind)) : '',
-          graph.lastRun ? w.lastRun(short(graph.lastRun.commit), graph.lastRun.at, graph.lastRun.outcome === 'built' ? null : `${graph.lastRun.reason}`) : '',
+          graph.lastRun ? w.lastRun(short(graph.lastRun.commit), graph.lastRun.at, graph.lastRun.outcome === 'built' ? null : { ...graph.lastRun, reason: `${graph.lastRun.reason}` }) : '',
         ].join(''),
         ...ciNote(snapshot.ci),
         w.attentionHeading,

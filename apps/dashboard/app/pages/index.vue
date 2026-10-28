@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { alternativeMessage } from '@binnacle/core';
+import { alternativeMessage, pairMessage } from '@binnacle/core';
 import { call, usePolling } from '~/composables/daemon';
 import { useLanguage } from '~/composables/language';
-import { pairReason } from '~/i18n';
 import { count, isUnavailable, runRole, wordFor, SELECTED_VIEW, statusBadge, type Alternative, type Board, type ConflictRisk } from '~/composables/projects';
 import type { Totals } from '~/composables/usage';
 
@@ -16,7 +15,7 @@ const view = inject(SELECTED_VIEW, ref(null));
 const snapshot = computed(() => view.value?.snapshot ?? null);
 const route = useRoute();
 const project = typeof route.query.project === 'string' ? route.query.project : null;
-const { t, language, number, list, secondsAgo } = useLanguage();
+const { t, number, list, secondsAgo } = useLanguage();
 
 const board = usePolling(async () => (project === null ? null : call<Board>('task.list', { path: project })));
 
@@ -271,7 +270,7 @@ function outputTokens(totals: Totals): string {
                         <UBadge :label="t.risks[pair.risk]" :color="RISK_COLORS[pair.risk]" variant="soft" size="sm" />
                       </div>
                       <FoldedText class="leading-snug break-words text-muted">
-                        <DaemonReason :said="pair" :translated="pairReason(language, pair, snapshot.tasks.parallel.impact.tasks)" />
+                        <DaemonReason :said="pairMessage(pair)" />
                       </FoldedText>
                     </div>
                   </template>

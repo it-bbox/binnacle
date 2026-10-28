@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ROLES, TASK_STATES } from '@binnacle/core';
-import { compactNumber, daemonSaid, DICTIONARIES, duration, LANGUAGES, pairReason, plural, secondsAgo, startingLanguage } from '../app/i18n/index.ts';
+import { pairMessage, ROLES, TASK_STATES } from '@binnacle/core';
+import { compactNumber, daemonSaid, DICTIONARIES, duration, LANGUAGES, plural, secondsAgo, startingLanguage } from '../app/i18n/index.ts';
 import { ROADMAP_STATUSES } from '../../../packages/core/src/roadmap.ts';
 import { NO_FORGE } from '../../daemon/src/ci.ts';
 import { trackerUnavailable } from '../../daemon/src/snapshot.ts';
@@ -141,31 +141,10 @@ describe('what the daemon says', () => {
     assert.equal(daemonSaid('ru', trackerUnavailable([one, one])).english, true);
   });
 
-  const tasks = [
-    { id: 'a/01', modules: ['nuxt.config.ts', 'src/a.ts'], from: 'branch' as const },
-    { id: 'a/02', modules: ['nuxt.config.ts', 'src/b.ts'], from: 'ticket' as const },
-    { id: 'a/03', modules: [], from: 'ticket' as const },
-    { id: 'a/04', modules: [], from: 'branch' as const },
-  ];
-  const pair = (a: string, b: string, risk: 'high' | 'medium' | 'low' | 'unknown', modules: string[] = []) => ({ tasks: [a, b] as [string, string], risk, modules, reason: 'as the daemon wrote it' });
-
-  it("of a pair's risk are written from the risk and the modules, which stay as they are", () => {
-    assert.equal(pairReason('ru', pair('a/01', 'a/02', 'high', ['nuxt.config.ts']), tasks), 'Обе затрагивают nuxt.config.ts.');
-    assert.equal(
-      pairReason('ru', pair('a/01', 'a/02', 'medium', ['src/a.ts', 'src/b.ts']), tasks),
-      'Их модули соседствуют в графе: src/a.ts у a/01 и src/b.ts у a/02.',
-    );
-    assert.equal(pairReason('ru', pair('a/01', 'a/02', 'low'), tasks), 'Общих модулей нет, и их модули не соседствуют в графе.');
-    assert.equal(
-      pairReason('ru', pair('a/03', 'a/04', 'unknown'), tasks),
-      'Тикет a/03 не называет ни одного модуля графа; ветка a/04 не меняет ни одного модуля графа.',
-    );
-    assert.equal(pairReason('ru', pair('a/01', 'a/03', 'unknown'), tasks), 'Тикет a/03 не называет ни одного модуля графа.');
-  });
-
-  it("of a pair are the daemon's own in English, and when the page cannot write them", () => {
-    assert.equal(pairReason('en', pair('a/01', 'a/02', 'high', ['nuxt.config.ts']), tasks), 'as the daemon wrote it');
-    assert.equal(pairReason('ru', pair('a/01', 'x/99', 'unknown'), tasks), 'as the daemon wrote it');
+  it("of a pair's risk are core's wording of its kind and params, as the Overview shows them, and the daemon's own in English", () => {
+    const pair = { kind: 'shared' as const, params: { modules: 'nuxt.config.ts' }, reason: 'Both touch nuxt.config.ts.' };
+    assert.deepEqual(daemonSaid('ru', pairMessage(pair)), { text: 'Обе затрагивают nuxt.config.ts.', english: false });
+    assert.deepEqual(daemonSaid('en', pairMessage(pair)), { text: 'Both touch nuxt.config.ts.', english: false });
   });
 
 });

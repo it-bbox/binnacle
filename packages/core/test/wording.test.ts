@@ -9,7 +9,7 @@ import { WORDED_CODES, wordMessage, type Params } from '../src/index.ts';
  */
 
 /** Values the wording maps to Russian, or leaves out, rather than passing through as written. */
-const MAPPED = new Set(['kind', 'token', 'what', 'got', 'entity', 'warning', 'need', 'session', 'startedAt', 'lastActivityAt', 'own']);
+const MAPPED = new Set(['kind', 'token', 'what', 'got', 'entity', 'warning', 'need', 'session', 'startedAt', 'lastActivityAt', 'own', 'from', 'otherFrom', 'neighbours', 'reason']);
 
 /** A session's times, as the daemon gives them. */
 // Fifteen minutes around noon UTC, the same local day in every time zone.
@@ -132,8 +132,19 @@ const EXAMPLES: [string, Params][] = [
   ['ponytail.no_comparison', { kind: 'none_after' }],
   ['ponytail.no_comparison', { kind: 'neither' }],
   ['ponytail.no_comparison', { kind: 'remote' }],
-  ['graph.update_failed', { commit: '0123456', reason: 'graphify exited with code 1.' }],
-  ['graph.update_failed', { commit: '0123456', reason: 'graphify exited with code 1.', kept: '89abcde' }],
+  ['graph.update_failed', { commit: '0123456', reason: 'graphify exited with code 1.', kind: 'exit', exitCode: 1 }],
+  ['graph.update_failed', { commit: '0123456', reason: 'boom', kept: '89abcde', kind: 'output', output: 'boom' }],
+  ['graph.build_failed', { kind: 'output', output: 'error: refusing to overwrite graphify-out/graph.json' }],
+  ['graph.build_failed', { kind: 'output', output: 'community detection failed', command: 'graphify cluster-only . --no-label' }],
+  ['graph.build_failed', { kind: 'spawn', error: 'spawn /bin/graphify EACCES' }],
+  ['graph.build_failed', { kind: 'signal', signal: 'SIGKILL' }],
+  ['graph.build_failed', { kind: 'exit', exitCode: 2 }],
+  ['graph.build_failed', { kind: 'recorded', output: 'graphify exited with code 1.' }],
+  ['impact.pair', { kind: 'shared', modules: 'src/a.ts, src/b.ts' }],
+  ['impact.pair', { kind: 'neighbours', neighbours: 'src/a.ts, src/b.ts; src/c.ts, src/d.ts' }],
+  ['impact.pair', { kind: 'apart' }],
+  ['impact.pair', { kind: 'unmapped', task: 'a/03', from: 'ticket' }],
+  ['impact.pair', { kind: 'unmapped', task: 'a/03', from: 'ticket', other: 'a/04', otherFrom: 'branch' }],
   ['graph.not_ignored', { directory: 'graphify-out', path: '/work/demo' }],
   ['telemetry.unreadable', { harness: 'Claude Code', what: '/home/u/.claude/projects/x.jsonl (EACCES)', others: 0 }],
   ['telemetry.unreadable', { harness: 'Codex', what: '/home/u/.codex/sessions (EACCES)', others: 3 }],
@@ -233,6 +244,29 @@ describe("core's Russian wording", () => {
       'a/05 (Demo), a/06 (Video) готовы к старту и в триаже ready-for-human: их делает владелец, а не агент.',
     );
     assert.equal(russian('next.alternative', { kind: 'plan', need: 'spec', epic: 2, title: 'Release' }), 'Эпику 2 (Release) нужна спецификация.');
+    // A pair's conflict risk by its kind, the modules and Task ids as they are.
+    assert.equal(russian('impact.pair', { kind: 'shared', modules: 'nuxt.config.ts' }), 'Обе затрагивают nuxt.config.ts.');
+    assert.equal(
+      russian('impact.pair', { kind: 'neighbours', neighbours: 'src/a.ts, src/b.ts; src/c.ts, src/d.ts' }),
+      'Их модули соседствуют в графе: src/a.ts и src/b.ts; src/c.ts и src/d.ts.',
+    );
+    assert.equal(russian('impact.pair', { kind: 'apart' }), 'Общих модулей нет, и их модули не соседствуют в графе.');
+    assert.equal(russian('impact.pair', { kind: 'unmapped', task: 'a/03', from: 'ticket' }), 'Тикет a/03 не называет ни одного модуля графа.');
+    assert.equal(
+      russian('impact.pair', { kind: 'unmapped', task: 'a/03', from: 'ticket', other: 'a/04', otherFrom: 'branch' }),
+      'Тикет a/03 не называет ни одного модуля графа; ветка a/04 не меняет ни одного модуля графа.',
+    );
+    // A failed Graphify run named in words, the tool's own output quoted as its.
+    assert.equal(russian('graph.build_failed', { kind: 'output', output: 'it broke' }), 'Graphify сообщил: «it broke».');
+    assert.equal(
+      russian('graph.build_failed', { kind: 'output', output: 'it broke', command: 'graphify cluster-only . --no-label' }),
+      'Graphify на шаге `graphify cluster-only . --no-label` сообщил: «it broke».',
+    );
+    assert.equal(russian('graph.build_failed', { kind: 'exit', exitCode: 2 }), 'Graphify завершился с кодом 2.');
+    assert.equal(
+      russian('graph.update_failed', { commit: '0123456', reason: 'it broke', kept: '89abcde', kind: 'output', output: 'it broke' }),
+      'Обновление графа для 0123456 не удалось. Graphify сообщил: «it broke». Граф, построенный по 89abcde, сохранён.',
+    );
     // A session named by its times, as this one or another only when the request said which it is, and the threshold in words.
     const pressure = { ...SESSION, harness: 'Claude Code', tokens: 180000, threshold: 150000 };
     const why = `в Claude Code, начатая в ${clock(SESSION.startedAt)}, последняя активность в ${clock(SESSION.lastActivityAt)}, прочитала 180000 токенов контекста в последнем вызове, не меньше порога в 150000 токенов. Запустите /binnacle:checkpoint и продолжайте в новой сессии.`;

@@ -59,8 +59,12 @@ export type GraphSection = {
   builtFrom: { commit: string; at: string } | null;
   /** Whether the default branch has moved past `builtFrom`; null when its commit cannot be read. */
   behind: boolean | null;
-  lastRun: { commit: string; at: string; outcome: 'built' | 'failed'; reason: string | null } | null;
+  /** A failed run's `reason` is the English, `code` and `params` what it is written from: `graph.build_failed` and the tool's output (`wording.ts`). */
+  lastRun: { commit: string; at: string; outcome: 'built' | 'failed'; reason: string | null; code?: 'graph.build_failed'; params?: Params } | null;
 };
+
+/** Why a run failed: the English, and the params `graph.build_failed` is worded from. */
+type Failure = { reason: string; params: Params };
 
 /** `searchPath` is where `graphify` is looked for, as `PATH` is read. */
 export function startGraphRunner(home: string, store: Store, searchPath: string, pollMs: number): { stop(): Promise<void> } {
@@ -116,17 +120,20 @@ export function startGraphRunner(home: string, store: Store, searchPath: string,
 
   /** One run: the extract, then, if it succeeded, the report; one outcome for both. A failed report keeps the graph the extract wrote. */
   async function build(path: string, executable: string, commit: string): Promise<void> {
-    let reason = await step(path, executable, GRAPH_EXTRACT);
-    if (reason === null && !stopped) {
-      reason = await step(path, executable, GRAPH_CLUSTER);
-      if (reason !== null) reason = `graphify ${GRAPH_CLUSTER.join(' ')} failed: ${reason}`;
+    let failure = await step(path, executable, GRAPH_EXTRACT);
+    if (failure === null && !stopped) {
+      const command = `graphify ${GRAPH_CLUSTER.join(' ')}`;
+      failure = await step(path, executable, GRAPH_CLUSTER);
+      if (failure !== null) failure = { reason: `${command} failed: ${failure.reason}`, params: { ...failure.params, command } };
     }
     // A run the daemon's stop ended is not an outcome of Graphify's.
-    if (!stopped) store.appendEvent({ type: reason === null ? BUILT : FAILED, projectPath: path, payload: { commit, reason } });
+    if (!stopped) {
+      store.appendEvent({ type: failure === null ? BUILT : FAILED, projectPath: path, payload: { commit, reason: failure?.reason ?? null, ...(failure && { params: failure.params }) } });
+    }
   }
 
   /** Runs `graphify` with `args` in `path`; null when it succeeded, or why not. */
-  function step(path: string, executable: string, args: string[]): Promise<string | null> {
+  function step(path: string, executable: string, args: string[]): Promise<Failure | null> {
     return new Promise((resolve) => {
       // In its own process group, so that ending it ends whatever it started too.
       const child = spawn(executable, args, { cwd: path, stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true, detached: true });
@@ -136,18 +143,23 @@ export function startGraphRunner(home: string, store: Store, searchPath: string,
       const timer = setTimeout(() => end(child), GRAPH_RUN_TIMEOUT_MS);
       let finished = false;
       // A spawn that fails emits `error` and then `close`; the first is the outcome.
-      const finish = (reason: string | null): void => {
+      const finish = (failure: Failure | null): void => {
         if (finished) return;
         finished = true;
         clearTimeout(timer);
         children.delete(child);
-        resolve(reason);
+        resolve(failure);
       };
-      child.on('error', (error) => finish(`graphify could not be run: ${error.message}`));
+      child.on('error', (error) => finish({ reason: `graphify could not be run: ${error.message}`, params: { kind: 'spawn', error: error.message } }));
       child.on('close', (code, signal) => {
         if (code === 0) return finish(null);
         const line = stderr.trim().split('\n').at(-1)?.trim();
-        finish(line || (signal ? `graphify was ended by ${signal}.` : `graphify exited with code ${code}.`));
+        if (line) return finish({ reason: line, params: { kind: 'output', output: line } });
+        finish(
+          signal
+            ? { reason: `graphify was ended by ${signal}.`, params: { kind: 'signal', signal } }
+            : { reason: `graphify exited with code ${code}.`, params: { kind: 'exit', exitCode: Number(code) } },
+        );
       });
     });
   }
@@ -197,7 +209,7 @@ export async function graphSection(
     attention.push({
       code: 'graph.update_failed',
       message: `The graph update for ${short(lastRun.commit)} failed: ${lastRun.reason}${builtFrom ? ` The graph built from ${short(builtFrom.commit)} is kept.` : ''}`,
-      params: { commit: short(lastRun.commit), reason: String(lastRun.reason), ...(builtFrom && { kept: short(builtFrom.commit) }) },
+      params: { commit: short(lastRun.commit), reason: String(lastRun.reason), ...(builtFrom && { kept: short(builtFrom.commit) }), ...lastRun.params },
     });
   }
 
@@ -272,12 +284,14 @@ export function lastBuild(store: Store, path: string): { id: number; commit: str
   return { id: built.id, commit: String(built.payload.commit), failedSince: store.latestEvent(path, [BUILT, FAILED])?.type === FAILED };
 }
 
-const runOf = (event: EventRow): NonNullable<GraphSection['lastRun']> => ({
-  commit: String(event.payload.commit),
-  at: event.occurredAt,
-  outcome: event.type === BUILT ? 'built' : 'failed',
-  reason: typeof event.payload.reason === 'string' ? event.payload.reason : null,
-});
+/** A run as recorded; a failed one recorded before its failure was coded gives its reason as `recorded`. */
+function runOf(event: EventRow): NonNullable<GraphSection['lastRun']> {
+  const reason = typeof event.payload.reason === 'string' ? event.payload.reason : null;
+  const run = { commit: String(event.payload.commit), at: event.occurredAt, reason };
+  if (event.type === BUILT) return { ...run, outcome: 'built' };
+  const params = event.payload.params ?? { kind: 'recorded', output: String(reason) };
+  return { ...run, outcome: 'failed', code: 'graph.build_failed', params: params as Params };
+}
 
 /** Kills a run and everything it started, its process group on POSIX. */
 function end(child: ChildProcess): void {

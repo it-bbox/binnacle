@@ -62,7 +62,8 @@ export type ParallelLimit = { limit: number; mode: 'number' | 'auto'; source: 'm
 export type Impact = {
   available: true;
   tasks: { id: string; modules: string[]; from: 'branch' | 'ticket'; provenance: 'calculated' }[];
-  pairs: { tasks: [string, string]; risk: ConflictRisk; modules: string[]; reason: string; provenance: 'calculated' }[];
+  /** `kind` and `params` are what `reason`, the English, is written from; the page words them with `pairMessage`. */
+  pairs: { tasks: [string, string]; risk: ConflictRisk; kind: 'unmapped' | 'shared' | 'neighbours' | 'apart'; params: Params; modules: string[]; reason: string; provenance: 'calculated' }[];
   provenance: 'calculated';
 };
 
@@ -74,7 +75,7 @@ export type GraphSection = {
   params?: Params;
   builtFrom: { commit: string; at: string } | null;
   behind: boolean | null;
-  lastRun: { commit: string; at: string; outcome: 'built' | 'failed'; reason: string | null } | null;
+  lastRun: { commit: string; at: string; outcome: 'built' | 'failed'; reason: string | null; code?: string; params?: Params } | null;
 };
 
 export type Snapshot = {

@@ -5,6 +5,7 @@
  * Beside it, the roles Binnacle suggests for a Task, from the same touched modules.
  */
 import type { Role, TrackerTask } from './tracker.ts';
+import type { Coded, Params } from './wording.ts';
 
 /**
  * The graph as the analysis reads it. A module is a file of the graph: the `source_file` its
@@ -47,11 +48,27 @@ export type Impact = {
   tasks: { id: string; modules: string[]; from: 'branch' | 'ticket'; provenance: 'calculated' }[];
   /**
    * Each pair's conflict risk: `modules` are the shared ones when high, the neighbouring ones
-   * when medium, and none otherwise.
+   * when medium, and none otherwise. `kind` and `params` are what `reason`, the English, is
+   * written from, for a person's language to word (`pairMessage`).
    */
-  pairs: { tasks: [string, string]; risk: ConflictRisk; modules: string[]; reason: string; provenance: 'calculated' }[];
+  pairs: { tasks: [string, string]; risk: ConflictRisk; kind: PairKind; params: Params; modules: string[]; reason: string; provenance: 'calculated' }[];
   provenance: 'calculated';
 };
+
+/**
+ * Why a pair has its risk: a Task of it touches no module of the graph (`unmapped`: `task` and
+ * `from`, `branch` or `ticket`, and `other` and `otherFrom` when both do), they share modules
+ * (`shared`: `modules`, joined with `, `), modules of theirs are neighbours (`neighbours`: each
+ * two joined with `, `, the twos with `; `), or neither (`apart`).
+ */
+export type PairKind = 'unmapped' | 'shared' | 'neighbours' | 'apart';
+
+/** A pair's reason as a message to word: its kind and params under one code, its reason the English. */
+export const pairMessage = ({ kind, params, reason }: Pick<Impact['pairs'][number], 'kind' | 'params' | 'reason'>): Coded => ({
+  code: 'impact.pair',
+  message: reason,
+  params: { ...params, kind },
+});
 
 /**
  * Each Task's modules and each pair's conflict risk. A Task on a branch touches the modules its
@@ -79,24 +96,32 @@ export function conflictRisk(graph: ModuleGraph, touches: TaskTouch[]): Impact {
   const pairs: Impact['pairs'] = [];
   for (const [index, a] of tasks.entries()) {
     for (const b of tasks.slice(index + 1)) {
-      const pair = (risk: ConflictRisk, reason: string, involved: string[] = []): void =>
-        void pairs.push({ tasks: [a.id, b.id], risk, modules: involved, reason, provenance: 'calculated' });
+      const pair = (risk: ConflictRisk, kind: PairKind, params: Params, reason: string, involved: string[] = []): void =>
+        void pairs.push({ tasks: [a.id, b.id], risk, kind, params, modules: involved, reason, provenance: 'calculated' });
       const empty = [a, b].filter((task) => task.modules.length === 0);
       if (empty.length > 0) {
-        pair('unknown', `${empty.map((task) => (task.from === 'branch' ? `The branch of ${task.id} changes` : `The ticket of ${task.id} names`) + ' no module of the graph').join('; ')}.`);
+        const [first, other] = empty;
+        const params: Params = { task: first!.id, from: first!.from, ...(other && { other: other.id, otherFrom: other.from }) };
+        pair('unknown', 'unmapped', params, `${empty.map((task) => (task.from === 'branch' ? `The branch of ${task.id} changes` : `The ticket of ${task.id} names`) + ' no module of the graph').join('; ')}.`);
         continue;
       }
       const shared = a.modules.filter((module) => b.modules.includes(module));
       if (shared.length > 0) {
-        pair('high', `Both touch ${shared.join(', ')}.`, shared);
+        pair('high', 'shared', { modules: shared.join(', ') }, `Both touch ${shared.join(', ')}.`, shared);
         continue;
       }
       const near = a.modules.flatMap((x) => b.modules.filter((y) => neighbours.get(x)?.has(y)).map((y) => [x, y] as const));
       if (near.length > 0) {
-        pair('medium', `Their modules are neighbours in the graph: ${near.map(([x, y]) => `${x} and ${y}`).join('; ')}.`, [...new Set(near.flat())].sort());
+        pair(
+          'medium',
+          'neighbours',
+          { neighbours: near.map((two) => two.join(', ')).join('; ') },
+          `Their modules are neighbours in the graph: ${near.map(([x, y]) => `${x} and ${y}`).join('; ')}.`,
+          [...new Set(near.flat())].sort(),
+        );
         continue;
       }
-      pair('low', 'They share no module, and none of theirs are neighbours in the graph.');
+      pair('low', 'apart', {}, 'They share no module, and none of theirs are neighbours in the graph.');
     }
   }
   return { available: true, tasks, pairs, provenance: 'calculated' };

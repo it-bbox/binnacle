@@ -16,9 +16,9 @@ type Graph = {
   reason: string | null;
   builtFrom: { commit: string; at: string } | null;
   behind: boolean | null;
-  lastRun: { commit: string; at: string; outcome: 'built' | 'failed'; reason: string | null } | null;
+  lastRun: { commit: string; at: string; outcome: 'built' | 'failed'; reason: string | null; code?: string; params?: Record<string, unknown> } | null;
 };
-type Snapshot = { graph: Graph; attention: { code: string; message: string }[] };
+type Snapshot = { graph: Graph; attention: { code: string; message: string; params?: Record<string, unknown> }[] };
 
 const POLL_MS = 40;
 const roots: string[] = [];
@@ -172,11 +172,15 @@ describe('the daemon keeps the graph current', () => {
       const body = await snapshot(daemon, root);
       assert.equal(body.graph.lastRun?.outcome, 'failed');
       assert.match(body.graph.lastRun?.reason ?? '', /would shrink the graph from 12 nodes to 8 nodes/);
+      // Coded, with the tool's own output as its param, for a person's language to quote.
+      assert.equal(body.graph.lastRun?.code, 'graph.build_failed');
+      assert.deepEqual(body.graph.lastRun?.params, { kind: 'output', output: REFUSAL });
       assert.equal(body.graph.builtFrom?.commit, first);
       assert.equal(body.graph.behind, true);
       assert.equal(body.graph.available, true);
       const failed = body.attention.find((item) => item.code === 'graph.update_failed');
       assert.match(failed?.message ?? '', /would shrink the graph from 12 nodes to 8 nodes/);
+      assert.deepEqual(failed?.params, { commit: second.slice(0, 7), reason: REFUSAL, kept: first.slice(0, 7), kind: 'output', output: REFUSAL });
       assert.equal(readFileSync(join(root, 'graphify-out', 'graph.json'), 'utf8'), graphBefore);
 
       // A failed commit is not retried every minute: only a new move runs again. A failed extract builds no report.
@@ -197,6 +201,8 @@ describe('the daemon keeps the graph current', () => {
       assert.deepEqual(calls(fake.log), [`${root} extract . --code-only --allow-dedup-shrink`, `${root} cluster-only . --no-label`]);
       assert.equal(body.graph.lastRun?.outcome, 'failed');
       assert.match(body.graph.lastRun?.reason ?? '', /cluster-only.*community detection failed/);
+      assert.equal(body.graph.lastRun?.code, 'graph.build_failed');
+      assert.deepEqual(body.graph.lastRun?.params, { kind: 'output', output: 'community detection failed', command: 'graphify cluster-only . --no-label' });
       assert.match(body.attention.find((item) => item.code === 'graph.update_failed')?.message ?? '', /community detection failed/);
       assert.equal(existsSync(join(root, 'graphify-out', 'graph.json')), true);
       assert.equal(body.graph.available, true);

@@ -14,7 +14,7 @@ import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
  * an implementation run made active by a Claude Code session on the worked Task's branch.
  */
 type Risk = 'high' | 'medium' | 'low' | 'unknown';
-type Pair = { tasks: [string, string]; risk: Risk; modules: string[]; reason: string; provenance: string };
+type Pair = { tasks: [string, string]; risk: Risk; kind: string; params: Record<string, unknown>; modules: string[]; reason: string; provenance: string };
 type TaskImpact = { id: string; modules: string[]; from: 'branch' | 'ticket'; provenance: string };
 type Impact = { available: true; tasks: TaskImpact[]; pairs: Pair[]; provenance: string } | { available: false; reason: string };
 type Alternative = { kind: string; tasks: string[] };
@@ -162,19 +162,28 @@ describe('the conflict risk between Tasks', () => {
       assert.equal(high.risk, 'high');
       assert.deepEqual(high.modules, ['src/a.ts']);
       assert.match(high.reason, /src\/a\.ts/);
+      // Each pair's kind and the values its reason names, for a person's language to word.
+      assert.equal(high.kind, 'shared');
+      assert.deepEqual(high.params, { modules: 'src/a.ts' });
 
       const medium = pair(impact, 'first/01', 'first/03');
       assert.equal(medium.risk, 'medium');
       assert.deepEqual(medium.modules, ['src/a.ts', 'src/b.ts']);
       assert.match(medium.reason, /neighbour/);
+      assert.equal(medium.kind, 'neighbours');
+      assert.deepEqual(medium.params, { neighbours: 'src/a.ts, src/b.ts' });
 
       assert.equal(pair(impact, 'first/01', 'first/04').risk, 'low');
+      assert.equal(pair(impact, 'first/01', 'first/04').kind, 'apart');
+      assert.deepEqual(pair(impact, 'first/01', 'first/04').params, {});
       assert.equal(pair(impact, 'first/03', 'first/04').risk, 'low');
 
       for (const other of ['first/01', 'first/02', 'first/03', 'first/04']) {
         const unknown = pair(impact, other, 'first/05');
         assert.equal(unknown.risk, 'unknown');
         assert.match(unknown.reason, /first\/05/);
+        assert.equal(unknown.kind, 'unmapped');
+        assert.deepEqual(unknown.params, { task: 'first/05', from: 'ticket' });
       }
     });
   });

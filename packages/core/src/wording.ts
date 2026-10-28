@@ -137,6 +137,23 @@ const NEXT_ACTION_SHAPE = 'абзац, который начинается с «
 
 const PARALLEL_RULE = (v: Values): string => `Лимит параллельной работы — целое число от 1 до ${v.s('max')} или "auto"`;
 
+/**
+ * A failed Graphify run in words, the tool's own output quoted as its: what it wrote last
+ * (`output`), that it could not be started (`spawn`), a signal that ended it, its exit code, or,
+ * for a run recorded before its failure was coded, the reason as recorded; at the step
+ * `command` names when it is not the extract.
+ */
+const graphFailure = (v: Values): string => {
+  const at = v.o('command') === null ? '' : ` на шаге \`${v.s('command')}\``;
+  return pick(v, {
+    output: () => `Graphify${at} сообщил: «${v.s('output')}».`,
+    spawn: () => `Graphify${at} не удалось запустить (${v.s('error')}).`,
+    signal: () => `Graphify${at} остановлен сигналом ${v.s('signal')}.`,
+    exit: () => `Graphify${at} завершился с кодом ${v.s('exitCode')}.`,
+    recorded: () => `Graphify не построил граф; причина записана так: «${v.s('output')}».`,
+  });
+};
+
 /** One Russian sentence per code, from its values. */
 const RUSSIAN: Record<string, (v: Values) => string> = {
   // Details of an error, and the manifest's warnings: what a field was expected to be.
@@ -353,7 +370,21 @@ const RUSSIAN: Record<string, (v: Values) => string> = {
       remote: () => 'На GitHub и GitLab задача становится готовой по своему issue, а не по коммиту, поэтому ни одна задача не попадает ни до, ни после Ponytail.',
     }),
   'graph.update_failed': (v) =>
-    `Обновление графа для ${v.s('commit')} не удалось: ${v.s('reason')}${v.o('kept') === null ? '' : ` Граф, построенный по ${v.s('kept')}, сохранён.`}`,
+    `Обновление графа для ${v.s('commit')} не удалось. ${graphFailure(v)}${v.o('kept') === null ? '' : ` Граф, построенный по ${v.s('kept')}, сохранён.`}`,
+  'graph.build_failed': (v) => graphFailure(v),
+  'impact.pair': (v) => {
+    const none = (task: string, from: string): string =>
+      pick(v, { branch: () => `ветка ${v.s(task)} не меняет ни одного модуля графа`, ticket: () => `тикет ${v.s(task)} не называет ни одного модуля графа` }, from);
+    return pick(v, {
+      shared: () => `Обе затрагивают ${v.s('modules')}.`,
+      neighbours: () => `Их модули соседствуют в графе: ${v.s('neighbours').split('; ').map((two) => two.split(', ').join(' и ')).join('; ')}.`,
+      apart: () => 'Общих модулей нет, и их модули не соседствуют в графе.',
+      unmapped: () => {
+        const text = `${[none('task', 'from'), ...(v.o('other') === null ? [] : [none('other', 'otherFrom')])].join('; ')}.`;
+        return text.charAt(0).toUpperCase() + text.slice(1);
+      },
+    });
+  },
   'graph.not_ignored': (v) =>
     `Git не игнорирует ${v.s('directory')}/ в ${v.s('path')}, поэтому демон не запускает там Graphify. Добавьте ${v.s('directory')}/ в .gitignore.`,
   'telemetry.unreadable': (v) => {

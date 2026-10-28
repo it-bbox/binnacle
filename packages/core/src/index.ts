@@ -50,7 +50,7 @@ export {
   type Roadmap,
   type RoadmapStatus,
 } from './roadmap.ts';
-export { conflictRisk, moduleGraph, pairRisk, taskRoles, type ConflictRisk, type Impact, type ModuleGraph, type TaskRoles, type TaskTouch } from './impact.ts';
+export { conflictRisk, moduleGraph, pairMessage, pairRisk, taskRoles, type ConflictRisk, type Impact, type ModuleGraph, type PairKind, type TaskRoles, type TaskTouch } from './impact.ts';
 export { instructionSets } from './instructions.ts';
 export { terminalText } from './terminal.ts';
 export { sessionTimes, WORDED_CODES, wordMessage, type Coded, type Params } from './wording.ts';

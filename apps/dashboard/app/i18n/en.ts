@@ -8,18 +8,6 @@
 /** A count's forms by `Intl.PluralRules` category; `other` is the fallback, `#` the count. */
 export type Forms = { other: string } & Partial<Record<Intl.LDMLPluralRule, string>>;
 
-/** A pair's reason, written from its risk and its Tasks' modules; module names and ids stay as they are. */
-export type PairReasons = {
-  high: (modules: string) => string;
-  /** The modules of each Task that neighbour one of the other's: "a.ts of A", and "b.ts of B". */
-  medium: (a: string, b: string) => string;
-  low: string;
-  /** A Task of an unknown pair that touches no module of the graph; the page joins them with "; ". */
-  noModuleFromBranch: (id: string) => string;
-  noModuleFromTicket: (id: string) => string;
-  modulesOf: (modules: string, id: string) => string;
-};
-
 export const en = {
   /** The language's own name, as the Settings page lists it. */
   languageName: 'English',
@@ -98,7 +86,6 @@ export const en = {
   fromTicket: 'from its ticket',
   noModules: 'no module of the graph',
   /** A pair's reason in another language than the daemon's; none in English, where the daemon's own is shown. */
-  pairReasons: null as PairReasons | null,
   runningNow: 'Running now',
   noTask: 'no Task',
   nothing: 'Nothing',

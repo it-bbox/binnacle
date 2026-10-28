@@ -1,4 +1,4 @@
-import { alternativeMessage, wordMessage, type Alternative, type Diagnostic, type Coded, type Language, type Params } from '@binnacle/core';
+import { alternativeMessage, pairMessage, wordMessage, type Alternative, type Diagnostic, type Coded, type Impact, type Language, type Params } from '@binnacle/core';
 import { FALLBACK_DAYS } from './daily.ts';
 
 /**
@@ -44,14 +44,16 @@ export type VaultWords = {
   parallel: string;
   limit: (limit: number, auto: boolean, source: 'manifest' | 'machine' | 'default', inProgress: number, free: number) => string;
   noConflictRisk: (value: Reason) => string;
-  pair: (tasks: string[], risk: string, reason: string) => string;
+  /** A pair's conflict risk, its reason worded from its kind and params. */
+  pair: (pair: Impact['pairs'][number]) => string;
   decisions: string;
   noAdrDirectory: string;
   graph: string;
   graphAvailable: string;
   noGraph: (value: Reason) => string;
   builtFrom: (commit: string, at: string, behind: boolean) => string;
-  lastRun: (commit: string, at: string, failed: string | null) => string;
+  /** The last run; `failed` is why it failed, null when it built. */
+  lastRun: (commit: string, at: string, failed: Reason | null) => string;
   attentionHeading: string;
   dailyTitle: (name: string) => string;
   trackerUnreadableNow: string;
@@ -103,14 +105,14 @@ const ENGLISH: VaultWords = {
   parallel: '## Parallel',
   limit: (limit, auto, source, inProgress, free) => `Limit ${limit}${auto ? ' (auto)' : ''}, from the ${source}, in progress ${inProgress}, free ${free} (calculated).`,
   noConflictRisk: ({ reason }) => `Conflict risk not available: ${reason}`,
-  pair: (tasks, risk, reason) => `${tasks.join(' and ')}: ${risk} — ${reason} (calculated)`,
+  pair: ({ tasks, risk, reason }) => `${tasks.join(' and ')}: ${risk} — ${reason} (calculated)`,
   decisions: '## Decisions',
   noAdrDirectory: 'This project declares no ADR directory.',
   graph: '## Graph',
   graphAvailable: 'A graph is available.',
   noGraph: ({ reason }) => `No graph: ${reason}`,
   builtFrom: (commit, at, behind) => ` Built from \`${commit}\` at ${at}${behind ? ', and the default branch has moved past it' : ''}.`,
-  lastRun: (commit, at, failed) => ` The last run, of \`${commit}\` at ${at}, ${failed === null ? 'built' : `failed: ${failed}`}.`,
+  lastRun: (commit, at, failed) => ` The last run, of \`${commit}\` at ${at}, ${failed === null ? 'built' : `failed: ${failed.reason}`}.`,
   attentionHeading: '## Attention',
   dailyTitle: (name) => `# Daily of ${name}`,
   trackerUnreadableNow: 'The tracker cannot be read now; the attention says why.',
@@ -177,7 +179,7 @@ const RUSSIAN: VaultWords = {
   ciState: (state) => word(CI_STATE, state),
   ciHead: (branch, forge, repository, state, commit, at) => `\`${branch}\` на ${forge} (${repository}): ${state} на \`${commit}\`${at ? `, ${at}` : ''}`,
   providerReported: (url) => ` (по данным провайдера). ${url}`,
-  openRequests: '### Открытые пул-реквесты',
+  openRequests: '### Открытые пулл-реквесты',
   draft: ' (черновик)',
   snapshotTitle: (name) => `# Снимок проекта ${name}`,
   servedFrom: (branch, commit, dirty) =>
@@ -195,14 +197,17 @@ const RUSSIAN: VaultWords = {
   parallel: '## Параллельная работа',
   limit: (limit, auto, source, inProgress, free) => `Лимит ${limit}${auto ? ' (авто)' : ''}, ${LIMIT_SOURCE[source]}, в работе ${inProgress}, свободно ${free} (оценка).`,
   noConflictRisk: (value) => `Риск конфликта: нет данных — ${because(value)}`,
-  pair: (tasks, risk, reason) => `${tasks.join(' и ')}: риск конфликта ${word(RISK, risk)} (оценка) — ${english(reason)}`,
+  pair: (pair) => {
+    const reason = worded(pairMessage(pair));
+    return `${pair.tasks.join(' и ')}: риск конфликта ${word(RISK, pair.risk)} (оценка) — ${reason.charAt(0).toLowerCase()}${reason.slice(1)}`;
+  },
   decisions: '## Решения',
   noAdrDirectory: 'Проект не объявляет каталог ADR.',
   graph: '## Граф',
   graphAvailable: 'Граф есть.',
   noGraph: (value) => because(value),
   builtFrom: (commit, at, behind) => ` Построен из \`${commit}\` в ${at}${behind ? ', и основная ветка ушла дальше' : ''}.`,
-  lastRun: (commit, at, failed) => ` Последний запуск, по \`${commit}\` в ${at}, ${failed === null ? 'построил граф' : `упал: ${english(failed)}`}.`,
+  lastRun: (commit, at, failed) => ` Последний запуск, по \`${commit}\` в ${at}, ${failed === null ? 'построил граф.' : `упал. ${because(failed)}`}`,
   attentionHeading: '## Внимание',
   dailyTitle: (name) => `# Сводка дня: ${name}`,
   trackerUnreadableNow: 'Трекер сейчас не читается; почему — в разделе «Внимание».',

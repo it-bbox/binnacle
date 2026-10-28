@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, symlinkSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import { after, describe, it } from 'node:test';
 import { startTestDaemon, type TestDaemon } from '../src/testing.ts';
@@ -438,5 +440,81 @@ describe('the vault projection', () => {
       assert.equal(english.mine, russian.mine);
     }
     assert.equal(russian.mine, '---\ntitle: Mine\n---\n# Mine\n');
+  });
+
+  it('words a pair, a failed Graphify run and CI in Russian, with no reason marked English', async () => {
+    const { root } = makeRepository('ru');
+    // src/a.ts calls into src/b.ts; src/c.ts stands alone. NetworkX's node-link form, as Graphify writes it.
+    const graph = {
+      directed: true,
+      nodes: ['a', 'b', 'c'].map((name) => ({ id: name, label: `${name}.ts`, file_type: 'code', source_file: `src/${name}.ts` })),
+      links: [{ source: 'a', target: 'b', relation: 'calls' }],
+    };
+    for (const name of ['a', 'b', 'c']) write(root, `src/${name}.ts`, `export const ${name} = 1;\n`);
+    write(root, 'docs/specs/alpha/issues/02-a.md', '# 02: A\n\nStatus: READY\n\nChange src/a.ts.\n');
+    write(root, 'docs/specs/alpha/issues/03-a-too.md', '# 03: A too\n\nStatus: READY\n\nChange src/a.ts as well.\n');
+    write(root, 'docs/specs/alpha/issues/04-b.md', '# 04: B\n\nStatus: READY\n\nChange src/b.ts.\n');
+    write(root, 'docs/specs/alpha/issues/05-c.md', '# 05: C\n\nStatus: READY\n\nChange src/c.ts.\n');
+    commitAll(root, 'Tickets');
+    git(root, ['remote', 'add', 'origin', 'https://github.com/octo-org/octo-repo.git']);
+    // The extract writes the graph and the report step fails, with the tool's own output.
+    const bin = temporary('binnacle-vault-bin-');
+    writeFileSync(
+      join(bin, 'graphify'),
+      `#!/bin/sh\nif [ "$1" = cluster-only ]; then echo "it broke" >&2; exit 1; fi\nmkdir -p graphify-out\necho '${JSON.stringify(graph)}' > graphify-out/graph.json\n`,
+    );
+    chmodSync(join(bin, 'graphify'), 0o755);
+
+    // GitHub's API for the remote, on loopback: the repository, no pull request, and no CI on the default branch.
+    const forge = createServer((request, response) => {
+      const path = new URL(request.url ?? '/', 'http://forge').pathname;
+      const repo = '/repos/octo-org/octo-repo';
+      const body =
+        path === repo
+          ? { full_name: 'octo-org/octo-repo', default_branch: 'main', html_url: 'https://github.com/octo-org/octo-repo' }
+          : path === `${repo}/pulls`
+            ? []
+            : path === `${repo}/actions/runs`
+              ? { total_count: 0, workflow_runs: [] }
+              : path.startsWith(`${repo}/commits/`)
+                ? { sha: 'a'.repeat(40), state: 'pending', total_count: 0, statuses: [] }
+                : null;
+      response.writeHead(body === null ? 404 : 200, { 'content-type': 'application/json' });
+      response.end(JSON.stringify(body ?? { message: 'Not Found' }));
+    });
+    await new Promise<void>((resolve) => forge.listen(0, '127.0.0.1', resolve));
+    const base = `http://127.0.0.1:${(forge.address() as AddressInfo).port}`;
+    const realFetch = globalThis.fetch;
+    // The daemon runs in this process, so its requests to GitHub reach the loopback forge.
+    globalThis.fetch = (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : input);
+      return realFetch(url.protocol === 'https:' ? `${base}${url.pathname}${url.search}` : input, init);
+    };
+
+    const vault = temporary('binnacle-vault-');
+    const daemon = await startTestDaemon({ vaultPollMs: POLL_MS, graphPollMs: POLL_MS, searchPath: bin });
+    try {
+      setVault(daemon, vault);
+      await register(daemon, root);
+      await until(async () => {
+        const result = await daemon.call<{ graph: { lastRun: { outcome: string } | null } }>('project.snapshot', { path: root });
+        return result.body.graph.lastRun?.outcome === 'failed' && existsSync(note(vault, 'Product/snapshot.md')) && read(vault, 'Product/snapshot.md').includes('упал');
+      }, 'the failed run in the snapshot note');
+      const snapshot = read(vault, 'Product/snapshot.md');
+      for (const line of [
+        '- alpha/02 и alpha/03: риск конфликта высокий (оценка) — обе затрагивают src/a.ts.',
+        '- alpha/02 и alpha/04: риск конфликта средний (оценка) — их модули соседствуют в графе: src/a.ts и src/b.ts.',
+        '- alpha/02 и alpha/05: риск конфликта низкий (оценка) — общих модулей нет, и их модули не соседствуют в графе.',
+        '- alpha/01 и alpha/02: риск конфликта неизвестен (оценка) — тикет alpha/01 не называет ни одного модуля графа.',
+        '### Открытые пулл-реквесты',
+      ]) assert.ok(snapshot.split('\n').includes(line), `${line}\n\n${snapshot}`);
+      assert.match(snapshot, /Последний запуск, по `[0-9a-f]{7}` в \S+, упал\. Graphify на шаге `graphify cluster-only \. --no-label` сообщил: «it broke»\./);
+      assert.doesNotMatch(snapshot, /\(англ\.\)/);
+      assert.doesNotMatch(snapshot, /пул-реквест/);
+    } finally {
+      await daemon.stop();
+      globalThis.fetch = realFetch;
+      await new Promise((resolve) => forge.close(resolve));
+    }
   });
 });

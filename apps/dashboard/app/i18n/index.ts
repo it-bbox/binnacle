@@ -68,32 +68,3 @@ export type Said = { code?: string | undefined; params?: Params | undefined; mes
 export function daemonSaid(language: Language, said: Said): { text: string; english: boolean } {
   return wordMessage(language, { code: said.code ?? '', message: said.message ?? said.reason ?? '', ...(said.params && { params: said.params }) });
 }
-
-// The parts of `Impact` (`composables/projects.ts`) the reason is written from, spelled here so
-// that this module stays free of Nuxt for the root typecheck and the tests.
-type Touch = { id: string; modules: string[]; from: 'branch' | 'ticket' };
-type Pair = { tasks: [string, string]; risk: 'high' | 'medium' | 'low' | 'unknown'; modules: string[]; reason: string };
-
-/**
- * A pair's conflict risk reason in the language, written from its risk and modules and from its
- * Tasks' modules (`impact.tasks`), the names as they are. The daemon's own in English, its
- * language, and when a Task of the pair is not in `tasks`.
- *
- * ponytail: a medium reason names each Task's modules that neighbour the other's, not which
- * module neighbours which, as the daemon's does; the snapshot would have to give the pairs.
- */
-export function pairReason(language: Language, pair: Pair, tasks: Touch[]): string {
-  const said = DICTIONARIES[language].pairReasons;
-  const a = tasks.find((task) => task.id === pair.tasks[0]);
-  const b = tasks.find((task) => task.id === pair.tasks[1]);
-  if (said === null || a === undefined || b === undefined) return pair.reason;
-  if (pair.risk === 'high') return said.high(pair.modules.join(', '));
-  if (pair.risk === 'low') return said.low;
-  if (pair.risk === 'medium') {
-    const of = (task: Touch): string => said.modulesOf(task.modules.filter((module) => pair.modules.includes(module)).join(', '), task.id);
-    return said.medium(of(a), of(b));
-  }
-  const none = [a, b].filter((task) => task.modules.length === 0).map((task) => (task.from === 'branch' ? said.noModuleFromBranch : said.noModuleFromTicket)(task.id));
-  const text = `${none.join('; ')}.`;
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
