@@ -135,3 +135,10 @@ A developer who keeps every project's development, its harness included, in a co
 - **What the developer found, 2026-10-25.** Host networking works for one container only: with several, it breaks the containers' routing. A reverse proxy on the host does not help, since the host's loopback is not the container's. In the end he patched the hard-coded `127.0.0.1` to `0.0.0.0` at install, which every package update undoes. A proxy inside the container, rewriting `Host` and `Origin` to `127.0.0.1:7717`, is untried. The smallest fix: a `BINNACLE_HOST` for the bind address and a list of allowed `Host` values, with a test, the token and the `Origin` check unchanged.
 - **One view over many daemons.** Each container runs its own daemon and dashboard, so 20 projects are 20 dashboards. Whether a dashboard can list other daemons, read-only, is to weigh against principle 3 and ADR-0020.
 - **The footprint**: one daemon read about 160 MB of memory with five projects, and its home about 59 MB, on the owner's machine; twenty running at once is a cost worth stating in the guide, measured, not assumed.
+
+## Left after epic 21's tickets (2026-10-28)
+
+Found while epic 21's tickets ran, not planned yet:
+
+- **In progress from activity, outside the snapshot.** Since hygiene-after-0-4-0/02 the snapshot drops a run that started before the latest `git merge` of its Task's branch, but the board (`latestRuns` in `apps/daemon/src/usage.ts`, read by `apps/daemon/src/board.ts`), `/binnacle:daily`'s delta (`readAttributed` in `apps/daemon/src/operations.ts`) and the dashboard's Task page (`fromRuns` in `apps/dashboard/app/pages/task.vue`) still read a merged `READY` Task as in progress, so `/binnacle:product` and `/binnacle:daily` can disagree on what waits for the owner. Applying `sinceMerge` in `latestRuns`, before the latest run is chosen, would bring the board and the delta along with usage untouched (the ticket's `## Comments`).
+- **`/binnacle:answer` and a ticket's path.** It passes its argument to `task_get`, which takes a ticket's path since hygiene-after-0-4-0/01, while its text names only the Task id forms.

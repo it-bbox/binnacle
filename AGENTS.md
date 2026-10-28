@@ -74,3 +74,7 @@ Read:
 - `docs/01-architecture.md`
 
 If the change introduces a new durable architectural trade-off, propose an ADR first.
+
+## Traps
+
+- A worktree under `.claude/worktrees/` starts without `node_modules`: run `pnpm install --frozen-lockfile --offline` in it before the typecheck or the tests.
