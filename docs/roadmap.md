@@ -61,7 +61,7 @@ Done: epics 1 to 19. **v1 is complete.**
 
 Next: epics 21 to 24, cut from the product inbox on 2026-10-22 and 2026-10-23.
 
-Next action: do epic 20's exit demonstration and release 0.4.0, `docs/specs/hygiene-after-v1/issues/09-hygiene-exit-demonstration.md`. `/binnacle:task docs/specs/hygiene-after-v1/issues/09-hygiene-exit-demonstration.md`
+Next action: do epic 20's exit demonstration and release 0.4.0, `docs/specs/hygiene-after-v1/issues/09-hygiene-exit-demonstration.md`. `/binnacle:task run docs/specs/hygiene-after-v1/issues/09-hygiene-exit-demonstration.md`
 
 ## Later
 
