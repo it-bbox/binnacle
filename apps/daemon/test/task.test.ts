@@ -184,6 +184,25 @@ describe('the task brief on the local tracker', () => {
     });
   });
 
+  it('reads a ticket’s path, relative, absolute or without the specs directory, as its Task id', async () => {
+    await withDaemon(async (daemon) => {
+      const root = makeProject();
+      write(root, 'docs/specs/epic/issues/03-build-the-thing.md', ticketText('03: Build the thing', ['Status: READY'], 'Body.'));
+      const ticket = 'docs/specs/epic/issues/03-build-the-thing.md';
+      for (const id of [ticket, join(root, ticket), 'epic/issues/03-build-the-thing.md', 'epic/3']) {
+        const result = await taskGet(daemon, root, id);
+        assert.equal(result.status, 200, id);
+        assert.equal(result.body.id, 'epic/03', id);
+      }
+
+      const missing = 'docs/specs/epic/issues/09-not-there.md';
+      const result = await taskGet(daemon, root, missing);
+      assert.equal(result.status, 404);
+      assert.equal(result.body.error.code, 'task.not_found');
+      assert.ok(result.body.error.message.includes(missing), result.body.error.message);
+    });
+  });
+
   it('answers an unknown id with task.not_found', async () => {
     await withDaemon(async (daemon) => {
       const root = makeProject();

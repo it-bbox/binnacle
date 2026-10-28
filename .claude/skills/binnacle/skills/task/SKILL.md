@@ -1,7 +1,7 @@
 ---
 name: task
 description: Load the compact brief for one Task and open with three to six lines on the Task, what it waits on, what is broken and the command that starts it, giving its fields, roles, dependencies, spec path, ticket body, Review, questions with their answers, pull or merge request with its CI state and branch name when asked, and change nothing. With run and a ticket, work that ticket through the whole per-ticket process, from its branch to its DONE commit, never merging or pushing.
-argument-hint: "<task id: spec-slug/NN, or #number> | run <ticket path, URL or task id>"
+argument-hint: "<task id: spec-slug/NN or #number, or ticket path> | run <ticket path, URL or task id>"
 ---
 
 When `$ARGUMENTS` starts with the word `run`, follow *run* below instead. Otherwise give the brief, steps 1 to 4.
@@ -16,8 +16,8 @@ Speak to the person in the language of this conversation; these instructions sta
    - If the shell cannot find `binn` (`command not found`, exit 127), `binn` is not on this harness's PATH (see the README's setup section).
 
    Binnacle is optional. Until it answers, the Task is in its ticket file or tracker issue, read directly.
-2. If no id was given (`$ARGUMENTS` is empty), ask for one and stop. Otherwise call `task_get` once, with `$ARGUMENTS` as `id`.
-   - `task.not_found`: say so, and that an id is `<spec-slug>/<NN>` on the local tracker, `#<number>` on GitHub or GitLab. Suggest `/binnacle:product` to see what can start.
+2. If no id was given (`$ARGUMENTS` is empty), ask for one and stop. Otherwise call `task_get` once, with `$ARGUMENTS` as `id`: a Task id, or a ticket's path, which `task_get` reads as its Task id.
+   - `task.not_found`: say so, and that an id is `<spec-slug>/<NN>` or the ticket's path on the local tracker, `#<number>` on GitHub or GitLab. Suggest `/binnacle:product` to see what can start.
    - Any other error: say what failed, worded. A `tracker.` code means the tracker could not be read, not that the Task is missing.
 3. **Open with three to six lines**, in this order, and leave out a line with nothing in it:
    - **The Task**: its id, title and state, and its epic, the folder its spec is in.

@@ -98,9 +98,9 @@ export async function taskQuestions(projectPath: string, manifest: ProjectManife
 }
 
 /**
- * The tracker's Tasks and the one `id` names: `<spec-slug>/<NN>` on the local tracker and
- * `#<number>` or `<number>` on a remote one; the ticket number is compared, so `epic/6` is
- * `epic/06`. An id the tracker does not hold is `task.not_found`; a tracker that cannot be
+ * The tracker's Tasks and the one `id` names: `<spec-slug>/<NN>` or a ticket's path ending in
+ * `<spec-slug>/issues/NN-<name>.md` on the local tracker, and `#<number>` or `<number>` on a
+ * remote one; the ticket number is compared, so `epic/6` is `epic/06`. An id the tracker does not hold is `task.not_found`; a tracker that cannot be
  * read is an error with its own code.
  */
 export async function findTask(home: string, tree: Tree, manifest: ProjectManifest | null, id: string): Promise<{ tasks: TrackerTask[]; task: TrackerTask }> {
@@ -121,6 +121,8 @@ export const trackerError = (failure: Diagnostic | undefined): OperationError =>
     : new OperationError(failure.code, failure.message, 503, undefined, failure.params);
 
 function normalized(id: string): string {
+  const path = /(?:^|[/\\])([^/\\]+)[/\\]issues[/\\](\d+)-[^/\\]*\.md$/.exec(id);
+  if (path) id = `${path[1]}/${path[2]}`;
   const remote = /^#?(\d+)$/.exec(id);
   if (remote) return `#${Number(remote[1])}`;
   const local = /^(.+)\/(\d+)$/.exec(id);

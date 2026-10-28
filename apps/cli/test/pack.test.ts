@@ -477,7 +477,7 @@ test('/binnacle:help names every skill of the plugin and no other, answers in th
 test('/binnacle:task takes run and carries the per-ticket process, is model-invocable, and gives the brief without run', () => {
   const skill = skillText('task');
   assert.doesNotMatch(skill, /^disable-model-invocation:/m);
-  assert.match(skill, /^argument-hint: "<task id: spec-slug\/NN, or #number> \| run <ticket path, URL or task id>"$/m);
+  assert.match(skill, /^argument-hint: "<task id: spec-slug\/NN or #number, or ticket path> \| run <ticket path, URL or task id>"$/m);
   assert.match(skill, /^description: .*With run and a ticket, work that ticket through the whole per-ticket process/m);
   const heading = skill.indexOf('\n## run\n');
   assert.ok(heading >= 0, 'the run section');
@@ -485,6 +485,8 @@ test('/binnacle:task takes run and carries the per-ticket process, is model-invo
   const brief = skill.slice(0, heading);
   assert.match(brief, /When `\$ARGUMENTS` starts with the word `run`, follow \*run\* below instead/);
   assert.match(brief, /call `task_get` once/);
+  // Epic 21: the brief takes a ticket's path as well as a Task id, which `task_get` reads.
+  assert.match(brief, /with `\$ARGUMENTS` as `id`: a Task id, or a ticket's path, which `task_get` reads as its Task id/);
   assert.match(brief, /"To start it, in a fresh session:"/);
   assert.match(brief, /Change nothing: no branch, no worktree, no `Status:` edit/);
   const run = skill.slice(heading);
