@@ -420,7 +420,8 @@ function activityOf(
   caller?: string,
 ): Activity {
   const titles = new Map(tasks.map((task) => [task.id, task.title]));
-  const shown = (run: (typeof observed)[number]): ActivityRun => ({ ...runUsage(run, pressureOf), taskTitle: run.taskId === null ? null : (titles.get(run.taskId) ?? null) });
+  const titleOf = (taskId: string | null): string | null => (taskId === null ? null : (titles.get(taskId) ?? null));
+  const shown = (run: (typeof observed)[number]): ActivityRun => ({ ...runUsage(run, pressureOf), taskTitle: titleOf(run.taskId) });
   const latest = [...observed].sort((a, b) => (a.lastActivityAt !== b.lastActivityAt ? (a.lastActivityAt < b.lastActivityAt ? 1 : -1) : a.id < b.id ? -1 : 1));
   const running = limited(latest.filter((run) => run.active.value));
   const activity: Activity = {
@@ -428,9 +429,10 @@ function activityOf(
     recent: latest.filter((run) => !run.active.value).slice(0, SECTION_LIMIT).map(shown),
   };
   if (caller === undefined) return activity;
+  // A subagent is a session of its own, as `Session` reads one, so its runs are not the caller's.
   const own = latest.filter(({ records: [first] }) => first!.sessionId === caller && first!.subagentId === null);
   const [run] = own;
-  activity.own = run === undefined ? null : { taskId: run.taskId, taskTitle: run.taskId === null ? null : (titles.get(run.taskId) ?? null), role: run.role, totals: sum(own.flatMap((each) => each.records)) };
+  activity.own = run === undefined ? null : { taskId: run.taskId, taskTitle: titleOf(run.taskId), role: run.role, totals: sum(own.flatMap((each) => each.records)) };
   return activity;
 }
 

@@ -27,9 +27,9 @@ const TOOLS = {
   },
   project_snapshot: {
     operation: 'project.snapshot',
-    description: "The compact Product Snapshot: roadmap with its current epic (`current`: the first at the furthest-along status, `in progress`, `tickets`, `spec`, then `not started`, never `done`), the roadmap's Next action with its command and Binnacle's alternatives beside it (the Suggested step), Tasks in flight and ready to start with the command that starts each and their roles (`roles`: `required`, from the ticket's `Roles:` line or Developer and Reviewer by `default`, and `suggested`, Binnacle's `calculated` suggestions, each with its reason) and their `questions` (`asked`, `unanswered`), what waits for the owner (`pendingDecisions`: the unanswered `questions`, each with its Task and the branch it was read from, the `approvals` in READY_FOR_REVIEW and the `owner`'s ready-for-human Tasks ready to start), the runs running now and recently, recent decisions, CI as the forge reports it (`ci`: the default branch's latest commit and the open pull or merge requests, each with its state and the Task its branch maps to), the daemon's autostart (`autostart`: `on`, `off` or `broken`, with the command that changes or repairs it), usage, Git (`checkout.taskId`: the Task the checkout's branch maps to, or null) and attention items. With `session`, `activity.own` is that session's latest run, with its Task id and title or null and its role, and its tokens summed over its runs, or null when none is stored; the context-pressure attention item says whether it is that session's (`own`).",
+    description: "The compact Product Snapshot: roadmap with its current epic (`current`: the first at the furthest-along status, `in progress`, `tickets`, `spec`, then `not started`, never `done`), the roadmap's Next action with its command and Binnacle's alternatives beside it (the Suggested step), Tasks in flight and ready to start with the command that starts each and their roles (`roles`: `required`, from the ticket's `Roles:` line or Developer and Reviewer by `default`, and `suggested`, Binnacle's `calculated` suggestions, each with its reason) and their `questions` (`asked`, `unanswered`), what waits for the owner (`pendingDecisions`: the unanswered `questions`, each with its Task and the branch it was read from, the `approvals` in READY_FOR_REVIEW and the `owner`'s ready-for-human Tasks ready to start), the runs running now and recently, recent decisions, CI as the forge reports it (`ci`: the default branch's latest commit and the open pull or merge requests, each with its state and the Task its branch maps to), the daemon's autostart (`autostart`: `on`, `off` or `broken`, with the command that changes or repairs it), usage, Git (`checkout.taskId`: the Task the checkout's branch maps to, or null) and attention items. With `session`, `activity.own` is that session's latest run, with its Task id and title or null and its role, and its tokens summed over its runs, its subagents' left out, or null when none is stored; the context-pressure attention item says whether it is that session's (`own`).",
     inputSchema: {
-      session: z.string().optional().describe("Your harness session's id, which names your own run (`activity.own`) and your own context-pressure attention item; omit it to ask as no session."),
+      session: z.string().optional().describe("Your harness session's id, which names your own run (`activity.own`) and your own context-pressure attention item; omit it to send what the caller names: `binn call` its environment's session, `binn mcp` none."),
     },
   },
   daily_get: {
@@ -87,7 +87,8 @@ export const callerSession = (env: NodeJS.ProcessEnv): string | undefined => env
 /**
  * The daemon call behind a tool and its arguments, read as the server reads them: a tool with no
  * schema takes none, one with a schema keeps only the fields it names, `path` is always `cwd`, and
- * `session`, the caller's harness session, is beside it when there is one. `binn call` makes its calls
+ * `session`, the caller's harness session, is beside it when there is one, a `session` the arguments
+ * name winning over it. `binn call` makes its calls
  * through here, so a tool exists in both or in neither. A name that is not a tool, or arguments its
  * schema refuses, give the reason instead.
  */
@@ -104,7 +105,7 @@ export function toolRequest(
   const parsed = z.object(tool.inputSchema as Record<string, z.ZodType>).safeParse(args);
   if (!parsed.success) return { refused: `${name} does not take these arguments: ${z.prettifyError(parsed.error).replaceAll('\n', ' ')}` };
   // A `session` the arguments name is the caller's own word, and wins over the one its environment gives.
-  return { operation: tool.operation, body: { ...caller, ...parsed.data } };
+  return { operation: tool.operation, body: { ...caller, ...parsed.data, path: cwd } };
 }
 
 /** Every tool with its description, then each argument with its description and whether it may be left out: `binn call --help`. */

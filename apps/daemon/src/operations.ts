@@ -120,7 +120,7 @@ export const operations: Record<string, Operation> = {
 
   // Read now, on every call, from the caller's checkout; nothing in a snapshot is stored.
   // Its usage is the one exception, read from the records the call first ingests. The request's
-  // `session`, the harness session that asked, tells its own `context.pressure` item from another's.
+  // `session`, the harness session that asked, tells its own `context.pressure` item from another's, and names its run, `activity.own`.
   'project.snapshot': async (body, context) => {
     const path = repositoryPath(body, { mustExist: false });
     const projected = reproject(context.store, await resolveEntry(path, context));

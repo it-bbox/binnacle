@@ -189,20 +189,30 @@ describe('Context pressure', () => {
       gitAt(minutesAgo(9), root, 'switch', '--quiet', '-c', 'feat/first');
       gitAt(minutesAgo(5), root, 'switch', '--quiet', 'main');
       gitAt(minutesAgo(3), root, 'switch', '--quiet', 'feat/first');
-      // One session: on the Task's branch, then a Product run on `main`, then back on the Task.
+      // One session: on the Task's branch, then a Product run on `main`, then back on the Task, where a subagent works too.
       claudeSession(claudeCode, root, 'mine', [...call(minutesAgo(8), 'ticket'), ...call(minutesAgo(4), 'product'), ...call(minutesAgo(2), 'back')]);
-      claudeSession(claudeCode, root, 'other', call(minutesAgo(1), 'other'));
+      const subagents = join(claudeCode, root.replace(/[^a-zA-Z0-9]/g, '-'), 'mine', 'subagents');
+      mkdirSync(subagents, { recursive: true });
+      writeFileSync(join(subagents, 'agent-a1.meta.json'), JSON.stringify({ agentType: 'general-purpose' }));
+      writeFileSync(join(subagents, 'agent-a1.jsonl'), claudeLines(root, 'mine', call(minutesAgo(1), 'subagent').map((line) => ({ ...line, isSidechain: true, agentId: 'a1' }))));
+      // Another session, whose latest run is the Product run on `main`.
+      claudeSession(claudeCode, root, 'other', [...call(minutesAgo(7), 'other-ticket'), ...call(minutesAgo(4), 'other-product')]);
 
       const body = await snapshot(daemon, root, 'mine');
       const runs = [...body.activity.running.items, ...body.activity.recent];
-      const mine = runs.filter((run) => run.id.endsWith('-ticket') || run.id.endsWith('-product') || run.id.endsWith('-back'));
+      assert.ok(runs.some((run) => run.id.endsWith('-subagent')), 'the subagent is a run of its own');
+      const mine = runs.filter((run) => ['-ticket', '-product', '-back'].some((end) => run.id.endsWith(end)) && !run.id.includes('other'));
       assert.equal(mine.length, 3);
       const own = body.activity.own;
       assert.ok(own);
       assert.deepEqual([own.taskId, own.taskTitle, own.role], ['epic/01', 'First', 'implementation']);
+      // Summed over the session's own runs, the subagent's left out.
       assert.equal(own.totals.records, mine.reduce((total, run) => total + run.totals.records, 0));
       assert.equal(own.totals.output.tokens, mine.reduce((total, run) => total + run.totals.output.tokens!, 0));
 
+      // The latest run, not the first nor any on a Task's branch.
+      const other = (await snapshot(daemon, root, 'other')).activity.own;
+      assert.deepEqual(other && [other.taskId, other.taskTitle, other.role], [null, null, 'product']);
       assert.equal((await snapshot(daemon, root, 'unknown')).activity.own, null);
       // Without a session of its own, `activity` has no `own` at all.
       assert.equal('own' in (await snapshot(daemon, root)).activity, false);
