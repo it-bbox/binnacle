@@ -53,7 +53,7 @@ export {
 export { conflictRisk, moduleGraph, pairMessage, pairRisk, taskRoles, type ConflictRisk, type Impact, type ModuleGraph, type PairKind, type TaskRoles, type TaskTouch } from './impact.ts';
 export { instructionSets } from './instructions.ts';
 export { terminalText } from './terminal.ts';
-export { sessionTimes, WORDED_CODES, wordMessage, type Coded, type Params } from './wording.ts';
+export { personLanguage, sessionTimes, WORDED_CODES, wordMessage, type Coded, type Params } from './wording.ts';
 export {
   isTaskState,
   TASK_STATES,

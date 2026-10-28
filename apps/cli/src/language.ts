@@ -1,13 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { LANGUAGES, type Language } from '@binnacle/core';
+import { LANGUAGES, personLanguage, type Language } from '@binnacle/core';
 
-/** The person's language: `LC_ALL`, then `LANG`, Russian when the value starts with `ru`, English otherwise, `C` and unset included. */
-export const personLanguage = (env: NodeJS.ProcessEnv = process.env): Language =>
-  (env.LC_ALL || env.LANG || '').startsWith('ru') ? 'ru' : 'en';
-
-/** The person's language for this run, read once. */
-export const LANGUAGE = personLanguage();
+/** The person's language for this run, read once, by the locale rule `@binnacle/core` keeps for `binn` and the mod. */
+export const LANGUAGE = personLanguage(process.env);
 
 /** An answer to the language question, or `--language`'s value: `en` or `ru` in any case; null for anything else. */
 export function parseLanguage(text: string): Language | null {

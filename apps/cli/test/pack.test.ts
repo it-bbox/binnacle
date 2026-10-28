@@ -7,7 +7,7 @@ import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { roadmapGaps } from '../src/layout.ts';
-import { preparePlugin, prepareSkills } from '../src/prepare.ts';
+import { prepareMod, preparePlugin, prepareSkills } from '../src/prepare.ts';
 
 const PACKAGE = fileURLToPath(new URL('..', import.meta.url));
 // The `skills` CLI reads frontmatter as strict YAML; the daemon's `yaml` parser reads it the same way, so the test borrows it rather than adding a dependency.
@@ -31,13 +31,13 @@ const filesUnder = (dir: string): string[] =>
     .map((entry) => join(entry.parentPath, entry.name).slice(dir.length + 1))
     .sort();
 
-/** ADR-0027's promise, checked on the packed tarball rather than assumed. */
-test('the packed CLI carries the binnacle plugin, every file of its source, and a marketplace listing it', (t) => {
+/** ADR-0027's promise, checked on the packed tarball rather than assumed, and ADR-0047's mod beside the plugin. */
+test('the packed CLI carries the binnacle plugin, every file of its source, the mod, and a marketplace listing both', (t) => {
   const out = mkdtempSync(join(tmpdir(), 'binnacle-pack-'));
   t.after(() => rmSync(out, { recursive: true, force: true }));
 
   // The package's own build output, which the audit's tests read while this one runs: a rebuild makes new directories, with a new status-change time.
-  const output = ['plugin', 'skills'];
+  const output = ['plugin', 'skills', 'mod'];
   const outputTimes = (): (bigint | null)[] => output.map((dir) => statSync(join(PACKAGE, dir), { bigint: true, throwIfNoEntry: false })?.ctimeNs ?? null);
   const before = outputTimes();
   // So it packs a copy of its own, laid out as here: the prepare script builds from `../../../.claude/skills/binnacle`, and `pnpm pack` resolves `workspace:*` through `node_modules`.
@@ -47,6 +47,8 @@ test('the packed CLI carries the binnacle plugin, every file of its source, and 
   cpSync(PLUGIN_SOURCE, join(tree, '.claude', 'skills', 'binnacle'), { recursive: true });
   cpSync(PACKAGE, copy, { recursive: true, filter: (path) => !['node_modules', 'dist', ...output].includes(relative(PACKAGE, path)) });
   symlinkSync(join(PACKAGE, 'node_modules'), join(copy, 'node_modules'));
+  // The workspace's own, where the prepare script's esbuild resolves from.
+  symlinkSync(join(PACKAGE, '..', '..', 'node_modules'), join(tree, 'node_modules'));
   const pack = spawnSync('pnpm', ['pack', '--pack-destination', out], { cwd: copy, encoding: 'utf8' });
   assert.equal(pack.status, 0, pack.stderr || pack.stdout);
   assert.deepEqual(outputTimes(), before, "packing rebuilt the package's own plugin/ or skills/");
@@ -74,7 +76,10 @@ test('the packed CLI carries the binnacle plugin, every file of its source, and 
   assert.equal(marketplace.name, 'binnacle');
   assert.deepEqual(
     marketplace.plugins.map((plugin: { name: string; source: string }) => [plugin.name, plugin.source]),
-    [['binnacle', './plugin']],
+    [
+      ['binnacle', './plugin'],
+      ['binnacle-mod', './mod'],
+    ],
   );
   const { version, ...plugin } = JSON.parse(readFileSync(join(packed, 'plugin', manifest), 'utf8'));
   assert.deepEqual(plugin, JSON.parse(readFileSync(join(PLUGIN_SOURCE, manifest), 'utf8')));
@@ -89,6 +94,29 @@ test('the packed CLI carries the binnacle plugin, every file of its source, and 
     assert.match(description, /\binit\b/);
     assert.match(description, /\bhelp\b/);
   }
+
+  // The mod: its manifest, versioned from its files, and its hooks module, one ES module Claude Code loads.
+  assert.deepEqual(filesUnder(join(packed, 'mod')), [join('.claude-plugin', 'plugin.json'), join('hooks', 'hooks.js'), join('hooks', 'hooks.json')]);
+  const mod = JSON.parse(readFileSync(join(packed, 'mod', manifest), 'utf8'));
+  assert.equal(mod.name, 'binnacle-mod');
+  assert.match(mod.version, /^[0-9a-f]{12}$/);
+  assert.deepEqual(JSON.parse(readFileSync(join(packed, 'mod', 'hooks', 'hooks.json'), 'utf8')), { modules: ['./hooks.js'] });
+  const hooks = readFileSync(join(packed, 'mod', 'hooks', 'hooks.js'), 'utf8');
+  // One file: no import of another module, static or dynamic, which Claude Code refuses.
+  assert.doesNotMatch(hooks, /\bimport\s*\(/);
+  assert.doesNotMatch(hooks, /^\s*import\b/m);
+  assert.match(hooks, /^function register\(on\) \{/m);
+  assert.match(hooks, /^export \{[^}]*\bregister\b/m);
+});
+
+/** ADR-0047: Claude Code's `plugin update` refreshes the mod only when its version changes. */
+test("the mod's version is drawn from its files: the same build gives the same version", (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'binnacle-mod-version-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const version = prepareMod(join(dir, 'mod'));
+  assert.equal(JSON.parse(readFileSync(join(dir, 'mod', '.claude-plugin', 'plugin.json'), 'utf8')).version, version);
+  assert.equal(prepareMod(join(dir, 'again')), version);
+  assert.notEqual(version, preparePlugin(PLUGIN_SOURCE, join(dir, 'plugin')));
 });
 
 /** Epic 9: Claude Code's `plugin update` refreshes its copy only when the version changes, and a manifest with none installs as `unknown` for good. */

@@ -27,7 +27,7 @@ export { MANIFEST_RELATIVE, readManifest } from './manifest.ts';
 export { DaemonAlreadyRunningError, HEALTH_PATH, OPS_PREFIX, startDaemon, type Daemon } from './server.ts';
 export { operations, type Operation, type OperationContext, type ProjectStatus } from './operations.ts';
 export { type ProjectRow } from './store.ts';
-export { readTracker } from './snapshot.ts';
+export { readTracker, type Snapshot } from './snapshot.ts';
 export { containingEntry, readRegistry } from './registry.ts';
 export { ANTIGRAVITY_NO_TOKENS, claudeCodeSessions, codexSessions, DEFAULT_WINDOW_DAYS, OPENCODE_NO_EXPORT, PI_NO_EXPORT, projectCheckouts, ZCODE_NO_EXPORT } from './usage.ts';
 export { packageVersion } from './version.ts';

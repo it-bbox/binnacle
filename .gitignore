@@ -29,3 +29,6 @@ apps/cli/plugin/
 
 # Its skills copy, named binnacle-<action>, which the `skills` CLI installs into other harnesses (ADR-0039)
 apps/cli/skills/
+
+# The mod, bundled from apps/cli/src/mod by the same script (ADR-0047)
+apps/cli/mod/

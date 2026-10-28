@@ -3,13 +3,13 @@ import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
-import { preparePlugin, prepareSkills } from './prepare.ts';
+import { prepareMod, preparePlugin, prepareSkills } from './prepare.ts';
 
 /**
  * `pnpm --filter @binnacle/cli build`: the publishable package `@it-bbox/binnacle` (ADR-0044), written
  * to this package's `dist/`, which `npm pack` and `npm publish` run in. It holds `binn` and `binnd`
  * bundled with every dependency, the generated dashboard (ADR-0031), the plugin and its marketplace
- * (ADR-0027), the skills copy (ADR-0039), the licence, the README and a manifest written here.
+ * (ADR-0027), the mod (ADR-0047), the skills copy (ADR-0039), the licence, the README and a manifest written here.
  * The bundles sit one level below the package, as the sources do below theirs, so that the version
  * and the plugin resolve from either; the daemon's entry and the dashboard tell the layouts apart.
  */
@@ -40,6 +40,7 @@ await build({
 });
 
 prepareSkills(PLUGIN_SOURCE, join(OUT, 'skills'), preparePlugin(PLUGIN_SOURCE, join(OUT, 'plugin')));
+prepareMod(join(OUT, 'mod'));
 cpSync(at('../.claude-plugin'), join(OUT, '.claude-plugin'), { recursive: true });
 for (const file of ['LICENSE', 'README.md']) cpSync(join(ROOT, file), join(OUT, file));
 
@@ -51,7 +52,7 @@ const manifest = {
   license: 'Apache-2.0',
   type: 'module',
   bin: { binn: 'bin/binn.js', binnd: 'bin/binnd.js' },
-  files: ['bin', 'dashboard', 'plugin', 'skills', '.claude-plugin'],
+  files: ['bin', 'dashboard', 'plugin', 'mod', 'skills', '.claude-plugin'],
   engines: cli.engines,
   repository: { type: 'git', url: 'git+https://github.com/it-bbox/binnacle.git' },
   homepage: 'https://github.com/it-bbox/binnacle#readme',

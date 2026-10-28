@@ -492,6 +492,13 @@ const RUSSIAN: Record<string, (v: Values) => string> = {
   'internal.error': () => 'Внутренняя ошибка демона.',
 };
 
+/**
+ * The person's language from their locale, the rule `binn` and the mod share: `LC_ALL`, then `LANG`, Russian when the
+ * value starts with `ru`, English otherwise, `C` and unset included.
+ */
+export const personLanguage = (env: { readonly LC_ALL?: string | undefined; readonly LANG?: string | undefined }): Language =>
+  (env.LC_ALL || env.LANG || '').startsWith('ru') ? 'ru' : 'en';
+
 /** Every code with a Russian wording. */
 export const WORDED_CODES: readonly string[] = Object.keys(RUSSIAN);
 

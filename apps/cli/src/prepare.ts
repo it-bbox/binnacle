@@ -2,6 +2,18 @@ import { createHash } from 'node:crypto';
 import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildSync } from 'esbuild';
+
+/** A version drawn from every file under `dir`, by path and content: what Claude Code's `plugin update` compares. */
+function digest(dir: string): string {
+  const hash = createHash('sha256');
+  const files = readdirSync(dir, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => relative(dir, join(entry.parentPath, entry.name)))
+    .sort();
+  for (const file of files) hash.update(`${file}\0`).update(readFileSync(join(dir, file))).update('\0');
+  return hash.digest('hex').slice(0, 12);
+}
 
 /**
  * Copies the binnacle plugin from `source` to `target` (ADR-0027) and gives the copy's manifest
@@ -10,13 +22,7 @@ import { fileURLToPath } from 'node:url';
  * `unknown`, and stays so whatever the skills become.
  */
 export function preparePlugin(source: string, target: string): string {
-  const hash = createHash('sha256');
-  const files = readdirSync(source, { recursive: true, withFileTypes: true })
-    .filter((entry) => entry.isFile())
-    .map((entry) => relative(source, join(entry.parentPath, entry.name)))
-    .sort();
-  for (const file of files) hash.update(`${file}\0`).update(readFileSync(join(source, file))).update('\0');
-  const version = hash.digest('hex').slice(0, 12);
+  const version = digest(source);
 
   rmSync(target, { recursive: true, force: true });
   cpSync(source, target, { recursive: true });
@@ -56,8 +62,40 @@ export function prepareSkills(source: string, target: string, version: string): 
   }
 }
 
-// `pnpm --filter @binnacle/cli run prepare`: this repository's skills-directory plugin, and its skills copy, into this package.
+/**
+ * Writes `binnacle-mod` to `target` (ADR-0047): its hooks module and the view, bundled with what they use of
+ * `@binnacle/core` into one ES module with no `import()`, which Claude Code refuses, and its manifest, whose
+ * version is drawn from the files written, as `preparePlugin` draws `binnacle`'s. Returns the version.
+ */
+export function prepareMod(target: string): string {
+  rmSync(target, { recursive: true, force: true });
+  buildSync({
+    entryPoints: [fileURLToPath(new URL('./mod/hooks.ts', import.meta.url))],
+    outfile: join(target, 'hooks', 'hooks.js'),
+    bundle: true,
+    // No Node: the mod runs in Claude Code's own environment.
+    platform: 'neutral',
+    format: 'esm',
+    target: 'es2023',
+    logLevel: 'warning',
+  });
+  writeFileSync(join(target, 'hooks', 'hooks.json'), `${JSON.stringify({ modules: ['./hooks.js'] }, null, 2)}\n`);
+  const manifest = join(target, '.claude-plugin', 'plugin.json');
+  const fields = {
+    name: 'binnacle-mod',
+    description:
+      "Binnacle's state beside the chat in Claude Code: a status line with the session's Task, role, tokens, context and usage limits, read from the binnacle MCP server. It writes nothing, and shows nothing without the daemon or in a project that is not registered.",
+  };
+  mkdirSync(join(target, '.claude-plugin'));
+  writeFileSync(manifest, `${JSON.stringify(fields, null, 2)}\n`);
+  const version = digest(target);
+  writeFileSync(manifest, `${JSON.stringify({ ...fields, version }, null, 2)}\n`);
+  return version;
+}
+
+// `pnpm --filter @binnacle/cli run prepare`: this repository's skills-directory plugin, its skills copy and the mod, into this package.
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const source = fileURLToPath(new URL('../../../.claude/skills/binnacle', import.meta.url));
   prepareSkills(source, fileURLToPath(new URL('../skills', import.meta.url)), preparePlugin(source, fileURLToPath(new URL('../plugin', import.meta.url))));
+  prepareMod(fileURLToPath(new URL('../mod', import.meta.url)));
 }

@@ -54,7 +54,7 @@ test('the packed @it-bbox/binnacle, installed into an empty prefix, runs binn, i
   assert.equal(packed.name, '@it-bbox/binnacle');
   assert.equal(packed.version, VERSION);
   const files = packed.files.map((file) => file.path);
-  for (const file of ['package.json', 'LICENSE', 'README.md', 'bin/binn.js', 'bin/binnd.js', 'dashboard/index.html', '.claude-plugin/marketplace.json', 'plugin/.claude-plugin/plugin.json']) {
+  for (const file of ['package.json', 'LICENSE', 'README.md', 'bin/binn.js', 'bin/binnd.js', 'dashboard/index.html', '.claude-plugin/marketplace.json', 'plugin/.claude-plugin/plugin.json', 'mod/.claude-plugin/plugin.json', 'mod/hooks/hooks.json', 'mod/hooks/hooks.js']) {
     assert.ok(files.includes(file), `${file} in the tarball`);
   }
   assert.ok(files.some((file) => /^skills\/binnacle-[a-z-]+\/SKILL\.md$/.test(file)), 'the skills copy in the tarball');
@@ -66,7 +66,7 @@ test('the packed @it-bbox/binnacle, installed into an empty prefix, runs binn, i
   assert.equal(manifest.dependencies, undefined, 'no runtime dependencies');
   assert.deepEqual(manifest.publishConfig, { access: 'public' });
   const marketplace = JSON.parse(readFileSync(join(installed, '.claude-plugin', 'marketplace.json'), 'utf8')) as { plugins: { source: string }[] };
-  assert.deepEqual(marketplace.plugins.map((plugin) => plugin.source), ['./plugin']);
+  assert.deepEqual(marketplace.plugins.map((plugin) => plugin.source), ['./plugin', './mod']);
   const plugin = JSON.parse(readFileSync(join(installed, 'plugin', '.claude-plugin', 'plugin.json'), 'utf8')) as { name: string; version?: string };
   assert.equal(plugin.name, 'binnacle');
   assert.match(plugin.version ?? '', /^[0-9a-f]{12}$/, 'a versioned plugin manifest');

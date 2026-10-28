@@ -7,6 +7,11 @@
       "name": "binnacle",
       "source": "./plugin",
       "description": "Binnacle's Product actions and status, driven through the binnacle MCP server, and audit, init, daemon, register and dashboard, which run binn and need no daemon to be started; dashboard keeps its token out of the chat; help is a plain guide to all of them in the user's language."
+    },
+    {
+      "name": "binnacle-mod",
+      "source": "./mod",
+      "description": "Optional: Binnacle's state beside the chat in Claude Code, read from the binnacle MCP server. It writes nothing, and shows nothing without the daemon (ADR-0047)."
     }
   ]
 }
