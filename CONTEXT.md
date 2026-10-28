@@ -161,6 +161,9 @@ In v1 the system analyses and recommends actions, but does not start full AgentR
 ### Autopilot
 A human-started skill that runs the remaining tickets of one already planned epic to the end: one agent per ticket, each branch verified before it is merged. Starting it is the explicit human decision for that epic's AgentRuns and merges. It stops at any question only the owner can answer, and never plans an epic or moves to the next one (ADR-0022).
 
+### Mod
+`binnacle-mod`, an optional Claude Code plugin beside `binnacle`: a status line, a *Waiting for you* band, a pane and toasts drawn from the Product Snapshot, and a few lines at the start of a session off a Task's branch. It reads and never writes, and shows nothing without the daemon (ADR-0047).
+
 ## Russian words
 
 Each term's Russian word, the one Binnacle uses for a Russian-speaking person in the chat, in `binn` and on the dashboard, and `@binnacle/core`'s wording of the daemon's messages (ADR-0045). Commands, paths, Task ids, branch names, model names, a file's own markers such as `Status: DONE`, and the names Binnacle, Graphify, Obsidian, Serena and the harnesses are never translated.
@@ -209,6 +212,7 @@ Each term's Russian word, the one Binnacle uses for a Russian-speaking person in
 | Checkpoint | чекпойнт |
 | Autopilot | автопилот |
 | Autostart | автозапуск |
+| Mod | мод |
 | Vault projection | проекция в Obsidian |
 | Context pressure | заполненность контекста |
 | Session artifact | файл сессии |
