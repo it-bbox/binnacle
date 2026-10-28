@@ -4,7 +4,7 @@ import { PANE_COMMAND, view, type Seen, type View, type ViewInput } from './view
 /**
  * `binnacle-mod`'s hooks module (ADR-0047), bundled with the view into one ES module with no `import()`, which
  * Claude Code refuses. The mod has no Node: it reaches the daemon only through the `binnacle` MCP server, and reads
- * the session's figures from Claude Code. It writes nothing.
+ * the session's figures from Claude Code. It writes nothing to the project: `$.store` keeps only the project changes it toasted.
  */
 
 /** The oldest Claude Code the mod was validated on; raised with the mod whenever its API moves. */
@@ -65,9 +65,10 @@ async function readSnapshot($: Engine): Promise<ViewInput['snapshot']> {
 /**
  * What a session keeps between its hooks: `latest`, the refresh under way or the last one; `shown`, the last view a
  * refresh drew, null before the first and after a failure; `drawn`, that view's band and pane as text, so that a refresh
- * that changes neither redraws nothing; `seen`, what the session saw for its toasts, undefined before its first snapshot.
+ * that changes neither redraws nothing; `seen`, what the session saw for its toasts, undefined before its first snapshot;
+ * `started` and `drawnBy`, the number of the last refresh started and of the last one drawn.
  */
-type Kept = { latest: Promise<View | null>; shown: View | null; drawn: string; seen: Seen | undefined };
+type Kept = { latest: Promise<View | null>; shown: View | null; drawn: string; seen: Seen | undefined; started: number; drawnBy: number };
 
 /** The person's language by `binn`'s locale rule, read through Claude Code's environment. */
 async function readLanguage($: Engine): Promise<Language> {
@@ -79,22 +80,27 @@ async function readLanguage($: Engine): Promise<Language> {
 /**
  * Reads the snapshot and Claude Code's figures, draws the line, shows the toasts and asks for the band and the pane when
  * they changed; on any failure, clears them. A project's change toasted is kept in `$.store` under the project's path, so
- * that the machine's other sessions stay quiet about it. Never throws.
+ * that the machine's other sessions stay quiet about it. A refresh that finishes after a newer one draws nothing: its
+ * snapshot is older, and what it saw would toast again what the newer one toasted. Never throws.
  */
 async function draw($: Engine, kept: Kept): Promise<View | null> {
+  const number = (kept.started += 1);
   let shown: View | null = null;
   try {
     const [snapshot, usage, language] = await Promise.all([readSnapshot($), $.session.usage(), readLanguage($)]);
     const key = snapshot && `shown ${snapshot.project.path}`;
     // ponytail: no lock in `$.store`, so two sessions refreshing in the same instant may both toast; a compare-and-set if it shows.
     const stored = key === null ? undefined : await $.store.get(key).catch(() => undefined);
-    // What was seen is read after the awaits, so that two refreshes under way do not both toast one change.
+    if (number < kept.drawnBy) return kept.shown;
+    kept.drawnBy = number;
     shown = view({ snapshot, context: usage.context, rateLimits: usage.rateLimits, language, previous: kept.seen, store: stored });
     kept.seen = shown.seen;
     $.ui.status(shown.status);
     for (const toast of shown.toasts) $.ui.toast(toast);
     if (key !== null && shown.store !== undefined) await $.store.set(key, shown.store).catch(() => {});
   } catch {
+    if (number < kept.drawnBy) return kept.shown;
+    kept.drawnBy = number;
     $.ui.status(undefined);
   }
   kept.shown = shown;
@@ -117,10 +123,9 @@ function refresh($: Engine, kept: Kept): void {
 
 // A function declaration: `claude plugin validate` reads `register` off the bundle's source and refuses an arrow bound to a name.
 // Each refresh runs unawaited: Claude Code awaits `session.start` before the first prompt, and a snapshot on a cold forge
-// cache takes seconds. ponytail: two refreshes may finish out of order and an older line stand until the next one; a
-// sequence number if it shows.
+// cache takes seconds.
 export function register(on: On): void {
-  const kept: Kept = { latest: Promise.resolve(null), shown: null, drawn: '[null,null]', seen: undefined };
+  const kept: Kept = { latest: Promise.resolve(null), shown: null, drawn: '[null,null]', seen: undefined, started: 0, drawnBy: 0 };
   on('session.start', async ($, e, next) => {
     refresh($, kept);
     $.clock.every(REFRESH_MS, () => refresh($, kept));

@@ -296,6 +296,9 @@ test("CI turning failing on main toasts once, and not again from a store that al
   const unread = refresh({ ci: { available: false, reason: NO_FORGE } }, failing.seen);
   assert.deepEqual([unread.toasts, unread.seen?.failing], [[], '0123456789ab']);
   assert.deepEqual(refresh(FAILING, unread.seen).toasts, []);
+  // CI first read after the session opened is no turn: its failure may be older than the session.
+  const opened = refresh({ ci: { available: false, reason: NO_FORGE } });
+  assert.deepEqual(refresh(FAILING, opened.seen).toasts, []);
   // A new commit failing is a turn of its own; a store holding another change does not silence it.
   const next = { ...CI_FAILING, params: { ...CI_FAILING.params, commit: 'fedcba987654' } };
   assert.deepEqual(refresh({ ci: CI('failing'), attention: [next] }, failing.seen, failing.store).store, { ci: 'fedcba987654' });
@@ -304,26 +307,34 @@ test("CI turning failing on main toasts once, and not again from a store that al
 test('a question leaving the unanswered list toasts, in English and Russian, once per machine', () => {
   const two = refresh({ pendingDecisions: pending(2, 0, 0) }).seen;
   // spec/02's question was answered.
-  const answered = refresh({ pendingDecisions: pending(1, 0, 0) }, two);
-  assert.deepEqual(answered.toasts, ['A question on spec/02 was answered']);
-  assert.deepEqual(answered.store, { answered: [['spec/02', 'Which one?']] });
+  const one = refresh({ pendingDecisions: pending(1, 0, 0) }, two);
+  assert.deepEqual(one.toasts, ['A question on spec/02 was answered']);
+  assert.deepEqual(one.store, { answered: [['spec/02', 'Which one?']] });
   assert.deepEqual(refresh({ pendingDecisions: pending(1, 0, 0) }, two, undefined, 'ru').toasts, ['Получен ответ на вопрос по spec/02']);
-  assert.deepEqual(refresh({ pendingDecisions: pending(1, 0, 0) }, two, answered.store).toasts, []);
+  assert.deepEqual(refresh({ pendingDecisions: pending(1, 0, 0) }, two, one.store).toasts, []);
+  // Two answers toasted one after the other by one session: a session behind by both toasts neither.
+  const none = refresh({ pendingDecisions: pending(0, 0, 0) }, one.seen, one.store);
+  assert.deepEqual([none.toasts, none.store], [['A question on spec/01 was answered'], { answered: [['spec/02', 'Which one?'], ['spec/01', 'Which one?']] }]);
+  assert.deepEqual(refresh({ pendingDecisions: pending(0, 0, 0) }, two, none.store).toasts, []);
   // Questions that could not be read are no change.
   const unread = refresh({ pendingDecisions: { ...pending(0, 0, 0), questions: { available: false, reason: 'unread' } } }, two);
   assert.deepEqual([unread.toasts, unread.seen?.questions], [[], two?.questions]);
   // CI and a question at once, the store keeping both.
-  const both = refresh({ ...FAILING, pendingDecisions: pending(1, 0, 0) }, two);
+  const both = refresh({ ...FAILING, pendingDecisions: pending(1, 0, 0) }, { ...two!, failing: null });
   assert.deepEqual(both.store, { ci: '0123456789ab', answered: [['spec/02', 'Which one?']] });
 });
 
 test('a question pushed off a full list by a new one is not answered', () => {
-  const listed = (ids: string[], remainder: number) => ({ pendingDecisions: { ...pending(0, 0, 0), questions: { items: ids.map(question), remainder } } });
-  const five = refresh(listed(['spec/01', 'spec/02', 'spec/03', 'spec/04', 'spec/05'], 0)).seen;
-  // A question asked ahead of them pushes spec/05 into the remainder.
-  assert.deepEqual(refresh(listed(['spec/00', 'spec/01', 'spec/02', 'spec/03', 'spec/04'], 1), five).toasts, []);
+  // The snapshot lists ten questions, `from` to `from + 9` but for `answered`, and counts the rest.
+  const listed = (from: number, remainder: number, answered?: number) => {
+    const ids = Array.from({ length: 11 }, (_, n) => `spec/${String(from + n).padStart(2, '0')}`).filter((id) => id !== `spec/${String(answered).padStart(2, '0')}`);
+    return { pendingDecisions: { ...pending(0, 0, 0), questions: { items: ids.slice(0, 10).map(question), remainder } } };
+  };
+  const ten = refresh(listed(1, 0)).seen;
+  // A question asked ahead of them pushes spec/10 into the remainder.
+  assert.deepEqual(refresh(listed(0, 1), ten).toasts, []);
   // spec/03, ahead of a question still listed, left the list.
-  assert.deepEqual(refresh(listed(['spec/01', 'spec/02', 'spec/04', 'spec/05', 'spec/06'], 1), five).toasts, ['A question on spec/03 was answered']);
+  assert.deepEqual(refresh(listed(1, 1, 3), ten).toasts, ['A question on spec/03 was answered']);
 });
 
 test("context pressure toasts in its own session when it first appears, never for another session's item", () => {
@@ -592,4 +603,27 @@ test('context pressure toasts in its own session only, and a stopped daemon repl
   assert.deepEqual(state.toasts, [pressure(true).message]);
   // Not the project's to share.
   assert.deepEqual([...state.store.keys()], []);
+});
+
+test('a refresh that finishes after a newer one draws nothing, and replays no toast', async () => {
+  const { state, run } = engine();
+  state.answer = answered(snapshot(null, ON_MAIN));
+  await run('session.start', START);
+  // An older refresh, held; a newer one finishes first with this session's context pressure.
+  let older = () => {};
+  state.held = new Promise((resolve) => (older = resolve));
+  await run('session.measure', { ...FULL, changed: ['context'] });
+  state.held = Promise.resolve();
+  state.answer = answered(snapshot(onTask, { ...ON_MAIN, attention: [pressure(true)] }));
+  await run('session.measure', { ...FULL, changed: ['context'] });
+  assert.deepEqual(state.toasts, [pressure(true).message]);
+  const line = state.lines.at(-1);
+  // The older one now answers without it: it neither draws nor forgets what the newer one saw.
+  state.answer = answered(snapshot(null, ON_MAIN));
+  older();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(state.lines.at(-1), line);
+  state.answer = answered(snapshot(onTask, { ...ON_MAIN, attention: [pressure(true)] }));
+  await run('session.measure', { ...FULL, changed: ['context'] });
+  assert.deepEqual(state.toasts, [pressure(true).message]);
 });

@@ -23,13 +23,18 @@ export type ViewInput = Usage & {
 type Asked = [id: string, question: string];
 
 /**
- * What a session saw, for its toasts: the default branch's failing commit, null when it is not failing; the unanswered
- * questions, in the snapshot's order, null before they could be read; whether this session's context pressure is raised.
+ * What a session saw, for its toasts: the default branch's failing commit, null when it is not failing and undefined
+ * before CI could be read; the unanswered questions, in the snapshot's order, null before they could be read; whether
+ * this session's context pressure is raised.
  */
-export type Seen = { failing: string | null; questions: Asked[] | null; pressure: boolean };
+export type Seen = { failing: string | null | undefined; questions: Asked[] | null; pressure: boolean };
 
-/** The last project change toasted on the machine, kept in `$.store` per project: CI failing on a commit, the questions answered. */
-export type Shown = { ci?: string; answered?: Asked[] };
+/**
+ * The project changes toasted on the machine, kept in `$.store` per project: the last commit CI was failing on, and the
+ * latest questions answered, at most `ANSWERED_KEPT`.
+ */
+export type Toasted = { ci?: string; answered?: Asked[] };
+const ANSWERED_KEPT = 50;
 
 /** The pane command's line in Claude Code's typeahead and `/help`. */
 export const PANE_COMMAND = { en: 'Open or close the Binnacle pane', ru: 'Открыть или закрыть панель Binnacle' } satisfies Record<Language, string>;
@@ -52,7 +57,7 @@ export type View = {
   pane: { sections: { heading: string; lines: string[] }[]; buttons: PaneButton[] } | undefined;
   toasts: string[];
   seen: Seen | undefined;
-  store: Shown | undefined;
+  store: Toasted | undefined;
 };
 
 type Own = NonNullable<Extract<Snapshot['activity'], { running: unknown }>['own']>;
@@ -228,7 +233,7 @@ const same = (a: Asked) => (b: Asked) => a[0] === b[0] && a[1] === b[1];
  */
 function toasts(snapshot: NonNullable<ViewInput['snapshot']>, previous: Seen | undefined, stored: unknown, language: Language): Pick<View, 'toasts' | 'seen' | 'store'> {
   const ci = snapshot.attention.find((item) => item.code === 'ci.failing');
-  const failing = 'available' in snapshot.ci ? (previous?.failing ?? null) : ci ? String(ci.params?.commit ?? ci.message) : null;
+  const failing = 'available' in snapshot.ci ? previous?.failing : ci ? String(ci.params?.commit ?? ci.message) : null;
   const pending = snapshot.pendingDecisions;
   const listed = 'available' in pending || 'available' in pending.questions ? null : pending.questions;
   const questions = listed ? listed.items.map((item): Asked => [item.id, item.question]) : (previous?.questions ?? null);
@@ -236,22 +241,26 @@ function toasts(snapshot: NonNullable<ViewInput['snapshot']>, previous: Seen | u
   const seen: Seen = { failing, questions, pressure: own !== undefined };
   if (previous === undefined) return { toasts: [], seen, store: undefined };
 
-  const held = (typeof stored === 'object' && stored !== null ? stored : {}) as Shown;
-  const shown: Shown = {};
+  const held = (typeof stored === 'object' && stored !== null ? stored : {}) as Toasted;
+  const heldAnswered = Array.isArray(held.answered) ? held.answered : [];
+  const shown: Toasted = {};
   const out: string[] = [];
-  if (ci && failing !== previous.failing && held.ci !== failing) {
+  // CI first read after the session opened is no turn: its failure may be older than the session.
+  if (ci && previous.failing !== undefined && failing !== previous.failing && held.ci !== failing) {
     out.push(say(ci, language));
     shown.ci = failing!;
   }
   if (listed && previous.questions) {
     // A question past the last one still listed may only have been pushed into the remainder by a new one ahead of it.
-    // ponytail: a full list whose last listed question is answered toasts nothing; the whole list if it shows.
+    // ponytail: with a remainder, an answer past the last question still listed, or past the snapshot's limit, toasts
+    // nothing; the whole list in the snapshot if it shows. A question whose Task closed leaves the list too, and reads as answered.
     const still = previous.questions.map((asked) => questions!.some(same(asked)));
     const last = still.lastIndexOf(true);
-    const answered = previous.questions.filter((asked, n) => !still[n] && (listed.remainder === 0 || n < last) && !(Array.isArray(held.answered) && held.answered.some(same(asked))));
+    const answered = previous.questions.filter((asked, n) => !still[n] && (listed.remainder === 0 || n < last) && !heldAnswered.some(same(asked)));
     if (answered.length > 0) {
       out.push(...answered.map(([id]) => WORDS[language].answered(id)));
-      shown.answered = answered;
+      // The union, so that a session behind by two answers does not toast the first again.
+      shown.answered = [...heldAnswered, ...answered].slice(-ANSWERED_KEPT);
     }
   }
   if (own && !previous.pressure) out.push(say(own, language));
