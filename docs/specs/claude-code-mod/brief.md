@@ -19,7 +19,7 @@ The owner, who runs Product sessions and autopilot on this repository every day 
 - the npm package's marketplace, which gains a second plugin, `binnacle-mod`, beside `binnacle` (ADR-0027, ADR-0044);
 - `binn init`'s plan, which gains an optional step to install it;
 - the `binnacle` MCP server's tools, `project_snapshot` first, which the mod calls, and whatever lets it find this session's own run, Task and role by the session's id;
-- the snapshot's attention items, which gain a Next action naming work already done, and `/binnacle:product`, which shows it;
+- the snapshot's attention item for a Next action naming work already done, `next_action.stale`, and `/binnacle:product`, which shows it;
 - `@binnacle/core`'s wording, which the mod's text comes from (ADR-0045);
 - the README and `docs/operations/`, in both languages, for installing and removing the mod;
 - ADR-0047.
@@ -29,7 +29,7 @@ The owner, who runs Product sessions and autopilot on this repository every day 
 - **A plugin of its own.** `binnacle-mod` sits in the same marketplace as `binnacle`, at the same version. Off by default means not installed; disabling or removing it is Claude Code's own command. The skills do not depend on it (ADR-0047).
 - **`binn init` offers it.** An optional step in its plan, "no" by default, only where it finds a Claude Code that loads mods; a yes runs `claude plugin install binnacle-mod`. Running `binn init` again does not ask once it is installed. The README gives the same command.
 - **The session-start lines only off a Task's branch.** Two or three lines from the snapshot, the current epic, what waits for the owner and the Next action, go into the context of a session whose branch maps to no Task, such as a Product session on `main`. A session on a ticket's branch, autopilot's agents included, gets none: it has its Task brief.
-- **A stale Next action is one that names work already done**: a Task in `DONE` or `CANCELLED`, or an epic marked `done`. It is a new attention item in the snapshot, read from facts, never guessed, and the band and `/binnacle:product` show it alike.
+- **A stale Next action is one that names work already done**: a Task in `DONE` or `CANCELLED`, or an epic marked `done`. It is an attention item in the snapshot, read from facts, never guessed, and the band and `/binnacle:product` show it alike; `next_action.stale` already reads it from the Next action's command, as the spec found.
 - **The pane opens by the mod's command**, and closes by it. It never opens by itself; the status line and the band show without it.
 - **A project's change toasts once per machine, a session's own in that session.** CI failing and a question answered are shown in the first session that sees them, with the mod's store across sessions keeping the others quiet; the band still shows everywhere. A context-pressure toast appears only in the session it concerns.
 

@@ -24,4 +24,4 @@ Claude Code's mods, plugins of function hooks, can pin a status line, draw a ban
 
 - Claude Code is the only harness with the mod; the skills stay the same in every harness.
 - The mod's code moves with Claude Code's mod API: a Claude Code that does not load it simply has no mod, and the project is developed as before (`AGENTS.md`, principle 3).
-- What the mod shows is what the snapshot already has, plus one new attention item, a Next action naming work already done, which `/binnacle:product` shows too.
+- What the mod shows is what the snapshot already has, `next_action.stale` included, plus this session's run and the checkout's Task, which the snapshot gives when asked with the session's id.
