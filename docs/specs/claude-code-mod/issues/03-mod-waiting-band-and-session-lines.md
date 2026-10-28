@@ -1,6 +1,6 @@
 # 03: The mod's Waiting for you band and session-start lines
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 02
 Spec: `docs/specs/claude-code-mod/spec.md`
