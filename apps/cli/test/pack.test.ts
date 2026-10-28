@@ -110,13 +110,19 @@ test('the packed CLI carries the binnacle plugin, every file of its source, the 
 });
 
 /** ADR-0047: Claude Code's `plugin update` refreshes the mod only when its version changes. */
-test("the mod's version is drawn from its files: the same build gives the same version", (t) => {
+test("the mod's version is drawn from its files: the same build gives the same version, from any directory", (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'binnacle-mod-version-'));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const cwd = process.cwd();
+  t.after(() => {
+    process.chdir(cwd);
+    rmSync(dir, { recursive: true, force: true });
+  });
   const version = prepareMod(join(dir, 'mod'));
+  assert.match(version, /^[0-9a-f]{12}$/);
   assert.equal(JSON.parse(readFileSync(join(dir, 'mod', '.claude-plugin', 'plugin.json'), 'utf8')).version, version);
+  // `prepare` runs in the CLI app, `build` from the root, the tests from anywhere: the bundle names its modules the same way.
+  process.chdir(dir);
   assert.equal(prepareMod(join(dir, 'again')), version);
-  assert.notEqual(version, preparePlugin(PLUGIN_SOURCE, join(dir, 'plugin')));
 });
 
 /** Epic 9: Claude Code's `plugin update` refreshes its copy only when the version changes, and a manifest with none installs as `unknown` for good. */

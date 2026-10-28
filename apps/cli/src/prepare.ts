@@ -70,6 +70,8 @@ export function prepareSkills(source: string, target: string, version: string): 
 export function prepareMod(target: string): string {
   rmSync(target, { recursive: true, force: true });
   buildSync({
+    // The bundle's comments name each module by its path from here, whatever directory the build is run from, so the version does not move with it.
+    absWorkingDir: fileURLToPath(new URL('..', import.meta.url)),
     entryPoints: [fileURLToPath(new URL('./mod/hooks.ts', import.meta.url))],
     outfile: join(target, 'hooks', 'hooks.js'),
     bundle: true,

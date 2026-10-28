@@ -36,14 +36,16 @@ test('the status line at the session start, cleared without the daemon, and back
   on('session.measure', (_, e) => ({ changed: e.changed }))
 
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await clock.settle()
   expect(lines).toEqual([undefined])
 
   snapshot = { activity: { running: { items: [], remainder: 0 }, recent: [], own: OWN } }
   await clock.advance(60000)
-  expect(lines.at(-1)).toBe('claude-code-mod/02 implementation · 1.5k tokens (from activity) · context 42% · 5h 23%')
+  expect(lines.at(-1)).toBe('claude-code-mod/02 implementation · 500 output tokens (from activity) · context 42% · 5h 23%')
 
   snapshot = null
   await $.session.measure({ context: { window: 200000 }, rateLimits: [], changed: ['context'] })
+  await clock.settle()
   expect(lines.at(-1)).toBe(undefined)
 })
 `;

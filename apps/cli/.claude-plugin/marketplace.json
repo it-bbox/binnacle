@@ -11,7 +11,7 @@
     {
       "name": "binnacle-mod",
       "source": "./mod",
-      "description": "Optional: Binnacle's state beside the chat in Claude Code, read from the binnacle MCP server. It writes nothing, and shows nothing without the daemon (ADR-0047)."
+      "description": "Optional: Binnacle's state beside the chat in Claude Code, read from the binnacle MCP server. It writes nothing, and shows nothing without the daemon."
     }
   ]
 }

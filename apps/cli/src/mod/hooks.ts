@@ -51,16 +51,18 @@ async function refresh($: Engine): Promise<void> {
 }
 
 // A function declaration: `claude plugin validate` reads `register` off the bundle's source and refuses an arrow bound to a name.
+// Each refresh runs unawaited: Claude Code awaits `session.start` before the first prompt, and a snapshot on a cold forge
+// cache takes seconds. ponytail: two refreshes may finish out of order and an older line stand until the next one; a
+// sequence number if it shows.
 export function register(on: On): void {
   on('session.start', async ($, e, next) => {
-    const started = await next(e);
-    await refresh($);
+    void refresh($);
     $.clock.every(REFRESH_MS, () => void refresh($));
-    return started;
+    return next(e);
   });
   // After each turn: Claude Code measures the session and the snapshot may have moved with it.
   on('session.measure', async ($, e, next) => {
-    await refresh($);
+    void refresh($);
     return next(e);
   });
 }
