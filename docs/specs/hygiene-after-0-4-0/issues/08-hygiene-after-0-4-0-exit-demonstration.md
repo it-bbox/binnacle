@@ -7,8 +7,8 @@ Spec: `docs/specs/hygiene-after-0-4-0/spec.md`
 
 **What to build:** epic 21's exit criterion, demonstrated by the owner, then the 0.5.0 release (spec, the exit criterion, *The release*).
 
-- [ ] `/binnacle:task` with a ticket's path, without `run`, gives that Task's brief.
-- [ ] A Task whose branch is merged with `git merge` leaves the Tasks in flight, and the Suggested step does not wait for it.
+- [x] `/binnacle:task` with a ticket's path, without `run`, gives that Task's brief.
+- [x] A Task whose branch is merged with `git merge` leaves the Tasks in flight, and the Suggested step does not wait for it.
 - [ ] A context-pressure warning names its session's own start and the threshold for its model, a number set on the Settings page.
 - [x] The vault in Russian has no `(англ.)` for a pair or a failed Graphify run, and says "пулл-реквесты".
 - [ ] In an interactive Claude Code session, after `/clear` and after `--resume`, the warning says "this" or "another" only where it is true.
@@ -39,6 +39,13 @@ Criteria 1, 2, 3, 5 and 6 need epic 21 in the owner's own Binnacle first. Merge 
 - **Criterion 5.** Ticket 06's script below, steps 1 to 4, with criterion 3's threshold still set: `/clear` and `--resume` in an interactive Claude Code session. Restore the threshold afterwards.
 - **Criterion 6.** In a Product session, make a fact cost time on purpose: a command that fails for a reason `AGENTS.md`'s *Traps* does not yet name, found and worked around in the session. Run `/binnacle:checkpoint`: it should propose a trap, one line for `AGENTS.md`. Answer no: `AGENTS.md` is untouched. Run it again and answer yes: the line is written there.
 - **Criterion 7.** Push `main` with this branch merged and wait for CI's `check`, `tarball-live` and `autostart-live` to go green there; rebuild at that commit, then `npm whoami` (the 0.4.0 run lost a publish to a lapsed login), `npm publish --dry-run` and `npm publish --access public` from `apps/cli/dist/`, confirming the second factor in the browser. Once `npm view @it-bbox/binnacle version` prints `0.5.0`, in a `node:24-slim` container: `npm i -g @it-bbox/binnacle@0.5.0`, `binn --version`, `binn daemon start`, then `binn daemon status` should give `0.5.0`.
+
+### The owner's run
+
+The branch merged into `main` with `git merge --no-ff` (`7a97c27`) while this ticket said `Status: READY`; then *After a pull or a merge*: the dashboard generated, `prepare`, the marketplace updated, the `binnacle-*` skills reinstalled, and the daemon restarted by its service, `binn daemon status` giving `0.5.0`.
+
+- **Criterion 1** holds (the owner, 2026-10-28): in a fresh session, `/binnacle:task` with this ticket's path opened with `hygiene-after-0-4-0/08`, its title, `READY`, `ready-for-human`, its epic, all seven dependencies met and no question, and offered the ticket, roles, dependencies, spec, Review and branch; nothing changed in the checkout.
+- **Criterion 2** holds (the owner, 2026-10-28): `/binnacle:product` in a fresh Product session put `hygiene-after-0-4-0/08` under *Waiting for the owner* as a Task the owner starts, not under *In progress*, although this ticket's runs were on its branch; the Suggested step named it as the owner's and did not say to wait for its run. Beside it, the context-pressure warning named a Product session started at 18:39 at 154 278 tokens over the default 150 000, with neither "this" nor "another", as `binn mcp` sends no session.
 
 ### For the `/clear` and `--resume` criterion (from ticket 06)
 
