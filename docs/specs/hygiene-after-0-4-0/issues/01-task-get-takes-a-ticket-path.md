@@ -1,6 +1,6 @@
 # 01: `/binnacle:task` takes a ticket's path
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/hygiene-after-0-4-0/spec.md`
