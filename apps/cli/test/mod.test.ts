@@ -219,14 +219,14 @@ test("the pane's sections from a snapshot, in English and Russian", () => {
     { heading: 'Waiting for you', lines: ['Unanswered questions: 1 (spec/01)'] },
     { heading: 'In progress', lines: ['spec/31 Ticket spec/31 (in progress)', 'spec/32 Ticket spec/32 (in review)', 'and 2 more'] },
     { heading: 'CI', lines: ['main: passing'] },
-    { heading: 'Next action', lines: ['start the band with `/binnacle:task run docs/specs/claude-code-mod/issues/03-x.md`'] },
+    { heading: 'Next action', lines: ['start the band with /binnacle:task run docs/specs/claude-code-mod/issues/03-x.md'] },
   ]);
   assert.deepEqual(pane({ ...FILLED, ci: CI('failing'), attention: [CI_FAILING] }, 'ru')?.sections, [
     { heading: 'Текущий эпик', lines: ['22, A Binnacle mod for Claude Code (в работе, готово 2 из 7)'] },
     { heading: 'Ждёт вас', lines: ['Вопросы без ответа: 1 (spec/01)', CI_FAILING_RU] },
     { heading: 'В работе', lines: ['spec/31 Ticket spec/31 (в работе)', 'spec/32 Ticket spec/32 (на ревью)', 'и ещё 2'] },
     { heading: 'CI', lines: ['main: падает'] },
-    { heading: 'Следующий шаг', lines: ['start the band with `/binnacle:task run docs/specs/claude-code-mod/issues/03-x.md`'] },
+    { heading: 'Следующий шаг', lines: ['start the band with /binnacle:task run docs/specs/claude-code-mod/issues/03-x.md'] },
   ]);
 });
 
@@ -432,6 +432,11 @@ test('the command is registered at the start, opens the pane, and closes it on a
   assert.deepEqual(state.panes, []);
   await run('command.run', command);
   assert.deepEqual(state.panes, [{ id: 'binnacle', title: 'Binnacle' }]);
+
+  // The command's line in the typeahead follows the person's language.
+  const russian = engine({ LANG: 'ru_RU.UTF-8' });
+  await russian.run('session.start', START);
+  assert.deepEqual(russian.state.commands, [{ name: 'binnacle-pane', description: 'Открыть или закрыть панель Binnacle' }]);
 });
 
 test("the pane draws the last view's sections and buttons, and a button fills the prompt box without sending it", async () => {
@@ -454,7 +459,7 @@ test("the pane draws the last view's sections and buttons, and a button fills th
       ['Text', 'Current epic'],
       ['Text', '22, A Binnacle mod for Claude Code (in progress, 2 of 7 Tasks done)'],
       ['Text', 'Next action'],
-      ['Text', 'start the band with `/binnacle:task run docs/specs/claude-code-mod/issues/03-x.md`'],
+      ['Text', 'start the band with /binnacle:task run docs/specs/claude-code-mod/issues/03-x.md'],
       ['Button', '/binnacle:task run docs/specs/claude-code-mod/issues/03-x.md'],
       ['Button', '/binnacle:checkpoint'],
     ],

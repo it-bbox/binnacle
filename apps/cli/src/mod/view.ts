@@ -15,6 +15,9 @@ export type ViewInput = Usage & {
   language: Language;
 };
 
+/** The pane command's line in Claude Code's typeahead and `/help`. */
+export const PANE_COMMAND = { en: 'Open or close the Binnacle pane', ru: 'Открыть или закрыть панель Binnacle' } satisfies Record<Language, string>;
+
 /** A pane button's address, and the command it puts in the prompt box. */
 export type PaneButton = { key: 'next' | 'suggested' | 'answer' | 'checkpoint'; command: string };
 
@@ -179,7 +182,8 @@ function pane(snapshot: NonNullable<ViewInput['snapshot']>, waiting: View['band'
     sections.push({ heading: 'CI', lines: [`${main.branch}: ${words.ci[main.state.value]}`] });
   }
   const action = snapshot.next.action;
-  if (action) sections.push({ heading: words.nextAction, lines: [`${action.description} \`${action.command}\``] });
+  // A pane's text draws no Markdown: the command stands bare.
+  if (action) sections.push({ heading: words.nextAction, lines: [`${action.description} ${action.command}`] });
 
   const buttons: PaneButton[] = [];
   if (action) buttons.push({ key: 'next', command: action.command });

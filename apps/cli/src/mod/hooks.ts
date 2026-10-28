@@ -1,5 +1,5 @@
-import { personLanguage } from '@binnacle/core';
-import { view, type View, type ViewInput } from './view.ts';
+import { personLanguage, type Language } from '@binnacle/core';
+import { PANE_COMMAND, view, type View, type ViewInput } from './view.ts';
 
 /**
  * `binnacle-mod`'s hooks module (ADR-0047), bundled with the view into one ES module with no `import()`, which
@@ -67,13 +67,18 @@ async function readSnapshot($: Engine): Promise<ViewInput['snapshot']> {
  */
 type Kept = { latest: Promise<View | null>; shown: View | null; drawn: string };
 
+/** The person's language by `binn`'s locale rule, read through Claude Code's environment. */
+async function readLanguage($: Engine): Promise<Language> {
+  // `$.env.get` takes literal names, which `claude plugin validate` lists.
+  const [lcAll, lang] = await Promise.all([$.env.get('LC_ALL'), $.env.get('LANG')]);
+  return personLanguage({ LC_ALL: lcAll ?? undefined, LANG: lang ?? undefined });
+}
+
 /** Reads the snapshot and Claude Code's figures, draws the line and asks for the band and the pane when they changed; on any failure, clears them. Never throws. */
 async function draw($: Engine, kept: Kept): Promise<View | null> {
   let shown: View | null = null;
   try {
-    // `$.env.get` takes literal names, which `claude plugin validate` lists.
-    const [snapshot, usage, lcAll, lang] = await Promise.all([readSnapshot($), $.session.usage(), $.env.get('LC_ALL'), $.env.get('LANG')]);
-    const language = personLanguage({ LC_ALL: lcAll ?? undefined, LANG: lang ?? undefined });
+    const [snapshot, usage, language] = await Promise.all([readSnapshot($), $.session.usage(), readLanguage($)]);
     shown = view({ snapshot, context: usage.context, rateLimits: usage.rateLimits, language });
     $.ui.status(shown.status);
   } catch {
@@ -107,7 +112,7 @@ export function register(on: On): void {
     refresh($, kept);
     $.clock.every(REFRESH_MS, () => refresh($, kept));
     try {
-      await $.command.register({ name: 'binnacle-pane', description: 'Open or close the Binnacle pane' });
+      await $.command.register({ name: 'binnacle-pane', description: PANE_COMMAND[await readLanguage($)] });
     } catch {
       // Without its command the pane cannot open; the rest of the mod goes on.
     }
@@ -129,7 +134,8 @@ export function register(on: On): void {
       Box,
       { flexDirection: 'column' },
       ...pane.sections.flatMap((section) => [h(Text, { bold: true }, section.heading), ...section.lines.map((line) => h(Text, null, line))]),
-      ...pane.buttons.map(({ key, command }) => h(Button, { key, onPress: () => void $.prompt.fill({ text: command, mode: 'replace' }) }, command)),
+      // A box that cannot take the text (a dialog holds the keys) leaves the press without effect.
+      ...pane.buttons.map(({ key, command }) => h(Button, { key, onPress: () => void $.prompt.fill({ text: command, mode: 'replace' }).catch(() => {}) }, command)),
     );
   });
   // After each turn: Claude Code measures the session and the snapshot may have moved with it.
