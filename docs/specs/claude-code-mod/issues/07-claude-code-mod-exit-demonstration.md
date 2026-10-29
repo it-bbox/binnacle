@@ -75,3 +75,9 @@ The branch merged into `main` with `git merge --no-ff` (`9e499af`) while this ti
 
 - With epic 24's listings (recommended): nothing now; the icons are drawn once, for the marketplace and MCP directory listings that use them, before any submission.
 - Now: a 512 px square PNG for each plugin, drawn and committed in this ticket; 0.6.0 waits for it, and nothing shows it until a listing.
+
+### Answer
+
+2026-10-29
+
+With epic 24's listings (recommended): nothing now; the icons are drawn once, for the marketplace and MCP directory listings that use them, before any submission.
