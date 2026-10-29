@@ -67,7 +67,7 @@ Done: epics 1 to 22. **v1 is complete.**
 
 Next: epics 23 to 27, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28.
 
-Next action: split epic 23, *Binnacle in a dev container*, into tickets from its spec, `docs/specs/dev-container/spec.md`. `/to-tickets`
+Next action: run epic 23's tickets, `docs/specs/dev-container/issues/`, with autopilot; its exit demonstration, ticket 04, is the owner's. `/binnacle:autopilot`
 
 ## Later
 
