@@ -86,7 +86,8 @@ export function prepareMod(target: string): string {
   const fields = {
     name: 'binnacle-mod',
     description:
-      "Binnacle's state beside the chat in Claude Code: a status line with the session's Task, role, tokens, context and usage limits, read from the binnacle MCP server. It writes nothing, and shows nothing without the daemon or in a project that is not registered.",
+      "Binnacle's state beside the chat in Claude Code, read from the binnacle MCP server: a status line with the session's Task, role, tokens, context and usage limits, a *Waiting for you* band, a pane by /binnacle-pane, toasts and session-start lines. It writes nothing to the project, and shows nothing without the daemon or in a project that is not registered.",
+    author: { name: 'Binnacle' },
   };
   mkdirSync(join(target, '.claude-plugin'));
   writeFileSync(manifest, `${JSON.stringify(fields, null, 2)}\n`);

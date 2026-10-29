@@ -100,6 +100,9 @@ test('the packed CLI carries the binnacle plugin, every file of its source, the 
   const mod = JSON.parse(readFileSync(join(packed, 'mod', manifest), 'utf8'));
   assert.equal(mod.name, 'binnacle-mod');
   assert.match(mod.version, /^[0-9a-f]{12}$/);
+  // `claude plugin validate` warns without an author; the description names every surface the mod draws.
+  assert.deepEqual(mod.author, marketplace.owner);
+  for (const surface of ['status line', '*Waiting for you* band', 'pane', 'toasts', 'session-start lines']) assert.ok(mod.description.includes(surface), surface);
   assert.deepEqual(JSON.parse(readFileSync(join(packed, 'mod', 'hooks', 'hooks.json'), 'utf8')), { modules: ['./hooks.js'] });
   const hooks = readFileSync(join(packed, 'mod', 'hooks', 'hooks.js'), 'utf8');
   // One file: no import of another module, static or dynamic, which Claude Code refuses.
