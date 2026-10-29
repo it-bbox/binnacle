@@ -70,10 +70,11 @@ async function readSnapshot($: Engine): Promise<ViewInput['snapshot']> {
  * What a session keeps between its hooks: `latest`, the refresh under way or the last one; `shown`, the last view a
  * refresh drew, null before the first and after a failure; `drawn`, that view's band and pane as text, so that a refresh
  * that changes neither redraws nothing; `seen`, what the session saw for its toasts, undefined before its first snapshot;
- * `started` and `drawnBy`, the number of the last refresh started and of the last one drawn; `missed`, that the
- * conversation's context was computed without a snapshot.
+ * `started` and `drawnBy`, the number of the last refresh started and of the last one drawn; `starting`, the start's
+ * refreshes, which ask again while the `binnacle` server connects; `missed`, that the conversation's context was computed
+ * without a snapshot.
  */
-type Kept = { latest: Promise<View | null>; shown: View | null; drawn: string; seen: Seen | undefined; started: number; drawnBy: number; missed: boolean };
+type Kept = { latest: Promise<View | null>; shown: View | null; drawn: string; seen: Seen | undefined; started: number; drawnBy: number; starting: Promise<void>; missed: boolean };
 
 /** The person's language by `binn`'s locale rule, read through Claude Code's environment. */
 async function readLanguage($: Engine): Promise<Language> {
@@ -152,9 +153,9 @@ async function start($: Engine, kept: Kept): Promise<void> {
 // Each refresh runs unawaited: Claude Code awaits `session.start` before the first prompt, and a snapshot on a cold forge
 // cache takes seconds.
 export function register(on: On): void {
-  const kept: Kept = { latest: Promise.resolve(null), shown: null, drawn: '[null,null]', seen: undefined, started: 0, drawnBy: 0, missed: false };
+  const kept: Kept = { latest: Promise.resolve(null), shown: null, drawn: '[null,null]', seen: undefined, started: 0, drawnBy: 0, starting: Promise.resolve(), missed: false };
   on('session.start', async ($, e, next) => {
-    void start($, kept);
+    kept.starting = start($, kept);
     $.clock.every(REFRESH_MS, () => refresh($, kept));
     try {
       await $.command.register({ name: 'binnacle-pane', description: PANE_COMMAND[await readLanguage($)] });
@@ -186,9 +187,13 @@ export function register(on: On): void {
       ...pane.buttons.map(({ key, command }) => h(Button, { key, onPress: () => void $.prompt.fill({ text: command, mode: 'replace' }).catch(() => {}) }, command)),
     );
   });
-  // The mod's own read of the snapshot needs no one's leave: Claude Code otherwise puts each refresh to the session's
-  // decider, a dialog a minute in the default mode and a refusal where nobody can be asked. The model's calls keep the rules.
-  on('tool.check', { tool: 'mcp__binnacle__project_snapshot' }, async ($, e, next) => (next.origin?.plugin === 'binnacle-mod' ? { decision: 'allow' } : next(e)));
+  // The mod's own read of the snapshot asks no one: Claude Code otherwise puts each refresh to the session's decider, a
+  // dialog a minute in the default mode and a refusal where nobody can be asked. A rule that denies it still does, and the
+  // model's calls keep the rules.
+  on('tool.check', { tool: 'mcp__binnacle__project_snapshot' }, async ($, e, next) => {
+    const verdict = (await next(e)) as { decision: string };
+    return next.origin?.plugin === 'binnacle-mod' && verdict.decision === 'ask' ? { ...verdict, decision: 'allow' } : verdict;
+  });
   // After each turn: Claude Code measures the session and the snapshot may have moved with it.
   on('session.measure', async ($, e, next) => {
     refresh($, kept);
@@ -202,22 +207,19 @@ export function register(on: On): void {
     const { Box, Text } = $.ui.resolve(e);
     const waiting = h(Box, { flexDirection: 'column' }, h(Text, { bold: true, color: 'warning' }, band.title), ...band.items.map((item) => h(Text, null, item)));
     // The band is one instance: what a plugin beneath draws there stays, under Binnacle's.
-    const beneath = await next(e);
-    return beneath ? h(Box, { flexDirection: 'column', rowGap: 1 }, waiting, beneath) : waiting;
+    const beneath = (await next(e)) as { children?: unknown[] } | null | undefined;
+    // An empty box beneath, the engine's own, is nothing to keep.
+    return beneath && beneath.children?.length !== 0 ? h(Box, { flexDirection: 'column', rowGap: 1 }, waiting, beneath) : waiting;
   });
   // Once per conversation, when its first message's context is computed: the project's position, off a Task's branch only.
   on('prompt.context', async ($, e, next) => {
     const result = (await next(e)) as Blocks;
     // A daemon slower than the wait adds nothing, rather than fail the hook.
     const timeout = $.clock.sleep(START_WAIT_MS).then(() => null);
-    let shown = await Promise.race([kept.latest, timeout]);
-    // Claude Code computes this context as the session starts, before the `binnacle` server has connected: ask again
-    // every half second, inside the same wait.
-    for (let tries = 1; shown === null && tries < START_WAIT_MS / RETRY_MS; tries += 1) {
-      if ((await Promise.race([$.clock.sleep(RETRY_MS).then(() => true), timeout])) === null) break;
-      refresh($, kept);
-      shown = await Promise.race([kept.latest, timeout]);
-    }
+    // Claude Code computes this context as the session starts, before the `binnacle` server has connected: the start's
+    // refreshes ask again meanwhile, and the context waits on them, then on the refresh under way.
+    await Promise.race([kept.starting, timeout]);
+    const shown = (await Promise.race([kept.latest, timeout])) ?? kept.shown;
     // Still none: the first answer after it has the engine compute the context again.
     kept.missed = shown === null;
     const lines = shown?.startLines;

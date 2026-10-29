@@ -58,6 +58,16 @@ None found: the version moved where 0.5.0's did (`apps/cli/package.json`, `SECUR
 - Criterion 7 stopped the service by `systemctl`. **Fixed**: `binn daemon stop` and `start`, which go through the service.
 - The mod's `author` repeats the marketplace's owner in `prepare.ts`: kept, `pack.test.ts` catches a drift.
 
+A second review, in a sub-agent, 2026-10-29, of the mod's fixes during the owner's run:
+
+- The `tool.check` hook answered `allow` without asking beneath, overriding a rule that denies the tool for the mod's own call. **Fixed**: it asks beneath and turns only an `ask` into `allow`; a deny stands, pinned in `mod.test.ts`.
+- The start and the context hook each retried, doubling the calls while the server connected. **Fixed**: the context waits on the start's tries, then on the refresh under way, and falls back to the last view drawn.
+- The context could mark itself missed although a view had been drawn meanwhile. **Fixed** by that fallback.
+- An empty box beneath, the engine's own, would have left a blank row under the band. **Fixed**: it counts as nothing; pinned.
+- The pane told CI from the band's items by their text, so unread CI with a failing item lost it. **Fixed**: by code; pinned.
+- `docs/03-mcp-and-skills.md`'s mod section lagged behind the fixes. **Fixed**.
+- The tests' counts of tries are now written as 8 s / 500 ms. Kept: the fake clock settles a short sleep at once, so the retries' timing against the wait is not tested, only their count and outcome.
+
 ### The owner's run
 
 The branch merged into `main` with `git merge --no-ff` (`9e499af`) while this ticket said `Status: READY`; then *After a pull or a merge*: `prepare`, the marketplace and `binnacle@binnacle` updated, the `binnacle-*` skills reinstalled, the dashboard generated, and the daemon restarted by its service, `binn daemon status` giving `0.6.0`.

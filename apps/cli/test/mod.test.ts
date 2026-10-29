@@ -236,6 +236,8 @@ test("the pane's sections from a snapshot, in English and Russian", () => {
 });
 
 test('a section marked available: false, or with nothing in it, is left out of the pane', () => {
+  // CI unread keeps its failing item among what waits, for want of a section of its own.
+  assert.deepEqual(pane({ tasks: null, ci: { available: false, reason: 'x' }, pendingDecisions: NOTHING_PENDING, attention: [CI_FAILING] })?.sections, [{ heading: 'Waiting for you', lines: [CI_SHORT] }]);
   const unavailable = { available: false, reason: 'unread' };
   assert.deepEqual(pane({ tasks: null, ci: unavailable, pendingDecisions: unavailable }), { sections: [], buttons: [] });
   assert.deepEqual(pane({ tasks: { inFlight: { items: [], remainder: 0 } }, ci: CI('none') })?.sections, [{ heading: 'CI', lines: ['main: no checks'] }]);
@@ -440,8 +442,8 @@ test('silence: an MCP error, a missing binnacle server, a stopped daemon or an u
   const { state, run } = engine();
   state.answer = refused('daemon.unreachable');
   assert.deepEqual(await run('session.start', START), START);
-  // A start that gets no answer asks again every half second, for as long as the context hook waits: sixteen tries.
-  assert.deepEqual(state.calls, Array.from({ length: 16 }, () => ['binnacle', 'project_snapshot', { session: 'session-1' }]));
+  // A start that gets no answer asks again every half second, for as long as the context hook waits: 8 s / 500 ms tries.
+  assert.deepEqual(state.calls, Array.from({ length: 8_000 / 500 }, () => ['binnacle', 'project_snapshot', { session: 'session-1' }]));
   assert.ok(state.lines.length > 0 && state.lines.every((line) => line === undefined));
   // Refreshed once a minute, the forge cache's own period.
   assert.deepEqual(state.timers.map((timer) => timer.ms), [60_000]);
@@ -490,6 +492,8 @@ test('the band is drawn with a question waiting, and passes beneath without one 
   };
   // The band is one instance: what another plugin beneath draws stays, under Binnacle's.
   assert.deepEqual(await band({}, null), waiting);
+  // The engine's own empty box beneath is nothing to keep.
+  assert.deepEqual(await band({}, { type: 'Box', props: null, children: [] }), waiting);
   assert.deepEqual(await band(), {
     type: 'Box',
     props: { flexDirection: 'column', rowGap: 1 },
@@ -529,32 +533,30 @@ test('the session-start lines wait on the refresh under way, and give up inside 
   answer();
   assert.deepEqual(await context, { blocks: [core, { name: 'binnacle', text: START_LINES.join('\n') }] });
 
-  // A daemon slower than the wait adds nothing.
+  // A daemon slower than the wait gives the lines of the last snapshot drawn, and none before any.
   state.held = new Promise(() => {});
   state.sleep = Promise.resolve();
   await run('session.measure', { ...FULL, changed: ['context'] });
-  assert.deepEqual(await run('prompt.context', { blocks: [core] }), { blocks: [core] });
+  assert.deepEqual(await run('prompt.context', { blocks: [core] }), { blocks: [core, { name: 'binnacle', text: START_LINES.join('\n') }] });
+  const slow = engine();
+  slow.state.held = new Promise(() => {});
+  slow.state.sleep = Promise.resolve();
+  await slow.run('session.start', START);
+  assert.deepEqual(await slow.run('prompt.context', { blocks: [core] }), { blocks: [core] });
 });
 
-test('a binnacle server still connecting at the start: the hook asks again, and an answer after it has the context computed again once', async () => {
+test('a binnacle server still connecting at the start: the context waits on the start asking again, and an answer after it has the context computed again once', async () => {
   const core = { name: 'currentDate', text: 'Today' };
   const block = { name: 'binnacle', text: START_LINES.join('\n') };
   const connecting = new Error('MCP server "binnacle" is not connected');
-  const first = engine();
-  first.state.answer = connecting;
-  await first.run('session.start', START);
-  first.state.answer = answered(snapshot(null, ON_MAIN));
-  assert.deepEqual(await first.run('prompt.context', { blocks: [core] }), { blocks: [core, block] });
-  assert.equal(first.state.calls.length, 17);
-
-  // Connected half a second later than that: the hook asks every half second, inside its wait.
+  // Connected after three tries: the context waits on the start's tries, and asks none of its own.
   const later = engine();
   later.state.answers = [connecting, connecting, connecting];
   later.state.answer = answered(snapshot(null, ON_MAIN));
   await later.run('session.start', START);
   assert.deepEqual(await later.run('prompt.context', { blocks: [core] }), { blocks: [core, block] });
   assert.equal(later.state.calls.length, 4);
-  assert.equal(first.state.reread, 0);
+  assert.equal(later.state.reread, 0);
 
   // Still connecting when the context is computed: the first answer after it asks for the context again, once.
   const { state, run } = engine();
@@ -579,10 +581,10 @@ test('a binnacle server still connecting at the start: the start asks every half
   assert.equal(state.calls.length, 3);
 });
 
-test("the mod's own read of the snapshot needs no one's leave; the model's call of the same tool stays under the rules", async () => {
+test("the mod's own read of the snapshot asks no one, a rule's deny still stands, and the model's call of the same tool stays under the rules", async () => {
   const { check } = engine();
-  const beneath = async () => ({ decision: 'ask' });
-  const raised = (plugin: string) => Object.assign(beneath, { origin: { plugin, tier: 'user' } });
+  const raised = (plugin: string, decision = 'ask') => Object.assign(async () => ({ decision }), { origin: { plugin, tier: 'user' } });
+  assert.deepEqual(await check({ tool: 'mcp__binnacle__project_snapshot', input: {} }, raised('binnacle-mod', 'deny')), { decision: 'deny' });
   assert.deepEqual(await check({ tool: 'mcp__binnacle__project_snapshot', input: {} }, raised('binnacle-mod')), { decision: 'allow' });
   assert.deepEqual(await check({ tool: 'mcp__binnacle__project_snapshot', input: {} }, raised('engine')), { decision: 'ask' });
   assert.deepEqual(await check({ tool: 'mcp__binnacle__project_snapshot', input: {} }, raised('another-mod')), { decision: 'ask' });
