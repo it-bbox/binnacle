@@ -24,7 +24,8 @@ binnacle/
 ├── apps/
 │   ├── daemon/
 │   ├── dashboard/
-│   └── cli/
+│   ├── cli/
+│   └── devcontainer-feature/
 ├── packages/
 │   ├── core/
 │   ├── mcp/
@@ -88,13 +89,14 @@ A new session then loads the changed skills. `/binnacle:autopilot` does this its
 | the adapters' | read-only tracker tokens |
 | autostart's | a real service manager; it installs a real service, so it runs only where `CI` is set |
 | the tarball's | nothing beyond `pnpm install`: it builds, packs and installs the package (*Releasing*, below) |
+| the dev container feature's | `docker` and `devcontainer`, the dev container CLI, on PATH, and network: it builds containers with the feature and `binn` from npm (*Releasing*, below) |
 
 CI runs in GitHub Actions on every push to `main` and every pull request (`.github/workflows/ci.yml`), without any secret:
 
 - the typecheck, the dashboard's typecheck and `pnpm test`, on Linux;
 - the autostart and tarball live tests, on Linux, macOS and Windows runners.
 
-The adapters' live tests, which need tokens, do not run there.
+The adapters' live tests, which need tokens, and the dev container feature's do not run there.
 
 ## Releasing
 
@@ -118,6 +120,21 @@ npm publish --access public
 ```
 
 `npm view @it-bbox/binnacle version` then prints the version published. A new package can show `0.0.0-stage` as `latest` for a few minutes before its version appears: wait, and look again. To install it from the registry, follow the [installation checklist](docs/operations/05-installation-checklist.md).
+
+### The dev container feature
+
+The dev container feature, `apps/devcontainer-feature/src/binnacle/`, is published to the GitHub Container Registry as `ghcr.io/it-bbox/binnacle/binnacle`, by the owner and by hand, as npm is. It installs `@it-bbox/binnacle` from npm, so publish it after the npm release it needs.
+
+1. **Version.** The feature has its own version, `version` in `devcontainer-feature.json`, apart from npm's. Raise it only when the feature's files change: the patch for a fix, the minor for a new option, the major when an option or a variable it sets is renamed or removed, or a default changes what a container gets. A new npm release alone moves nothing: the `version` option's default, `latest`, takes it at the container's next build. The registry never takes the same version twice either.
+2. **Check.** With `docker` and the dev container CLI (`npm install -g @devcontainers/cli`) installed, `node --test apps/cli/test/devcontainer.live.ts` builds containers with the feature from this checkout and `binn` from npm: `binn` runs, the daemon answers `/health` with its home on the volume, and a container stopped and started again starts its daemon again.
+3. **Publish.** Sign in to `ghcr.io` with a GitHub token that has `write:packages`, then publish the collection; the CLI tags the version, its minor, its major and `latest`:
+
+```bash
+docker login ghcr.io -u <github-user>
+devcontainer features publish --registry ghcr.io --namespace it-bbox/binnacle apps/devcontainer-feature/src
+```
+
+A package new to `ghcr.io` is private. Once, after the first publish, make `binnacle/binnacle` public in the organisation's packages on GitHub, or no container can pull it. `devcontainer features info manifest ghcr.io/it-bbox/binnacle/binnacle:1` then prints what was published.
 
 ## binn in the Claude Code desktop app
 

@@ -24,7 +24,8 @@ binnacle/
 ├── apps/
 │   ├── daemon/
 │   ├── dashboard/
-│   └── cli/
+│   ├── cli/
+│   └── devcontainer-feature/
 ├── packages/
 │   ├── core/
 │   ├── mcp/
@@ -88,13 +89,14 @@ npx skills remove -g -a claude-code -s $(ls apps/cli/skills) -y
 | тесты адаптеров | токены tracker только для чтения |
 | тест автозапуска | настоящий менеджер служб; он ставит настоящую службу и поэтому запускается, только если задана `CI` |
 | тест tarball | ничего, кроме `pnpm install`: он собирает, упаковывает и устанавливает пакет (*Релиз*, ниже) |
+| тест dev container feature | `docker` и `devcontainer`, CLI dev container, в PATH, и сеть: он собирает контейнеры с feature и `binn` из npm (*Релиз*, ниже) |
 
 CI работает в GitHub Actions на каждый push в `main` и на каждый pull request (`.github/workflows/ci.yml`), без каких-либо секретов:
 
 - typecheck, typecheck dashboard и `pnpm test` — в Linux;
 - живые тесты автозапуска и tarball — на раннерах Linux, macOS и Windows.
 
-Живые тесты адаптеров, которым нужны токены, там не запускаются.
+Живые тесты адаптеров, которым нужны токены, и тест dev container feature там не запускаются.
 
 ## Релиз
 
@@ -118,6 +120,21 @@ npm publish --access public
 ```
 
 Затем `npm view @it-bbox/binnacle version` печатает опубликованную версию. Новый пакет несколько минут может показывать `0.0.0-stage` как `latest`, прежде чем появится его версия: подождите и проверьте снова. Чтобы установить его из реестра, следуйте [чек-листу установки](docs/operations/05-installation-checklist.ru.md).
+
+### Dev container feature
+
+Dev container feature, `apps/devcontainer-feature/src/binnacle/`, публикуется в GitHub Container Registry как `ghcr.io/it-bbox/binnacle/binnacle` — владельцем и вручную, как и npm. Она ставит `@it-bbox/binnacle` из npm, поэтому публикуйте её после того релиза npm, который ей нужен.
+
+1. **Версия.** У feature своя версия, `version` в `devcontainer-feature.json`, отдельная от версии npm. Поднимайте её, только когда меняются файлы feature: patch — за исправление, minor — за новую опцию, major — когда опция или заданная ею переменная переименована или удалена либо значение по умолчанию меняет то, что получает контейнер. Новый релиз npm сам по себе ничего не двигает: значение опции `version` по умолчанию, `latest`, подхватит его при следующей сборке контейнера. Реестр тоже не принимает одну версию дважды.
+2. **Проверка.** С установленными `docker` и CLI dev container (`npm install -g @devcontainers/cli`) команда `node --test apps/cli/test/devcontainer.live.ts` собирает контейнеры с feature из этого checkout и `binn` из npm: `binn` запускается, демон отвечает на `/health`, его home лежит на volume, а контейнер, остановленный и запущенный снова, снова запускает демон.
+3. **Публикация.** Войдите в `ghcr.io` с токеном GitHub, у которого есть `write:packages`, затем опубликуйте коллекцию; CLI ставит теги версии, её minor, её major и `latest`:
+
+```bash
+docker login ghcr.io -u <github-user>
+devcontainer features publish --registry ghcr.io --namespace it-bbox/binnacle apps/devcontainer-feature/src
+```
+
+Новый пакет в `ghcr.io` приватный. Один раз, после первой публикации, сделайте `binnacle/binnacle` публичным в пакетах организации на GitHub, иначе ни один контейнер не сможет его скачать. Затем `devcontainer features info manifest ghcr.io/it-bbox/binnacle/binnacle:1` печатает то, что опубликовано.
 
 ## binn в desktop-приложении Claude Code
 

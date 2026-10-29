@@ -7,7 +7,8 @@ binnacle/
 ├── apps/
 │   ├── daemon/             # local background service/API
 │   ├── dashboard/          # Nuxt UI
-│   └── cli/                # binn
+│   ├── cli/                # binn
+│   └── devcontainer-feature/ # the dev container feature: src/binnacle/
 ├── packages/
 │   ├── core/               # entities, state machines, policies
 │   ├── mcp/                # MCP server/tools/resources
@@ -50,3 +51,6 @@ Nuxt UI consuming daemon API. No direct SQLite access.
 
 ### `apps/cli`
 Thin client/admin bootstrap layer calling shared services/API where practical.
+
+### `apps/devcontainer-feature`
+The dev container feature, laid out as the features format wants: `devcontainer-feature.json` and `install.sh`, the one shell script the format requires. No package and no TypeScript; the CLI app's tests check its files.
