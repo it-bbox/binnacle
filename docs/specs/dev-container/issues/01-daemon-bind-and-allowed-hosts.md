@@ -1,6 +1,6 @@
 # 01: The daemon binds and accepts the addresses the user sets
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/dev-container/spec.md`
