@@ -136,13 +136,25 @@ function refresh($: Engine, kept: Kept): void {
   kept.latest = draw($, kept);
 }
 
+/**
+ * The first refreshes of a session: Claude Code starts the mod before the `binnacle` server has connected, so until a
+ * refresh answers, ask again every half second, as long as the context hook waits. Never throws.
+ */
+async function start($: Engine, kept: Kept): Promise<void> {
+  refresh($, kept);
+  for (let tries = 1; tries < START_WAIT_MS / RETRY_MS && (await kept.latest) === null; tries += 1) {
+    await $.clock.sleep(RETRY_MS).catch(() => {});
+    refresh($, kept);
+  }
+}
+
 // A function declaration: `claude plugin validate` reads `register` off the bundle's source and refuses an arrow bound to a name.
 // Each refresh runs unawaited: Claude Code awaits `session.start` before the first prompt, and a snapshot on a cold forge
 // cache takes seconds.
 export function register(on: On): void {
   const kept: Kept = { latest: Promise.resolve(null), shown: null, drawn: '[null,null]', seen: undefined, started: 0, drawnBy: 0, missed: false };
   on('session.start', async ($, e, next) => {
-    refresh($, kept);
+    void start($, kept);
     $.clock.every(REFRESH_MS, () => refresh($, kept));
     try {
       await $.command.register({ name: 'binnacle-pane', description: PANE_COMMAND[await readLanguage($)] });

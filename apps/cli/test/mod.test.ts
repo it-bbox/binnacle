@@ -440,8 +440,9 @@ test('silence: an MCP error, a missing binnacle server, a stopped daemon or an u
   const { state, run } = engine();
   state.answer = refused('daemon.unreachable');
   assert.deepEqual(await run('session.start', START), START);
-  assert.deepEqual(state.calls, [['binnacle', 'project_snapshot', { session: 'session-1' }]]);
-  assert.deepEqual(state.lines, [undefined]);
+  // A start that gets no answer asks again every half second, for as long as the context hook waits: sixteen tries.
+  assert.deepEqual(state.calls, Array.from({ length: 16 }, () => ['binnacle', 'project_snapshot', { session: 'session-1' }]));
+  assert.ok(state.lines.length > 0 && state.lines.every((line) => line === undefined));
   // Refreshed once a minute, the forge cache's own period.
   assert.deepEqual(state.timers.map((timer) => timer.ms), [60_000]);
 
@@ -544,7 +545,7 @@ test('a binnacle server still connecting at the start: the hook asks again, and 
   await first.run('session.start', START);
   first.state.answer = answered(snapshot(null, ON_MAIN));
   assert.deepEqual(await first.run('prompt.context', { blocks: [core] }), { blocks: [core, block] });
-  assert.equal(first.state.calls.length, 2);
+  assert.equal(first.state.calls.length, 17);
 
   // Connected half a second later than that: the hook asks every half second, inside its wait.
   const later = engine();
@@ -566,6 +567,16 @@ test('a binnacle server still connecting at the start: the hook asks again, and 
   assert.deepEqual(await run('prompt.context', { blocks: [core] }), { blocks: [core, block] });
   await run('session.measure', { ...FULL, changed: ['context'] });
   assert.equal(state.reread, 1);
+});
+
+test('a binnacle server still connecting at the start: the start asks every half second until a refresh answers, and draws the line', async () => {
+  const { state, run } = engine();
+  state.answers = [new Error('MCP server "binnacle" is not connected'), new Error('MCP server "binnacle" is not connected')];
+  state.answer = answered(snapshot(onTask));
+  await run('session.start', START);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(state.lines.at(-1), ON_TASK_EN);
+  assert.equal(state.calls.length, 3);
 });
 
 test("the mod's own read of the snapshot needs no one's leave; the model's call of the same tool stays under the rules", async () => {
