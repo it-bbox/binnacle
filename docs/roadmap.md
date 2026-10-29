@@ -67,7 +67,7 @@ Done: epics 1 to 22. **v1 is complete.**
 
 Next: epics 23 to 27, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28.
 
-Next action: grill epic 23, *Binnacle in a dev container*, from its line under *Epics*; the grilling ends with its Epic brief, `docs/specs/<slug>/brief.md`. `/grill-with-docs`
+Next action: specify epic 23, *Binnacle in a dev container*, from its grilling's brief, `docs/specs/dev-container/brief.md`. `/to-spec`
 
 ## Later
 
@@ -80,6 +80,7 @@ Deferred deliberately, each with the decision that deferred it and when it comes
 | Autopilot notifications through a Telegram bot, beside its push notification | `ADR-0022` | — |
 | Cost computed from a price table | `specs/telemetry/spec.md` | a subscription makes such a number conditional, so not yet |
 | Changing a local ticket's `Status:` from the dashboard | a new ADR narrowing `ADR-0020` | working with the read-only dashboard shows it is needed |
+| One dashboard listing or reading other daemons, one per container | `specs/dev-container/brief.md` | users with many containers ask for it |
 | Forking the Matt Pocock skills into the `binnacle` plugin | — | a skill's procedure, not just its conventions in `docs/agents/`, has to change |
 | Reading a record's branch again from a checkout's reflog, for records stored before ADR-0029's order or whose lookup failed | `ADR-0030` | it matters in practice |
 | Autopilot resuming by itself once a usage limit resets (done by hand on 2026-09-25) | `ADR-0022` | limits interrupt runs often |
