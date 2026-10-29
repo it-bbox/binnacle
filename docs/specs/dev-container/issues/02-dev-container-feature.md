@@ -1,6 +1,6 @@
 # 02: Binnacle's dev container feature
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 01
 Spec: `docs/specs/dev-container/spec.md`
