@@ -142,3 +142,9 @@ Found while epic 21's tickets ran, not planned yet:
 
 - **In progress from activity, outside the snapshot.** Since hygiene-after-0-4-0/02 the snapshot drops a run that started before the latest `git merge` of its Task's branch, but the board (`latestRuns` in `apps/daemon/src/usage.ts`, read by `apps/daemon/src/board.ts`), `/binnacle:daily`'s delta (`readAttributed` in `apps/daemon/src/operations.ts`) and the dashboard's Task page (`fromRuns` in `apps/dashboard/app/pages/task.vue`) still read a merged `READY` Task as in progress, so `/binnacle:product` and `/binnacle:daily` can disagree on what waits for the owner. Applying `sinceMerge` in `latestRuns`, before the latest run is chosen, would bring the board and the delta along with usage untouched (the ticket's `## Comments`).
 - **`/binnacle:answer` and a ticket's path.** It passes its argument to `task_get`, which takes a ticket's path since hygiene-after-0-4-0/01, while its text names only the Task id forms.
+
+## Left after epic 22's tickets (2026-10-29)
+
+Found while epic 22's tickets ran, not planned yet:
+
+- **`/binnacle:init` from the chat never offers the mod.** `binn init --plan --json` has no `mod.ask` and the skill passes no `--mod`, while the spec fixes that `--plan` and `--apply` decline without the flag. Offering it there is new scope: a `mod: { ask }` field beside `autostart`, and a step in the init skill and its copy (ticket claude-code-mod/06's Review).

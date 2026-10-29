@@ -2,7 +2,7 @@
 
 Status: READY
 Triage: ready-for-human
-Blocked by: 01, 02, 03, 04, 05, 06
+Blocked by: 01, 02, 03, 04, 05, 06, 08
 Spec: `docs/specs/claude-code-mod/spec.md`
 
 **What to build:** epic 22's exit criterion, demonstrated by the owner, then the 0.6.0 release (spec, the exit criterion, *The release*).
