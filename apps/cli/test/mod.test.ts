@@ -419,7 +419,9 @@ function engine(locale: Record<string, string> = { LANG: 'C' }, store = new Map<
     hooks.get('ui.render AbovePrompt')!($, { surface: 'terminal', component: 'AbovePrompt', props: { hasSurvey: false, ...props } }, async () => 'beneath');
   /** The pane's tree. */
   const pane = () => hooks.get('ui.render Pane')!($, { surface: 'terminal', component: 'Pane', requestId: 'binnacle', props: {} }, async () => 'beneath');
-  return { state, run, band, pane };
+  /** The permission check on a tool call, asked with `next` raised by a plugin (`next.origin`). */
+  const check = (e: unknown, next: unknown) => hooks.get('tool.check')!($, e, next);
+  return { state, run, band, pane, check };
 }
 /** Claude Code's global JSX factory, giving plain data. */
 (globalThis as { h?: unknown }).h = (type: string, props: object | null, ...children: unknown[]) => ({ type, props, children });
@@ -542,6 +544,15 @@ test('a binnacle server still connecting at the start: the hook asks again, and 
   assert.deepEqual(await run('prompt.context', { blocks: [core] }), { blocks: [core, block] });
   await run('session.measure', { ...FULL, changed: ['context'] });
   assert.equal(state.reread, 1);
+});
+
+test("the mod's own read of the snapshot needs no one's leave; the model's call of the same tool stays under the rules", async () => {
+  const { check } = engine();
+  const beneath = async () => ({ decision: 'ask' });
+  const raised = (plugin: string) => Object.assign(beneath, { origin: { plugin, tier: 'user' } });
+  assert.deepEqual(await check({ tool: 'mcp__binnacle__project_snapshot', input: {} }, raised('binnacle-mod')), { decision: 'allow' });
+  assert.deepEqual(await check({ tool: 'mcp__binnacle__project_snapshot', input: {} }, raised('engine')), { decision: 'ask' });
+  assert.deepEqual(await check({ tool: 'mcp__binnacle__project_snapshot', input: {} }, raised('another-mod')), { decision: 'ask' });
 });
 
 test('the command is registered at the start, opens the pane, and closes it on a second run; the pane never opens by itself', async () => {
