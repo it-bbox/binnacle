@@ -125,6 +125,13 @@ test("the mod's version is drawn from its files: the same build gives the same v
   assert.equal(prepareMod(join(dir, 'again')), version);
 });
 
+/** Claude-code-mod/08: the MCP and skills reference describes the mod, what it draws, what it reads and its silence. */
+test('the MCP and skills reference describes binnacle-mod', () => {
+  const mod = docText('docs/03-mcp-and-skills.md').split('\n## The Binnacle mod\n')[1]?.split('\n## ')[0] ?? '';
+  for (const part of ['`binnacle-mod`', 'status line', '*Waiting for you*', '`/binnacle-pane`', 'toast', 'session-start lines', '`project_snapshot`', '`session`', 'ADR-0047']) assert.ok(mod.includes(part), part);
+  assert.match(mod, /daemon is stopped[^.]*shows nothing/);
+});
+
 /** Epic 9: Claude Code's `plugin update` refreshes its copy only when the version changes, and a manifest with none installs as `unknown` for good. */
 test('the packaged plugin\'s version changes when a skill\'s text changes, and stays the same when nothing does', (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'binnacle-version-'));
