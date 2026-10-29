@@ -148,3 +148,5 @@ Found while epic 21's tickets ran, not planned yet:
 Found while epic 22's tickets ran, not planned yet:
 
 - **`/binnacle:init` from the chat never offers the mod.** `binn init --plan --json` has no `mod.ask` and the skill passes no `--mod`, while the spec fixes that `--plan` and `--apply` decline without the flag. Offering it there is new scope: a `mod: { ask }` field beside `autostart`, and a step in the init skill and its copy (ticket claude-code-mod/06's Review).
+- **A harness without global skills fails `binn init`'s skills step.** Every run reports «ошибка … PromptScript does not support global skill installation (англ.)» for a harness the skills CLI now finds; it reads better as a skip with its reason worded.
+- **A new session's Task reaches the mod's line about a minute late.** Its file reaches the snapshot at the importer's next pass, so the status line shows the role and Task only a minute after the first turn (claude-code-mod/07's run).
