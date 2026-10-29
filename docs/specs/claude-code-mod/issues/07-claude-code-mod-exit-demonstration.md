@@ -8,12 +8,12 @@ Spec: `docs/specs/claude-code-mod/spec.md`
 **What to build:** epic 22's exit criterion, demonstrated by the owner, then the 0.6.0 release (spec, the exit criterion, *The release*).
 
 - [x] `binn init` asks whether to install the mod, declines on Enter, and installs it on a yes.
-- [ ] In the terminal and in the desktop app, the status line shows the Task and role on a ticket's branch and the role on `main`, with tokens, context and the usage limits, beside the owner's own `statusLine`.
+- [x] In the terminal and in the desktop app, the status line shows the Task and role on a ticket's branch and the role on `main`, with tokens, context and the usage limits, beside the owner's own `statusLine`.
 - [x] The band shows a question recorded on a ticket's branch and is gone once the question is answered.
 - [x] `binnacle-pane` opens and closes the pane, in a terminal narrower than 144 columns and in the desktop app, and its buttons put their commands in the prompt box without sending them.
 - [ ] With two sessions open, a failing CI on `main` toasts in one of them.
 - [x] A session on `main` starts with the session-start lines, and a session on a ticket's branch without them.
-- [ ] With the daemon stopped, the mod shows nothing and says nothing.
+- [x] With the daemon stopped, the mod shows nothing and says nothing.
 - [x] `claude plugin validate` on the built mod is clean.
 - [ ] The CLI package's version is 0.6.0; 0.6.0 is published by `CONTRIBUTING.md`'s *Releasing* and installed from the registry into a clean container, where `binn daemon status` gives 0.6.0.
 
@@ -72,6 +72,9 @@ The branch merged into `main` with `git merge --no-ff` (`9e499af`) while this ti
 - The band and the pane polished at the owner's ask: the band's CI line short, its branch and commit, without the forge and the link; in the pane, CI once, in its own section, red when failing and green when passing, the Next action's command on its button alone, and the sections a row apart.
 - **Criterion 4** holds (the owner, 2026-10-29): `/binnacle-pane` opened and closed the pane in a terminal narrower than 144 columns and in the desktop app; its button put `/binnacle:task run docs/specs/claude-code-mod/issues/07-claude-code-mod-exit-demonstration.md` in the prompt box and sent nothing.
 - **Criterion 3** holds (the owner, 2026-10-29): the question below, recorded on this branch, showed in the band as «Вопросы без ответа: 1 (claude-code-mod/07)»; answered with `/binnacle:answer`, it left the band within a minute and a session toasted «Получен ответ на вопрос по claude-code-mod/07».
+- **Criterion 2** holds (the owner, 2026-10-29). The desktop app draws a plugin's status line in its bottom bar, beside the model: on `main`, «binnacle-mod продуктовая сессия · 138,5 тыс. вых…»; in a desktop session on `../binnacle-07`, «binnacle-mod: claude-code-mod/07 доработка · 160 выходных токенов (по активности) · контекст 9% · 5 ч 33% · 7 дн 31%», once the session's file reached the snapshot, about a minute in.
+- Found on the way: back in a desktop session the line and the band were gone until the next message. A session the app starts again runs `session.start` before the `binnacle` server connects, as the context does, and the next refresh came a minute later. **Fixed**: the start asks every half second until a refresh answers, as long as the context hook waits; in an interactive `claude --debug` the line was drawn 4.4 s after the start with no message, the snapshot itself taking 3.8 s.
+- **Criterion 7** holds (the owner, 2026-10-29): with the daemon stopped by `binn daemon stop`, the status line and Binnacle's part of the band went within a minute, `memory-band`'s rows staying, and nothing in the chat or the toasts named the daemon. Started again, the line came back at the next refresh.
 
 ### Question
 
