@@ -32,7 +32,7 @@ Epics 1 to 19 are v1.
 | 20 | Hygiene after v1 | done | [`hygiene-after-v1`](specs/hygiene-after-v1/spec.md) |
 | 21 | Hygiene after 0.4.0 | done | [`hygiene-after-0-4-0`](specs/hygiene-after-0-4-0/spec.md) |
 | 22 | A Binnacle mod for Claude Code | done | [`claude-code-mod`](specs/claude-code-mod/spec.md) |
-| 23 | Binnacle in a dev container | tickets | [`dev-container`](specs/dev-container/spec.md) |
+| 23 | Binnacle in a dev container | in progress | [`dev-container`](specs/dev-container/spec.md) |
 | 24 | Showcase and launch | not started | — |
 | 25 | Cheaper runs | not started | — |
 | 26 | Binnacle's own planning skills | not started | — |
