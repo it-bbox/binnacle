@@ -7,7 +7,7 @@ Spec: `docs/specs/claude-code-mod/spec.md`
 
 **What to build:** epic 22's exit criterion, demonstrated by the owner, then the 0.6.0 release (spec, the exit criterion, *The release*).
 
-- [ ] `binn init` asks whether to install the mod, declines on Enter, and installs it on a yes.
+- [x] `binn init` asks whether to install the mod, declines on Enter, and installs it on a yes.
 - [ ] In the terminal and in the desktop app, the status line shows the Task and role on a ticket's branch and the role on `main`, with tokens, context and the usage limits, beside the owner's own `statusLine`.
 - [ ] The band shows a question recorded on a ticket's branch and is gone once the question is answered.
 - [ ] `binnacle-pane` opens and closes the pane, in a terminal narrower than 144 columns and in the desktop app, and its buttons put their commands in the prompt box without sending them.
@@ -57,3 +57,10 @@ None found: the version moved where 0.5.0's did (`apps/cli/package.json`, `SECUR
 - Criterion 1's plan item adds the marketplace first, since the main checkout skips the plugin step. **Fixed**: both commands named.
 - Criterion 7 stopped the service by `systemctl`. **Fixed**: `binn daemon stop` and `start`, which go through the service.
 - The mod's `author` repeats the marketplace's owner in `prepare.ts`: kept, `pack.test.ts` catches a drift.
+
+### The owner's run
+
+The branch merged into `main` with `git merge --no-ff` (`9e499af`) while this ticket said `Status: READY`; then *After a pull or a merge*: `prepare`, the marketplace and `binnacle@binnacle` updated, the `binnacle-*` skills reinstalled, the dashboard generated, and the daemon restarted by its service, `binn daemon status` giving `0.6.0`.
+
+- **Criterion 1** holds (the owner, 2026-10-29), `binn init` in a terminal in the main checkout. First run: the question "[y/N]", Enter, and the Summary's «мод Binnacle: отклонён, поставить его можно позже командой `claude plugin install binnacle-mod@binnacle --scope user`»; `claude plugin list` did not list `binnacle-mod`. Second run: `y`, and the plan's item 2 ran `claude plugin marketplace add …/apps/cli --scope user` then `claude plugin install binnacle-mod@binnacle --scope user`; `claude plugin list` lists `binnacle-mod@binnacle`, enabled. A third run, by the agent without a terminal, did not ask: «мод Binnacle: Claude Code уже показывает binnacle-mod@binnacle».
+- Found on the way: every run's skills step reports «ошибка … PromptScript does not support global skill installation (англ.)», a harness the skills CLI now finds that has no global skills. Left: for the product inbox, as a skip with its reason worded.
