@@ -187,7 +187,7 @@ test('Claude Code validates the built mod and runs its hooks test', { skip, time
   // submission rules (a README, a licence beside the plugin), which the result does not depend on.
   const engine = validate.stdout.split('Plugin directory checks')[0]!;
   assert.doesNotMatch(engine, /✘/, validate.stdout);
-  assert.match(engine, /hooks: session\.start, command\.run\{command=binnacle-pane\}, ui\.render\{component=Pane, requestId=binnacle\}, session\.measure, ui\.render\{component=AbovePrompt\}, prompt\.context/, validate.stdout);
+  assert.match(engine, /hooks: session\.start, command\.run\{command=binnacle-pane\}, ui\.render\{component=Pane, requestId=binnacle\}, tool\.check\{tool=mcp__binnacle__project_snapshot\}, session\.measure, ui\.render\{component=AbovePrompt\}, prompt\.context/, validate.stdout);
   // The command's hook answers for itself, rather than standing as a gate on every command run.
   assert.match(engine, /answers its own command: command\.run\{command=binnacle-pane\}/, validate.stdout);
 
