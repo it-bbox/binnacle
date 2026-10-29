@@ -185,7 +185,10 @@ export function register(on: On): void {
     const band = kept.shown?.band;
     if (band === undefined || e.props.hasSurvey) return next(e);
     const { Box, Text } = $.ui.resolve(e);
-    return h(Box, { flexDirection: 'column' }, h(Text, { bold: true, color: 'warning' }, band.title), ...band.items.map((item) => h(Text, null, item)));
+    const waiting = h(Box, { flexDirection: 'column' }, h(Text, { bold: true, color: 'warning' }, band.title), ...band.items.map((item) => h(Text, null, item)));
+    // The band is one instance: what a plugin beneath draws there stays, under Binnacle's.
+    const beneath = await next(e);
+    return beneath ? h(Box, { flexDirection: 'column' }, waiting, beneath) : waiting;
   });
   // Once per conversation, when its first message's context is computed: the project's position, off a Task's branch only.
   on('prompt.context', async ($, e, next) => {
