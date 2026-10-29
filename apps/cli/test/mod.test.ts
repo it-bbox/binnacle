@@ -360,7 +360,9 @@ function engine(locale: Record<string, string> = { LANG: 'C' }, store = new Map<
   const hooks = new Map<string, (...args: unknown[]) => unknown>();
   const state = {
     answer: null as Answer | null,
-    /** Holds the server's answer back until it settles; `sleep` settles a `$.clock.sleep`, never by default. */
+    /** Answers given before `answer`, one per call. */
+    answers: [] as Answer[],
+    /** Holds the server's answer back until it settles; `sleep` settles the context hook's wait, never by default, and a shorter sleep settles at once. */
     held: Promise.resolve(),
     sleep: new Promise<void>(() => {}),
     lines: [] as (string | undefined)[],
@@ -382,13 +384,14 @@ function engine(locale: Record<string, string> = { LANG: 'C' }, store = new Map<
       call: async (...args: unknown[]) => {
         state.calls.push(args);
         await state.held;
-        if (state.answer instanceof Error) throw state.answer;
-        return state.answer!;
+        const answer = state.answers.shift() ?? state.answer;
+        if (answer instanceof Error) throw answer;
+        return answer!;
       },
     },
     session: { id: async () => 'session-1', usage: async () => ({ startedAt: 0, ...FULL }) },
     env: { get: async (name: string) => locale[name] },
-    clock: { every: (ms: number, fn: () => void) => (state.timers.push({ ms, fn }), { cancel: () => {} }), sleep: () => state.sleep },
+    clock: { every: (ms: number, fn: () => void) => (state.timers.push({ ms, fn }), { cancel: () => {} }), sleep: (ms: number) => (ms >= 8_000 ? state.sleep : Promise.resolve()) },
     store: { get: async (key: string) => store.get(key), set: async (key: string, value: unknown) => void store.set(key, JSON.parse(JSON.stringify(value))) },
     ui: {
       toast: (text: string) => void state.toasts.push(text),
@@ -531,6 +534,14 @@ test('a binnacle server still connecting at the start: the hook asks again, and 
   first.state.answer = answered(snapshot(null, ON_MAIN));
   assert.deepEqual(await first.run('prompt.context', { blocks: [core] }), { blocks: [core, block] });
   assert.equal(first.state.calls.length, 2);
+
+  // Connected half a second later than that: the hook asks every half second, inside its wait.
+  const later = engine();
+  later.state.answers = [connecting, connecting, connecting];
+  later.state.answer = answered(snapshot(null, ON_MAIN));
+  await later.run('session.start', START);
+  assert.deepEqual(await later.run('prompt.context', { blocks: [core] }), { blocks: [core, block] });
+  assert.equal(later.state.calls.length, 4);
   assert.equal(first.state.reread, 0);
 
   // Still connecting when the context is computed: the first answer after it asks for the context again, once.

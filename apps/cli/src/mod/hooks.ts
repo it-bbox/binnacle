@@ -15,6 +15,8 @@ const REFRESH_MS = 60_000;
 
 /** How long the session-start lines wait on the refresh under way, inside Claude Code's 10-second budget for a hook. */
 const START_WAIT_MS = 8_000;
+/** How often the context hook asks again while the `binnacle` server is still connecting. */
+const RETRY_MS = 500;
 
 /**
  * The few parts of Claude Code's `$` the mod uses, typed here: the engine's own declarations are written by
@@ -191,8 +193,10 @@ export function register(on: On): void {
     // A daemon slower than the wait adds nothing, rather than fail the hook.
     const timeout = $.clock.sleep(START_WAIT_MS).then(() => null);
     let shown = await Promise.race([kept.latest, timeout]);
-    // The `binnacle` server may still have been connecting at the start: ask once more, inside the same wait.
-    if (shown === null) {
+    // Claude Code computes this context as the session starts, before the `binnacle` server has connected: ask again
+    // every half second, inside the same wait.
+    for (let tries = 1; shown === null && tries < START_WAIT_MS / RETRY_MS; tries += 1) {
+      if ((await Promise.race([$.clock.sleep(RETRY_MS).then(() => true), timeout])) === null) break;
       refresh($, kept);
       shown = await Promise.race([kept.latest, timeout]);
     }
