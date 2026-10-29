@@ -318,7 +318,7 @@ describe('the bind address and the allowed Host values', () => {
     }
     assert.deepEqual(resolveAllowedHosts({}), []);
     assert.deepEqual(resolveAllowedHosts({ BINNACLE_ALLOWED_HOSTS: ' 127.0.0.1:7718 , LocalHost:7718,' }), ['127.0.0.1:7718', 'localhost:7718']);
-    for (const value of ['localhost', '127.0.0.1:7718,localhost', 'localhost:']) {
+    for (const value of ['localhost', '127.0.0.1:7718,localhost', 'localhost:', 'localhost:0', 'localhost:70000', 'a:b:80']) {
       assert.throws(() => resolveAllowedHosts({ BINNACLE_ALLOWED_HOSTS: value }), /BINNACLE_ALLOWED_HOSTS takes comma-separated host:port values/, value);
     }
   });

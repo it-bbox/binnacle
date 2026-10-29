@@ -114,12 +114,14 @@ A checkout's development link runs `binn` through pnpm instead: see [CONTRIBUTIN
 
 ### Environment variables
 
-The daemon reads all five from its own environment, so restart it after changing one. With autostart on, the service starts the daemon with `BINNACLE_HOME` and `PATH` only: the others do not reach it, so keep tracker tokens in the credentials file.
+The daemon reads all seven from its own environment, so restart it after changing one. With autostart on, the service starts the daemon with `BINNACLE_HOME` and `PATH` only: the others do not reach it, so keep tracker tokens in the credentials file.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `BINNACLE_HOME` | `~/.binnacle` | Where Binnacle keeps the daemon's runtime file, the API token, the store, the tracker credentials and this machine's settings. Point it elsewhere for a throwaway instance beside the real one. |
-| `BINNACLE_PORT` | `7717` | The loopback port the daemon binds. `0` takes an ephemeral port. |
+| `BINNACLE_PORT` | `7717` | The port the daemon binds. `0` takes an ephemeral port. |
+| `BINNACLE_HOST` | `127.0.0.1` | The address the daemon binds: `127.0.0.1`, or `0.0.0.0` inside a container. Any other value stops the daemon from starting. |
+| `BINNACLE_ALLOWED_HOSTS` | none | Comma-separated `host:port` values the daemon accepts as `Host` beyond its own address, such as the port a container publishes to the host: `127.0.0.1:7718,localhost:7718`. `binn dashboard` gives the first. |
 | `BINNACLE_GIT_TIMEOUT_MS` | `5000` | How long one read-only `git` call may take before `project.status` reports Git facts unavailable. Raise it on a slow filesystem. |
 | `BINNACLE_GITHUB_TOKEN` | none | A read-only token for every project whose `tracker.provider` is `github`, and for the CI of every project whose Git remote is on `github.com`. |
 | `BINNACLE_GITLAB_TOKEN` | none | A read-only token for every project whose `tracker.provider` is `gitlab`, and for the CI of every project whose Git remote is on `gitlab.com`. |

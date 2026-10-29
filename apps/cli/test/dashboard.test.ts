@@ -114,6 +114,7 @@ test('binn dashboard in a container with no browser prints the allowed address, 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout, 'http://127.0.0.1:7718/\n');
   assert.match(result.stderr, /could not open a browser/);
+  assert.ok(!(result.stdout + result.stderr).includes(daemon.token));
 });
 
 test('binn daemon status shows the bound address and every address the daemon accepts', async (t) => {

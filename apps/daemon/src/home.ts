@@ -49,7 +49,8 @@ export function resolveAllowedHosts(env: NodeJS.ProcessEnv = process.env): strin
   const values = (env.BINNACLE_ALLOWED_HOSTS ?? '').split(',').map((value) => value.trim().toLowerCase()).filter(Boolean);
   for (const value of values) {
     // A `Host` header carries the port of a daemon off port 80, so a value without one could never match.
-    if (!/^[^\s/]+:\d{1,5}$/.test(value)) {
+    const port = Number(/^[^\s/:]+:(\d{1,5})$/.exec(value)?.[1]);
+    if (!(port >= 1 && port <= 65535)) {
       throw new Error(`BINNACLE_ALLOWED_HOSTS takes comma-separated host:port values, such as 127.0.0.1:7718,localhost:7718, got ${JSON.stringify(value)}`);
     }
   }
