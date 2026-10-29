@@ -32,7 +32,7 @@ claude plugin disable binnacle-mod
 claude plugin uninstall binnacle-mod
 ```
 
-More: [The Binnacle mod for Claude Code](docs/operations/05-installation-checklist.md#the-binnacle-mod-for-claude-code). If a harness cannot find `binn`, see [the installation checklist](docs/operations/05-installation-checklist.md#when-a-harness-cannot-find-binn). To develop Binnacle itself, see [CONTRIBUTING.md](CONTRIBUTING.md#from-this-repository).
+More: [The Binnacle mod for Claude Code](docs/operations/05-installation-checklist.md#the-binnacle-mod-for-claude-code). If a harness cannot find `binn`, see [the installation checklist](docs/operations/05-installation-checklist.md#when-a-harness-cannot-find-binn). To run Binnacle inside your app's dev container or `docker compose` service, see [Binnacle in a container](docs/operations/07-containers.md). To develop Binnacle itself, see [CONTRIBUTING.md](CONTRIBUTING.md#from-this-repository).
 
 ## New project: the short path
 
@@ -77,6 +77,7 @@ What each level means and how each harness is reached: [Working from another har
 - [Security and resilience](docs/operations/04-security-resilience.md)
 - [Installation checklist](docs/operations/05-installation-checklist.md)
 - [Working from another harness](docs/operations/06-other-harnesses.md)
+- [Binnacle in a container](docs/operations/07-containers.md)
 - [Contributing](CONTRIBUTING.md) and the [security policy](SECURITY.md)
 
 ## Further reading

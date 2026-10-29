@@ -2,7 +2,7 @@
 
 _English version: [05-installation-checklist.md](05-installation-checklist.md). Этот файл — русский дубликат; обновляется вместе с `05-installation-checklist.md`._
 
-От чистой машины до запущенного демона, его dashboard и первого проекта, с проверкой после каждого шага. Чтобы вместо этого разрабатывать Binnacle из checkout, см. [CONTRIBUTING.ru.md](../../CONTRIBUTING.ru.md#из-этого-репозитория).
+От чистой машины до запущенного демона, его dashboard и первого проекта, с проверкой после каждого шага. Чтобы вместо этого запустить Binnacle в контейнере приложения, см. [Binnacle в контейнере](07-containers.ru.md); чтобы разрабатывать его из checkout — [CONTRIBUTING.ru.md](../../CONTRIBUTING.ru.md#из-этого-репозитория).
 
 ## 1. Что нужно заранее
 

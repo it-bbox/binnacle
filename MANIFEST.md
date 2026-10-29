@@ -45,6 +45,7 @@
 - `docs/operations/04-security-resilience.md`
 - `docs/operations/05-installation-checklist.md`
 - `docs/operations/06-other-harnesses.md`
+- `docs/operations/07-containers.md`
 
 ## Accepted ADRs
 

@@ -32,7 +32,7 @@ claude plugin disable binnacle-mod
 claude plugin uninstall binnacle-mod
 ```
 
-Подробнее: [Мод Binnacle для Claude Code](docs/operations/05-installation-checklist.ru.md#мод-binnacle-для-claude-code). Если harness не находит `binn`, см. [чек-лист установки](docs/operations/05-installation-checklist.ru.md#когда-harness-не-находит-binn). Разработка самого Binnacle — в [CONTRIBUTING.ru.md](CONTRIBUTING.ru.md#из-этого-репозитория).
+Подробнее: [Мод Binnacle для Claude Code](docs/operations/05-installation-checklist.ru.md#мод-binnacle-для-claude-code). Если harness не находит `binn`, см. [чек-лист установки](docs/operations/05-installation-checklist.ru.md#когда-harness-не-находит-binn). Как запустить Binnacle в dev container или сервисе `docker compose` вашего приложения — в [Binnacle в контейнере](docs/operations/07-containers.ru.md). Разработка самого Binnacle — в [CONTRIBUTING.ru.md](CONTRIBUTING.ru.md#из-этого-репозитория).
 
 ## Быстрый путь нового проекта
 
@@ -77,6 +77,7 @@ claude plugin uninstall binnacle-mod
 - [Безопасность и устойчивость](docs/operations/04-security-resilience.ru.md)
 - [Чек-лист установки](docs/operations/05-installation-checklist.ru.md)
 - [Работа из другого harness](docs/operations/06-other-harnesses.ru.md)
+- [Binnacle в контейнере](docs/operations/07-containers.ru.md)
 - [Участие в разработке](CONTRIBUTING.ru.md) и [политика безопасности](SECURITY.ru.md)
 
 ## Что почитать дальше
