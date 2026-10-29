@@ -78,12 +78,16 @@ test('binn --help is Russian under a Russian locale and English otherwise, LC_AL
     if (language === 'ru') {
       assert.match(help.stdout, /^Использование:$/m, name);
       assert.match(help.stdout, /binn daemon start {5}Запустить демон Binnacle/, name);
+      assert.match(help.stdout, /^ {2}BINNACLE_HOST {9}Адрес, на котором слушает демон/m, name);
+      assert.match(help.stdout, /^ {2}BINNACLE_ALLOWED_HOSTS {2}Значения host:port через запятую/m, name);
       assert.match(callHelp.stdout, /^Использование: binn call <tool> \[json\]$/m, name);
       assert.match(callHelp.stdout, /^Инструменты:$/m, name);
       assert.match(unknown.stderr, /^binn: неизвестная команда "no-such-command"\./, name);
     } else {
       assert.match(help.stdout, /^Usage:$/m, name);
       assert.match(help.stdout, /binn daemon start {5}Start the Binnacle daemon/, name);
+      assert.match(help.stdout, /^ {2}BINNACLE_HOST {9}Address the daemon binds/m, name);
+      assert.match(help.stdout, /^ {2}BINNACLE_ALLOWED_HOSTS {2}Comma-separated host:port values/m, name);
       assert.match(callHelp.stdout, /^Usage: binn call <tool> \[json\]$/m, name);
       assert.match(unknown.stderr, /^binn: unknown command "no-such-command"\./, name);
     }
@@ -135,6 +139,10 @@ test('binn daemon, project and dashboard speak the locale, with no code in their
   assert.match(ru.stdout, /^Демон Binnacle работает\.$/m);
   assert.match(en.stdout, /^Binnacle daemon is running\.$/m);
   assert.match(en.stdout, /^ {2}address {2}http:\/\/127\.0\.0\.1:\d+$/m);
+  assert.match(en.stdout, /^ {2}bound {4}127\.0\.0\.1$/m);
+  assert.match(en.stdout, /^ {2}accepts {2}127\.0\.0\.1:\d+$/m);
+  assert.match(ru.stdout, /^ {2}слушает {7}127\.0\.0\.1$/m);
+  assert.match(ru.stdout, /^ {2}принимает {5}127\.0\.0\.1:\d+$/m);
 
   // A registration with a warning: worded in Russian from its code and params, on stderr.
   ({ ru, en } = both(project, 'project', 'register'));

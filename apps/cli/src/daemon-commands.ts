@@ -441,6 +441,9 @@ async function startService(service: Autostart): Promise<ExitCode> {
 function report(headline: string, runtime: Runtime): void {
   console.log(headline);
   console.log(row('address', `http://${runtime.host}:${runtime.port}`));
+  // A daemon older than 0.7.0 answers `daemon.status` without them: it bound `host` and accepted nothing else.
+  console.log(row('bound', runtime.bind ?? runtime.host));
+  console.log(row('accepts', [`${runtime.host}:${runtime.port}`, ...(runtime.allowedHosts ?? [])].join(', ')));
   console.log(row('pid', String(runtime.pid)));
   console.log(row('since', runtime.startedAt));
   console.log(row('version', runtime.version));

@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { ArtifactRoots, Runtime } from './home.ts';
+import type { ArtifactRoots, BindAddress, Runtime } from './home.ts';
 import { OPS_PREFIX, startDaemon } from './server.ts';
 
 /**
@@ -41,13 +41,15 @@ export type TestDaemon = {
  * answer a test changes is read anew.
  */
 export async function startTestDaemon(
-  options: { home?: string; artifacts?: Partial<ArtifactRoots>; ingestBudgetMs?: number; settledAfterMs?: number; dashboard?: string; searchPath?: string; graphPollMs?: number; vaultPollMs?: number; forgeCacheMs?: number } = {},
+  options: { home?: string; bind?: BindAddress; allowedHosts?: string[]; artifacts?: Partial<ArtifactRoots>; ingestBudgetMs?: number; settledAfterMs?: number; dashboard?: string; searchPath?: string; graphPollMs?: number; vaultPollMs?: number; forgeCacheMs?: number } = {},
 ): Promise<TestDaemon> {
   const home = options.home ?? mkdtempSync(join(tmpdir(), 'binnacle-test-'));
   const temporary = options.home === undefined;
   const daemon = await startDaemon({
     home,
     port: 0,
+    ...(options.bind === undefined ? {} : { bind: options.bind }),
+    ...(options.allowedHosts === undefined ? {} : { allowedHosts: options.allowedHosts }),
     artifacts: { claudeCode: join(home, 'no-claude-code-artifacts'), codex: join(home, 'no-codex-sessions'), geminiCli: join(home, 'no-gemini-cli-sessions'), opencode: join(home, 'no-opencode-data'), zcode: join(home, 'no-zcode-db'), antigravity: join(home, 'no-antigravity-data'), antigravityState: join(home, 'no-antigravity-state.vscdb'), pi: join(home, 'no-pi-sessions'), ...options.artifacts },
     ...(options.ingestBudgetMs === undefined ? {} : { ingestBudgetMs: options.ingestBudgetMs }),
     settledAfterMs: options.settledAfterMs ?? 0,

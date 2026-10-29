@@ -6,7 +6,7 @@ import { reportFailure, requireToken } from './report.ts';
 import { T } from './text.ts';
 
 /**
- * `binn dashboard`: the daemon's own address, with the token in the fragment, which never
+ * `binn dashboard`: the daemon's own address, or the first `Host` value it allows, with the token in the fragment, which never
  * reaches a server; the page moves it into the browser's storage (ADR-0031). The daemon
  * serves the page, so one that does not answer leaves nothing to open. Opening prints the
  * address without the token, since a skill's shell output reaches the model's provider;
@@ -25,7 +25,8 @@ export async function dashboard(home: string, print: boolean): Promise<ExitCode>
     return reportFailure(error);
   }
 
-  const bareAddress = `http://${runtime.host}:${runtime.port}/`;
+  // In a container, the first allowed value is where the host's browser reaches the daemon (ADR-0031, ADR-0048).
+  const bareAddress = `http://${runtime.allowedHosts[0] ?? `${runtime.host}:${runtime.port}`}/`;
   const address = `${bareAddress}#token=${token}`;
   console.log(print ? address : bareAddress);
   if (!print) open(address);

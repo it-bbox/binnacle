@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { request } from 'node:http';
+import { networkInterfaces, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { after, describe, it } from 'node:test';
@@ -333,6 +334,48 @@ describe('Claude Code’s OpenTelemetry', () => {
       assert.equal((await post(daemon, '/v1/logs', otlp([]), { 'content-type': 'application/json', origin: 'http://evil.example' })).status, 403);
       assert.equal((await totals(daemon, root)).records, 2);
     });
+  });
+});
+
+/** The machine's own first non-loopback IPv4 address, or null when it has none. */
+const OWN_ADDRESS = Object.values(networkInterfaces()).flat().find((entry) => entry?.family === 'IPv4' && !entry.internal)?.address ?? null;
+
+/** A raw POST over `address`, carrying the daemon's own `Host`, so that only the peer can refuse it. */
+function postOver(address: string, port: number, path: string, body: unknown): Promise<{ status: number; body: unknown }> {
+  return new Promise((resolve, reject) => {
+    const call = request({ host: address, port, path, method: 'POST', headers: { host: `127.0.0.1:${port}`, 'content-type': 'application/json' } }, (response) => {
+      let text = '';
+      response.setEncoding('utf8');
+      response.on('data', (chunk: string) => (text += chunk));
+      response.on('end', () => resolve({ status: response.statusCode ?? 0, body: text ? JSON.parse(text) : null }));
+    });
+    call.on('error', reject);
+    call.end(JSON.stringify(body));
+  });
+}
+
+/** The endpoint takes no token, so a daemon bound to every interface in a container takes calls from its own loopback only (ADR-0048). */
+describe('the OpenTelemetry endpoint’s peer', () => {
+  it('takes a call over loopback from a daemon bound to every interface, as from one bound to loopback', async () => {
+    const daemon = await startTestDaemon({ bind: '0.0.0.0' });
+    try {
+      assert.deepEqual(await postOver('127.0.0.1', daemon.runtime.port, '/v1/logs', otlp([])), { status: 200, body: {} });
+    } finally {
+      await daemon.stop();
+    }
+  });
+
+  it('refuses a call over the machine’s own non-loopback address with request.forbidden_peer', { skip: OWN_ADDRESS === null && 'this machine has no non-loopback IPv4 address' }, async () => {
+    const daemon = await startTestDaemon({ bind: '0.0.0.0' });
+    try {
+      const refused = await postOver(OWN_ADDRESS!, daemon.runtime.port, '/v1/logs', otlp([]));
+      assert.equal(refused.status, 403);
+      const { error } = refused.body as { error: { code: string; params: unknown } };
+      assert.equal(error.code, 'request.forbidden_peer');
+      assert.deepEqual(error.params, { peer: OWN_ADDRESS });
+    } finally {
+      await daemon.stop();
+    }
   });
 });
 

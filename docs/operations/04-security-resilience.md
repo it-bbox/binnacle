@@ -41,20 +41,20 @@ CI read from a Git remote rather than the tracker goes to a host no manifest dec
 
 ## The local network
 
-The daemon listens on `127.0.0.1` only. Loopback is not an authentication boundary: any tab in the user's browser can reach it. There are no accounts, since there is one user; a token and two header checks guard the daemon instead.
+The daemon listens on `127.0.0.1` only, unless `BINNACLE_HOST` says `0.0.0.0`, as inside a container. Loopback is not an authentication boundary: any tab in the user's browser can reach it. There are no accounts, since there is one user; a token and two header checks guard the daemon instead.
 
 | Path | Token | What it does |
 | --- | --- | --- |
 | `GET /health` | none | Says whether a Binnacle daemon listens, and at which version; nothing else |
-| `POST /v1/logs` | none | Receives OpenTelemetry logs: a harness's exporter is configured with an endpoint and nothing else. It keeps each call's metadata and token counts, and answers no question |
+| `POST /v1/logs` | none | Receives OpenTelemetry logs: a harness's exporter is configured with an endpoint and nothing else. It keeps each call's metadata and token counts, and answers no question. It takes calls from this machine's loopback only, whatever the bind |
 | `POST /v1/metrics`, `POST /v1/traces` | none | Answered, not stored |
 | `POST /ops/<operation>` | bearer | Every operation: the CLI's, `binn mcp`'s and the dashboard's |
 | any other `GET` | none | The dashboard's generated files, which hold no project data |
 
 Every path, those without a token included, is checked twice:
 
-- `Host` must be exactly the address the daemon bound, `127.0.0.1:<port>`: not `localhost:<port>`, nor any other name for it.
-- `Origin`, when one is sent, must be `http://` and that same address.
+- `Host` must be exactly the daemon's own address, `127.0.0.1:<port>`, or a `host:port` value listed in `BINNACLE_ALLOWED_HOSTS`: not `localhost:<port>`, nor any other name, unless it is listed.
+- `Origin`, when one is sent, must be `http://` and one of those addresses.
 
 Together they defeat DNS rebinding. The dashboard's pages also carry a Content-Security-Policy: they load and connect nowhere but the daemon, and run only the inline scripts the served HTML holds.
 

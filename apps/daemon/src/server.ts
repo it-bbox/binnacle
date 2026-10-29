@@ -7,6 +7,8 @@ import { readOtlpLogs } from '@binnacle/adapters';
 import {
   DEFAULT_PORT,
   ensureHome,
+  EVERY_INTERFACE,
+  LOOPBACK,
   ensureToken,
   isAlive,
   readRuntime,
@@ -15,6 +17,7 @@ import {
   removeRuntime,
   tryClaimRuntime,
   writeRuntime,
+  type BindAddress,
   type Runtime,
 } from './home.ts';
 import { FORGE_CACHE_MS, setForgeCacheMs } from './ci.ts';
@@ -27,7 +30,6 @@ import { openStore } from './store.ts';
 import { importer, INGEST_BUDGET_MS, projectCheckouts, receiveTelemetry, SETTLED_AFTER_MS, startIngest, stopImporting } from './usage.ts';
 import { VERSION } from './version.ts';
 
-export const LOOPBACK = '127.0.0.1';
 export const HEALTH_PATH = '/health';
 export const OPS_PREFIX = '/ops/';
 /** OTLP over HTTP's paths: logs carry the calls; metrics and traces are answered and not stored, since they would count the same calls again. */
@@ -61,7 +63,10 @@ export type DaemonOptions = {
   home: string;
   /** `0` takes an ephemeral port. */
   port?: number;
-  host?: string;
+  /** `127.0.0.1` when omitted; `0.0.0.0` inside a container (ADR-0048). */
+  bind?: BindAddress;
+  /** The `Host` values accepted beyond the daemon's own address, as `resolveAllowedHosts` gives them; none when omitted. */
+  allowedHosts?: string[];
   /** Resolved from the environment when omitted. */
   artifacts?: Runtime['artifacts'];
   /** How long a call waits for its project's ingest; `0` never waits. */
@@ -88,18 +93,21 @@ export type Daemon = {
 };
 
 /**
- * Starts the daemon bound to loopback. Exactly one daemon per Binnacle home: a runtime
+ * Starts the daemon bound to loopback, or to every interface when `bind` says so. Exactly one daemon per Binnacle home: a runtime
  * file whose pid is alive refuses the start, a runtime file whose pid is gone is stale
  * and replaced.
  */
 export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
   const home = ensureHome(options.home);
-  const host = options.host ?? LOOPBACK;
+  const bind = options.bind ?? LOOPBACK;
   const requestedPort = options.port ?? DEFAULT_PORT;
   const runtime: Runtime = {
     pid: process.pid,
-    host,
+    // A client on this machine reaches a daemon bound to every interface over loopback.
+    host: bind === EVERY_INTERFACE ? LOOPBACK : bind,
     port: requestedPort,
+    bind,
+    allowedHosts: options.allowedHosts ?? [],
     startedAt: new Date().toISOString(),
     version: VERSION,
     artifacts: options.artifacts ?? resolveArtifactRoots(),
@@ -129,7 +137,7 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
     handle(request, response, context, token, options.dashboard ?? DASHBOARD_DIRECTORY).catch((error: unknown) => fail(response, error));
   });
   try {
-    await listen(server, host, requestedPort);
+    await listen(server, bind, requestedPort);
   } catch (error) {
     store.close();
     releaseRuntime(home, runtime.pid);
@@ -236,9 +244,15 @@ async function handle(
  * OpenTelemetry dependency decodes protobuf or a compressed body, and either is refused with
  * 415 so that the exporter says why. Like `/health` it needs no token, since an exporter is
  * configured with an endpoint and nothing else; the Host and Origin checks have already run,
- * and what it accepts is never more than the calls' metadata and token counts.
+ * and what it accepts is never more than the calls' metadata and token counts. Without a token,
+ * it takes calls from this machine's loopback only: a daemon bound to every interface in a
+ * container would otherwise take them from every other container on its network (ADR-0048).
  */
 async function receiveOtlp(request: IncomingMessage, response: ServerResponse, context: OperationContext, path: string): Promise<void> {
+  const peer = request.socket.remoteAddress ?? '';
+  if (!LOOPBACK_PEERS.has(peer)) {
+    return fail(response, new OperationError('request.forbidden_peer', `The OpenTelemetry endpoint takes calls from this machine's loopback only, not from ${peer}.`, 403, undefined, { peer }));
+  }
   if (request.method !== 'POST') return fail(response, methodNotAllowed(request.method, 'POST'));
   const type = (request.headers['content-type'] ?? '').split(';', 1)[0]!.trim().toLowerCase();
   const encoding = (request.headers['content-encoding'] ?? 'identity').trim().toLowerCase();
@@ -348,20 +362,27 @@ function inlineScriptHashes(html: string): string[] {
 
 const boundAddress = (runtime: Runtime): string => `${runtime.host}:${runtime.port}`;
 
+/** The `Host` values the daemon answers: its own address, then each the user allowed (ADR-0048). */
+const acceptedHosts = (runtime: Runtime): string[] => [boundAddress(runtime), ...runtime.allowedHosts];
+
+/** The machine's own loopback, IPv4-mapped included. */
+const LOOPBACK_PEERS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+
 function checkHost(request: IncomingMessage, runtime: Runtime): OperationError | null {
-  if (request.headers.host?.toLowerCase() === boundAddress(runtime)) return null;
+  const accepted = acceptedHosts(runtime);
+  if (accepted.includes(request.headers.host?.toLowerCase() ?? '')) return null;
   return new OperationError(
     'request.forbidden_host',
-    `Host ${JSON.stringify(request.headers.host ?? '')} is not ${boundAddress(runtime)}, the address this daemon bound.`,
+    `Host ${JSON.stringify(request.headers.host ?? '')} is not an address this daemon accepts: ${accepted.join(', ')}.`,
     403,
     undefined,
-    { host: request.headers.host ?? '', address: boundAddress(runtime) },
+    { host: request.headers.host ?? '', accepted: accepted.join(', ') },
   );
 }
 
 function checkOrigin(request: IncomingMessage, runtime: Runtime): OperationError | null {
   const origin = request.headers.origin?.toLowerCase();
-  if (origin === undefined || origin === `http://${boundAddress(runtime)}`) return null;
+  if (origin === undefined || acceptedHosts(runtime).some((host) => origin === `http://${host}`)) return null;
   return new OperationError('request.forbidden_origin', `Origin ${JSON.stringify(origin)} is not allowed.`, 403, undefined, { origin });
 }
 

@@ -56,7 +56,10 @@ Options:
 
 Environment:
   BINNACLE_HOME         Binnacle home directory (default: ~/.binnacle)
-  BINNACLE_PORT         Port the daemon binds on loopback (default: 7717; 0 takes an ephemeral port)
+  BINNACLE_PORT         Port the daemon binds (default: 7717; 0 takes an ephemeral port)
+  BINNACLE_HOST         Address the daemon binds: 127.0.0.1, the default, or 0.0.0.0 inside a container
+  BINNACLE_ALLOWED_HOSTS  Comma-separated host:port values the daemon accepts as Host beyond its own
+                        address, such as 127.0.0.1:7718,localhost:7718 (default: none)
   BINNACLE_GIT_TIMEOUT_MS  Longest a single git call may take before Git facts are unavailable (default: 5000)
   LC_ALL, LANG          binn speaks Russian when the first one set starts with ru, English otherwise
 
@@ -102,6 +105,8 @@ ${tools}
     git: 'git',
     remote: 'remote',
     address: 'address',
+    bound: 'bound',
+    accepts: 'accepts',
     pid: 'pid',
     version: 'version',
   },
@@ -216,7 +221,10 @@ const ru: typeof en = {
 
 Переменные окружения:
   BINNACLE_HOME         Домашний каталог Binnacle (по умолчанию: ~/.binnacle)
-  BINNACLE_PORT         Порт демона на loopback (по умолчанию: 7717; 0 — любой свободный порт)
+  BINNACLE_PORT         Порт демона (по умолчанию: 7717; 0 — любой свободный порт)
+  BINNACLE_HOST         Адрес, на котором слушает демон: 127.0.0.1, по умолчанию, или 0.0.0.0 в контейнере
+  BINNACLE_ALLOWED_HOSTS  Значения host:port через запятую, которые демон принимает как Host помимо
+                        своего адреса, например 127.0.0.1:7718,localhost:7718 (по умолчанию: нет)
   BINNACLE_GIT_TIMEOUT_MS  Сколько может длиться один вызов git, прежде чем факты Git станут недоступны (по умолчанию: 5000)
   LC_ALL, LANG          binn говорит по-русски, когда первая заданная начинается с ru, иначе по-английски
 
@@ -259,6 +267,8 @@ ${tools}
     git: 'git',
     remote: 'remote',
     address: 'адрес',
+    bound: 'слушает',
+    accepts: 'принимает',
     pid: 'pid',
     version: 'версия',
   },

@@ -10,6 +10,8 @@ import {
   DaemonAlreadyRunningError,
   DEFAULT_PORT,
   readRuntime,
+  resolveAllowedHosts,
+  resolveBind,
   resolvePort,
   runtimePath,
   startDaemon,
@@ -59,6 +61,8 @@ describe('daemon operations', () => {
         pid: daemon.runtime.pid,
         host: '127.0.0.1',
         port: daemon.runtime.port,
+        bind: '127.0.0.1',
+        allowedHosts: [],
         startedAt: body.startedAt,
         version: daemon.runtime.version,
         artifacts: daemon.runtime.artifacts,
@@ -232,6 +236,91 @@ describe('rebinding defence', () => {
       assert.equal(other.status, 403);
       assert.equal(other.body.error.code, 'request.forbidden_origin');
     });
+  });
+});
+
+/** A daemon in a container, reached from the host through a published port under another number (ADR-0048). */
+describe('the bind address and the allowed Host values', () => {
+  const ALLOWED = '127.0.0.1:7718';
+
+  it('binds loopback with nothing set, and still refuses localhost at its own port', async () => {
+    await withDaemon(async (daemon) => {
+      assert.equal(daemon.runtime.bind, '127.0.0.1');
+      assert.deepEqual(daemon.runtime.allowedHosts, []);
+      const other = await rawRequest(daemon.runtime.port, {
+        path: '/ops/daemon.status',
+        headers: { host: `localhost:${daemon.runtime.port}`, authorization: `Bearer ${daemon.token}` },
+      });
+      assert.equal(other.status, 403);
+      assert.equal((other.body as Envelope).error.code, 'request.forbidden_host');
+    });
+  });
+
+  it('answers an allowed Host with the token, and still asks for the token without it', async () => {
+    const daemon = await startTestDaemon({ allowedHosts: [ALLOWED] });
+    try {
+      const allowed = await rawRequest(daemon.runtime.port, { path: '/ops/daemon.status', headers: { host: ALLOWED, authorization: `Bearer ${daemon.token}` } });
+      assert.equal(allowed.status, 200);
+      const anonymous = await rawRequest(daemon.runtime.port, { path: '/ops/daemon.status', headers: { host: ALLOWED } });
+      assert.equal(anonymous.status, 401);
+      assert.equal((anonymous.body as Envelope).error.code, 'auth.missing');
+    } finally {
+      await daemon.stop();
+    }
+  });
+
+  it('refuses a Host neither its own nor allowed, naming the addresses it accepts', async () => {
+    const daemon = await startTestDaemon({ allowedHosts: [ALLOWED, 'localhost:7718'] });
+    try {
+      const hostile = await rawRequest(daemon.runtime.port, { path: '/ops/daemon.status', headers: { host: 'localhost:7719', authorization: `Bearer ${daemon.token}` } });
+      assert.equal(hostile.status, 403);
+      const { error } = hostile.body as Envelope;
+      assert.equal(error.code, 'request.forbidden_host');
+      assert.deepEqual(error.params, { host: 'localhost:7719', accepted: `127.0.0.1:${daemon.runtime.port}, ${ALLOWED}, localhost:7718` });
+    } finally {
+      await daemon.stop();
+    }
+  });
+
+  it('accepts the Origin of an allowed value, and refuses any other', async () => {
+    const daemon = await startTestDaemon({ allowedHosts: [ALLOWED] });
+    try {
+      const headers = { host: ALLOWED, authorization: `Bearer ${daemon.token}` };
+      assert.equal((await rawRequest(daemon.runtime.port, { path: '/ops/daemon.status', headers: { ...headers, origin: `http://${ALLOWED}` } })).status, 200);
+      for (const origin of [`https://${ALLOWED}`, 'http://localhost:7718', 'http://attacker.example.com']) {
+        const refused = await rawRequest(daemon.runtime.port, { path: '/ops/daemon.status', headers: { ...headers, origin } });
+        assert.equal(refused.status, 403, origin);
+        assert.equal((refused.body as Envelope).error.code, 'request.forbidden_origin', origin);
+      }
+    } finally {
+      await daemon.stop();
+    }
+  });
+
+  it('bound to every interface, writes loopback as the address to connect to, and answers over loopback', async () => {
+    const daemon = await startTestDaemon({ bind: '0.0.0.0', allowedHosts: [ALLOWED] });
+    try {
+      const runtime = readRuntime(daemon.home);
+      assert.equal(runtime?.host, '127.0.0.1');
+      assert.equal(runtime?.bind, '0.0.0.0');
+      assert.deepEqual(runtime?.allowedHosts, [ALLOWED]);
+      assert.equal((await daemon.call('daemon.status')).status, 200);
+    } finally {
+      await daemon.stop();
+    }
+  });
+
+  it('takes the bind address and the allowed values the environment names, and refuses what it cannot use, saying what it takes', () => {
+    assert.equal(resolveBind({}), '127.0.0.1');
+    assert.equal(resolveBind({ BINNACLE_HOST: ' 0.0.0.0 ' }), '0.0.0.0');
+    for (const value of ['localhost', '::', '192.168.1.5']) {
+      assert.throws(() => resolveBind({ BINNACLE_HOST: value }), /BINNACLE_HOST must be 127\.0\.0\.1 or 0\.0\.0\.0/, value);
+    }
+    assert.deepEqual(resolveAllowedHosts({}), []);
+    assert.deepEqual(resolveAllowedHosts({ BINNACLE_ALLOWED_HOSTS: ' 127.0.0.1:7718 , LocalHost:7718,' }), ['127.0.0.1:7718', 'localhost:7718']);
+    for (const value of ['localhost', '127.0.0.1:7718,localhost', 'localhost:']) {
+      assert.throws(() => resolveAllowedHosts({ BINNACLE_ALLOWED_HOSTS: value }), /BINNACLE_ALLOWED_HOSTS takes comma-separated host:port values/, value);
+    }
   });
 });
 

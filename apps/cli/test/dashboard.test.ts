@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { test, type TestContext } from 'node:test';
 import { runtimePath } from '@binnacle/daemon';
 import { startTestDaemon } from '@binnacle/daemon/testing';
+import { daemonAddress } from '../src/export.ts';
 
 const BINN = fileURLToPath(new URL('../src/bin.ts', import.meta.url));
 
@@ -88,6 +89,51 @@ test('binn dashboard with no browser to open says to run binn dashboard --print 
   assert.match(result.stderr, /could not open a browser/);
   assert.match(result.stderr, /`binn dashboard --print` at a terminal/);
   assert.ok(!(result.stdout + result.stderr).includes(daemon.token));
+});
+
+/** A daemon in a container, bound to every interface and reached from the host at a published port (ADR-0048). */
+const ALLOWED = ['127.0.0.1:7718', 'localhost:7718'];
+
+test('binn dashboard --print gives the first allowed Host value with the token, when the daemon allows one', async (t) => {
+  const home = temporaryHome(t);
+  const daemon = await startTestDaemon({ home: join(home, '.binnacle'), bind: '0.0.0.0', allowedHosts: ALLOWED });
+  t.after(() => daemon.stop());
+
+  const result = await binn(home, 'dashboard', '--print');
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, `http://127.0.0.1:7718/#token=${daemon.token}\n`);
+});
+
+test('binn dashboard in a container with no browser prints the allowed address, which stands, and says the opener failed', { skip: process.platform === 'win32' }, async (t) => {
+  const home = temporaryHome(t);
+  const daemon = await startTestDaemon({ home: join(home, '.binnacle'), bind: '0.0.0.0', allowedHosts: ALLOWED });
+  t.after(() => daemon.stop());
+  mkdirSync(join(home, 'empty'));
+
+  const result = await binnWith(home, { PATH: join(home, 'empty') }, 'dashboard');
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, 'http://127.0.0.1:7718/\n');
+  assert.match(result.stderr, /could not open a browser/);
+});
+
+test('binn daemon status shows the bound address and every address the daemon accepts', async (t) => {
+  const home = temporaryHome(t);
+  const daemon = await startTestDaemon({ home: join(home, '.binnacle'), bind: '0.0.0.0', allowedHosts: ALLOWED });
+  t.after(() => daemon.stop());
+
+  const result = await binn(home, 'daemon', 'status');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, new RegExp(`^ {2}address {2}http://127\\.0\\.0\\.1:${daemon.runtime.port}$`, 'm'));
+  assert.match(result.stdout, /^ {2}bound {4}0\.0\.0\.0$/m);
+  assert.match(result.stdout, new RegExp(`^ {2}accepts {2}127\\.0\\.0\\.1:${daemon.runtime.port}, 127\\.0\\.0\\.1:7718, localhost:7718$`, 'm'));
+});
+
+test('the telemetry export points at the runtime file\'s host, loopback, never 0.0.0.0', async (t) => {
+  const home = temporaryHome(t);
+  const daemon = await startTestDaemon({ home: join(home, '.binnacle'), bind: '0.0.0.0', allowedHosts: ALLOWED });
+  t.after(() => daemon.stop());
+
+  assert.equal(daemonAddress(join(home, '.binnacle')), `http://127.0.0.1:${daemon.runtime.port}`);
 });
 
 test('binn dashboard with no daemon says no daemon answers, with the command that starts one, and exits 4', async (t) => {

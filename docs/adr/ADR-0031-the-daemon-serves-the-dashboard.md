@@ -1,6 +1,6 @@
 # ADR-0031: The Daemon Serves the Dashboard, and the Page Takes the Token From Its URL
 
-**Status:** Accepted
+**Status:** Accepted. Amended by ADR-0048: when the daemon accepts `Host` values beyond its own address, `binn dashboard`'s address is the first of them, with the token in the fragment as before.
 
 ## Context
 

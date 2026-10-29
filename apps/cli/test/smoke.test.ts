@@ -37,6 +37,18 @@ test('binn daemon start, an operation, and stop', async (t) => {
     assert.match(result.stdout, /not running/);
   });
 
+  await t.test('start refuses a bind address or an allowed Host value it cannot use, saying what it takes', () => {
+    const refused = (env: NodeJS.ProcessEnv) =>
+      spawnSync(process.execPath, [BINN, 'daemon', 'start'], { encoding: 'utf8', env: { ...process.env, LC_ALL: 'C', BINNACLE_HOME: home, BINNACLE_PORT: '0', ...env } });
+    const host = refused({ BINNACLE_HOST: 'localhost' });
+    assert.notEqual(host.status, 0);
+    assert.match(host.stderr, /BINNACLE_HOST must be 127\.0\.0\.1 or 0\.0\.0\.0, got "localhost"/);
+    const allowed = refused({ BINNACLE_ALLOWED_HOSTS: 'localhost' });
+    assert.notEqual(allowed.status, 0);
+    assert.match(allowed.stderr, /BINNACLE_ALLOWED_HOSTS takes comma-separated host:port values/);
+    assert.equal(readRuntime(home), null);
+  });
+
   await t.test('start reports the port it took and leaves a live daemon behind', () => {
     const result = binn('daemon', 'start');
     assert.equal(result.status, 0, result.stderr);

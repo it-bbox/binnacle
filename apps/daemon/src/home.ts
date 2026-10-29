@@ -32,6 +32,30 @@ export function resolvePort(env: NodeJS.ProcessEnv = process.env): number {
   return port;
 }
 
+/** The addresses the daemon can bind (ADR-0048): loopback, the default, or every interface, inside a container. */
+export const LOOPBACK = '127.0.0.1';
+export const EVERY_INTERFACE = '0.0.0.0';
+export type BindAddress = typeof LOOPBACK | typeof EVERY_INTERFACE;
+
+export function resolveBind(env: NodeJS.ProcessEnv = process.env): BindAddress {
+  const raw = env.BINNACLE_HOST?.trim();
+  if (!raw) return LOOPBACK;
+  if (raw === LOOPBACK || raw === EVERY_INTERFACE) return raw;
+  throw new Error(`BINNACLE_HOST must be ${LOOPBACK} or ${EVERY_INTERFACE}, got ${JSON.stringify(raw)}`);
+}
+
+/** The `Host` values the daemon accepts beyond its own address (ADR-0048), trimmed and lower-cased; none by default. */
+export function resolveAllowedHosts(env: NodeJS.ProcessEnv = process.env): string[] {
+  const values = (env.BINNACLE_ALLOWED_HOSTS ?? '').split(',').map((value) => value.trim().toLowerCase()).filter(Boolean);
+  for (const value of values) {
+    // A `Host` header carries the port of a daemon off port 80, so a value without one could never match.
+    if (!/^[^\s/]+:\d{1,5}$/.test(value)) {
+      throw new Error(`BINNACLE_ALLOWED_HOSTS takes comma-separated host:port values, such as 127.0.0.1:7718,localhost:7718, got ${JSON.stringify(value)}`);
+    }
+  }
+  return values;
+}
+
 /**
  * How long one `git` invocation may take before its facts are reported unavailable.
  * `BINNACLE_GIT_TIMEOUT_MS` raises it for a repository on a slow filesystem; the daemon
@@ -176,8 +200,13 @@ export function readToken(home: string): string | null {
 
 export type Runtime = {
   pid: number;
+  /** Where a client on this machine connects: the bound address, or loopback when the daemon binds every interface. */
   host: string;
   port: number;
+  /** The address bound. */
+  bind: string;
+  /** The `Host` values accepted beyond `host:port`. */
+  allowedHosts: string[];
   startedAt: string;
   version: string;
   artifacts: ArtifactRoots;
@@ -241,7 +270,8 @@ export function readRuntime(home: string): Runtime | null {
   if (contents === null) return null;
   try {
     const parsed: unknown = JSON.parse(contents);
-    return isRuntime(parsed) ? parsed : null;
+    // A daemon older than 0.7.0 wrote neither `bind` nor `allowedHosts`: it bound `host` and accepted nothing else.
+    return isRuntime(parsed) ? { ...parsed, bind: parsed.bind ?? parsed.host, allowedHosts: parsed.allowedHosts ?? [] } : null;
   } catch {
     return null;
   }

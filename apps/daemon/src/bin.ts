@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-import { resolveHome, resolvePort } from './home.ts';
+import { resolveAllowedHosts, resolveBind, resolveHome, resolvePort } from './home.ts';
 import { DaemonAlreadyRunningError, startDaemon } from './server.ts';
 
 try {
-  const daemon = await startDaemon({ home: resolveHome(), port: resolvePort() });
-  const { host, port, pid, version } = daemon.runtime;
-  console.log(`binnd listening on http://${host}:${port} (pid ${pid}, version ${version})`);
+  const daemon = await startDaemon({ home: resolveHome(), port: resolvePort(), bind: resolveBind(), allowedHosts: resolveAllowedHosts() });
+  const { bind, port, pid, version } = daemon.runtime;
+  console.log(`binnd listening on http://${bind}:${port} (pid ${pid}, version ${version})`);
 
   let stopping = false;
   const shutdown = (): void => {

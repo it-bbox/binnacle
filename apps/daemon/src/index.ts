@@ -12,6 +12,8 @@ export {
   resolveArtifactRoots,
   removeRuntime,
   resolveHome,
+  resolveAllowedHosts,
+  resolveBind,
   resolveGitTimeout,
   resolvePort,
   runtimePath,
