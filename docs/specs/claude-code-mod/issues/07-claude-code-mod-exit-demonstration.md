@@ -1,6 +1,6 @@
 # 07: The exit demonstration of epic 22, and 0.6.0
 
-Status: READY
+Status: DONE
 Triage: ready-for-human
 Blocked by: 01, 02, 03, 04, 05, 06, 08
 Spec: `docs/specs/claude-code-mod/spec.md`
