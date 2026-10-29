@@ -65,11 +65,11 @@ Done: epics 1 to 21. **v1 is complete.**
 
 **Epic 21 done** on 2026-10-28: tickets 01 to 07 by autopilot, the exit demonstration and 0.5.0 the owner's. `/binnacle:task` takes a ticket's path; a merge ends the runs that kept a `READY` Task in progress; context-pressure thresholds per model, set on the dashboard's Settings page; `binn mcp` sends no session; `/binnacle:checkpoint` can promote a trap.
 
-**Epic 22 in progress** since 2026-10-28: tickets 01 to 06 by autopilot. `binnacle-mod`, beside `binnacle` in the package's marketplace: a status line, a *Waiting for you* band, a pane by `/binnacle-pane`, toasts and session-start lines; `binn init --mod`. Left: ticket 08, *Mod — мод* in the skills, which makes `pnpm test` pass again, and the mod in `docs/03-mcp-and-skills.md`; then ticket 07, the owner's. `/binnacle:init` from the chat does not offer the mod yet (product inbox).
+**Epic 22 in progress** since 2026-10-28: tickets 01 to 06 by autopilot, ticket 08 by hand. `binnacle-mod`, beside `binnacle` in the package's marketplace: a status line, a *Waiting for you* band, a pane by `/binnacle-pane`, toasts and session-start lines; `binn init --mod`. Left: ticket 07, the exit demonstration and 0.6.0, the owner's. `/binnacle:init` from the chat does not offer the mod yet (product inbox).
 
 Next: epics 23 to 27, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28.
 
-Next action: run ticket 08, so that the skills list *Mod — мод*, `docs/03-mcp-and-skills.md` describes the mod and `pnpm test` passes; then epic 22's exit demonstration and 0.6.0, ticket 07, the owner's. `/binnacle:task run docs/specs/claude-code-mod/issues/08-skills-and-docs-name-the-mod.md`
+Next action: run epic 22's exit demonstration and release 0.6.0, ticket 07, installing the mod by `binn init` in a terminal. `/binnacle:task run docs/specs/claude-code-mod/issues/07-claude-code-mod-exit-demonstration.md`
 
 ## Later
 
