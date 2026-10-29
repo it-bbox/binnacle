@@ -129,7 +129,7 @@ test('the command opens the pane and closes it on a second run, and a button fil
   for (const surface of ['terminal', 'desktop', 'vscode', 'mobile'] as const) {
     const ui = await $.ui.mount({ ...PANE, surface })
     expect((await ui.find({ type: 'Text', text: /Next action/ }))?.text).toBe('Next action')
-    expect((await ui.find({ type: 'Text', text: /^Start the pane with \\/binnacle:task run t\\.md$/ }))).toBeDefined()
+    expect((await ui.find({ type: 'Text', text: /^Start the pane with$/ }))).toBeDefined()
     await ui.press({ key: 'checkpoint' })
     await ui.unmount()
   }

@@ -45,8 +45,8 @@ export type PaneButton = { key: 'next' | 'suggested' | 'answer' | 'checkpoint'; 
 /**
  * `status`: the status line's text, undefined to clear it. `band`: the *Waiting for you* band's title and items, undefined
  * when nothing waits. `startLines`: at most three lines for the context of a session whose branch maps to no Task,
- * undefined on a Task's branch or without a snapshot. `pane`: the pane's sections, each a heading with its lines, and its
- * buttons; undefined without a snapshot. `toasts`: the toasts to show now. `seen`: what the session saw, for its next
+ * undefined on a Task's branch or without a snapshot. `pane`: the pane's sections, each a heading with its lines and the
+ * colour they take, if any, and its buttons; undefined without a snapshot. `toasts`: the toasts to show now. `seen`: what the session saw, for its next
  * refresh, kept from `previous` without a snapshot. `store`: what `$.store` holds for the project from now, undefined
  * when no project change was toasted.
  */
@@ -54,7 +54,7 @@ export type View = {
   status: string | undefined;
   band: { title: string; items: string[] } | undefined;
   startLines: string[] | undefined;
-  pane: { sections: { heading: string; lines: string[] }[]; buttons: PaneButton[] } | undefined;
+  pane: { sections: { heading: string; lines: string[]; tone?: 'success' | 'error' }[]; buttons: PaneButton[] } | undefined;
   toasts: string[];
   seen: Seen | undefined;
   store: Toasted | undefined;
@@ -88,6 +88,7 @@ const WORDS = {
     states: { ACTIVE: 'in progress', BLOCKED: 'blocked', READY: 'ready', READY_FOR_REVIEW: 'in review', APPROVED: 'approved', MERGE_READY: 'merge ready' } as Record<string, string>,
     more: (count: number) => `and ${count} more`,
     ci: { passing: 'passing', failing: 'failing', running: 'running', none: 'no checks' },
+    failing: (branch: string, commit: string) => `CI is failing on ${branch} at ${commit}`,
     nextAction: 'Next action',
     answered: (id: string) => `A question on ${id} was answered`,
   },
@@ -110,6 +111,7 @@ const WORDS = {
     states: { ACTIVE: 'в работе', BLOCKED: 'заблокирована', READY: 'готова', READY_FOR_REVIEW: 'на ревью', APPROVED: 'одобрена', MERGE_READY: 'готова к слиянию' } as Record<string, string>,
     more: (count: number) => `и ещё ${count}`,
     ci: { passing: 'проходит', failing: 'падает', running: 'идёт', none: 'нет проверок' },
+    failing: (branch: string, commit: string) => `CI падает в ${branch} на ${commit}`,
     nextAction: 'Следующий шаг',
     answered: (id: string) => `Получен ответ на вопрос по ${id}`,
   },
@@ -138,9 +140,15 @@ function say(item: Coded, language: Language): string {
 type Listed = { items: { id: string }[]; remainder: number };
 const count = (section: Listed): number => section.items.length + section.remainder;
 
+/** CI failing on the default branch, short: its branch and commit, without the forge and the link the item's own wording carries. */
+function failing(item: Coded, language: Language): string {
+  const { branch, commit } = item.params ?? {};
+  return typeof branch === 'string' && typeof commit === 'string' ? WORDS[language].failing(branch, commit) : say(item, language);
+}
+
 /**
  * The band: the unanswered questions, the approvals and the owner's `ready-for-human` Tasks, each counted with the first
- * one's Task id; `main`'s CI failing and a stale Next action, worded by their codes. A section marked unavailable is
+ * one's Task id; `main`'s CI failing, short, and a stale Next action, worded by its code. A section marked unavailable is
  * left out, and with nothing waiting there is no band.
  */
 function band(snapshot: NonNullable<ViewInput['snapshot']>, language: Language): View['band'] {
@@ -158,7 +166,10 @@ function band(snapshot: NonNullable<ViewInput['snapshot']>, language: Language):
       items.push(`${label}: ${words.first(count(section), section.items[0]!.id)}`);
     }
   }
-  for (const item of snapshot.attention) if (item.code === 'ci.failing' || item.code === 'next_action.stale') items.push(say(item, language));
+  for (const item of snapshot.attention) {
+    if (item.code === 'ci.failing') items.push(failing(item, language));
+    else if (item.code === 'next_action.stale') items.push(say(item, language));
+  }
   return items.length > 0 ? { title: words.band, items } : undefined;
 }
 
@@ -183,8 +194,9 @@ function startLines(snapshot: NonNullable<ViewInput['snapshot']>): View['startLi
 }
 
 /**
- * The pane: the current epic with its progress, the band's items, the Tasks in flight, CI on the default branch and the
- * Next action, each left out without data; and its buttons, each by its rule.
+ * The pane: the current epic with its progress, the band's items but CI, the Tasks in flight, CI on the default branch,
+ * coloured by its state, and the Next action, whose command is its button's, each left out without data; and its
+ * buttons, each by its rule.
  */
 function pane(snapshot: NonNullable<ViewInput['snapshot']>, waiting: View['band'], language: Language): View['pane'] {
   const words = WORDS[language];
@@ -194,7 +206,10 @@ function pane(snapshot: NonNullable<ViewInput['snapshot']>, waiting: View['band'
     const progress = epic.progress ? `, ${words.progress(epic.progress.done, epic.progress.all)}` : '';
     sections.push({ heading: words.epic, lines: [`${epic.number}, ${epic.title} (${words.statuses[epic.status] ?? epic.status}${progress})`] });
   }
-  if (waiting) sections.push({ heading: waiting.title, lines: waiting.items });
+  // CI has a section of its own.
+  const ci = snapshot.attention.find((item) => item.code === 'ci.failing');
+  const lines = waiting?.items.filter((line) => !ci || line !== failing(ci, language)) ?? [];
+  if (waiting && lines.length > 0) sections.push({ heading: waiting.title, lines });
   const inFlight = snapshot.tasks?.inFlight;
   if (inFlight && inFlight.items.length > 0) {
     const lines = inFlight.items.map((task) => {
@@ -207,11 +222,11 @@ function pane(snapshot: NonNullable<ViewInput['snapshot']>, waiting: View['band'
   }
   if (!('available' in snapshot.ci)) {
     const main = snapshot.ci.defaultBranch;
-    sections.push({ heading: 'CI', lines: [`${main.branch}: ${words.ci[main.state.value]}`] });
+    const tone = main.state.value === 'failing' ? 'error' : main.state.value === 'passing' ? 'success' : undefined;
+    sections.push({ heading: 'CI', lines: [`${main.branch}: ${words.ci[main.state.value]}`], ...(tone && { tone }) });
   }
   const action = snapshot.next.action;
-  // A pane's text draws no Markdown: the command stands bare.
-  if (action) sections.push({ heading: words.nextAction, lines: [`${action.description} ${action.command}`] });
+  if (action) sections.push({ heading: words.nextAction, lines: [action.description] });
 
   const buttons: PaneButton[] = [];
   if (action) buttons.push({ key: 'next', command: action.command });

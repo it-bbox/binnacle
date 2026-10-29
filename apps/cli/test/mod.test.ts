@@ -104,6 +104,9 @@ const CI_FAILING = {
   params: { branch: 'main', commit: '0123456789ab', forge: 'GitHub', url: 'https://github.com/o/r/commit/0123456789ab' },
 };
 const CI_FAILING_RU = 'CI падает в main на 0123456789ab, по данным GitHub: https://github.com/o/r/commit/0123456789ab';
+/** The band's short form of it: the branch and the commit, without the forge and the link. */
+const CI_SHORT = 'CI is failing on main at 0123456789ab';
+const CI_SHORT_RU = 'CI падает в main на 0123456789ab';
 const STALE = {
   code: 'next_action.stale',
   message: "The Next action's command, /binnacle:task run spec/01, names finished work: spec/01.",
@@ -124,8 +127,8 @@ test('each kind of item alone, counted with the first Task id, in English and Ru
   assert.deepEqual(band({ pendingDecisions: pending(0, 1, 0) }, 'ru')?.items, ['Ждут одобрения: 1 (spec/11)']);
   assert.deepEqual(band({ pendingDecisions: pending(0, 0, 1) })?.items, ['Yours to start: 1 (spec/21)']);
   assert.deepEqual(band({ pendingDecisions: pending(0, 0, 3) }, 'ru')?.items, ['Начать вам: 3 (сначала spec/21)']);
-  assert.deepEqual(band({ attention: [CI_FAILING] })?.items, [CI_FAILING.message]);
-  assert.deepEqual(band({ attention: [CI_FAILING] }, 'ru')?.items, [CI_FAILING_RU]);
+  assert.deepEqual(band({ attention: [CI_FAILING] })?.items, [CI_SHORT]);
+  assert.deepEqual(band({ attention: [CI_FAILING] }, 'ru')?.items, [CI_SHORT_RU]);
 });
 
 test('next_action.stale is worded by its code, as /binnacle:product words it', () => {
@@ -141,20 +144,20 @@ test('every kind together, in order', () => {
     'Waiting for an approval: 1 (spec/11)',
     'Yours to start: 1 (spec/21)',
     STALE.message,
-    CI_FAILING.message,
+    CI_SHORT,
   ]);
   assert.deepEqual(band({ pendingDecisions: pending(1, 1, 1), attention: [CI_FAILING] }, 'ru')?.items, [
     'Вопросы без ответа: 1 (spec/01)',
     'Ждут одобрения: 1 (spec/11)',
     'Начать вам: 1 (spec/21)',
-    CI_FAILING_RU,
+    CI_SHORT_RU,
   ]);
 });
 
 test('a section marked available: false is left out of the band', () => {
   const tracker = { available: false, reason: 'The tracker cannot be read.', code: 'tracker.unavailable', params: { kind: 'unreadable' } };
   assert.equal(band({ pendingDecisions: tracker }), undefined);
-  assert.deepEqual(band({ pendingDecisions: tracker, attention: [CI_FAILING] })?.items, [CI_FAILING.message]);
+  assert.deepEqual(band({ pendingDecisions: tracker, attention: [CI_FAILING] })?.items, [CI_SHORT]);
   const unread = { ...pending(0, 1, 0), questions: { available: false, reason: 'The issue comments could not be read.' } };
   assert.deepEqual(band({ pendingDecisions: unread })?.items, ['Waiting for an approval: 1 (spec/11)']);
 });
@@ -219,15 +222,16 @@ test("the pane's sections from a snapshot, in English and Russian", () => {
     { heading: 'Current epic', lines: ['22, A Binnacle mod for Claude Code (in progress, 2 of 7 Tasks done)'] },
     { heading: 'Waiting for you', lines: ['Unanswered questions: 1 (spec/01)'] },
     { heading: 'In progress', lines: ['spec/31 Ticket spec/31 (in progress)', 'spec/32 Ticket spec/32 (in review)', 'and 2 more'] },
-    { heading: 'CI', lines: ['main: passing'] },
-    { heading: 'Next action', lines: ['start the band with /binnacle:task run docs/specs/claude-code-mod/issues/03-x.md'] },
+    { heading: 'CI', lines: ['main: passing'], tone: 'success' },
+    { heading: 'Next action', lines: ['start the band with'] },
   ]);
   assert.deepEqual(pane({ ...FILLED, ci: CI('failing'), attention: [CI_FAILING] }, 'ru')?.sections, [
     { heading: 'Текущий эпик', lines: ['22, A Binnacle mod for Claude Code (в работе, готово 2 из 7)'] },
-    { heading: 'Ждёт вас', lines: ['Вопросы без ответа: 1 (spec/01)', CI_FAILING_RU] },
+    // CI once, in its own section.
+    { heading: 'Ждёт вас', lines: ['Вопросы без ответа: 1 (spec/01)'] },
     { heading: 'В работе', lines: ['spec/31 Ticket spec/31 (в работе)', 'spec/32 Ticket spec/32 (на ревью)', 'и ещё 2'] },
-    { heading: 'CI', lines: ['main: падает'] },
-    { heading: 'Следующий шаг', lines: ['start the band with /binnacle:task run docs/specs/claude-code-mod/issues/03-x.md'] },
+    { heading: 'CI', lines: ['main: падает'], tone: 'error' },
+    { heading: 'Следующий шаг', lines: ['start the band with'] },
   ]);
 });
 
@@ -487,7 +491,7 @@ test('the band is drawn with a question waiting, and passes beneath without one 
   assert.deepEqual(await band({}, null), waiting);
   assert.deepEqual(await band(), {
     type: 'Box',
-    props: { flexDirection: 'column' },
+    props: { flexDirection: 'column', rowGap: 1 },
     children: [waiting, 'beneath'],
   });
   assert.equal(await band({ hasSurvey: true }), 'beneath');
@@ -607,17 +611,17 @@ test("the pane draws the last view's sections and buttons, and a button fills th
   type Drawn = { type: string; props: { key?: string; onPress?: () => void } | null; children: Drawn[] };
   const tree = (await pane()) as Drawn;
   assert.equal(tree.type, 'Box');
+  // Each section a box of its own, a row apart, its heading over its lines; the command only on its button.
   assert.deepEqual(
-    tree.children.map((node) => [node.type, ...node.children]),
+    tree.children.map((node) => (node.type === 'Box' ? node.children.map((line) => line.children[0]) : [node.type, ...node.children])),
     [
-      ['Text', 'Current epic'],
-      ['Text', '22, A Binnacle mod for Claude Code (in progress, 2 of 7 Tasks done)'],
-      ['Text', 'Next action'],
-      ['Text', 'start the band with /binnacle:task run docs/specs/claude-code-mod/issues/03-x.md'],
+      ['Current epic', '22, A Binnacle mod for Claude Code (in progress, 2 of 7 Tasks done)'],
+      ['Next action', 'start the band with'],
       ['Button', '/binnacle:task run docs/specs/claude-code-mod/issues/03-x.md'],
       ['Button', '/binnacle:checkpoint'],
     ],
   );
+  assert.deepEqual(tree.children[0]!.props, { flexDirection: 'column', marginBottom: 1 });
   const buttons = tree.children.filter((node) => node.type === 'Button');
   assert.deepEqual(buttons.map((node) => node.props?.key), ['next', 'checkpoint']);
   buttons[1]!.props!.onPress!();
