@@ -63,13 +63,13 @@ Done: epics 1 to 21. **v1 is complete.**
 
 **Released** (the owner): `@it-bbox/binnacle` 0.1.0 on 2026-10-13, with `it-bbox/binnacle` public, private vulnerability reporting and Dependabot alerts on; 0.2.0, epic 12, on 2026-10-21; 0.3.0, epic 13, on 2026-10-22, the last of v1, installed from the registry into a clean container (`specs/human-output/issues/11-human-output-exit-demonstration.md`); 0.4.0, epic 20, on 2026-10-28, installed from the registry into a clean container (`specs/hygiene-after-v1/issues/09-hygiene-exit-demonstration.md`); 0.5.0, epic 21, on 2026-10-28, installed from the registry into a clean container (`specs/hygiene-after-0-4-0/issues/08-hygiene-after-0-4-0-exit-demonstration.md`).
 
-**Epic 20 done** on 2026-10-28: tickets 01 to 08 by autopilot, the exit demonstration and 0.4.0 the owner's; the dashboard held on TypeScript 5.x until `vue-tsc` runs on 7.
-
 **Epic 21 done** on 2026-10-28: tickets 01 to 07 by autopilot, the exit demonstration and 0.5.0 the owner's. `/binnacle:task` takes a ticket's path; a merge ends the runs that kept a `READY` Task in progress; context-pressure thresholds per model, set on the dashboard's Settings page; `binn mcp` sends no session; `/binnacle:checkpoint` can promote a trap.
 
-Next: epics 22 to 27, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28.
+**Epic 22 in progress** since 2026-10-28: tickets 01 to 06 by autopilot. `binnacle-mod`, beside `binnacle` in the package's marketplace: a status line, a *Waiting for you* band, a pane by `/binnacle-pane`, toasts and session-start lines; `binn init --mod`. Left: ticket 07, the owner's; `pnpm test` fails until the five reporting skills list *Mod — мод*; `/binnacle:init` from the chat does not offer the mod yet.
 
-Next action: run epic 22's tickets, `docs/specs/claude-code-mod/issues/`, with autopilot; its exit demonstration, ticket 07, is the owner's. `/binnacle:autopilot`
+Next: epics 23 to 27, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28.
+
+Next action: run epic 22's exit demonstration and release 0.6.0, ticket 07, installing the mod by `binn init` in a terminal, once the five reporting skills list *Mod — мод* and `pnpm test` passes. `/binnacle:task run docs/specs/claude-code-mod/issues/07-claude-code-mod-exit-demonstration.md`
 
 ## Later
 
