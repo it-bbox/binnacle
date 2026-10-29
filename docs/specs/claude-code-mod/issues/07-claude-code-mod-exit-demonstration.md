@@ -15,7 +15,7 @@ Spec: `docs/specs/claude-code-mod/spec.md`
 - [x] A session on `main` starts with the session-start lines, and a session on a ticket's branch without them.
 - [x] With the daemon stopped, the mod shows nothing and says nothing.
 - [x] `claude plugin validate` on the built mod is clean.
-- [ ] The CLI package's version is 0.6.0; 0.6.0 is published by `CONTRIBUTING.md`'s *Releasing* and installed from the registry into a clean container, where `binn daemon status` gives 0.6.0.
+- [x] The CLI package's version is 0.6.0; 0.6.0 is published by `CONTRIBUTING.md`'s *Releasing* and installed from the registry into a clean container, where `binn daemon status` gives 0.6.0.
 
 ## Comments
 
@@ -86,6 +86,8 @@ The branch merged into `main` with `git merge --no-ff` (`9e499af`) while this ti
 - Found on the way: back in a desktop session the line and the band were gone until the next message. A session the app starts again runs `session.start` before the `binnacle` server connects, as the context does, and the next refresh came a minute later. **Fixed**: the start asks every half second until a refresh answers, as long as the context hook waits; in an interactive `claude --debug` the line was drawn 4.4 s after the start with no message, the snapshot itself taking 3.8 s.
 - **Criterion 7** holds (the owner, 2026-10-29): with the daemon stopped by `binn daemon stop`, the status line and Binnacle's part of the band went within a minute, `memory-band`'s rows staying, and nothing in the chat or the toasts named the daemon. Started again, the line came back at the next refresh.
 - **Criterion 5** holds (the owner, 2026-10-29). With `main` pushed at `cd365f7` and CI green there on the three platforms, a commit with a test failing on purpose (`2f492a1`) was pushed at `72b5c4a`; `check` failed and the run ended red at 19:01, and the snapshot read it failing at 19:01:36, after the forge cache's minute. Two sessions of the project were open, one in a terminal and one in the desktop app. At 19:04:07 the mod's store recorded `72b5c4a35bd0` as the CI failure toasted, which it writes only as a session toasts it, and held no other; the owner, away from the screen, remembers the one toast. The commit was reverted next.
+- **Criterion 9** holds (the owner, 2026-10-29): `main` pushed at `60c952b`, CI's `check`, `tarball-live` and `autostart-live` green there on the three platforms; rebuilt at that commit, `npm publish --dry-run` gave `@it-bbox/binnacle` 0.6.0, 83 files with `mod/`; the owner logged in again (`npm whoami` had answered 401), and `npm publish --access public`, the second factor confirmed in the browser, printed `+ @it-bbox/binnacle@0.6.0`. `npm view @it-bbox/binnacle version` gave `0.6.0` at 19:26. In a `node:24-slim` container, `npm i -g @it-bbox/binnacle@0.6.0`, `binn --version` printed `0.6.0`, `binn daemon start`, and `binn daemon status` gave `0.6.0`; the package carries `mod/hooks/hooks.js`.
+- For the product inbox: `binn init`'s skills step reports «ошибка … PromptScript does not support global skill installation (англ.)» on every run, for a harness the skills CLI now finds with no global skills; it reads better as a skip with its reason worded.
 
 ### Question
 
