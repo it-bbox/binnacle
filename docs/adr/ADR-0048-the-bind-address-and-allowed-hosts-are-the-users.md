@@ -8,7 +8,7 @@ The daemon binds `127.0.0.1`, hard-coded, and refuses any request whose `Host`, 
 
 ## Decision
 
-- The user may set **the address the daemon binds** and **the `Host` values it accepts** beyond that address, from the environment, read when the daemon starts, like `BINNACLE_PORT`. Unset, it binds `127.0.0.1` and accepts only the address it bound, as before.
+- The user may set **the address the daemon binds**, `127.0.0.1` or `0.0.0.0`, and **the `Host` values it accepts** beyond its own address, from the environment, read when the daemon starts, like `BINNACLE_PORT`. Unset, it binds `127.0.0.1` and accepts only the address it bound, as before.
 - **The token is unchanged**: every call but `/health` and the OpenTelemetry endpoint carries it.
 - **The `Origin` check keeps its rule**: an `Origin`, when sent, must name an address the daemon accepts as `Host`. The `Host` and `Origin` checks stop DNS rebinding from a page in the browser; they are not authentication.
 - **The OpenTelemetry endpoint accepts calls from a loopback peer only**, whatever the bind, since it has no token to stand in for.
@@ -24,4 +24,4 @@ The daemon binds `127.0.0.1`, hard-coded, and refuses any request whose `Host`, 
 
 - A daemon on a host machine behaves as before unless its user sets the address.
 - A user who publishes the port beyond the host's loopback exposes it to their network; the token still guards every operation, and the guide says to publish on `127.0.0.1` only.
-- `binn mcp`, the CLI and `binn dashboard` find the daemon's address through the runtime file and must reach it when it binds every interface.
+- `binn mcp`, the CLI and the telemetry export find the daemon through the runtime file, whose `host` stays the loopback address when the daemon binds every interface; `binn dashboard` gives the first accepted `Host` value when one is set.
