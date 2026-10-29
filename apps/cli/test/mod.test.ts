@@ -418,8 +418,8 @@ function engine(locale: Record<string, string> = { LANG: 'C' }, store = new Map<
     return result;
   };
   /** The band's tree, or what lies beneath it when the mod passes. */
-  const band = (props: Record<string, unknown> = {}) =>
-    hooks.get('ui.render AbovePrompt')!($, { surface: 'terminal', component: 'AbovePrompt', props: { hasSurvey: false, ...props } }, async () => 'beneath');
+  const band = (props: Record<string, unknown> = {}, beneath: unknown = 'beneath') =>
+    hooks.get('ui.render AbovePrompt')!($, { surface: 'terminal', component: 'AbovePrompt', props: { hasSurvey: false, ...props } }, async () => beneath);
   /** The pane's tree. */
   const pane = () => hooks.get('ui.render Pane')!($, { surface: 'terminal', component: 'Pane', requestId: 'binnacle', props: {} }, async () => 'beneath');
   /** The permission check on a tool call, asked with `next` raised by a plugin (`next.origin`). */
@@ -475,13 +475,20 @@ test('the band is drawn with a question waiting, and passes beneath without one 
   state.answer = answered(snapshot(onTask, { pendingDecisions: pending(1, 0, 0) }));
   await run('session.measure', { ...FULL, changed: ['context'] });
   assert.equal(state.invalidated, 2);
-  assert.deepEqual(await band(), {
+  const waiting = {
     type: 'Box',
     props: { flexDirection: 'column' },
     children: [
       { type: 'Text', props: { bold: true, color: 'warning' }, children: ['Waiting for you'] },
       { type: 'Text', props: null, children: ['Unanswered questions: 1 (spec/01)'] },
     ],
+  };
+  // The band is one instance: what another plugin beneath draws stays, under Binnacle's.
+  assert.deepEqual(await band({}, null), waiting);
+  assert.deepEqual(await band(), {
+    type: 'Box',
+    props: { flexDirection: 'column' },
+    children: [waiting, 'beneath'],
   });
   assert.equal(await band({ hasSurvey: true }), 'beneath');
   // The same band again asks for no redraw; a stopped daemon takes it away.
