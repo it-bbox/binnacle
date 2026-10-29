@@ -31,7 +31,7 @@ type Engine = {
   ui: {
     toast: (text: string) => void;
     status: (text: string | undefined) => void;
-    invalidate: (event: 'ui.render') => void;
+    invalidate: (event: 'ui.render' | 'prompt.context') => void;
     resolve: (e: Render) => Record<'Box' | 'Text' | 'Button', (props: never) => Node>;
     open: (pane: { id: string; title: string }) => Promise<unknown>;
     close: (pane: { id: string }) => Promise<void>;
@@ -66,9 +66,10 @@ async function readSnapshot($: Engine): Promise<ViewInput['snapshot']> {
  * What a session keeps between its hooks: `latest`, the refresh under way or the last one; `shown`, the last view a
  * refresh drew, null before the first and after a failure; `drawn`, that view's band and pane as text, so that a refresh
  * that changes neither redraws nothing; `seen`, what the session saw for its toasts, undefined before its first snapshot;
- * `started` and `drawnBy`, the number of the last refresh started and of the last one drawn.
+ * `started` and `drawnBy`, the number of the last refresh started and of the last one drawn; `missed`, that the
+ * conversation's context was computed without a snapshot.
  */
-type Kept = { latest: Promise<View | null>; shown: View | null; drawn: string; seen: Seen | undefined; started: number; drawnBy: number };
+type Kept = { latest: Promise<View | null>; shown: View | null; drawn: string; seen: Seen | undefined; started: number; drawnBy: number; missed: boolean };
 
 /** The person's language by `binn`'s locale rule, read through Claude Code's environment. */
 async function readLanguage($: Engine): Promise<Language> {
@@ -98,12 +99,22 @@ async function draw($: Engine, kept: Kept): Promise<View | null> {
     $.ui.status(shown.status);
     for (const toast of shown.toasts) $.ui.toast(toast);
     if (key !== null && shown.store !== undefined) await $.store.set(key, shown.store).catch(() => {});
+    if (snapshot === null) shown = null;
   } catch {
     if (number < kept.drawnBy) return kept.shown;
     kept.drawnBy = number;
     $.ui.status(undefined);
   }
   kept.shown = shown;
+  if (shown !== null && kept.missed) {
+    // The context went without the session-start lines: the engine computes it again for the next turn.
+    kept.missed = false;
+    try {
+      $.ui.invalidate('prompt.context');
+    } catch {
+      // The lines stay out of this conversation.
+    }
+  }
   const drawn = JSON.stringify([shown?.band ?? null, shown?.pane ?? null]);
   if (drawn !== kept.drawn) {
     kept.drawn = drawn;
@@ -125,7 +136,7 @@ function refresh($: Engine, kept: Kept): void {
 // Each refresh runs unawaited: Claude Code awaits `session.start` before the first prompt, and a snapshot on a cold forge
 // cache takes seconds.
 export function register(on: On): void {
-  const kept: Kept = { latest: Promise.resolve(null), shown: null, drawn: '[null,null]', seen: undefined, started: 0, drawnBy: 0 };
+  const kept: Kept = { latest: Promise.resolve(null), shown: null, drawn: '[null,null]', seen: undefined, started: 0, drawnBy: 0, missed: false };
   on('session.start', async ($, e, next) => {
     refresh($, kept);
     $.clock.every(REFRESH_MS, () => refresh($, kept));
@@ -173,7 +184,16 @@ export function register(on: On): void {
   on('prompt.context', async ($, e, next) => {
     const result = (await next(e)) as Blocks;
     // A daemon slower than the wait adds nothing, rather than fail the hook.
-    const lines = (await Promise.race([kept.latest, $.clock.sleep(START_WAIT_MS).then(() => null)]))?.startLines;
+    const timeout = $.clock.sleep(START_WAIT_MS).then(() => null);
+    let shown = await Promise.race([kept.latest, timeout]);
+    // The `binnacle` server may still have been connecting at the start: ask once more, inside the same wait.
+    if (shown === null) {
+      refresh($, kept);
+      shown = await Promise.race([kept.latest, timeout]);
+    }
+    // Still none: the first answer after it has the engine compute the context again.
+    kept.missed = shown === null;
+    const lines = shown?.startLines;
     return lines === undefined ? result : { ...result, blocks: [...result.blocks, { name: 'binnacle', text: lines.join('\n') }] };
   });
 }

@@ -367,6 +367,8 @@ function engine(locale: Record<string, string> = { LANG: 'C' }, store = new Map<
     calls: [] as unknown[][],
     timers: [] as { ms: number; fn: () => void }[],
     invalidated: 0,
+    /** How many times the conversation's context was asked to be computed again. */
+    reread: 0,
     commands: [] as unknown[],
     /** The toasts shown; `store` is Claude Code's store of the plugin, which another session may share. */
     toasts: [] as string[],
@@ -391,7 +393,7 @@ function engine(locale: Record<string, string> = { LANG: 'C' }, store = new Map<
     ui: {
       toast: (text: string) => void state.toasts.push(text),
       status: (text: string | undefined) => void state.lines.push(text),
-      invalidate: () => void (state.invalidated += 1),
+      invalidate: (event: string) => void (event === 'prompt.context' ? (state.reread += 1) : (state.invalidated += 1)),
       // Each element by its name, so that a test reads the tree the band would draw.
       resolve: () => ({ Box: 'Box', Text: 'Text', Button: 'Button' }),
       open: async (pane: { id: string; title: string }) => (state.panes.push(pane), { isPlaced: true }),
@@ -515,6 +517,31 @@ test('the session-start lines wait on the refresh under way, and give up inside 
   state.sleep = Promise.resolve();
   await run('session.measure', { ...FULL, changed: ['context'] });
   assert.deepEqual(await run('prompt.context', { blocks: [core] }), { blocks: [core] });
+});
+
+test('a binnacle server still connecting at the start: the hook asks again, and an answer after it has the context computed again once', async () => {
+  const core = { name: 'currentDate', text: 'Today' };
+  const block = { name: 'binnacle', text: START_LINES.join('\n') };
+  const connecting = new Error('MCP server "binnacle" is not connected');
+  const first = engine();
+  first.state.answer = connecting;
+  await first.run('session.start', START);
+  first.state.answer = answered(snapshot(null, ON_MAIN));
+  assert.deepEqual(await first.run('prompt.context', { blocks: [core] }), { blocks: [core, block] });
+  assert.equal(first.state.calls.length, 2);
+  assert.equal(first.state.reread, 0);
+
+  // Still connecting when the context is computed: the first answer after it asks for the context again, once.
+  const { state, run } = engine();
+  state.answer = connecting;
+  await run('session.start', START);
+  assert.deepEqual(await run('prompt.context', { blocks: [core] }), { blocks: [core] });
+  state.answer = answered(snapshot(null, ON_MAIN));
+  await run('session.measure', { ...FULL, changed: ['context'] });
+  assert.equal(state.reread, 1);
+  assert.deepEqual(await run('prompt.context', { blocks: [core] }), { blocks: [core, block] });
+  await run('session.measure', { ...FULL, changed: ['context'] });
+  assert.equal(state.reread, 1);
 });
 
 test('the command is registered at the start, opens the pane, and closes it on a second run; the pane never opens by itself', async () => {
