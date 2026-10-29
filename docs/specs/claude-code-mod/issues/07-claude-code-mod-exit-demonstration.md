@@ -9,10 +9,10 @@ Spec: `docs/specs/claude-code-mod/spec.md`
 
 - [x] `binn init` asks whether to install the mod, declines on Enter, and installs it on a yes.
 - [ ] In the terminal and in the desktop app, the status line shows the Task and role on a ticket's branch and the role on `main`, with tokens, context and the usage limits, beside the owner's own `statusLine`.
-- [ ] The band shows a question recorded on a ticket's branch and is gone once the question is answered.
-- [ ] `binnacle-pane` opens and closes the pane, in a terminal narrower than 144 columns and in the desktop app, and its buttons put their commands in the prompt box without sending them.
+- [x] The band shows a question recorded on a ticket's branch and is gone once the question is answered.
+- [x] `binnacle-pane` opens and closes the pane, in a terminal narrower than 144 columns and in the desktop app, and its buttons put their commands in the prompt box without sending them.
 - [ ] With two sessions open, a failing CI on `main` toasts in one of them.
-- [ ] A session on `main` starts with the session-start lines, and a session on a ticket's branch without them.
+- [x] A session on `main` starts with the session-start lines, and a session on a ticket's branch without them.
 - [ ] With the daemon stopped, the mod shows nothing and says nothing.
 - [x] `claude plugin validate` on the built mod is clean.
 - [ ] The CLI package's version is 0.6.0; 0.6.0 is published by `CONTRIBUTING.md`'s *Releasing* and installed from the registry into a clean container, where `binn daemon status` gives 0.6.0.
@@ -68,6 +68,10 @@ The branch merged into `main` with `git merge --no-ff` (`9e499af`) while this ti
 - The second try (the owner, 2026-10-29) carried the lines only with the second message. An interactive `claude --debug` showed why: Claude Code computes the context as the session starts, about 200 ms before the `binnacle` server connects. **Fixed**: the context hook asks again every half second while it has no snapshot, inside the same 8 seconds; in the next interactive `claude --debug` the retry after the connection answered and the hook settled with the lines, 1.5 s in. And a refresh that answers after a context computed without one asks Claude Code to compute it again (`$.ui.invalidate('prompt.context')`), once. Pinned in `mod.test.ts`.
 - **Criterion 2, in the terminal** (the owner, 2026-10-29): a new session on `main` showed «binnacle-mod: продуктовая сессия · 733 выходных т…» after its first turn, before it «контекст 6% · 5 ч 10% · 7 дн 28%», under the owner's own status rows. A new session in `../binnacle-07`, on this branch, showed «binnacle-mod: claude-code-mod/07 доработка · 864 выходных ток…», the role as Binnacle read the session. The Task came about a minute after the session's first turn: a new session's file reaches the snapshot at the importer's next pass, which a probe session in a fresh worktree confirmed (its run appeared 66 s in, with no other call). The desktop app is still to check.
 - **Criterion 6** holds (the owner, 2026-10-29), with the two fixes above: a new session on `main` quoted the three lines of its `binnacle` block in answer to its first message, and a new session in `../binnacle-07` had none.
+- Found in criterion 3's first try (the owner, 2026-10-29): the owner's own mod, `memory-band`, loaded through `CLAUDE_CODE_PLUGIN_DIRS`, answered the band above the prompt without passing it on, so Binnacle's band, beneath it, never showed. Claude Code draws that band once for every plugin. **Fixed**: Binnacle's band draws what a plugin beneath it draws under its own, a row apart, and `memory-band`, outside this repository, now does the same at the owner's yes; its own test passes.
+- The band and the pane polished at the owner's ask: the band's CI line short, its branch and commit, without the forge and the link; in the pane, CI once, in its own section, red when failing and green when passing, the Next action's command on its button alone, and the sections a row apart.
+- **Criterion 4** holds (the owner, 2026-10-29): `/binnacle-pane` opened and closed the pane in a terminal narrower than 144 columns and in the desktop app; its button put `/binnacle:task run docs/specs/claude-code-mod/issues/07-claude-code-mod-exit-demonstration.md` in the prompt box and sent nothing.
+- **Criterion 3** holds (the owner, 2026-10-29): the question below, recorded on this branch, showed in the band as «Вопросы без ответа: 1 (claude-code-mod/07)»; answered with `/binnacle:answer`, it left the band within a minute and a session toasted «Получен ответ на вопрос по claude-code-mod/07».
 
 ### Question
 
