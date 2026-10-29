@@ -32,8 +32,9 @@ Binnacle's feature installs `@it-bbox/binnacle` from npm, keeps Binnacle's home 
 | `version` | `latest` | The npm version of `@it-bbox/binnacle` to install. Pin it, so that a rebuild does not upgrade Binnacle behind your back. |
 | `hostPort` | `7717` | The host port the container's 7717 is published or forwarded on. The daemon accepts `127.0.0.1` and `localhost` at it. |
 
-- **The port.** `appPort` publishes the container's 7717 on the host's loopback, `127.0.0.1:<hostPort>:7717`; never write it as a bare `<hostPort>:7717` ([why](#publish-on-127001-only)). An editor that forwards ports can forward it instead, `"forwardPorts": [7717]`: it takes 7717 on the host when that port is free and another otherwise, and `hostPort` must name the port it shows.
-- **The harness's home.** Claude Code keeps its settings, its session files and Binnacle's plugin in `~/.claude`, and its MCP servers, the one `binn init` registers included, in `~/.claude.json`. A volume holds a directory, not a file, so `CLAUDE_CONFIG_DIR` puts both in one directory, here `/home/node/.claude`, and the volume keeps them through a rebuild. Binnacle reads them there without being told. Docker creates a new volume's mount point as root when the image has no such directory, so `postCreateCommand` gives it to the container's user; `/home/node` and `node` are the Node images' user, so write your own.
+- **The port.** `appPort` publishes the container's 7717 on the host's loopback, `127.0.0.1:<hostPort>:7717`; never write it as a bare `<hostPort>:7717` ([why](#publish-on-127001-only)). An editor that forwards ports can forward it instead, `"forwardPorts": [7717]`: it takes 7717 on the host when that port is free and another otherwise, and `hostPort` must name the port it shows, which takes a rebuild when it changes.
+- **The harness's home.** Claude Code keeps its settings, its session files and Binnacle's plugin in `~/.claude`, and its MCP servers, the one `binn init` registers included, in `~/.claude.json`. A volume holds a directory, not a file, so `CLAUDE_CONFIG_DIR` puts both in one directory, here `/home/node/.claude`, and the volume keeps them through a rebuild. Binnacle reads them there without being told. Docker creates a new volume's mount point as root when the image has no such directory, so `postCreateCommand` gives it to the container's user, with the `sudo` the `mcr.microsoft.com/devcontainers` images have; an image without `sudo` makes the directory itself, as the Dockerfile below does. `/home/node` and `node` are the Node images' user, so write your own.
+- The allowed hosts live in the feature's start command, `/usr/local/share/binnacle-start.sh`: after `binn daemon stop`, start the daemon again with it, since a plain `binn daemon start` would not accept the host's address.
 - The feature writes nothing into your repository, publishes no port and mounts no harness home: the three are your `devcontainer.json`'s.
 
 ## By hand
@@ -44,7 +45,8 @@ For an image built without features, or a `docker compose` service. The image in
 FROM node:24-bookworm-slim
 RUN npm install -g @it-bbox/binnacle@0.7.0 \
  && mkdir -p /var/lib/binnacle /home/node/.claude \
- && chown node:node /var/lib/binnacle /home/node/.claude
+ && chmod 1777 /var/lib/binnacle \
+ && chown node:node /home/node/.claude
 ENV BINNACLE_HOME=/var/lib/binnacle/home \
     BINNACLE_HOST=0.0.0.0 \
     CLAUDE_CONFIG_DIR=/home/node/.claude
@@ -52,7 +54,7 @@ USER node
 ```
 
 - `BINNACLE_HOST=0.0.0.0` binds every interface inside the container, so that a published port reaches the daemon. Clients inside still reach it over the container's loopback.
-- `BINNACLE_HOME` is a directory on the volume mounted at `/var/lib/binnacle`, which keeps the registration, the token and the history through a rebuild. The two directories are made in the image, the user's own, so that a new volume starts out as theirs.
+- `BINNACLE_HOME` is a directory on the volume mounted at `/var/lib/binnacle`, which keeps the registration, the token and the history through a rebuild. The two directories are made in the image so that a new volume starts out writable: `/var/lib/binnacle` open to every user, as `/tmp` is, since a dev container may change the user's UID after the build, and the daemon creates its home inside, its user's alone; `/home/node/.claude` the user's own, which that change follows.
 
 Each container then gives four things: the port, published on the host's loopback; `BINNACLE_ALLOWED_HOSTS`, naming that host port; the two volumes; and the start command, run each time the container starts:
 
@@ -75,7 +77,13 @@ volumes:
   claude:
 ```
 
-The start command removes the runtime file a stopped container left, since the process it names died with the container, then starts the daemon; a daemon already answering is left running. Replace `exec sleep infinity` with your app's own command. A dev container built from this image runs the same line as its `postStartCommand`, with `$` for `$$`, and gives the port, the variable and the volumes in `appPort`, `containerEnv` and `mounts`. A container whose daemon does not start is developed as before, without Binnacle.
+The start command removes the runtime file a stopped container left, since the process it names died with the container, then starts the daemon; a daemon already answering is left running. Replace `exec sleep infinity` with your app's own command. A dev container built from this image gives the port, the variable and the volumes in `appPort`, `containerEnv` and `mounts`, and starts the daemon in its `postStartCommand`, without `sleep`, which would never return:
+
+```bash
+binn daemon status >/dev/null 2>&1 || { rm -f "$BINNACLE_HOME/runtime.json"; binn daemon start; }
+```
+
+A container whose daemon does not start is developed as before, without Binnacle.
 
 ## Publish on 127.0.0.1 only
 
@@ -96,7 +104,7 @@ The allowed `Host` must name the host-side port. The browser sends `Host: 127.0.
 
 ## Set up the project and open the dashboard
 
-Run `binn init` once per project, inside the container, in the checkout: it registers the project with the container's Binnacle and Binnacle's MCP server with the harness, both on their volumes, so a rebuild keeps them. Run on the host, it would register the project with the host's Binnacle, which sees none of the container's sessions. Answer no to its autostart: a container has no service manager, and the feature or the start command starts the daemon.
+Run `binn init` once per project, inside the container, in the checkout: it registers the project with the container's Binnacle and Binnacle's MCP server with the harness, both on their volumes, so a rebuild keeps them. Run on the host, it would register the project with the host's Binnacle, which sees none of the container's sessions. It does not offer autostart there: a container has no service manager, and the feature or the start command starts the daemon.
 
 Then, inside the container:
 
