@@ -11,7 +11,7 @@ Spec: `docs/specs/claude-code-mod/spec.md`
 - [x] In the terminal and in the desktop app, the status line shows the Task and role on a ticket's branch and the role on `main`, with tokens, context and the usage limits, beside the owner's own `statusLine`.
 - [x] The band shows a question recorded on a ticket's branch and is gone once the question is answered.
 - [x] `binnacle-pane` opens and closes the pane, in a terminal narrower than 144 columns and in the desktop app, and its buttons put their commands in the prompt box without sending them.
-- [ ] With two sessions open, a failing CI on `main` toasts in one of them.
+- [x] With two sessions open, a failing CI on `main` toasts in one of them.
 - [x] A session on `main` starts with the session-start lines, and a session on a ticket's branch without them.
 - [x] With the daemon stopped, the mod shows nothing and says nothing.
 - [x] `claude plugin validate` on the built mod is clean.
@@ -85,6 +85,7 @@ The branch merged into `main` with `git merge --no-ff` (`9e499af`) while this ti
 - **Criterion 2** holds (the owner, 2026-10-29). The desktop app draws a plugin's status line in its bottom bar, beside the model: on `main`, «binnacle-mod продуктовая сессия · 138,5 тыс. вых…»; in a desktop session on `../binnacle-07`, «binnacle-mod: claude-code-mod/07 доработка · 160 выходных токенов (по активности) · контекст 9% · 5 ч 33% · 7 дн 31%», once the session's file reached the snapshot, about a minute in.
 - Found on the way: back in a desktop session the line and the band were gone until the next message. A session the app starts again runs `session.start` before the `binnacle` server connects, as the context does, and the next refresh came a minute later. **Fixed**: the start asks every half second until a refresh answers, as long as the context hook waits; in an interactive `claude --debug` the line was drawn 4.4 s after the start with no message, the snapshot itself taking 3.8 s.
 - **Criterion 7** holds (the owner, 2026-10-29): with the daemon stopped by `binn daemon stop`, the status line and Binnacle's part of the band went within a minute, `memory-band`'s rows staying, and nothing in the chat or the toasts named the daemon. Started again, the line came back at the next refresh.
+- **Criterion 5** holds (the owner, 2026-10-29). With `main` pushed at `cd365f7` and CI green there on the three platforms, a commit with a test failing on purpose (`2f492a1`) was pushed at `72b5c4a`; `check` failed and the run ended red at 19:01, and the snapshot read it failing at 19:01:36, after the forge cache's minute. Two sessions of the project were open, one in a terminal and one in the desktop app. At 19:04:07 the mod's store recorded `72b5c4a35bd0` as the CI failure toasted, which it writes only as a session toasts it, and held no other; the owner, away from the screen, remembers the one toast. The commit was reverted next.
 
 ### Question
 
