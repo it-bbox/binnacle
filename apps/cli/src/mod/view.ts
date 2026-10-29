@@ -151,7 +151,7 @@ function failing(item: Coded, language: Language): string {
  * one's Task id; `main`'s CI failing, short, and a stale Next action, worded by its code. A section marked unavailable is
  * left out, and with nothing waiting there is no band.
  */
-function band(snapshot: NonNullable<ViewInput['snapshot']>, language: Language): View['band'] {
+function band(snapshot: NonNullable<ViewInput['snapshot']>, language: Language, withCi = true): View['band'] {
   const words = WORDS[language];
   const items: string[] = [];
   const pending = snapshot.pendingDecisions;
@@ -167,7 +167,7 @@ function band(snapshot: NonNullable<ViewInput['snapshot']>, language: Language):
     }
   }
   for (const item of snapshot.attention) {
-    if (item.code === 'ci.failing') items.push(failing(item, language));
+    if (item.code === 'ci.failing' && withCi) items.push(failing(item, language));
     else if (item.code === 'next_action.stale') items.push(say(item, language));
   }
   return items.length > 0 ? { title: words.band, items } : undefined;
@@ -198,7 +198,7 @@ function startLines(snapshot: NonNullable<ViewInput['snapshot']>): View['startLi
  * coloured by its state, and the Next action, whose command is its button's, each left out without data; and its
  * buttons, each by its rule.
  */
-function pane(snapshot: NonNullable<ViewInput['snapshot']>, waiting: View['band'], language: Language): View['pane'] {
+function pane(snapshot: NonNullable<ViewInput['snapshot']>, language: Language): View['pane'] {
   const words = WORDS[language];
   const sections: NonNullable<View['pane']>['sections'] = [];
   const epic = snapshot.roadmap?.current ?? null;
@@ -206,10 +206,9 @@ function pane(snapshot: NonNullable<ViewInput['snapshot']>, waiting: View['band'
     const progress = epic.progress ? `, ${words.progress(epic.progress.done, epic.progress.all)}` : '';
     sections.push({ heading: words.epic, lines: [`${epic.number}, ${epic.title} (${words.statuses[epic.status] ?? epic.status}${progress})`] });
   }
-  // CI has a section of its own.
-  const ci = snapshot.attention.find((item) => item.code === 'ci.failing');
-  const lines = waiting?.items.filter((line) => !ci || line !== failing(ci, language)) ?? [];
-  if (waiting && lines.length > 0) sections.push({ heading: waiting.title, lines });
+  // The band's items but CI, which has a section of its own.
+  const waiting = band(snapshot, language, 'available' in snapshot.ci);
+  if (waiting) sections.push({ heading: waiting.title, lines: waiting.items });
   const inFlight = snapshot.tasks?.inFlight;
   if (inFlight && inFlight.items.length > 0) {
     const lines = inFlight.items.map((task) => {
@@ -302,7 +301,7 @@ export function view({ snapshot, context, rateLimits, language, previous, store 
     status: parts.length > 0 ? parts.join(' · ') : undefined,
     band: waiting,
     startLines: startLines(snapshot),
-    pane: pane(snapshot, waiting, language),
+    pane: pane(snapshot, language),
     ...toasts(snapshot, previous, store, language),
   };
 }
