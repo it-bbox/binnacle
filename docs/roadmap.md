@@ -32,7 +32,7 @@ Epics 1 to 19 are v1.
 | 20 | Hygiene after v1 | done | [`hygiene-after-v1`](specs/hygiene-after-v1/spec.md) |
 | 21 | Hygiene after 0.4.0 | done | [`hygiene-after-0-4-0`](specs/hygiene-after-0-4-0/spec.md) |
 | 22 | A Binnacle mod for Claude Code | done | [`claude-code-mod`](specs/claude-code-mod/spec.md) |
-| 23 | Binnacle in a dev container | not started | — |
+| 23 | Binnacle in a dev container | spec | [`dev-container`](specs/dev-container/spec.md) |
 | 24 | Showcase and launch | not started | — |
 | 25 | Cheaper runs | not started | — |
 | 26 | Binnacle's own planning skills | not started | — |
@@ -67,7 +67,7 @@ Done: epics 1 to 22. **v1 is complete.**
 
 Next: epics 23 to 27, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28.
 
-Next action: specify epic 23, *Binnacle in a dev container*, from its grilling's brief, `docs/specs/dev-container/brief.md`. `/to-spec`
+Next action: split epic 23, *Binnacle in a dev container*, into tickets from its spec, `docs/specs/dev-container/spec.md`. `/to-tickets`
 
 ## Later
 
