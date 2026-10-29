@@ -26,9 +26,12 @@ fetch('http://' + r.host + ':' + r.port + '/health').then((x) => { console.log(J
 const TEST_SH = `#!/bin/sh
 set -e
 binn --version
-grep -q " $BINNACLE_HOME " /proc/mounts
+grep -q " $(dirname "$BINNACLE_HOME") " /proc/mounts
 node -e "${HEALTH.replaceAll('"', '\\"')}"
 `;
+
+/** The feature's volumes on this machine, `binnacle-<devcontainerId>`. */
+const volumes = (): string[] => run('docker', ['volume', 'ls', '--quiet', '--filter', 'name=binnacle-']).split('\n').filter(Boolean);
 
 function run(command: string, args: string[]): string {
   const result = spawnSync(command, args, { encoding: 'utf8', timeout: 10 * 60_000 });
@@ -42,12 +45,18 @@ test('devcontainer features test builds a container with the feature: binn runs,
   cpSync(FEATURE, join(collection, 'src', 'binnacle'), { recursive: true });
   mkdirSync(join(collection, 'test', 'binnacle'), { recursive: true });
   writeFileSync(join(collection, 'test', 'binnacle', 'test.sh'), TEST_SH, { mode: 0o755 });
+  // The test removes its container, not the feature's volume.
+  const before = new Set(volumes());
+  t.after(() => {
+    for (const volume of volumes().filter((name) => !before.has(name))) spawnSync('docker', ['volume', 'rm', volume]);
+  });
 
   run('devcontainer', ['features', 'test', '--project-folder', collection, '--features', 'binnacle', '--base-image', IMAGE, '--skip-scenarios']);
 });
 
 test('a container started twice starts the daemon both times, the first run\'s runtime file not blocking the second', { skip, timeout: 15 * 60_000 }, (t: TestContext) => {
   const workspace = mkdtempSync(join(tmpdir(), 'binnacle-devcontainer-'));
+  t.after(() => rmSync(workspace, { recursive: true, force: true }));
   cpSync(FEATURE, join(workspace, '.devcontainer', 'binnacle'), { recursive: true });
   writeFileSync(
     join(workspace, '.devcontainer', 'devcontainer.json'),
@@ -62,11 +71,10 @@ test('a container started twice starts the daemon both times, the first run\'s r
     };
 
   const { containerId } = up();
-  const volumes = run('docker', ['inspect', '--format', '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}} {{end}}{{end}}', containerId]).trim().split(' ');
+  const mounted = run('docker', ['inspect', '--format', '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}} {{end}}{{end}}', containerId]).trim().split(' ');
   t.after(() => {
     spawnSync('docker', ['rm', '-f', containerId]);
-    for (const volume of volumes) spawnSync('docker', ['volume', 'rm', volume]);
-    rmSync(workspace, { recursive: true, force: true });
+    for (const volume of mounted) spawnSync('docker', ['volume', 'rm', volume]);
   });
 
   const first = health();

@@ -37,9 +37,10 @@ test("the daemon binds every interface, with its home on a volume of the contain
   const [mount] = feature.mounts;
   assert.equal(mount?.type, 'volume');
   assert.match(mount?.source ?? '', /\$\{devcontainerId\}/);
-  assert.equal(feature.containerEnv.BINNACLE_HOME, mount?.target);
-  // install.sh hands that directory to the container's user, so the volume starts out theirs.
-  assert.ok(install.includes(`HOME_DIR=${mount?.target}\n`), 'install.sh prepares the mount target');
+  // The home is a directory on the volume, which the daemon creates as the container's user, whatever its UID.
+  assert.equal(feature.containerEnv.BINNACLE_HOME, `${mount?.target}/home`);
+  assert.ok(install.includes(`VOLUME=${mount?.target}\n`), 'install.sh prepares the mount target');
+  assert.match(install, /^chmod 1777 "\$VOLUME"$/m);
   // The feature publishes no port and mounts no harness home: the developer's devcontainer.json does both.
   assert.doesNotMatch(JSON.stringify(feature), /appPort|forwardPorts|\.claude/);
 });
@@ -48,7 +49,7 @@ test('postStartCommand runs the start command install.sh writes, which starts th
   const start = install.match(/^START=(\S+)$/m)?.[1];
   assert.ok(start, 'install.sh names its start command');
   assert.equal(feature.postStartCommand, start);
-  assert.match(install, /^binn daemon start$/m);
+  assert.match(install, /^binn daemon start \|\| /m);
   assert.match(install, /^export BINNACLE_ALLOWED_HOSTS=127\.0\.0\.1:\$HOSTPORT,localhost:\$HOSTPORT$/m);
 });
 

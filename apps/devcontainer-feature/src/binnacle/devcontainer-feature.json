@@ -2,25 +2,23 @@
   "id": "binnacle",
   "version": "0.1.0",
   "name": "Binnacle",
-  "description": "Installs @it-bbox/binnacle from npm and starts its daemon with the container, its home on a volume of the container's own, its dashboard reachable from the host. Needs Node 24 or later.",
+  "description": "Installs @it-bbox/binnacle from npm and starts its daemon with the container, its home on a volume of the container's own, accepting the host-side address once devcontainer.json publishes hostPort. Needs Node 24 or later.",
   "documentationURL": "https://github.com/it-bbox/binnacle",
   "licenseURL": "https://github.com/it-bbox/binnacle/blob/main/LICENSE",
   "options": {
     "version": {
       "type": "string",
       "default": "latest",
-      "proposals": ["latest"],
       "description": "The version of @it-bbox/binnacle to install from npm."
     },
     "hostPort": {
       "type": "string",
       "default": "7717",
-      "proposals": ["7717"],
       "description": "The host port the container's 7717 is published or forwarded on: the daemon accepts 127.0.0.1 and localhost at it."
     }
   },
   "containerEnv": {
-    "BINNACLE_HOME": "/var/lib/binnacle",
+    "BINNACLE_HOME": "/var/lib/binnacle/home",
     "BINNACLE_HOST": "0.0.0.0"
   },
   "mounts": [

@@ -5,12 +5,17 @@ set -e
 
 VERSION=${VERSION:-latest}
 HOSTPORT=${HOSTPORT:-7717}
-HOME_DIR=/var/lib/binnacle
+VOLUME=/var/lib/binnacle
 START=/usr/local/share/binnacle-start.sh
 
 case $HOSTPORT in
-  '' | *[!0-9]*) echo "binnacle: hostPort must be a port number, not \"$HOSTPORT\"." >&2; exit 1 ;;
+  *[!0-9]* | 0*) port=no ;;
+  *) [ "$HOSTPORT" -le 65535 ] && port=yes || port=no ;;
 esac
+if [ "$port" = no ]; then
+  echo "binnacle: hostPort must be a port from 1 to 65535, not \"$HOSTPORT\"." >&2
+  exit 1
+fi
 
 if ! command -v node >/dev/null 2>&1 || [ "$(node -p 'process.versions.node.split(".")[0]')" -lt 24 ]; then
   echo 'binnacle: Binnacle needs Node 24 or later. Add the Node feature to devcontainer.json:' >&2
@@ -20,10 +25,10 @@ fi
 
 npm install -g "@it-bbox/binnacle@$VERSION"
 
-# The volume mounted here starts out as this directory is in the image: the container's user's, and theirs alone.
-mkdir -p "$HOME_DIR"
-chown "${_REMOTE_USER:-root}" "$HOME_DIR"
-chmod 700 "$HOME_DIR"
+# The volume mounted here starts out as this directory is in the image: open to every user, as /tmp is, since the
+# container's user may not exist yet and its UID may still change. The daemon creates its home inside, its user's alone.
+mkdir -p "$VOLUME"
+chmod 1777 "$VOLUME"
 
 cat > "$START" <<EOF
 #!/bin/sh
@@ -34,6 +39,7 @@ binn daemon status >/dev/null 2>&1 && exit 0
 # Anything else in the runtime file is stale: the container's processes died with its last run, and the pid the file
 # names may now be another process's. ponytail: a daemon too slow to answer is replaced; none can be at a start.
 rm -f "\$BINNACLE_HOME/runtime.json"
-binn daemon start
+# Binnacle is optional (AGENTS.md, principle 3): a daemon that does not start leaves the container as it is.
+binn daemon start || echo 'binnacle: the daemon did not start; the container goes on without it.' >&2
 EOF
 chmod 755 "$START"
