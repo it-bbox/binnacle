@@ -166,7 +166,10 @@ export function register(on: On): void {
     return h(
       Box,
       { flexDirection: 'column' },
-      ...pane.sections.flatMap((section) => [h(Text, { bold: true }, section.heading), ...section.lines.map((line) => h(Text, null, line))]),
+      // Each section a row apart, its lines in its colour when it has one.
+      ...pane.sections.map((section) =>
+        h(Box, { flexDirection: 'column', marginBottom: 1 }, h(Text, { bold: true }, section.heading), ...section.lines.map((line) => h(Text, section.tone ? { color: section.tone } : null, line))),
+      ),
       // A box that cannot take the text (a dialog holds the keys) leaves the press without effect.
       ...pane.buttons.map(({ key, command }) => h(Button, { key, onPress: () => void $.prompt.fill({ text: command, mode: 'replace' }).catch(() => {}) }, command)),
     );
@@ -188,7 +191,7 @@ export function register(on: On): void {
     const waiting = h(Box, { flexDirection: 'column' }, h(Text, { bold: true, color: 'warning' }, band.title), ...band.items.map((item) => h(Text, null, item)));
     // The band is one instance: what a plugin beneath draws there stays, under Binnacle's.
     const beneath = await next(e);
-    return beneath ? h(Box, { flexDirection: 'column' }, waiting, beneath) : waiting;
+    return beneath ? h(Box, { flexDirection: 'column', rowGap: 1 }, waiting, beneath) : waiting;
   });
   // Once per conversation, when its first message's context is computed: the project's position, off a Task's branch only.
   on('prompt.context', async ($, e, next) => {
