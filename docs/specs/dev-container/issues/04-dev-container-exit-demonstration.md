@@ -1,6 +1,6 @@
 # 04: The exit demonstration of epic 23, and 0.7.0
 
-Status: READY
+Status: DONE
 Triage: ready-for-human
 Blocked by: 01, 02, 03
 Spec: `docs/specs/dev-container/spec.md`
