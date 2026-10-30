@@ -118,10 +118,10 @@ The rest is as on a host: [Installation checklist](05-installation-checklist.md#
 
 ## What one container costs
 
-One daemon's resident memory and its home's size, with one project per container, are measured in epic 23's exit demonstration and written here, with the date and the setup.
+One daemon's resident memory and its home's size, with one project per container, measured in epic 23's exit demonstration. The home grows with the sessions Binnacle imports, so this is its size before the first.
 
 | Measure | Value |
 | --- | --- |
-| The daemon's resident memory | not measured yet |
-| The Binnacle home's size | not measured yet |
-| Measured on | not measured yet |
+| The daemon's resident memory | 82 MiB (`VmRSS` 84,380 kB) |
+| The Binnacle home's size | 284 KiB |
+| Measured on | 2026-10-30: Binnacle 0.7.1 and the feature 1.0.0 in `mcr.microsoft.com/devcontainers/javascript-node:24`, Docker Desktop 4.89.0 (Engine 29.7.2) on Ubuntu 24.04.5, one project registered by `binn init` and no harness session yet |
