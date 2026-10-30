@@ -7,14 +7,14 @@ Spec: `docs/specs/dev-container/spec.md`
 
 **What to build:** epic 23's exit criterion, demonstrated by the owner, then the 0.7.0 release and the feature's 1.0.0 (spec, the exit criterion, *The exit demonstration*, *The release*).
 
-- [ ] The CLI package's version is 0.7.0 and the feature's 1.0.0; 0.7.0 is published by `CONTRIBUTING.md`'s *Releasing*, and the feature to `ghcr.io/it-bbox`.
-- [ ] In a clean dev container naming the published feature, with port 7717 published on `127.0.0.1`, the daemon starts with the container and `binn daemon status` gives 0.7.0.
-- [ ] `binn init` registers the project inside the container, and the address `binn dashboard` prints opens the dashboard in the host's browser.
-- [ ] A rebuild of the container keeps the registration and the token.
-- [ ] A second container on host port 7718 runs beside the first, and both dashboards open.
-- [ ] The OpenTelemetry endpoint of one container refuses a call from the other.
-- [ ] A host install of 0.7.0 with nothing set binds `127.0.0.1` and behaves as 0.6.0 did.
-- [ ] One daemon's resident memory and its home's size, one project per container, are measured and written into the guide and its twin, with the date and the setup.
+- [x] The CLI package's version is 0.7.0 and the feature's 1.0.0; 0.7.0 is published by `CONTRIBUTING.md`'s *Releasing*, and the feature to `ghcr.io/it-bbox`.
+- [x] In a clean dev container naming the published feature, with port 7717 published on `127.0.0.1`, the daemon starts with the container and `binn daemon status` gives 0.7.0.
+- [x] `binn init` registers the project inside the container, and the address `binn dashboard` prints opens the dashboard in the host's browser.
+- [x] A rebuild of the container keeps the registration and the token.
+- [x] A second container on host port 7718 runs beside the first, and both dashboards open.
+- [x] The OpenTelemetry endpoint of one container refuses a call from the other.
+- [x] A host install of 0.7.0 with nothing set binds `127.0.0.1` and behaves as 0.6.0 did.
+- [x] One daemon's resident memory and its home's size, one project per container, are measured and written into the guide and its twin, with the date and the setup.
 
 ## Comments
 
@@ -85,3 +85,22 @@ A review in a sub-agent, 2026-10-30, of the two fixes:
 - The real user manager's environment always holds `PATH`: none found. Standards: none found.
 
 Next, by the owner: push `main` with this branch merged again, publish 0.7.1 by the same steps, then criteria 2 and 3 again on a fresh `demo-a` (`devcontainer up --remove-existing-container`, the feature's `version` at `0.7.1`), and on to criterion 8.
+
+### The owner's run on 0.7.1
+
+0.7.1 published (the owner, 2026-10-30), after CI went green at `0281767`; `npm view @it-bbox/binnacle@0.7.1 version` gave `0.7.1` a few minutes later, the first `devcontainer up` having found it not yet available. The feature unchanged at 1.0.0. The criteria name 0.7.0, which was published and is replaced by 0.7.1 for the fix above; criteria 2 to 8 hold on 0.7.1.
+
+- **Criterion 1** holds: 0.7.0 and 0.7.1 on npm, the feature 1.0.0 on `ghcr.io/it-bbox`, public.
+- **Criterion 2** holds: `demo-a` cleaned (`git clean`, its container and both volumes removed) and brought up again with the feature's `version` at `0.7.1`: the daemon started with the container, `0.7.1`, bound `0.0.0.0`, accepting `127.0.0.1:7717, localhost:7717`, once each; the port on `127.0.0.1:7717` alone, as `ss -ltn` showed before.
+- **Criterion 3** holds: `binn init` in the container registered `demo-a` and skipped autostart, "no systemd user manager answers" with the stand-in's notice; the plan had no autostart item, and the daemon kept running. `binn dashboard --print` gave `http://127.0.0.1:7717/`, which opened the dashboard with `demo-a` in the host's browser.
+- **Criterion 4** holds: `devcontainer up --remove-existing-container` made a new container on the same volumes; `binn project list` still lists `demo-a`, and the hash of `binn dashboard --print` is the same before and after, `434bd18d…21b25ff`.
+- **Criterion 5** holds: `demo-b` with `hostPort` `7718` and `127.0.0.1:7718:7717`, accepting `127.0.0.1:7717, 127.0.0.1:7718, localhost:7718`; after `binn init` there, `http://127.0.0.1:7718/` and `http://127.0.0.1:7717/` open side by side, each with its own project.
+- **Criterion 6** holds: from `demo-b` (`172.17.0.3`) to `demo-a`'s `http://172.17.0.2:7717/v1/logs`, with an accepted `Host`: `request.forbidden_peer`, 403, naming `172.17.0.3`; the same call inside `demo-a` over loopback: `{} 200`.
+- **Criterion 7** holds: in a `node:24-slim` container with nothing set, `npm i -g @it-bbox/binnacle@0.7.1`: `binn --version` `0.7.1`, bound `127.0.0.1`, accepting `127.0.0.1:7717` alone, autostart off, `binn dashboard --print` `http://127.0.0.1:7717/`, and a `Host` of `localhost:7717` refused with `request.forbidden_host`, 403, as in 0.6.0.
+- **Criterion 8** holds: in `demo-a`, after `binn init` and with no harness session, the owner choosing not to sign a harness in for it: `VmRSS` 84,380 kB and the home 284 KiB, on Docker Desktop 4.89.0 (Engine 29.7.2), Ubuntu 24.04.5; written into the guide and its twin (`a757210`), saying the home grows with the sessions imported.
+
+For the product inbox, found on the way and outside this epic:
+
+- `binn init`'s skipped autostart prints the stand-in's notice whole, over four lines; its first line would do.
+- `binn init` plans `code --add-mcp` where VS Code is not installed, as in a container, and the item fails; it reads better as a skip with its reason.
+- The skills step reports "PromptScript does not support global skill installation" on every run, as found in epic 22.
