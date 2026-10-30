@@ -2,7 +2,7 @@
 
 _Русская версия: [07-containers.ru.md](07-containers.ru.md)._
 
-How to put Binnacle into each app container, beside the harness, and open its dashboard from the host's browser without opening it to your network. It needs Binnacle 0.7.1 or later: earlier versions bind the container's own loopback, which a published port does not reach, and 0.7.0's `binn init` turns on an autostart that a container without systemd cannot run.
+How to put Binnacle into each app container, beside the harness, and open its dashboard from the host's browser without opening it to your network. It needs Binnacle 0.7.1 or later: versions before 0.7.0 bind the container's own loopback, which a published port does not reach, and 0.7.0's `binn init` turns on an autostart that a container without systemd cannot run. A container upgraded from 0.7.0 in place, without a rebuild, turns it off with `binn daemon autostart off`.
 
 ## Why inside each app container
 
