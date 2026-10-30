@@ -61,13 +61,13 @@ Epics are ordered by dependency, not by preference:
 
 Done: epics 1 to 22. **v1 is complete.**
 
-**Released** (the owner): `@it-bbox/binnacle` 0.1.0 on 2026-10-13, with `it-bbox/binnacle` public, private vulnerability reporting and Dependabot alerts on; 0.2.0, epic 12, on 2026-10-21; 0.3.0, epic 13, on 2026-10-22, the last of v1, installed from the registry into a clean container (`specs/human-output/issues/11-human-output-exit-demonstration.md`); 0.4.0, epic 20, on 2026-10-28, installed from the registry into a clean container (`specs/hygiene-after-v1/issues/09-hygiene-exit-demonstration.md`); 0.5.0, epic 21, on 2026-10-28, installed from the registry into a clean container (`specs/hygiene-after-0-4-0/issues/08-hygiene-after-0-4-0-exit-demonstration.md`); 0.6.0, epic 22, on 2026-10-29, installed from the registry into a clean container (`specs/claude-code-mod/issues/07-claude-code-mod-exit-demonstration.md`).
+**Released** (the owner): `@it-bbox/binnacle` 0.1.0 on 2026-10-13, with `it-bbox/binnacle` public, private vulnerability reporting and Dependabot alerts on; 0.2.0, epic 12, on 2026-10-21; 0.3.0, epic 13, on 2026-10-22, the last of v1; 0.4.0, epic 20, and 0.5.0, epic 21, on 2026-10-28; 0.6.0, epic 22, on 2026-10-29. From 0.3.0 on, each was installed from the registry into a clean container by its epic's exit demonstration.
 
-**Epic 22 done** on 2026-10-29: tickets 01 to 06 by autopilot, 08 by hand, the exit demonstration and 0.6.0 the owner's. `binnacle-mod`, beside `binnacle` in the package's marketplace and offered by `binn init` at a terminal: a status line, a *Waiting for you* band it shares with other mods, a pane by `/binnacle-pane`, toasts and session-start lines. The demonstration fixed the permission prompt on its own read and its first refreshes, made before the `binnacle` server connects.
+**Epic 23 in progress** since 2026-10-29: tickets 01 to 03 by autopilot. The daemon takes `BINNACLE_HOST` and `BINNACLE_ALLOWED_HOSTS`; the dev container feature is in `apps/devcontainer-feature/`, at 0.1.0; the guide is `docs/operations/07-containers.md`. Left: ticket 04, the owner's: 0.7.0 to npm, then ticket 02's live test, the feature's 1.0.0 to `ghcr.io/it-bbox`, the demonstration and the footprint in the guide.
 
-Next: epics 23 to 27, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28.
+Next: epics 24 to 27, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28.
 
-Next action: run epic 23's tickets, `docs/specs/dev-container/issues/`, with autopilot; its exit demonstration, ticket 04, is the owner's. `/binnacle:autopilot`
+Next action: do epic 23's exit demonstration and release 0.7.0 and the feature's 1.0.0, by ticket 04, the owner's. `/binnacle:task run docs/specs/dev-container/issues/04-dev-container-exit-demonstration.md`
 
 ## Later
 
