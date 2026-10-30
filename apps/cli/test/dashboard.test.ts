@@ -129,6 +129,16 @@ test('binn daemon status shows the bound address and every address the daemon ac
   assert.match(result.stdout, new RegExp(`^ {2}accepts {2}127\\.0\\.0\\.1:${daemon.runtime.port}, 127\\.0\\.0\\.1:7718, localhost:7718$`, 'm'));
 });
 
+test('binn daemon status names an accepted address once, as when a container\'s host port is the daemon\'s own', async (t) => {
+  const home = temporaryHome(t);
+  const daemon = await startTestDaemon({ home: join(home, '.binnacle'), bind: '0.0.0.0', allowedHosts: ['127.0.0.1:7718', '127.0.0.1:7718'] });
+  t.after(() => daemon.stop());
+
+  const result = await binn(home, 'daemon', 'status');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, new RegExp(`^ {2}accepts {2}127\\.0\\.0\\.1:${daemon.runtime.port}, 127\\.0\\.0\\.1:7718$`, 'm'));
+});
+
 test('the telemetry export points at the runtime file\'s host, loopback, never 0.0.0.0', async (t) => {
   const home = temporaryHome(t);
   const daemon = await startTestDaemon({ home: join(home, '.binnacle'), bind: '0.0.0.0', allowedHosts: ALLOWED });

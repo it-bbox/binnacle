@@ -281,7 +281,9 @@ function managerFor({ platform, path, home }: Autostart): Manager {
   return {
     unavailable(text = T) {
       const manager = runManager('systemctl', user('show-environment'));
-      return manager.ok ? null : text.noSystemd(manager.message);
+      if (!manager.ok) return text.noSystemd(manager.message);
+      // A stand-in systemctl, as dev container images carry where systemd is not running, exits 0 with a notice instead of the manager's environment.
+      return /^\w+=/m.test(manager.output) ? null : text.noSystemd(manager.output.trim() || 'no environment');
     },
     isOn: () => runManager('systemctl', user('is-enabled', SERVICE_NAME)).ok && runManager('systemctl', user('is-active', SERVICE_NAME)).ok,
     reload: () => systemctl(['daemon-reload']),
@@ -443,7 +445,7 @@ function report(headline: string, runtime: Runtime): void {
   console.log(row('address', `http://${runtime.host}:${runtime.port}`));
   // A daemon older than 0.7.0 answers `daemon.status` without them: it bound `host` and accepted nothing else.
   console.log(row('bound', runtime.bind ?? runtime.host));
-  console.log(row('accepts', [`${runtime.host}:${runtime.port}`, ...(runtime.allowedHosts ?? [])].join(', ')));
+  console.log(row('accepts', [...new Set([`${runtime.host}:${runtime.port}`, ...(runtime.allowedHosts ?? [])])].join(', ')));
   console.log(row('pid', String(runtime.pid)));
   console.log(row('since', runtime.startedAt));
   console.log(row('version', runtime.version));
