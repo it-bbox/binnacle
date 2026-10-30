@@ -2,7 +2,7 @@
 
 _English version: [07-containers.md](07-containers.md). Этот файл — русский дубликат; обновляется вместе с `07-containers.md`._
 
-Как поставить Binnacle в каждый контейнер приложения, рядом с harness, и открыть его dashboard в браузере хоста, не открыв его своей сети. Нужен Binnacle 0.7.0 или новее: прежние версии привязываются к собственному loopback контейнера, до которого опубликованный порт не доходит.
+Как поставить Binnacle в каждый контейнер приложения, рядом с harness, и открыть его dashboard в браузере хоста, не открыв его своей сети. Нужен Binnacle 0.7.1 или новее: прежние версии привязываются к собственному loopback контейнера, до которого опубликованный порт не доходит, а `binn init` версии 0.7.0 включает автозапуск, который контейнер без systemd выполнить не может.
 
 ## Почему в каждом контейнере приложения
 
@@ -18,7 +18,7 @@ Binnacle ставится туда, где работает harness. Его де
 {
   "features": {
     "ghcr.io/devcontainers/features/node:1": { "version": "24" },
-    "ghcr.io/it-bbox/binnacle/binnacle:1": { "version": "0.7.0", "hostPort": "7717" }
+    "ghcr.io/it-bbox/binnacle/binnacle:1": { "version": "0.7.1", "hostPort": "7717" }
   },
   "appPort": ["127.0.0.1:7717:7717"],
   "containerEnv": { "CLAUDE_CONFIG_DIR": "/home/node/.claude" },
@@ -43,7 +43,7 @@ Binnacle ставится туда, где работает harness. Его де
 
 ```dockerfile
 FROM node:24-bookworm-slim
-RUN npm install -g @it-bbox/binnacle@0.7.0 \
+RUN npm install -g @it-bbox/binnacle@0.7.1 \
  && mkdir -p /var/lib/binnacle /home/node/.claude \
  && chmod 1777 /var/lib/binnacle \
  && chown node:node /home/node/.claude
