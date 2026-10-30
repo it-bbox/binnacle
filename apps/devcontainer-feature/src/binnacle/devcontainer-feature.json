@@ -1,6 +1,6 @@
 {
   "id": "binnacle",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "name": "Binnacle",
   "description": "Installs @it-bbox/binnacle from npm and starts its daemon with the container, its home on a volume of the container's own, accepting the host-side address once devcontainer.json publishes hostPort. Needs Node 24 or later.",
   "documentationURL": "https://github.com/it-bbox/binnacle/blob/main/docs/operations/07-containers.md",

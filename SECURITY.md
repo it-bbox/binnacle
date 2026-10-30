@@ -6,9 +6,9 @@ _Русская версия: [SECURITY.ru.md](SECURITY.ru.md)._
 
 | Version | Supported |
 | ------- | --------- |
-| 0.6.x   | Yes       |
+| 0.7.x   | Yes       |
 
-Fixes go only into the latest `0.6.x` release of `@it-bbox/binnacle`.
+Fixes go only into the latest `0.7.x` release of `@it-bbox/binnacle`.
 
 ## Reporting a vulnerability
 
