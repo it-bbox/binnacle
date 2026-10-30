@@ -1,6 +1,6 @@
 {
   "name": "@binnacle/cli",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "private": true,
   "description": "Binnacle CLI: binn.",
   "license": "Apache-2.0",

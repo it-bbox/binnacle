@@ -161,6 +161,16 @@ test('without a systemd user manager, autostart on refuses and writes nothing', 
     assert.deepEqual(calls(), ['--user show-environment']);
   });
 
+  await t.test('a stand-in systemctl, as dev container images carry, answers with a notice instead of the environment', (t) => {
+    const { binn, unit, set, calls } = setup(t);
+    set('stand-in');
+    const on = binn('daemon', 'autostart', 'on');
+    assert.equal(on.status, 3);
+    assert.match(on.stderr, /not available.*"systemd" is not running in this container/s);
+    assert.equal(existsSync(unit), false);
+    assert.deepEqual(calls(), ['--user show-environment']);
+  });
+
   await t.test('no systemctl at all', (t) => {
     const { binn, unit, bin } = setup(t);
     rmSync(join(bin, 'systemctl'));

@@ -2,7 +2,7 @@
 
 _Русская версия: [07-containers.ru.md](07-containers.ru.md)._
 
-How to put Binnacle into each app container, beside the harness, and open its dashboard from the host's browser without opening it to your network. It needs Binnacle 0.7.0 or later: earlier versions bind the container's own loopback, which a published port does not reach.
+How to put Binnacle into each app container, beside the harness, and open its dashboard from the host's browser without opening it to your network. It needs Binnacle 0.7.1 or later: versions before 0.7.0 bind the container's own loopback, which a published port does not reach, and 0.7.0's `binn init` turns on an autostart that a container without systemd cannot run. A container upgraded from 0.7.0 in place, without a rebuild, turns it off with `binn daemon autostart off`.
 
 ## Why inside each app container
 
@@ -18,7 +18,7 @@ Binnacle's feature installs `@it-bbox/binnacle` from npm, keeps Binnacle's home 
 {
   "features": {
     "ghcr.io/devcontainers/features/node:1": { "version": "24" },
-    "ghcr.io/it-bbox/binnacle/binnacle:1": { "version": "0.7.0", "hostPort": "7717" }
+    "ghcr.io/it-bbox/binnacle/binnacle:1": { "version": "0.7.1", "hostPort": "7717" }
   },
   "appPort": ["127.0.0.1:7717:7717"],
   "containerEnv": { "CLAUDE_CONFIG_DIR": "/home/node/.claude" },
@@ -43,7 +43,7 @@ For an image built without features, or a `docker compose` service. The image in
 
 ```dockerfile
 FROM node:24-bookworm-slim
-RUN npm install -g @it-bbox/binnacle@0.7.0 \
+RUN npm install -g @it-bbox/binnacle@0.7.1 \
  && mkdir -p /var/lib/binnacle /home/node/.claude \
  && chmod 1777 /var/lib/binnacle \
  && chown node:node /home/node/.claude

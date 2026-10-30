@@ -63,3 +63,25 @@ None found: 0.7.0 moved where 0.6.0's did (`apps/cli/package.json`, `SECURITY.md
 - `binn dashboard --print` prints the token in the fragment, and nothing said to keep it out of the ticket. **Fixed**: only the address before `#` goes into the ticket, and criterion 4 compares a hash.
 - The `ghcr.io` token: **fixed**: authorised for the organisation's SSO where it has one, and `docker logout ghcr.io` after publishing.
 - The port published on `127.0.0.1` only, checked with `ss -ltn`: none found.
+
+### The owner's run
+
+The branch merged into `main` with `git merge --no-ff` (`22141f6`) while this ticket said `Status: READY`; the daemon restarted on it, `binn daemon status` giving `0.7.0`, bound `127.0.0.1`, accepting its own address alone.
+
+- `pnpm test` in the main checkout passes in full (981), `locale.test.ts` included: its failure here was this session's sandbox.
+- **0.7.0 published** (the owner, 2026-10-30): `npm publish --dry-run` gave `@it-bbox/binnacle@0.7.0`, 83 files; after `npm login`, `npm publish --access public`, the second factor confirmed in the browser; `npm view @it-bbox/binnacle version` gave `0.7.0`.
+- **Ticket 02's live test passes** (the owner, 2026-10-30): `node --test apps/cli/test/devcontainer.live.ts`, 2 of 2, closing ticket 02's last two criteria. Docker Desktop on Linux shares only the home directory with its VM, so the test's directories under `/tmp` could not be mounted; it passes with `TMPDIR` inside the home, `TMPDIR=~/.cache/binnacle-live`.
+- **The feature 1.0.0 published** (the owner, 2026-10-30): `docker login` could not store the token, the Docker config naming `pass` with an empty store; `DEVCONTAINERS_OCI_AUTH="ghcr.io|<user>|$(gh auth token)"` with `devcontainer features publish …` published tags `1`, `1.0`, `1.0.0` and `latest`, after `gh auth refresh -s write:packages`, removed again after. The organisation allowed public packages first, then `binnacle/binnacle` was made public; `devcontainer features info manifest ghcr.io/it-bbox/binnacle/binnacle:1`, with no credentials, gives `1.0.0`. The collection's own package, `binnacle`, lists the feature for catalogues and is no container's.
+- **Criterion 2** holds on 0.7.0 (the owner, 2026-10-30): the host's daemon stopped to free 7717; `~/binnacle-demo/demo-a`, the guide's file with `mcr.microsoft.com/devcontainers/javascript-node:24`; `devcontainer up` started the daemon from the feature's `postStartCommand`, version `0.7.0`, bound `0.0.0.0`; `ss -ltn` shows `127.0.0.1:7717` alone.
+- Found in criterion 3: `binn init` in that container offered autostart, though the guide says it does not, and once accepted it stopped the running daemon and left none: `binn daemon status` gave not running, autostart on. The image's `systemctl` is a stand-in that, with systemd not running, prints a notice and exits 0, so `systemctl --user show-environment` looked like a user manager. **Fixed** (`4c22079`): the manager counts only when that output holds a `KEY=VALUE` line, as a real user manager's always does; pinned in `autostart.test.ts` with a stand-in in `fake-systemctl.ts`. The owner chose a fix and 0.7.1 before the rest of the demonstration.
+- Found in criterion 2: `binn daemon status` listed `127.0.0.1:7717` twice, the host port being the daemon's own. **Fixed** in the same commit: each accepted address once; pinned in `dashboard.test.ts`.
+- **0.7.1** (`0f5d98b`): the CLI at 0.7.1, the guide's pins with it; the feature unchanged at 1.0.0, its default `latest` taking 0.7.1.
+
+A review in a sub-agent, 2026-10-30, of the two fixes:
+
+- A container where 0.7.0 already wrote the unit still starts and reports through the stand-in, `binn daemon start` timing out. Kept in code: the unit is in the container's `~/.config`, not on a volume, so a rebuild removes it; only an upgrade in place keeps it. **Fixed** in the guide (`60fe6de`): such a container turns it off with `binn daemon autostart off`.
+- The guide said every version before 0.7.1 binds loopback. **Fixed**: versions before 0.7.0 do; 0.7.0's `binn init` turns on the autostart.
+- The test of the repeated address repeats an allowed value, not the daemon's own, whose port a test daemon picks. Kept: the same set folds both.
+- The real user manager's environment always holds `PATH`: none found. Standards: none found.
+
+Next, by the owner: push `main` with this branch merged again, publish 0.7.1 by the same steps, then criteria 2 and 3 again on a fresh `demo-a` (`devcontainer up --remove-existing-container`, the feature's `version` at `0.7.1`), and on to criterion 8.
