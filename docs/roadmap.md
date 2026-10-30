@@ -32,7 +32,7 @@ Epics 1 to 19 are v1.
 | 20 | Hygiene after v1 | done | [`hygiene-after-v1`](specs/hygiene-after-v1/spec.md) |
 | 21 | Hygiene after 0.4.0 | done | [`hygiene-after-0-4-0`](specs/hygiene-after-0-4-0/spec.md) |
 | 22 | A Binnacle mod for Claude Code | done | [`claude-code-mod`](specs/claude-code-mod/spec.md) |
-| 23 | Binnacle in a dev container | in progress | [`dev-container`](specs/dev-container/spec.md) |
+| 23 | Binnacle in a dev container | done | [`dev-container`](specs/dev-container/spec.md) |
 | 24 | Showcase and launch | not started | — |
 | 25 | Cheaper runs | not started | — |
 | 26 | Binnacle's own planning skills | not started | — |
@@ -59,7 +59,7 @@ Epics are ordered by dependency, not by preference:
 
 ## Current focus
 
-Done: epics 1 to 22. **v1 is complete.**
+Done: epics 1 to 23. **v1 is complete.**
 
 **Released** (the owner): `@it-bbox/binnacle` 0.1.0 on 2026-10-13, with `it-bbox/binnacle` public, private vulnerability reporting and Dependabot alerts on; 0.2.0, epic 12, on 2026-10-21; 0.3.0, epic 13, on 2026-10-22, the last of v1; 0.4.0, epic 20, and 0.5.0, epic 21, on 2026-10-28; 0.6.0, epic 22, on 2026-10-29. From 0.3.0 on, each was installed from the registry into a clean container by its epic's exit demonstration.
 
