@@ -30,7 +30,7 @@ Binnacle — локальный provider-agnostic **AI Engineering Control Plane
 ## Требования
 
 - Node.js 24 LTS, на Linux, macOS или Windows.
-- Свободный loopback-порт: демон отдаёт dashboard на `http://127.0.0.1:7717` по умолчанию, а `binn daemon start` берёт другой из `BINNACLE_PORT`.
+- Свободный loopback-порт: демон отдаёт dashboard на `http://127.0.0.1:7717` по умолчанию; с выключенным автозапуском `binn daemon start` берёт другой порт из `BINNACLE_PORT`.
 
 Docker для самого Binnacle не нужен: это один локальный демон, а контейнер добавляет опубликованный порт и второе хранилище в обслуживание — он нужен, только если ваше приложение уже живёт в контейнере.
 

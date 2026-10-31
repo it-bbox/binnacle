@@ -30,7 +30,7 @@ Long agent sessions grow expensive, compaction loses detail, and every new agent
 ## Requirements
 
 - Node.js 24 LTS, on Linux, macOS or Windows.
-- A free loopback port: the daemon serves its dashboard on `http://127.0.0.1:7717` by default, and `binn daemon start` takes another port from `BINNACLE_PORT`.
+- A free loopback port: the daemon serves its dashboard on `http://127.0.0.1:7717` by default; with autostart off, `binn daemon start` takes another port from `BINNACLE_PORT`.
 
 Docker is not needed for Binnacle itself: it is one local daemon, and a container adds a published port and a second home to look after — use it only when your app already runs in one.
 
