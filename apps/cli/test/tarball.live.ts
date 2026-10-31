@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test, type TestContext } from 'node:test';
+import { publishManifest } from '../src/manifest.ts';
 
 /**
  * The tarball test (release spec, *The tarball test*): the package the build writes, packed with
@@ -65,6 +66,10 @@ test('the packed @it-bbox/binnacle, installed into an empty prefix, runs binn, i
   const manifest = JSON.parse(readFileSync(join(installed, 'package.json'), 'utf8')) as Record<string, unknown>;
   assert.equal(manifest.dependencies, undefined, 'no runtime dependencies');
   assert.deepEqual(manifest.publishConfig, { access: 'public' });
+  // Epic 24, ticket 04: the installed manifest is the published one, with the identity strings.
+  const published = publishManifest({ version: VERSION, engines: {} });
+  assert.equal(manifest.description, published.description);
+  assert.deepEqual(manifest.keywords, published.keywords);
   const marketplace = JSON.parse(readFileSync(join(installed, '.claude-plugin', 'marketplace.json'), 'utf8')) as { plugins: { source: string }[] };
   assert.deepEqual(marketplace.plugins.map((plugin) => plugin.source), ['./plugin', './mod']);
   const plugin = JSON.parse(readFileSync(join(installed, 'plugin', '.claude-plugin', 'plugin.json'), 'utf8')) as { name: string; version?: string };

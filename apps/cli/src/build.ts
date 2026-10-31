@@ -3,6 +3,7 @@ import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
+import { publishManifest } from './manifest.ts';
 import { prepareMod, preparePlugin, prepareSkills } from './prepare.ts';
 
 /**
@@ -45,19 +46,5 @@ cpSync(at('../.claude-plugin'), join(OUT, '.claude-plugin'), { recursive: true }
 for (const file of ['LICENSE', 'README.md']) cpSync(join(ROOT, file), join(OUT, file));
 
 const cli = JSON.parse(readFileSync(at('../package.json'), 'utf8')) as { version: string; engines: unknown };
-const manifest = {
-  name: '@it-bbox/binnacle',
-  version: cli.version,
-  description: 'Binnacle, a local AI engineering control plane: the binn CLI, its daemon, the dashboard and the binnacle plugin.',
-  license: 'Apache-2.0',
-  type: 'module',
-  bin: { binn: 'bin/binn.js', binnd: 'bin/binnd.js' },
-  files: ['bin', 'dashboard', 'plugin', 'mod', 'skills', '.claude-plugin'],
-  engines: cli.engines,
-  repository: { type: 'git', url: 'git+https://github.com/it-bbox/binnacle.git' },
-  homepage: 'https://github.com/it-bbox/binnacle#readme',
-  bugs: { url: 'https://github.com/it-bbox/binnacle/issues' },
-  publishConfig: { access: 'public' },
-};
-writeFileSync(join(OUT, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`);
+writeFileSync(join(OUT, 'package.json'), `${JSON.stringify(publishManifest(cli), null, 2)}\n`);
 console.log(`@it-bbox/binnacle ${cli.version} written to ${OUT}`);
