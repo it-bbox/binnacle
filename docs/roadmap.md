@@ -33,7 +33,7 @@ Epics 1 to 19 are v1.
 | 21 | Hygiene after 0.4.0 | done | [`hygiene-after-0-4-0`](specs/hygiene-after-0-4-0/spec.md) |
 | 22 | A Binnacle mod for Claude Code | done | [`claude-code-mod`](specs/claude-code-mod/spec.md) |
 | 23 | Binnacle in a dev container | done | [`dev-container`](specs/dev-container/spec.md) |
-| 24 | Showcase and launch | spec | [`showcase-and-launch`](specs/showcase-and-launch/spec.md) |
+| 24 | Showcase and launch | tickets | [`showcase-and-launch`](specs/showcase-and-launch/spec.md) |
 | 25 | Cheaper runs | not started | — |
 | 26 | Binnacle's own planning skills | not started | — |
 | 27 | The agents' configuration in the audit | not started | — |
