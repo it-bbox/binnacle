@@ -71,7 +71,7 @@ After the official registry entry exists, check `pulsemcp.com` and `glama.ai` be
 
 **Why:** it is the first place a Claude Code user looks, with no marketplace to add.
 
-**Already satisfied by the public repository:** the plugin `binnacle` and the optional mod `binnacle-mod`, each with its manifest, and the `binnacle` marketplace manifest that the npm package carries (`apps/cli/.claude-plugin/marketplace.json`); the MCP server `binn mcp` they drive; the README's install path and the Apache-2.0 licence.
+**Already satisfied by the public repository:** the plugin's source with its manifest, tracked in the repository, and the marketplace manifest (`apps/cli/.claude-plugin/marketplace.json`); the MCP server `binn mcp` they drive; the README's install path and the Apache-2.0 licence. The npm package carries the `binnacle` and optional `binnacle-mod` plugin manifests beside that marketplace manifest.
 
 **What the owner must do:** submit the plugin through the official marketplace's submission channel, named in Claude Code's plugin documentation. Confirm the channel's current link and fields at submission time; this repository records neither. Paste:
 
@@ -151,7 +151,7 @@ Run: binn mcp
 
 **Already satisfied by the public repository:** everything the entry links to.
 
-**What the owner must do:** fork the list, add the line in its alphabetical section, and open a pull request. Paste:
+**What the owner must do:** fork the list, add the line under the list's own category and in its own format, which the list documents, and open a pull request. Paste:
 
 ```text
 - [Binnacle](https://github.com/it-bbox/binnacle) - A local, provider-agnostic AI Engineering Control Plane: project memory, workflow and observability across coding agents.
