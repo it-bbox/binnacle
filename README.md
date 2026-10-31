@@ -9,6 +9,16 @@ Binnacle is a local, provider-agnostic **AI Engineering Control Plane**: persist
 
 > A binnacle is the stand that holds a ship's compass in front of the helm. It does not steer and it does not pick the course — it keeps the instruments where the helmsman can read them. That is the whole design brief.
 
+## Demo
+
+![Binnacle's dashboard in action: the overview, a project's board, a ticket, usage and attention](assets/demo.gif)
+
+| Overview | Tasks |
+| --- | --- |
+| ![The overview: what is next, the epics' progress and what is running now](assets/overview.png) | ![A project's board: the current epic's tickets in four columns](assets/tasks.png) |
+| Usage | Attention |
+| ![Usage: tokens by kind, by model, by task and by role](assets/usage.png) | ![Attention: what is running now and what ran recently](assets/attention.png) |
+
 ## The problem
 
 Long agent sessions grow expensive, compaction loses detail, and every new agent re-explores the project from scratch. Binnacle moves project state into durable sources — Git, Markdown docs, ADRs, the tracker and a local, rebuildable telemetry store — so a chat is working context, not the project's memory.
