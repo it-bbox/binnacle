@@ -67,7 +67,7 @@ Done: epics 1 to 23. **v1 is complete.**
 
 Next: epics 24 to 27, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28.
 
-Next action: grill epic 24, *Showcase and launch*, from its line under *Epics*; the grilling ends with its Epic brief, `docs/specs/<slug>/brief.md`. `/grill-with-docs`
+Next action: run autopilot on epic 24, *Showcase and launch*, from its spec; the exit demonstration, ticket 08, is the owner's. `/binnacle:autopilot`
 
 ## Later
 
