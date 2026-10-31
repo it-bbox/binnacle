@@ -61,13 +61,13 @@ Epics are ordered by dependency, not by preference:
 
 Done: epics 1 to 23. **v1 is complete.**
 
-**Released** (the owner): `@it-bbox/binnacle` 0.1.0 on 2026-10-13, with `it-bbox/binnacle` public, private vulnerability reporting and Dependabot alerts on; 0.2.0, epic 12, on 2026-10-21; 0.3.0, epic 13, on 2026-10-22, the last of v1; 0.4.0, epic 20, and 0.5.0, epic 21, on 2026-10-28; 0.6.0, epic 22, on 2026-10-29. From 0.3.0 on, each was installed from the registry into a clean container by its epic's exit demonstration.
+**Released** (the owner): `@it-bbox/binnacle` 0.1.0 on 2026-10-13, with `it-bbox/binnacle` public, private vulnerability reporting and Dependabot alerts on; 0.2.0, epic 12, on 2026-10-21; 0.3.0, epic 13, on 2026-10-22, the last of v1; 0.4.0, epic 20, and 0.5.0, epic 21, on 2026-10-28; 0.6.0, epic 22, on 2026-10-29; 0.7.1, epic 23, and the dev container feature 1.0.0 on `ghcr.io/it-bbox`, on 2026-10-30. From 0.3.0 on, each was installed from the registry into a clean container by its epic's exit demonstration.
 
-**Epic 23 in progress** since 2026-10-29: tickets 01 to 03 by autopilot. The daemon takes `BINNACLE_HOST` and `BINNACLE_ALLOWED_HOSTS`; the dev container feature is in `apps/devcontainer-feature/`, at 0.1.0; the guide is `docs/operations/07-containers.md`. Left: ticket 04, the owner's: 0.7.0 to npm, then ticket 02's live test, the feature's 1.0.0 to `ghcr.io/it-bbox`, the demonstration and the footprint in the guide.
+**Epic 23 done** on 2026-10-30: tickets 01 to 03 by autopilot, the exit demonstration and the releases the owner's. The daemon takes `BINNACLE_HOST` and `BINNACLE_ALLOWED_HOSTS`; the feature installs Binnacle into a dev container in one line; the guide, `docs/operations/07-containers.md`, gives one container's footprint, 82 MiB and 284 KiB. The demonstration found `binn init` turning on autostart behind the images' stand-in `systemctl`, fixed in 0.7.1, which replaces 0.7.0.
 
 Next: epics 24 to 27, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28.
 
-Next action: do epic 23's exit demonstration and release 0.7.0 and the feature's 1.0.0, by ticket 04, the owner's. `/binnacle:task run docs/specs/dev-container/issues/04-dev-container-exit-demonstration.md`
+Next action: grill epic 24, *Showcase and launch*, from its line under *Epics*; the grilling ends with its Epic brief, `docs/specs/<slug>/brief.md`. `/grill-with-docs`
 
 ## Later
 
