@@ -1,6 +1,6 @@
 # 06: The listings
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 03, 04
 Spec: `docs/specs/showcase-and-launch/spec.md`
