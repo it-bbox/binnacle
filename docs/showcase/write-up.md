@@ -10,7 +10,7 @@ It is all summary aggregates. No ticket, task or session is named, and every fig
 
 - **A record is one call, counted once.** When a harness's session file and its OpenTelemetry export both report the same call, Binnacle stores one record for it.
 - **Token kinds are never added together.** Cached input is context the provider re-read from its cache; reasoning is the part of the output the model thought in. They are shown side by side, as Binnacle shows them.
-- **A partial counter is a floor.** Some harnesses report only some token kinds. Binnacle says the missing ones as no data, never as zero, so a total over a partial counter is a lower bound.
+- **A partial counter is a floor.** Some harnesses report only some token kinds. Binnacle reports the missing ones as no data, never as zero, so a total over a partial counter is a lower bound.
 - **Calculated readings are marked.** Every sum, mean and share below is Binnacle's calculation over the stored records; the token counts themselves are what each harness reported.
 
 ## The whole picture
@@ -48,12 +48,12 @@ Which models carried the work, over the same records:
 | gpt-6.1-sol | 23 | 125,581 | 637,696 | 0 | 8,955 | 3,116 |
 | Other models | 12 | 41,444 | 130,752 | 0 | 2,478 | 417 |
 
-*Other models* gathers four calls whose harness named no model and the models used for a handful of calls each.
+*Other models* gathers four calls whose harness named no model and the models used for a handful of calls each. As in the weekly totals, some counters are partial, because some harnesses report only some token kinds; a zero can mean an unreported kind, not a measured one.
 
 ## What a completed Task cost
 
 - **200 completed Tasks** have attributed runs; **50 more** were completed without a run Binnacle could attribute to them.
-- **Mean per completed Task, calculated:** 79.6 records, 2,587 input, 11,934,411 cached input, 261,980 cache creation, 54,354 output and 17,861 reasoning tokens.
+- **Mean per completed Task, calculated over those 200:** 79.6 records, 2,587 input, 11,934,411 cached input, 261,980 cache creation, 54,354 output and 17,861 reasoning tokens.
 - **Mean runs per Task, calculated:** 4.2, of which 3.3 were subagent runs.
 - **Rework share, calculated:** 30.5% — rework tokens over implementation plus rework tokens, averaged over completed Tasks.
 - **First-pass acceptance, calculated:** 8.0% — the share of reviewed completed Tasks that needed no rework at all.
@@ -74,4 +74,4 @@ The last week is the week in progress on the date of writing. The weekly totals 
 
 ## The method
 
-Everything here is read from Binnacle's own usage data with `usage_get` on 31 October 2026, and matches it on that date. The figures are one reading, taken at one moment; Binnacle keeps recording as it works, so a later call sees a few more records. Binnacle stores tokens, never cost or price. A calculated reading is marked so, and a reporting gap is said as no data, never as zero.
+Everything here is read from Binnacle's own usage store on 31 October 2026. The totals, the breakdown by role, the weekly totals and the derived readings match `usage_get` on that date; the breakdown by model is read from the same stored records, counted the same way, because `usage_get` does not group by model. The figures are one reading, taken at one moment; Binnacle keeps recording as it works, so a later call sees a few more records. Binnacle stores tokens, never cost or price. A calculated reading is marked so, and a reporting gap is said as no data, never as zero.
