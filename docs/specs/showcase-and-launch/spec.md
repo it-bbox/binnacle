@@ -91,3 +91,11 @@ A good test checks what a person sees, not how a file is laid out. This epic add
 - Nothing is posted or filed without the owner: the epic prepares the description, topics, listing texts and checklist, and the owner applies, publishes and posts.
 - The test seams were confirmed by the owner on 2026-10-31: the README and its twin, the npm manifest, the site, and the write-up's numbers.
 - The epic's slug is `showcase-and-launch`.
+
+## Risks
+
+**What the epic can break.** The README, its Russian twin and their links, which `pnpm test` guards: a missing twin or an unresolved relative link fails the suite. The npm manifest, whose description and keywords reach the published package page. Ticket 03 starts a daemon and exercises the autostart service to check a non-default `BINNACLE_PORT`, so a careless check can disturb the owner's running daemon or its autostart entry.
+
+**The riskiest step.** Ticket 06, the listings: it submits Binnacle to the Claude plugin marketplace, MCP directories and awesome lists — public and outward-facing, not undone by a commit, on the owner's accounts. The spec names no exact targets, and its Further Notes say nothing is filed without the owner.
+
+**What was dropped, and why.** The posts (Reddit, Hacker News, X, Habr, Telegram) are the owner's. A fix for a `BINNACLE_PORT` defect is a ticket of its own, so the epic stays a showcase with no release. A subreddit waits until users ask questions, and paid promotion is out of scope.
