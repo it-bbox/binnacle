@@ -1,6 +1,6 @@
 # 01: The demo GIF and the dashboard screenshots
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/showcase-and-launch/spec.md`
