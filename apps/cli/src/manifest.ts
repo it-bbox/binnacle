@@ -7,7 +7,7 @@ export function publishManifest(cli: { version: string; engines: unknown }) {
   return {
     name: '@it-bbox/binnacle',
     version: cli.version,
-    description: 'A local, provider-agnostic AI engineering control plane: project memory, workflow and observability across coding agents.',
+    description: 'A local, provider-agnostic AI Engineering Control Plane: project memory, workflow and observability across coding agents.',
     keywords: [
       'ai',
       'ai-agents',

@@ -7,7 +7,7 @@ The short strings by which Binnacle is found: the one line and the topics the ow
 Applied in the repository's settings under *Description*.
 
 ```text
-A local, provider-agnostic AI engineering control plane: project memory, workflow and observability across coding agents.
+A local, provider-agnostic AI Engineering Control Plane: project memory, workflow and observability across coding agents.
 ```
 
 ## GitHub topics and npm keywords
