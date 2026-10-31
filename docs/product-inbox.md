@@ -158,3 +158,14 @@ Found in epic 23's exit demonstration, not planned yet:
 - **`binn daemon start` reports another daemon as its own.** With a dev container publishing `127.0.0.1:7717`, the host's service failed with `EADDRINUSE`, while `binn daemon start` printed the container's daemon, version and address, as the one started. It could compare the pid or the home it reads with the one it started.
 - **A skipped autostart prints the stand-in's notice whole.** In a dev container image, the Summary's line runs over four lines of `systemctl`'s notice; its first line would do.
 - **`binn init` plans `code --add-mcp` where VS Code is missing**, as in a container, and the item fails; it reads better as a skip with its reason.
+
+## Several harnesses per project, each in its own container (2026-10-31)
+
+A developer proposed one project with a clone and one folder per agent, each folder a container with the project mounted and its own harness configuration, so that several agents work on one project without sharing plugins, and an agent can rebuild its own container if it breaks. It is the layout `git worktree` already gives, plus a volume per folder. Notes for whoever takes it up:
+
+- **Git in a container needs the common git directory mounted too.** A worktree's `.git` is a file pointing into the main clone's `.git`; mounting only the worktree's folder breaks `git` inside the container.
+- **One branch, one worktree.** Two agents cannot hold the same branch.
+- **Binnacle does not see a containerised harness.** It reads session artifacts from the host and links a run to a Task by its checkout and branch. A session that lives in a container's home is invisible unless that directory is mounted or the harness exports telemetry. Not checked yet.
+- **Consistent with the principles.** The project does not know its agents, Binnacle spawns none, and one primary agent per Task stays the default; five agents at once meet the parallel limit.
+
+The developer's ask of Binnacle: a registry that ties a container to its checkout, branch and Task, read-only, with no orchestration. Open: how Binnacle recognises a container, where the registry lives, and whether it is needed before a containerised harness exports telemetry. That is an architectural choice, so an ADR comes first.
