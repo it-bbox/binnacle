@@ -41,8 +41,22 @@ test("the posts section is marked as the owner's", () => {
 /** Ticket 07: each step names where its artifact lives and what done looks like. */
 test('every step names where its artifact lives and what done looks like', () => {
   const paths: { step: RegExp; named: string[] }[] = [
-    { step: /README/, named: ['README.md', 'README.ru.md', 'assets/demo.gif'] },
-    { step: /site/, named: ['site/index.html', '.github/workflows/pages.yml', 'docs/showcase/write-up.md'] },
+    {
+      step: /README/,
+      named: [
+        'README.md',
+        'README.ru.md',
+        'assets/demo.gif',
+        'assets/overview.png',
+        'assets/tasks.png',
+        'assets/usage.png',
+        'assets/attention.png',
+      ],
+    },
+    {
+      step: /site/,
+      named: ['site/index.html', '.github/workflows/pages.yml', 'docs/showcase/write-up.md', 'docs/showcase/write-up.ru.md'],
+    },
     { step: /listings/, named: ['docs/showcase/listings.md', 'docs/showcase/identity.md'] },
     { step: /posts/i, named: ['Reddit', 'Hacker News', 'X', 'Habr', 'Telegram'] },
   ];
@@ -50,13 +64,20 @@ test('every step names where its artifact lives and what done looks like', () =>
     const { body } = section(step);
     for (const artifact of named) assert.ok(body.includes(artifact), `${step}: no ${artifact}`);
     assert.match(body, /Done looks like/, `${step}: no done line`);
+    assert.match(body, /^- \[ \]/m, `${step}: no checkbox to tick`);
   }
-  assert.ok((doc().match(/^- \[ \]/gm) ?? []).length >= 4, 'no checkboxes to tick');
 });
 
 /** The spec says the launch checklist turns on GitHub Discussions, where questions go. */
-test('the checklist turns on GitHub Discussions', () => {
-  assert.match(doc(), /GitHub Discussions/);
+test('the checklist turns on GitHub Discussions before the posts', () => {
+  assert.match(section(/posts/i).body, /GitHub Discussions/);
+});
+
+/** The checklist points the owner at the two canonical URLs, as the README, the site and the listings do. */
+test('the checklist names the repository and the site', () => {
+  const text = doc();
+  assert.ok(text.includes('https://github.com/it-bbox/binnacle'), 'no repository URL');
+  assert.ok(text.includes('https://it-bbox.github.io/binnacle/'), 'no site URL');
 });
 
 /** Every relative link resolves from the file's own directory. */

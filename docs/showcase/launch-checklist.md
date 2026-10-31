@@ -14,7 +14,7 @@ Everything below is the owner's hand. The repository prepares the artifacts, but
 
 ## 2. The site
 
-**Where it lives:** `site/index.html`, published by `.github/workflows/pages.yml` to `https://it-bbox.github.io/binnacle/`; the write-up it shows is `docs/showcase/write-up.md`, with its Russian twin `docs/showcase/write-up.ru.md`.
+**Where it lives:** `site/index.html`, published by `.github/workflows/pages.yml` to `https://it-bbox.github.io/binnacle/`; the write-up it shows is `docs/showcase/write-up.md` with its Russian twin `docs/showcase/write-up.ru.md`, copied into the page itself.
 
 - [ ] In the repository's **Settings → Pages → Build and deployment**, set **Source** to **GitHub Actions**. This is a one-time switch.
 - [ ] Wait for the latest *Pages* run under **Actions** to finish.
@@ -26,7 +26,7 @@ Everything below is the owner's hand. The repository prepares the artifacts, but
 curl -fsSL https://it-bbox.github.io/binnacle/ | grep -q '<h1>Binnacle</h1>' && echo served
 ```
 
-The write-up's figures are one reading of 31 October 2026. If the page is rebuilt later, re-read `usage_get` and refresh every table together, never one of them alone.
+The write-up's figures are one reading of 31 October 2026. The site carries a copy of the write-up inside `site/index.html`; if its figures are refreshed later, re-read `usage_get` and update `docs/showcase/write-up.md`, `docs/showcase/write-up.ru.md` and both copies in `site/index.html` together, never one table alone.
 
 ## 3. The listings
 
