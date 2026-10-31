@@ -9,6 +9,8 @@ Binnacle is a local, provider-agnostic **AI Engineering Control Plane**: persist
 
 > A binnacle is the stand that holds a ship's compass in front of the helm. It does not steer and it does not pick the course — it keeps the instruments where the helmsman can read them. That is the whole design brief.
 
+The [Binnacle site](https://it-bbox.github.io/binnacle/) shows the demo and a write-up from Binnacle's own usage data, in English and Russian.
+
 ## Demo
 
 ![Binnacle's dashboard in action: the overview, a project's board, a ticket, usage and attention](assets/demo.gif)
@@ -25,9 +27,14 @@ Long agent sessions grow expensive, compaction loses detail, and every new agent
 
 > **Project knowledge and task state belong to the project — not to a particular model, chat or coding harness.**
 
-## Install
+## Requirements
 
-Binnacle needs Node 24 and runs on Linux, macOS and Windows.
+- Node.js 24 LTS, on Linux, macOS or Windows.
+- A free loopback port: the daemon serves its dashboard on `http://127.0.0.1:7717` by default, and `binn daemon start` takes another port from `BINNACLE_PORT`.
+
+Docker is not needed for Binnacle itself: it is one local daemon, and a container adds a published port and a second home to look after — use it only when your app already runs in one.
+
+## Install
 
 ```bash
 npm i -g @it-bbox/binnacle
@@ -41,8 +48,6 @@ claude plugin install binnacle-mod@binnacle --scope user
 claude plugin disable binnacle-mod
 claude plugin uninstall binnacle-mod
 ```
-
-More: [The Binnacle mod for Claude Code](docs/operations/05-installation-checklist.md#the-binnacle-mod-for-claude-code). If a harness cannot find `binn`, see [the installation checklist](docs/operations/05-installation-checklist.md#when-a-harness-cannot-find-binn). To run Binnacle inside your app's dev container or `docker compose` service, see [Binnacle in a container](docs/operations/07-containers.md). To develop Binnacle itself, see [CONTRIBUTING.md](CONTRIBUTING.md#from-this-repository).
 
 ## New project: the short path
 
@@ -61,6 +66,13 @@ Then each epic goes `/grill-with-docs` → `/to-spec` → `/to-tickets`, and eac
 4. `/binnacle:product` — the first Product session.
 
 Nothing is moved or rewritten without your yes. Details: [Existing project](docs/operations/02-existing-project-adopt.md).
+
+## More
+
+- [The Binnacle mod for Claude Code](docs/operations/05-installation-checklist.md#the-binnacle-mod-for-claude-code): what it shows beside the chat, and how to turn it off or remove it.
+- If a harness cannot find `binn`, see [the installation checklist](docs/operations/05-installation-checklist.md#when-a-harness-cannot-find-binn).
+- To run Binnacle inside your app's dev container or `docker compose` service, see [Binnacle in a container](docs/operations/07-containers.md).
+- To develop Binnacle itself, see [CONTRIBUTING.md](CONTRIBUTING.md#from-this-repository).
 
 ## Harnesses
 

@@ -9,6 +9,8 @@ Binnacle — локальный provider-agnostic **AI Engineering Control Plane
 
 > Нактоуз (binnacle) — тумба с компасом перед штурвалом. Он не рулит и не выбирает курс: он держит приборы там, где рулевой их видит. В этом всё техзадание.
 
+Сайт [Binnacle](https://it-bbox.github.io/binnacle/) показывает демо и разбор по собственным данным Binnacle о расходах, на английском и русском.
+
 ## Демо
 
 ![Дашборд Binnacle в работе: обзор, доска проекта, тикет, расход и внимание](assets/demo.gif)
@@ -25,9 +27,14 @@ Binnacle — локальный provider-agnostic **AI Engineering Control Plane
 
 > **Project knowledge и task state принадлежат проекту, а не конкретной модели, чату или coding harness.**
 
-## Установка
+## Требования
 
-Binnacle нужен Node 24; он работает на Linux, macOS и Windows.
+- Node.js 24 LTS, на Linux, macOS или Windows.
+- Свободный loopback-порт: демон отдаёт dashboard на `http://127.0.0.1:7717` по умолчанию, а `binn daemon start` берёт другой из `BINNACLE_PORT`.
+
+Docker для самого Binnacle не нужен: это один локальный демон, а контейнер добавляет опубликованный порт и второе хранилище в обслуживание — он нужен, только если ваше приложение уже живёт в контейнере.
+
+## Установка
 
 ```bash
 npm i -g @it-bbox/binnacle
@@ -41,8 +48,6 @@ claude plugin install binnacle-mod@binnacle --scope user
 claude plugin disable binnacle-mod
 claude plugin uninstall binnacle-mod
 ```
-
-Подробнее: [Мод Binnacle для Claude Code](docs/operations/05-installation-checklist.ru.md#мод-binnacle-для-claude-code). Если harness не находит `binn`, см. [чек-лист установки](docs/operations/05-installation-checklist.ru.md#когда-harness-не-находит-binn). Как запустить Binnacle в dev container или сервисе `docker compose` вашего приложения — в [Binnacle в контейнере](docs/operations/07-containers.ru.md). Разработка самого Binnacle — в [CONTRIBUTING.ru.md](CONTRIBUTING.ru.md#из-этого-репозитория).
 
 ## Быстрый путь нового проекта
 
@@ -61,6 +66,13 @@ claude plugin uninstall binnacle-mod
 4. `/binnacle:product` — первая Product-сессия.
 
 Без вашего «да» ничего не перемещается и не переписывается. Подробнее: [Существующий проект](docs/operations/02-existing-project-adopt.ru.md).
+
+## Подробнее
+
+- [Мод Binnacle для Claude Code](docs/operations/05-installation-checklist.ru.md#мод-binnacle-для-claude-code): что он показывает рядом с чатом и как его выключить или удалить.
+- Если harness не находит `binn`, см. [чек-лист установки](docs/operations/05-installation-checklist.ru.md#когда-harness-не-находит-binn).
+- Как запустить Binnacle в dev container или сервисе `docker compose` вашего приложения — в [Binnacle в контейнере](docs/operations/07-containers.ru.md).
+- Разработка самого Binnacle — в [CONTRIBUTING.ru.md](CONTRIBUTING.ru.md#из-этого-репозитория).
 
 ## Harness
 
