@@ -1,6 +1,6 @@
 # 04: The identity strings: description, topics, npm keywords
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/showcase-and-launch/spec.md`
