@@ -1,6 +1,6 @@
 # 03: The README storefront
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 01
 Spec: `docs/specs/showcase-and-launch/spec.md`
