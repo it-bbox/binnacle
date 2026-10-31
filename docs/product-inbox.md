@@ -150,3 +150,11 @@ Found while epic 22's tickets ran, not planned yet:
 - **`/binnacle:init` from the chat never offers the mod.** `binn init --plan --json` has no `mod.ask` and the skill passes no `--mod`, while the spec fixes that `--plan` and `--apply` decline without the flag. Offering it there is new scope: a `mod: { ask }` field beside `autostart`, and a step in the init skill and its copy (ticket claude-code-mod/06's Review).
 - **A harness without global skills fails `binn init`'s skills step.** Every run reports «ошибка … PromptScript does not support global skill installation (англ.)» for a harness the skills CLI now finds; it reads better as a skip with its reason worded.
 - **A new session's Task reaches the mod's line about a minute late.** Its file reaches the snapshot at the importer's next pass, so the status line shows the role and Task only a minute after the first turn (claude-code-mod/07's run).
+
+## Left after epic 23's tickets (2026-10-30)
+
+Found in epic 23's exit demonstration, not planned yet:
+
+- **`binn daemon start` reports another daemon as its own.** With a dev container publishing `127.0.0.1:7717`, the host's service failed with `EADDRINUSE`, while `binn daemon start` printed the container's daemon, version and address, as the one started. It could compare the pid or the home it reads with the one it started.
+- **A skipped autostart prints the stand-in's notice whole.** In a dev container image, the Summary's line runs over four lines of `systemctl`'s notice; its first line would do.
+- **`binn init` plans `code --add-mcp` where VS Code is missing**, as in a container, and the item fails; it reads better as a skip with its reason.

@@ -126,7 +126,7 @@ npm publish --access public
 The dev container feature, `apps/devcontainer-feature/src/binnacle/`, is published to the GitHub Container Registry as `ghcr.io/it-bbox/binnacle/binnacle`, by the owner and by hand, as npm is. It installs `@it-bbox/binnacle` from npm, so publish it after the npm release it needs.
 
 1. **Version.** The feature has its own version, `version` in `devcontainer-feature.json`, apart from npm's. Raise it only when the feature's files change: the patch for a fix, the minor for a new option, the major when an option or a variable it sets is renamed or removed, or a default changes what a container gets. A new npm release alone moves nothing: the `version` option's default, `latest`, takes it at the container's next build. `devcontainer features publish` skips a version already published, so a change without a raised version is never published.
-2. **Check.** With `docker` and the dev container CLI (`npm install -g @devcontainers/cli`) installed, `node --test apps/cli/test/devcontainer.live.ts` builds containers with the feature from this checkout and `binn` from npm, so it runs once that npm release is out: `binn` runs, the daemon answers `/health` with its home on the volume, and a container stopped and started again starts its daemon again.
+2. **Check.** With `docker` and the dev container CLI (`npm install -g @devcontainers/cli`) installed, `node --test apps/cli/test/devcontainer.live.ts` builds containers with the feature from this checkout and `binn` from npm, so it runs once that npm release is out: `binn` runs, the daemon answers `/health` with its home on the volume, and a container stopped and started again starts its daemon again. Under Docker Desktop on Linux, run it with `TMPDIR` inside the home, such as `TMPDIR=~/.cache/binnacle-live`: its VM mounts nothing from `/tmp`.
 3. **Publish.** Sign in to `ghcr.io` with a GitHub token that has `write:packages`, then publish the collection; the CLI tags the version, its minor, its major and `latest`:
 
 ```bash
@@ -134,7 +134,9 @@ docker login ghcr.io -u <github-user>
 devcontainer features publish --registry ghcr.io --namespace it-bbox/binnacle apps/devcontainer-feature/src
 ```
 
-A package new to `ghcr.io` is private. Once, after the first publish, make `binnacle/binnacle` public in the organisation's packages on GitHub, or no container can pull it. `devcontainer features info manifest ghcr.io/it-bbox/binnacle/binnacle:1` then prints what was published.
+A package new to `ghcr.io` is private. Where `docker login` cannot store the token, as with a Docker config naming an empty `pass` store, pass it to the CLI instead: `DEVCONTAINERS_OCI_AUTH="ghcr.io|<github-user>|$(gh auth token)" devcontainer features publish …`, after `gh auth refresh -h github.com -s write:packages`.
+
+Once, after the first publish, make `binnacle/binnacle` public in the organisation's packages on GitHub, or no container can pull it; the organisation must allow public packages first, under its *Packages* settings. `devcontainer features info manifest ghcr.io/it-bbox/binnacle/binnacle:1` then prints what was published.
 
 ## binn in the Claude Code desktop app
 

@@ -83,3 +83,5 @@ If the change introduces a new durable architectural trade-off, propose an ADR f
 - A row added to `CONTEXT.md`'s *Russian words* goes, in the same change, into the Words paragraph of every skill under `.claude/skills/binnacle/skills/`, word for word as `/binnacle:product`'s, or `pnpm test` fails.
 - The skills' source is `.claude/skills/binnacle/skills/`. `apps/cli/plugin/` is the copy `pnpm --filter @binnacle/cli run prepare` builds, which Git ignores: an edit there is lost.
 - A Claude Code mod that seems to do nothing says why only in `claude --debug`'s log, `~/.claude/debug/<session>.txt`: each `$` call, its refusal and each hook's settling is a line there (`grep binnacle-mod`).
+- `apps/cli/test/devcontainer.live.ts` under Docker Desktop on Linux needs `TMPDIR` inside the home: its VM mounts nothing from `/tmp`.
+- A dev container publishing `127.0.0.1:7717` takes the host daemon's port: stop the host's daemon before it, and start it again once the container is removed, since `binn daemon start` meanwhile reports the container's daemon as started.
