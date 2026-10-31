@@ -97,25 +97,6 @@ Two ideas, each to be built Binnacle's way:
 
 Not to take: a catalogue of hundreds of skills and agents, learned "instincts" injected into a session without the owner's yes, and a desktop dashboard beside the web one.
 
-## Showcase and launch (2026-10-23)
-
-**Planned as epic 24 on 2026-10-23**, after the mod (the owner).
-
-Binnacle has 4 stars on 2026-10-23, and its repository has no description, no topics and no image in the README: a visitor from a post sees a wall of text. Projects of its kind grow through a storefront that shows the tool in seconds, launch posts close together (GitHub's trending list counts stars over a day or two), listings where people look for tools, and write-ups with real data. Binnacle's own usage data is the material others do not have: what 220 tickets cost and where the tokens went.
-
-The epic is what the repository can carry: the description and topics, a demo and dashboard screenshots in the README, the Claude plugin marketplace, MCP directories, awesome lists, npm keywords, a write-up and a launch checklist. Posting on Reddit, Hacker News, X, Habr and Telegram is the owner's. A subreddit of its own waits until users ask questions; until then GitHub Discussions is the place for them.
-
-## A first reader's path to installing (2026-10-24)
-
-**Planned into epic 24 on 2026-10-24.**
-
-A developer who studied Binnacle before installing it read the docs written for agents, found them long, and set about working out a way of his own to install it, in Docker, before trying the one command the README gives. He asked whether the daemon takes port 80 and whether a project's paths would break in a container. What it shows:
-
-- **The human path is not obvious first.** One install command, `binn init`, then everything from the agent's skills, should be what a visitor sees before any reference page; the docs under `docs/` are for agents and need not be read. The storefront and the site of epic 24 are where this lands.
-- **Say why not Docker.** The daemon reads the harnesses' session artifacts in the home directory and the projects' checkouts through Git and Graphify; `binn init` writes the harnesses' user-scope settings; and the harness itself starts `binn mcp` on the host, so Node is needed there anyway. A container would add mounts at identical paths and remove no requirement. One sentence in the README, in both languages, saves the next reader the detour.
-- **The requirements up front**: Node 24 LTS, and the loopback port, `127.0.0.1:7717` by default, changed with `BINNACLE_PORT`.
-- **To check**: whether autostart's service keeps a `BINNACLE_PORT` other than the default; the daemon and `binn mcp` already follow it through the runtime file.
-
 ## Left after epic 20's tickets (2026-10-25)
 
 Found while epic 20's tickets ran, not planned yet:

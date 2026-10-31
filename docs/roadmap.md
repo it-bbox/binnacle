@@ -67,6 +67,8 @@ Done: epics 1 to 23. **v1 is complete.**
 
 Next: epics 24 to 27, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28.
 
+**Epic 24 specified and sliced** on 2026-10-31: its brief and spec are in `docs/specs/showcase-and-launch/`, and its tickets are `01` to `08`; `01` to `07` are ready for autopilot and `08`, the exit demonstration, is the owner's. The epic changes no behaviour and releases nothing.
+
 Next action: run autopilot on epic 24, *Showcase and launch*, from its spec; the exit demonstration, ticket 08, is the owner's. `/binnacle:autopilot`
 
 ## Later

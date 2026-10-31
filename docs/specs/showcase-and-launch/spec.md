@@ -59,6 +59,7 @@ A static, bilingual site on GitHub Pages shows the demo and a write-up from Binn
 - **The launch checklist** is a Markdown document that orders the steps — README, site, listings, posts — and marks the posts as the owner's.
 - **The requirements and the Docker sentence** land in the README and its twin, in both languages, and the site repeats the requirements.
 - **The `BINNACLE_PORT` check** runs as part of the README ticket: it verifies what the README states about the autostart service and a non-default port. A defect it finds is a ticket of its own, outside this epic.
+- **Questions go to GitHub Discussions**, which the launch checklist turns on; a subreddit of its own waits until users ask questions.
 - **No code, no release.** The epic changes no behaviour and releases no version.
 
 ## Testing Decisions
