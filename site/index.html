@@ -61,7 +61,8 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .actions a { color: var(--accent); }
 article h2 { margin-top: 2.5rem; border-top: 1px solid var(--line); padding-top: 1.5rem; }
 article h3 { margin-top: 2rem; }
-table { display: block; width: 100%; border-collapse: collapse; margin: 1rem 0; overflow-x: auto; }
+.table-scroll { margin: 1rem 0; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
 th, td { border-bottom: 1px solid var(--line); padding: .45rem .6rem; text-align: right; white-space: nowrap; }
 th:first-child, td:first-child { text-align: left; }
 thead th { font-weight: 600; }
@@ -83,15 +84,21 @@ footer { color: var(--muted); font-size: .9rem; padding: 2rem 1.25rem 3rem; }
 <figure>
 <img src="assets/demo.gif" alt="Binnacle's dashboard in action: the overview, a project's board, a ticket, usage and attention" width="1280" height="800">
 </figure>
+<p class="install-label">Install</p>
+<pre><code>npm i -g @it-bbox/binnacle
+binn daemon start</code></pre>
+<h2>Requirements</h2>
+<ul>
+<li>Node.js 24 LTS, on Linux, macOS or Windows.</li>
+<li>A free loopback port: the daemon serves its dashboard on <code>http://127.0.0.1:7717</code> by default; with autostart off, <code>binn daemon start</code> takes another port from <code>BINNACLE_PORT</code>.</li>
+</ul>
+<p>Docker is not needed for Binnacle itself: it is one local daemon, and a container adds a published port and a second home to look after — use it only when your app already runs in one.</p>
 <div class="screenshots">
 <figure><img src="assets/overview.png" alt="The overview: what is next, the epics' progress and what is running now" width="2560" height="1800"><figcaption>Overview</figcaption></figure>
 <figure><img src="assets/tasks.png" alt="A project's board: the current epic's tickets in four columns" width="2560" height="1800"><figcaption>Tasks</figcaption></figure>
 <figure><img src="assets/usage.png" alt="Usage: tokens by kind, by model, by task and by role" width="2560" height="1800"><figcaption>Usage</figcaption></figure>
 <figure><img src="assets/attention.png" alt="Attention: what is running now and what ran recently" width="2560" height="1800"><figcaption>Attention</figcaption></figure>
 </div>
-<p class="install-label">Install</p>
-<pre><code>npm i -g @it-bbox/binnacle
-binn daemon start</code></pre>
 <p class="actions"><a href="https://github.com/it-bbox/binnacle">The repository</a> · <a href="https://www.npmjs.com/package/@it-bbox/binnacle">@it-bbox/binnacle on npm</a></p>
 </section>
 
@@ -101,15 +108,21 @@ binn daemon start</code></pre>
 <figure>
 <img src="assets/demo.gif" alt="Дашборд Binnacle в работе: обзор, доска проекта, тикет, расход и внимание" width="1280" height="800">
 </figure>
+<p class="install-label">Установка</p>
+<pre><code>npm i -g @it-bbox/binnacle
+binn daemon start</code></pre>
+<h2>Требования</h2>
+<ul>
+<li>Node.js 24 LTS, на Linux, macOS или Windows.</li>
+<li>Свободный loopback-порт: демон отдаёт dashboard на <code>http://127.0.0.1:7717</code> по умолчанию; с выключенным автозапуском <code>binn daemon start</code> берёт другой порт из <code>BINNACLE_PORT</code>.</li>
+</ul>
+<p>Docker для самого Binnacle не нужен: это один локальный демон, а контейнер добавляет опубликованный порт и второе хранилище в обслуживание — он нужен, только если ваше приложение уже живёт в контейнере.</p>
 <div class="screenshots">
 <figure><img src="assets/overview.png" alt="Обзор: что дальше, прогресс эпиков и что идёт сейчас" width="2560" height="1800"><figcaption>Обзор</figcaption></figure>
 <figure><img src="assets/tasks.png" alt="Доска проекта: тикеты текущего эпика в четырёх колонках" width="2560" height="1800"><figcaption>Задачи</figcaption></figure>
 <figure><img src="assets/usage.png" alt="Расход: токены по видам, моделям, задачам и ролям" width="2560" height="1800"><figcaption>Расход</figcaption></figure>
 <figure><img src="assets/attention.png" alt="Внимание: что идёт сейчас и что шло недавно" width="2560" height="1800"><figcaption>Внимание</figcaption></figure>
 </div>
-<p class="install-label">Установка</p>
-<pre><code>npm i -g @it-bbox/binnacle
-binn daemon start</code></pre>
 <p class="actions"><a href="https://github.com/it-bbox/binnacle">Репозиторий</a> · <a href="https://www.npmjs.com/package/@it-bbox/binnacle">@it-bbox/binnacle в npm</a></p>
 </section>
 </header>
@@ -129,16 +142,16 @@ binn daemon start</code></pre>
 </ul>
 
 <h3>The whole picture</h3>
-<table>
-<thead><tr><th>Records</th><th>Input</th><th>Cached input</th><th>Cache creation</th><th>Output</th><th>Reasoning</th></tr></thead>
+<div class="table-scroll"><table>
+<thead><tr><th scope="col">Records</th><th scope="col">Input</th><th scope="col">Cached input</th><th scope="col">Cache creation</th><th scope="col">Output</th><th scope="col">Reasoning</th></tr></thead>
 <tbody><tr><td>28,470</td><td>2,845,108</td><td>4,757,627,781</td><td>114,658,043</td><td>19,990,342</td><td>6,402,652</td></tr></tbody>
-</table>
+</table></div>
 <p>The token counters are partial; the record count is exact. Binnacle's import window for this project starts on 3 August 2026, and the records it found run from the week of 14 September.</p>
 
 <h3>Where the tokens went, by role</h3>
 <p>Binnacle attributes each run to the role it played: Product work on the roadmap and specs, implementation on a ticket's branch, review by a subagent, rework after the review, and unknown for work it cannot place. The role is a calculated reading, taken from the run's branch and commits.</p>
-<table>
-<thead><tr><th>Role</th><th>Records</th><th>Input</th><th>Cached input</th><th>Cache creation</th><th>Output</th><th>Reasoning</th></tr></thead>
+<div class="table-scroll"><table>
+<thead><tr><th scope="col">Role</th><th scope="col">Records</th><th scope="col">Input</th><th scope="col">Cached input</th><th scope="col">Cache creation</th><th scope="col">Output</th><th scope="col">Reasoning</th></tr></thead>
 <tbody>
 <tr><td>Product</td><td>6,915</td><td>2,063,155</td><td>1,524,530,056</td><td>33,627,232</td><td>4,609,092</td><td>1,271,800</td></tr>
 <tr><td>Implementation</td><td>9,688</td><td>430,610</td><td>1,462,589,565</td><td>21,677,055</td><td>6,631,494</td><td>2,104,655</td></tr>
@@ -146,12 +159,12 @@ binn daemon start</code></pre>
 <tr><td>Rework</td><td>3,223</td><td>98,344</td><td>667,608,269</td><td>7,275,988</td><td>2,170,181</td><td>442,556</td></tr>
 <tr><td>Unknown</td><td>5,622</td><td>214,829</td><td>843,877,137</td><td>28,634,875</td><td>4,499,231</td><td>1,558,611</td></tr>
 </tbody>
-</table>
+</table></div>
 
 <h3>By model</h3>
 <p>Which models carried the work, over the same records:</p>
-<table>
-<thead><tr><th>Model</th><th>Records</th><th>Input</th><th>Cached input</th><th>Cache creation</th><th>Output</th><th>Reasoning</th></tr></thead>
+<div class="table-scroll"><table>
+<thead><tr><th scope="col">Model</th><th scope="col">Records</th><th scope="col">Input</th><th scope="col">Cached input</th><th scope="col">Cache creation</th><th scope="col">Output</th><th scope="col">Reasoning</th></tr></thead>
 <tbody>
 <tr><td>claude-opus-5-5</td><td>27,218</td><td>1,000,798</td><td>4,564,382,657</td><td>109,704,537</td><td>18,797,125</td><td>6,053,158</td></tr>
 <tr><td>claude-sonnet-5</td><td>400</td><td>961,913</td><td>84,692,096</td><td>0</td><td>238,843</td><td>0</td></tr>
@@ -162,7 +175,7 @@ binn daemon start</code></pre>
 <tr><td>gpt-6.1-sol</td><td>23</td><td>125,581</td><td>637,696</td><td>0</td><td>8,955</td><td>3,116</td></tr>
 <tr><td>Other models</td><td>12</td><td>41,444</td><td>130,752</td><td>0</td><td>2,478</td><td>417</td></tr>
 </tbody>
-</table>
+</table></div>
 <p><em>Other models</em> gathers four calls whose harness named no model and the models used for a handful of calls each. As in the weekly totals, some counters are partial, because some harnesses report only some token kinds; a zero can mean an unreported kind, not a measured one.</p>
 
 <h3>What a completed Task cost</h3>
@@ -175,8 +188,8 @@ binn daemon start</code></pre>
 </ul>
 
 <h3>Weekly trends</h3>
-<table>
-<thead><tr><th>Week from</th><th>Records</th><th>Input</th><th>Cached input</th><th>Cache creation</th><th>Output</th><th>Reasoning</th></tr></thead>
+<div class="table-scroll"><table>
+<thead><tr><th scope="col">Week from</th><th scope="col">Records</th><th scope="col">Input</th><th scope="col">Cached input</th><th scope="col">Cache creation</th><th scope="col">Output</th><th scope="col">Reasoning</th></tr></thead>
 <tbody>
 <tr><td>14 September 2026</td><td>311</td><td>622</td><td>48,306,944</td><td>1,758,171</td><td>490,959</td><td>256,911</td></tr>
 <tr><td>21 September 2026</td><td>7,346</td><td>32,986</td><td>1,163,971,130</td><td>31,908,464</td><td>5,960,917</td><td>2,346,865</td></tr>
@@ -186,7 +199,7 @@ binn daemon start</code></pre>
 <tr><td>19 October 2026</td><td>2,825</td><td>139,701</td><td>494,755,307</td><td>11,188,892</td><td>1,867,636</td><td>568,774</td></tr>
 <tr><td>26 October 2026</td><td>3,256</td><td>1,622,185</td><td>583,591,688</td><td>12,456,157</td><td>2,077,357</td><td>543,290</td></tr>
 </tbody>
-</table>
+</table></div>
 <p>The last week is the week in progress on the date of writing. The weekly totals are Binnacle's grouping; a few of their counters are partial, as some harnesses report only some token kinds.</p>
 
 <h3>The method</h3>
@@ -207,16 +220,16 @@ binn daemon start</code></pre>
 </ul>
 
 <h3>Общая картина</h3>
-<table>
-<thead><tr><th>Записи</th><th>Входные</th><th>Входные из кэша</th><th>Запись в кэш</th><th>Выходные</th><th>Рассуждения</th></tr></thead>
+<div class="table-scroll"><table>
+<thead><tr><th scope="col">Записи</th><th scope="col">Входные</th><th scope="col">Входные из кэша</th><th scope="col">Запись в кэш</th><th scope="col">Выходные</th><th scope="col">Рассуждения</th></tr></thead>
 <tbody><tr><td>28 470</td><td>2 845 108</td><td>4 757 627 781</td><td>114 658 043</td><td>19 990 342</td><td>6 402 652</td></tr></tbody>
-</table>
+</table></div>
 <p>Счётчики токенов неполные; число записей точное. Окно импорта Binnacle для этого проекта начинается 3 августа 2026 года, а найденные записи идут с недели 14 сентября.</p>
 
 <h3>Куда ушли токены, по ролям</h3>
 <p>Binnacle относит каждый запуск к роли, которую тот играл: продуктовая работа над роадмапом и спецификациями, реализация в ветке тикета, ревью силами субагента, доработка после ревью и «роль неизвестна» для работы, которую он не может отнести. Роль — расчётное чтение по ветке и коммитам запуска.</p>
-<table>
-<thead><tr><th>Роль</th><th>Записи</th><th>Входные</th><th>Входные из кэша</th><th>Запись в кэш</th><th>Выходные</th><th>Рассуждения</th></tr></thead>
+<div class="table-scroll"><table>
+<thead><tr><th scope="col">Роль</th><th scope="col">Записи</th><th scope="col">Входные</th><th scope="col">Входные из кэша</th><th scope="col">Запись в кэш</th><th scope="col">Выходные</th><th scope="col">Рассуждения</th></tr></thead>
 <tbody>
 <tr><td>Продуктовая сессия</td><td>6 915</td><td>2 063 155</td><td>1 524 530 056</td><td>33 627 232</td><td>4 609 092</td><td>1 271 800</td></tr>
 <tr><td>Реализация</td><td>9 688</td><td>430 610</td><td>1 462 589 565</td><td>21 677 055</td><td>6 631 494</td><td>2 104 655</td></tr>
@@ -224,12 +237,12 @@ binn daemon start</code></pre>
 <tr><td>Доработка</td><td>3 223</td><td>98 344</td><td>667 608 269</td><td>7 275 988</td><td>2 170 181</td><td>442 556</td></tr>
 <tr><td>Роль неизвестна</td><td>5 622</td><td>214 829</td><td>843 877 137</td><td>28 634 875</td><td>4 499 231</td><td>1 558 611</td></tr>
 </tbody>
-</table>
+</table></div>
 
 <h3>По моделям</h3>
 <p>Какие модели несли работу, по тем же записям:</p>
-<table>
-<thead><tr><th>Модель</th><th>Записи</th><th>Входные</th><th>Входные из кэша</th><th>Запись в кэш</th><th>Выходные</th><th>Рассуждения</th></tr></thead>
+<div class="table-scroll"><table>
+<thead><tr><th scope="col">Модель</th><th scope="col">Записи</th><th scope="col">Входные</th><th scope="col">Входные из кэша</th><th scope="col">Запись в кэш</th><th scope="col">Выходные</th><th scope="col">Рассуждения</th></tr></thead>
 <tbody>
 <tr><td>claude-opus-5-5</td><td>27 218</td><td>1 000 798</td><td>4 564 382 657</td><td>109 704 537</td><td>18 797 125</td><td>6 053 158</td></tr>
 <tr><td>claude-sonnet-5</td><td>400</td><td>961 913</td><td>84 692 096</td><td>0</td><td>238 843</td><td>0</td></tr>
@@ -240,7 +253,7 @@ binn daemon start</code></pre>
 <tr><td>gpt-6.1-sol</td><td>23</td><td>125 581</td><td>637 696</td><td>0</td><td>8 955</td><td>3 116</td></tr>
 <tr><td>Прочие модели</td><td>12</td><td>41 444</td><td>130 752</td><td>0</td><td>2 478</td><td>417</td></tr>
 </tbody>
-</table>
+</table></div>
 <p>В «Прочие модели» попали четыре записи, в которых harness не назвал модель, и модели, на которые пришлось по нескольку вызовов. Как и у недельных итогов, часть счётчиков неполная, потому что некоторые harness сообщают только часть видов токенов; ноль может означать непереданный вид, а не измеренный.</p>
 
 <h3>Сколько стоила одна завершённая задача</h3>
@@ -253,8 +266,8 @@ binn daemon start</code></pre>
 </ul>
 
 <h3>Динамика по неделям</h3>
-<table>
-<thead><tr><th>Неделя с</th><th>Записи</th><th>Входные</th><th>Входные из кэша</th><th>Запись в кэш</th><th>Выходные</th><th>Рассуждения</th></tr></thead>
+<div class="table-scroll"><table>
+<thead><tr><th scope="col">Неделя с</th><th scope="col">Записи</th><th scope="col">Входные</th><th scope="col">Входные из кэша</th><th scope="col">Запись в кэш</th><th scope="col">Выходные</th><th scope="col">Рассуждения</th></tr></thead>
 <tbody>
 <tr><td>14 сентября 2026</td><td>311</td><td>622</td><td>48 306 944</td><td>1 758 171</td><td>490 959</td><td>256 911</td></tr>
 <tr><td>21 сентября 2026</td><td>7 346</td><td>32 986</td><td>1 163 971 130</td><td>31 908 464</td><td>5 960 917</td><td>2 346 865</td></tr>
@@ -264,7 +277,7 @@ binn daemon start</code></pre>
 <tr><td>19 октября 2026</td><td>2 825</td><td>139 701</td><td>494 755 307</td><td>11 188 892</td><td>1 867 636</td><td>568 774</td></tr>
 <tr><td>26 октября 2026</td><td>3 256</td><td>1 622 185</td><td>583 591 688</td><td>12 456 157</td><td>2 077 357</td><td>543 290</td></tr>
 </tbody>
-</table>
+</table></div>
 <p>Последняя неделя — та, что идёт на дату написания. Недельные итоги — группировка Binnacle; часть их счётчиков неполная, потому что некоторые harness сообщают только часть видов токенов.</p>
 
 <h3>Метод</h3>
