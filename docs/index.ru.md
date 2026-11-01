@@ -19,9 +19,21 @@ hero:
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/it-bbox/binnacle/blob/main/LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D24%20%3C27-339933)](https://github.com/it-bbox/binnacle/blob/main/package.json)
 
+<div class="split">
+
+<div class="split-text">
+
 Binnacle — локальный provider-agnostic **AI Engineering Control Plane**: сохраняемый контекст проекта, workflow и наблюдаемость поверх Claude Code, Codex, Gemini, GLM и других coding agents. Он хранит состояние проекта вне чатов, даёт свежим агентам компактный актуальный контекст, собирает telemetry по расходам и оставляет человека главным управляющим процессом.
 
+</div>
+
+<div class="split-media">
+
 ![Дашборд Binnacle в работе: обзор, доска проекта, тикет, расход и внимание](../assets/demo.gif)
+
+</div>
+
+</div>
 
 ## Установка
 

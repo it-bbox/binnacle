@@ -65,12 +65,55 @@
   color: var(--vp-c-brand-1);
 }
 
-/* The landing page: the theme's hero is centred on its own, and a `home` page carries no article
-   column, so the text below it gets one here rather than running edge to edge. */
+/* One width for the whole landing — the nav bar's own — so the header, the hero and the text below
+   it share the same edges instead of each centring itself at its own width. */
+.landing .VPHero .container,
 .landing .vp-doc {
-  max-width: 880px;
+  max-width: var(--vp-layout-max-width);
   margin: 0 auto;
-  padding: 0 24px 64px;
+  padding: 0 24px;
+}
+
+@media (min-width: 768px) {
+  .landing .VPHero .container,
+  .landing .vp-doc {
+    padding: 0 32px;
+  }
+}
+
+.landing .vp-doc {
+  padding-bottom: 64px;
+}
+
+/* The theme pads the hero beyond the nav's own gutter; here the container's padding is the only
+   one, so the hero, the text and the nav share one left edge. */
+.landing .VPHero {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* The intro reads on the left and the demo plays beside it, not across the page. */
+.landing .split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 40px;
+  margin: 2rem 0 0;
+}
+
+.landing .split-media img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 12px;
+}
+
+@media (max-width: 768px) {
+  .landing .split {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
 }
 
 /* The badge row sits under the hero, centred. */
