@@ -115,7 +115,8 @@ export default defineConfig({
     /**
      * Keeps a guide link in its language on the site: a source page links a Russian page as
      * `name.ru.md` and an English one as `name.md`, while the rewrite serves every Russian page under
-     * `ru/`. A link into `ru/`, or out of it, is routed from the source page's own folder.
+     * `ru/`. A link into `ru/`, or out of it, is routed from the source page's own folder; one that
+     * climbs out of `docs/` is left to VitePress, and the site test reports it if it does not resolve.
      */
     config(md) {
       const renderLink = md.renderer.rules.link_open!
@@ -128,7 +129,8 @@ export default defineConfig({
         if (link && (link[2] || russian)) {
           const [, file, twin, suffix = ''] = link
           const page = posix.join(posix.dirname(russian ? env.relativePath.slice(3) : env.relativePath), file!)
-          token.attrSet('href', `${base}${twin ? 'ru/' : ''}${page.replace(/(^|\/)index$/, '$1')}${suffix}`)
+          if (!page.startsWith('..'))
+            token.attrSet('href', `${base}${twin ? 'ru/' : ''}${page.replace(/(^|\/)index$/, '$1')}${suffix}`)
         }
         return self.renderToken(tokens, idx, options)
       }
@@ -160,7 +162,8 @@ export default defineConfig({
       { text: 'GitHub', link: repository },
     ],
     sidebar,
-    // Self-contained: VitePress serializes a function into the site data by its source text.
+    // Self-contained: VitePress serializes a function into the site data by its source text, so the
+    // filters spell out `base`, here and in the Russian locale.
     search: {
       provider: 'local',
       options: { miniSearch: { searchOptions: { filter: (result) => !result.id.startsWith('/binnacle/ru/') } } },
