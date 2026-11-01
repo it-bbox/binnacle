@@ -1,24 +1,25 @@
 ---
-layout: page
+layout: home
 sidebar: false
 pageClass: landing
 title: Binnacle Dev
 titleTemplate: false
 description: "A local, provider-agnostic AI Engineering Control Plane: project memory, workflow and observability across coding agents."
+hero:
+  image:
+    src: /logo.svg
+    alt: Binnacle's logo
+  name: Binnacle Dev
+  text: One project memory. Any coding agent.
+  tagline: Claude today. Codex tomorrow. Your project never starts from zero.
 ---
-
-![Binnacle](../assets/logo.svg)
-
-# Binnacle Dev
-
-**One project memory. Any coding agent.**
-
-Binnacle is a local, provider-agnostic **AI Engineering Control Plane**: persistent project context, workflow and observability across Claude Code, Codex, Gemini, GLM and other coding agents. It keeps project state outside chat sessions, hands fresh agents a compact and current context, collects spend telemetry, and leaves the human in charge of the process.
 
 [![CI](https://github.com/it-bbox/binnacle/actions/workflows/ci.yml/badge.svg)](https://github.com/it-bbox/binnacle/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@it-bbox/binnacle)](https://www.npmjs.com/package/@it-bbox/binnacle)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/it-bbox/binnacle/blob/main/LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D24%20%3C27-339933)](https://github.com/it-bbox/binnacle/blob/main/package.json)
+
+Binnacle is a local, provider-agnostic **AI Engineering Control Plane**: persistent project context, workflow and observability across Claude Code, Codex, Gemini, GLM and other coding agents. It keeps project state outside chat sessions, hands fresh agents a compact and current context, collects spend telemetry, and leaves the human in charge of the process.
 
 ![Binnacle's dashboard in action: the overview, a project's board, a ticket, usage and attention](../assets/demo.gif)
 

@@ -65,29 +65,18 @@
   color: var(--vp-c-brand-1);
 }
 
-/* The landing page: the logo, the wordmark and the tagline centred above the rest. */
-.landing h1 {
-  margin-top: 1rem;
-  text-align: center;
-  font-size: 2.5rem;
-  letter-spacing: -0.02em;
+/* The landing page: the theme's hero is centred on its own, and a `home` page carries no article
+   column, so the text below it gets one here rather than running edge to edge. */
+.landing .vp-doc {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 0 24px 64px;
 }
 
-.landing p:first-of-type {
-  margin: 2.5rem 0 0;
+/* The badge row sits under the hero, centred. */
+.landing .vp-doc > p:first-of-type {
+  margin-top: 2rem;
   text-align: center;
-}
-
-.landing p:first-of-type img {
-  display: inline-block;
-  max-width: 220px;
-  height: auto;
-}
-
-.landing h1 + p {
-  text-align: center;
-  font-size: 1.25rem;
-  font-weight: 600;
 }
 
 /* The badge row: every badge is a linked image. */
@@ -96,4 +85,10 @@
   height: 20px;
   margin: 0 3px;
   vertical-align: middle;
+}
+
+/* A demo GIF and 2560 px screenshots at a readable width, never the full page. */
+.landing .vp-doc img {
+  max-width: 100%;
+  height: auto;
 }

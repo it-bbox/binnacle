@@ -1,24 +1,25 @@
 ---
-layout: page
+layout: home
 sidebar: false
 pageClass: landing
 title: Binnacle Dev
 titleTemplate: false
 description: "Локальный provider-agnostic AI Engineering Control Plane: память проекта, workflow и наблюдаемость поверх coding agents."
+hero:
+  image:
+    src: /logo.svg
+    alt: Логотип Binnacle
+  name: Binnacle Dev
+  text: Одна память проекта. Любой coding agent.
+  tagline: Claude сегодня. Codex завтра. Проект не начинается с нуля.
 ---
-
-![Binnacle](../assets/logo.svg)
-
-# Binnacle Dev
-
-**Одна память проекта. Любой coding agent.**
-
-Binnacle — локальный provider-agnostic **AI Engineering Control Plane**: сохраняемый контекст проекта, workflow и наблюдаемость поверх Claude Code, Codex, Gemini, GLM и других coding agents. Он хранит состояние проекта вне чатов, даёт свежим агентам компактный актуальный контекст, собирает telemetry по расходам и оставляет человека главным управляющим процессом.
 
 [![CI](https://github.com/it-bbox/binnacle/actions/workflows/ci.yml/badge.svg)](https://github.com/it-bbox/binnacle/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@it-bbox/binnacle)](https://www.npmjs.com/package/@it-bbox/binnacle)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/it-bbox/binnacle/blob/main/LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D24%20%3C27-339933)](https://github.com/it-bbox/binnacle/blob/main/package.json)
+
+Binnacle — локальный provider-agnostic **AI Engineering Control Plane**: сохраняемый контекст проекта, workflow и наблюдаемость поверх Claude Code, Codex, Gemini, GLM и других coding agents. Он хранит состояние проекта вне чатов, даёт свежим агентам компактный актуальный контекст, собирает telemetry по расходам и оставляет человека главным управляющим процессом.
 
 ![Дашборд Binnacle в работе: обзор, доска проекта, тикет, расход и внимание](../assets/demo.gif)
 
