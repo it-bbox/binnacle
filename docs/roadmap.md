@@ -63,13 +63,13 @@ Done: epics 1 to 23. **v1 is complete.**
 
 **Released** (the owner): Binnacle 0.1.0 on 2026-10-13; 0.2.0 on 2026-10-21; 0.3.0 on 2026-10-22; 0.4.0 and 0.5.0 on 2026-10-28; 0.6.0 on 2026-10-29; 0.7.1 and dev container feature 1.0.0 on 2026-10-30. Epic 23 is complete.
 
-**Epic 24 in progress**, 10 of 15 tickets complete on main. The owner accepted the revised landing on 2026-11-01: concrete product copy, project → Binnacle → person/agent graphic, installation second, and four theme-matched screenshots with an on-page lightbox. Its implementation and validation are committed on `codex/showcase-landing-graphic` through `42bd307`; ticket 15 is READY_FOR_REVIEW there. It has not been merged or published. Resume that branch rather than starting the landing again.
+**Epic 24 in progress**, 11 of 15 tickets complete on main. Ticket 15, the landing the owner accepted on 2026-11-01, is merged at `fe8d70f`: concrete product copy, the project → Binnacle → person/agent graphic, installation second, and four theme-matched screenshots with an on-page lightbox. It has not been pushed or published.
 
 Tickets 12–14 remain: locale navigation and search, the quick-start port caveat, and MCP Registry metadata and release prerequisites. Ticket 08 remains the owner's exit demonstration. Registry submission requires a separate release containing the ownership marker.
 
 The Codex autopilot attempt stopped at its capability gate without starting agents. Support verification is recorded in `docs/product-inbox.md`; no skill change is approved. Epics 25–27 remain not started.
 
-Next action: finish ticket 15 from its existing branch, reconcile it with main and complete its review and merge handoff; then address tickets 12–14. `/binnacle:task run docs/specs/showcase-and-launch/issues/15-showcase-landing-graphic.md`
+Next action: run tickets 12–14 with autopilot; ticket 08, the exit demonstration, stays with the owner. `/binnacle:autopilot`
 
 ## Later
 
