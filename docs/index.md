@@ -17,6 +17,15 @@ import attention from '../assets/attention.png'
 
 <LandingHero />
 
+<div class="landing-badges">
+
+[![CI](https://github.com/it-bbox/binnacle/actions/workflows/ci.yml/badge.svg)](https://github.com/it-bbox/binnacle/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@it-bbox/binnacle)](https://www.npmjs.com/package/@it-bbox/binnacle)
+[![license](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/it-bbox/binnacle/blob/main/LICENSE)
+[![node](https://img.shields.io/badge/node-%3E%3D24%20%3C27-339933)](https://github.com/it-bbox/binnacle/blob/main/package.json)
+
+</div>
+
 <section class="landing-section" aria-labelledby="see-the-work">
 
 <div class="landing-demo-main">
@@ -121,12 +130,3 @@ Docker is not needed for Binnacle itself: it is one local daemon, and a containe
 <li><a href="https://github.com/it-bbox/binnacle">GitHub ↗</a></li>
 <li><a href="https://www.npmjs.com/package/@it-bbox/binnacle">npm ↗</a></li>
 </ul>
-
-<div class="landing-badges">
-
-[![CI](https://github.com/it-bbox/binnacle/actions/workflows/ci.yml/badge.svg)](https://github.com/it-bbox/binnacle/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/@it-bbox/binnacle)](https://www.npmjs.com/package/@it-bbox/binnacle)
-[![license](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/it-bbox/binnacle/blob/main/LICENSE)
-[![node](https://img.shields.io/badge/node-%3E%3D24%20%3C27-339933)](https://github.com/it-bbox/binnacle/blob/main/package.json)
-
-</div>

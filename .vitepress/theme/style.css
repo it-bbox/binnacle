@@ -184,7 +184,7 @@
 .landing-requirements p { margin: 8px 0; }
 .landing .landing-next { display: flex; flex-wrap: wrap; gap: 16px 32px; margin: 28px 0; padding: 0; list-style: none; }
 .landing .landing-next li { margin: 0; font-size: 14px; }
-.landing .landing-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 24px; border-top: 1px solid var(--vp-c-divider); }
+.landing .landing-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 20px; }
 .landing .landing-badges p { display: contents; }
 .landing .landing-badges img { display: block; height: 20px; width: auto; }
 .landing :is(a, button):focus-visible { outline: 2px solid var(--vp-c-brand-1); outline-offset: 4px; }

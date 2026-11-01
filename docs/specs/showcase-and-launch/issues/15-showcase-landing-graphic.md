@@ -22,6 +22,8 @@ The owner first suggested a generated, sober illustration, then explicitly allow
 
 Owner correction, 2026-11-01: the landing's content edges must match the header's container and gutters. The demo keeps the earlier two-column composition: text on the left, the GIF on the right, stacked on phones. The full-width GIF and narrower 1240 px content container were rejected.
 
+The CI, npm, license and Node badges belong at the bottom of the hero area, before the demo; they are primary product information and must not move to the page footer.
+
 The three explanatory points belong beneath the description inside the left column, rather than beneath the two-column block. The owner requested a wider text column and a slightly smaller GIF: use a 60/40 split on desktop, with all text before the GIF on phones.
 
 
