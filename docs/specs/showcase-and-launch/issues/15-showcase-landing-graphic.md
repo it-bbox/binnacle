@@ -9,11 +9,11 @@ Roles: Developer, Reviewer
 **What to build:** redesign the English and Russian landing pages around a concrete explanation of the tool and a useful first-use example. This reflects the owner's revised direction on 2026-11-01; it supersedes the earlier compass/provider selector, abstract wave and three-frame task walkthrough. Standard documentation stays as it is.
 
 - [x] The hero names **Binnacle Dev** and describes a local app and agent skills: tasks, portable project context, progress and token usage. Use the favicon mark in the header. Keep the quick start and guide links visible.
-- [x] Use the actual dashboard overview in the hero, with its light/dark versions. No abstract wave or provider-selector graphic. Omit the hero preview on phones to keep installation nearby; all four dashboard views remain below.
+- [x] Use the agreed project → Binnacle → person/agent graphic in the hero. Name the portable sources, context/task/usage functions, and the person’s responsibility for choosing tasks and starting agents. No duplicated screenshot, abstract wave, provider selector or simulated activity. Adapt the graphic vertically on phones.
 - [x] The CI/npm/license/Node badges sit directly below the platform line in the hero's text column. Remove its non-copyable inline npm command.
 - [x] Installation is the second section: copyable commands install Binnacle, start its daemon, initialise the current project and open the dashboard. Retain the requirements and autostart port caveat.
 - [x] Show four distinct dashboard pages: Overview, Project (tasks), Usage and Attention. Use actual English captures from an explicitly labelled sample dataset. Do not count a scrolled or cropped version of the same page as a separate view.
-- [x] All four views and full-size links match the selected light/dark theme. View controls work with pointer and keyboard and expose selection. No autoplay or new dependency.
+- [x] All four views match the selected light/dark theme and open in an on-page lightbox. Support previous/next buttons and arrow keys, Escape, close button and backdrop dismissal. Contain focus while open, restore focus and scrolling on close. Keep direct image URLs as the no-JavaScript fallback. No autoplay or new dependency.
 - [x] Preserve header-aligned content, a 60/40 text/media split on desktop, text before media on phones, and equal content in both languages. At 375 px and 1440 px nothing overflows horizontally.
 - [x] Keep documentation routes and sources, the README's existing media and repository/npm links. Build the site, update its artifact checks and inspect both themes/languages in the browser.
 
@@ -21,7 +21,7 @@ Roles: Developer, Reviewer
 
 `assets/tour/` contains eight 1280×720 JPEG captures: Overview, Project, Usage and Attention in light and dark, taken on 2026-11-01. The isolated **Example shop** uses the local Markdown tracker. Three synthetic harness records in disposable Git worktrees supply sample token counts and recent activity; the UI labels these captures **sample data**. They are not measurements of Binnacle's development or claims about an agent's performance. Missing provider and reasoning fields stay unavailable.
 
-Each capture opens a distinct dashboard route at the top of the page. The same overview is reused explicitly in the hero. Both themes use the dashboard's own colours; captures are unretouched. The temporary harness uses `startTestDaemon`, a copied dashboard build and isolated artifact directories, never the user's daemon or sessions. The four discarded task/detail captures were removed. No capture server is needed by the website.
+Each capture opens a distinct dashboard route at the top of the page. The hero uses a separate explanatory graphic. Both themes use the dashboard's own colours; captures are unretouched. The temporary harness uses `startTestDaemon`, a copied dashboard build and isolated artifact directories, never the user's daemon or sessions. The four discarded task/detail captures were removed. No capture server is needed by the website.
 
 ## Comments
 
@@ -47,8 +47,17 @@ Checks after the revision: `LANGUAGE=C pnpm test` — 1004 pass, 0 fail; `pnpm t
 
 The example daemon was stopped after capture. The website needs only its static build. No dependencies, dashboard source changes, publication or merge; tickets 12 to 14 remain separate.
 
-### Four-view correction, 2026-11-01
+### Four-view correction (hero superseded below), 2026-11-01
 
 The owner rejected the unrelated wave and the near-duplicate task/detail frames. The hero now shows the actual overview; the lower selector has four distinct routes: Overview, Project, Usage and Attention. Each has light/dark captures and matching full-size links. The sample activity and token counts are explicitly labelled demonstration data. Badges, the installation section and the desktop text/media proportions stay in their agreed positions.
 
 Verified this correction with `node --test apps/cli/test/site.test.ts` (9 pass), `pnpm typecheck`, and the browser: four distinct image URLs, theme switching, keyboard activation, both languages and no horizontal overflow at 375 px. The desktop hero was inspected at 1440 px. The preview was restarted after the build. The earlier full-suite result above belongs to the preceding revision; it was not repeated for this presentation-only correction.
+
+
+### Agreed product graphic and lightbox, 2026-11-01
+
+The owner chose the project → Binnacle → person/agent concept before implementation. The hero now shows that static, localized diagram in both themes: Markdown, Git and tracker sources; Binnacle’s context, task state and token usage; the person choosing a task and starting a generic coding agent. The graph stacks vertically on phones. It does not duplicate any dashboard image or imply autonomous agent launching.
+
+The four dashboard screenshots open in a native modal dialog within the page, with selected-theme images, previous/next controls and keyboard arrows. Escape, the close button and the background dismiss it. Native dialog focus containment and return-to-trigger are preserved; background scrolling is locked and restored, including component teardown. Image links remain a direct fallback without JavaScript. Everything ships in the static Pages build, without a service or additional dependency.
+
+Validation: `node --test apps/cli/test/site.test.ts` — 9 pass (including the static build); `pnpm typecheck` and `git diff --check` — pass. Browser checks covered the desktop graph at 1440 px, both languages at 375 px without horizontal overflow, four distinct lightbox pages, theme-matched images, mouse and keyboard navigation, Escape, close button, background dismissal, restored scrolling and return-to-trigger focus. No publication or merge.

@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useData, withBase } from 'vitepress'
-import overviewLight from '../../assets/tour/overview-light.jpg'
-import overviewDark from '../../assets/tour/overview-dark.jpg'
 
 const { lang } = useData()
 const copy = computed(() => lang.value.startsWith('ru') ? {
@@ -10,18 +8,26 @@ const copy = computed(() => lang.value.startsWith('ru') ? {
   lead: 'Локальное приложение и набор навыков для работы с ИИ-агентами. Планируйте задачи, передавайте агентам контекст проекта и отслеживайте прогресс и расход токенов.',
   detail: 'Работает с Git, Markdown и вашим трекером. Вы выбираете задачи и запускаете агентов.',
   start: 'Быстрый старт', docs: 'Как это работает',
-  caption: 'Обзор проекта: следующий шаг, прогресс и текущая работа.',
-  sample: 'Дашборд Binnacle · демонстрационные данные',
-  enlarge: 'Открыть обзор крупнее',
+  diagram: 'От знаний проекта — к работе',
+  project: 'Ваш проект', sources: ['Markdown', 'Git', 'Трекер'],
+  sourceDetails: ['Документы и решения', 'Изменения кода', 'Задачи и зависимости'],
+  context: 'Контекст для агента', status: 'Состояние задач', usage: 'Расход токенов',
+  you: 'Вы', choose: 'Выбираете задачу', launch: 'запускаете',
+  agent: 'ИИ-агент', work: 'Работает с контекстом',
+  caption: 'Знания остаются в проекте. Binnacle собирает контекст для агента и показывает вам ход работы.',
   local: 'На вашем компьютере', portable: 'Markdown · Git · Трекер', control: 'Вы управляете процессом',
 } : {
   title: ['Your control panel', 'for AI development.'],
   lead: 'A local app and a set of skills for working with coding agents. Plan tasks, give agents your project context, and track progress and token usage.',
   detail: 'Works with Git, Markdown and your issue tracker. You choose the tasks and start the agents.',
   start: 'Get started', docs: 'How it works',
-  caption: 'Project overview: the next action, progress and current work.',
-  sample: 'Binnacle dashboard · sample data',
-  enlarge: 'Open the full-size overview',
+  diagram: 'From project knowledge to work',
+  project: 'Your project', sources: ['Markdown', 'Git', 'Tracker'],
+  sourceDetails: ['Docs and decisions', 'Code changes', 'Tasks and dependencies'],
+  context: 'Context for the agent', status: 'Task status', usage: 'Token usage',
+  you: 'You', choose: 'Choose a task', launch: 'start',
+  agent: 'Coding agent', work: 'Works with context',
+  caption: 'Knowledge stays in your project. Binnacle prepares context for the agent and shows you how work is going.',
   local: 'On your machine', portable: 'Markdown · Git · Tracker', control: 'You stay in control',
 })
 const prefix = computed(() => lang.value.startsWith('ru') ? '/ru' : '')
@@ -43,11 +49,28 @@ const prefix = computed(() => lang.value.startsWith('ru') ? '/ru' : '')
       <slot />
     </div>
 
-    <figure class="hero-preview">
-      <div class="demo-window">
-        <div class="demo-window-bar"><span aria-hidden="true">● ● ●</span><span>{{ copy.sample }}</span></div>
-        <a class="tour-light" :href="overviewLight" target="_blank" rel="noopener" :aria-label="copy.enlarge"><img :src="overviewLight" :alt="copy.caption" width="1280" height="720"></a>
-        <a class="tour-dark" :href="overviewDark" target="_blank" rel="noopener" :aria-label="copy.enlarge"><img :src="overviewDark" :alt="copy.caption" width="1280" height="720"></a>
+    <figure class="hero-map" aria-labelledby="project-map-title">
+      <p id="project-map-title" class="map-heading">{{ copy.diagram }}</p>
+      <div class="map-flow">
+        <div class="map-project">
+          <p class="map-label">{{ copy.project }}</p>
+          <div v-for="(source, index) in copy.sources" :key="source" class="map-source">
+            <span class="map-source-icon" aria-hidden="true">{{ ['#', '⑂', '☷'][index] }}</span>
+            <div><strong>{{ source }}</strong><small>{{ copy.sourceDetails[index] }}</small></div>
+          </div>
+        </div>
+        <span class="map-connector" aria-hidden="true">→</span>
+        <div class="map-binnacle">
+          <img :src="withBase('/favicon.svg')" alt="" width="36" height="36">
+          <strong>Binnacle</strong>
+          <ul><li>{{ copy.context }}</li><li>{{ copy.status }}</li><li>{{ copy.usage }}</li></ul>
+        </div>
+        <span class="map-connector" aria-hidden="true">→</span>
+        <div class="map-work">
+          <div class="map-person"><span class="map-person-icon" aria-hidden="true">◎</span><strong>{{ copy.you }}</strong><small>{{ copy.choose }}</small></div>
+          <div class="map-launch"><span>{{ copy.launch }}</span><span aria-hidden="true">↓</span></div>
+          <div class="map-agent"><span class="map-person-icon" aria-hidden="true">⌘</span><strong>{{ copy.agent }}</strong><small>{{ copy.work }}</small></div>
+        </div>
       </div>
       <figcaption>{{ copy.caption }}</figcaption>
     </figure>

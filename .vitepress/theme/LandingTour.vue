@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { useData } from 'vitepress'
 import overviewLight from '../../assets/tour/overview-light.jpg'
 import overviewDark from '../../assets/tour/overview-dark.jpg'
@@ -21,7 +21,7 @@ const copy = computed(() => lang.value.startsWith('ru') ? {
     { title: 'Расход — куда уходят токены', text: 'Входные и выходные токены, кеш, разбивка по моделям и задачам. Отсутствующие метрики отмечены как «нет данных».', alt: 'Расход Binnacle: токены по видам, моделям и задачам на демонстрационных данных.' },
     { title: 'Внимание — что требует проверки', text: 'Проблемы по проектам, текущие и недавние запуски. Можно увидеть, где работа остановилась или требует вмешательства.', alt: 'Внимание Binnacle: проблемы проектов, текущие и недавние запуски.' },
   ],
-  sample: 'Настоящий интерфейс · демонстрационные данные', enlarge: 'Открыть снимок крупнее ↗',
+  sample: 'Настоящий интерфейс · демонстрационные данные', enlarge: 'Увеличить снимок ⤢', close: 'Закрыть', previous: 'Предыдущий снимок', next: 'Следующий снимок',
 } : {
   kicker: 'Inside Binnacle', title: 'Tasks, token usage and agent activity.',
   intro: 'Choose a section. Each screen answers a different question about the work.',
@@ -31,7 +31,7 @@ const copy = computed(() => lang.value.startsWith('ru') ? {
     { title: 'Usage — where tokens go', text: 'Input, output and cached tokens, broken down by model and task. Missing metrics stay marked as no data.', alt: 'Binnacle usage: tokens by kind, model and task using sample data.' },
     { title: 'Attention — what needs checking', text: 'Project issues, current runs and recent activity. See where work has stalled or needs your involvement.', alt: 'Binnacle attention: project issues, current runs and recent activity.' },
   ],
-  sample: 'Actual interface · sample data', enlarge: 'Open full-size screenshot ↗',
+  sample: 'Actual interface · sample data', enlarge: 'Enlarge screenshot ⤢', close: 'Close', previous: 'Previous screenshot', next: 'Next screenshot',
 })
 // Follow the site's selected theme before hydration and after a manual switch.
 const images = [
@@ -40,6 +40,26 @@ const images = [
   { light: usageLight, dark: usageDark },
   { light: attentionLight, dark: attentionDark },
 ]
+const lightbox = ref<HTMLDialogElement>()
+let previousOverflow = ''
+function openLightbox() {
+  if (!lightbox.value || lightbox.value.open) return
+  previousOverflow = document.body.style.overflow
+  lightbox.value.showModal()
+  document.body.style.overflow = 'hidden'
+}
+function restoreScroll() {
+  document.body.style.overflow = previousOverflow
+}
+function moveScreenshot(direction: number) {
+  selected.value = (selected.value + direction + images.length) % images.length
+}
+onBeforeUnmount(() => {
+  if (lightbox.value?.open) {
+    lightbox.value.close()
+    restoreScroll()
+  }
+})
 </script>
 
 <template>
@@ -59,12 +79,26 @@ const images = [
       <figure id="tour-screen" class="tour-screen" aria-live="polite">
         <div class="demo-window">
           <div class="demo-window-bar"><span aria-hidden="true">● ● ●</span><span>{{ copy.sample }}</span></div>
-          <a v-for="theme in (['light', 'dark'] as const)" :key="theme" :class="`tour-${theme}`" :href="images[selected]![theme]" target="_blank" rel="noopener" :aria-label="copy.enlarge">
+          <a v-for="theme in (['light', 'dark'] as const)" :key="theme" :class="`tour-${theme}`" :href="images[selected]![theme]" aria-haspopup="dialog" @click.prevent="openLightbox" :aria-label="copy.enlarge">
             <img :src="images[selected]![theme]" :alt="copy.steps[selected]!.alt" loading="lazy" width="1280" height="720">
           </a>
         </div>
-        <figcaption><span>0{{ selected + 1 }} / 04</span><a v-for="theme in (['light', 'dark'] as const)" :key="theme" :class="`tour-${theme}`" :href="images[selected]![theme]" target="_blank" rel="noopener">{{ copy.enlarge }}</a></figcaption>
+        <figcaption><span>0{{ selected + 1 }} / 04</span><a v-for="theme in (['light', 'dark'] as const)" :key="theme" :class="`tour-${theme}`" :href="images[selected]![theme]" aria-haspopup="dialog" @click.prevent="openLightbox">{{ copy.enlarge }}</a></figcaption>
       </figure>
     </div>
+    <dialog ref="lightbox" class="tour-lightbox" aria-labelledby="lightbox-title" @close="restoreScroll" @click.self="lightbox?.close()" @keydown.left.prevent="moveScreenshot(-1)" @keydown.right.prevent="moveScreenshot(1)">
+      <div class="lightbox-content">
+        <header class="lightbox-toolbar">
+          <span id="lightbox-title">{{ copy.steps[selected]!.title }}</span>
+          <button type="button" autofocus @click="lightbox?.close()">{{ copy.close }} <span aria-hidden="true">×</span></button>
+        </header>
+        <img v-for="theme in (['light', 'dark'] as const)" :key="theme" :class="`tour-${theme}`" :src="images[selected]![theme]" :alt="copy.steps[selected]!.alt" loading="lazy" width="1280" height="720">
+        <div class="lightbox-navigation">
+          <button type="button" :aria-label="copy.previous" @click="moveScreenshot(-1)">←</button>
+          <span aria-live="polite">0{{ selected + 1 }} / 04</span>
+          <button type="button" :aria-label="copy.next" @click="moveScreenshot(1)">→</button>
+        </div>
+      </div>
+    </dialog>
   </section>
 </template>

@@ -120,7 +120,8 @@ test('the landing explains the product and keeps installation immediately after 
     assert.ok(hero.includes('landing-badges'), `${route}: badges are outside the hero`);
     assert.ok(hero.indexOf('landing-platforms') < hero.indexOf('landing-badges'), `${route}: badges precede platform requirements`);
     assert.ok(!hero.includes('context-ribbon'), `${route}: unrelated wave remains`);
-    for (const theme of ['light', 'dark']) assert.match(hero, new RegExp(`src="[^"]*overview-${theme}\\.`), `${route}: hero has no ${theme} product preview`);
+    assert.ok(hero.includes('class="hero-map"'), `${route}: explanatory graphic missing`);
+    assert.ok(!hero.includes('overview-light') && !hero.includes('overview-dark'), `${route}: hero duplicates the gallery`);
     assert.ok(!hero.includes('npm i -g'), `${route}: redundant command in the hero`);
     const sections = [...page.matchAll(/<section[^>]*aria-labelledby="([^"]+)"/g)].map((match) => match[1]);
     assert.deepEqual(sections.slice(0, 3), ['landing-title', 'install', 'see-the-work'], `${route}: installation is not the second section`);
@@ -152,6 +153,9 @@ test('the dashboard views provide four distinct pages in both themes', () => {
     for (const theme of ['light', 'dark'])
       assert.match(page, new RegExp(`class="tour-${theme}"[^>]*href="[^"]*overview-${theme}\\.`), `${route}: theme-matched full-size link missing`);
     assert.ok(page.includes('id="tour-screen"'), `${route}: step controls target no content`);
+    assert.match(page, /<dialog[^>]*aria-labelledby="lightbox-title"/, `${route}: no labelled lightbox`);
+    const tour = page.slice(page.indexOf('id="tour-screen"'));
+    assert.ok(!/<a[^>]*target="_blank"/.test(tour.split('</section>')[0]!), `${route}: screenshots open in a separate tab`);
   }
 });
 
