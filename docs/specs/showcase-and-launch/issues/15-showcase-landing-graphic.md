@@ -20,6 +20,8 @@ Roles: Developer, Reviewer
 
 The owner first suggested a generated, sober illustration, then explicitly allowed a native graphic or animation. Use Vue, SVG and CSS already available in VitePress. The graphic shows what Binnacle does, rather than an enlarged logo or unrelated decoration. Keep this ticket separate from ticket 12's locale fixes, even where they touch the same theme file.
 
+Owner correction, 2026-11-01: the landing's content edges must match the header's container and gutters. The demo keeps the earlier two-column composition: text on the left, the GIF on the right, stacked on phones. The full-width GIF and narrower 1240 px content container were rejected.
+
 
 ## Comments
 
@@ -34,3 +36,5 @@ Checks: `node --test apps/cli/test/site.test.ts` — 9 pass; `LANGUAGE=C pnpm te
 Browser checks: English and Russian at 375 px and 1440 px, dark and light themes, agent selection by pointer and keyboard, selected state, loaded local media and no horizontal page overflow. The four screenshot links open their full-size assets. Reduced motion was checked in the stylesheet; a separate media-preference emulation was not available in the browser tooling.
 
 Tickets 12 to 14 remain open by design: this ticket does not implement the independent review's locale, quick-start or Registry corrections. Ready for the owner's review and merge; nothing was pushed or deployed.
+
+Follow-up on the owner's layout correction: the landing now takes the header's maximum width and breakpoint-specific gutters. Browser measurements confirmed equal left and right content edges; the desktop demo uses equal text and GIF columns, with a single column below 768 px. Both language pages changed together. The rebuilt site's 9 artifact checks pass; the local preview was restarted after the build so its asset list is current.

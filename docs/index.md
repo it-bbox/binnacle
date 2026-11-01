@@ -19,17 +19,22 @@ import attention from '../assets/attention.png'
 
 <section class="landing-section" aria-labelledby="see-the-work">
 
+<div class="landing-demo-main">
+<div>
+
 <p class="section-kicker">A clear view of the work</p>
 
 <h2 id="see-the-work">Less catching up. More moving forward.</h2>
 
 <p class="section-description">Know what is ready, what is running and what needs your decision. Binnacle brings the project's state into view, so a fresh session can start from the work already done.</p>
 
+</div>
 <div class="demo-window">
 <div class="demo-window-bar"><span aria-hidden="true">● ● ●</span><span>Binnacle / dashboard demo</span></div>
 
 <img :src="demo" alt="Binnacle's dashboard in action: the overview, a project's board, a ticket, usage and attention" loading="lazy" width="1280" height="800">
 
+</div>
 </div>
 
 <div class="landing-notes">

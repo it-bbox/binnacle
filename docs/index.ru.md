@@ -19,17 +19,22 @@ import attention from '../assets/attention.png'
 
 <section class="landing-section" aria-labelledby="see-the-work">
 
+<div class="landing-demo-main">
+<div>
+
 <p class="section-kicker">Работа как на ладони</p>
 
 <h2 id="see-the-work">Меньше вспоминать. Больше делать.</h2>
 
 <p class="section-description">Что готово к старту, что сейчас в работе и где нужно ваше решение. Binnacle показывает состояние проекта, чтобы новая сессия начинала с того, что уже сделано.</p>
 
+</div>
 <div class="demo-window">
 <div class="demo-window-bar"><span aria-hidden="true">● ● ●</span><span>Binnacle / демонстрация дашборда</span></div>
 
 <img :src="demo" alt="Дашборд Binnacle в работе: обзор, доска проекта, тикет, расход и внимание" loading="lazy" width="1280" height="800">
 
+</div>
 </div>
 
 <div class="landing-notes">
