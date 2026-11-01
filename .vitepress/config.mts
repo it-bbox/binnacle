@@ -122,7 +122,7 @@ export default defineConfig({
         renderLink(tokens, idx, options, env, self)
         const token = tokens[idx]!
         const href = token.attrGet('href')
-        const twin = href?.match(/^([^?#]*)\.ru(?:\.html)?([?#].*)?$/)
+        const twin = /^[a-z]+:/i.test(href ?? '') ? null : href?.match(/^([^?#]*)\.ru(?:\.html)?([?#].*)?$/)
         if (twin) {
           const [, path, suffix = ''] = twin
           if (env.relativePath.startsWith('ru/')) {
