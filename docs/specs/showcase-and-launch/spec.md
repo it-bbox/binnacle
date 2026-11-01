@@ -73,6 +73,18 @@ The owner read the finished storefront after ticket 07 and asked for two changes
 
 The catalogues, the listings, the posts and the no-release rule are unchanged. Ticket 08 stays the exit demonstration and now covers the reworked storefront.
 
+## Independent review and landing revision (2026-11-01)
+
+The owner requested tickets for the independent review's five findings and a new first page. Tickets 12 to 14 address the findings; ticket 15 changes the landing. Ticket 08 waits for all four.
+
+- **Languages and search:** one visible language control preserves the current page at desktop and phone widths; the English-version links inside Russian guides reach their English twins; search returns results in each language. The checks exercise each locale, rather than looking for route strings in a concatenation of every index.
+- **The port statement:** both quick starts say that `BINNACLE_PORT` applies with autostart off, as the README already does. Fixing the daemon's environment propagation stays outside this epic.
+- **Registry prerequisites:** prepare the npm ownership marker `mcpName: io.github.it-bbox/binnacle` and correct the submission instructions. Published 0.7.1 has no marker; an npm-backed Registry entry therefore needs a subsequent release containing it. This epic prepares metadata and instructions; the owner cuts that release separately. Do not claim that the current release meets every prerequisite.
+- **A product landing, with a restrained graphic:** replace the oversized hero logo with a responsive native illustration showing portable project sources, Binnacle's compact context and a choice of coding agent. The owner accepted a graphic instead of a generated bitmap. Subtle motion explains continuity; selecting another agent preserves the project memory. Label the illustration as explanatory, with no invented live metrics, agent execution or autonomous orchestration. Honour reduced motion and keep keyboard controls accessible.
+- **The first page only:** improve hierarchy, spacing, calls to action and the presentation of the real demo and screenshots, in both languages and both themes. Keep the established name and tagline, requirements, install path, repository/npm links and route addresses. The documentation retains its standard layout and canonical Markdown sources. Add no dependency and publish nothing.
+
+The five findings were: the visible stock language menu returns to the locale's home; English-version body links on Russian pages point to themselves; Russian search requests an index which was built only as `root`; both quick starts omit the autostart port limitation; and the Registry instructions overlook the required npm ownership marker. The Registry requirement is documented at <https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/package-types.mdx#ownership-verification>.
+
 ## Testing Decisions
 
 A good test checks what a person sees, not how a file is laid out. This epic adds no behaviour, so its checks are over the artifacts' files, links and claims.

@@ -67,9 +67,9 @@ Done: epics 1 to 23. **v1 is complete.**
 
 Next: epics 24 to 27, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28.
 
-**Epic 24 in progress**, 10 of 11 tickets. Tickets `01` to `07` built the demo GIF and screenshots, the write-up and the identity strings, the bilingual README, the Pages workflow, the listings' texts and the launch checklist. On 2026-11-01 the owner read the storefront and asked for two changes; tickets `09` to `11` made them. The README opens with the owner's vector logo, the wordmark *Binnacle Dev*, the tagline, live badges and a row of links; the one-page site became a VitePress documentation site built from `docs/`, in both languages with search, at `https://it-bbox.github.io/binnacle/`, and GitHub Pages is enabled with its first deploy green. Ticket `08`, the exit demonstration, is the owner's: the description and topics, the listings from `docs/showcase/listings.md`, the posts, then the demonstration itself, ordered by `docs/showcase/launch-checklist.md`.
+**Epic 24 in progress**, 10 of 15 tickets. The README and bilingual VitePress documentation site are in place. On 2026-11-01 an independent review found five defects, grouped into tickets `12` to `14`: language navigation and search, the quick-start port statement, and the MCP Registry ownership prerequisite. The owner also requested a redesigned landing with an explanatory native graphic, ticket `15`; the standard documentation stays as it is. Ticket `08`, the owner's exit demonstration, now waits for these corrections. The Registry submission needs a later owner release containing its ownership marker; epic 24 prepares the metadata and publishes nothing.
 
-Next action: apply the description and topics, file the listings from `docs/showcase/listings.md`, and post; then run the exit demonstration. `/binnacle:task run docs/specs/showcase-and-launch/issues/08-showcase-exit-demonstration.md`
+Next action: redesign the first page with the project-memory graphic, then complete the review corrections before the owner's exit demonstration. `/binnacle:task run docs/specs/showcase-and-launch/issues/15-showcase-landing-graphic.md`
 
 ## Later
 
