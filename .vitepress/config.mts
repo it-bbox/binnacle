@@ -140,6 +140,7 @@ export default defineConfig({
     },
   },
   themeConfig: {
+    logo: '/logo.svg',
     // The switch between the languages is `LanguageSwitch.vue`; the theme's own cannot follow a twin.
     i18nRouting: false,
     nav: [

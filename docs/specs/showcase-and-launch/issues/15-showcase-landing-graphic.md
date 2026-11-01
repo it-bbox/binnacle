@@ -1,6 +1,6 @@
 # 15: A considered landing with an explanatory project-memory graphic
 
-Status: READY
+Status: ACTIVE
 Triage: ready-for-agent
 Blocked by: 09, 10, 11
 Spec: `docs/specs/showcase-and-launch/spec.md`

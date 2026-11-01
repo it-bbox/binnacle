@@ -129,6 +129,23 @@ test('the landing opens with the logo, the wordmark, the tagline, the badges and
   }
 });
 
+/** The illustration explains the product and lets a keyboard user choose the receiving agent. */
+test('the landing explains portable context with labelled agent choices', () => {
+  for (const [route, label] of [
+    ['/', 'Choose an agent for the illustration'],
+    ['/ru/', 'Выберите агента для иллюстрации'],
+  ] as const) {
+    const page = readFileSync(fileOf(route), 'utf8');
+    assert.ok(page.includes('id="landing-title"'), `${route}: no landing headline`);
+    assert.ok(!page.includes('class="VPHero'), `${route}: the oversized hero logo remains`);
+    for (const source of ['Markdown', 'Git', 'Tracker']) assert.ok(page.includes(source), `${route}: no ${source} source`);
+    assert.ok(page.includes(`role="group" aria-label="${label}"`), `${route}: the agent choices are not labelled`);
+    for (const agent of ['Claude Code', 'Codex', 'Gemini CLI'])
+      assert.match(page, new RegExp(`<button[^>]+type="button"[^>]+aria-pressed="(?:true|false)"[^>]*>${agent}</button>`), `${route}: inaccessible ${agent} choice`);
+    assert.ok(page.includes('id="memory-caption"'), `${route}: the diagram is not identified as an illustration`);
+  }
+});
+
 /** One switch, on every page of either language, that lands on that page's twin. */
 test('the switch between the languages keeps the reader on the same page', () => {
   for (const route of PAGES) {
