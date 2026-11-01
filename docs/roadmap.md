@@ -67,9 +67,9 @@ Done: epics 1 to 23. **v1 is complete.**
 
 Next: epics 24 to 27, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28.
 
-**Epic 24 specified and sliced** on 2026-10-31: its brief and spec are in `docs/specs/showcase-and-launch/`, and its tickets are `01` to `08`; `01` to `07` are ready for autopilot and `08`, the exit demonstration, is the owner's. The epic changes no behaviour and releases nothing.
+**Epic 24 in progress** on 2026-10-31: tickets `01` to `07` are DONE from autopilot — the demo GIF and screenshots with the English UI in `assets/`, the write-up and the identity strings in `docs/showcase/`, the bilingual README and site, the Pages workflow, the listings' texts and the launch checklist. Ticket `08`, the exit demonstration, is the owner's.
 
-Next action: run autopilot on epic 24, *Showcase and launch*, from its spec; the exit demonstration, ticket 08, is the owner's. `/binnacle:autopilot`
+Next action: push `main`, enable Pages from GitHub Actions, apply the description and topics, file the listings from `docs/showcase/listings.md`, and post; then run the exit demonstration. `/binnacle:task run docs/specs/showcase-and-launch/issues/08-showcase-exit-demonstration.md`
 
 ## Later
 
