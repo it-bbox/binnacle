@@ -61,3 +61,15 @@ The owner chose the project → Binnacle → person/agent concept before impleme
 The four dashboard screenshots open in a native modal dialog within the page, with selected-theme images, previous/next controls and keyboard arrows. Escape, the close button and the background dismiss it. Native dialog focus containment and return-to-trigger are preserved; background scrolling is locked and restored, including component teardown. Image links remain a direct fallback without JavaScript. Everything ships in the static Pages build, without a service or additional dependency.
 
 Validation: `node --test apps/cli/test/site.test.ts` — 9 pass (including the static build); `pnpm typecheck` and `git diff --check` — pass. Browser checks covered the desktop graph at 1440 px, both languages at 375 px without horizontal overflow, four distinct lightbox pages, theme-matched images, mouse and keyboard navigation, Escape, close button, background dismissal, restored scrolling and return-to-trigger focus. No publication or merge.
+
+### Review
+
+Reviewed `feat/showcase-landing-graphic` against `main` on 2026-11-01, after rebasing it onto `a1a51b0`, in a separate review session on two axes. Standards: commits, authorship, dependencies and SSR safety in order. Spec: all eight criteria met; English and Russian pages match; README media and docs routes untouched.
+
+- Fixed — `apps/cli/test/site.test.ts`: the landing test checked only two install commands. It now requires all four commands, `BINNACLE_PORT` and `127.0.0.1:7717` inside the installation section.
+- Fixed — `.vitepress/theme/LandingTour.vue`: focus returned to the trigger only where the browser focuses a clicked link (not Safari). The trigger is kept and focused on close.
+- Fixed — the same file: the caption's enlarge link duplicated the image link in the tab order, and its `⤢` was read aloud. The caption link is out of the tab order; the symbol is `aria-hidden`.
+- Fixed — the site test now requires the lightbox's three buttons (close, previous, next).
+- Kept — the badge check asserts the order after the platform line, not adjacency: the markup has nothing between them, and a stricter string match would break on harmless markup changes.
+
+Checks after the fixes: `pnpm typecheck` — pass; `LANGUAGE=C pnpm test` before the fixes — 1004 tests, 1003 pass, 0 fail; `node --test apps/cli/test/site.test.ts` after them — 9 pass. Nothing pushed or published.
