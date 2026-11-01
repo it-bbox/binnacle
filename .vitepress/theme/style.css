@@ -159,14 +159,14 @@
 .landing .section-kicker { margin: 0 0 10px; color: var(--vp-c-brand-1); font: 11px/1.5 var(--vp-font-family-mono); letter-spacing: 0.08em; text-transform: uppercase; }
 .landing .landing-section h2 { margin: 0; padding: 0; border: 0; font-size: clamp(27px, 3vw, 36px); line-height: 1.25; letter-spacing: -0.04em; }
 .landing .section-description { max-width: 640px; margin: 14px 0 28px; color: var(--vp-c-text-2); font-size: 15px; line-height: 1.75; }
-.landing-demo-main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 48px; }
+.landing-demo-main { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: center; gap: 48px; }
 .landing .landing-demo-main .section-description { margin-bottom: 0; }
 .landing .demo-window { overflow: hidden; border: 1px solid var(--vp-c-border); border-radius: 12px; background: var(--vp-c-bg-soft); }
 .demo-window-bar { display: flex; justify-content: space-between; padding: 12px 18px; border-bottom: 1px solid var(--vp-c-border); color: var(--vp-c-text-2); font: 10px/1.5 var(--vp-font-family-mono); }
 .demo-window-bar > span:first-child { color: var(--vp-c-brand-1); letter-spacing: 4px; }
 .landing .demo-window p { margin: 0; }
 .landing .demo-window img { display: block; width: 100%; height: auto; }
-.landing-notes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; margin: 28px 0 0; }
+.landing-notes { display: grid; gap: 18px; max-width: 640px; margin: 28px 0 0; }
 .landing-notes strong { display: block; font-size: 14px; font-weight: 600; }
 .landing-notes p { margin: 8px 0 0; color: var(--vp-c-text-2); font-size: 13px; line-height: 1.7; }
 .landing-gallery { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 26px; }
@@ -230,7 +230,7 @@
   .memory-illustration figcaption { font-size: 9px; }
   .landing-principles { flex-direction: column; align-items: flex-start; gap: 12px; padding: 20px 0; }
   .landing .landing-section { margin-top: 52px; }
-  .landing-notes, .landing-gallery, .landing .landing-setup { grid-template-columns: 1fr; gap: 24px; }
+  .landing-gallery, .landing .landing-setup { grid-template-columns: 1fr; gap: 24px; }
   .landing .landing-setup { padding: 22px; }
   .landing .demo-window { border-radius: 7px; }
   .demo-window-bar { padding: 9px 12px; font-size: 8px; }

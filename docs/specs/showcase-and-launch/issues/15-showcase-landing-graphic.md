@@ -22,6 +22,8 @@ The owner first suggested a generated, sober illustration, then explicitly allow
 
 Owner correction, 2026-11-01: the landing's content edges must match the header's container and gutters. The demo keeps the earlier two-column composition: text on the left, the GIF on the right, stacked on phones. The full-width GIF and narrower 1240 px content container were rejected.
 
+The three explanatory points belong beneath the description inside the left column, rather than beneath the two-column block. The owner requested a wider text column and a slightly smaller GIF: use a 60/40 split on desktop, with all text before the GIF on phones.
+
 
 ## Comments
 
@@ -37,4 +39,4 @@ Browser checks: English and Russian at 375 px and 1440 px, dark and light themes
 
 Tickets 12 to 14 remain open by design: this ticket does not implement the independent review's locale, quick-start or Registry corrections. Ready for the owner's review and merge; nothing was pushed or deployed.
 
-Follow-up on the owner's layout correction: the landing now takes the header's maximum width and breakpoint-specific gutters. Browser measurements confirmed equal left and right content edges; the desktop demo uses equal text and GIF columns, with a single column below 768 px. Both language pages changed together. The rebuilt site's 9 artifact checks pass; the local preview was restarted after the build so its asset list is current.
+Follow-up on the owner's layout corrections: the landing takes the header's maximum width and breakpoint-specific gutters. Browser measurements confirmed equal left and right content edges. The desktop demo has a wider left column for its description and three explanatory points, with the smaller GIF on the right; below 768 px the whole text column precedes the GIF. Both language pages changed together. The rebuilt site's 9 artifact checks pass; the local preview was restarted after the build so its asset list is current.

@@ -28,6 +28,12 @@ import attention from '../assets/attention.png'
 
 <p class="section-description">Что готово к старту, что сейчас в работе и где нужно ваше решение. Binnacle показывает состояние проекта, чтобы новая сессия начинала с того, что уже сделано.</p>
 
+<div class="landing-notes">
+<div><strong>Сохраняйте контекст.</strong><p>Решения живут в Markdown, Git и трекере. Чат может закончиться, не забрав с собой знания проекта.</p></div>
+<div><strong>Видьте, куда уходят усилия.</strong><p>Задачи, активность агентов и расход токенов — в одном месте. Если метрик нет, они так и показаны.</p></div>
+<div><strong>Оставайтесь у штурвала.</strong><p>Вы выбираете работу и запускаете агентов. Binnacle держит приборы перед глазами.</p></div>
+</div>
+
 </div>
 <div class="demo-window">
 <div class="demo-window-bar"><span aria-hidden="true">● ● ●</span><span>Binnacle / демонстрация дашборда</span></div>
@@ -35,12 +41,6 @@ import attention from '../assets/attention.png'
 <img :src="demo" alt="Дашборд Binnacle в работе: обзор, доска проекта, тикет, расход и внимание" loading="lazy" width="1280" height="800">
 
 </div>
-</div>
-
-<div class="landing-notes">
-<div><strong>Сохраняйте контекст.</strong><p>Решения живут в Markdown, Git и трекере. Чат может закончиться, не забрав с собой знания проекта.</p></div>
-<div><strong>Видьте, куда уходят усилия.</strong><p>Задачи, активность агентов и расход токенов — в одном месте. Если метрик нет, они так и показаны.</p></div>
-<div><strong>Оставайтесь у штурвала.</strong><p>Вы выбираете работу и запускаете агентов. Binnacle держит приборы перед глазами.</p></div>
 </div>
 
 </section>
