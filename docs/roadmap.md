@@ -61,15 +61,15 @@ Epics are ordered by dependency, not by preference:
 
 Done: epics 1 to 23. **v1 is complete.**
 
-**Released** (the owner): `@it-bbox/binnacle` 0.1.0 on 2026-10-13, with `it-bbox/binnacle` public, private vulnerability reporting and Dependabot alerts on; 0.2.0, epic 12, on 2026-10-21; 0.3.0, epic 13, on 2026-10-22, the last of v1; 0.4.0, epic 20, and 0.5.0, epic 21, on 2026-10-28; 0.6.0, epic 22, on 2026-10-29; 0.7.1, epic 23, and the dev container feature 1.0.0 on `ghcr.io/it-bbox`, on 2026-10-30. From 0.3.0 on, each was installed from the registry into a clean container by its epic's exit demonstration.
+**Released** (the owner): Binnacle 0.1.0 on 2026-10-13; 0.2.0 on 2026-10-21; 0.3.0 on 2026-10-22; 0.4.0 and 0.5.0 on 2026-10-28; 0.6.0 on 2026-10-29; 0.7.1 and dev container feature 1.0.0 on 2026-10-30. Epic 23 is complete.
 
-**Epic 23 done** on 2026-10-30: tickets 01 to 03 by autopilot, the exit demonstration and the releases the owner's. The daemon takes `BINNACLE_HOST` and `BINNACLE_ALLOWED_HOSTS`; the feature installs Binnacle into a dev container in one line; the guide, `docs/operations/07-containers.md`, gives one container's footprint, 82 MiB and 284 KiB. The demonstration found `binn init` turning on autostart behind the images' stand-in `systemctl`, fixed in 0.7.1, which replaces 0.7.0.
+**Epic 24 in progress**, 10 of 15 tickets complete on main. The owner accepted the revised landing on 2026-11-01: concrete product copy, project → Binnacle → person/agent graphic, installation second, and four theme-matched screenshots with an on-page lightbox. Its implementation and validation are committed on `codex/showcase-landing-graphic` through `42bd307`; ticket 15 is READY_FOR_REVIEW there. It has not been merged or published. Resume that branch rather than starting the landing again.
 
-Next: epics 24 to 27, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28.
+Tickets 12–14 remain: locale navigation and search, the quick-start port caveat, and MCP Registry metadata and release prerequisites. Ticket 08 remains the owner's exit demonstration. Registry submission requires a separate release containing the ownership marker.
 
-**Epic 24 in progress**, 10 of 15 tickets. The README and bilingual VitePress documentation site are in place. On 2026-11-01 an independent review found five defects, grouped into tickets `12` to `14`: language navigation and search, the quick-start port statement, and the MCP Registry ownership prerequisite. The owner also requested a redesigned landing with an explanatory native graphic, ticket `15`; the standard documentation stays as it is. Ticket `08`, the owner's exit demonstration, now waits for these corrections. The Registry submission needs a later owner release containing its ownership marker; epic 24 prepares the metadata and publishes nothing.
+The Codex autopilot attempt stopped at its capability gate without starting agents. Support verification is recorded in `docs/product-inbox.md`; no skill change is approved. Epics 25–27 remain not started.
 
-Next action: redesign the first page with the project-memory graphic, then complete the review corrections before the owner's exit demonstration. `/binnacle:task run docs/specs/showcase-and-launch/issues/15-showcase-landing-graphic.md`
+Next action: finish ticket 15 from its existing branch, reconcile it with main and complete its review and merge handoff; then address tickets 12–14. `/binnacle:task run docs/specs/showcase-and-launch/issues/15-showcase-landing-graphic.md`
 
 ## Later
 
