@@ -100,6 +100,18 @@ export default defineConfig({
   ignoreDeadLinks: true,
   markdown: {
     /**
+     * GitHub's heading slugs, so a fragment written for the repository (`#2-set-it-up-with-binn-init`,
+     * `#учётные-данные-tracker`) also lands on the site instead of only on GitHub.
+     */
+    anchor: {
+      slugify: (text) =>
+        text
+          .toLowerCase()
+          .replace(/[^\p{L}\p{N}\s_-]+/gu, '')
+          .trim()
+          .replace(/\s+/g, '-'),
+    },
+    /**
      * Keeps a twin link working on the site: the guides link their `name.ru.md` twin, which the
      * rewrite serves under `ru/`. On a Russian page the twin is a sibling; an English page points
      * into the `ru/` tree.
