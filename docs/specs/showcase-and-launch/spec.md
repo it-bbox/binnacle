@@ -55,7 +55,7 @@ A static, bilingual site on GitHub Pages shows the demo and a write-up from Binn
 - **The write-up keeps to summary aggregates**, read from Binnacle's own usage data: tokens by role and by model, rework share, first-pass acceptance and weekly trends. No individual ticket or task is named; a calculated reading is marked as such.
 - **The repository's description and topics** are prepared as ready strings, applied by the owner in the GitHub settings, not by the epic.
 - **The npm package gains keywords**, and its description matches the repository's.
-- **The listings are filed by the epic**: the Claude plugin marketplace, MCP directories and awesome lists, with the exact targets fixed during slicing. Each submission's text is prepared here.
+- **The listings are prepared by the epic and filed by the owner**: the Claude plugin marketplace, MCP directories and awesome lists, with the exact targets fixed during slicing. Each submission's text is prepared here, ready to paste; nothing is submitted without the owner.
 - **The launch checklist** is a Markdown document that orders the steps — README, site, listings, posts — and marks the posts as the owner's.
 - **The requirements and the Docker sentence** land in the README and its twin, in both languages, and the site repeats the requirements.
 - **The `BINNACLE_PORT` check** runs as part of the README ticket: it verifies what the README states about the autostart service and a non-default port. A defect it finds is a ticket of its own, outside this epic.

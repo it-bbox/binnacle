@@ -77,7 +77,8 @@ If the change introduces a new durable architectural trade-off, propose an ADR f
 
 ## Traps
 
-- A worktree under `.claude/worktrees/` starts without `node_modules`: run `pnpm install --frozen-lockfile --offline` in it before the typecheck or the tests.
+- A worktree under `.claude/worktrees/` starts without `node_modules`. `pnpm install --frozen-lockfile --offline` fails there when the sandbox cannot write the pnpm store (`EROFS`): copy `node_modules` from the main checkout and run `pnpm --filter @binnacle/cli run prepare`, which writes the ignored `plugin/`, `skills/` and `mod/` the tests need.
+- `apps/cli/test/locale.test.ts` fails under `LANG=ru_RU.UTF-8` on a machine with no systemd user manager: the localized D-Bus error reaches `binn init --plan --json`, so the two locales differ byte for byte. Run the suite as `LANGUAGE=C pnpm test`.
 - `binn`'s human output, like Git's, follows the locale: under `ru_RU` `binn daemon status | grep version` finds nothing, since it prints `версия`. Prefix `LC_ALL=C` when a command's output is grepped.
 - `binn` has no per-command help: `binn daemon status --help` fails as an unknown command. `binn --help` prints every command with its options.
 - A row added to `CONTEXT.md`'s *Russian words* goes, in the same change, into the Words paragraph of every skill under `.claude/skills/binnacle/skills/`, word for word as `/binnacle:product`'s, or `pnpm test` fails.

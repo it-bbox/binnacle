@@ -150,3 +150,11 @@ A developer proposed one project with a clone and one folder per agent, each fol
 - **Consistent with the principles.** The project does not know its agents, Binnacle spawns none, and one primary agent per Task stays the default; five agents at once meet the parallel limit.
 
 The developer's ask of Binnacle: a registry that ties a container to its checkout, branch and Task, read-only, with no orchestration. Open: how Binnacle recognises a container, where the registry lives, and whether it is needed before a containerised harness exports telemetry. That is an architectural choice, so an ADR comes first.
+
+## The autostart unit ignores `BINNACLE_PORT` (2026-10-31)
+
+Found by epic 24's `BINNACLE_PORT` check (ticket `03`). With autostart on, `binn daemon start` goes through the systemd unit, which carries only `BINNACLE_HOME` and `PATH`, so the daemon takes `7717` whatever `BINNACLE_PORT` says; `binn init` turns autostart on by default. Without autostart the variable works.
+
+Why it matters: the README, the site and the container guide promise the port can be moved, and a user who set it and restarted gets a daemon on a port they did not choose, silently.
+
+Not decided: whether the unit grows `Environment=BINNACLE_PORT=...` from the init-time value, or `binn daemon start` bypasses the unit when `BINNACLE_PORT` is set.
