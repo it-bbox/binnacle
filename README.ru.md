@@ -17,9 +17,9 @@
 </p>
 
 <p align="center">
-  <a href="https://it-bbox.github.io/binnacle/">Сайт</a> ·
-  <a href="#установка">Быстрый старт</a> ·
-  <a href="#руководства">Руководства</a> ·
+  <a href="https://it-bbox.github.io/binnacle/ru/">Сайт</a> ·
+  <a href="https://it-bbox.github.io/binnacle/ru/quick-start">Быстрый старт</a> ·
+  <a href="https://it-bbox.github.io/binnacle/ru/operations/01-new-project">Руководства</a> ·
   <a href="#containers">Контейнеры</a> ·
   <a href="#mod">Мод</a> ·
   <a href="https://github.com/it-bbox/binnacle/discussions">Discussions</a>

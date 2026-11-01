@@ -18,8 +18,8 @@
 
 <p align="center">
   <a href="https://it-bbox.github.io/binnacle/">Site</a> ·
-  <a href="#install">Quick start</a> ·
-  <a href="#user-guides">Guides</a> ·
+  <a href="https://it-bbox.github.io/binnacle/quick-start">Quick start</a> ·
+  <a href="https://it-bbox.github.io/binnacle/operations/01-new-project">Guides</a> ·
   <a href="#containers">Containers</a> ·
   <a href="#mod">Mod</a> ·
   <a href="https://github.com/it-bbox/binnacle/discussions">Discussions</a>

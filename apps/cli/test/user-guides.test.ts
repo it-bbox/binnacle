@@ -51,6 +51,18 @@ test('every user guide has a Russian twin, each links the other, the Russian pag
   assert.deepEqual(guideProblems(ROOT), []);
 });
 
+/** Ticket 11 of showcase-and-launch: the README links the site's pages, not one address for everything. */
+test('the README and its twin link the site home, the quick start and the guides', () => {
+  for (const [page, site] of [
+    ['README.md', 'https://it-bbox.github.io/binnacle/'],
+    ['README.ru.md', 'https://it-bbox.github.io/binnacle/ru/'],
+  ] as const) {
+    const text = readFileSync(join(ROOT, page), 'utf8');
+    for (const href of [site, `${site}quick-start`, `${site}operations/01-new-project`])
+      assert.ok(text.includes(`href="${href}"`), `${page}: no link to ${href}`);
+  }
+});
+
 test('the guide check fails on a missing twin, a broken link, a Russian page linking an English guide and an install that does not exist', (t) => {
   const root = mkdtempSync(join(tmpdir(), 'binnacle-guides-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));

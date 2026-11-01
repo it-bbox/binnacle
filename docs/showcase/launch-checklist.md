@@ -20,13 +20,13 @@ Everything below is the owner's hand. The repository prepares the artifacts, but
 - [ ] Wait for the latest *Pages* run under **Actions** to finish.
 - [ ] Open `https://it-bbox.github.io/binnacle/` and switch between English and Russian.
 
-**Done looks like:** the landing opens with the logo, the wordmark *Binnacle Dev*, the tagline, the badges and the demo, then `npm i -g @it-bbox/binnacle`; the quick start, every guide, the write-up and the containers and mod page are each one click away; the demo and screenshots load; the switch between English and Russian keeps the reader on the same page; the README's link to the site resolves. `pnpm site:preview` shows the same locally. From a terminal, this prints `served`:
+**Done looks like:** the landing opens with the logo, the wordmark *Binnacle Dev*, the tagline, the badges and the demo, then `npm i -g @it-bbox/binnacle`; the quick start, every guide, the write-up and the containers and mod page are each one click away; the demo and screenshots load; the switch between English and Russian keeps the reader on the same page; the README's links to the home, the quick start and the guides resolve. `pnpm site:preview` shows the same locally. From a terminal, this prints `served`:
 
 ```bash
 curl -fsSL https://it-bbox.github.io/binnacle/ | grep -q 'Binnacle Dev' && echo served
 ```
 
-The write-up's figures are one reading of 31 October 2026. The site builds the write-up from `docs/showcase/write-up.md` and `docs/showcase/write-up.ru.md`; if its figures are refreshed later, re-read `usage_get` and update those two files together, never one table alone.
+The write-up's figures are one reading of 31 October 2026; re-read `usage_get` when they are refreshed.
 
 ## 3. The listings
 
