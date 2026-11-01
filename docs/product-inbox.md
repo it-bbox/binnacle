@@ -158,3 +158,13 @@ Found by epic 24's `BINNACLE_PORT` check (ticket `03`). With autostart on, `binn
 Why it matters: the README, the site and the container guide promise the port can be moved, and a user who set it and restarted gets a daemon on a port they did not choose, silently.
 
 Not decided: whether the unit grows `Environment=BINNACLE_PORT=...` from the init-time value, or `binn daemon start` bypasses the unit when `BINNACLE_PORT` is set.
+
+## Verify autopilot support in Codex (2026-11-01)
+
+The owner invoked `binnacle-autopilot` for epic 24 in Codex desktop. The run stopped at the skill's first capability check, before starting agents or changing the repository. In this session, `spawn_agent` starts background agents but has no worktree parameter; `create_worktree` is a separate tool. The skill explicitly rejects composing those two operations. Codex also exposes `create_thread` with a worktree environment and asynchronous execution, but it creates a separate user-owned chat; its suitability and authorization rules for autopilot have not been demonstrated.
+
+This is an unresolved support question, not a confirmed regression. Epic 14's recorded Codex checks cover skill installation and the Product Snapshot, not a full autopilot run. The strict isolation gate was deliberately added after ZCode tried to substitute manually created worktrees (see `docs/specs/skills-in-any-harness/issues/11-autopilot-checks-worktree-isolation.md`).
+
+Determine which supported Codex mechanism can run one implementation session per ticket in an isolated checkout, receive its result, send a correction and resume after an owner answer. Validate the complete process in a disposable repository: implement, independently verify, fast-forward, handle a blocked question and clean up only the run's own resources. Record the client version, available tool contract and observed result. Installation of a skill alone must not be presented as proof that autopilot works in that client.
+
+Not decided: whether separate Codex chats satisfy the existing contract, whether an explicit alternative isolation workflow should be supported, or whether Codex must remain unsupported for autopilot. Preserve human initiation, one agent per Task, verification before merge and the owner's daemon. No skill change or removal of the isolation gate is approved by this inbox entry.
