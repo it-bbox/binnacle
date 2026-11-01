@@ -9,7 +9,7 @@ npm i -g @it-bbox/binnacle
 binn daemon start
 ```
 
-`binn daemon start` serves the dashboard at `http://127.0.0.1:7717` by default; another free port comes from `BINNACLE_PORT`. For a one-off run without installing, use `npx -p @it-bbox/binnacle binn`.
+`binn daemon start` serves the dashboard at `http://127.0.0.1:7717` by default; with autostart off, it takes another free port from `BINNACLE_PORT`. For a one-off run without installing, use `npx -p @it-bbox/binnacle binn`.
 
 ## A new project
 

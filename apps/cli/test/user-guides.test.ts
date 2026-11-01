@@ -63,6 +63,22 @@ test('the README and its twin link the site home, the quick start and the guides
   }
 });
 
+/** Ticket 13 of showcase-and-launch: every page naming `BINNACLE_PORT` for `binn daemon start` says it holds with autostart off, since the autostart unit drops the variable. */
+test('the README, the landing and the quick starts tie BINNACLE_PORT to autostart off', () => {
+  for (const [page, condition] of [
+    ['README.md', 'with autostart off'],
+    ['README.ru.md', 'с выключенным автозапуском'],
+    ['docs/index.md', 'with autostart off'],
+    ['docs/index.ru.md', 'с выключенным автозапуском'],
+    ['docs/quick-start.md', 'with autostart off'],
+    ['docs/quick-start.ru.md', 'с выключенным автозапуском'],
+  ] as const) {
+    const lines = readFileSync(join(ROOT, page), 'utf8').split('\n').filter((line) => line.includes('BINNACLE_PORT'));
+    assert.ok(lines.length > 0, `${page}: does not name BINNACLE_PORT`);
+    for (const line of lines) assert.ok(line.includes(condition), `${page}: BINNACLE_PORT without "${condition}": ${line}`);
+  }
+});
+
 test('the guide check fails on a missing twin, a broken link, a Russian page linking an English guide and an install that does not exist', (t) => {
   const root = mkdtempSync(join(tmpdir(), 'binnacle-guides-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
