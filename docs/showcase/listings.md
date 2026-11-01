@@ -101,12 +101,12 @@ The repository is not itself a marketplace: by design the marketplace ships insi
 "mcpName": "io.github.it-bbox/binnacle"
 ```
 
-The published 0.7.1 does not: it was released before the marker, and the registry reads the package on npm, not this repository. So the entry needs a release first: **the owner cuts a release of `@it-bbox/binnacle` carrying `mcpName`, separately from this launch, before publishing to the registry.** Until that release is on npm, `mcp-publisher publish` fails with "Registry validation failed for package". Nothing else on this page waits for it.
+The published 0.7.1 does not: it was released before the marker, and the registry reads the package on npm, not this repository. So the entry needs a release first: **the owner cuts a release of `@it-bbox/binnacle` carrying `mcpName`, separately from this launch, before publishing to the registry.** Until that release is on npm, `mcp-publisher publish` fails with "Registry validation failed for package". Of the other targets, only the PulseMCP and Glama check, which follows the registry entry, waits for it.
 
 **What the owner must do:** once that release is on npm, in an empty directory outside the checkout, so that no `server.json` lands in the repository:
 
 1. Install the publisher, `mcp-publisher`, as the [quickstart, step 3](https://modelcontextprotocol.io/registry/quickstart) says (a release binary or `brew install mcp-publisher`).
-2. Save the `server.json` below, with both `version` fields set to that release's version, the one carrying `mcpName`. `mcp-publisher init` writes a skeleton too; replace its contents with this file.
+2. Save the `server.json` below, with both `version` fields set to that release's version, the one carrying `mcpName`. `mcp-publisher init` is not needed; if you ran it, replace its output with this file.
 3. Run `mcp-publisher login github`, signed in as the GitHub account that owns `it-bbox`: the `io.github.it-bbox/` prefix of the name requires it.
 4. Run `mcp-publisher publish`, then check the entry with `curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.it-bbox/binnacle"`.
 
@@ -215,9 +215,10 @@ Run: binn mcp
 
 1. Apply the description and the topics from [identity.md](identity.md) in the repository's settings; the listing texts above assume them.
 2. Submit the plugin to the official Claude Code marketplace.
-3. Cut a release of `@it-bbox/binnacle` whose manifest carries `mcpName`, separately from this launch; 0.7.1 does not.
-4. Once that release is on npm, publish the entry to the official MCP Registry.
-5. Submit to mcp.so and Smithery; check PulseMCP and Glama after the registry entry, and submit only if the entry is missing.
-6. Open the two awesome-list pull requests.
+3. Submit to mcp.so and Smithery.
+4. Open the two awesome-list pull requests.
+5. Cut a release of `@it-bbox/binnacle` whose manifest carries `mcpName`, separately from this launch; 0.7.1 does not.
+6. Once that release is on npm, publish the entry to the official MCP Registry.
+7. Check PulseMCP and Glama after the registry entry, and submit there only if the entry is missing.
 
-Only the registry entry needs a release, the one in step 3; the other submissions need none. The launch itself releases nothing. The npm keywords reach the package page with that same release.
+Steps 1 to 4 need no release. Only the registry entry, and the check after it, wait on the release in step 5; the launch itself releases nothing. The npm keywords reach the package page with that same release.

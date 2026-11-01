@@ -2,7 +2,7 @@
  * The manifest `build.ts` writes for the published package (ADR-0044), kept apart from it so that a
  * test reads the published fields without running the build. The description and keywords are the
  * repository's identity strings, `docs/showcase/identity.md` (epic 24, ticket 04). `mcpName` is the
- * MCP Registry's ownership marker, which it reads from the published package (ticket 14).
+ * MCP Registry's ownership marker, which the Registry reads from the package on npm (ticket 14).
  */
 export function publishManifest(cli: { version: string; engines: unknown }) {
   return {
