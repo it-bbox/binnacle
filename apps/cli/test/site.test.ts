@@ -113,7 +113,8 @@ test('the landing opens with the logo, the wordmark, the tagline, the badges and
     const visible = text(page);
     assert.ok(visible.includes('Binnacle Dev'), `${route}: no wordmark`);
     assert.ok(visible.includes(tagline), `${route}: no tagline`);
-    assert.match(page, /<img [^>]*src="[^"]*logo[^"]*\.png"/, `${route}: no logo`);
+    // The mark is small enough that Vite inlines it; a file URL is accepted too, if that changes.
+    assert.match(page, /<img [^>]*src="(?:data:image\/svg\+xml|[^"]*logo[^"]*\.svg)/, `${route}: no logo`);
     assert.ok(visible.includes('npm i -g @it-bbox/binnacle') && visible.includes('binn daemon start'), `${route}: no install command`);
     assert.match(page, /src="[^"]*demo\.[^"]*\.gif"/, `${route}: no demo GIF`);
     for (const shot of ['overview', 'tasks', 'usage', 'attention'])

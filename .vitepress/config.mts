@@ -95,6 +95,7 @@ export default defineConfig({
   rewrites: (id) => id.replace(/^(.*)\.ru\.md$/, 'ru/$1.md'),
   cleanUrls: true,
   appearance: 'dark',
+  head: [['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}favicon.svg` }]],
   // The built output is checked for dead links by `apps/cli/test/site.test.ts`; the build's own
   // check cannot follow a twin, whose source path and served path differ.
   ignoreDeadLinks: true,

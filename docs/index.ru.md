@@ -7,7 +7,7 @@ titleTemplate: false
 description: "Локальный provider-agnostic AI Engineering Control Plane: память проекта, workflow и наблюдаемость поверх coding agents."
 ---
 
-![Binnacle](../assets/logo.png)
+![Binnacle](../assets/logo.svg)
 
 # Binnacle Dev
 

@@ -7,7 +7,7 @@ titleTemplate: false
 description: "A local, provider-agnostic AI Engineering Control Plane: project memory, workflow and observability across coding agents."
 ---
 
-![Binnacle](../assets/logo.png)
+![Binnacle](../assets/logo.svg)
 
 # Binnacle Dev
 
