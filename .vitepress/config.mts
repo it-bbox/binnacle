@@ -113,35 +113,45 @@ export default defineConfig({
           .replace(/\s+/g, '-'),
     },
     /**
-     * Keeps a twin link working on the site: the guides link their `name.ru.md` twin, which the
-     * rewrite serves under `ru/`. On a Russian page the twin is a sibling; an English page points
-     * into the `ru/` tree.
+     * Keeps a guide link in its language on the site: a source page links a Russian page as
+     * `name.ru.md` and an English one as `name.md`, while the rewrite serves every Russian page under
+     * `ru/`. A link into `ru/`, or out of it, is routed from the source page's own folder.
      */
     config(md) {
       const renderLink = md.renderer.rules.link_open!
       md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
-        renderLink(tokens, idx, options, env, self)
         const token = tokens[idx]!
-        const href = token.attrGet('href')
-        const twin = /^[a-z]+:/i.test(href ?? '') ? null : href?.match(/^([^?#]*)\.ru(?:\.html)?([?#].*)?$/)
-        if (twin) {
-          const [, path, suffix = ''] = twin
-          if (env.relativePath.startsWith('ru/')) {
-            token.attrSet('href', path + suffix)
-          } else {
-            const dir = posix.dirname(env.relativePath)
-            const name = posix.basename(path)
-            const routed = name === 'index' ? `${base}ru/` : `${base}ru/${[dir === '.' ? '' : dir, name].filter(Boolean).join('/')}`
-            token.attrSet('href', routed + suffix)
-          }
+        const source = token.attrGet('href') ?? ''
+        renderLink(tokens, idx, options, env, self)
+        const link = /^(?:[a-z][a-z0-9+.-]*:|[#/])/i.test(source) ? null : source.match(/^([^?#]*?)(\.ru)?\.md([?#].*)?$/)
+        const russian = env.relativePath.startsWith('ru/')
+        if (link && (link[2] || russian)) {
+          const [, file, twin, suffix = ''] = link
+          const page = posix.join(posix.dirname(russian ? env.relativePath.slice(3) : env.relativePath), file!)
+          token.attrSet('href', `${base}${twin ? 'ru/' : ''}${page.replace(/(^|\/)index$/, '$1')}${suffix}`)
         }
         return self.renderToken(tokens, idx, options)
       }
     },
   },
+  vite: {
+    plugins: [
+      {
+        /**
+         * VitePress 1.6 files a page's search entries by its source path, so a `*.ru.md` twin lands in
+         * the `root` index while a Russian page asks for `ru`. Both locales read that one index, and
+         * each locale's search `filter` keeps its own pages; an index VitePress builds for `ru` wins.
+         */
+        name: 'binnacle:search-locales',
+        transform(code, id) {
+          if (id === '/@localSearchIndex')
+            return code.replace('export default {', `export default {"ru": () => import('@localSearchIndexroot'),`)
+        },
+      },
+    ],
+  },
   themeConfig: {
     logo: '/favicon.svg',
-    // The switch between the languages is `LanguageSwitch.vue`; the theme's own cannot follow a twin.
     i18nRouting: false,
     nav: [
       { text: 'Quick start', link: '/quick-start' },
@@ -150,17 +160,23 @@ export default defineConfig({
       { text: 'GitHub', link: repository },
     ],
     sidebar,
-    search: { provider: 'local' },
+    // Self-contained: VitePress serializes a function into the site data by its source text.
+    search: {
+      provider: 'local',
+      options: { miniSearch: { searchOptions: { filter: (result) => !result.id.startsWith('/binnacle/ru/') } } },
+    },
     socialLinks: [{ icon: 'github', link: repository }],
     editLink: { pattern: `${repository}/edit/main/docs/:path`, text: 'Edit this page' },
     footer: { message: 'Apache-2.0', copyright: 'Binnacle' },
     outline: { level: [2, 3], label: 'On this page' },
     docFooter: { prev: 'Previous', next: 'Next' },
   },
+  // No label: the theme draws its own language menu only for a labelled locale, and that menu
+  // cannot follow a twin. The one switch between the languages is `LanguageSwitch.vue`.
   locales: {
-    root: { label: 'English', lang: 'en-US' },
+    root: { label: '', lang: 'en-US' },
     ru: {
-      label: 'Русский',
+      label: '',
       lang: 'ru-RU',
       themeConfig: {
         nav: [
@@ -173,7 +189,13 @@ export default defineConfig({
           { text: 'GitHub', link: repository },
         ],
         sidebar: sidebarRu,
-        search: { provider: 'local', options: { translations: searchRu } },
+        search: {
+          provider: 'local',
+          options: {
+            translations: searchRu,
+            miniSearch: { searchOptions: { filter: (result) => result.id.startsWith('/binnacle/ru/') } },
+          },
+        },
         editLink: { pattern: `${repository}/edit/main/docs/:path`, text: 'Изменить эту страницу' },
         footer: { message: 'Apache-2.0', copyright: 'Binnacle' },
         outline: { level: [2, 3], label: 'На этой странице' },

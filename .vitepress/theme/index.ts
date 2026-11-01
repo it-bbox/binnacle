@@ -14,9 +14,7 @@ export default {
     app.component('LandingTour', LandingTour)
   },
   Layout() {
-    return h(DefaultTheme.Layout, null, {
-      'nav-bar-content-after': () => h(LanguageSwitch),
-      'nav-screen-content-after': () => h(LanguageSwitch),
-    })
+    // In the bar at every width, beside the menu button on a phone: the open menu adds none.
+    return h(DefaultTheme.Layout, null, { 'nav-bar-content-after': () => h(LanguageSwitch) })
   },
 } satisfies Theme

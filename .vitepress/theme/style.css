@@ -40,13 +40,6 @@
   --vp-c-brand-soft: oklch(0.76 0.1 205 / 0.16);
 }
 
-/* The theme's own switcher cannot map `x.md` to its `x.ru.md` twin; `LanguageSwitch.vue` does. */
-.VPNavBarTranslations,
-.VPNavScreenTranslations,
-.VPNavBarExtra .translations {
-  display: none;
-}
-
 .language-switch {
   display: inline-block;
   margin-left: 12px;

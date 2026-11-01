@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { before, test } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const DIST = join(ROOT, '.vitepress/dist');
@@ -163,25 +163,79 @@ test('the dashboard views provide four distinct pages in both themes', () => {
   }
 });
 
+/** The route a page's twin is served at: `/x` and `/ru/x`. */
+const twinOf = (route: string): string =>
+  route === '/' ? '/ru/' : route === '/ru/' ? '/' : route.startsWith('/ru/') ? route.slice(3) : `/ru${route}`;
+
 /** One switch, on every page of either language, that lands on that page's twin. */
 test('the switch between the languages keeps the reader on the same page', () => {
   for (const route of PAGES) {
     const page = readFileSync(fileOf(route), 'utf8');
     const found = page.match(/<a class="language-switch" href="([^"]+)"/);
     assert.ok(found, `${route}: no language switch`);
-    const twin = route === '/' ? '/ru/' : route === '/ru/' ? '/' : route.startsWith('/ru/') ? route.slice(3) : `/ru${route}`;
-    assert.equal(found[1], BASE + twin.slice(1), `${route}: the switch does not stay on the page`);
+    // The theme's own menu, shown from 1280 px, sends a reader to the other locale's home page.
+    const controls = page.match(/language-switch|VPNavBarTranslations|VPNavScreenTranslations|trans-title/g);
+    assert.equal(controls?.length, 1, `${route}: more than one language control`);
+    assert.ok(page.indexOf('language-switch') > page.indexOf('class="VPNavBar'), `${route}: the switch is outside the navigation bar`);
+    assert.equal(found[1], BASE + twinOf(route).slice(1), `${route}: the switch does not stay on the page`);
   }
 });
 
-/** Local search indexes every page, in both languages. */
-test('search covers every page of both languages', () => {
-  const index = built()
-    .filter((file) => file.includes('@localSearchIndex'))
-    .map((file) => readFileSync(file, 'utf8'))
-    .join('\n');
-  assert.ok(index.length > 0, 'no local search index');
-  for (const route of PAGES) assert.ok(index.includes(`${BASE}${route.slice(1)}`), `${route}: not in search`);
+/** A guide's link to its twin crosses into the other language; its other links stay in its own. */
+test('a guide links its twin in the other language and its other pages in its own', () => {
+  const twins = ['/showcase/write-up', ...GUIDES.map((guide) => `/operations/${guide}`)];
+  for (const route of [...twins, ...twins.map((page) => `/ru${page}`)]) {
+    const russian = route.startsWith('/ru/');
+    const page = readFileSync(fileOf(route), 'utf8').replace(/<a class="language-switch"[^>]*>/, '');
+    const marker = russian ? 'English version: ' : 'Русская версия: ';
+    const twin = page.slice(page.indexOf(marker) + marker.length).match(/^<a href="[^"]+"/);
+    assert.ok(page.includes(marker) && twin, `${route}: no link to its twin`);
+    assert.deepEqual(routesOf(twin[0], route), [BASE + twinOf(route).slice(1)], `${route}: the twin link does not reach the twin`);
+    const crossing = routesOf(page.replace(twin[0], ''), route).filter(
+      (target) => PAGES.some((other) => target === BASE + other.slice(1)) && target.startsWith(`${BASE}ru/`) !== russian,
+    );
+    assert.deepEqual(crossing, [], `${route}: links into the other language`);
+  }
+  // An address on another site keeps its `.ru.md`: only the site's own twins are routed.
+  const external = 'href="https://github.com/it-bbox/binnacle/blob/main/CONTRIBUTING.ru.md#';
+  assert.ok(readFileSync(fileOf('/ru/operations/05-installation-checklist'), 'utf8').includes(external), 'an external .ru.md address was rewritten');
+});
+
+/** The site data every page carries, with the functions VitePress serializes by their source. */
+const siteData = (): any => {
+  const literal = readFileSync(fileOf('/'), 'utf8').match(/__VP_SITE_DATA__=deserializeFunctions\(JSON\.parse\(("(?:[^"\\]|\\.)*")\)\)/);
+  assert.ok(literal, 'no site data');
+  return JSON.parse(JSON.parse(literal[1]!), (_key, value) =>
+    typeof value === 'string' && value.startsWith('_vp-fn_') ? new Function(`return ${value.slice(7)}`)() : value,
+  );
+};
+
+/** Each locale's search as the search box runs it: the index it asks for by locale, through its filter. */
+test('search on a page of either language finds the pages of that language', async () => {
+  const box = built().find((file) => /VPLocalSearchBox\.[^/]+\.js$/.test(file));
+  assert.ok(box, 'no search box');
+  const indexes = new Map(
+    [...readFileSync(box, 'utf8').matchAll(/(\w+):\(\)=>\w+\(\(\)=>import\("\.\/(@localSearchIndex[^"]+)"\)/g)].map((match) => [match[1]!, match[2]!]),
+  );
+  const site = siteData();
+  // The landing has no section heading to index; every other page is found in its own language.
+  const documents = ENGLISH.filter((page) => page !== '/');
+  for (const [locale, routes] of [
+    ['root', documents],
+    ['ru', documents.map((page) => `/ru${page}`)],
+  ] as const) {
+    // A Russian page asks for its locale's index by key; a key the box lacks opens an empty window.
+    assert.ok(locale in site.locales, `no ${locale} locale`);
+    const file = indexes.get(locale);
+    assert.ok(file, `the search box has no index for ${locale}`);
+    const index = JSON.parse((await import(pathToFileURL(join(box, '..', file)).href)).default) as { documentIds: Record<string, string> };
+    const search = (locale === 'root' ? site.themeConfig : { ...site.themeConfig, ...site.locales[locale].themeConfig }).search;
+    const filter: (result: { id: string }) => boolean = search?.options?.miniSearch?.searchOptions?.filter ?? (() => true);
+    const found = Object.values(index.documentIds).filter((id) => filter({ id }));
+    for (const id of found) assert.equal(id.startsWith(`${BASE}ru/`), locale === 'ru', `${locale}: search finds ${id}`);
+    const pages = new Set(found.map((id) => id.split('#')[0]));
+    for (const route of routes) assert.ok(pages.has(BASE + route.slice(1)), `${route}: not in the ${locale} search`);
+  }
 });
 
 /** Dark by default, in the dashboard's palette, and readable on either theme. */
