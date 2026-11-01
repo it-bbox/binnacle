@@ -1,4 +1,5 @@
-# The showcase site, published to GitHub Pages from `site/` on every push to main.
+# The documentation site, built by VitePress from `docs/` and deployed to GitHub Pages on every
+# push to main. A failed build fails the run, so nothing empty is published.
 # The owner enables it once: Settings → Pages → Build and deployment → Source: GitHub Actions.
 name: Pages
 
@@ -18,22 +19,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm site:build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .vitepress/dist
+
   deploy:
+    needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v7
-      # The page links the repository's `assets/`, so the artifact holds the page beside them.
-      - name: Stage the site
-        run: |
-          mkdir _site
-          cp site/index.html _site/
-          cp -r assets _site/assets
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4

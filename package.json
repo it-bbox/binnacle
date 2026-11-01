@@ -14,11 +14,15 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node --test \"{apps,packages}/*/test/**/*.test.ts\"",
     "test:live": "node --test \"{apps,packages}/*/test/**/*.live.ts\"",
-    "dashboard:generate": "pnpm --filter @binnacle/dashboard generate"
+    "dashboard:generate": "pnpm --filter @binnacle/dashboard generate",
+    "site:dev": "vitepress dev",
+    "site:build": "vitepress build",
+    "site:preview": "vitepress preview"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "esbuild": "^0.28.2",
-    "typescript": "^7.0.0"
+    "typescript": "^7.0.0",
+    "vitepress": "^1.6.4"
   }
 }

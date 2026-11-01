@@ -55,7 +55,7 @@ test('every step names where its artifact lives and what done looks like', () =>
     },
     {
       step: /site/,
-      named: ['site/index.html', '.github/workflows/pages.yml', 'docs/showcase/write-up.md', 'docs/showcase/write-up.ru.md'],
+      named: ['.vitepress/config.mts', '.github/workflows/pages.yml', 'docs/showcase/write-up.md', 'docs/showcase/write-up.ru.md'],
     },
     { step: /listings/, named: ['docs/showcase/listings.md', 'docs/showcase/identity.md'] },
     { step: /posts/i, named: ['Reddit', 'Hacker News', 'X', 'Habr', 'Telegram'] },

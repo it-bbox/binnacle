@@ -14,19 +14,19 @@ Everything below is the owner's hand. The repository prepares the artifacts, but
 
 ## 2. The site
 
-**Where it lives:** `site/index.html`, published by `.github/workflows/pages.yml` to `https://it-bbox.github.io/binnacle/`; the write-up it shows is `docs/showcase/write-up.md` with its Russian twin `docs/showcase/write-up.ru.md`, copied into the page itself.
+**Where it lives:** the VitePress project at the repository root — its config in `.vitepress/config.mts`, its theme in `.vitepress/theme/`, and its own pages `docs/index.md` and `docs/index.ru.md`; the guides in `docs/operations/` and the write-up `docs/showcase/write-up.md` with its Russian twin `docs/showcase/write-up.ru.md` are built into it where they are. `pnpm site:build` writes `.vitepress/dist`, which `.github/workflows/pages.yml` publishes to `https://it-bbox.github.io/binnacle/`.
 
 - [ ] In the repository's **Settings → Pages → Build and deployment**, set **Source** to **GitHub Actions**. This is a one-time switch.
 - [ ] Wait for the latest *Pages* run under **Actions** to finish.
 - [ ] Open `https://it-bbox.github.io/binnacle/` and switch between English and Russian.
 
-**Done looks like:** the page opens with the name, the demo and `npm i -g @it-bbox/binnacle`; both write-ups show the same figures; the demo and screenshots load; the README's link to the site resolves. From a terminal, this prints `served`:
+**Done looks like:** the landing opens with the logo, the wordmark *Binnacle Dev*, the tagline, the badges and the demo, then `npm i -g @it-bbox/binnacle`; the quick start, every guide, the write-up and the containers and mod page are each one click away; the demo and screenshots load; the switch between English and Russian keeps the reader on the same page; the README's link to the site resolves. `pnpm site:preview` shows the same locally. From a terminal, this prints `served`:
 
 ```bash
-curl -fsSL https://it-bbox.github.io/binnacle/ | grep -q '<h1>Binnacle</h1>' && echo served
+curl -fsSL https://it-bbox.github.io/binnacle/ | grep -q 'Binnacle Dev' && echo served
 ```
 
-The write-up's figures are one reading of 31 October 2026. The site carries a copy of the write-up inside `site/index.html`; if its figures are refreshed later, re-read `usage_get` and update `docs/showcase/write-up.md`, `docs/showcase/write-up.ru.md` and both copies in `site/index.html` together, never one table alone.
+The write-up's figures are one reading of 31 October 2026. The site builds the write-up from `docs/showcase/write-up.md` and `docs/showcase/write-up.ru.md`; if its figures are refreshed later, re-read `usage_get` and update those two files together, never one table alone.
 
 ## 3. The listings
 

@@ -182,7 +182,7 @@ Binnacle пользуется собственным экспортом OpenTele
 
 ## Harness и provider
 
-Harness — это клиент для работы с кодом; provider — бэкенд, который отдаёт ему модель. Binnacle различает harness, provider, модель и профиль запуска, поэтому один harness может работать с разными provider ([CONTEXT.md](../../CONTEXT.md)).
+Harness — это клиент для работы с кодом; provider — бэкенд, который отдаёт ему модель. Binnacle различает harness, provider, модель и профиль запуска, поэтому один harness может работать с разными provider ([CONTEXT.md](https://github.com/it-bbox/binnacle/blob/main/CONTEXT.md)).
 
 ## Вручную, без `binn init`
 

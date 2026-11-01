@@ -13,7 +13,7 @@ Agents differ enormously in what they expose, so support is graded rather than b
 | 3 — Usage | that artifact carries token counts | spend analytics, cost, rework metrics |
 | 4 — Live | it exposes an observable stream | current activity |
 
-**Level 1 is all it takes to be supported, and it needs no adapter.** An agent released tomorrow gets project memory on the day it can speak MCP. See [ADR-0014](../adr/ADR-0014-harness-support-levels.md).
+**Level 1 is all it takes to be supported, and it needs no adapter.** An agent released tomorrow gets project memory on the day it can speak MCP. See [ADR-0014](https://github.com/it-bbox/binnacle/blob/main/docs/adr/ADR-0014-harness-support-levels.md).
 
 ## The harnesses and their levels
 
@@ -32,7 +32,7 @@ The harnesses Binnacle reads today, the highest level each reaches, and how:
 
 Level 4 holds while a harness's events arrive. Without the export, Claude Code, Codex and Gemini CLI are read at level 3 from their files, and a call seen both ways is counted once.
 
-Gemini CLI and Antigravity are built from their sources, as neither could run a session on the owner's machine, and are marked not verified. Each project's actual levels, with the reason a harness stays below the next one, are on the dashboard's usage page. Details: [MCP and skills](../03-mcp-and-skills.md#harnesses-and-their-levels), *Harnesses and their levels*.
+Gemini CLI and Antigravity are built from their sources, as neither could run a session on the owner's machine, and are marked not verified. Each project's actual levels, with the reason a harness stays below the next one, are on the dashboard's usage page. Details: [MCP and skills](https://github.com/it-bbox/binnacle/blob/main/docs/03-mcp-and-skills.md#harnesses-and-their-levels), *Harnesses and their levels*.
 
 ## Binnacle's skills in another harness
 

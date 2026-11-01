@@ -1,6 +1,7 @@
 ---
 layout: page
 sidebar: false
+pageClass: landing
 title: Binnacle Dev
 titleTemplate: false
 description: "Локальный provider-agnostic AI Engineering Control Plane: память проекта, workflow и наблюдаемость поверх coding agents."

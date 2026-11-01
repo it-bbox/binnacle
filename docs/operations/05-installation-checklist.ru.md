@@ -2,7 +2,7 @@
 
 _English version: [05-installation-checklist.md](05-installation-checklist.md). Этот файл — русский дубликат; обновляется вместе с `05-installation-checklist.md`._
 
-От чистой машины до запущенного демона, его dashboard и первого проекта, с проверкой после каждого шага. Чтобы вместо этого запустить Binnacle в контейнере приложения, см. [Binnacle в контейнере](07-containers.ru.md); чтобы разрабатывать его из checkout — [CONTRIBUTING.ru.md](../../CONTRIBUTING.ru.md#из-этого-репозитория).
+От чистой машины до запущенного демона, его dashboard и первого проекта, с проверкой после каждого шага. Чтобы вместо этого запустить Binnacle в контейнере приложения, см. [Binnacle в контейнере](07-containers.ru.md); чтобы разрабатывать его из checkout — [CONTRIBUTING.ru.md](https://github.com/it-bbox/binnacle/blob/main/CONTRIBUTING.ru.md#из-этого-репозитория).
 
 ## 1. Что нужно заранее
 
@@ -100,7 +100,7 @@ Desktop-приложение Claude Code не читает файл запуск
 exec "<prefix>/bin/binn" "$@"
 ```
 
-Development-ссылка из checkout запускает `binn` иначе, через pnpm: см. [CONTRIBUTING.ru.md](../../CONTRIBUTING.ru.md#binn-в-desktop-приложении-claude-code), *binn в desktop-приложении Claude Code*.
+Development-ссылка из checkout запускает `binn` иначе, через pnpm: см. [CONTRIBUTING.ru.md](https://github.com/it-bbox/binnacle/blob/main/CONTRIBUTING.ru.md#binn-в-desktop-приложении-claude-code), *binn в desktop-приложении Claude Code*.
 
 ## Обновление
 

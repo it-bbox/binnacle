@@ -4,6 +4,8 @@ node_modules/
 dist/
 # `nuxt generate` links its output here
 apps/dashboard/dist
+# The site's build cache and output; `dist/` below already ignores the output.
+.vitepress/cache/
 coverage/
 .env
 .env.*

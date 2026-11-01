@@ -1,6 +1,7 @@
 ---
 layout: page
 sidebar: false
+pageClass: landing
 title: Binnacle Dev
 titleTemplate: false
 description: "A local, provider-agnostic AI Engineering Control Plane: project memory, workflow and observability across coding agents."

@@ -2,7 +2,7 @@
 
 _Русская версия: [05-installation-checklist.ru.md](05-installation-checklist.ru.md)._
 
-From a clean machine to a running daemon, its dashboard and a first project, with a check after each step. To run Binnacle inside an app container instead, see [Binnacle in a container](07-containers.md); to develop it from a checkout, [CONTRIBUTING.md](../../CONTRIBUTING.md#from-this-repository).
+From a clean machine to a running daemon, its dashboard and a first project, with a check after each step. To run Binnacle inside an app container instead, see [Binnacle in a container](07-containers.md); to develop it from a checkout, [CONTRIBUTING.md](https://github.com/it-bbox/binnacle/blob/main/CONTRIBUTING.md#from-this-repository).
 
 ## 1. Prerequisites
 
@@ -100,7 +100,7 @@ The Claude Code desktop app reads no shell startup file, such as `~/.bashrc`, so
 exec "<prefix>/bin/binn" "$@"
 ```
 
-A checkout's development link runs `binn` through pnpm instead: see [CONTRIBUTING.md](../../CONTRIBUTING.md#binn-in-the-claude-code-desktop-app), *binn in the Claude Code desktop app*.
+A checkout's development link runs `binn` through pnpm instead: see [CONTRIBUTING.md](https://github.com/it-bbox/binnacle/blob/main/CONTRIBUTING.md#binn-in-the-claude-code-desktop-app), *binn in the Claude Code desktop app*.
 
 ## Upgrading
 

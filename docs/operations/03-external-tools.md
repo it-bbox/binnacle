@@ -182,7 +182,7 @@ Binnacle uses each harness's own OpenTelemetry export where it has one, and reco
 
 ## Harness and provider
 
-A harness is the coding client; a provider is the backend serving it the model. Binnacle keeps the harness, the provider, the model and the launch profile apart, so the same harness can run on several providers ([CONTEXT.md](../../CONTEXT.md)).
+A harness is the coding client; a provider is the backend serving it the model. Binnacle keeps the harness, the provider, the model and the launch profile apart, so the same harness can run on several providers ([CONTEXT.md](https://github.com/it-bbox/binnacle/blob/main/CONTEXT.md)).
 
 ## By hand, without `binn init`
 

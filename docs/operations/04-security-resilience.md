@@ -2,7 +2,7 @@
 
 _Русская версия: [04-security-resilience.ru.md](04-security-resilience.ru.md)._
 
-What Binnacle keeps, who can reach its daemon, where its secrets live, and what still works when a part is missing. To report a vulnerability, see the [security policy](../../SECURITY.md).
+What Binnacle keeps, who can reach its daemon, where its secrets live, and what still works when a part is missing. To report a vulnerability, see the [security policy](https://github.com/it-bbox/binnacle/blob/main/SECURITY.md).
 
 ## What telemetry keeps
 
