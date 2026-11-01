@@ -23,3 +23,23 @@ Roles: Developer, Reviewer
 - The design follows the dashboard: the dark palette its tokens declare, the logo's blue as the accent, and the dashboard's typography rather than VitePress's defaults. The logo is a plain mark: no glow or other effect is put around it.
 - `docs/operations/` and `docs/showcase/` links are written for the repository; a link that would break on the site is either kept inside the site or pointed at the repository's page, and the checks above decide.
 - The wordmark is *Binnacle Dev*, as ticket 09 sets it.
+
+## Comments
+
+### Blocked: VitePress cannot be fetched in this environment
+
+The ticket's first criterion needs VitePress in the workspace, and no copy of it exists on this machine (not in any checkout, not in the pnpm store, not in the npm cache). Fetching it fails because the npm registry is unreachable here: network egress to `registry.npmjs.org:443` is denied by policy, so the request answers 403.
+
+The command, run in a throwaway package with a writable store:
+
+```bash
+pnpm add -D vitepress
+```
+
+```
+ ERR_PNPM_FETCH_403  GET https://registry.npmjs.org/vitepress: user denied - 403
+```
+
+Nothing of the ticket is done: `site/index.html` is untouched, `.github/workflows/pages.yml` still stages that one page, and `apps/cli/test/site.test.ts` still checks it. Building the site without VitePress, by another generator or by hand, is out of the ticket's scope and was not attempted.
+
+To resume: run this ticket where the npm registry is reachable, so that `pnpm add -D vitepress` resolves and the lockfile records it.
