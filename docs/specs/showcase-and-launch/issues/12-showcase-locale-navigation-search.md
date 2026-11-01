@@ -1,6 +1,6 @@
 # 12: Language navigation and search work in both locales
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: 10
 Spec: `docs/specs/showcase-and-launch/spec.md`
