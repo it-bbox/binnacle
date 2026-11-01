@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo-mark.png" width="280" alt="Binnacle's logo">
+  <img src="assets/logo.svg" width="280" alt="Binnacle's logo">
 </p>
 
 <h1 align="center">Binnacle Dev</h1>
