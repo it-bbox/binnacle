@@ -1,9 +1,31 @@
-# Binnacle
+<p align="center">
+  <img src="assets/logo-mark.png" width="280" alt="Binnacle's logo">
+</p>
+
+<h1 align="center">Binnacle Dev</h1>
+
+<p align="center">
+  <strong>One project memory. Any coding agent.</strong><br>
+  <strong>Claude today. Codex tomorrow. Your project never starts from zero.</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/it-bbox/binnacle/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/it-bbox/binnacle/ci.yml?branch=main&label=CI" alt="CI"></a>
+  <a href="https://www.npmjs.com/package/@it-bbox/binnacle"><img src="https://img.shields.io/npm/v/@it-bbox/binnacle" alt="npm version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/it-bbox/binnacle" alt="License"></a>
+  <a href="https://github.com/it-bbox/binnacle/blob/main/package.json"><img src="https://img.shields.io/node/v/@it-bbox/binnacle" alt="Node baseline"></a>
+</p>
+
+<p align="center">
+  <a href="https://it-bbox.github.io/binnacle/">Site</a> ·
+  <a href="#install">Quick start</a> ·
+  <a href="#user-guides">Guides</a> ·
+  <a href="#containers">Containers</a> ·
+  <a href="#mod">Mod</a> ·
+  <a href="https://github.com/it-bbox/binnacle/discussions">Discussions</a>
+</p>
 
 _Русская версия: [README.ru.md](README.ru.md)._
-
-**One project memory. Any coding agent.**
-**Claude today. Codex tomorrow. Your project never starts from zero.**
 
 Binnacle is a local, provider-agnostic **AI Engineering Control Plane**: persistent project context, workflow and observability across Claude Code, Codex, Gemini, GLM and other coding agents. It keeps project state outside chat sessions, hands fresh agents a compact and current context, collects spend telemetry, and leaves the human in charge of the process.
 
@@ -69,9 +91,9 @@ Nothing is moved or rewritten without your yes. Details: [Existing project](docs
 
 ## More
 
-- [The Binnacle mod for Claude Code](docs/operations/05-installation-checklist.md#the-binnacle-mod-for-claude-code): what it shows beside the chat, and how to turn it off or remove it.
+- <a name="mod"></a>[The Binnacle mod for Claude Code](docs/operations/05-installation-checklist.md#the-binnacle-mod-for-claude-code): what it shows beside the chat, and how to turn it off or remove it.
 - If a harness cannot find `binn`, see [the installation checklist](docs/operations/05-installation-checklist.md#when-a-harness-cannot-find-binn).
-- To run Binnacle inside your app's dev container or `docker compose` service, see [Binnacle in a container](docs/operations/07-containers.md).
+- <a name="containers"></a>To run Binnacle inside your app's dev container or `docker compose` service, see [Binnacle in a container](docs/operations/07-containers.md).
 - To develop Binnacle itself, see [CONTRIBUTING.md](CONTRIBUTING.md#from-this-repository).
 
 ## Harnesses
