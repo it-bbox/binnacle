@@ -1,0 +1,99 @@
+/*
+ * The dashboard's own palette and system fonts, so the site reads as Binnacle rather than as the
+ * default theme: `apps/dashboard/app/assets/css/main.css`, token for token. The accent is the
+ * logo's blue; nothing is fetched, so no font file is loaded.
+ */
+:root {
+  --vp-font-family-base: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --vp-font-family-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --vp-c-bg: #fafaf9;
+  --vp-c-bg-alt: #f1f1ef;
+  --vp-c-bg-elv: #ffffff;
+  --vp-c-bg-soft: #f6f6f4;
+  --vp-c-text-1: #1a1b1e;
+  --vp-c-text-2: #5d6068;
+  --vp-c-text-3: #8a8d94;
+  --vp-c-divider: #e5e4e0;
+  --vp-c-border: #e5e4e0;
+  --vp-c-gutter: #e5e4e0;
+  --vp-c-brand-1: oklch(0.52 0.11 205);
+  --vp-c-brand-2: oklch(0.47 0.11 205);
+  --vp-c-brand-3: oklch(0.42 0.11 205);
+  --vp-c-brand-soft: oklch(0.52 0.11 205 / 0.14);
+}
+
+.dark {
+  --vp-c-bg: #111215;
+  --vp-c-bg-alt: #0f1013;
+  --vp-c-bg-elv: #17181c;
+  --vp-c-bg-soft: #17181c;
+  --vp-c-text-1: #e7e8ea;
+  --vp-c-text-2: #9da0a7;
+  --vp-c-text-3: #6f727a;
+  --vp-c-divider: #26282d;
+  --vp-c-border: #26282d;
+  --vp-c-gutter: #26282d;
+  --vp-c-brand-1: oklch(0.76 0.1 205);
+  --vp-c-brand-2: oklch(0.7 0.1 205);
+  --vp-c-brand-3: oklch(0.62 0.1 205);
+  --vp-c-brand-soft: oklch(0.76 0.1 205 / 0.16);
+}
+
+/* The theme's own switcher cannot map `x.md` to its `x.ru.md` twin; `LanguageSwitch.vue` does. */
+.VPNavBarTranslations,
+.VPNavScreenTranslations,
+.VPNavBarExtra .translations {
+  display: none;
+}
+
+.language-switch {
+  display: inline-block;
+  margin-left: 12px;
+  padding: 2px 10px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  color: var(--vp-c-text-1);
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.language-switch:hover {
+  border-color: var(--vp-c-brand-1);
+  color: var(--vp-c-brand-1);
+}
+
+/* The landing page: the logo, the wordmark and the tagline centred above the rest. */
+.landing h1 {
+  margin-top: 1rem;
+  text-align: center;
+  font-size: 2.5rem;
+  letter-spacing: -0.02em;
+}
+
+.landing p:first-of-type {
+  margin: 2.5rem 0 0;
+  text-align: center;
+}
+
+.landing p:first-of-type img {
+  display: inline-block;
+  max-width: 220px;
+  height: auto;
+}
+
+.landing h1 + p {
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+/* The badge row: every badge is a linked image. */
+.landing p a > img {
+  display: inline-block;
+  height: 20px;
+  margin: 0 3px;
+  vertical-align: middle;
+}
