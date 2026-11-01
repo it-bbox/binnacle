@@ -62,13 +62,24 @@ A static, bilingual site on GitHub Pages shows the demo and a write-up from Binn
 - **Questions go to GitHub Discussions**, which the launch checklist turns on; a subreddit of its own waits until users ask questions.
 - **No code, no release.** The epic changes no behaviour and releases no version.
 
+## The storefront, reworked (2026-11-01)
+
+The owner read the finished storefront after ticket 07 and asked for two changes; the Product session of 2026-11-01 recorded them here.
+
+- **The README opens as a landing page.** A centred logo, the wordmark *Binnacle Dev* under it, the tagline, a badge row (CI, the npm version, the license, the Node baseline) and a row of links — the site, the quick start, the guides, the containers, the mod, Discussions. The demo, the screenshots, the requirements and the install path follow, as tickets 01 and 03 left them.
+- **The site is a documentation site, not one page.** VitePress, built from the repository's own markdown: the guides in `docs/operations/` and the write-up in `docs/showcase/` stay the only copies, and the build reads them. A landing page, a quick start, the guides, the write-up and the containers and mod, with navigation and search, both languages under one switch, a dark theme by default. The demo GIF must load on the deployed site and in a local preview; the one-page `site/index.html` is removed.
+- **The same address, the same rules.** The site keeps `https://it-bbox.github.io/binnacle/`, is deployed by `.github/workflows/pages.yml` from the build output, and nothing is submitted or published by the epic.
+- **The exit criterion covers the reworked storefront**: the repository's first screen and the site's pages, not one static page.
+
+The catalogues, the listings, the posts and the no-release rule are unchanged. Ticket 08 stays the exit demonstration and now covers the reworked storefront.
+
 ## Testing Decisions
 
 A good test checks what a person sees, not how a file is laid out. This epic adds no behaviour, so its checks are over the artifacts' files, links and claims.
 
 - **The README and its twin** are already covered by the user-guides test that fails when a guide lacks its twin or a relative link does not resolve; the new links to the GIF, the screenshots and the site pass through it.
 - **The images exist**: the demo GIF and the screenshots are present and are the targets the README and the site link to.
-- **The site builds**, and every image and link in it resolves, in both languages.
+- **The site builds**, and every page of both languages exists, with every internal link and image target resolving; no local path, worktree, session or ticket id appears in the output.
 - **The npm manifest** carries a non-empty keyword list and a description.
 - **The write-up's numbers** are checked against `usage_get` when it is prepared; this is not an automated test.
 - **Both languages**: the README, its twin and the site are each in English and Russian, linked both ways.
