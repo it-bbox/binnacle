@@ -95,17 +95,57 @@ The repository is not itself a marketplace: by design the marketplace ships insi
 
 **Already satisfied by the public repository:** the stdio server `binn mcp`, published as the `binn` command in the npm package, with the repository and licence the registry asks for.
 
-**What the owner must do:** run the registry's publisher from the repository root (`mcp-publisher init`, then `mcp-publisher publish`; confirm the current command in the registry's documentation), signing in with the GitHub account that owns `it-bbox`. `init` writes the `server.json` skeleton with the registry's current schema; fill these fields:
+**Not yet satisfied: the ownership marker.** The registry hosts metadata only, and it verifies an npm package by the `mcpName` field of the package's published `package.json`, which must equal the entry's `name` ([package types, *Ownership verification*](https://modelcontextprotocol.io/registry/package-types#ownership-verification); [quickstart, step 1](https://modelcontextprotocol.io/registry/quickstart)). The manifest the build writes now carries it:
 
 ```text
-Name: io.github.it-bbox/binnacle
-Description: A local, provider-agnostic AI Engineering Control Plane: project memory, workflow and observability across coding agents.
-Repository: https://github.com/it-bbox/binnacle (source: github)
-Package: npm, @it-bbox/binnacle
-Version: 0.7.1 (the published version being listed; take it from the release)
-Transport: stdio
-Arguments: mcp
+"mcpName": "io.github.it-bbox/binnacle"
 ```
+
+The published 0.7.1 does not: it was released before the marker, and the registry reads the package on npm, not this repository. So the entry needs a release first: **the owner cuts a release of `@it-bbox/binnacle` carrying `mcpName`, separately from this launch, before publishing to the registry.** Until that release is on npm, `mcp-publisher publish` fails with "Registry validation failed for package". Nothing else on this page waits for it.
+
+**What the owner must do:** once that release is on npm, in an empty directory outside the checkout, so that no `server.json` lands in the repository:
+
+1. Install the publisher, `mcp-publisher`, as the [quickstart, step 3](https://modelcontextprotocol.io/registry/quickstart) says (a release binary or `brew install mcp-publisher`).
+2. Save the `server.json` below, with both `version` fields set to that release's version, the one carrying `mcpName`. `mcp-publisher init` writes a skeleton too; replace its contents with this file.
+3. Run `mcp-publisher login github`, signed in as the GitHub account that owns `it-bbox`: the `io.github.it-bbox/` prefix of the name requires it.
+4. Run `mcp-publisher publish`, then check the entry with `curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.it-bbox/binnacle"`.
+
+```json server.json
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.it-bbox/binnacle",
+  "title": "Binnacle",
+  "description": "A local AI Engineering Control Plane: project memory, workflow and observability for coding agents.",
+  "repository": {
+    "url": "https://github.com/it-bbox/binnacle",
+    "source": "github"
+  },
+  "version": "<the release carrying mcpName>",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@it-bbox/binnacle",
+      "version": "<the release carrying mcpName>",
+      "runtimeHint": "npx",
+      "runtimeArguments": [
+        { "type": "positional", "value": "-y" },
+        { "type": "positional", "value": "--package" }
+      ],
+      "packageArguments": [
+        { "type": "positional", "value": "binn" },
+        { "type": "positional", "value": "mcp" }
+      ],
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
+```
+
+The description is shorter than the repository's own line: the registry's schema caps it at 100 characters ([`server.schema.json`](https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json)).
+
+The arguments follow from how a client runs an npm entry, `npx <runtimeArguments> <identifier>@<version> <packageArguments>`. The package installs two commands, `binn` and `binnd`, so `npx @it-bbox/binnacle mcp` cannot tell which to run. The bare `--package` takes the package the client appends, and `binn mcp` is the command a user runs: the client starts `npx -y --package @it-bbox/binnacle@<version> binn mcp`. The schema has no field naming one of a package's commands yet ([registry issue #1629](https://github.com/modelcontextprotocol/registry/issues/1629)); if one exists at submission time, use it instead. Either way a tool call needs a running daemon, which `binn daemon start` starts.
 
 ### mcp.so
 
@@ -175,8 +215,9 @@ Run: binn mcp
 
 1. Apply the description and the topics from [identity.md](identity.md) in the repository's settings; the listing texts above assume them.
 2. Submit the plugin to the official Claude Code marketplace.
-3. Publish the entry to the official MCP Registry.
-4. Submit to mcp.so and Smithery; check PulseMCP and Glama after the registry entry, and submit only if the entry is missing.
-5. Open the two awesome-list pull requests.
+3. Cut a release of `@it-bbox/binnacle` whose manifest carries `mcpName`, separately from this launch; 0.7.1 does not.
+4. Once that release is on npm, publish the entry to the official MCP Registry.
+5. Submit to mcp.so and Smithery; check PulseMCP and Glama after the registry entry, and submit only if the entry is missing.
+6. Open the two awesome-list pull requests.
 
-No release is needed for any of these. The npm keywords reach the package page with the next release the owner cuts.
+Only the registry entry needs a release, the one in step 3; the other submissions need none. The launch itself releases nothing. The npm keywords reach the package page with that same release.

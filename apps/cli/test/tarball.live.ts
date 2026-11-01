@@ -70,6 +70,8 @@ test('the packed @it-bbox/binnacle, installed into an empty prefix, runs binn, i
   const published = publishManifest({ version: VERSION, engines: {} });
   assert.equal(manifest.description, published.description);
   assert.deepEqual(manifest.keywords, published.keywords);
+  // Ticket 14: the MCP Registry reads its ownership marker from the installed manifest.
+  assert.equal(manifest.mcpName, published.mcpName);
   const marketplace = JSON.parse(readFileSync(join(installed, '.claude-plugin', 'marketplace.json'), 'utf8')) as { plugins: { source: string }[] };
   assert.deepEqual(marketplace.plugins.map((plugin) => plugin.source), ['./plugin', './mod']);
   const plugin = JSON.parse(readFileSync(join(installed, 'plugin', '.claude-plugin', 'plugin.json'), 'utf8')) as { name: string; version?: string };

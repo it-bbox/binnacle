@@ -36,13 +36,14 @@ The owner's ordered steps, from [listings.md](listings.md), *What the owner must
 
 - [ ] Apply the description and the topics from [identity.md](identity.md) in the repository's settings; the listing texts assume them.
 - [ ] Submit the plugin to the official Claude Code plugin marketplace, `claude-plugins-official`.
-- [ ] Publish the entry to the official MCP Registry, `registry.modelcontextprotocol.io`.
+- [ ] Cut a release of `@it-bbox/binnacle` whose manifest carries `mcpName: io.github.it-bbox/binnacle`, separately from this launch; the published 0.7.1 does not, and the registry reads the marker from the package on npm.
+- [ ] Once that release is on npm, publish the entry to the official MCP Registry, `registry.modelcontextprotocol.io`, with the `server.json` in [listings.md](listings.md).
 - [ ] Submit to mcp.so and Smithery; check PulseMCP and Glama after the registry entry, and submit there only if the entry is missing.
 - [ ] Open the two awesome-list pull requests: `punkpeye/awesome-mcp-servers` and `hesreallyhim/awesome-claude-code`.
 
-**Done looks like:** the repository page shows the description and the twelve topics; the plugin is listed in the marketplace; the registry entry is published and the two catalogs and the two lists carry Binnacle; every text filed is the one in [listings.md](listings.md).
+**Done looks like:** the repository page shows the description and the twelve topics; the plugin is listed in the marketplace; the release carrying `mcpName` is on npm, the registry entry is published and the two catalogs and the two lists carry Binnacle; every text filed is the one in [listings.md](listings.md).
 
-The npm keywords reach the package page with the next release. No release is part of this launch.
+The launch itself releases nothing: only the registry entry waits on a release, the owner's, cut on its own before that step. The npm keywords reach the package page with that same release.
 
 ## 4. The posts
 
