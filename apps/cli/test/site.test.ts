@@ -119,6 +119,8 @@ test('the landing explains the product and keeps installation immediately after 
     const hero = page.slice(page.indexOf('<section class="landing-hero"'), page.indexOf('</section>', page.indexOf('<section class="landing-hero"')));
     assert.ok(hero.includes('landing-badges'), `${route}: badges are outside the hero`);
     assert.ok(hero.indexOf('landing-platforms') < hero.indexOf('landing-badges'), `${route}: badges precede platform requirements`);
+    assert.ok(!hero.includes('context-ribbon'), `${route}: unrelated wave remains`);
+    for (const theme of ['light', 'dark']) assert.match(hero, new RegExp(`src="[^"]*overview-${theme}\\.`), `${route}: hero has no ${theme} product preview`);
     assert.ok(!hero.includes('npm i -g'), `${route}: redundant command in the hero`);
     const sections = [...page.matchAll(/<section[^>]*aria-labelledby="([^"]+)"/g)].map((match) => match[1]);
     assert.deepEqual(sections.slice(0, 3), ['landing-title', 'install', 'see-the-work'], `${route}: installation is not the second section`);
@@ -133,10 +135,10 @@ test('the landing explains the product and keeps installation immediately after 
   }
 });
 
-/** The example has a human-controlled sequence and matching light/dark captures. */
-test('the walkthrough provides labelled steps and both themes without an autoplay slideshow', () => {
+/** Four different dashboard pages and their full-size links follow the selected theme. */
+test('the dashboard views provide four distinct pages in both themes', () => {
   const assets = built();
-  for (const shot of ['board', 'task', 'command']) {
+  for (const shot of ['overview', 'board', 'usage', 'attention']) {
     for (const theme of ['light', 'dark'])
       assert.ok(assets.some((file) => new RegExp(`${shot}-${theme}\\.[^/]+\\.jpg$`).test(file)), `missing ${shot} ${theme} capture`);
   }
@@ -145,10 +147,10 @@ test('the walkthrough provides labelled steps and both themes without an autopla
     assert.ok(!page.includes('class="VPHero'), `${route}: oversized hero logo remains`);
     assert.ok(!page.includes('.gif'), `${route}: the old slideshow remains`);
     const steps = [...page.matchAll(/<button[^>]*aria-pressed="(true|false)"[^>]*aria-controls="tour-screen"/g)];
-    assert.equal(steps.length, 3, `${route}: no three accessible walkthrough steps`);
-    assert.deepEqual(steps.map((step) => step[1]), ['true', 'false', 'false']);
+    assert.equal(steps.length, 4, `${route}: no four accessible dashboard views`);
+    assert.deepEqual(steps.map((step) => step[1]), ['true', 'false', 'false', 'false']);
     for (const theme of ['light', 'dark'])
-      assert.match(page, new RegExp(`class="tour-${theme}"[^>]*href="[^"]*board-${theme}\\.`), `${route}: theme-matched full-size link missing`);
+      assert.match(page, new RegExp(`class="tour-${theme}"[^>]*href="[^"]*overview-${theme}\\.`), `${route}: theme-matched full-size link missing`);
     assert.ok(page.includes('id="tour-screen"'), `${route}: step controls target no content`);
   }
 });

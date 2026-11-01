@@ -1,39 +1,44 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useData } from 'vitepress'
+import overviewLight from '../../assets/tour/overview-light.jpg'
+import overviewDark from '../../assets/tour/overview-dark.jpg'
 import boardLight from '../../assets/tour/board-light.jpg'
 import boardDark from '../../assets/tour/board-dark.jpg'
-import taskLight from '../../assets/tour/task-light.jpg'
-import taskDark from '../../assets/tour/task-dark.jpg'
-import commandLight from '../../assets/tour/command-light.jpg'
-import commandDark from '../../assets/tour/command-dark.jpg'
+import usageLight from '../../assets/tour/usage-light.jpg'
+import usageDark from '../../assets/tour/usage-dark.jpg'
+import attentionLight from '../../assets/tour/attention-light.jpg'
+import attentionDark from '../../assets/tour/attention-dark.jpg'
 
 const { lang } = useData()
 const selected = ref(0)
 const copy = computed(() => lang.value.startsWith('ru') ? {
-  kicker: 'От плана к работе', title: 'Выберите задачу. Передайте её агенту.',
-  intro: 'Пример: в интернет-магазине готова корзина. Следующий шаг — проверка формы заказа. Выберите шаг, чтобы посмотреть, как это устроено.',
+  kicker: 'Что показывает Binnacle', title: 'Задачи, расход и активность агентов.',
+  intro: 'Выберите раздел: каждый экран отвечает на свой вопрос о работе над проектом.',
   steps: [
-    { title: 'Найдите задачу, которую можно начать', text: 'Доска показывает готовность и зависимости. Проверку формы уже можно делать; отправка чека ждёт её завершения.', alt: 'Доска Example shop: проверка формы готова к старту, отправка чека заблокирована зависимостью.' },
-    { title: 'Проверьте требования и контекст', text: 'В карточке — условия задачи, критерии готовности, зависимость и ссылка на спецификацию. Всё прочитано из файлов проекта.', alt: 'Карточка проверки формы с выполненной зависимостью, ролями и критериями готовности.' },
-    { title: 'Скопируйте команду в чат агента', text: 'Вы запускаете навык в новой сессии. Binnacle передаёт агенту бриф задачи, чтобы ему не пришлось восстанавливать план по переписке.', alt: 'Команда навыка для выбранной задачи и подтверждение её копирования.' },
+    { title: 'Обзор — что делать дальше', text: 'Следующий шаг из плана, прогресс эпика и задачи, которые уже можно начать.', alt: 'Обзор Binnacle: следующий шаг, прогресс эпика, готовые задачи и текущая работа.' },
+    { title: 'Задачи — что готово и что ждёт', text: 'Доска задач с зависимостями и состояниями. Отдельно видно, где требуется ваше решение.', alt: 'Доска задач Binnacle с колонками готовности, работы и завершения.' },
+    { title: 'Расход — куда уходят токены', text: 'Входные и выходные токены, кеш, разбивка по моделям и задачам. Отсутствующие метрики отмечены как «нет данных».', alt: 'Расход Binnacle: токены по видам, моделям и задачам на демонстрационных данных.' },
+    { title: 'Внимание — что требует проверки', text: 'Проблемы по проектам, текущие и недавние запуски. Можно увидеть, где работа остановилась или требует вмешательства.', alt: 'Внимание Binnacle: проблемы проектов, текущие и недавние запуски.' },
   ],
-  sample: 'Настоящий интерфейс · пример проекта', enlarge: 'Открыть снимок крупнее ↗',
+  sample: 'Настоящий интерфейс · демонстрационные данные', enlarge: 'Открыть снимок крупнее ↗',
 } : {
-  kicker: 'From plan to implementation', title: 'Choose a task. Hand it to your agent.',
-  intro: 'An example shop has a working cart. Checkout validation is next. Select a step to see how the handoff works.',
+  kicker: 'Inside Binnacle', title: 'Tasks, token usage and agent activity.',
+  intro: 'Choose a section. Each screen answers a different question about the work.',
   steps: [
-    { title: 'Find a task that is ready to start', text: 'The board shows readiness and dependencies. Checkout validation can start; the receipt must wait until it is done.', alt: 'Example shop board: checkout validation is ready; sending the receipt is blocked by a dependency.' },
-    { title: 'Check the requirements and context', text: 'The task brings together acceptance criteria, a dependency and its specification. All read from the project files.', alt: 'Checkout validation task with its completed dependency, roles and acceptance criteria.' },
-    { title: 'Copy the command into your agent’s chat', text: 'You run the skill in a fresh session. Binnacle supplies a task brief so the agent can pick up the plan without reconstructing it from chat history.', alt: 'The skill command for the selected task, with confirmation that it was copied.' },
+    { title: 'Overview — what to do next', text: 'The next action from your plan, epic progress and tasks that are ready to start.', alt: 'Binnacle overview: next action, epic progress, ready tasks and current work.' },
+    { title: 'Tasks — what is ready and what is waiting', text: 'A task board with dependencies and states. Decisions waiting for you are shown separately.', alt: 'Binnacle task board with ready, in-progress and completed work.' },
+    { title: 'Usage — where tokens go', text: 'Input, output and cached tokens, broken down by model and task. Missing metrics stay marked as no data.', alt: 'Binnacle usage: tokens by kind, model and task using sample data.' },
+    { title: 'Attention — what needs checking', text: 'Project issues, current runs and recent activity. See where work has stalled or needs your involvement.', alt: 'Binnacle attention: project issues, current runs and recent activity.' },
   ],
-  sample: 'Actual interface · example project', enlarge: 'Open full-size screenshot ↗',
+  sample: 'Actual interface · sample data', enlarge: 'Open full-size screenshot ↗',
 })
-// CSS follows VitePress's root theme class before hydration as well as after a manual switch.
+// Follow the site's selected theme before hydration and after a manual switch.
 const images = [
+  { light: overviewLight, dark: overviewDark },
   { light: boardLight, dark: boardDark },
-  { light: taskLight, dark: taskDark },
-  { light: commandLight, dark: commandDark },
+  { light: usageLight, dark: usageDark },
+  { light: attentionLight, dark: attentionDark },
 ]
 </script>
 
@@ -58,7 +63,7 @@ const images = [
             <img :src="images[selected]![theme]" :alt="copy.steps[selected]!.alt" loading="lazy" width="1280" height="720">
           </a>
         </div>
-        <figcaption><span>0{{ selected + 1 }} / 03</span><a v-for="theme in (['light', 'dark'] as const)" :key="theme" :class="`tour-${theme}`" :href="images[selected]![theme]" target="_blank" rel="noopener">{{ copy.enlarge }}</a></figcaption>
+        <figcaption><span>0{{ selected + 1 }} / 04</span><a v-for="theme in (['light', 'dark'] as const)" :key="theme" :class="`tour-${theme}`" :href="images[selected]![theme]" target="_blank" rel="noopener">{{ copy.enlarge }}</a></figcaption>
       </figure>
     </div>
   </section>
