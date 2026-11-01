@@ -20,6 +20,6 @@ Roles: Developer, Reviewer
 ## Notes
 
 - The GIF failure seen on 2026-11-01 is reproduced and fixed here. The one-page site linked `assets/...` relatively, which resolves only in the deployed artifact — a page opened from the checkout shows nothing. The new build must be right in both places.
-- The design follows the dashboard: the dark palette its tokens declare, an accent taken from the logo, and the dashboard's typography rather than VitePress's defaults.
+- The design follows the dashboard: the dark palette its tokens declare, the logo's blue as the accent, and the dashboard's typography rather than VitePress's defaults. The logo is a plain mark: no glow or other effect is put around it.
 - `docs/operations/` and `docs/showcase/` links are written for the repository; a link that would break on the site is either kept inside the site or pointed at the repository's page, and the checks above decide.
 - The wordmark is *Binnacle Dev*, as ticket 09 sets it.
