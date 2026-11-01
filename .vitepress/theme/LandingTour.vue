@@ -21,7 +21,7 @@ const copy = computed(() => lang.value.startsWith('ru') ? {
     { title: 'Расход — куда уходят токены', text: 'Входные и выходные токены, кеш, разбивка по моделям и задачам. Отсутствующие метрики отмечены как «нет данных».', alt: 'Расход Binnacle: токены по видам, моделям и задачам на демонстрационных данных.' },
     { title: 'Внимание — что требует проверки', text: 'Проблемы по проектам, текущие и недавние запуски. Можно увидеть, где работа остановилась или требует вмешательства.', alt: 'Внимание Binnacle: проблемы проектов, текущие и недавние запуски.' },
   ],
-  sample: 'Настоящий интерфейс · демонстрационные данные', enlarge: 'Увеличить снимок ⤢', close: 'Закрыть', previous: 'Предыдущий снимок', next: 'Следующий снимок',
+  sample: 'Настоящий интерфейс · демонстрационные данные', enlarge: 'Увеличить снимок', close: 'Закрыть', previous: 'Предыдущий снимок', next: 'Следующий снимок',
 } : {
   kicker: 'Inside Binnacle', title: 'Tasks, token usage and agent activity.',
   intro: 'Choose a section. Each screen answers a different question about the work.',
@@ -31,7 +31,7 @@ const copy = computed(() => lang.value.startsWith('ru') ? {
     { title: 'Usage — where tokens go', text: 'Input, output and cached tokens, broken down by model and task. Missing metrics stay marked as no data.', alt: 'Binnacle usage: tokens by kind, model and task using sample data.' },
     { title: 'Attention — what needs checking', text: 'Project issues, current runs and recent activity. See where work has stalled or needs your involvement.', alt: 'Binnacle attention: project issues, current runs and recent activity.' },
   ],
-  sample: 'Actual interface · sample data', enlarge: 'Enlarge screenshot ⤢', close: 'Close', previous: 'Previous screenshot', next: 'Next screenshot',
+  sample: 'Actual interface · sample data', enlarge: 'Enlarge screenshot', close: 'Close', previous: 'Previous screenshot', next: 'Next screenshot',
 })
 // Follow the site's selected theme before hydration and after a manual switch.
 const images = [
@@ -42,14 +42,18 @@ const images = [
 ]
 const lightbox = ref<HTMLDialogElement>()
 let previousOverflow = ''
-function openLightbox() {
+// Safari does not focus a clicked link, so the dialog cannot return focus to it on its own.
+let trigger: HTMLElement | null = null
+function openLightbox(event: MouseEvent) {
   if (!lightbox.value || lightbox.value.open) return
+  trigger = event.currentTarget as HTMLElement
   previousOverflow = document.body.style.overflow
   lightbox.value.showModal()
   document.body.style.overflow = 'hidden'
 }
 function restoreScroll() {
   document.body.style.overflow = previousOverflow
+  trigger?.focus()
 }
 function moveScreenshot(direction: number) {
   selected.value = (selected.value + direction + images.length) % images.length
@@ -83,7 +87,7 @@ onBeforeUnmount(() => {
             <img :src="images[selected]![theme]" :alt="copy.steps[selected]!.alt" loading="lazy" width="1280" height="720">
           </a>
         </div>
-        <figcaption><span>0{{ selected + 1 }} / 04</span><a v-for="theme in (['light', 'dark'] as const)" :key="theme" :class="`tour-${theme}`" :href="images[selected]![theme]" aria-haspopup="dialog" @click.prevent="openLightbox">{{ copy.enlarge }}</a></figcaption>
+        <figcaption><span>0{{ selected + 1 }} / 04</span><a v-for="theme in (['light', 'dark'] as const)" :key="theme" :class="`tour-${theme}`" :href="images[selected]![theme]" tabindex="-1" @click.prevent="openLightbox">{{ copy.enlarge }} <span aria-hidden="true">⤢</span></a></figcaption>
       </figure>
     </div>
     <dialog ref="lightbox" class="tour-lightbox" aria-labelledby="lightbox-title" @close="restoreScroll" @click.self="lightbox?.close()" @keydown.left.prevent="moveScreenshot(-1)" @keydown.right.prevent="moveScreenshot(1)">

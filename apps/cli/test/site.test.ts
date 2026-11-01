@@ -115,7 +115,9 @@ test('the landing explains the product and keeps installation immediately after 
     assert.ok(visible.includes(tagline), `${route}: no tagline`);
     // The mark is small enough that Vite inlines it; a file URL is accepted too, if that changes.
     assert.match(page, /<img [^>]*src="(?:data:image\/svg\+xml|[^"]*favicon[^"]*\.svg)/, `${route}: no logo`);
-    assert.ok(visible.includes('npm i -g @it-bbox/binnacle') && visible.includes('binn daemon start'), `${route}: no install command`);
+    const install = text(page.slice(page.indexOf('aria-labelledby="install"'), page.indexOf('aria-labelledby="see-the-work"')));
+    for (const command of ['npm i -g @it-bbox/binnacle', 'binn daemon start', 'binn init', 'binn dashboard', 'BINNACLE_PORT', '127.0.0.1:7717'])
+      assert.ok(install.includes(command), `${route}: installation lacks ${command}`);
     const hero = page.slice(page.indexOf('<section class="landing-hero"'), page.indexOf('</section>', page.indexOf('<section class="landing-hero"')));
     assert.ok(hero.includes('landing-badges'), `${route}: badges are outside the hero`);
     assert.ok(hero.indexOf('landing-platforms') < hero.indexOf('landing-badges'), `${route}: badges precede platform requirements`);
@@ -153,7 +155,9 @@ test('the dashboard views provide four distinct pages in both themes', () => {
     for (const theme of ['light', 'dark'])
       assert.match(page, new RegExp(`class="tour-${theme}"[^>]*href="[^"]*overview-${theme}\\.`), `${route}: theme-matched full-size link missing`);
     assert.ok(page.includes('id="tour-screen"'), `${route}: step controls target no content`);
-    assert.match(page, /<dialog[^>]*aria-labelledby="lightbox-title"/, `${route}: no labelled lightbox`);
+    const dialog = page.slice(page.indexOf('<dialog'), page.indexOf('</dialog>'));
+    assert.match(dialog, /^<dialog[^>]*aria-labelledby="lightbox-title"/, `${route}: no labelled lightbox`);
+    assert.equal([...dialog.matchAll(/<button[^>]*type="button"/g)].length, 3, `${route}: the lightbox lacks close, previous or next`);
     const tour = page.slice(page.indexOf('id="tour-screen"'));
     assert.ok(!/<a[^>]*target="_blank"/.test(tour.split('</section>')[0]!), `${route}: screenshots open in a separate tab`);
   }
