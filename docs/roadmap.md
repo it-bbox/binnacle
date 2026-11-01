@@ -67,9 +67,9 @@ Done: epics 1 to 23. **v1 is complete.**
 
 Next: epics 24 to 27, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28.
 
-**Epic 24 in progress** on 2026-10-31: tickets `01` to `07` are DONE from autopilot — the demo GIF and screenshots with the English UI in `assets/`, the write-up and the identity strings in `docs/showcase/`, the bilingual README and site, the Pages workflow, the listings' texts and the launch checklist. On 2026-11-01 the owner read the storefront and asked for two things: a landing header on the README, with the logo, the wordmark, the tagline and the badges, and a documentation site built from `docs/` instead of one static page. Tickets `09` to `11` carry that, and ticket `08`, the exit demonstration, is the owner's and now covers the reworked storefront.
+**Epic 24 in progress**, 10 of 11 tickets. Tickets `01` to `07` built the demo GIF and screenshots, the write-up and the identity strings, the bilingual README, the Pages workflow, the listings' texts and the launch checklist. On 2026-11-01 the owner read the storefront and asked for two changes; tickets `09` to `11` made them. The README opens with the owner's vector logo, the wordmark *Binnacle Dev*, the tagline, live badges and a row of links; the one-page site became a VitePress documentation site built from `docs/`, in both languages with search, at `https://it-bbox.github.io/binnacle/`, and GitHub Pages is enabled with its first deploy green. Ticket `08`, the exit demonstration, is the owner's: the description and topics, the listings from `docs/showcase/listings.md`, the posts, then the demonstration itself, ordered by `docs/showcase/launch-checklist.md`.
 
-Next action: build the README header and the documentation site — tickets `09` and `10`, in either order — then bring the launch artifacts in step with `11`; once they are DONE, push `main`, enable Pages from GitHub Actions, apply the description and topics, file the listings from `docs/showcase/listings.md`, and post; then run the exit demonstration. `/binnacle:task run docs/specs/showcase-and-launch/issues/09-showcase-readme-header.md`
+Next action: apply the description and topics, file the listings from `docs/showcase/listings.md`, and post; then run the exit demonstration. `/binnacle:task run docs/specs/showcase-and-launch/issues/08-showcase-exit-demonstration.md`
 
 ## Later
 
