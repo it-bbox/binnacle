@@ -4,18 +4,10 @@ sidebar: false
 pageClass: landing
 title: Binnacle Dev
 titleTemplate: false
-description: "Локальный provider-agnostic AI Engineering Control Plane: память проекта, workflow и наблюдаемость поверх coding agents."
+description: "Binnacle Dev — локальная панель и навыки для разработки с ИИ-агентами. Задачи, контекст проекта и расход токенов в одном месте."
 ---
 
-<script setup>
-import demo from '../assets/demo.gif'
-import overview from '../assets/overview.png'
-import tasks from '../assets/tasks.png'
-import usage from '../assets/usage.png'
-import attention from '../assets/attention.png'
-</script>
-
-<LandingHero />
+<LandingHero>
 
 <div class="landing-badges">
 
@@ -26,79 +18,16 @@ import attention from '../assets/attention.png'
 
 </div>
 
-<section class="landing-section" aria-labelledby="see-the-work">
-
-<div class="landing-demo-main">
-<div>
-
-<p class="section-kicker">Работа как на ладони</p>
-
-<h2 id="see-the-work">Меньше вспоминать. Больше делать.</h2>
-
-<p class="section-description">Что готово к старту, что сейчас в работе и где нужно ваше решение. Binnacle показывает состояние проекта, чтобы новая сессия начинала с того, что уже сделано.</p>
-
-<div class="landing-notes">
-<div><strong>Сохраняйте контекст.</strong><p>Решения живут в Markdown, Git и трекере. Чат может закончиться, не забрав с собой знания проекта.</p></div>
-<div><strong>Видьте, куда уходят усилия.</strong><p>Задачи, активность агентов и расход токенов — в одном месте. Если метрик нет, они так и показаны.</p></div>
-<div><strong>Оставайтесь у штурвала.</strong><p>Вы выбираете работу и запускаете агентов. Binnacle держит приборы перед глазами.</p></div>
-</div>
-
-</div>
-<div class="demo-window">
-<div class="demo-window-bar"><span aria-hidden="true">● ● ●</span><span>Binnacle / демонстрация дашборда</span></div>
-
-<img :src="demo" alt="Дашборд Binnacle в работе: обзор, доска проекта, тикет, расход и внимание" loading="lazy" width="1280" height="800">
-
-</div>
-</div>
-
-</section>
-
-<section class="landing-section" aria-labelledby="project-in-focus">
-
-<p class="section-kicker">Проект в фокусе</p>
-
-<h2 id="project-in-focus">Всё, что стоит за следующим шагом.</h2>
-
-<p class="section-description">Доска задач, картина расходов и то, что требует внимания. Откройте скриншот, чтобы рассмотреть детали.</p>
-
-<div class="landing-gallery">
-<figure class="landing-shot">
-
-<a :href="overview" class="screenshot-link"><img :src="overview" alt="Обзор: что дальше, прогресс эпиков и что идёт сейчас" loading="lazy"></a>
-
-<figcaption><strong>Обзор.</strong> Следующий шаг, прогресс и текущая работа.</figcaption>
-</figure>
-<figure class="landing-shot">
-
-<a :href="tasks" class="screenshot-link"><img :src="tasks" alt="Доска проекта: тикеты текущего эпика в четырёх колонках" loading="lazy"></a>
-
-<figcaption><strong>Задачи.</strong> Что можно начать, а что ждёт.</figcaption>
-</figure>
-<figure class="landing-shot">
-
-<a :href="usage" class="screenshot-link"><img :src="usage" alt="Расход: токены по видам, моделям, задачам и ролям" loading="lazy"></a>
-
-<figcaption><strong>Расход.</strong> Куда ушли токены и доработка.</figcaption>
-</figure>
-<figure class="landing-shot">
-
-<a :href="attention" class="screenshot-link"><img :src="attention" alt="Внимание: что идёт сейчас и что шло недавно" loading="lazy"></a>
-
-<figcaption><strong>Внимание.</strong> Где нужно решение человека.</figcaption>
-</figure>
-</div>
-
-</section>
+</LandingHero>
 
 <section class="landing-section landing-setup" aria-labelledby="install">
 <div>
 
-<p class="section-kicker">Один локальный демон. Ваш проект.</p>
+<p class="section-kicker">Установка</p>
 
-<h2 id="install">Начните там, где уже работаете.</h2>
+<h2 id="install">Подключите Binnacle к проекту.</h2>
 
-<p>Установите Binnacle, затем запустите <code>binn init</code> в проекте. Проверьте один план настройки и продолжайте через навыки своего агента.</p>
+<p>Установите инструмент и выполните эти команды из каталога своего проекта. <code>binn init</code> покажет план настройки и запросит подтверждение. Дашборд откроется в браузере.</p>
 
 <a class="landing-button secondary" href="./quick-start">Быстрый старт <span aria-hidden="true">→</span></a>
 
@@ -108,9 +37,11 @@ import attention from '../assets/attention.png'
 ```bash
 npm i -g @it-bbox/binnacle
 binn daemon start
+binn init
+binn dashboard
 ```
 
-<p>Новый проект или готовая кодовая база. Claude Code, Codex, Gemini и другие coding agents.</p>
+<p>Навыки для вашего ИИ-агента подключаются при настройке. Подходит для нового проекта и существующей кодовой базы.</p>
 
 </div>
 </section>
@@ -122,6 +53,8 @@ Node.js 24 LTS, на Linux, macOS или Windows. Свободный loopback-п
 Docker для самого Binnacle не нужен: это один локальный демон, а контейнер добавляет опубликованный порт и второе хранилище в обслуживание — он нужен, только если ваше приложение уже живёт в контейнере.
 
 </div>
+
+<LandingTour />
 
 <ul class="landing-next">
 <li><a href="./operations/01-new-project">Руководства ↗</a></li>

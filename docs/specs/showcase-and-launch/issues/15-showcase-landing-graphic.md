@@ -6,30 +6,26 @@ Blocked by: 09, 10, 11
 Spec: `docs/specs/showcase-and-launch/spec.md`
 Roles: Developer, Reviewer
 
-**What to build:** redesign the English and Russian landing pages as the owner requested on 2026-11-01. The oversized logo in the hero is replaced by a restrained product graphic, with subtle motion where it explains project continuity. The standard documentation stays as it is.
+**What to build:** redesign the English and Russian landing pages around a concrete explanation of the tool and a useful first-use example. This reflects the owner's revised direction on 2026-11-01; it supersedes the earlier compass/provider selector and requirement to keep every screenshot on the landing. Standard documentation stays as it is.
 
-- [x] The first screen has a clear headline, concise product explanation and visible links to the quick start and guides. Keep *Binnacle Dev* and the established tagline; use the logo as a small brand mark rather than the hero illustration.
-- [x] A native SVG/CSS illustration explains portable sources, a compact project snapshot and replaceable coding agents. It is labelled as an illustration. Agent selection changes the explanatory destination while the stored context stays; it starts no agent and shows no invented telemetry.
-- [x] Motion is restrained, finishes rather than running unattended forever, and is disabled by `prefers-reduced-motion`. Agent choices are keyboard operable and expose their selected state. Text and controls remain readable in both themes.
-- [x] The real GIF, all four screenshots, linked badges, repository/npm links, requirements, port caveat and install commands remain present. Give the demo and screenshots useful space and structure instead of tiny table cells.
-- [x] Both language versions offer the same experience. At 375 px and 1440 px the page has no horizontal overflow; the illustration, buttons and demo fit, and focus is visible.
-- [x] The docs routes, guide sources and standard documentation layout are preserved. No dependency, raster-image generation pipeline or video runtime is introduced.
-- [x] The site builds and its artifact checks pass, with the landing checks updated for the new intended composition. Run `LANGUAGE=C pnpm test` and inspect both languages and themes in the local preview.
+- [x] The hero names **Binnacle Dev** and describes a local app and agent skills: tasks, portable project context, progress and token usage. Use the favicon mark in the header. Keep the quick start and guide links visible.
+- [x] Replace the compass and provider names with restrained abstract SVG artwork. It carries no controls, simulated activity or invented telemetry; it is omitted on phones to keep installation nearby.
+- [x] The CI/npm/license/Node badges sit directly below the platform line in the hero's text column. Remove its non-copyable inline npm command.
+- [x] Installation is the second section: copyable commands install Binnacle, start its daemon, initialise the current project and open the dashboard. Retain the requirements and autostart port caveat.
+- [x] Replace the automatic slideshow and four-image gallery with one visitor-controlled scenario: find a ready task, check its requirements, copy its start command. Use actual English dashboard captures from a labelled example project, with no personal data or fabricated activity.
+- [x] All three steps and full-size links match the selected light/dark theme. Step controls work with pointer and keyboard and expose selection. No autoplay or new dependency.
+- [x] Preserve header-aligned content, a 60/40 text/media split on desktop, text before media on phones, and equal content in both languages. At 375 px and 1440 px nothing overflows horizontally.
+- [x] Keep documentation routes and sources, the README's existing media and repository/npm links. Build the site, update its artifact checks and inspect both themes/languages in the browser.
 
-## Notes
+## Capture notes
 
-The owner first suggested a generated, sober illustration, then explicitly allowed a native graphic or animation. Use Vue, SVG and CSS already available in VitePress. The graphic shows what Binnacle does, rather than an enlarged logo or unrelated decoration. Keep this ticket separate from ticket 12's locale fixes, even where they touch the same theme file.
+`assets/tour/` contains six 1280×720 JPEG captures of the actual dashboard, taken on 2026-11-01. The isolated **Example shop** project uses the local Markdown tracker: cart `DONE`, checkout validation `READY` after the cart, receipt `READY` but waiting for validation, keyboard review `READY_FOR_REVIEW`. It has no agent runs or usage records. The shown `/tmp/binnacle-example-…` path belongs to that disposable sample, not a user's project.
 
-Owner correction, 2026-11-01: the landing's content edges must match the header's container and gutters. The demo keeps the earlier two-column composition: text on the left, the GIF on the right, stacked on phones. The full-width GIF and narrower 1240 px content container were rejected.
-
-The CI, npm, license and Node badges belong at the bottom of the hero area, before the demo; they are primary product information and must not move to the page footer.
-
-The three explanatory points belong beneath the description inside the left column, rather than beneath the two-column block. The owner requested a wider text column and a slightly smaller GIF: use a 60/40 split on desktop, with all text before the GIF on phones.
-
+The sequence opens Project, opens checkout validation, then scrolls to its start command and copies it. Both themes show the same project and actions; colours come from the dashboard's own theme. Captures are unretouched. The temporary harness uses `startTestDaemon`, a copied dashboard build and browser-only theme/language preferences; it never reads the user's harness sessions or changes their daemon. No capture server is needed by the website.
 
 ## Comments
 
-### Review
+### Earlier review (superseded presentation)
 
 Reviewed against `00ea3cd` on 2026-11-01, with separate Standards and Spec reviews. Neither found a concrete issue. The implementation changes the two landing pages, their theme component and landing styles; the only shared navigation change is the small brand mark. Guide sources and the documentation layout stay unchanged.
 
@@ -42,3 +38,11 @@ Browser checks: English and Russian at 375 px and 1440 px, dark and light themes
 Tickets 12 to 14 remain open by design: this ticket does not implement the independent review's locale, quick-start or Registry corrections. Ready for the owner's review and merge; nothing was pushed or deployed.
 
 Follow-up on the owner's layout corrections: the landing takes the header's maximum width and breakpoint-specific gutters. Browser measurements confirmed equal left and right content edges. The desktop demo has a wider left column for its description and three explanatory points, with the smaller GIF on the right; below 768 px the whole text column precedes the GIF. Both language pages changed together. The rebuilt site's 9 artifact checks pass; the local preview was restarted after the build so its asset list is current.
+
+### Revised landing verification, 2026-11-01
+
+Implemented the owner's subsequent corrections recorded above. The previous provider-selector illustration and landing media review describe a superseded version. The hero now defines the product in plain language, uses the favicon mark, keeps the badges below the platform line and leads into the installation section. One three-step walkthrough replaces the gallery and GIF on the site; the README keeps its original assets.
+
+Checks after the revision: `LANGUAGE=C pnpm test` — 1004 pass, 0 fail; `pnpm typecheck` — pass. Site artifact checks cover the new section order, badge position, copy control, three accessible steps and all six themed captures, alongside routes and privacy checks. Browser checks covered English and Russian at 375 px and 1440 px, the matching image after a manual theme change, step selection by pointer and Enter, and exact clipboard contents for all four installation commands. No horizontal overflow at either width. The preview was restarted after the final build to serve the current asset hashes.
+
+The example daemon was stopped after capture. The website needs only its static build. No dependencies, dashboard source changes, publication or merge; tickets 12 to 14 remain separate.

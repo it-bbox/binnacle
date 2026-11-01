@@ -102,11 +102,11 @@ test('every internal link and image target resolves', () => {
   }
 });
 
-/** The landing opens with the logo, the wordmark, the tagline, the badges and the demo, then the install. */
-test('the landing opens with the logo, the wordmark, the tagline, the badges and the demo', () => {
+/** The first screen explains the product; installation comes before the product walkthrough. */
+test('the landing explains the product and keeps installation immediately after the hero', () => {
   for (const [route, tagline] of [
-    ['/', 'One project memory. Any coding agent.'],
-    ['/ru/', 'Одна память проекта. Любой coding agent.'],
+    ['/', 'Your control panel for AI development.'],
+    ['/ru/', 'Панель управления ИИ-разработкой.'],
   ] as const) {
     const page = readFileSync(fileOf(route), 'utf8');
     const prefix = route === '/ru/' ? 'ru/' : '';
@@ -114,11 +114,15 @@ test('the landing opens with the logo, the wordmark, the tagline, the badges and
     assert.ok(visible.includes('Binnacle Dev'), `${route}: no wordmark`);
     assert.ok(visible.includes(tagline), `${route}: no tagline`);
     // The mark is small enough that Vite inlines it; a file URL is accepted too, if that changes.
-    assert.match(page, /<img [^>]*src="(?:data:image\/svg\+xml|[^"]*logo[^"]*\.svg)/, `${route}: no logo`);
+    assert.match(page, /<img [^>]*src="(?:data:image\/svg\+xml|[^"]*favicon[^"]*\.svg)/, `${route}: no logo`);
     assert.ok(visible.includes('npm i -g @it-bbox/binnacle') && visible.includes('binn daemon start'), `${route}: no install command`);
-    assert.match(page, /src="[^"]*demo\.[^"]*\.gif"/, `${route}: no demo GIF`);
-    for (const shot of ['overview', 'tasks', 'usage', 'attention'])
-      assert.match(page, new RegExp(`src="[^"]*${shot}\\.[^"]*\\.png"`), `${route}: no ${shot} screenshot`);
+    const hero = page.slice(page.indexOf('<section class="landing-hero"'), page.indexOf('</section>', page.indexOf('<section class="landing-hero"')));
+    assert.ok(hero.includes('landing-badges'), `${route}: badges are outside the hero`);
+    assert.ok(hero.indexOf('landing-platforms') < hero.indexOf('landing-badges'), `${route}: badges precede platform requirements`);
+    assert.ok(!hero.includes('npm i -g'), `${route}: redundant command in the hero`);
+    const sections = [...page.matchAll(/<section[^>]*aria-labelledby="([^"]+)"/g)].map((match) => match[1]);
+    assert.deepEqual(sections.slice(0, 3), ['landing-title', 'install', 'see-the-work'], `${route}: installation is not the second section`);
+    assert.match(page, /button[^>]*class="copy"/, `${route}: installation commands cannot be copied`);
     for (const badge of ['actions/workflows/ci.yml/badge.svg', 'img.shields.io/npm/v/@it-bbox/binnacle', 'img.shields.io/badge/license-', 'img.shields.io/badge/node-'])
       assert.ok(page.includes(badge), `${route}: no ${badge} badge`);
     for (const target of ['https://github.com/it-bbox/binnacle', 'https://www.npmjs.com/package/@it-bbox/binnacle'])
@@ -129,20 +133,23 @@ test('the landing opens with the logo, the wordmark, the tagline, the badges and
   }
 });
 
-/** The illustration explains the product and lets a keyboard user choose the receiving agent. */
-test('the landing explains portable context with labelled agent choices', () => {
-  for (const [route, label] of [
-    ['/', 'Choose an agent for the illustration'],
-    ['/ru/', 'Выберите агента для иллюстрации'],
-  ] as const) {
+/** The example has a human-controlled sequence and matching light/dark captures. */
+test('the walkthrough provides labelled steps and both themes without an autoplay slideshow', () => {
+  const assets = built();
+  for (const shot of ['board', 'task', 'command']) {
+    for (const theme of ['light', 'dark'])
+      assert.ok(assets.some((file) => new RegExp(`${shot}-${theme}\\.[^/]+\\.jpg$`).test(file)), `missing ${shot} ${theme} capture`);
+  }
+  for (const route of ['/', '/ru/']) {
     const page = readFileSync(fileOf(route), 'utf8');
-    assert.ok(page.includes('id="landing-title"'), `${route}: no landing headline`);
-    assert.ok(!page.includes('class="VPHero'), `${route}: the oversized hero logo remains`);
-    for (const source of ['Markdown', 'Git', 'Tracker']) assert.ok(page.includes(source), `${route}: no ${source} source`);
-    assert.ok(page.includes(`role="group" aria-label="${label}"`), `${route}: the agent choices are not labelled`);
-    for (const agent of ['Claude Code', 'Codex', 'Gemini CLI'])
-      assert.match(page, new RegExp(`<button[^>]+type="button"[^>]+aria-pressed="(?:true|false)"[^>]*>${agent}</button>`), `${route}: inaccessible ${agent} choice`);
-    assert.ok(page.includes('id="memory-caption"'), `${route}: the diagram is not identified as an illustration`);
+    assert.ok(!page.includes('class="VPHero'), `${route}: oversized hero logo remains`);
+    assert.ok(!page.includes('.gif'), `${route}: the old slideshow remains`);
+    const steps = [...page.matchAll(/<button[^>]*aria-pressed="(true|false)"[^>]*aria-controls="tour-screen"/g)];
+    assert.equal(steps.length, 3, `${route}: no three accessible walkthrough steps`);
+    assert.deepEqual(steps.map((step) => step[1]), ['true', 'false', 'false']);
+    for (const theme of ['light', 'dark'])
+      assert.match(page, new RegExp(`class="tour-${theme}"[^>]*href="[^"]*board-${theme}\\.`), `${route}: theme-matched full-size link missing`);
+    assert.ok(page.includes('id="tour-screen"'), `${route}: step controls target no content`);
   }
 });
 

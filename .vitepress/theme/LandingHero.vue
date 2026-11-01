@@ -1,42 +1,37 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useData, withBase } from 'vitepress'
 
 const { lang } = useData()
-const selected = ref('Claude Code')
-const agents = ['Claude Code', 'Codex', 'Gemini CLI']
 const copy = computed(() => lang.value.startsWith('ru') ? {
-  eyebrow: 'Локальная память для работы с ИИ',
-  title: ['Одна память проекта.', 'Любой coding agent.'],
-  lead: 'Claude сегодня. Codex завтра. Проект не начинается с нуля.',
-  detail: 'Контекст, задачи и решения остаются в проекте. Новый агент получает ясную картину и продолжает работу.',
+  title: ['Панель управления', 'ИИ-разработкой.'],
+  lead: 'Локальное приложение и набор навыков для работы с ИИ-агентами. Планируйте задачи, передавайте агентам контекст проекта и отслеживайте прогресс и расход токенов.',
+  detail: 'Работает с Git, Markdown и вашим трекером. Вы выбираете задачи и запускаете агентов.',
   start: 'Быстрый старт', docs: 'Как это работает',
-  sources: 'Источники проекта', memory: 'Память проекта', snapshot: 'Компактный контекст',
-  decisions: 'Документы и решения', history: 'История изменений', tasks: 'Задачи и зависимости',
-  retained: 'Контекст сохранён', choose: 'Выберите агента для иллюстрации',
-  caption: 'Схема работы. Меняется агент — знания остаются.',
-  diagram: 'Markdown, Git и тикеты сохраняют знания проекта; Binnacle передаёт компактный контекст выбранному агенту.',
+  caption: 'Знания проекта сохраняются между сессиями.',
+  diagram: 'Абстрактная композиция из непрерывных слоёв: знания проекта сохраняются, пока работа продолжается.',
   local: 'На вашем компьютере', portable: 'Markdown · Git · Трекер', control: 'Вы управляете процессом',
 } : {
-  eyebrow: 'Local project memory for AI engineering',
-  title: ['One project memory.', 'Any coding agent.'],
-  lead: 'Claude today. Codex tomorrow. Your project never starts from zero.',
-  detail: 'Context, tasks and decisions stay with your project. A fresh agent gets a clear picture and picks up the work.',
+  title: ['Your control panel', 'for AI development.'],
+  lead: 'A local app and a set of skills for working with coding agents. Plan tasks, give agents your project context, and track progress and token usage.',
+  detail: 'Works with Git, Markdown and your issue tracker. You choose the tasks and start the agents.',
   start: 'Get started', docs: 'How it works',
-  sources: 'Project sources', memory: 'Project memory', snapshot: 'Compact context',
-  decisions: 'Documents & decisions', history: 'Change history', tasks: 'Tasks & dependencies',
-  retained: 'Context preserved', choose: 'Choose an agent for the illustration',
-  caption: 'How it works. Change the agent. Keep the knowledge.',
-  diagram: 'Markdown, Git and tickets keep project knowledge; Binnacle hands compact context to the selected agent.',
+  caption: 'Project knowledge stays between sessions.',
+  diagram: 'An abstract composition of continuous layers: project knowledge persists as the work moves forward.',
   local: 'On your machine', portable: 'Markdown · Git · Tracker', control: 'You stay in control',
 })
 const prefix = computed(() => lang.value.startsWith('ru') ? '/ru' : '')
+
+// A single continuous surface; its contours carry no provider names or simulated activity.
+const contours = Array.from({ length: 25 }, (_, layer) =>
+  `M36 ${130 + layer * 5} C180 ${40 + layer * 5} 205 ${335 + layer * 4} 330 ${230 + layer * 4} S490 ${80 + layer * 5} 590 ${145 + layer * 5}`,
+)
 </script>
 
 <template>
   <section class="landing-hero" aria-labelledby="landing-title">
     <div class="landing-intro">
-      <p class="landing-eyebrow"><span aria-hidden="true"></span>{{ copy.eyebrow }}</p>
+      <p class="landing-brand"><img :src="withBase('/favicon.svg')" alt="" width="30" height="30">Binnacle Dev</p>
       <h1 id="landing-title"><span>{{ copy.title[0] }}</span><span>{{ copy.title[1] }}</span></h1>
       <p class="landing-lead">{{ copy.lead }}</p>
       <p class="landing-detail">{{ copy.detail }}</p>
@@ -44,45 +39,29 @@ const prefix = computed(() => lang.value.startsWith('ru') ? '/ru' : '')
         <a class="landing-button primary" :href="withBase(`${prefix}/quick-start`)">{{ copy.start }} <span aria-hidden="true">↗</span></a>
         <a class="landing-button secondary" :href="withBase(`${prefix}/operations/01-new-project`)">{{ copy.docs }} <span aria-hidden="true">→</span></a>
       </div>
-      <p class="landing-install"><span aria-hidden="true">$</span><code>npm i -g @it-bbox/binnacle</code></p>
       <p class="landing-platforms">Node.js 24 LTS <span aria-hidden="true">/</span> Linux · macOS · Windows</p>
+      <slot />
     </div>
 
-    <figure class="memory-illustration" aria-labelledby="memory-caption">
-      <div class="memory-topline"><span>BINNACLE / CONTEXT</span><span aria-hidden="true">01 — 03</span></div>
-      <div class="memory-chart">
-        <svg class="memory-connections" viewBox="0 0 480 340" fill="none" role="img" :aria-label="copy.diagram">
-          <defs>
-            <pattern id="memory-grid" width="24" height="24" patternUnits="userSpaceOnUse">
-              <path d="M 24 0 L 0 0 0 24" class="memory-grid-line" />
-            </pattern>
-          </defs>
-          <rect width="480" height="340" fill="url(#memory-grid)" />
-          <path class="memory-wire" d="M100 70H165L240 170M100 170H240M100 270H165L240 170M240 170H395" />
-          <path :key="selected" class="memory-signal" d="M100 70H165L240 170H395" pathLength="100" />
-          <circle cx="240" cy="170" r="80" class="memory-orbit" />
-          <circle cx="240" cy="170" r="66" class="memory-dial" />
-          <g class="memory-ticks">
-            <path v-for="tick in 48" :key="tick" :transform="`rotate(${tick * 7.5} 240 170)`" :d="tick % 4 === 0 ? 'M240 93V100' : 'M240 94V97'" />
-          </g>
-          <path class="memory-needle" d="M240 120L252 154L240 149L228 154Z" />
-          <path class="memory-needle-tail" d="M240 220L252 186L240 191L228 186Z" />
-          <circle cx="240" cy="170" r="5" class="memory-pivot" />
-          <circle cx="160" cy="170" r="3" class="memory-pin" />
-          <circle cx="320" cy="170" r="3" class="memory-pin" />
-        </svg>
-        <span class="memory-source-label">{{ copy.sources }}</span>
-        <div class="memory-source source-markdown"><span class="source-glyph" aria-hidden="true">M↓</span><div><strong>Markdown</strong><small>{{ copy.decisions }}</small></div></div>
-        <div class="memory-source source-git"><span class="source-glyph" aria-hidden="true">⑂</span><div><strong>Git</strong><small>{{ copy.history }}</small></div></div>
-        <div class="memory-source source-tracker"><span class="source-glyph" aria-hidden="true">☷</span><div><strong>Tracker</strong><small>{{ copy.tasks }}</small></div></div>
-        <div class="memory-core"><strong>Binnacle</strong><small>{{ copy.memory }}</small></div>
-        <div :key="selected + '-destination'" class="memory-destination" aria-live="polite"><span class="destination-arrow" aria-hidden="true">↗</span><strong>{{ selected }}</strong><small>{{ copy.snapshot }}</small></div>
-        <span class="memory-retained"><span aria-hidden="true">✓</span>{{ copy.retained }}</span>
-      </div>
-      <div class="memory-agent-picker" role="group" :aria-label="copy.choose">
-        <button v-for="agent in agents" :key="agent" type="button" :aria-pressed="selected === agent" @click="selected = agent">{{ agent }}</button>
-      </div>
-      <figcaption id="memory-caption">{{ copy.caption }}</figcaption>
+    <figure class="context-art" aria-labelledby="context-caption">
+      <svg class="context-ribbon" viewBox="0 0 620 460" fill="none" role="img" :aria-label="copy.diagram">
+        <defs>
+          <linearGradient id="context-ink" x1="36" y1="120" x2="590" y2="350" gradientUnits="userSpaceOnUse">
+            <stop class="context-fade" />
+            <stop offset="0.28" class="context-accent" />
+            <stop offset="0.7" class="context-accent" />
+            <stop offset="1" class="context-fade" />
+          </linearGradient>
+          <linearGradient id="context-surface" x1="310" y1="90" x2="310" y2="420" gradientUnits="userSpaceOnUse">
+            <stop class="context-accent" stop-opacity="0.09" />
+            <stop offset="1" class="context-accent" stop-opacity="0" />
+          </linearGradient>
+        </defs>
+        <path d="M36 130 C180 40 205 335 330 230 S490 80 590 145 L590 265 C490 200 455 222 330 326 S180 160 36 250 Z" fill="url(#context-surface)" />
+        <path v-for="(contour, index) in contours" :key="index" :d="contour" stroke="url(#context-ink)" :stroke-width="index % 6 === 0 ? 1.8 : 0.8" :opacity="index % 6 === 0 ? 0.95 : 0.5" />
+        <path d="M95 112 L95 232 M526 118 L526 238" class="context-cross-section" />
+      </svg>
+      <figcaption id="context-caption">{{ copy.caption }}</figcaption>
     </figure>
   </section>
   <div class="landing-principles">

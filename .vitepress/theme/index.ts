@@ -4,12 +4,14 @@ import { h } from 'vue'
 import type { Theme } from 'vitepress'
 import LanguageSwitch from './LanguageSwitch.vue'
 import LandingHero from './LandingHero.vue'
+import LandingTour from './LandingTour.vue'
 import './style.css'
 
 export default {
   extends: DefaultTheme,
   enhanceApp({ app }) {
     app.component('LandingHero', LandingHero)
+    app.component('LandingTour', LandingTour)
   },
   Layout() {
     return h(DefaultTheme.Layout, null, {
