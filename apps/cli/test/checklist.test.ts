@@ -72,6 +72,7 @@ test('every step names where its artifact lives and what done looks like', () =>
 test('the checklist describes the README header and the landing as they stand', () => {
   const readme = section(/README/).body;
   for (const part of ['logo', 'Binnacle Dev', 'tagline', 'badges']) assert.ok(readme.includes(part), `README: no ${part}`);
+  assert.doesNotMatch(readme, /opens with the demo GIF/, 'README: the header comes before the demo since ticket 09');
   const site = section(/site/).body;
   for (const part of ['graphic', 'Overview', 'Tasks', 'Usage', 'Attention']) assert.ok(site.includes(part), `site: no ${part}`);
   assert.doesNotMatch(site, /demo GIF|the demo and screenshots/, 'site: the landing has no demo GIF since ticket 15');
