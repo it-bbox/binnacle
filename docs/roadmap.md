@@ -34,7 +34,7 @@ Epics 1 to 19 are v1.
 | 22 | A Binnacle mod for Claude Code | done | [`claude-code-mod`](specs/claude-code-mod/spec.md) |
 | 23 | Binnacle in a dev container | done | [`dev-container`](specs/dev-container/spec.md) |
 | 24 | Showcase and launch | done | [`showcase-and-launch`](specs/showcase-and-launch/spec.md) |
-| 25 | Hygiene after 0.7 | spec | — |
+| 25 | Hygiene after 0.7 | spec | [`hygiene-after-0-7`](specs/hygiene-after-0-7/spec.md) |
 | 26 | Cheaper runs | not started | — |
 | 27 | Binnacle's own planning skills | not started | — |
 | 28 | The agents' configuration in the audit | not started | — |
@@ -73,9 +73,9 @@ Done: epics 1 to 24. **v1 is complete.**
 
 The Codex autopilot attempt stopped at its capability gate without starting agents; its verification is epic 29, with Gemini CLI and Antigravity. Epics 25–30 are not started: epic 25, Hygiene after 0.7, and epics 29 and 30 were cut from the product inbox on 2026-11-02, and the former 25–27 are now 26–28.
 
-Epic 25 is grilled; its brief is `docs/specs/hygiene-after-0-7/brief.md`.
+Epic 25 is grilled and specified: its brief is `docs/specs/hygiene-after-0-7/brief.md`, its spec `docs/specs/hygiene-after-0-7/spec.md`.
 
-Next action: write epic 25's spec from its brief, `docs/specs/hygiene-after-0-7/brief.md`. `/to-spec`
+Next action: slice epic 25's spec, `docs/specs/hygiene-after-0-7/spec.md`, into tickets. `/to-tickets`
 
 ## Later
 
