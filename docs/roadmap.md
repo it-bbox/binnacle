@@ -73,9 +73,9 @@ Done: epics 1 to 24. **v1 is complete.**
 
 The Codex autopilot attempt stopped at its capability gate without starting agents; its verification is epic 29, with Gemini CLI and Antigravity. Epics 25–30 are not started: epic 25, Hygiene after 0.7, and epics 29 and 30 were cut from the product inbox on 2026-11-02, and the former 25–27 are now 26–28.
 
-Epic 25 is grilled and specified: its brief is `docs/specs/hygiene-after-0-7/brief.md`, its spec `docs/specs/hygiene-after-0-7/spec.md`.
+Epic 25 is grilled, specified and cut into six tickets: its brief is `docs/specs/hygiene-after-0-7/brief.md`, its spec `docs/specs/hygiene-after-0-7/spec.md`.
 
-Next action: slice epic 25's spec, `docs/specs/hygiene-after-0-7/spec.md`, into tickets. `/to-tickets`
+Next action: run tickets 01–05 of epic 25 with autopilot; ticket 06, the exit demonstration, stays with the owner. `/binnacle:autopilot 25`
 
 ## Later
 
