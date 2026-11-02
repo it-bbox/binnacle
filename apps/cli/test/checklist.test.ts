@@ -68,6 +68,15 @@ test('every step names where its artifact lives and what done looks like', () =>
   }
 });
 
+/** Ticket 08: the checklist describes the storefront as tickets 09 and 15 left it, not the one before. */
+test('the checklist describes the README header and the landing as they stand', () => {
+  const readme = section(/README/).body;
+  for (const part of ['logo', 'Binnacle Dev', 'tagline', 'badges']) assert.ok(readme.includes(part), `README: no ${part}`);
+  const site = section(/site/).body;
+  for (const part of ['graphic', 'Overview', 'Tasks', 'Usage', 'Attention']) assert.ok(site.includes(part), `site: no ${part}`);
+  assert.doesNotMatch(site, /demo GIF|the demo and screenshots/, 'site: the landing has no demo GIF since ticket 15');
+});
+
 /** The spec says the launch checklist turns on GitHub Discussions, where questions go. */
 test('the checklist turns on GitHub Discussions before the posts', () => {
   assert.match(section(/posts/i).body, /GitHub Discussions/);
