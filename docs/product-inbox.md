@@ -173,3 +173,10 @@ Not decided: whether separate Codex chats satisfy the existing contract, whether
 
 1. **A finished branch that autopilot leaves to the owner.** `/binnacle:autopilot`'s step 7 starts no agent for a ticket whose branch exists unmerged and records no question, and lists it for the owner, even when the branch's last commit already sets `Status: DONE`. Ticket 13 of epic 24 stood so after the run of 2026-11-01; on 2026-11-02 the owner said yes to verifying and merging it, which step 9 did without an agent. Step 7 could send such a branch to step 9 directly.
 2. **The orchestrator credited to a ticket.** When the autopilot's own shell changed directory into an agent's worktree, Binnacle credited that session as a rework run of ticket 13, since the ingest reads the branch from the worktree's reflog. The skill could say to run commands there with `git -C` or absolute paths.
+
+## Left after epic 24 (2026-11-02)
+
+1. **Smithery** takes a local stdio server only as a prebuilt MCPB bundle; a bundle of `binn mcp` is work of its own.
+2. **The community plugin marketplace** (`claude-community`; `claude-plugins-official` takes partners only) may need a marketplace the repository serves itself: today `marketplace.json` names the built `./plugin`, which Git ignores.
+3. **The MCP Registry** entry needs a release carrying `mcpName`; PulseMCP and Glama are checked after it.
+4. **The `it-bbox` organisation page**: a pinned repository, a description and a profile README before the posts.
