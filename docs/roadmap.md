@@ -63,13 +63,11 @@ Done: epics 1 to 24. **v1 is complete.**
 
 **Released** (the owner): Binnacle 0.1.0 on 2026-10-13; 0.2.0 on 2026-10-21; 0.3.0 on 2026-10-22; 0.4.0 and 0.5.0 on 2026-10-28; 0.6.0 on 2026-10-29; 0.7.1 and dev container feature 1.0.0 on 2026-10-30. Epic 23 is complete.
 
-**Epic 24 in progress**, 14 of 15 tickets complete on main at `e4c3377`: ticket 15's landing, then tickets 12–14 — locale navigation and search, the quick-start port caveat, and MCP Registry metadata and release prerequisites. None of it has been pushed or published; `origin/main` stands at `edd9fda`. Registry submission requires a separate release containing the ownership marker.
-
-Ticket 08, the owner's exit demonstration, is the last ticket of the epic and is ready to start.
+**Epic 24 is complete** (2026-11-02), pushed at `ad47ce0`: the README header, the documentation site with its landing, the launch checklist, and the repository's description and topics. Listings filed, each awaiting its maintainers: mcp.so (`chatmcp/mcpso#6605`), `punkpeye/awesome-mcp-servers` (pull request #18353) and `hesreallyhim/awesome-claude-code` (#3423). The community plugin marketplace and Smithery are deferred, each work of its own (`docs/product-inbox.md`). The MCP Registry entry waits on the owner's release carrying `mcpName`; the posts are the owner's.
 
 The Codex autopilot attempt stopped at its capability gate without starting agents. Support verification is recorded in `docs/product-inbox.md`; no skill change is approved. Epics 25–27 remain not started.
 
-Next action: the exit demonstration of epic 24, ticket 08, which the owner checks by hand. `/binnacle:task run docs/specs/showcase-and-launch/issues/08-showcase-exit-demonstration.md`
+Next action: plan epic 25, Cheaper runs, from its items in `docs/product-inbox.md`. `/grill-with-docs`
 
 ## Later
 
