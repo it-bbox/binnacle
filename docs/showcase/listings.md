@@ -56,12 +56,12 @@ The server lists its tools without a daemon; a tool call needs one, which `binn 
 
 | Where | Why this one | Owner does |
 | --- | --- | --- |
-| The official Claude Code plugin marketplace, `claude-plugins-official` | It is the marketplace Claude Code opens with, so the plugin is found without adding a source first. | Submit through the marketplace's submission channel. |
+| The official Claude Code plugin marketplace, `claude-plugins-official` | It is the marketplace Claude Code opens with, so the plugin is found without adding a source first. | Nothing yet: it takes no public submissions (below). |
 | The official MCP Registry, `registry.modelcontextprotocol.io` | It is the registry other catalogs read, so one entry reaches several. | Publish with the registry's publisher. |
-| `mcp.so` | A community catalog people browse for MCP servers. | Submit the entry through its form. |
-| Smithery, `smithery.ai` | A directory with installation support, alongside discovery. | Add the server through its flow. |
+| `mcp.so` | A community catalog people browse for MCP servers. | Open an issue in its repository; the site's form is paid. |
+| Smithery, `smithery.ai` | A directory with installation support, alongside discovery. | Nothing yet: it takes a local server only as an MCPB bundle (below). |
 | `punkpeye/awesome-mcp-servers` | The MCP list developers browse by topic. | Open a pull request with the entry line. |
-| `hesreallyhim/awesome-claude-code` | The Claude Code list, where the plugin and skills belong. | Submit the entry in the list's own format. |
+| `hesreallyhim/awesome-claude-code` | The Claude Code list, where the plugin and skills belong. | Fill in the list's issue form, by hand. |
 
 After the official registry entry exists, check `pulsemcp.com` and `glama.ai` before submitting anything there: both read public sources, and the entry may appear on its own.
 
@@ -73,7 +73,7 @@ After the official registry entry exists, check `pulsemcp.com` and `glama.ai` be
 
 **Already satisfied by the public repository:** the plugin's source with its manifest, tracked in the repository, and the marketplace manifest (`apps/cli/.claude-plugin/marketplace.json`); the MCP server `binn mcp` they drive; the README's install path and the Apache-2.0 licence. The npm package carries the `binnacle` and optional `binnacle-mod` plugin manifests beside that marketplace manifest.
 
-**What the owner must do:** submit the plugin through the official marketplace's submission channel, named in Claude Code's plugin documentation. Confirm the channel's current link and fields at submission time; this repository records neither. Paste:
+**Not submitted, on the owner's decision of 2026-11-02.** `claude-plugins-official` takes plugins from Anthropic's partners only; the public submission form, `https://clau.de/plugin-directory-submission`, adds a plugin to the community marketplace, `claude-community`, after review, and asks for a paid claude.ai plan and a plugin in a GitHub repository ([Publish and distribute a plugin](https://code.claude.com/docs/en/plugins/publish)). If the owner submits there later, paste:
 
 ```text
 Name: Binnacle
@@ -155,7 +155,7 @@ The arguments follow from how a client runs an npm entry, `npx <runtimeArguments
 
 **Already satisfied by the public repository:** the repository link, the description, the tags and the client configuration above.
 
-**What the owner must do:** submit the server through mcp.so's form. Paste:
+**What the owner must do:** the site's own form takes a paid submission only, and paid placement is outside the launch. Open an issue at `https://github.com/chatmcp/mcpso/issues/new` instead, titled `Submit MCP Server: Binnacle`, which is how the catalog takes free submissions. Paste:
 
 ```text
 Name: Binnacle
@@ -173,7 +173,7 @@ Run: npm i -g @it-bbox/binnacle, then binn daemon start; the client runs binn mc
 
 **Already satisfied by the public repository:** the repository link, the description, the npm package and the stdio command.
 
-**What the owner must do:** add the server through Smithery's own flow, signed in with the GitHub account that owns `it-bbox`. Paste:
+**Not submitted yet.** Smithery publishes a local stdio server only as a prebuilt MCPB bundle (`smithery mcp publish ./server.mcpb`, [Publish](https://smithery.ai/docs/build/publish)), not from an npm package or a repository. Building that bundle is work of its own. Once it exists, sign in with the GitHub account that owns `it-bbox` and paste:
 
 ```text
 Name: Binnacle
@@ -205,7 +205,7 @@ Run: binn mcp
 
 **Already satisfied by the public repository:** the plugin, its skills and the MCP server they drive.
 
-**What the owner must do:** submit the entry in the list's own contribution format, which the list documents in its repository. Paste:
+**What the owner must do:** fill in the list's issue form, `Recommend a Resource`, in the web UI, by hand: the list takes no pull request and no submission made by an agent. Category `Multi-Purpose`. Paste:
 
 ```text
 - [Binnacle](https://github.com/it-bbox/binnacle) - A local, provider-agnostic AI Engineering Control Plane for Claude Code and other coding agents: project memory, workflow and observability, with a plugin, skills and an MCP server.
@@ -214,9 +214,9 @@ Run: binn mcp
 ## What the owner must do, in order
 
 1. Apply the description and the topics from [identity.md](identity.md) in the repository's settings; the listing texts above assume them.
-2. Submit the plugin to the official Claude Code marketplace.
-3. Submit to mcp.so and Smithery.
-4. Open the two awesome-list pull requests.
+2. Open the mcp.so issue.
+3. Open the `punkpeye/awesome-mcp-servers` pull request and fill in the `hesreallyhim/awesome-claude-code` form.
+4. Later, each when its condition is met: the community plugin marketplace, if the owner decides to submit; Smithery, once an MCPB bundle exists.
 5. Cut a release of `@it-bbox/binnacle` whose manifest carries `mcpName`, separately from this launch; 0.7.1 does not.
 6. Once that release is on npm, publish the entry to the official MCP Registry.
 7. Check PulseMCP and Glama after the registry entry, and submit there only if the entry is missing.
