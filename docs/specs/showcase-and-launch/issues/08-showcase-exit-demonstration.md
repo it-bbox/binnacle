@@ -7,11 +7,11 @@ Spec: `docs/specs/showcase-and-launch/spec.md`
 
 **What to build:** epic 24's exit criterion, demonstrated by the owner (the spec's exit criterion, as *The storefront, reworked* of 2026-11-01 carries it). The posts are the owner's and are not a criterion.
 
-- [ ] The GitHub repository opens with the logo, the wordmark, the tagline, the badges and the links; the demo GIF and the screenshots follow, with the requirements and the install path.
-- [ ] The site is live on GitHub Pages as a documentation site — the redesigned landing with its explanatory graphic, the quick start, the guides and the write-up — in both languages, with the demo loading, working search and language links.
+- [x] The GitHub repository opens with the logo, the wordmark, the tagline, the badges and the links; the demo GIF and the screenshots follow, with the requirements and the install path.
+- [x] The site is live on GitHub Pages as a documentation site — the redesigned landing with its explanatory graphic, the quick start, the guides and the write-up — in both languages, with the demo loading, working search and language links.
 - [x] The `@it-bbox/binnacle` manifest carries the keywords and the description the storefront uses. They reach the npm page with the next release, which this epic does not cut: the only change in the package is the manifest's strings.
-- [ ] Binnacle appears in the Claude plugin marketplace, the MCP directories and the awesome lists.
-- [ ] The launch checklist is in place and matches the storefront as it now stands.
+- [x] Binnacle appears in the Claude plugin marketplace, the MCP directories and the awesome lists. *(Read on the owner's decision of 2026-11-02 as: submitted to mcp.so and both awesome lists; the plugin marketplace and Smithery deferred, below.)*
+- [x] The launch checklist is in place and matches the storefront as it now stands.
 
 The npm-backed MCP Registry submission needs a published release carrying the ownership marker from ticket 14; 0.7.1 has none. The owner cuts that release separately, before the Registry submission. Epic 24 prepares the metadata and does not publish a release itself.
 
@@ -57,3 +57,25 @@ Run in a sub-agent, 2026-11-02, on the branch's first two commits, against stand
 - The script redefined criterion 4 without saying whether the Registry entry holds `DONE`. **Fixed**: the reading is stated in the run, for the owner to confirm.
 - The merge did not say `--no-ff` and *After a pull or a merge*; mcp.so and Smithery were not named as unchecked. **Fixed**.
 - The site's *Done* line leaves out the hero's heading and its two buttons. **Kept**: it names what the criterion asks for, not every element.
+
+### The owner's run, 2026-11-02
+
+`main` pushed at `f7c5614`; its *Pages* run green, and the live landing carries ticket 15's graphic.
+
+- **Criteria 1 and 2** (the owner): the repository page and the site, in both languages, checked by hand and found as the script says.
+- **Repository settings**, on the owner's yes, with `gh repo edit`: the description and the twelve topics from `identity.md`, and the site as its website. Discussions were already on.
+- **Criterion 4.**
+  - mcp.so: its site's form is paid only ($39), and paid placement is outside the epic; submitted free as [chatmcp/mcpso#6605](https://github.com/chatmcp/mcpso/issues/6605).
+  - `punkpeye/awesome-mcp-servers`: [pull request #18353](https://github.com/punkpeye/awesome-mcp-servers/pull/18353), under *Developer Tools*, opened from the owner's fork on the owner's yes.
+  - `hesreallyhim/awesome-claude-code`: [#3423](https://github.com/hesreallyhim/awesome-claude-code/issues/3423), filled in by the owner, since the list takes submissions only from a person through its form.
+  - The plugin marketplace: **deferred by the owner.** `claude-plugins-official` takes partners' plugins only; the public form adds to the community marketplace, and the repository's `marketplace.json` names the built `./plugin`, which Git ignores, so a marketplace read from the repository needs work of its own.
+  - Smithery: **deferred.** It takes a local stdio server only as an MCPB bundle, which does not exist yet.
+  - The MCP Registry, PulseMCP and Glama wait on the owner's release carrying `mcpName`, as the ticket says.
+- **Criterion 5.** `listings.md` and the checklist's step 3 now say what was filed and how: the mcp.so issue instead of its paid form, the awesome-claude-code form by hand, the marketplace and Smithery as later steps with their conditions. The checklist's *Done* lines match the storefront the owner checked.
+
+### For a Product session
+
+- A Smithery listing needs an MCPB bundle of `binn mcp`; a community-marketplace listing may need a marketplace the repository itself serves. Each is work of its own.
+- The spec's *The storefront, reworked* still asks for the demo GIF on the site, which ticket 15 replaced by the four dashboard views at the owner's request.
+- The `it-bbox` organisation's page is unpolished (no pinned repository, description or profile README); the owner may tidy it before the posts.
+
