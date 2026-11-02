@@ -51,7 +51,7 @@ A static, bilingual site on GitHub Pages shows the demo and a write-up from Binn
 ## Implementation Decisions
 
 - **The storefront is the README plus a site.** The site is one static page on GitHub Pages, kept in this repository, in English and Russian with a language switch. The README and the site link to each other.
-- **The demo is an animated GIF everywhere.** One GIF of the dashboard in action goes into the README and the site, with static screenshots of the dashboard's pages beside it. The GIF is captured from the running dashboard.
+- **The demo is an animated GIF everywhere.** One GIF of the dashboard in action goes into the README, with static screenshots of the dashboard's pages beside it. The GIF is captured from the running dashboard. The site shows the four dashboard views instead, at the owner's request (2026-11-01).
 - **The write-up keeps to summary aggregates**, read from Binnacle's own usage data: tokens by role and by model, rework share, first-pass acceptance and weekly trends. No individual ticket or task is named; a calculated reading is marked as such.
 - **The repository's description and topics** are prepared as ready strings, applied by the owner in the GitHub settings, not by the epic.
 - **The npm package gains keywords**, and its description matches the repository's.
@@ -67,7 +67,7 @@ A static, bilingual site on GitHub Pages shows the demo and a write-up from Binn
 The owner read the finished storefront after ticket 07 and asked for two changes; the Product session of 2026-11-01 recorded them here.
 
 - **The README opens as a landing page.** A centred logo, the wordmark *Binnacle Dev* under it, the tagline, a badge row (CI, the npm version, the license, the Node baseline) and a row of links — the site, the quick start, the guides, the containers, the mod, Discussions. The demo, the screenshots, the requirements and the install path follow, as tickets 01 and 03 left them.
-- **The site is a documentation site, not one page.** VitePress, built from the repository's own markdown: the guides in `docs/operations/` and the write-up in `docs/showcase/` stay the only copies, and the build reads them. A landing page, a quick start, the guides, the write-up and the containers and mod, with navigation and search, both languages under one switch, a dark theme by default. The demo GIF must load on the deployed site and in a local preview; the one-page `site/index.html` is removed.
+- **The site is a documentation site, not one page.** VitePress, built from the repository's own markdown: the guides in `docs/operations/` and the write-up in `docs/showcase/` stay the only copies, and the build reads them. A landing page, a quick start, the guides, the write-up and the containers and mod, with navigation and search, both languages under one switch, a dark theme by default. The four dashboard views must load on the deployed site and in a local preview; the one-page `site/index.html` is removed.
 - **The same address, the same rules.** The site keeps `https://it-bbox.github.io/binnacle/`, is deployed by `.github/workflows/pages.yml` from the build output, and nothing is submitted or published by the epic.
 - **The exit criterion covers the reworked storefront**: the repository's first screen and the site's pages, not one static page.
 
