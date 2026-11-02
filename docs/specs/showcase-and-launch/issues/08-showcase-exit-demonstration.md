@@ -1,6 +1,6 @@
 # 08: The exit demonstration of epic 24
 
-Status: READY
+Status: DONE
 Triage: ready-for-human
 Blocked by: 01, 02, 03, 04, 05, 06, 07, 09, 10, 11, 12, 13, 14, 15
 Spec: `docs/specs/showcase-and-launch/spec.md`
