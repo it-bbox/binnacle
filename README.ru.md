@@ -31,7 +31,7 @@ Binnacle — локальный provider-agnostic **AI Engineering Control Plane
 
 > Нактоуз (binnacle) — тумба с компасом перед штурвалом. Он не рулит и не выбирает курс: он держит приборы там, где рулевой их видит. В этом всё техзадание.
 
-Сайт [Binnacle](https://it-bbox.github.io/binnacle/) показывает демо и разбор по собственным данным Binnacle о расходах, на английском и русском.
+Сайт [Binnacle](https://it-bbox.github.io/binnacle/) показывает dashboard и разбор по собственным данным Binnacle о расходах, на английском и русском.
 
 ## Демо
 

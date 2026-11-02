@@ -31,7 +31,7 @@ Binnacle is a local, provider-agnostic **AI Engineering Control Plane**: persist
 
 > A binnacle is the stand that holds a ship's compass in front of the helm. It does not steer and it does not pick the course — it keeps the instruments where the helmsman can read them. That is the whole design brief.
 
-The [Binnacle site](https://it-bbox.github.io/binnacle/) shows the demo and a write-up from Binnacle's own usage data, in English and Russian.
+The [Binnacle site](https://it-bbox.github.io/binnacle/) shows the dashboard and a write-up from Binnacle's own usage data, in English and Russian.
 
 ## Demo
 

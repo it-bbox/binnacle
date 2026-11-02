@@ -10,7 +10,7 @@ Everything below is the owner's hand. The repository prepares the artifacts, but
 
 - [ ] Open the repository's page on GitHub and check the README it shows.
 
-**Done looks like:** the page opens with the demo GIF and its screenshots; the requirements — Node.js 24 LTS and the loopback port, `127.0.0.1:7717` by default — and the one sentence on why not Docker come before any reference page; the install path is `binn init` and then the agent's skills; the English README links the Russian twin and the twin links back; every image loads.
+**Done looks like:** the page opens with the logo, the wordmark *Binnacle Dev*, the tagline, the badges — CI, npm, the license and the Node baseline — and a row of links to the site, the quick start, the guides, the containers, the mod and Discussions; the demo GIF and its four screenshots follow; the requirements — Node.js 24 LTS and the loopback port, `127.0.0.1:7717` by default — and the one sentence on why not Docker come before any reference page; the install path is `binn init` and then the agent's skills; the English README links the Russian twin and the twin links back; every image loads.
 
 ## 2. The site
 
@@ -20,7 +20,7 @@ Everything below is the owner's hand. The repository prepares the artifacts, but
 - [ ] Wait for the latest *Pages* run under **Actions** to finish.
 - [ ] Open `https://it-bbox.github.io/binnacle/` and switch between English and Russian.
 
-**Done looks like:** the landing opens with the logo, the wordmark *Binnacle Dev*, the tagline, the badges and the demo, then `npm i -g @it-bbox/binnacle`; the quick start, every guide, the write-up and the containers and mod page are each one click away; the demo and screenshots load; the switch between English and Russian keeps the reader on the same page; the README's links to the home, the quick start and the guides resolve. `pnpm site:preview` shows the same locally. From a terminal, this prints `served`:
+**Done looks like:** the landing opens with the mark and *Binnacle Dev*, a plain-language lead, the platform line and the badges, beside a graphic of the project's sources → Binnacle → the person and the coding agent; the install commands come second, with the requirements and the port caveat; four dashboard views follow — Overview, Tasks, Usage and Attention — each in the selected theme and opening in an on-page lightbox; the quick start, every guide, the write-up and the containers and mod page are each one click away; the switch between English and Russian keeps the reader on the same page, and search answers in each language; the README's links to the home, the quick start and the guides resolve. `pnpm site:preview` shows the same locally. From a terminal, this prints `served`:
 
 ```bash
 curl -fsSL https://it-bbox.github.io/binnacle/ | grep -q 'Binnacle Dev' && echo served
