@@ -4,7 +4,7 @@ Ideas the owner wants a Product session to weigh. None is decided: each goes to 
 
 ## Traced requirements, blind acceptance and cheaper runs (2026-10-09)
 
-**Planned on 2026-10-22:** ideas 1 and 2, and items 4 and 6 below, into epic 26; items 1, 2, 3, 5 and 8 into epic 25; item 7 into epic 22.
+**Planned on 2026-10-22:** ideas 1 and 2, and items 4 and 6 below, into epic 27; items 1, 2, 3, 5 and 8 into epic 26; item 7 into epic 22.
 
 Two ideas could close a gap here, where a spec's link to its brief and its tickets is prose:
 
@@ -43,7 +43,7 @@ Read-only and silent without the daemon; Claude Code only, beside the skills (AD
 
 ## Binnacle's own planning skills (2026-10-11)
 
-**Planned as epic 26 on 2026-10-22.**
+**Planned as epic 27 on 2026-10-22.**
 
 Planning runs on Matt Pocock Skills today: `/grill-with-docs`, `/to-spec` and `/to-tickets`, which `binn init` installs and the workflow depends on (ADR-0035). They are good and maintained, but the owner hears from developers that not all of them like these skills. After the release, Binnacle could ship its own skills for the same chain, written for its formats: grilling against the Project Brain, a spec, tickets with `Roles:`, dependencies and criteria, and whatever else planning needs. Not now: Matt Pocock Skills stay for v1. The owner, 2026-10-12, grilling epic 19: Binnacle should not ask its users to run someone else's skills for its own work. The ticket command comes first, `/binnacle:task run` in epic 19; planning follows after the release.
 
@@ -51,7 +51,7 @@ The course "Один как команда" already tells participants that plan
 
 ## A smarter conflict risk (2026-10-12)
 
-**Planned into epic 26 on 2026-10-22**, where `/to-tickets` is replaced.
+**Planned into epic 27 on 2026-10-22**, where `/to-tickets` is replaced.
 
 The conflict risk beside the parallel limit reads a ready Task's modules only from the file names its ticket writes (`conflictRisk`, `packages/core/src/impact.ts`). Epic 19's tickets name commands and behaviour, not files, so every pair came out `unknown` and autopilot ran them one after the other. A new project gets the opposite: with no graph `impact` is unavailable, the number alone decides, and every ready ticket runs side by side whatever it touches. Neither is right.
 
@@ -65,9 +65,11 @@ Ways to weigh:
 
 ## Stricter autopilot and review (2026-10-15)
 
-**Planned on 2026-10-22:** ideas 1, 7 and 8 into epic 26; ideas 2, 3, 6, 9 and 12 into epic 25.
+**Planned on 2026-10-22:** ideas 1, 7 and 8 into epic 27; ideas 2, 3, 6, 9 and 12 into epic 26.
 
-**Planned on 2026-10-28:** idea 5 into epic 26. Ideas 4, 10 and 11 wait here.
+**Planned on 2026-10-28:** idea 5 into epic 27.
+
+**Planned on 2026-11-02:** idea 4 into epic 27; ideas 10 and 11 into epic 26.
 
 Ideas to weigh, most useful first:
 
@@ -88,7 +90,7 @@ Not to take: running without a human by default, which ADR-0022 rules out; and a
 
 ## Session start, agent configuration and traps (2026-10-23)
 
-**Planned on 2026-10-28:** idea 1 into epic 22, idea 2 as epic 27.
+**Planned on 2026-10-28:** idea 1 into epic 22, idea 2 as epic 28.
 
 Two ideas, each to be built Binnacle's way:
 
@@ -119,12 +121,16 @@ A developer who keeps every project's development, its harness included, in a co
 
 ## Left after epic 21's tickets (2026-10-28)
 
+**Planned into epic 25 on 2026-11-02.**
+
 Found while epic 21's tickets ran, not planned yet:
 
 - **In progress from activity, outside the snapshot.** Since hygiene-after-0-4-0/02 the snapshot drops a run that started before the latest `git merge` of its Task's branch, but the board (`latestRuns` in `apps/daemon/src/usage.ts`, read by `apps/daemon/src/board.ts`), `/binnacle:daily`'s delta (`readAttributed` in `apps/daemon/src/operations.ts`) and the dashboard's Task page (`fromRuns` in `apps/dashboard/app/pages/task.vue`) still read a merged `READY` Task as in progress, so `/binnacle:product` and `/binnacle:daily` can disagree on what waits for the owner. Applying `sinceMerge` in `latestRuns`, before the latest run is chosen, would bring the board and the delta along with usage untouched (the ticket's `## Comments`).
 - **`/binnacle:answer` and a ticket's path.** It passes its argument to `task_get`, which takes a ticket's path since hygiene-after-0-4-0/01, while its text names only the Task id forms.
 
 ## Left after epic 22's tickets (2026-10-29)
+
+**Planned into epic 25 on 2026-11-02.**
 
 Found while epic 22's tickets ran, not planned yet:
 
@@ -133,6 +139,8 @@ Found while epic 22's tickets ran, not planned yet:
 - **A new session's Task reaches the mod's line about a minute late.** Its file reaches the snapshot at the importer's next pass, so the status line shows the role and Task only a minute after the first turn (claude-code-mod/07's run).
 
 ## Left after epic 23's tickets (2026-10-30)
+
+**Planned into epic 25 on 2026-11-02.**
 
 Found in epic 23's exit demonstration, not planned yet:
 
@@ -153,6 +161,8 @@ The developer's ask of Binnacle: a registry that ties a container to its checkou
 
 ## The autostart unit ignores `BINNACLE_PORT` (2026-10-31)
 
+**Planned into epic 25 on 2026-11-02.**
+
 Found by epic 24's `BINNACLE_PORT` check (ticket `03`). With autostart on, `binn daemon start` goes through the systemd unit, which carries only `BINNACLE_HOME` and `PATH`, so the daemon takes `7717` whatever `BINNACLE_PORT` says; `binn init` turns autostart on by default. Without autostart the variable works.
 
 Why it matters: the README, the site and the container guide promise the port can be moved, and a user who set it and restarted gets a daemon on a port they did not choose, silently.
@@ -160,6 +170,8 @@ Why it matters: the README, the site and the container guide promise the port ca
 Not decided: whether the unit grows `Environment=BINNACLE_PORT=...` from the init-time value, or `binn daemon start` bypasses the unit when `BINNACLE_PORT` is set.
 
 ## Verify autopilot support in Codex (2026-11-01)
+
+**Planned as epic 29 on 2026-11-02.**
 
 The owner invoked `binnacle-autopilot` for epic 24 in Codex desktop. The run stopped at the skill's first capability check, before starting agents or changing the repository. In this session, `spawn_agent` starts background agents but has no worktree parameter; `create_worktree` is a separate tool. The skill explicitly rejects composing those two operations. Codex also exposes `create_thread` with a worktree environment and asynchronous execution, but it creates a separate user-owned chat; its suitability and authorization rules for autopilot have not been demonstrated.
 
@@ -171,12 +183,22 @@ Not decided: whether separate Codex chats satisfy the existing contract, whether
 
 ## Left after epic 24's autopilot run (2026-11-02)
 
+**Planned into epic 26 on 2026-11-02.**
+
 1. **A finished branch that autopilot leaves to the owner.** `/binnacle:autopilot`'s step 7 starts no agent for a ticket whose branch exists unmerged and records no question, and lists it for the owner, even when the branch's last commit already sets `Status: DONE`. Ticket 13 of epic 24 stood so after the run of 2026-11-01; on 2026-11-02 the owner said yes to verifying and merging it, which step 9 did without an agent. Step 7 could send such a branch to step 9 directly.
 2. **The orchestrator credited to a ticket.** When the autopilot's own shell changed directory into an agent's worktree, Binnacle credited that session as a rework run of ticket 13, since the ingest reads the branch from the worktree's reflog. The skill could say to run commands there with `git -C` or absolute paths.
 
 ## Left after epic 24 (2026-11-02)
 
+**Planned on 2026-11-02:** items 1 and 2 as epic 30.
+
 1. **Smithery** takes a local stdio server only as a prebuilt MCPB bundle; a bundle of `binn mcp` is work of its own.
 2. **The community plugin marketplace** (`claude-community`; `claude-plugins-official` takes partners only) may need a marketplace the repository serves itself: today `marketplace.json` names the built `./plugin`, which Git ignores.
 3. **The MCP Registry** entry needs a release carrying `mcpName`; PulseMCP and Glama are checked after it.
 4. **The `it-bbox` organisation page**: a pinned repository, a description and a profile README before the posts.
+
+## Gemini CLI and Antigravity can be checked (2026-11-02)
+
+**Planned into epic 29 on 2026-11-02.**
+
+The owner, 2026-11-02: Gemini CLI and Antigravity now run on the owner's machine, so what Binnacle claims for them can be checked as Codex's was. Today the snapshot finds no Gemini CLI session of this project under `~/.gemini/tmp`, so its support level is unknown, and reads Antigravity at level 2: its sessions and their directories, with no model or token counts, since its conversations are encrypted.

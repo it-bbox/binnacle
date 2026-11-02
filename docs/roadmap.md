@@ -34,22 +34,28 @@ Epics 1 to 19 are v1.
 | 22 | A Binnacle mod for Claude Code | done | [`claude-code-mod`](specs/claude-code-mod/spec.md) |
 | 23 | Binnacle in a dev container | done | [`dev-container`](specs/dev-container/spec.md) |
 | 24 | Showcase and launch | done | [`showcase-and-launch`](specs/showcase-and-launch/spec.md) |
-| 25 | Cheaper runs | not started | — |
-| 26 | Binnacle's own planning skills | not started | — |
-| 27 | The agents' configuration in the audit | not started | — |
+| 25 | Hygiene after 0.7 | not started | — |
+| 26 | Cheaper runs | not started | — |
+| 27 | Binnacle's own planning skills | not started | — |
+| 28 | The agents' configuration in the audit | not started | — |
+| 29 | Autopilot in Codex, Gemini CLI and Antigravity checked | not started | — |
+| 30 | Listings, completed | not started | — |
 
 ## Epics
 
-After v1, cut from the product inbox on 2026-10-22, 2026-10-23 and 2026-10-28; what epics 1 to 19 contain is in `docs/05-mvp-plan.md`.
+After v1, cut from the product inbox on 2026-10-22, 2026-10-23, 2026-10-28 and 2026-11-02; what epics 1 to 19 contain is in `docs/05-mvp-plan.md`.
 
 - **20 Hygiene after v1**: the roadmap's derived state written without a yes, a shared sanitizer for manifest text, a session named so a person knows it, the wording left after epic 13, the daemon reporting its own version, and `/binnacle:roadmap` reading the product inbox; whether TypeScript 7 belongs here is the grilling's to decide. Small enough for autopilot.
 - **21 Hygiene after 0.4.0**: `/binnacle:task` taking a ticket's path, and whether the snapshot flags a `Next action:` naming no known Task; the Russian wording left after epic 20 (a pair's conflict-risk reason and a failed Graphify run's output marked `(англ.)`, one spelling of "пулл-реквест", a reason's capital after a dash); the context-pressure item's start as the session's, with its date; whether `binn mcp` keeps the session's id across `/clear` and `--resume`; a session's runs on a Task's branch after its merge no longer keeping the Task in progress, nor the Suggested step advising to wait for them; a context-pressure threshold that follows the session's model, and whether the dashboard sets it, narrowing ADR-0041, is the grilling's to decide; a trap as a sixth checkpoint target. Small enough for autopilot.
 - **22 A Binnacle mod for Claude Code**: a status line, a *Waiting for you* band, a pane and toasts, and a `SessionStart` hook adding two or three lines from the snapshot, read-only and off by default; an ADR first. Taken early, by the owner, 2026-10-22.
 - **23 Binnacle in a dev container**: a bind address and the allowed `Host` values set by the user, with the token and the `Origin` check unchanged, an ADR first; a guide in both languages for Binnacle inside each app container, its port published on the host's loopback only, with its footprint measured; whether one dashboard lists other daemons is the grilling's to weigh against principle 3 and ADR-0020. Before the launch, so a visitor who works in containers is answered.
 - **24 Showcase and launch**: what a visitor from a post sees and where Binnacle can be found: the repository's description and topics, a demo and screenshots of the dashboard in the README, listings in the Claude plugin marketplace, MCP directories and awesome lists, npm keywords, a write-up from Binnacle's own usage data, and a launch checklist. The posts themselves are the owner's. After the mod, so its pane and status line can be shown (the owner, 2026-10-23).
-- **25 Cheaper runs**: measure first, from Binnacle's own usage per role and per Task; then a model per ticket, review where it pays, ticket size by volume, autopilot reading no full diff, hard stops, review markers, classes of a red CI and stop reasons from facts; measure again. Before 26, so it runs cheaper.
-- **26 Binnacle's own planning skills**: grilling, a spec and tickets in place of Matt Pocock Skills, with requirements traced end to end, blind acceptance, a depth checklist, a red proof, tests-first, delivery signals, a check owned by a role that can perform it, the modules a ticket expects to touch for the conflict risk, and tests on the skills and instruction files themselves.
-- **27 The agents' configuration in the audit**: a read-only audit area for what drives the agents: `.mcp.json` and each harness's MCP settings, hooks and the commands they run, permission modes that skip approval, secrets in instruction files and skills, and MCP servers that differ between a project's harnesses.
+- **25 Hygiene after 0.7**: autostart honouring `BINNACLE_PORT`; a Task in progress from activity read on the board, in `/binnacle:daily` and on the Task page as the snapshot reads it; `binn daemon start` telling another daemon from its own; `binn init` offering the mod from the chat, and wording a harness without global skills and a missing VS Code as skips; a skipped autostart's notice cut to its first line; `/binnacle:answer` naming a ticket's path; a new session's Task reaching the mod's line sooner. Small enough for autopilot. First, since the port contradicts the guides.
+- **26 Cheaper runs**: measure first, from Binnacle's own usage per role and per Task; then a model per ticket, review where it pays, ticket size by volume, autopilot reading no full diff, hard stops, review markers, classes of a red CI and stop reasons from facts, an external cause that clears itself, human interventions counted per Task, a finished branch sent straight to verification, and the orchestrator's own shell no longer credited to a ticket; measure again. Before 27, so it runs cheaper.
+- **27 Binnacle's own planning skills**: grilling, a spec and tickets in place of Matt Pocock Skills, with requirements traced end to end, blind acceptance, a depth checklist, a red proof, tests-first, delivery signals, a check owned by a role that can perform it, the modules a ticket expects to touch for the conflict risk, tests on the skills and instruction files themselves, and a complexity reading recorded at slicing and checked in review.
+- **28 The agents' configuration in the audit**: a read-only audit area for what drives the agents: `.mcp.json` and each harness's MCP settings, hooks and the commands they run, permission modes that skip approval, secrets in instruction files and skills, and MCP servers that differ between a project's harnesses.
+- **29 Autopilot in Codex, Gemini CLI and Antigravity checked**: which Codex mechanism runs one isolated session per ticket, receives its result, sends a correction and resumes after an answer, validated end to end in a disposable repository with the client's version recorded; supported, supported another way, or recorded as unsupported. Gemini CLI and Antigravity, which now run on the owner's machine, checked the same way against what Binnacle claims for them: skills, the Product Snapshot and usage at their support level; whether autopilot runs there is the grilling's to decide. After 26, which changes autopilot.
+- **30 Listings, completed**: an MCPB bundle of `binn mcp` for Smithery, and a marketplace the repository serves itself for the community plugin marketplace. The MCP Registry entry and the organisation page stay the owner's.
 
 Epics are ordered by dependency, not by preference:
 
@@ -65,9 +71,9 @@ Done: epics 1 to 24. **v1 is complete.**
 
 **Epic 24 is complete** (2026-11-02), pushed at `ad47ce0`: the README header, the documentation site with its landing, the launch checklist, and the repository's description and topics. Listings filed, each awaiting its maintainers: mcp.so (`chatmcp/mcpso#6605`), `punkpeye/awesome-mcp-servers` (pull request #18353) and `hesreallyhim/awesome-claude-code` (#3423). The community plugin marketplace and Smithery are deferred, each work of its own (`docs/product-inbox.md`). The MCP Registry entry waits on the owner's release carrying `mcpName`; the posts are the owner's.
 
-The Codex autopilot attempt stopped at its capability gate without starting agents. Support verification is recorded in `docs/product-inbox.md`; no skill change is approved. Epics 25–27 remain not started.
+The Codex autopilot attempt stopped at its capability gate without starting agents; its verification is epic 29, with Gemini CLI and Antigravity. Epics 25–30 are not started: epic 25, Hygiene after 0.7, and epics 29 and 30 were cut from the product inbox on 2026-11-02, and the former 25–27 are now 26–28.
 
-Next action: plan epic 25, Cheaper runs, from its items in `docs/product-inbox.md`. `/grill-with-docs`
+Next action: plan epic 25, Hygiene after 0.7, from its items in `docs/product-inbox.md`. `/grill-with-docs`
 
 ## Later
 
