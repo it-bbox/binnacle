@@ -1,6 +1,6 @@
 # 02: The owner checks the three clients
 
-Status: READY
+Status: DONE
 Triage: ready-for-human
 Blocked by: 01
 Spec: `docs/specs/harness-created-checkout/spec.md`
