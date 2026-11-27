@@ -40,7 +40,7 @@ Epics 1 to 19 are v1.
 | 28 | The agents' configuration in the audit | not started | — |
 | 29 | Autopilot in Codex, Gemini CLI and Antigravity checked | not started | — |
 | 30 | Listings, completed | not started | — |
-| 31 | The checkout autopilot counts | tickets | [`harness-created-checkout`](specs/harness-created-checkout/spec.md) |
+| 31 | The checkout autopilot counts | in progress | [`harness-created-checkout`](specs/harness-created-checkout/spec.md) |
 
 ## Epics
 
