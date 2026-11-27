@@ -40,7 +40,7 @@ Epics 1 to 19 are v1.
 | 28 | The agents' configuration in the audit | not started | — |
 | 29 | Autopilot in Codex, Gemini CLI and Antigravity checked | not started | — |
 | 30 | Listings, completed | not started | — |
-| 31 | The checkout autopilot counts | in progress | [`harness-created-checkout`](specs/harness-created-checkout/spec.md) |
+| 31 | The checkout autopilot counts | done | [`harness-created-checkout`](specs/harness-created-checkout/spec.md) |
 
 ## Epics
 
@@ -67,7 +67,7 @@ Epics are ordered by dependency, not by preference:
 
 ## Current focus
 
-Done: epics 1 to 24. **v1 is complete.**
+Done: epics 1 to 24, and epic 31. **v1 is complete.**
 
 **Released** (the owner): Binnacle 0.1.0 on 2026-10-13; 0.2.0 on 2026-10-21; 0.3.0 on 2026-10-22; 0.4.0 and 0.5.0 on 2026-10-28; 0.6.0 on 2026-10-29; 0.7.1 and dev container feature 1.0.0 on 2026-10-30. Epic 23 is complete.
 
