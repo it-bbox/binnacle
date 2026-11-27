@@ -11,6 +11,8 @@ coverage/
 .env.*
 !.env.example
 .DS_Store
+# Local editor state, including the shell Cursor opens in this checkout
+.vscode/
 
 # Binnacle runtime/local-only data
 .binnacle/runtime/
