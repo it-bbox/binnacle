@@ -735,6 +735,9 @@ test('autopilot is started by a human only, refuses at its first step where the 
   assert.match(seven, /accept that path only when `git worktree list --porcelain` lists it/);
   assert.match(seven, /On the first route this paragraph is not sent/);
   assert.match(seven, /The only checkout you write is `<path>`/);
+  assert.match(seven, /On the first route the resume paragraph follows the brief's first paragraph, in that first message/);
+  assert.match(seven, /On the second and third the first message stays the setup alone/);
+  assert.match(seven, /when that removal deletes nothing, delete nothing here either/);
   const verify = step(skill, 9);
   assert.match(verify, /The first and second routes: `git worktree remove <path>`/);
   assert.match(verify, /The third route: do not run `git worktree remove`/);
