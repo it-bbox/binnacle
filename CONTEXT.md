@@ -159,7 +159,7 @@ The ephemeral working space of the current task/run. It is not long-term memory,
 In v1 the system analyses and recommends actions, but does not start full AgentRuns, merges or releases without an explicit human decision. Binnacle also never invokes a model itself.
 
 ### Autopilot
-A human-started skill that runs the remaining tickets of one already planned epic to the end: one agent per ticket, each branch verified before it is merged. Starting it is the explicit human decision for that epic's AgentRuns and merges. It stops at any question only the owner can answer, and never plans an epic or moves to the next one (ADR-0022).
+A human-started skill that runs the remaining tickets of one already planned epic to the end: one agent per ticket, each in a checkout the harness creates, each branch verified before it is merged. Starting it is the explicit human decision for that epic's AgentRuns and merges. It stops at any question only the owner can answer, and never plans an epic or moves to the next one (ADR-0022, ADR-0049).
 
 ### Mod
 `binnacle-mod`, an optional Claude Code plugin beside `binnacle`: a status line, a *Waiting for you* band, a pane and toasts drawn from the Product Snapshot, and a few lines at the start of a session off a Task's branch. It reads and never writes, and shows nothing without the daemon (ADR-0047).
