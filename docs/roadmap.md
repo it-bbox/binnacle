@@ -69,13 +69,15 @@ Epics are ordered by dependency, not by preference:
 
 Done: epics 1 to 24, and epic 31. **v1 is complete.**
 
-**Released** (the owner): Binnacle 0.1.0 on 2026-10-13; 0.2.0 on 2026-10-21; 0.3.0 on 2026-10-22; 0.4.0 and 0.5.0 on 2026-10-28; 0.6.0 on 2026-10-29; 0.7.1 and dev container feature 1.0.0 on 2026-10-30. Epic 23 is complete.
+**Released** (the owner): Binnacle 0.1.0 on 2026-10-13; 0.2.0 on 2026-10-21; 0.3.0 on 2026-10-22; 0.4.0 and 0.5.0 on 2026-10-28; 0.6.0 on 2026-10-29; 0.7.1 and dev container feature 1.0.0 on 2026-10-30; 0.7.2 on 2026-11-27. Epic 23 is complete. Epic 31 is complete.
 
 **Epic 24 is complete** (2026-11-02), pushed at `ad47ce0`: the README header, the documentation site with its landing, the launch checklist, and the repository's description and topics. Listings filed, each awaiting its maintainers: mcp.so (`chatmcp/mcpso#6605`), `punkpeye/awesome-mcp-servers` (pull request #18353) and `hesreallyhim/awesome-claude-code` (#3423). The community plugin marketplace and Smithery are deferred, each work of its own (`docs/product-inbox.md`). The MCP Registry entry waits on the owner's release carrying `mcpName`; the posts are the owner's.
 
 The Codex autopilot attempt stopped at its capability gate without starting agents; its verification is epic 29, with Gemini CLI and Antigravity. Epics 25–30 are not started: epic 25, Hygiene after 0.7, and epics 29 and 30 were cut from the product inbox on 2026-11-02, and the former 25–27 are now 26–28.
 
 Epic 25 is grilled, specified and cut into six tickets: its brief is `docs/specs/hygiene-after-0-7/brief.md`, its spec `docs/specs/hygiene-after-0-7/spec.md`.
+
+Epic 31 is complete (2026-11-27): autopilot takes one checkout for the run, the earliest the session's schemas show. Its next action stays epic 25.
 
 Next action: run tickets 01–05 of epic 25 with autopilot; ticket 06, the exit demonstration, stays with the owner. `/binnacle:autopilot 25`
 

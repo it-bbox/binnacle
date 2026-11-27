@@ -38,7 +38,7 @@ The owner's ordered steps, from [listings.md](listings.md), *What the owner must
 - [ ] Open the mcp.so issue in `chatmcp/mcpso`; the site's own form is paid.
 - [ ] Open the `punkpeye/awesome-mcp-servers` pull request, and fill in the `hesreallyhim/awesome-claude-code` issue form by hand.
 - [ ] Later, each when its condition is met: the community plugin marketplace, if you decide to submit (`claude-plugins-official` takes no public submissions); Smithery, once an MCPB bundle exists.
-- [ ] Cut a release of `@it-bbox/binnacle` whose manifest carries `mcpName: io.github.it-bbox/binnacle`, separately from this launch; the published 0.7.1 does not, and the registry reads the marker from the package on npm.
+- [ ] 0.7.2 is the release of `@it-bbox/binnacle` whose manifest carries `mcpName: io.github.it-bbox/binnacle`; the published 0.7.1 does not, and the registry reads the marker from the package on npm. Tick this once 0.7.2 is on npm.
 - [ ] Once that release is on npm, publish the entry to the official MCP Registry, `registry.modelcontextprotocol.io`, with the `server.json` in [listings.md](listings.md).
 - [ ] Check PulseMCP and Glama after the registry entry, and submit there only if the entry is missing.
 

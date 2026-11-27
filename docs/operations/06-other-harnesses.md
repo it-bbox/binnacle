@@ -67,7 +67,7 @@ Outside Claude Code, each skill is named `binnacle-<action>`, where Claude Code 
 
 `binn init` also offers to register the `binnacle` MCP server, in the project's own file, with Claude Code, Codex, opencode and VS Code. In any other harness, or before the server is registered, the skills call the same tools through `binn call <tool> [json]` in the shell.
 
-`binnacle-autopilot` runs only where the harness can start a background agent in a worktree of its own. Elsewhere it refuses at once and changes nothing, and the epic's tickets are run by hand, one session each.
+`binnacle-autopilot` takes one checkout for the whole run, the earliest the harness's schemas show. First, a parameter of the tool that starts the agent, which makes the harness create a local worktree before the agent runs. Otherwise a background-agent type whose schema gives that type a worktree and a branch of its own. Otherwise tools the agent calls to create a managed worktree, wait for it, list it and archive it; the session does not call those tools. A remote clone does not count. Where none of the three is present, autopilot refuses at once and changes nothing, and the epic's tickets are run by hand, one session each.
 
 What each harness needs:
 

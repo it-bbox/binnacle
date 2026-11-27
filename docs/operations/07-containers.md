@@ -18,7 +18,7 @@ Binnacle's feature installs `@it-bbox/binnacle` from npm, keeps Binnacle's home 
 {
   "features": {
     "ghcr.io/devcontainers/features/node:1": { "version": "24" },
-    "ghcr.io/it-bbox/binnacle/binnacle:1": { "version": "0.7.1", "hostPort": "7717" }
+    "ghcr.io/it-bbox/binnacle/binnacle:1": { "version": "0.7.2", "hostPort": "7717" }
   },
   "appPort": ["127.0.0.1:7717:7717"],
   "containerEnv": { "CLAUDE_CONFIG_DIR": "/home/node/.claude" },
@@ -43,7 +43,7 @@ For an image built without features, or a `docker compose` service. The image in
 
 ```dockerfile
 FROM node:24-bookworm-slim
-RUN npm install -g @it-bbox/binnacle@0.7.1 \
+RUN npm install -g @it-bbox/binnacle@0.7.2 \
  && mkdir -p /var/lib/binnacle /home/node/.claude \
  && chmod 1777 /var/lib/binnacle \
  && chown node:node /home/node/.claude

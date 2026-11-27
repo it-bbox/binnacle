@@ -101,7 +101,7 @@ The repository is not itself a marketplace: by design the marketplace ships insi
 "mcpName": "io.github.it-bbox/binnacle"
 ```
 
-The published 0.7.1 does not: it was released before the marker, and the registry reads the package on npm, not this repository. So the entry needs a release first: **the owner cuts a release of `@it-bbox/binnacle` carrying `mcpName`, separately from this launch, before publishing to the registry.** Until that release is on npm, `mcp-publisher publish` fails with "Registry validation failed for package". Of the other targets, only the PulseMCP and Glama check, which follows the registry entry, waits for it.
+The published 0.7.1 does not: it was released before the marker, and the registry reads the package on npm, not this repository. **0.7.2 carries `mcpName`.** Publish the registry entry only after 0.7.2 is on npm; until then `mcp-publisher publish` fails with "Registry validation failed for package". Of the other targets, only the PulseMCP and Glama check, which follows the registry entry, waits for it.
 
 **What the owner must do:** once that release is on npm, in an empty directory outside the checkout, so that no `server.json` lands in the repository:
 
@@ -217,7 +217,7 @@ Run: binn mcp
 2. Open the mcp.so issue.
 3. Open the `punkpeye/awesome-mcp-servers` pull request and fill in the `hesreallyhim/awesome-claude-code` form.
 4. Later, each when its condition is met: the community plugin marketplace, if the owner decides to submit; Smithery, once an MCPB bundle exists.
-5. Cut a release of `@it-bbox/binnacle` whose manifest carries `mcpName`, separately from this launch; 0.7.1 does not.
+5. 0.7.2 is the release of `@it-bbox/binnacle` whose manifest carries `mcpName`; 0.7.1 does not.
 6. Once that release is on npm, publish the entry to the official MCP Registry.
 7. Check PulseMCP and Glama after the registry entry, and submit there only if the entry is missing.
 
