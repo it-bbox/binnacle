@@ -40,6 +40,7 @@ Epics 1 to 19 are v1.
 | 28 | The agents' configuration in the audit | not started | — |
 | 29 | Autopilot in Codex, Gemini CLI and Antigravity checked | not started | — |
 | 30 | Listings, completed | not started | — |
+| 31 | The checkout autopilot counts | spec | [`harness-created-checkout`](specs/harness-created-checkout/spec.md) |
 
 ## Epics
 
@@ -54,8 +55,9 @@ After v1, cut from the product inbox on 2026-10-22, 2026-10-23, 2026-10-28 and 2
 - **26 Cheaper runs**: measure first, from Binnacle's own usage per role and per Task; then a model per ticket, review where it pays, ticket size by volume, autopilot reading no full diff, hard stops, review markers, classes of a red CI and stop reasons from facts, an external cause that clears itself, human interventions counted per Task, a finished branch sent straight to verification, and the orchestrator's own shell no longer credited to a ticket; measure again. Before 27, so it runs cheaper.
 - **27 Binnacle's own planning skills**: grilling, a spec and tickets in place of Matt Pocock Skills, with requirements traced end to end, blind acceptance, a depth checklist, a red proof, tests-first, delivery signals, a check owned by a role that can perform it, the modules a ticket expects to touch for the conflict risk, tests on the skills and instruction files themselves, and a complexity reading recorded at slicing and checked in review.
 - **28 The agents' configuration in the audit**: a read-only audit area for what drives the agents: `.mcp.json` and each harness's MCP settings, hooks and the commands they run, permission modes that skip approval, secrets in instruction files and skills, and MCP servers that differ between a project's harnesses.
-- **29 Autopilot in Codex, Gemini CLI and Antigravity checked**: which Codex mechanism runs one isolated session per ticket, receives its result, sends a correction and resumes after an answer, validated end to end in a disposable repository with the client's version recorded; supported, supported another way, or recorded as unsupported. Gemini CLI and Antigravity, which now run on the owner's machine, checked the same way against what Binnacle claims for them: skills, the Product Snapshot and usage at their support level; whether autopilot runs there is the grilling's to decide. After 26, which changes autopilot.
+- **29 Autopilot in Codex, Gemini CLI and Antigravity checked**: which Codex mechanism runs one isolated session per ticket, receives its result, sends a correction and resumes after an answer, validated end to end in a disposable repository with the client's version recorded; supported, supported another way, or recorded as unsupported. Gemini CLI and Antigravity, which now run on the owner's machine, checked the same way against what Binnacle claims for them: skills, the Product Snapshot and usage at their support level; whether autopilot runs there is the grilling's to decide. After 26, which changes autopilot, and after 31, which decides which checkout counts.
 - **30 Listings, completed**: an MCPB bundle of `binn mcp` for Smithery, and a marketplace the repository serves itself for the community plugin marketplace. The MCP Registry entry and the organisation page stay the owner's.
+- **31 The checkout autopilot counts**: one skill text, three ways a harness creates the agent's checkout, the earliest the schemas show. The parameter stays first, so that run is unchanged. A type with its own worktree, then tools the agent calls to create and archive one. The pack test holds the wording. The owner's check of the clients comes after the ticket. Before 29. Epic 25's next action stays.
 
 Epics are ordered by dependency, not by preference:
 
