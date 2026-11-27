@@ -715,9 +715,33 @@ test('autopilot is started by a human only, refuses at its first step where the 
   assert.match(first, /Read the answer from the tool that starts an agent, as the harness defines it, not from what you believe/);
   assert.match(first, /must take a parameter[^.]*that has the harness create the agent's worktree/);
   assert.match(first, /A worktree you would create yourself[^.]* does not count/);
-  assert.match(first, /in the background but has no such parameter does not count/);
-  assert.match(first, /Unless one tool here both starts a background agent and takes that parameter/);
   assert.match(first, /say which of the two this harness lacks, or both/);
+  // Epic 31: three routes, the earliest is the whole run, so a parameter that creates a local checkout stays first.
+  assert.match(first, /The earliest one the schemas show is the route for the whole run/);
+  assert.match(first, /A parameter that instead places the agent on a remote machine, on a clone of a remote branch, is not this route/);
+  assert.match(first, /A type of background agent whose schema says the harness gives that type a git worktree of its own and a branch of its own/);
+  assert.match(first, /This route is used only when the first is absent/);
+  assert.match(first, /Separate tools of this session, read from their schemas and not from their names/);
+  assert.match(first, /The agent calls them, never you/);
+  assert.match(first, /This route is used only when the first two are absent/);
+  assert.match(first, /A checkout on a remote machine that is a clone of a remote branch does not count/);
+  assert.match(first, /A request in the prompt that the agent work in an environment of its own does not count/);
+  assert.match(first, /Unless one of these three is present/);
+  assert.doesNotMatch(first, /Unless one tool here both starts a background agent and takes that parameter/);
+  const seven = step(skill, 7);
+  assert.match(seven, /On the first route, give it this brief as its first message/);
+  assert.match(seven, /On the second and third, this brief follows only once the worktree is accepted/);
+  assert.match(seven, /Create the worktree the way step 1 chose and do nothing else/);
+  assert.match(seven, /accept that path only when `git worktree list --porcelain` lists it/);
+  assert.match(seven, /On the first route this paragraph is not sent/);
+  assert.match(seven, /The only checkout you write is `<path>`/);
+  const verify = step(skill, 9);
+  assert.match(verify, /The first and second routes: `git worktree remove <path>`/);
+  assert.match(verify, /The third route: do not run `git worktree remove`/);
+  assert.match(verify, /Archive the worktree by the identifier/);
+  assert.match(verify, /When the archive is not confirmed, delete nothing/);
+  assert.match(verify, /no retry/);
+  assert.doesNotMatch(skill, /Cursor|Codex|best-of-n|create_worktree|archive_worktree/);
   // A harness that can start such an agent but not message it: what would be sent stops the ticket instead.
   assert.match(skill, /Where the harness cannot send a message to an agent it started, whatever this skill would send to that agent stops its ticket instead/);
   // A linked worktree in general, not the one Claude Code's desktop app opens.
