@@ -1,6 +1,6 @@
 # 01: Autopilot counts the checkout the harness creates
 
-Status: READY
+Status: DONE
 Triage: ready-for-agent
 Blocked by: None
 Spec: `docs/specs/harness-created-checkout/spec.md`
